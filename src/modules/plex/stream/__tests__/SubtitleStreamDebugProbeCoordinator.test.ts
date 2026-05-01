@@ -3,19 +3,22 @@ import type { PlexStream } from '../types';
 
 describe('SubtitleStreamDebugProbeCoordinator', () => {
     let mockFetch: jest.Mock;
+    let realFetch: typeof globalThis.fetch;
 
     beforeEach(() => {
         jest.useFakeTimers();
+        realFetch = globalThis.fetch;
         mockFetch = jest.fn().mockResolvedValue(
             new Response('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nTest', {
                 status: 200,
                 headers: { 'content-type': 'text/vtt' },
             })
         );
-        global.fetch = mockFetch;
+        globalThis.fetch = mockFetch as typeof globalThis.fetch;
     });
 
     afterEach(() => {
+        globalThis.fetch = realFetch;
         jest.useRealTimers();
         jest.restoreAllMocks();
         jest.resetAllMocks();

@@ -45,6 +45,28 @@ describe('SettingsScreen deps constructor', () => {
         localStorage.clear();
     });
 
+    it('uses a navigation stub that mirrors focus and subscription contracts', () => {
+        const nav = createNavigationStub();
+        const focusable = {
+            id: 'settings-test-focusable',
+            element: document.createElement('button'),
+            neighbors: {},
+            onFocus: jest.fn(),
+        };
+        const keyHandler = jest.fn();
+
+        nav.registerFocusable(focusable);
+        const disposable = nav.on('keyPress', keyHandler);
+        nav.setFocus(focusable.id);
+
+        expect(nav.getFocusedElement()).toBe(focusable);
+        expect(focusable.onFocus).toHaveBeenCalledTimes(1);
+
+        disposable.dispose();
+
+        expect(nav.off).toHaveBeenCalledWith('keyPress', keyHandler);
+    });
+
     it('constructs from the required named deps only', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

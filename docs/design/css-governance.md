@@ -112,11 +112,18 @@ CSS decisions should preserve contrast, focus visibility, reduced-motion behavio
 
 Some accessibility requirements require verification in running surfaces and are not proven by prose alone. Document intent in docs, then verify in the relevant UI work.
 
-## STYLE_AUDIT.md
+## Historical Style Cleanup Artifacts
 
-[`STYLE_AUDIT.md`](../../STYLE_AUDIT.md) is optional triage and reference material for planned cleanup or broader surface work.
+The 2026-04-18 style cleanup intake surfaces are retired as live cleanup
+control-plane inputs. `STYLE_AUDIT.md` and `STYLE_CLEANUP_CHECKLIST.md` are not
+present in the current workspace, and no current cleanup pass should depend on
+them as required reading, approval gates, or package membership truth.
 
-It is not a prerequisite for small edits, not an approval gate, and not a mandate to widen scope.
+The historical package map is archived at
+[`docs/archive/design/2026-04-30-retired-style-cleanup-package-map.json`](../archive/design/2026-04-30-retired-style-cleanup-package-map.json).
+Use it only as historical context when reconciling old style-cleanup references;
+new style work should source current evidence from the owning CSS, UI, and
+design-governance docs instead of reactivating that intake surface.
 
 ## Phase Boundary
 

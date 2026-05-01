@@ -1,5 +1,6 @@
 import type { AppError, IAppLifecycle } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../types/app-errors';
+import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { INavigationManager } from '../../modules/navigation';
 import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
@@ -58,7 +59,7 @@ export interface PostReadyRoutingInputs {
     channelManager: Pick<IChannelManager, 'getCurrentChannel' | 'getAllChannels'> | null;
     shouldRunAudioSetup: () => boolean;
     shouldRunChannelSetup: () => boolean;
-    switchToChannel: (id: string) => Promise<void>;
+    switchToChannel: (id: string) => Promise<ChannelSwitchOutcome>;
     openServerSelect: () => void;
 }
 
@@ -99,7 +100,13 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
     }
 
     if (channelToPlay) {
-        await inputs.switchToChannel(channelToPlay.id);
+        const outcome = await inputs.switchToChannel(channelToPlay.id);
+        if (outcome === 'failed') {
+            throw new Error(`Initial channel switch failed for ${channelToPlay.id}.`);
+        }
+        if (outcome === 'aborted') {
+            throw new Error(`Initial channel switch aborted for ${channelToPlay.id}.`);
+        }
         return;
     }
 

@@ -261,6 +261,77 @@ describe('PlexAuth', () => {
             expect(auth.isAuthenticated()).toBe(true);
         });
 
+        it('aborts claimed PIN handling before fetching the token profile', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const storeCredentialsSpy = jest.spyOn(auth, 'storeCredentials');
+            const controller = new AbortController();
+            const fetchMock = jest.fn().mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async function () {
+                    controller.abort();
+                    return {
+                        id: 12345,
+                        code: 'ABCD',
+                        expiresAt: '2026-01-15T12:15:00Z',
+                        authToken: 'xyzToken123',
+                        clientIdentifier: mockConfig.clientIdentifier,
+                    };
+                },
+            });
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.checkPinStatus(12345, { signal: controller.signal })).rejects.toMatchObject({
+                name: 'AbortError',
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(storeCredentialsSpy).not.toHaveBeenCalled();
+            expect(auth.isAuthenticated()).toBe(false);
+        });
+
+        it('aborts claimed PIN handling after profile fetch before storing credentials', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const storeCredentialsSpy = jest.spyOn(auth, 'storeCredentials');
+            const controller = new AbortController();
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: async function () {
+                        return {
+                            id: 12345,
+                            code: 'ABCD',
+                            expiresAt: '2026-01-15T12:15:00Z',
+                            authToken: 'xyzToken123',
+                            clientIdentifier: mockConfig.clientIdentifier,
+                        };
+                    },
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: async function () {
+                        controller.abort();
+                        return {
+                            id: 99999,
+                            username: 'testuser',
+                            email: 'test@example.com',
+                            thumb: 'https://plex.tv/avatar.jpg',
+                        };
+                    },
+                });
+
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.checkPinStatus(12345, { signal: controller.signal })).rejects.toMatchObject({
+                name: 'AbortError',
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(storeCredentialsSpy).not.toHaveBeenCalled();
+            expect(auth.isAuthenticated()).toBe(false);
+        });
+
         it('throws PARSE_ERROR when a claimed PIN returns an invalid user profile payload', async () => {
             const auth = new PlexAuth(mockConfig);
             const storeCredentialsSpy = jest.spyOn(auth, 'storeCredentials');
@@ -411,6 +482,85 @@ describe('PlexAuth', () => {
 
                 await expect(promise).rejects.toBe(terminalError);
             } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('aborts polling without checking PIN status when the signal is already cancelled', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const checkPinStatusSpy = jest.spyOn(auth, 'checkPinStatus');
+            const controller = new AbortController();
+            controller.abort();
+
+            await expect(auth.pollForPin(12345, { signal: controller.signal })).rejects.toMatchObject({
+                name: 'AbortError',
+            });
+            expect(checkPinStatusSpy).not.toHaveBeenCalled();
+        });
+
+        it('aborts polling while waiting between unclaimed PIN checks', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const unclaimedPin = {
+                    id: 12345,
+                    code: 'ABCD',
+                    expiresAt: new Date('2026-01-15T12:15:00Z'),
+                    authToken: null,
+                    clientIdentifier: mockConfig.clientIdentifier,
+                };
+                const checkPinStatusSpy = jest.spyOn(auth, 'checkPinStatus').mockResolvedValue(unclaimedPin);
+                const controller = new AbortController();
+
+                const promise = auth.pollForPin(12345, { signal: controller.signal });
+                await Promise.resolve();
+                controller.abort();
+
+                await expect(promise).rejects.toMatchObject({
+                    name: 'AbortError',
+                });
+                expect(checkPinStatusSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('aborts polling immediately when the signal aborts during sleep listener registration', async () => {
+            jest.useFakeTimers();
+            const auth = new PlexAuth(mockConfig);
+            const unclaimedPin = {
+                id: 12345,
+                code: 'ABCD',
+                expiresAt: new Date('2026-01-15T12:15:00Z'),
+                authToken: null,
+                clientIdentifier: mockConfig.clientIdentifier,
+            };
+            jest.spyOn(auth, 'checkPinStatus').mockResolvedValue(unclaimedPin);
+
+            let aborted = false;
+            const abortReason = new DOMException('Aborted', 'AbortError');
+            const signal = {
+                get aborted(): boolean {
+                    return aborted;
+                },
+                get reason(): DOMException {
+                    return abortReason;
+                },
+                addEventListener: jest.fn(() => {
+                    aborted = true;
+                }),
+                removeEventListener: jest.fn(),
+            } as unknown as AbortSignal;
+            const request = auth.pollForPin(12345, { signal });
+
+            try {
+                await Promise.resolve();
+                await Promise.resolve();
+
+                await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+            } finally {
+                jest.runOnlyPendingTimers();
+                await request.catch(() => undefined);
                 jest.useRealTimers();
             }
         });

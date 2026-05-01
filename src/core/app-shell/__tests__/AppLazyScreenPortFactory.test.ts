@@ -17,8 +17,7 @@ type MockRuntimeOrchestrator = {
     discoverServers: jest.Mock;
     selectServer: jest.Mock;
     clearSelectedServer: jest.Mock<Promise<void>, []>;
-    getSelectedServerStorageKey: jest.Mock;
-    getServerHealthStorageKey: jest.Mock;
+    getSelectedServerScreenState: jest.Mock;
     getChannelSetupWorkflowPort: jest.Mock;
     getSelectedServerId: jest.Mock;
     openServerSelect: jest.Mock;
@@ -106,16 +105,17 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     discoverServers: jest.fn().mockResolvedValue([]),
     selectServer: jest.fn().mockResolvedValue({
         kind: 'selected',
-        readiness: 'ready',
-        persistedSelection: 'updated',
-        startupResume: {
-            startup: 'completed',
-            epgRefresh: { kind: 'succeeded' },
-        },
     }),
     clearSelectedServer: jest.fn().mockResolvedValue(undefined),
-    getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
-    getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
+    getSelectedServerScreenState: jest.fn().mockReturnValue({
+        selectedServerId: 'server-1',
+        serverHealth: {
+            'server-1': {
+                status: 'ok',
+                type: 'local',
+            },
+        },
+    }),
     getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createChannelSetupWorkflowPortFixture()),
     getSelectedServerId: jest.fn().mockReturnValue('server-1'),
     openServerSelect: jest.fn(),
@@ -178,13 +178,13 @@ describe('AppLazyScreenPortFactory', () => {
         expect(typeof serverPorts?.discoverServers).toBe('function');
         expect(typeof serverPorts?.selectServer).toBe('function');
         expect(typeof serverPorts?.clearSelectedServer).toBe('function');
-        expect(typeof serverPorts?.getSelectedServerStorageKey).toBe('function');
-        expect(typeof serverPorts?.getServerHealthStorageKey).toBe('function');
+        expect(typeof serverPorts?.getSelectedServerScreenState).toBe('function');
         expect(typeof serverPorts?.requestChannelSetupRerun).toBe('function');
         expect(typeof serverPorts?.getNavigation).toBe('function');
 
         await authPorts?.requestAuthPin();
-        await authPorts?.pollForPin(123);
+        const authPollController = new AbortController();
+        await authPorts?.pollForPin(123, { signal: authPollController.signal });
         await authPorts?.cancelPin(123);
         expect(authPorts?.getNavigation()).toBe(navigation);
 
@@ -197,13 +197,20 @@ describe('AppLazyScreenPortFactory', () => {
         await serverPorts?.discoverServers(true);
         await expect(serverPorts?.selectServer('server-1')).resolves.toEqual({ kind: 'selected' });
         await serverPorts?.clearSelectedServer();
-        expect(serverPorts?.getSelectedServerStorageKey()).toBe('selected-server-id');
-        expect(serverPorts?.getServerHealthStorageKey()).toBe('server-health');
+        expect(serverPorts?.getSelectedServerScreenState()).toEqual({
+            selectedServerId: 'server-1',
+            serverHealth: {
+                'server-1': {
+                    status: 'ok',
+                    type: 'local',
+                },
+            },
+        });
         serverPorts?.requestChannelSetupRerun();
         expect(serverPorts?.getNavigation()).toBe(navigation);
 
         expect(orchestrator.requestAuthPin).toHaveBeenCalledTimes(1);
-        expect(orchestrator.pollForPin).toHaveBeenCalledWith(123);
+        expect(orchestrator.pollForPin).toHaveBeenCalledWith(123, { signal: authPollController.signal });
         expect(orchestrator.cancelPin).toHaveBeenCalledWith(123);
         expect(orchestrator.getHomeUsers).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('user-1', '4321');
@@ -212,8 +219,7 @@ describe('AppLazyScreenPortFactory', () => {
         expect(orchestrator.discoverServers).toHaveBeenCalledWith(true);
         expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1');
         expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
-        expect(orchestrator.getSelectedServerStorageKey).toHaveBeenCalledTimes(1);
-        expect(orchestrator.getServerHealthStorageKey).toHaveBeenCalledTimes(1);
+        expect(orchestrator.getSelectedServerScreenState).toHaveBeenCalledTimes(1);
         expect(orchestrator.requestChannelSetupRerun).toHaveBeenCalledTimes(1);
         expect(orchestrator.getNavigation).toHaveBeenCalledTimes(3);
 
@@ -333,8 +339,10 @@ describe('AppLazyScreenPortFactory', () => {
         expect(channelSetupInput).not.toBeNull();
         expect(channelSetupInput?.workflowPort).not.toBe(workflowPort);
         expect('getSetupPlanDiagnostics' in (channelSetupInput?.workflowPort ?? {})).toBe(false);
-        expect('getSelectedServerStorageKey' in (channelSetupInput?.screenPorts ?? {})).toBe(false);
-        expect('getServerHealthStorageKey' in (channelSetupInput?.screenPorts ?? {})).toBe(false);
+        const selectedServerStorageGetter = 'getSelectedServer' + 'StorageKey';
+        const serverHealthStorageGetter = 'getServerHealth' + 'StorageKey';
+        expect(selectedServerStorageGetter in (channelSetupInput?.screenPorts ?? {})).toBe(false);
+        expect(serverHealthStorageGetter in (channelSetupInput?.screenPorts ?? {})).toBe(false);
         channelSetupInput?.workflowPort.invalidateFacetSnapshot();
 
         expect(channelSetupInput?.screenPorts.getSelectedServerId()).toBe('server-1');

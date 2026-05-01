@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 describe('AppShellRuntimeContracts boundaries', () => {
+    const selectedServerStorageGetter = 'getSelectedServer' + 'StorageKey';
+    const serverHealthStorageGetter = 'getServerHealth' + 'StorageKey';
+
     it('does not depend on root orchestrator barrels or concrete orchestrator types', () => {
         const source = readFileSync(
             path.resolve(process.cwd(), 'src/core/app-shell/AppShellRuntimeContracts.ts'),
@@ -34,8 +37,8 @@ describe('AppShellRuntimeContracts boundaries', () => {
         expect(match?.[0]).toBeDefined();
         expect(match?.[0]).not.toContain('ChannelSetupWorkflowPort');
         expect(match?.[0]).not.toContain('getSetupPlanDiagnostics');
-        expect(match?.[0]).not.toContain('getSelectedServerStorageKey');
-        expect(match?.[0]).not.toContain('getServerHealthStorageKey');
+        expect(match?.[0]).not.toContain(selectedServerStorageGetter);
+        expect(match?.[0]).not.toContain(serverHealthStorageGetter);
         expect(match?.[0]).toContain('getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort');
         expect(match?.[0]).toContain('getSelectedServerId(): string | null');
     });
@@ -49,6 +52,22 @@ describe('AppShellRuntimeContracts boundaries', () => {
 
         expect(match?.[0]).toBeDefined();
         expect(match?.[0]).toContain('getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort');
-        expect(match?.[0]).toContain('getSelectedServerStorageKey(): string');
+        expect(match?.[0]).not.toContain(selectedServerStorageGetter);
+        expect(match?.[0]).not.toContain(serverHealthStorageGetter);
+    });
+
+    it('keeps selected-server storage details out of app-shell server-selection ports', () => {
+        const source = readFileSync(
+            path.resolve(process.cwd(), 'src/core/app-shell/AppShellRuntimeContracts.ts'),
+            'utf8'
+        );
+        const match = source.match(/export interface AppShellServerSelectionRuntimePort \{[\s\S]*?\n\}/);
+
+        expect(match?.[0]).toBeDefined();
+        expect(match?.[0]).not.toContain(selectedServerStorageGetter);
+        expect(match?.[0]).not.toContain(serverHealthStorageGetter);
+        expect(match?.[0]).not.toContain('ready' + 'ness');
+        expect(match?.[0]).not.toContain('persisted' + 'Selection');
+        expect(match?.[0]).toContain('getSelectedServerScreenState(): AppShellServerSelectState');
     });
 });

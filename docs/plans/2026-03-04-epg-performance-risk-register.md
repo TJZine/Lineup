@@ -1,6 +1,8 @@
 # Classic EPG Performance Risk Register
 
-Linked implementation plan: TODO — create the tracked implementation plan for this register before starting the next `Medium` or `High` EPG change. Record the owner and target milestone here when assigned.
+Linked implementation plan: none active. Create a fresh tracked implementation
+plan before starting the next `Medium` or `High` EPG performance change, and
+record the owner and target milestone here when assigned.
 
 ## Purpose
 
@@ -8,11 +10,15 @@ Track possible adverse effects for EPG performance changes, especially medium/hi
 
 ## Baseline Evidence (Current Code)
 
-- `renderGridInternal()` still calls `refreshCurrentTime()` and rebuilds channel IDs each pass: `src/modules/ui/epg/EPGComponent.ts:1855-1865`
-- Direct `localStorage` debug-flag reads still exist in hot paths:
-  - `src/modules/ui/epg/EPGVirtualizer.ts:102-107`
-  - `src/modules/ui/epg/EPGChannelList.ts:456-463`
-- `EPGTimeHeader` always builds debug payload when scrolling: `src/modules/ui/epg/EPGTimeHeader.ts:154-165`
+- `renderGridInternal()` still calls `refreshCurrentTime()` each pass and now
+  consumes cached `this.channelIds` rather than rebuilding channel IDs inline:
+  `src/modules/ui/epg/component/EPGComponent.ts:1692-1707`
+- EPG virtualizer/channel-list debug logging now routes through
+  `EPGDebugRuntime` guards instead of direct hot-path `localStorage` reads:
+  `src/modules/ui/epg/view/EPGVirtualizer.ts:191-192`,
+  `src/modules/ui/epg/view/EPGChannelList.ts:384-394`
+- `EPGTimeHeader` gates scroll debug payload construction behind the debug
+  runtime guard: `src/modules/ui/epg/view/EPGTimeHeader.ts:124-131`
 
 ## Risk Scale
 
@@ -24,9 +30,9 @@ Track possible adverse effects for EPG performance changes, especially medium/hi
 
 | ID | Change | Status | Risk | Possible Adverse Effects | Detection Signals | Safe Rollback |
 | --- | --- | --- | --- | --- | --- | --- |
-| EPG-IMP-001 | Channel-list row node reuse/cache (`EPGChannelList.ts`) | Implemented in branch (uncommitted) | Low | Stale icon/branding/name when row gets remapped; wrong channel art after fast scroll | Rapid scroll up/down shows mismatched branding or stale channel text | `git restore --source=HEAD -- src/modules/ui/epg/EPGChannelList.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts` |
-| EPG-IMP-002 | Virtualizer delta-based update skipping (`EPGVirtualizer.ts`) | Implemented in branch (uncommitted) | Medium | Stale cell title/time badge/focus state if delta predicate misses a field; ticker/focus desync | Program data updates but on-screen title/time does not refresh; focus ring appears on wrong cell | `git restore --source=HEAD -- src/modules/ui/epg/EPGVirtualizer.ts src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts` |
-| EPG-IMP-003 | Cached EPG debug-flag reads in utils (`utils.ts`) | Implemented in branch (uncommitted) | Low | Debug toggle takes up to cache window to reflect; logs appear delayed after enabling debug | Toggle debug and observe ~0-500ms lag before logs change | `git restore --source=HEAD -- src/modules/ui/epg/utils.ts src/modules/ui/epg/__tests__/utils.test.ts` |
+| EPG-IMP-001 | Channel-list row node reuse/cache (`EPGChannelList.ts`) | Implemented | Low | Stale icon/branding/name when row gets remapped; wrong channel art after fast scroll | Rapid scroll up/down shows mismatched branding or stale channel text | Revert the `EPGChannelList` row-cache change and focused tests in the owning commit |
+| EPG-IMP-002 | Virtualizer delta-based update skipping (`EPGVirtualizer.ts`) | Implemented | Medium | Stale cell title/time badge/focus state if delta predicate misses a field; ticker/focus desync | Program data updates but on-screen title/time does not refresh; focus ring appears on wrong cell | Revert the `EPGVirtualizer` delta-update change and focused tests in the owning commit |
+| EPG-IMP-003 | Cached EPG debug-flag reads in utils/debug runtime | Implemented | Low | Debug toggle takes up to cache window to reflect; logs appear delayed after enabling debug | Toggle debug and observe ~0-500ms lag before logs change | Revert the debug-runtime cache/helper migration file-by-file |
 | EPG-PND-001 | Cache `channelIds` once per channel load (`EPGComponent.ts`) | Implemented (`b92ae94`) | Low | Stale IDs if cache update paths are incomplete after lineup resets | Wrong row schedule mapping after channel reload/reset | Revert only `EPGComponent.ts` change or disable cache field usage |
 | EPG-PND-002 | Replace remaining direct debug-flag storage reads with shared helper | Implemented (`8ceb125`) | Low | Debug behavior divergence between modules if helper not used consistently | One module logs while others stop under same debug flag state | Revert helper migration file-by-file |
 | EPG-PND-003 | Gate `EPGTimeHeader` debug payload creation behind debug-enabled check | Implemented (`8ceb125`) | Low | Missing time-header debug logs if gate condition is incorrect | Debug enabled but no `EPGTimeHeader.scroll` entries generated | Revert `EPGTimeHeader.ts` gating change |

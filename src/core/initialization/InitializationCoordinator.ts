@@ -10,6 +10,7 @@ import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 import type { IVideoPlayer } from '../../modules/player';
 import type { IEPGComponent, IEPGReadinessPort, IEPGDebugRuntime } from '../../modules/ui/epg';
 import { buildEPGStartupConfig } from '../../modules/ui/epg';
+import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { IPlayerOsdOverlay } from '../../modules/ui/player-osd';
 import type { IMiniGuideOverlay } from '../../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../../modules/ui/channel-transition';
@@ -130,7 +131,7 @@ export interface InitializationCallbacks {
     routing: {
         shouldRunAudioSetup: () => boolean;
         shouldRunChannelSetup: () => boolean;
-        switchToChannel: (id: string) => Promise<void>;
+        switchToChannel: (id: string) => Promise<ChannelSwitchOutcome>;
         openServerSelect: () => void;
     };
     resources: {

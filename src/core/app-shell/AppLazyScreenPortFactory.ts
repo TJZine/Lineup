@@ -113,7 +113,7 @@ export class AppLazyScreenPortFactory {
 
         return {
             requestAuthPin: () => runtime.requestAuthPin(),
-            pollForPin: (pinId: number) => runtime.pollForPin(pinId),
+            pollForPin: (pinId: number, options) => runtime.pollForPin(pinId, options),
             cancelPin: (pinId: number) => runtime.cancelPin(pinId),
             getNavigation: () => this.getNavigation(),
         };
@@ -154,8 +154,7 @@ export class AppLazyScreenPortFactory {
                 }
             },
             clearSelectedServer: () => runtime.clearSelectedServer(),
-            getSelectedServerStorageKey: () => runtime.getSelectedServerStorageKey(),
-            getServerHealthStorageKey: () => runtime.getServerHealthStorageKey(),
+            getSelectedServerScreenState: () => runtime.getSelectedServerScreenState(),
             requestChannelSetupRerun: () => runtime.requestChannelSetupRerun(),
             getNavigation: () => this.getNavigation(),
         };

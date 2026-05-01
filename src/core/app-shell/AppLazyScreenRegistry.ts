@@ -5,6 +5,7 @@ import type { ProfileSelectScreen } from '../../modules/ui/profile-select';
 import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import type { ServerSelectScreen } from '../../modules/ui/server-select';
 import type { SettingsScreen } from '../../modules/ui/settings';
+import { summarizeErrorForLog } from '../../utils/errors';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from './constants';
 import { AppLazyScreenPortFactory } from './AppLazyScreenPortFactory';
 
@@ -334,7 +335,12 @@ export class AppLazyScreenRegistry {
                     getNavigation: settingsRuntimePorts.getNavigation,
                     onSubtitleModeChange: (mode): void => {
                         if (mode !== 'off') return;
-                        void settingsRuntimePorts.clearSubtitleTrack();
+                        void settingsRuntimePorts.clearSubtitleTrack().catch((error: unknown) => {
+                            console.warn(
+                                '[AppLazyScreenRegistry] Failed to clear subtitle track after subtitle mode off',
+                                summarizeErrorForLog(error)
+                            );
+                        });
                     },
                     onGuideSettingChange: (change): void => {
                         settingsRuntimePorts.onGuideSettingChange(change);

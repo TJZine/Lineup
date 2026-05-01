@@ -5,7 +5,6 @@ import type {
     FocusableElement,
     ServerSelectScreenNavigationPort,
 } from '../../navigation';
-import { ServerSelectionStore, type ServerHealthMap } from '../../plex/discovery/ServerSelectionStore';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
@@ -24,12 +23,23 @@ export type ServerSelectSelectionResult =
         kind: 'selected';
     };
 
+export type ServerSelectHealthRecord = {
+    status?: string;
+    type?: string;
+    latencyMs?: number;
+    testedAt?: number;
+};
+
+export type ServerSelectScreenState = {
+    selectedServerId: string | null;
+    serverHealth: Record<string, ServerSelectHealthRecord | undefined>;
+};
+
 export interface ServerSelectScreenPorts {
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
     selectServer(serverId: string): Promise<ServerSelectSelectionResult>;
     clearSelectedServer(): Promise<void>;
-    getSelectedServerStorageKey(): string;
-    getServerHealthStorageKey(): string;
+    getSelectedServerScreenState(): ServerSelectScreenState;
     requestChannelSetupRerun(): void;
     getNavigation(): ServerSelectScreenNavigationPort | null;
 }
@@ -61,17 +71,12 @@ export class ServerSelectScreen {
     private _restoreFocusGeneration: number | null = null;
     private _registeredServerButtonIds: string[] = [];
     private _lastDiscoveredServers: PlexServer[] = [];
-    private _serverSelectionStore: ServerSelectionStore;
     private _idlePromise: Promise<void> = Promise.resolve();
     private _resolveIdlePromise: (() => void) | null = null;
 
     constructor(container: HTMLElement, ports: ServerSelectScreenPorts) {
         this._container = container;
         this._ports = ports;
-        this._serverSelectionStore = new ServerSelectionStore(() => ({
-            selectedServerKey: this._ports.getSelectedServerStorageKey(),
-            serverHealthKey: this._ports.getServerHealthStorageKey(),
-        }));
         this._container.classList.add('screen');
 
         const heroGlyph = createLineupBrandGlyph({
@@ -231,8 +236,9 @@ export class ServerSelectScreen {
         try {
             this._unregisterServerListFocusables();
             this._listEl.replaceChildren();
-            const savedId = this._serverSelectionStore.readSelectedServerIdAndClean();
-            const isAutoConnectAttempt = options.autoSelect && Boolean(savedId);
+            const screenState = this._ports.getSelectedServerScreenState();
+            const savedId = screenState.selectedServerId;
+            const isAutoConnectAttempt = options.autoSelect && Boolean(screenState.selectedServerId);
             this._setAutoConnectHintVisible(isAutoConnectAttempt);
             this._setStatus(
                 isAutoConnectAttempt ? 'Reconnecting to saved server…' : 'Discovering servers…',
@@ -259,7 +265,7 @@ export class ServerSelectScreen {
             let savedServerUnavailable = false;
 
             if (isAutoConnectAttempt && this._isSelecting) {
-                this._renderServers(servers, savedId, { emptyStateReason: 'no_servers' });
+                this._renderServers(servers, screenState, { emptyStateReason: 'no_servers' });
                 this._setServerListStatus(servers);
                 this._setAutoConnectHintVisible(false);
                 return;
@@ -297,7 +303,11 @@ export class ServerSelectScreen {
             }
 
             // Fallback to rendering list
-            this._renderServers(servers, savedId, { savedServerUnavailable, emptyStateReason: 'no_servers' });
+            this._renderServers(
+                servers,
+                this._ports.getSelectedServerScreenState(),
+                { savedServerUnavailable, emptyStateReason: 'no_servers' }
+            );
             this._setServerListStatus(servers, { savedServerUnavailable, autoSelectError });
             this._setAutoConnectHintVisible(false);
         } catch (error) {
@@ -309,7 +319,7 @@ export class ServerSelectScreen {
             this._statusEl.classList.remove('panel-spinner');
             this._handleError(error, 'Failed to discover servers.');
             this._setStatus('Discovery failed.', '', 'error');
-            this._renderServers([], null, { emptyStateReason: 'discovery_failed' });
+            this._renderServers([], { selectedServerId: null, serverHealth: {} }, { emptyStateReason: 'discovery_failed' });
             this._setAutoConnectHintVisible(false);
         } finally {
             if (this._activeLoadGeneration === generation) {
@@ -479,7 +489,11 @@ export class ServerSelectScreen {
 
             this._setAutoConnectHintVisible(false);
             this._setStatus('Selection cleared.', 'Pick a server to continue.', 'success');
-            this._renderServers(this._lastDiscoveredServers, null, { emptyStateReason: 'no_servers' });
+            this._renderServers(
+                this._lastDiscoveredServers,
+                this._ports.getSelectedServerScreenState(),
+                { emptyStateReason: 'no_servers' }
+            );
             this._restoreFocus(generation);
         } catch (error) {
             if (!this._canUpdateUi(generation)) {
@@ -519,12 +533,13 @@ export class ServerSelectScreen {
 
     private _renderServers(
         servers: PlexServer[],
-        savedId: string | null,
+        screenState: ServerSelectScreenState,
         options?: { savedServerUnavailable?: boolean; emptyStateReason?: 'no_servers' | 'discovery_failed' }
     ): void {
+        const savedId = screenState.selectedServerId;
         const savedServerUnavailable = options?.savedServerUnavailable === true;
         const emptyStateReason = options?.emptyStateReason ?? 'no_servers';
-        const healthMap: ServerHealthMap = this._serverSelectionStore.readServerHealthMapAndClean();
+        const healthMap = screenState.serverHealth;
 
         this._unregisterServerListFocusables();
         this._listEl.replaceChildren();
@@ -781,8 +796,11 @@ export class ServerSelectScreen {
                 if (currentGeneration === generation) {
                     this._setServerConnectButtonsDisabled(false);
                 } else {
-                    const savedId = this._serverSelectionStore.readSelectedServerIdAndClean();
-                    this._renderServers(this._lastDiscoveredServers, savedId, { emptyStateReason: 'no_servers' });
+                    this._renderServers(
+                        this._lastDiscoveredServers,
+                        this._ports.getSelectedServerScreenState(),
+                        { emptyStateReason: 'no_servers' }
+                    );
                     this._setServerListStatus(this._lastDiscoveredServers);
                     this._restoreFocus(currentGeneration);
                 }
@@ -876,7 +894,11 @@ export class ServerSelectScreen {
         this._handleError(error, 'Failed to discover servers.');
         this._setStatus('Discovery failed.', '', 'error');
         try {
-            this._renderServers([], null, { emptyStateReason: 'discovery_failed' });
+            this._renderServers(
+                [],
+                { selectedServerId: null, serverHealth: {} },
+                { emptyStateReason: 'discovery_failed' }
+            );
         } catch {
             this._unregisterServerListFocusables();
             this._listEl.replaceChildren();

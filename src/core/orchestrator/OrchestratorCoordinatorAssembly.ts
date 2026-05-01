@@ -118,6 +118,7 @@ function buildEpgCoordinatorInput(
         },
         actions: {
             switchToChannel: input.actions.switchToChannel,
+            switchToChannelWithOutcome: input.actions.switchToChannelWithOutcome,
             onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
         },
         nowPlaying: input.nowPlaying,

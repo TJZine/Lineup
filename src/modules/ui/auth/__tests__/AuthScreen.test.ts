@@ -103,6 +103,7 @@ describe('AuthScreen', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
 
+        let pollSignal: AbortSignal | undefined;
         const ports = createPorts({
             requestAuthPin: jest.fn().mockResolvedValue({
                 id: 88,
@@ -113,7 +114,10 @@ describe('AuthScreen', () => {
             }),
             pollForPin: jest.fn().mockImplementation(
                 // Never resolves - simulates indefinite polling until the screen is hidden/cancelled.
-                () => new Promise(() => undefined)
+                (_pinId: number, options?: { signal?: AbortSignal | null }) => {
+                    pollSignal = options?.signal ?? undefined;
+                    return new Promise(() => undefined);
+                }
             ),
         });
 
@@ -125,7 +129,321 @@ describe('AuthScreen', () => {
 
         screen.hide();
 
+        expect(ports.pollForPin).toHaveBeenCalledWith(88, { signal: expect.any(AbortSignal) });
+        expect(pollSignal?.aborted).toBe(true);
         expect(ports.cancelPin).toHaveBeenCalledWith(88);
+    });
+
+    it('cancel aborts the active poll before cancelling the server-side PIN', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const order: string[] = [];
+        let pollSignal: AbortSignal | undefined;
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 42,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 60_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(
+                (_pinId: number, options?: { signal?: AbortSignal | null }) => {
+                    pollSignal = options?.signal ?? undefined;
+                    pollSignal?.addEventListener('abort', () => {
+                        order.push('abort');
+                    });
+                    return new Promise(() => undefined);
+                }
+            ),
+            cancelPin: jest.fn().mockImplementation(() => {
+                order.push('cancelPin');
+                return Promise.resolve();
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        click(container, '#btn-auth-cancel');
+        await flushPromises();
+
+        expect(pollSignal?.aborted).toBe(true);
+        expect(order).toEqual(['abort', 'cancelPin']);
+        expect(ports.cancelPin).toHaveBeenCalledWith(42);
+    });
+
+    it('cancel before requestAuthPin resolves cancels the returned PIN without polling', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pinDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockImplementation(() => pinDeferred.promise),
+            pollForPin: jest.fn().mockResolvedValue({
+                id: 55,
+                code: 'LATE',
+                expiresAt: new Date(Date.now() + 60_000),
+                authToken: 'auth-token',
+                clientIdentifier: 'client-id',
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        click(container, '#btn-auth-cancel');
+        await flushPromises();
+
+        pinDeferred.resolve({
+            id: 55,
+            code: 'LATE',
+            expiresAt: new Date(Date.now() + 60_000),
+            authToken: null,
+            clientIdentifier: 'client-id',
+        });
+        await flushPromises();
+
+        expect(ports.cancelPin).toHaveBeenCalledWith(55);
+        expect(ports.pollForPin).not.toHaveBeenCalled();
+    });
+
+    it('hide before requestAuthPin resolves cancels the returned PIN without polling', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pinDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockImplementation(() => pinDeferred.promise),
+            pollForPin: jest.fn().mockResolvedValue({
+                id: 77,
+                code: 'HIDE',
+                expiresAt: new Date(Date.now() + 60_000),
+                authToken: 'auth-token',
+                clientIdentifier: 'client-id',
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        screen.hide();
+
+        pinDeferred.resolve({
+            id: 77,
+            code: 'HIDE',
+            expiresAt: new Date(Date.now() + 60_000),
+            authToken: null,
+            clientIdentifier: 'client-id',
+        });
+        await flushPromises();
+
+        expect(ports.cancelPin).toHaveBeenCalledWith(77);
+        expect(ports.pollForPin).not.toHaveBeenCalled();
+    });
+
+    it('hide before requestAuthPin rejects suppresses stale request failure UI', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pinDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockImplementation(() => pinDeferred.promise),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        screen.hide();
+
+        pinDeferred.reject(new Error('late request failure'));
+        await flushPromises();
+
+        const error = container.querySelector('.screen-error') as HTMLElement | null;
+        const retryButton = container.querySelector('#btn-auth-retry') as HTMLButtonElement | null;
+        expect(error?.textContent ?? '').toBe('');
+        expect(retryButton?.style.display).toBe('none');
+    });
+
+    it('retry after a polling failure cancels the old PIN and starts polling the new PIN', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const ports = createPorts({
+            requestAuthPin: jest.fn()
+                .mockResolvedValueOnce({
+                    id: 11,
+                    code: 'FAIL',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                })
+                .mockResolvedValueOnce({
+                    id: 12,
+                    code: 'NEXT',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                }),
+            pollForPin: jest.fn()
+                .mockRejectedValueOnce(new Error('poll failed'))
+                .mockImplementation(() => new Promise(() => undefined)),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        click(container, '#btn-auth-retry');
+        await flushPromises();
+
+        expect(ports.cancelPin).toHaveBeenCalledWith(11);
+        expect(ports.pollForPin).toHaveBeenNthCalledWith(1, 11, { signal: expect.any(AbortSignal) });
+        expect(ports.pollForPin).toHaveBeenNthCalledWith(2, 12, { signal: expect.any(AbortSignal) });
+
+        const pollForPinMock = ports.pollForPin as jest.MockedFunction<AuthScreenPorts['pollForPin']>;
+        const firstPollOptions = pollForPinMock.mock.calls[0]?.[1];
+        const secondPollOptions = pollForPinMock.mock.calls[1]?.[1];
+        expect(firstPollOptions?.signal).toBeInstanceOf(AbortSignal);
+        expect(secondPollOptions?.signal).toBeInstanceOf(AbortSignal);
+        expect(secondPollOptions?.signal).not.toBe(firstPollOptions?.signal);
+        expect(secondPollOptions?.signal?.aborted).toBe(false);
+    });
+
+    it('hide restores idle UI state before the screen is shown again', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const pinDeferred = createDeferred<{
+            id: number;
+            code: string;
+            expiresAt: Date;
+            authToken: string | null;
+            clientIdentifier: string;
+        }>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockImplementation(() => pinDeferred.promise),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        const requestButton = container.querySelector('#btn-auth-request') as HTMLButtonElement | null;
+        const cancelButton = container.querySelector('#btn-auth-cancel') as HTMLButtonElement | null;
+        const retryButton = container.querySelector('#btn-auth-retry') as HTMLButtonElement | null;
+        const qr = container.querySelector('.auth-qr') as HTMLElement | null;
+        expect(requestButton?.disabled).toBe(true);
+        expect(cancelButton?.disabled).toBe(false);
+
+        screen.hide();
+        pinDeferred.resolve({
+            id: 31,
+            code: 'LATE',
+            expiresAt: new Date(Date.now() + 60_000),
+            authToken: null,
+            clientIdentifier: 'client-id',
+        });
+        await flushPromises();
+
+        screen.show();
+
+        const pin = Array.from(container.querySelectorAll('.auth-pin-character'))
+            .map((node) => node.textContent)
+            .join('');
+        const status = container.querySelector('.screen-status');
+        const detail = container.querySelector('.screen-detail') as HTMLElement | null;
+
+        expect(requestButton?.disabled).toBe(false);
+        expect(cancelButton?.disabled).toBe(true);
+        expect(retryButton?.style.display).toBe('none');
+        expect(qr?.style.display).toBe('none');
+        expect(pin).toBe('----');
+        expect(status?.textContent ?? '').toContain('Ready to request a PIN.');
+        expect(detail?.textContent ?? '').toBe('');
+        expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
+    });
+
+    it('hide during retry cleanup prevents requesting and polling a new PIN', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const oldCancelDeferred = createDeferred<void>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn()
+                .mockResolvedValueOnce({
+                    id: 21,
+                    code: 'FAIL',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                })
+                .mockResolvedValueOnce({
+                    id: 22,
+                    code: 'NEXT',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                }),
+            pollForPin: jest.fn()
+                .mockRejectedValueOnce(new Error('poll failed'))
+                .mockImplementation(() => new Promise(() => undefined)),
+            cancelPin: jest.fn((pinId: number) => {
+                if (pinId === 21) {
+                    return oldCancelDeferred.promise;
+                }
+                return Promise.resolve();
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        click(container, '#btn-auth-retry');
+        await flushPromises();
+        screen.hide();
+        oldCancelDeferred.resolve(undefined);
+        await flushPromises();
+
+        expect(ports.cancelPin).toHaveBeenCalledWith(21);
+        expect(ports.requestAuthPin).toHaveBeenCalledTimes(1);
+        expect(ports.pollForPin).toHaveBeenCalledTimes(1);
     });
 
     it('unregisters retry focusable and moves focus when retry disappears', async () => {

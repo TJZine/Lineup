@@ -55,8 +55,10 @@ const makePortFactory = (): PortFactoryLike => ({
             kind: 'selected',
         }),
         clearSelectedServer: jest.fn().mockResolvedValue(undefined),
-        getSelectedServerStorageKey: jest.fn().mockReturnValue('selected-server-id'),
-        getServerHealthStorageKey: jest.fn().mockReturnValue('server-health'),
+        getSelectedServerScreenState: jest.fn().mockReturnValue({
+            selectedServerId: null,
+            serverHealth: {},
+        }),
         requestChannelSetupRerun: jest.fn(),
         getNavigation: jest.fn().mockReturnValue(null),
     })),
@@ -297,8 +299,7 @@ describe('AppLazyScreenRegistry', () => {
                 discoverServers: expect.any(Function),
                 selectServer: expect.any(Function),
                 clearSelectedServer: expect.any(Function),
-                getSelectedServerStorageKey: expect.any(Function),
-                getServerHealthStorageKey: expect.any(Function),
+                getSelectedServerScreenState: expect.any(Function),
                 requestChannelSetupRerun: expect.any(Function),
                 getNavigation: expect.any(Function),
             })
@@ -353,6 +354,51 @@ describe('AppLazyScreenRegistry', () => {
         expect(first).toBe(settingsScreen as never);
         expect(second).toBe(settingsScreen as never);
         expect(third).toBe(settingsScreen as never);
+    });
+
+    it('reports subtitle-track clearing failures without leaking an unhandled rejection', async () => {
+        const settingsScreen = makeScreen();
+        const SettingsScreen = jest.fn().mockImplementation(() => settingsScreen);
+        const loadSettingsModule = jest.fn().mockResolvedValue({ SettingsScreen });
+        const clearError = new Error('clear failed');
+        const portFactory = makePortFactory();
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        (portFactory.createSettingsRuntimePorts as jest.Mock).mockReturnValueOnce({
+            getNavigation: jest.fn().mockReturnValue(null),
+            clearSubtitleTrack: jest.fn().mockRejectedValue(clearError),
+            onGuideSettingChange: jest.fn(),
+            getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
+            getTheme: jest.fn().mockReturnValue('ember-steel'),
+            setTheme: jest.fn(),
+        } satisfies AppLazySettingsRuntimePorts);
+
+        const registry = new AppLazyScreenRegistry({
+            portFactory: portFactory as AppLazyScreenPortFactory,
+            profileSessionStore: new ProfileSessionStore(),
+            containers: {
+                settingsContainer: document.createElement('div'),
+            },
+            loaders: {
+                loadSettingsModule,
+            },
+        });
+
+        await registry.ensureSettingsScreen();
+        const constructorArgs = SettingsScreen.mock.calls[0]?.[0];
+
+        constructorArgs.onSubtitleModeChange('off');
+        await flushMicrotasks();
+
+        const settingsRuntimePorts = (portFactory.createSettingsRuntimePorts as jest.Mock).mock.results[0]?.value;
+        expect(settingsRuntimePorts.clearSubtitleTrack).toHaveBeenCalledTimes(1);
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[AppLazyScreenRegistry] Failed to clear subtitle track after subtitle mode off',
+            expect.objectContaining({
+                name: 'Error',
+                message: 'clear failed',
+            })
+        );
     });
 
     it('dedupes concurrent channel-setup loads and caches the instance', async () => {

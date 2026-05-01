@@ -369,6 +369,40 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(navigation.goTo).not.toHaveBeenCalledWith('auth');
     });
 
+    it('does not resume startup for unauthenticated authChange events from cancelled auth flows', async () => {
+        const { coordinator, deps } = makeCoordinator();
+        const plexAuth = deps.plexAuth as unknown as {
+            readStoredCredentialsAndClearCorruption: jest.Mock;
+            on: jest.Mock;
+        };
+        const authChangeHandlers: Array<(isAuthenticated: boolean) => void> = [];
+        plexAuth.on.mockImplementation((event: string, handler: (isAuthenticated: boolean) => void) => {
+            if (event === 'authChange') {
+                authChangeHandlers.push(handler);
+            }
+            return { dispose: jest.fn() };
+        });
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
+        const runSpy = jest.spyOn(coordinator, 'runStartup');
+
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
+        const handler = authChangeHandlers[0];
+        if (!handler) {
+            throw new Error('Expected authChange handler to be registered');
+        }
+
+        runSpy.mockClear();
+        handler(false);
+        await Promise.resolve();
+
+        expect(runSpy).not.toHaveBeenCalled();
+
+        handler(true);
+        expect(runSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
+        const resumePromise = runSpy.mock.results[0]?.value as Promise<void>;
+        await resumePromise;
+    });
+
     it('does not redundantly reset lifecycle phases during full startup', async () => {
         const lifecycle = {
             initialize: jest.fn().mockResolvedValue(undefined),
@@ -1206,6 +1240,72 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	                expect.objectContaining({
 	                    code: 'INITIALIZATION_FAILED',
 	                    message: 'route failed',
+	                    recoverable: true,
+	                }),
+	                'start'
+	            );
+	        });
+
+	        it('does not publish ready or open server select when the initial tune fails', async () => {
+	            const lifecycle = {
+	                setPhase: jest.fn(),
+	            } as unknown as LegacyInitializationDependencies['lifecycle'];
+	            const { coordinator, deps, callbacks } = makeCoordinator({
+	                lifecycle,
+	                channelManager: {
+	                    getCurrentChannel: jest.fn().mockReturnValue({ id: 'current-channel-id' }),
+	                    getAllChannels: jest.fn().mockReturnValue([]),
+	                } as unknown as LegacyInitializationDependencies['channelManager'],
+	            });
+	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
+
+	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce('failed');
+
+	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).rejects.toThrow(
+	                'Initial channel switch failed for current-channel-id.'
+	            );
+
+	            expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
+	            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+	            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
+	            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');
+	            expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
+	                expect.objectContaining({
+	                    code: 'INITIALIZATION_FAILED',
+	                    message: 'Initial channel switch failed for current-channel-id.',
+	                    recoverable: true,
+	                }),
+	                'start'
+	            );
+	        });
+
+	        it('does not publish ready or open server select when the initial tune aborts', async () => {
+	            const lifecycle = {
+	                setPhase: jest.fn(),
+	            } as unknown as LegacyInitializationDependencies['lifecycle'];
+	            const { coordinator, deps, callbacks } = makeCoordinator({
+	                lifecycle,
+	                channelManager: {
+	                    getCurrentChannel: jest.fn().mockReturnValue({ id: 'current-channel-id' }),
+	                    getAllChannels: jest.fn().mockReturnValue([]),
+	                } as unknown as LegacyInitializationDependencies['channelManager'],
+	            });
+	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
+
+	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce('aborted');
+
+	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).rejects.toThrow(
+	                'Initial channel switch aborted for current-channel-id.'
+	            );
+
+	            expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
+	            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+	            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
+	            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');
+	            expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
+	                expect.objectContaining({
+	                    code: 'INITIALIZATION_FAILED',
+	                    message: 'Initial channel switch aborted for current-channel-id.',
 	                    recoverable: true,
 	                }),
 	                'start'

@@ -2370,6 +2370,54 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             }
         });
 
+        it('carries ID-based switch outcomes through the public startup contract', async () => {
+            const cases: Array<{
+                outcome: 'failed' | 'aborted' | 'switched';
+                expectedError: RegExp | null;
+            }> = [
+                { outcome: 'failed', expectedError: /Initial channel switch failed for ch1/ },
+                { outcome: 'aborted', expectedError: /Initial channel switch aborted for ch1/ },
+                { outcome: 'switched', expectedError: null },
+            ];
+
+            for (const { outcome, expectedError } of cases) {
+                const localOrchestrator = createOrchestrator();
+                await localOrchestrator.initialize(mockConfig);
+                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
+                    createStoredCredentials('valid-token')
+                );
+                mockPlexAuth.validateToken.mockResolvedValue(true);
+                mockPlexDiscovery.isConnected.mockReturnValue(true);
+                mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+                mockLocalStorage.getItem.mockImplementation((key: string) => {
+                    if (key === 'lineup_audio_setup_complete') return '1';
+                    return null;
+                });
+
+                const switchSpy = jest
+                    .spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel')
+                    .mockResolvedValueOnce(outcome);
+
+                try {
+                    if (expectedError) {
+                        expectConsoleWarn([
+                            'Global error in start',
+                            expect.objectContaining({
+                                safeError: expect.objectContaining({
+                                    message: expect.stringMatching(expectedError),
+                                }),
+                            }),
+                        ]);
+                        await expect(localOrchestrator.start()).rejects.toThrow(expectedError);
+                    } else {
+                        await expect(localOrchestrator.start()).resolves.toBeUndefined();
+                    }
+                } finally {
+                    switchSpy.mockRestore();
+                }
+            }
+        });
+
         it('should handle non-existent channel gracefully', async () => {
             expectConsoleWarn([
                 'Global error in switchToChannel',
@@ -2449,6 +2497,40 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(2);
             expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(1, 'ch1');
             expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch2');
+        });
+
+        it('propagates abort rejections for public channel switches superseded while queued', async () => {
+            let resolveFirst: () => void = (): void => { };
+            mockChannelManager.resolveChannelContent.mockImplementation(
+                (channelId: string): Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }> =>
+                    new Promise<{ channelId: string; items: never[]; orderedItems: never[]; totalDurationMs: number; resolvedAt: number }>((resolve) => {
+                        if (mockChannelManager.resolveChannelContent.mock.calls.length === 1) {
+                            resolveFirst = (): void => resolve({ channelId, items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
+                            return;
+                        }
+                        resolve({ channelId, items: [], orderedItems: [], totalDurationMs: 0, resolvedAt: Date.now() });
+                    })
+            );
+
+            const switch1 = orchestrator.switchToChannel('ch1');
+
+            expectConsoleWarn(/already in progress/, { times: 2 });
+            const switch2 = orchestrator.switchToChannel('ch2');
+            const switch2Result = switch2.then(
+                () => 'resolved',
+                (error: unknown) => error
+            );
+
+            const switch3 = orchestrator.switchToChannel('ch3');
+
+            await expect(switch2Result).resolves.toMatchObject({ name: 'AbortError' });
+
+            resolveFirst();
+            await switch1;
+            await switch3;
+
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(1, 'ch1');
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch3');
         });
 
         it('should allow sequential channel switches', async () => {
@@ -3179,6 +3261,39 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(mockChannelManager.dispose).toHaveBeenCalledTimes(1);
         });
 
+        it('makes concurrent shutdown callers wait for the active teardown', async () => {
+            let resolveFlush!: () => void;
+            const flushRelease = new Promise<void>((resolve) => {
+                resolveFlush = resolve;
+            });
+            const flushStarted = new Promise<void>((resolve) => {
+                (mockChannelManager.flushSaves as jest.Mock).mockImplementationOnce(async () => {
+                    resolve();
+                    await flushRelease;
+                });
+            });
+
+            const firstShutdown = orchestrator.shutdown();
+            await flushStarted;
+
+            let secondShutdownResolved = false;
+            const secondShutdown = orchestrator.shutdown().then(() => {
+                secondShutdownResolved = true;
+            });
+
+            await Promise.resolve();
+
+            expect(secondShutdownResolved).toBe(false);
+            expect(mockChannelManager.flushSaves).toHaveBeenCalledTimes(1);
+
+            resolveFlush();
+
+            await expect(Promise.all([firstShutdown, secondShutdown])).resolves.toEqual([undefined, undefined]);
+            expect(secondShutdownResolved).toBe(true);
+            expect(mockLifecycle.shutdown).toHaveBeenCalledTimes(1);
+            expect(mockNavigation.destroy).toHaveBeenCalledTimes(1);
+        });
+
         it('should destroy modules on shutdown', async () => {
             await orchestrator.shutdown();
 
@@ -3421,6 +3536,9 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 );
                 expect(order.indexOf('channelManager.dispose')).toBeLessThan(order.indexOf('lifecycle.shutdown'));
                 expect(order.indexOf('lifecycle.shutdown')).toBeLessThan(order.indexOf('videoPlayer.stop'));
+                expect(order.indexOf('scheduler.pauseSyncTimer')).toBeLessThan(
+                    order.indexOf('scheduler.unloadChannel')
+                );
                 expect(order.indexOf('navigation.destroy')).toBeLessThan(order.indexOf('aggregate-report'));
             } finally {
                 (mockLifecycle.shutdown as jest.Mock).mockResolvedValue(undefined);
@@ -3438,11 +3556,21 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             clearAuthResumeSpy.mockImplementationOnce(() => {
                 throw new Error('auth resume clear failed');
             });
+            const clearServerResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearServerResume');
+            clearServerResumeSpy.mockImplementationOnce(() => {
+                throw new Error('server resume clear failed');
+            });
+            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
+            clearProfileResumeSpy.mockImplementationOnce(() => {
+                throw new Error('profile resume clear failed');
+            });
             expectConsoleWarn([
                 'Shutdown teardown failures',
                 expect.objectContaining({
                     teardownFailures: expect.arrayContaining([
                         expect.objectContaining({ step: 'initCoordinator.clearAuthResume' }),
+                        expect.objectContaining({ step: 'initCoordinator.clearServerResume' }),
+                        expect.objectContaining({ step: 'initCoordinator.clearProfileResume' }),
                     ]),
                 }),
             ]);
@@ -3451,6 +3579,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 await expect(orchestrator.shutdown()).resolves.toBeUndefined();
             } finally {
                 clearAuthResumeSpy.mockRestore();
+                clearServerResumeSpy.mockRestore();
+                clearProfileResumeSpy.mockRestore();
             }
 
             expect(mockChannelManager.flushSaves).toHaveBeenCalled();

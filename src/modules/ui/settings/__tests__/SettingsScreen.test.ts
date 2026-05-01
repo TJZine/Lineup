@@ -7,13 +7,7 @@ import { SettingsStore } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { GuideSettingChange } from '../types';
 import { THEME_OPTIONS, THEME_CLASSES, type ThemeName } from '../../theme/themeDefinitions';
-
-type StubFocusable = {
-    id: string;
-    neighbors: { up?: string; down?: string; left?: string; right?: string };
-    onFocus?: () => void;
-    onSelect?: () => void;
-};
+import { activateCategory, createNavigationStub } from './settings-screen-test-helpers';
 
 const ALL_THEME_CLASSES = Object.values(THEME_CLASSES).filter(Boolean);
 const REAL_REQUEST_ANIMATION_FRAME = window.requestAnimationFrame;
@@ -45,36 +39,6 @@ const setupQueuedRaf = (): {
             rafSpy.mockRestore();
             cancelSpy.mockRestore();
         },
-    };
-};
-
-const createNavigationStub = (): {
-    focusables: Map<string, StubFocusable>;
-    registerFocusable: jest.Mock;
-    unregisterFocusable: jest.Mock;
-    setFocus: jest.Mock;
-    getFocusedElement: jest.Mock;
-    on: jest.Mock;
-    off: jest.Mock;
-} => {
-    const focusables = new Map<string, StubFocusable>();
-    let focusedId: string | null = null;
-
-    return {
-        focusables,
-        registerFocusable: jest.fn((element: StubFocusable) => {
-            focusables.set(element.id, element);
-        }),
-        unregisterFocusable: jest.fn((id: string) => {
-            focusables.delete(id);
-        }),
-        setFocus: jest.fn((id: string) => {
-            focusedId = id;
-            focusables.get(id)?.onFocus?.();
-        }),
-        getFocusedElement: jest.fn(() => (focusedId ? ({ id: focusedId } as HTMLElement) : null)),
-        on: jest.fn(),
-        off: jest.fn(),
     };
 };
 
@@ -111,14 +75,6 @@ const createScreen = (
         ...(settingsStore ? { settingsStore } : {}),
     });
     return { container, nav, screen };
-};
-
-const activateCategory = (container: HTMLElement, categoryId: string): void => {
-    const button = container.querySelector(`#settings-category-${categoryId}`) as HTMLButtonElement | null;
-    if (!button) {
-        throw new Error(`Category ${categoryId} not found`);
-    }
-    button.click();
 };
 
 beforeEach(() => {
@@ -898,7 +854,7 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(nav.getFocusedElement()?.id).toBe('settings-subtitle-mode');
     });
 
-    it('preserves settings roundtrip continuity with valid focus on re-open', () => {
+    it('preserves active category continuity with valid focus on re-open', () => {
         const { container, nav, screen } = createScreen(jest.fn());
 
         screen.show();
@@ -914,7 +870,7 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
         expect(container.querySelector('#settings-dts-passthrough')).toBeNull();
         expect(nav.focusables.has('settings-hdr10-fallback-mode')).toBe(true);
-        expect(nav.getFocusedElement()?.id).toBe('settings-hdr10-fallback-mode');
+        expect(nav.getFocusedElement()?.id).toBe('settings-category-playback_hdr');
     });
 
     it('does not switch active category during initial focus when previous screen focus is unrelated', () => {
@@ -928,6 +884,11 @@ describe('SettingsScreen (Two-pane layout)', () => {
 
         // Simulate NavigationManager.goTo() behavior: focus may still reflect the previous screen
         // when the Settings screen registers focusables during screenChange.
+        nav.registerFocusable({
+            id: 'previous-screen-focused-id',
+            element: document.createElement('button'),
+            neighbors: {},
+        });
         nav.setFocus('previous-screen-focused-id');
 
         screen.show();

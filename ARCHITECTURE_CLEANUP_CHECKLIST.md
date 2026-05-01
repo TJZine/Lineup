@@ -1122,11 +1122,323 @@ changes them:
   `settings-screen-test-helpers.ts` seam instead of adding constructor-policy
   assertions to `SettingsScreen.test.ts`.
 
-### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
+### DCR-EXIT S0 Evidence Lookup
+
+`DCR-11` through `DCR-16` are routed from the completed `DCR-EXIT-S0`
+controller synthesis. For each package plan, start from the exact S0 finding
+ids listed in that package's `Known issues to retire`, search those ids in the
+local DCR-EXIT S0 run artifacts and active DCR-EXIT plan, then verify against
+current source/docs/config before choosing implementation slices. The checklist
+summarizes each issue, but the S0 lane reports and synthesis provide the
+supporting source-family proof, recommended disposition, owner, and verification
+notes. Do not use stale style/package-map artifacts or fresh Desloppify output
+as intake.
+
+### [x] `DCR-11` Verification, Dependency, And Control-Plane Truth
+
+- Status: completed after clean fresh final adversarial review
+- Plan: `docs/plans/2026-04-30-dcr-11-verification-dependency-control-plane-truth.md`
+- Dimensions/rubric tags: verified strictness, dependency health, docs/source
+  coherence, AI-generated debt, package organization, design coherence
+- Scope owner: docs/control-plane owner with dependency/config/tooling and
+  style/design owners
+- Why this package exists / production risk: `DCR-EXIT-S0` found that final
+  verification and control-plane truth are not yet reliable enough to close the
+  cleanup program. Stale docs, missing proof, omitted bundle verification, and
+  dependency advisory state can make later source cleanup appear complete when
+  the project cannot prove it.
+- Files in scope: `ARCHITECTURE_CLEANUP_CHECKLIST.md`,
+  `docs/architecture/CURRENT_STATE.md`, DCR/control-plane docs and plans named
+  by S0, style/design docs named by S0, `package.json`, `package-lock.json`,
+  verification scripts, stale style cleanup package-map surfaces, and CSS/config
+  comments only if needed for listed issues.
+- Known issues to retire:
+  - actual issues:
+    - `DCR-11-A1`: `S0-L01-F5` current-state hotspot wording is stale for
+      reduced files.
+    - `DCR-11-A2`: `S0-L04-F01` DCR-10 closeout requires docs verification
+      proof that is not recorded.
+    - `DCR-11-A3`: `S0-L06-NQ-002` module reference points channel setup
+      scratch cleanup at the setup-record store.
+    - `DCR-11-A4`: `S0-L10-F1` active EPG risk register carries stale TODO,
+      old source paths, and uncommitted status.
+    - `DCR-11-A5`: `S0-L10-F2` CSS token comment references future design-pass
+      plans after active consumption.
+    - `DCR-11-A6`: `S0-L13-F1` full verification skips the existing release
+      bundle guard.
+    - `DCR-11-A7`: `S0-L13-F2` dependency advisory health is failing and needs
+      remediation or maintainer-approved residual rationale.
+    - `DCR-11-A8`: `S0-L14-F1` style cleanup control-plane docs point at
+      missing live artifacts. Retire the stale style cleanup package map rather
+      than using it as active cleanup intake.
+  - owner decisions:
+    - `DCR-11-D1`: decide whether `S0-L10-F3` stylelint tighten-later wording
+      remains an accepted residual owned by dependency/config/tooling or is
+      resolved in this package.
+- Completion means: listed docs/control-plane contradictions are corrected or
+  retired with source proof, DCR-10 docs verification proof is recorded,
+  `verify:bundle` has maintainer-routed residual/future-owner evidence,
+  dependency advisory state has one owner/outcome, and `S0-L10-F3` has a final
+  residual or resolved disposition. The stale style cleanup package map is
+  retired or archived so it cannot keep generating active UI-panel cleanup work.
+- Verification routing: `npm run plans:check`, `npm run verify:docs`,
+  `npm run verify:bundle`, `npm audit --audit-level=high`, `npm ls --depth=0`,
+  and `npm run lint:css` if CSS changes.
+- Ready-now execution unit: none; `DCR-11-W1` has executed and package closeout
+  is complete.
+- Stop/replan triggers: dependency remediation requires broad package upgrades,
+  style-control artifacts cannot be restored or retired cleanly, or bundle
+  verification failure exposes implementation work outside this package.
+- Last touched: 2026-04-30 during `DCR-11-W1` execution and bounded dependency
+  remediation.
+- Verification: reviewed DCR-11 plan reached clean final approval; implementation
+  review, closure review, and fresh final adversarial review were clean; `npm
+  run plans:check` passed; `npm run verify:docs` passed after removing
+  local-only run-artifact paths from the active plan; `npm run lint:css` passed
+  in the implementation worker; `npm ls --depth=0` passed; bounded Vite patch
+  bump plus package-lock refresh of affected dev-tooling packages cleared
+  dependency advisories and `npm audit --audit-level=high` passed with `found 0
+  vulnerabilities`; `npm run
+  verify:bundle` failed because startup entry asset `assets/index-D1ytKM3-.js`
+  is `697501` bytes and the guard requires `< 500000`.
+- Follow-ups: `DCR-11-A1`, `DCR-11-A2`, `DCR-11-A3`, `DCR-11-A4`,
+  `DCR-11-A5`, `DCR-11-A7`, and `DCR-11-A8` have in-scope resolution evidence;
+  `DCR-11-A6` is accepted as a maintainer-routed residual owned by the
+  release/bundle guard owner with revisit trigger before future bundle-size
+  remediation or any attempt to add `verify:bundle` to `npm run verify` /
+  DCR-EXIT final proof. `DCR-11-D1` remains the accepted residual owned by
+  dependency/config/tooling with revisit trigger on the next CSS/stylelint
+  strictness pass or any docs/checklist claim that stylelint strictness is
+  closed.
+- Handoff: DCR-11 is closed. Do not resume `DCR-EXIT-S2` until `DCR-12` through
+  `DCR-16` are complete or explicitly maintainer-routed out of DCR.
+
+### [x] `DCR-12` App-Shell, Startup, And Server-Selection Contracts
+
+- Status: completed
+- Plan: `docs/plans/2026-04-30-dcr-12-app-shell-startup-server-selection-contracts.md`
+- Dimensions/rubric tags: file health, code quality, abstraction fitness,
+  contract coherence, logic clarity, initialization coupling
+- Scope owner: app-shell/orchestrator/initialization/server-selection owner with
+  Plex auth startup review
+- Known issues to retire:
+  - actual issues:
+    - `DCR-12-A1`: `S0-L01-F1` `AppOrchestrator` remains a live production
+      file-health hotspot after DCR-6.
+    - `DCR-12-A2`: `F-S0L02-001` cancelled Plex PIN polling can still store
+      credentials or resume startup.
+    - `DCR-12-A3`: `S0-L08-F1` / `S0-L12-F1` server-select API still exposes
+      selected-server storage-key details through app-shell ports.
+    - `DCR-12-A4`: `F-S0-L09-001` channel-switch failure outcomes are
+      discarded before startup/guide routing can react.
+- Completion evidence: all four package issues are closed by implementation and
+  tests. `DCR-12-A1` closed through actual `AppOrchestrator` responsibility
+  reduction: channel-switch runtime policy, Plex auth screen-runtime facade, and
+  selected-server runtime/startup-swap orchestration moved to focused runtime
+  owners with fresh source-audit proof. `DCR-12-A2` closed through cancellable
+  Plex PIN polling from AuthScreen through PlexAuth/startup resume.
+  `DCR-12-A3` closed by replacing app-shell/server-select/diagnostics storage
+  key exposure with owner-projected selected-server screen state. `DCR-12-A4`
+  closed by carrying channel-switch outcomes through startup and guide routing
+  under the approved A4 policy.
+- Verification routing: targeted orchestrator, Plex auth cancellation,
+  server-selection/app-shell, initialization/channel-switch, and EPG tests
+  passed across the slice commits; source audits for `AppOrchestrator` file
+  health and selected-server storage-key exposure passed; `npm run plans:check`,
+  `npm run verify:docs`, and full `npm run verify` passed during DCR-12.
+- Ready-now execution unit: none; package complete.
+- Stop/replan triggers: public runtime contracts change, auth/session ownership
+  moves across boundaries, app-shell decomposition becomes broad refactor, or
+  the planned slices do not name concrete owner seams for reducing the
+  `AppOrchestrator` hotspot.
+- Last touched: 2026-04-30
+- Verification: targeted slice verification and full `npm run verify` passed.
+- Follow-ups: none yet.
+- Handoff: DCR-12 is closed. Do not resume `DCR-EXIT-S2` until `DCR-13`
+  through `DCR-16` are complete or explicitly maintainer-routed out of DCR.
+
+### [x] `DCR-13` Scheduler, ChannelManager, And Test Architecture
+
+- Status: completed
+- Plan: `docs/plans/2026-04-30-dcr-13-scheduler-channelmanager-test-architecture.md`
+- Dimensions/rubric tags: file health, duplication, test strategy, type safety,
+  logic clarity
+- Scope owner: scheduler/channel owner with test-suite structure owner
+- Known issues to retire:
+  - actual issues:
+    - `DCR-13-A1`: `S0-L01-F3` `ChannelManager` remains a production hub.
+    - `DCR-13-A2`: `S0-L01-F4` oversized catch-all tests remain outside DCR-10
+      split scope.
+    - `DCR-13-A3`: `S0-L03-F01` duplicate scheduler shuffle implementations
+      have inconsistent seed validation.
+    - `DCR-13-A4`: `S0-L03-F05` `ContentResolver` tests duplicate
+      channel-manager package test factories.
+    - `DCR-13-A5`: `TS-002` `ChannelManager` catch-all test spies private
+      `_queueSave` outside the private-probe baseline.
+- Completion means: scheduler/channel findings are fixed or source-disproved;
+  test-structure policy is explicit enough that DCR-EXIT can reconcile it
+  without private-probe ambiguity; and both `S0-L01-F3` and `S0-L01-F4` are
+  closed by actual production/test responsibility reduction or explicit
+  maintainer reclassification. A plan may not close the ChannelManager or
+  catch-all-test hotspots by adding coverage, comments, or residual wording
+  alone.
+- Verification routing: targeted `ChannelManager`, scheduler, and
+  `ContentResolver` suites; private-probe policy proof; fresh file/test-health
+  source audit proving `S0-L01-F3` and `S0-L01-F4` no longer describe current
+  source; `npm run verify` if helpers or production source move.
+- Completion evidence: all five package issues are closed by implementation,
+  source audit, and clean reviews. `DCR-13-A1` closed through actual
+  `ChannelManager` responsibility reduction: debounced save lifecycle and
+  import normalization moved to package-local owners
+  `ChannelPersistenceSaveQueue` and `ChannelImportNormalizer`, reducing
+  `ChannelManager.ts` from `1742` to `1399` lines while preserving persistence
+  schema/key ownership in `ChannelPersistenceStore`. `DCR-13-A2` closed through
+  actual catch-all test responsibility reduction: `ChannelManager.test.ts`
+  shrank from `1218` to `385` lines, with persistence/storage/current-channel
+  coverage in `ChannelManager.persistence.test.ts` and content-resolution
+  coverage in `ChannelManager.content-resolution.test.ts`. `DCR-13-A3` closed
+  by routing scheduler `ShuffleGenerator` through shared `shuffleWithSeed` and
+  adding finite-seed compatibility plus non-finite seed validation contracts.
+  `DCR-13-A4` closed by removing duplicate `ContentResolver.test.ts`
+  `createMockLibrary` / `createMockItem` factories in favor of package-local
+  helpers. `DCR-13-A5` closed by removing the private `_queueSave` spy and
+  replacing it with public storage/repository proof; private-probe policy
+  baseline was not weakened.
+- Ready-now execution unit: none; package complete.
+- Stop/replan triggers: ChannelManager public behavior or persistence contract
+  changes, the package becomes a broad test harness rewrite, or the planned
+  slices do not name concrete owner seams for reducing the ChannelManager and
+  catch-all-test hotspots.
+- Last touched: 2026-04-30, implementation commits `add1fedd`, `e1af8d67`,
+  `34bdaf9a`, and `edaa07f4`
+- Verification: DCR-13 plan reached clean final approval after one reviewer
+  finding was fixed. S1, S2, S3, and S4 implementation reviews were clean.
+  Targeted ChannelManager, scheduler, ContentResolver, and private-probe policy
+  tests passed during slice execution/review; `npm run typecheck` passed for
+  production extraction; `npm run verify` passed after each implementation
+  slice. Final closeout source/test-health audits passed: `ChannelManager.ts`
+  is `1399` lines, `ChannelManager.test.ts` is `385` lines, no unapproved
+  ChannelManager private-probe grep matches remain, `ContentResolver.test.ts`
+  no longer defines duplicate `createMockLibrary` / `createMockItem` factories,
+  and scheduler `ShuffleGenerator` delegates to shared `shuffleWithSeed`.
+  Controller closeout `npm run plans:check`, `npm run verify:docs`, and full
+  `npm run verify` passed. The Vite build kept its existing large-chunk warning
+  for `dist/assets/index-Bt0C3_fN.js`; the command exited successfully.
+- Follow-ups: none for `DCR-13`. DCR-EXIT remains blocked on `DCR-14` through
+  `DCR-16` until those packages close or are explicitly maintainer-routed.
+- Handoff: DCR-13 is closed. Do not resume `DCR-EXIT-S2` until `DCR-14`
+  through `DCR-16` are complete or explicitly maintainer-routed out of DCR.
+
+### [ ] `DCR-14` EPG Component File-Health Follow-Through
 
 - Status: not started
-- Dimensions/rubric tags: final reconciliation, source-backed proof, test
-  confidence, portability residuals, docs/control-plane coherence
+- Plan: none yet
+- Dimensions/rubric tags: file health, design coherence, UI/focus/navigation,
+  test strategy
+- Scope owner: EPG/UI owner with design/style review
+- Known issues to retire:
+  - actual issues:
+    - `DCR-14-A1`: `S0-L01-F2` `EPGComponent` still concentrates
+      rendering/focus/navigation/timers/grid runtime.
+  - accepted residuals:
+    - `S0-L14-F2` EPG info-panel edge residual is accepted by maintainer
+      decision for codebase cleanup. Current UI panel visuals are intentional;
+      future visual changes belong to maintainer-led manual QA after codebase
+      cleanup completion, not cleanup-agent implementation.
+- Completion means: EPG file-health follow-through is source-backed and tested;
+  `S0-L01-F2` is closed by actual responsibility reduction in `EPGComponent` or
+  explicit maintainer reclassification; and no visual panel treatment changes
+  are introduced by cleanup agents. A plan may not close the EPGComponent
+  hotspot by adding tests, documenting it, or accepting it as residual without
+  maintainer approval.
+- Verification routing: focused EPG component/navigation/rendering tests,
+  fresh file-health source audit proving `S0-L01-F2` no longer describes
+  current source, source/design audit confirming `S0-L14-F2` remains out of code
+  cleanup, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Stop/replan triggers: a cleanup agent proposes visible panel treatment changes,
+  focus/navigation changes overlap unrelated UI cleanup, or the planned slices
+  do not name concrete owner seams for reducing the `EPGComponent` hotspot.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet.
+- Handoff: plan after `DCR-11`; can run independently if no shared UI helpers
+  move.
+
+### [ ] `DCR-15` Player, Plex Runtime, Settings, And Media Contracts
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: code quality, duplication, naming quality, error
+  consistency, authorization consistency, type safety, incomplete migration
+- Scope owner: player/runtime, Plex stream/library, settings boundary, and
+  persistence owners
+- Known issues to retire:
+  - actual issues:
+    - `DCR-15-A1`: `F-S0L02-002` `RetryManager` cannot remove active metadata
+      retry listeners during unload/destroy.
+    - `DCR-15-A2`: `S0-L03-F02` persistence warning backoff policy is
+      duplicated across lifecycle and `ChannelManager`.
+    - `DCR-15-A3`: `S0-L03-F03` native text-track debug snapshot is copied in
+      `VideoPlayer` and `SubtitleManager`.
+    - `DCR-15-A4`: `S0-L03-F04` HDR10 fallback mode precedence is repeated.
+    - `DCR-15-A5`: `S0-L06-NQ-001` `PlaybackRecoveryManager` reset method name
+      hides burn-in state reset.
+    - `DCR-15-A6`: `S0-L07-001` best-effort Plex cleanup/debug auth failures
+      can surface as global user errors.
+    - `DCR-15-A7`: `S0-L15-F1` Plex identity metadata has two live owners with
+      divergent device names.
+    - `DCR-15-A8`: `TS-001` Plex library media parsers cast external payloads
+      without required scalar validation.
+- Completion means: runtime/listener cleanup, settings/Plex policy duplication,
+  error-boundary behavior, identity ownership, and parser validation are fixed
+  or split with one owner and proof.
+- Verification routing: RetryManager/VideoPlayer, SubtitleManager,
+  HDR10/settings resolver, cleanup/debug 401/403, Plex identity, parser
+  scalar-validation tests, typecheck, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Stop/replan triggers: auth/session ownership changes, stream error contract
+  changes, media parsing policy requires API redesign, or package scope needs
+  multiple disjoint plans.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet.
+- Handoff: plan after `DCR-11`; split internally only if the approved plan can
+  prove disjoint write scopes and one integration gate.
+
+### [ ] `DCR-16` Production Source-Signal Residue
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: AI-generated debt, code signal, low-level elegance
+- Scope owner: code-signal owner with app-shell, scheduler, navigation, and UI
+  reviewers
+- Known issues to retire:
+  - actual issues:
+    - `DCR-16-A1`: `S0-L10-F4` production hot-path files still carry
+      generated-style step and trivial method comments after code-signal cleanup
+      was marked complete.
+- Completion means: source-signal residue is removed or source-disproved through
+  behavior-neutral edits and search proof without changing runtime behavior.
+- Verification routing: targeted source search, behavior-neutral diff audit,
+  `git diff --check`, and typecheck/tests only if code moves.
+- Ready-now execution unit: none until plan is written.
+- Stop/replan triggers: cleanup requires behavior changes, signatures move, or
+  overlaps with source files still being actively changed by `DCR-12` through
+  `DCR-15`.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet.
+- Handoff: run after behavior-moving packages to avoid churn.
+
+### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
+
+- Status: blocked after S0 route; follow-up packages `DCR-11` through `DCR-16`
+  must close or be maintainer-routed before final reconciliation resumes.
+- Plan: `docs/plans/2026-04-30-dcr-exit-final-dimension-audit-plan.md`
+- Dimensions/rubric tags: final reconciliation, full rubric coverage,
+  source-backed proof, test confidence, dependency/config/tooling health,
+  player/runtime coverage, portability residuals, docs/control-plane coherence
 - Scope owner: cleanup controller/final reconciliation owner
 - Why this package exists / production risk: the user wants cleanup to be done
   after these known high-confidence issues are handled, before any fresh
@@ -1137,14 +1449,20 @@ changes them:
   - DCR package plans/audits if created under `docs/plans/`
   - `docs/architecture/CURRENT_STATE.md`
   - architecture/API/design docs touched by DCR packages
+  - dependency/config/tooling/app metadata surfaces required by the active plan
   - source/test files only for read-only reconciliation unless a final package
     explicitly reopens implementation
 - Files out of scope:
   - fresh Desloppify scan/queue import as task intake
-  - optional external score refresh until after DCR exit is complete
+  - external/manual score refresh; maintainer may run it after DCR exit closes,
+    but it is not a DCR-EXIT execution slice or blocker
   - future Windows/Electron port implementation
 - Known issues to retire:
   - actual issues:
+    - `DCR-EXIT-A0`: run a comprehensive final source-backed dimension audit
+      before package reconciliation, using Desloppify objective/subjective
+      dimensions as rubric only and requiring an audit matrix/findings ledger
+      with no unowned follow-ups.
     - `DCR-EXIT-A1`: reconcile every DCR package and prove all actual issues
       are fixed, source-disproved, or explicitly reclassified with evidence.
     - `DCR-EXIT-A2`: confirm all owner decisions have one recorded outcome,
@@ -1152,14 +1470,14 @@ changes them:
     - `DCR-EXIT-A3`: verify current architecture/API docs still match source
       after DCR changes.
   - owner decisions:
-    - `DCR-EXIT-D1`: decide whether to run the optional external score refresh
-      after exit. It may inform retrospective notes but must not reopen the
-      checklist by itself.
+    - `DCR-EXIT-D1`: external/manual by maintainer after exit closeout. It may
+      inform retrospective notes but is out of DCR-EXIT execution and must not
+      reopen the checklist by itself.
   - accepted residuals:
     - `FCP-6` future-port residual remains explicit: real Windows/Electron
       shell, real device Plex, native media, and manual integration proof belong
       to the future-port owner and are not DCR source cleanup blockers.
-- Completion means: all `DCR-1` through `DCR-10` packages are completed. Any
+- Completion means: all `DCR-1` through `DCR-16` packages are completed. Any
   unresolved work must already be handled inside a completed package as an
   individual issue/residual disposition or as a maintainer-approved migration
   out of DCR with named destination, owner, revisit trigger, and non-blocker
@@ -1169,26 +1487,36 @@ changes them:
 - Verification routing: source-backed DCR reconciliation audit, package-local
   static/source audits for old patterns, strongest relevant package
   verification already run, final `npm run verify`, and `npm run verify:docs`.
-  Optional external score refresh only after this gate is completed.
-- Ready-now execution unit: none until all DCR packages are complete.
+  `npm run plans:check` applies while the active plan is the handoff surface.
+  External/manual score refresh is maintainer-owned after this gate closes.
+- Ready-now execution unit: `DCR-EXIT-S1` routing repair only. After that,
+  `DCR-EXIT` blocks on `DCR-11` through `DCR-16` and the next implementation
+  package is `DCR-11`.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
   | --- | --- | --- | --- |
-  | `DCR-EXIT-S1` | package proof matrix reconciliation | checklist/plans/docs read/write | serial |
-  | `DCR-EXIT-S2` | architecture/API/current-state doc reconciliation | docs + source audit | serial after S1 |
-  | `DCR-EXIT-S3` | optional external score refresh decision/result | retrospective artifact only | after exit criteria pass |
+  | `DCR-EXIT-S0` | comprehensive source-backed dimension audit | complete; local controller artifacts summarized in the active plan | complete |
+  | `DCR-EXIT-S1` | route S0 findings into checklist packages/residuals/source-disproves | checklist/plan/docs only | serial; no production/test implementation |
+  | `DCR-EXIT-S2` | package proof matrix reconciliation | checklist/plans/docs read/write | serial after `DCR-11` through `DCR-16` close |
+  | `DCR-EXIT-S3` | owner-decision ledger reconciliation | checklist/plans/docs read/write | serial after S2 |
+  | `DCR-EXIT-S4` | architecture/API/current-state doc reconciliation | docs + source audit | serial after S3 |
+  | `DCR-EXIT-S5` | final verification, adversarial review, checklist closeout | checklist/docs only unless replanned | serial after S4 |
 
 - Stop/replan triggers: any DCR package has open actual issues; source audit
   finds new same-area production residue not owned by a package; docs conflict
-  with source; optional score output is treated as task intake.
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: future-port residuals owned by port/test owner as above; no other
-  follow-ups yet
-- Handoff: do not run a fresh scoring-only pass before this exit gate completes.
-  Start `DCR-1` or another maintainer-selected DCR package first.
+  with source; security issue appears; a finding lacks final owner/revisit
+  trigger; score refresh output is treated as task intake.
+- Last touched: 2026-04-30
+- Verification: S0 audit artifacts recorded in local controller run storage and
+  summarized in the active plan; `npm run plans:check` passed; `npm run
+  verify:docs` passed; read-only S0 routing review approved with no material
+  findings.
+- Follow-ups: `DCR-11` through `DCR-16` admitted from S0 findings; future-port
+  residuals remain owned by port/test owner as above.
+- Handoff: stop DCR-EXIT here and start `DCR-11` in a fresh cleanup-loop
+  session. Do not run a fresh scoring-only pass or implement production/test
+  fixes inside DCR-EXIT.
 
 ## FCP Baseline History
 

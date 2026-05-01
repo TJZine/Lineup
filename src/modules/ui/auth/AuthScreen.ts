@@ -8,7 +8,7 @@ import { PLEX_LINK_QR_SVG } from './plexLinkQrSvg';
 
 export interface AuthScreenPorts {
     requestAuthPin(): Promise<PlexPinRequest>;
-    pollForPin(pinId: number): Promise<PlexPinRequest>;
+    pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
     cancelPin(pinId: number): Promise<void>;
     getNavigation(): AuthScreenNavigationPort | null;
 }
@@ -27,11 +27,13 @@ export class AuthScreen {
     private _requestButton: HTMLButtonElement;
     private _cancelButton: HTMLButtonElement;
     private _retryButton: HTMLButtonElement;
+    private _requestToken: number = 0;
     private _pollToken: number = 0;
     private _expiryTimer: number | null = null;
     private _expiresAt: Date | null = null;
     private _activePinId: number | null = null;
     private _activeCode: string | null = null;
+    private _pollAbortController: AbortController | null = null;
     private _retryFocusableRegistered: boolean = false;
     private _cancelHasRetryNeighbor: boolean = false;
     private _destroyScreenShell: (() => void) | null = null;
@@ -152,11 +154,14 @@ export class AuthScreen {
 
     hide(): void {
         this._stopExpiryTimer();
+        this._requestToken += 1;
         this._pollToken += 1;
+        this._abortActivePolling();
         const activePinId = this._activePinId;
         this._activePinId = null;
         this._activeCode = null;
         this._expiresAt = null;
+        this._restoreIdleState();
         if (activePinId !== null) {
             void Promise.resolve(this._ports.cancelPin(activePinId)).catch(() => {
                 // Best-effort cancellation while hiding screen.
@@ -168,6 +173,8 @@ export class AuthScreen {
     }
 
     private async _handleRequestPin(): Promise<void> {
+        this._requestToken += 1;
+        const requestToken = this._requestToken;
         this._clearError();
         this._setButtons({ request: false, cancel: true, retry: false });
         this._setStatus('Requesting PIN…', '', { tone: 'loading' });
@@ -179,6 +186,7 @@ export class AuthScreen {
         if (this._activePinId !== null) {
             // Cancel any in-flight poll and best-effort cancel server-side PIN.
             this._pollToken += 1;
+            this._abortActivePolling();
             this._stopExpiryTimer();
             try {
                 await this._ports.cancelPin(this._activePinId);
@@ -186,12 +194,21 @@ export class AuthScreen {
                 // Best-effort cancel; ignore errors.
             }
         }
+        if (requestToken !== this._requestToken) {
+            return;
+        }
         this._activePinId = null;
         this._activeCode = null;
         this._expiresAt = null;
 
         try {
             const pin = await this._ports.requestAuthPin();
+            if (requestToken !== this._requestToken) {
+                void Promise.resolve(this._ports.cancelPin(pin.id)).catch(() => {
+                    // Best-effort cancellation for a PIN returned after the auth request became stale.
+                });
+                return;
+            }
             this._activePinId = pin.id;
             this._activeCode = pin.code;
             this._expiresAt = pin.expiresAt;
@@ -200,6 +217,9 @@ export class AuthScreen {
             this._startExpiryTimer();
             this._startPolling(pin);
         } catch (error) {
+            if (requestToken !== this._requestToken) {
+                return;
+            }
             this._handleError(error, 'Failed to request PIN.');
             this._setButtons({ request: true, cancel: false, retry: true });
         }
@@ -208,12 +228,18 @@ export class AuthScreen {
     private async _startPolling(pin: PlexPinRequest): Promise<void> {
         this._pollToken += 1;
         const token = this._pollToken;
+        this._abortActivePolling();
+        const abortController = new AbortController();
+        this._pollAbortController = abortController;
         this._setStatus('Waiting for sign-in…', '', { tone: 'loading' });
 
         try {
-            const result = await this._ports.pollForPin(pin.id);
+            const result = await this._ports.pollForPin(pin.id, { signal: abortController.signal });
             if (token !== this._pollToken) {
                 return;
+            }
+            if (this._pollAbortController === abortController) {
+                this._pollAbortController = null;
             }
             this._stopExpiryTimer();
             this._setStatus('Signed in.', 'Continuing startup…', { tone: 'success' });
@@ -225,6 +251,9 @@ export class AuthScreen {
             if (token !== this._pollToken) {
                 return;
             }
+            if (this._pollAbortController === abortController) {
+                this._pollAbortController = null;
+            }
             this._stopExpiryTimer();
             this._handleError(error, 'PIN polling failed.');
             this._setButtons({ request: true, cancel: false, retry: true });
@@ -232,7 +261,9 @@ export class AuthScreen {
     }
 
     private async _handleCancel(): Promise<void> {
+        this._requestToken += 1;
         this._pollToken += 1;
+        this._abortActivePolling();
         this._stopExpiryTimer();
         if (this._activePinId !== null) {
             try {
@@ -247,6 +278,16 @@ export class AuthScreen {
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
         this._setStatus('Cancelled.', 'Request a new PIN to continue.', { tone: 'neutral' });
+        this._setButtons({ request: true, cancel: false, retry: false });
+    }
+
+    private _restoreIdleState(): void {
+        this._clearError();
+        this._renderPin('----');
+        this._qrWrapEl.style.display = 'none';
+        this._detailEl.textContent = '';
+        this._setCountdownWarningVisible(false);
+        this._setStatus('Ready to request a PIN.', '', { tone: 'neutral', ariaLive: 'polite' });
         this._setButtons({ request: true, cancel: false, retry: false });
     }
 
@@ -424,9 +465,20 @@ export class AuthScreen {
         this._setCountdownWarningVisible(false);
     }
 
+    private _abortActivePolling(): void {
+        const controller = this._pollAbortController;
+        this._pollAbortController = null;
+        if (!controller || controller.signal.aborted) {
+            return;
+        }
+        controller.abort();
+    }
+
     private async _handleExpiredPin(): Promise<void> {
         this._stopExpiryTimer();
+        this._requestToken += 1;
         this._pollToken += 1;
+        this._abortActivePolling();
 
         if (this._activePinId !== null) {
             try {

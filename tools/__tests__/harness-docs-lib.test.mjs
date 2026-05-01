@@ -1826,6 +1826,22 @@ test('checkPlanConformance accepts DCR checklist-linked package slice ids', () =
     assert.deepEqual(result.errors, []);
 });
 
+test('checkPlanConformance accepts DCR wave-scoped execution_waves slice ids', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-30-dcr-10-oversized-test-suite-structure.md',
+        content: buildActiveCleanupPlan(
+            buildWaveScopedPackageDecomposition()
+                .replace('`package_id`: `pkg_example_cleanup`', '`package_id`: `DCR-10`')
+                .replace('`checklist_token`: `P6-W1`', '`checklist_token`: `DCR-10`')
+                .replaceAll('P6-W1-S1', 'DCR-10-S1')
+                .replaceAll('P6-W1-S2', 'DCR-10-S2')
+        ),
+    });
+
+    assert.strictEqual(result.isSerious, true);
+    assert.deepEqual(result.errors, []);
+});
+
 test('checkPlanConformance rejects legacy issue fields in FCP checklist-linked plans', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-28-fcp-example.md',

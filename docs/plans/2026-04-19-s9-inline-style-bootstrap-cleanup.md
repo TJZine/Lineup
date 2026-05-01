@@ -1,13 +1,20 @@
 # S9-W1 Inline Style / Bootstrap Cleanup Plan
 
-> Tier 2 tracked plan for `STYLE_CLEANUP_CHECKLIST.md` item `S9-W1` / `pkg_inline_style_bootstrap_cleanup`. The package stays checklist-linked and executes as one bounded slice because both exact issues share the same onboarding screen-shell seam.
+> Historical style cleanup plan for the retired `S9-W1` / `pkg_inline_style_bootstrap_cleanup` intake. `STYLE_CLEANUP_CHECKLIST.md` and `STYLE_AUDIT.md` are no longer present, and this plan must not be used as active cleanup intake without a fresh current-source plan.
 
-**Plan Status:** active
+**Plan Status:** retired
 **Task family:** cleanup/refactor
 **Cleanup subtype:** checklist-linked
 **Tier:** Tier 2
 
 ## Goal
+
+Historical note: this plan records completed onboarding-shell cleanup evidence
+from the retired style cleanup intake. It is not an active execution surface.
+Future onboarding or inline-style work needs a new current-source plan and must
+not reactivate `STYLE_CLEANUP_CHECKLIST.md`,
+`STYLE_AUDIT.md`, or
+`docs/design/active-style-cleanup-package-map.json` as live package truth.
 
 - Retire `STYLE_CLEANUP_CHECKLIST.md` item `S9-W1` / `pkg_inline_style_bootstrap_cleanup` without widening into runtime overlay, app-shell bootstrap, or geometry-driven inline-style cleanup.
 - Make the onboarding shell contract authoritative for onboarding screen container bootstrap so Auth, Profile Select, Server Select, and Channel Setup stop re-declaring `.screen` layout/bootstrap styles inline.
@@ -24,7 +31,7 @@
 ## Parent Priority Alignment
 
 - Parent checklist item:
-  - `STYLE_CLEANUP_CHECKLIST.md` -> `S9-W1` / `pkg_inline_style_bootstrap_cleanup`
+  - Historical retired intake: `STYLE_CLEANUP_CHECKLIST.md` -> `S9-W1` / `pkg_inline_style_bootstrap_cleanup`
 - Companion-map dependency truth:
   - `pkg_inline_style_bootstrap_cleanup` depends on `pkg_onboarding_token_cleanup`
 - Routing invariant to preserve:
@@ -40,11 +47,11 @@
 2. `docs/AGENTIC_DEV_WORKFLOW.md`
 3. `docs/agentic/session-prompts/cleanup-plan.md`
 4. `docs/agentic/plan-authoring-standard.md`
-5. `STYLE_CLEANUP_CHECKLIST.md`
-6. `docs/design/active-style-cleanup-package-map.json`
+5. historical only: `STYLE_CLEANUP_CHECKLIST.md`
+6. historical only: `docs/design/active-style-cleanup-package-map.json`
 7. `docs/architecture/CURRENT_STATE.md`
 8. `docs/design/ui-design-language.md`
-9. `STYLE_AUDIT.md` section `11. Inline Style Hygiene (TypeScript)`
+9. historical only: `STYLE_AUDIT.md` section `11. Inline Style Hygiene (TypeScript)`
 10. `src/styles/shell.onboarding.shared-shell.css`
 11. `src/styles/shell.onboarding.auth.css`
 12. `src/modules/ui/auth/AuthScreen.ts`
@@ -59,7 +66,11 @@
 
 Freshness gate:
 
-- If `STYLE_CLEANUP_CHECKLIST.md`, `docs/design/active-style-cleanup-package-map.json`, `STYLE_AUDIT.md`, or onboarding shell CSS changes materially before implementation, refresh this plan first.
+- Historical only: `STYLE_CLEANUP_CHECKLIST.md`,
+  `docs/design/active-style-cleanup-package-map.json`, and `STYLE_AUDIT.md`
+  were the original intake references for this retired plan. Do not refresh or
+  resume this plan from those missing artifacts; create a new current-source
+  plan instead.
 - If current-source proof shows the bootstrap duplication can only be retired by changing app-shell container creation, `bootstrap.ts`, or other non-onboarding roots, stop and replan instead of widening this package implicitly.
 - If current-source proof finds additional package-owned non-geometric visual-state mutations outside the approved onboarding file seam, stop and assign one final owner before implementation continues.
 
@@ -78,11 +89,15 @@ Freshness gate:
   - planning implication: discovery used direct tracked-doc reads plus `rg` fallback
 - `search_documents`
   - unavailable in this session
-  - planning implication: repo-doc context came from direct reads of `STYLE_CLEANUP_CHECKLIST.md`, `docs/design/active-style-cleanup-package-map.json`, `docs/architecture/CURRENT_STATE.md`, `docs/design/ui-design-language.md`, and `STYLE_AUDIT.md`
+  - planning implication at original authoring time: repo-doc context came from
+    direct reads of the now-retired/missing style intake artifacts plus
+    `docs/architecture/CURRENT_STATE.md` and
+    `docs/design/ui-design-language.md`
 - `analyze_impact`
   - not required for the current risk level
   - reason: the approved seam stays inside onboarding UI owners and their existing tests; no shared public runtime symbol or cross-module wiring move is planned
-- Explicit fallback reads and `rg` audits used because Codanna tooling was unavailable:
+- Historical fallback reads and `rg` audits used during the original completed
+  work because Codanna tooling was unavailable:
   - `rg -n "S9-W1|S9-EXIT|pkg_inline_style_bootstrap_cleanup" STYLE_CLEANUP_CHECKLIST.md docs/design/active-style-cleanup-package-map.json`
   - `rg -n "Inline Style Hygiene|onboarding shell bootstrap|non-geometric inline state" STYLE_AUDIT.md`
   - `rg -n "style\\.position = 'absolute'|style\\.inset = '0'|style\\.alignItems = 'center'|style\\.justifyContent = 'center'" src/modules/ui/auth/AuthScreen.ts src/modules/ui/profile-select/ProfileSelectScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/channel-setup/ChannelSetupScreen.ts`
@@ -120,7 +135,7 @@ Freshness gate:
 ## Files In Scope
 
 - `docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md`
-- `STYLE_CLEANUP_CHECKLIST.md` for same-pass plan linkage and package-status truth
+- Historical original intake only: `STYLE_CLEANUP_CHECKLIST.md`
 - `src/styles/shell.onboarding.shared-shell.css`
 - `src/modules/ui/auth/AuthScreen.ts`
 - `src/modules/ui/profile-select/ProfileSelectScreen.ts`
@@ -133,8 +148,9 @@ Freshness gate:
 
 ## Files Out Of Scope
 
-- `docs/design/active-style-cleanup-package-map.json`
-- `STYLE_AUDIT.md`
+- Historical original intake only:
+  `docs/design/active-style-cleanup-package-map.json`
+- Historical original intake only: `STYLE_AUDIT.md`
 - `docs/design/ui-design-language.md`
 - `src/styles/tokens.css`
 - `src/styles/themes.css`

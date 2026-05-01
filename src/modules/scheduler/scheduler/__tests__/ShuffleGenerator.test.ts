@@ -20,6 +20,10 @@ describe('ShuffleGenerator', () => {
             expect(result1).toEqual(result2);
         });
 
+        it('should preserve finite-seed deterministic order', () => {
+            expect(shuffler.shuffle([1, 2, 3, 4, 5], 12345)).toEqual([1, 3, 4, 2, 5]);
+        });
+
         it('should produce different order with different seed', () => {
             const items = [1, 2, 3, 4, 5];
             const result1 = shuffler.shuffle(items, 12345);
@@ -71,6 +75,18 @@ describe('ShuffleGenerator', () => {
             const result2 = shuffler.shuffle(items, 777);
             expect(result1).toEqual(result2);
         });
+
+        it('should reject non-finite seeds', () => {
+            expect(() => shuffler.shuffle([1, 2, 3], Number.POSITIVE_INFINITY)).toThrow(
+                'Seed must be a finite number',
+            );
+            expect(() => shuffler.shuffle([1, 2, 3], Number.NEGATIVE_INFINITY)).toThrow(
+                'Seed must be a finite number',
+            );
+            expect(() => shuffler.shuffle([1, 2, 3], Number.NaN)).toThrow(
+                'Seed must be a finite number',
+            );
+        });
     });
 
     describe('shuffleIndices', () => {
@@ -85,9 +101,25 @@ describe('ShuffleGenerator', () => {
             expect(result1).toEqual(result2);
         });
 
+        it('should preserve finite-seed deterministic order', () => {
+            expect(shuffler.shuffleIndices(5, 12345)).toEqual([0, 2, 3, 1, 4]);
+        });
+
         it('should return empty array for count 0', () => {
             const result = shuffler.shuffleIndices(0, 12345);
             expect(result).toEqual([]);
+        });
+
+        it('should reject non-finite seeds', () => {
+            expect(() => shuffler.shuffleIndices(3, Number.POSITIVE_INFINITY)).toThrow(
+                'Seed must be a finite number',
+            );
+            expect(() => shuffler.shuffleIndices(3, Number.NEGATIVE_INFINITY)).toThrow(
+                'Seed must be a finite number',
+            );
+            expect(() => shuffler.shuffleIndices(3, Number.NaN)).toThrow(
+                'Seed must be a finite number',
+            );
         });
     });
 

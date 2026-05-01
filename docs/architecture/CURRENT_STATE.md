@@ -88,6 +88,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - delegates playback info snapshot projection to `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`; `AppOrchestrator` remains the runtime state source and refresh trigger owner
 - delegates coordinator assembly required-module hardening to `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` / `OrchestratorCoordinatorContracts.ts`, which own the typed assembly input seam
 - delegates shutdown teardown failure collection to `src/core/orchestrator/OrchestratorShutdownTeardown.ts` while preserving `AppOrchestrator.shutdown()` ordering, field nulling, and singleton/no-reuse lifecycle ownership
+- delegates channel-switch runtime commands and missing-dependency reporting to `src/core/orchestrator/OrchestratorChannelSwitchRuntime.ts`
+- delegates Plex auth screen-runtime PIN operations to `src/core/orchestrator/OrchestratorPlexAuthRuntime.ts`
+- delegates selected-server projection, selection/clear commands, and selected-server startup-swap handoff to `src/core/orchestrator/OrchestratorServerSelectionRuntime.ts`
 
 ### `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`
 
@@ -103,6 +106,38 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused shutdown helper for best-effort teardown failure collection
 - preserves continuation after individual teardown failures and returns failures for one aggregate `orchestrator.shutdown.teardown` report from `AppOrchestrator`
+
+### `src/core/orchestrator/OrchestratorChannelSwitchRuntime.ts`
+
+- focused owner for AppOrchestrator-facing channel-switch runtime commands
+- owns ID and number switch delegation, missing channel-tuning dependency reporting, outcome-aware number-switch adaptation, and best-effort next/previous channel commands
+
+### `src/core/orchestrator/OrchestratorPlexAuthRuntime.ts`
+
+- focused owner for AppOrchestrator-facing Plex auth screen-runtime PIN operations
+- preserves initialized/shutdown checks for `requestAuthPin`, `pollForPin`, and `cancelPin` while Plex auth remains the credential/token owner
+
+### `src/core/orchestrator/OrchestratorServerSelectionRuntime.ts`
+
+- focused owner for AppOrchestrator-facing selected-server runtime operations
+- owns selected-server ID projection, select/clear commands, selected-server coordinator/runtime-controller handoff, and post-selection startup-swap orchestration
+
+### DCR-12-S1 AppOrchestrator Source Audit
+
+Current source audit on 2026-04-30 records `src/core/orchestrator/AppOrchestrator.ts`
+at 1904 lines after extracting the frozen `DCR-12-A1` closure set. The remaining
+large-file shape is the public runtime facade, module field ownership, lifecycle
+composition, coordinator/controller assembly, and cross-module wiring. The file no
+longer owns the three DCR-12-S1 hotspot responsibility groups: channel-switch
+runtime policy lives in `OrchestratorChannelSwitchRuntime.ts`, Plex auth PIN
+screen-runtime operations live in `OrchestratorPlexAuthRuntime.ts`, and
+selected-server projection/selection/clear plus post-selection startup-swap
+orchestration live in `OrchestratorServerSelectionRuntime.ts`.
+
+`S0-L01-F1` no longer describes the current `AppOrchestrator` source for the
+DCR-12-S1 closure scope. Future cleanup may still split additional facade or
+composition responsibilities, but that is not the active DCR-12-A1 issue shape
+after this extraction.
 
 ### `src/core/orchestrator/priority-one/`
 
@@ -161,7 +196,20 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - `src/modules/scheduler/`
 - owns scheduling behavior, shuffle logic, and channel domain flows
-- channel-domain persistence ownership (including selected/current channel state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`; `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin consumer wrapper over that store, with server/user-scoped keys configured through `src/core/orchestrator/OrchestratorStorageContext.ts`
+- scheduler shuffle order uses `src/modules/scheduler/shared/prng.ts` as the
+  shared seeded-shuffle owner; `src/modules/scheduler/scheduler/ShuffleGenerator.ts`
+  delegates to that helper instead of owning a duplicate shuffle loop
+- channel-domain persistence ownership (including selected/current channel
+  state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`;
+  `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin
+  consumer wrapper over that store, with server/user-scoped keys configured
+  through `src/core/orchestrator/OrchestratorStorageContext.ts`
+- `src/modules/scheduler/channel-manager/ChannelManager.ts` remains the public
+  channel-domain API/state owner, while package-local collaborators own focused
+  responsibilities: `ChannelPersistenceSaveQueue.ts` owns debounced save
+  promise/timer/warning orchestration through callbacks, and
+  `ChannelImportNormalizer.ts` owns import payload validation and create-input
+  shaping without mutating manager state or changing persistence schema
 
 ### Player
 
@@ -220,15 +268,19 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ## Current Hotspots
 
-The main structural hotspots still called out by the cleanup backlog are:
+The main structural hotspots still treated as current by this architecture source are:
 
-- `src/core/orchestrator/AppOrchestrator.ts`
 - `src/App.ts`
 - `src/modules/ui/epg/component/EPGComponent.ts`
-- `src/modules/ui/settings/SettingsScreen.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-- `src/modules/plex/stream/PlexStreamResolver.ts`
-- `src/modules/scheduler/channel-manager/ChannelManager.ts`
+
+`src/modules/ui/settings/SettingsScreen.ts`,
+`src/modules/plex/stream/PlexStreamResolver.ts`, and
+`src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
+ownership surfaces, but they are no longer treated as current primary file-size
+hotspots after their latest split/delegation passes. `ChannelSetupScreen.ts`
+remains on the active hotspot list until a current source audit proves its
+remaining size and ownership concentration are no longer cleanup-relevant.
 
 The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md).
 

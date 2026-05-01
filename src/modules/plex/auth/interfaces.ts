@@ -118,11 +118,11 @@ export interface PlexAuthEvents extends Record<string, unknown> {
 export interface IPlexAuth {
     requestPin(): Promise<PlexPinRequest>;
 
-    checkPinStatus(pinId: number): Promise<PlexPinRequest>;
+    checkPinStatus(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
 
     cancelPin(pinId: number): Promise<void>;
 
-    pollForPin(pinId: number): Promise<PlexPinRequest>;
+    pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
 
     /**
      * Verify a token is still valid by calling Plex API.

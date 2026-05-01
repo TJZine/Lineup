@@ -12,7 +12,7 @@ export interface AppShellNavigationRuntimePort {
 
 export interface AppShellAuthRuntimePort {
     requestAuthPin(): Promise<PlexPinRequest>;
-    pollForPin(pinId: number): Promise<PlexPinRequest>;
+    pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
     cancelPin(pinId: number): Promise<void>;
 }
 
@@ -32,12 +32,31 @@ export type AppShellServerSelectionResult =
         kind: 'selected';
     };
 
+export type AppShellServerHealthStatus =
+    | 'ok'
+    | 'unreachable'
+    | 'auth_required'
+    | 'access_denied';
+
+export type AppShellServerHealthType = 'local' | 'remote' | 'relay' | 'unknown';
+
+export type AppShellServerHealthRecord = {
+    status: AppShellServerHealthStatus;
+    type: AppShellServerHealthType;
+    latencyMs?: number;
+    testedAt?: number;
+};
+
+export type AppShellServerSelectState = {
+    selectedServerId: string | null;
+    serverHealth: Record<string, AppShellServerHealthRecord>;
+};
+
 export interface AppShellServerSelectionRuntimePort {
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
     selectServer(serverId: string): Promise<AppShellServerSelectionResult>;
     clearSelectedServer(): Promise<void>;
-    getSelectedServerStorageKey(): string;
-    getServerHealthStorageKey(): string;
+    getSelectedServerScreenState(): AppShellServerSelectState;
     requestChannelSetupRerun(): void;
 }
 
@@ -133,6 +152,5 @@ export interface AppShellDiagnosticsRuntimePort {
     toggleServerSelect(): void;
     refreshPlaybackInfoSnapshot(): Promise<AppShellPlaybackInfoSnapshot>;
     getSelectedServerId(): string | null;
-    getSelectedServerStorageKey(): string;
     getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
 }
