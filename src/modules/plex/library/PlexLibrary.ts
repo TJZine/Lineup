@@ -195,10 +195,6 @@ export class PlexLibrary implements IPlexLibrary {
     }
 
 
-    /**
-     * Get all libraries.
-     * @returns Promise resolving to list of libraries
-     */
     async getLibraries(options?: {
         signal?: AbortSignal | null;
         includeItemCounts?: boolean;

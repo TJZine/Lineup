@@ -397,7 +397,6 @@ export function installLineupBootstrap(): void {
     window.addEventListener('error', handleGlobalError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
-    // Start when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', handleDomContentLoaded, { once: true });
     } else {

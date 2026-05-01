@@ -630,7 +630,6 @@ export class ServerSelectScreen {
             actions.appendChild(selectButton);
             row.appendChild(actions);
 
-            // Add health pill
             const health = healthMap[server.id];
             const pill = document.createElement('div');
             const normalizedStatus =

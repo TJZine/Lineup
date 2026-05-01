@@ -1,5 +1,3 @@
-/** Settings screen component. */
-
 import type { INavigationManager } from '../../navigation';
 import { createSettingsToggle } from './SettingsToggle';
 import { createSettingsSelect } from './SettingsSelect';
@@ -104,9 +102,6 @@ export class SettingsScreen {
         this._buildUI();
     }
 
-    /**
-     * Build the settings UI.
-     */
     private _buildUI(): void {
         this._container.className = 'settings-screen';
         this._container.id = 'settings-screen';
@@ -118,7 +113,6 @@ export class SettingsScreen {
         const panel = document.createElement('div');
         panel.className = 'settings-panel';
 
-        // Header
         const header = document.createElement('div');
         header.className = 'settings-header';
 
@@ -341,9 +335,6 @@ export class SettingsScreen {
         return this._categories.find((category) => category.id === this._activeCategoryId);
     }
 
-    /**
-     * Show the settings screen and register focusables.
-     */
     public show(): void {
         this._container.classList.add('visible');
         this._reloadCategoriesFromState();
@@ -368,9 +359,6 @@ export class SettingsScreen {
         }
     }
 
-    /**
-     * Hide the settings screen and unregister focusables.
-     */
     public hide(): void {
         this._focusCoordinator.closeDropdown();
         this._container.classList.remove('visible');
@@ -393,9 +381,6 @@ export class SettingsScreen {
         return toggle.element;
     }
 
-    /**
-     * Destroy the component.
-     */
     public destroy(): void {
         this._focusCoordinator.destroy();
         this._categories = [];

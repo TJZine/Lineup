@@ -127,10 +127,6 @@ export class NavigationManager
         };
     }
 
-    /**
-     * Initialize the navigation manager with configuration.
-     * @param config - Navigation configuration
-     */
     public initialize(config: NavigationConfig): void {
         if (this._isInitialized) {
             return;
@@ -140,7 +136,6 @@ export class NavigationManager
 
         this._remoteHandler.initialize();
 
-        // Subscribe to remote events
         this._keyDownDisposable = this._remoteHandler.on('keyDown', (keyEvent) => {
             this._remoteInputRouter.handleKeyEvent(keyEvent);
         });
@@ -154,7 +149,6 @@ export class NavigationManager
             document.addEventListener('focusin', this._boundFocusInHandler, { passive: true });
         }
 
-        // Set up pointer mode if enabled
         if (this._state.config.enablePointerMode) {
             this._initializePointerMode();
         }
@@ -170,7 +164,6 @@ export class NavigationManager
             return;
         }
 
-        // Clean up pointer mode
         if (this._pointerHideTimer !== null) {
             window.clearTimeout(this._pointerHideTimer);
             this._pointerHideTimer = null;
@@ -179,7 +172,6 @@ export class NavigationManager
         this._directionalRepeatController.destroy();
         this._channelNumberInputController.destroy();
 
-        // Remove pointer mode listeners
         document.removeEventListener('mousemove', this._handlePointerMove);
         document.removeEventListener('click', this._handlePointerClick);
         document.removeEventListener('focusin', this._boundFocusInHandler);
@@ -219,21 +211,17 @@ export class NavigationManager
 
         const from = this._state.currentScreen;
 
-        // Save focus state for current screen
         if (this._state.config.focusMemoryEnabled) {
             this._focusManager.saveFocusState(from);
         }
 
-        // Push current screen to stack
         this._state.screenStack.push(from);
 
-        // Set new screen
         this._state.currentScreen = screen;
         this._state.serverSelectParams = screen === 'server-select'
             ? (params !== undefined ? { ...params } : null)
             : null;
 
-        // Emit screen change event
         this.emit('screenChange', { from, to: screen });
 
         // Restore or set initial focus
@@ -261,7 +249,6 @@ export class NavigationManager
             return true;
         }
 
-        // Check if we have history
         if (this._state.screenStack.length === 0) {
             // At root, cannot go back
             return false;
@@ -274,12 +261,10 @@ export class NavigationManager
             return false;
         }
 
-        // Save focus state for current screen
         if (this._state.config.focusMemoryEnabled) {
             this._focusManager.saveFocusState(from);
         }
 
-        // Navigate to previous screen
         this._state.currentScreen = previousScreen;
         this._state.serverSelectParams = null;
 
@@ -311,17 +296,10 @@ export class NavigationManager
 
     }
 
-    /**
-     * Get typed server-select params for the active server-select route.
-     */
     public getServerSelectParams(): ServerSelectNavigationParams | null {
         return this._state.currentScreen === 'server-select' ? this._state.serverSelectParams : null;
     }
 
-    /**
-     * Get the current screen.
-     * @returns The current screen
-     */
     public getCurrentScreen(): Screen {
         return this._state.currentScreen;
     }
@@ -355,10 +333,6 @@ export class NavigationManager
         return this._focusManager.restoreFocusState(this._state.currentScreen);
     }
 
-    /**
-     * Get the currently focused element.
-     * @returns The focused element or null
-     */
     public getFocusedElement(): FocusableElement | null {
         return this._focusManager.getFocusedElement();
     }
@@ -410,7 +384,6 @@ export class NavigationManager
 
         this._focusManager.registerFocusable(element);
 
-        // Create and store click handler for cleanup
         const clickHandler = (): void => {
             this.setFocus(element.id);
             if (element.onSelect) {
@@ -426,7 +399,6 @@ export class NavigationManager
      * @param elementId - The element ID to unregister
      */
     public unregisterFocusable(elementId: string): void {
-        // Remove stored click handler
         const handler = this._clickHandlers.get(elementId);
         if (handler) {
             const element = this._focusManager.getElement(elementId);
@@ -471,13 +443,10 @@ export class NavigationManager
             return;
         }
 
-        // Save pre-modal focus
         this._focusManager.savePreModalFocus();
 
-        // Push modal to stack
         this._state.modalStack.push(modalId);
 
-        // Register modal focusables for focus trap
         if (focusableIds && focusableIds.length > 0) {
             this._state.modalFocusableIds.set(modalId, focusableIds);
         }
@@ -499,7 +468,6 @@ export class NavigationManager
         let closedModalId: string;
 
         if (modalId !== undefined) {
-            // Close specific modal
             const index = this._state.modalStack.indexOf(modalId);
             if (index === -1) {
                 return;
@@ -508,7 +476,6 @@ export class NavigationManager
             this._state.modalFocusableIds.delete(modalId);
             closedModalId = modalId;
         } else {
-            // Close top modal
             const topModal = this._state.modalStack.pop();
             if (topModal === undefined) {
                 return;
@@ -526,11 +493,6 @@ export class NavigationManager
 
     }
 
-    /**
-     * Check if a modal is open.
-     * @param modalId - Optional specific modal ID to check
-     * @returns true if the modal (or any modal) is open
-     */
     public isModalOpen(modalId?: string): boolean {
         if (modalId !== undefined) {
             return this._state.modalStack.indexOf(modalId) !== -1;
@@ -554,18 +516,10 @@ export class NavigationManager
 
     }
 
-    /**
-     * Check if input is blocked.
-     * @returns true if input is blocked
-     */
     public isInputBlocked(): boolean {
         return this._state.isInputBlocked;
     }
 
-    /**
-     * Get the current navigation state.
-     * @returns The navigation state
-     */
     public getState(): NavigationState {
         return {
             currentScreen: this._state.currentScreen,
@@ -642,17 +596,11 @@ export class NavigationManager
         this._suppressedLogTimestamps.set(key, now);
     }
 
-    /**
-     * Handle key up events from remote handler.
-     */
     private _handleKeyUp(button: RemoteButton): void {
         this.emit('keyUp', { button });
         this._directionalRepeatController.handleDirectionalKeyUp(button);
     }
 
-    /**
-     * Handle OK button press.
-     */
     private _handleOkButton(): void {
         const focused = this._focusManager.getFocusedElement();
         if (focused) {
@@ -666,17 +614,12 @@ export class NavigationManager
         }
     }
 
-    /**
-     * Handle Back button press with root screen behavior.
-     */
     private _handleBackButton(): void {
-        // Close modal if open
         if (this._state.modalStack.length > 0) {
             this.closeModal();
             return;
         }
 
-        // If we have history, navigate back normally
         if (this._state.screenStack.length > 0) {
             this.goBack();
             return;
@@ -698,31 +641,22 @@ export class NavigationManager
                 window.close();
                 break;
             case 'server-select':
-                // Navigate back to auth
                 this.replaceScreen('auth');
                 break;
             case 'settings':
             case 'channel-edit':
-                // Navigate to player
                 this.replaceScreen('player');
                 break;
             default:
-                // No action for other root screens
                 break;
         }
     }
 
-    /**
-     * Initialize pointer mode for Magic Remote.
-     */
     private _initializePointerMode(): void {
         document.addEventListener('mousemove', this._handlePointerMove);
         document.addEventListener('click', this._handlePointerClick);
     }
 
-    /**
-     * Handle pointer movement.
-     */
     private _handlePointerMove = (): void => {
         if (!this._state.isPointerActive) {
             this._state.isPointerActive = true;
@@ -743,9 +677,6 @@ export class NavigationManager
         }, CURSOR_HIDE_DELAY_MS);
     };
 
-    /**
-     * Handle pointer click.
-     */
     private _handlePointerClick = (event: MouseEvent): void => {
         const target = event.target as HTMLElement;
         const focusable = target.closest('.' + FOCUS_CLASSES.FOCUSABLE) as HTMLElement;

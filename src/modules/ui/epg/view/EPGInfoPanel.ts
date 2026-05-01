@@ -106,11 +106,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         return this.dynamicBackground.getCacheStats();
     }
 
-    /**
-     * Initialize the info panel.
-     *
-     * @param parentElement - Parent element to append info panel to
-     */
     initialize(parentElement: HTMLElement): void {
         const container = this.createContainerElement();
         parentElement.appendChild(container);
@@ -182,9 +177,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
     }
 
-    /**
-     * Create the DOM template for the info panel.
-     */
     private createTemplateElement(): DocumentFragment {
         const fragment = document.createDocumentFragment();
 
@@ -313,21 +305,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.resolveIdleIfSettled();
     }
 
-    /**
-     * Update the info panel with new program details.
-     * Shows the panel if not already visible.
-     *
-     * @param program - Program to display
-     */
     update(program: ScheduledProgram): void {
         this.updateFull(program);
     }
 
-    /**
-     * Update the info panel quickly (without poster/description).
-     *
-     * @param program - Program to display
-     */
     updateFast(program: ScheduledProgram): void {
         if (!this.containerElement) return;
 
@@ -338,11 +319,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.isVisible = true;
     }
 
-    /**
-     * Update the info panel fully (including poster/description).
-     *
-     * @param program - Program to display
-     */
     updateFull(program: ScheduledProgram): void {
         if (!this.containerElement) return;
 
@@ -353,9 +329,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.isVisible = true;
     }
 
-    /**
-     * Update the content of the info panel (fast path).
-     */
     private updateContentFast(
         program: ScheduledProgram,
         options?: { allowHdrFetch?: boolean }
@@ -489,9 +462,6 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.updateQualityBadges(program, undefined, { allowHdrFetch: options.allowHdrFetch });
     }
 
-    /**
-     * Update the content of the info panel (full).
-     */
     private updateContentFull(program: ScheduledProgram): void {
         if (!this.containerElement) return;
 
@@ -851,20 +821,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
     }
 
-    /**
-     * Get the currently displayed program.
-     *
-     * @returns Current program or null
-     */
     getCurrentProgram(): ScheduledProgram | null {
         return this.currentProgram;
     }
 
-    /**
-     * Check if the info panel is currently visible.
-     *
-     * @returns true if visible
-     */
     isShowing(): boolean {
         return this.isVisible;
     }

@@ -64,10 +64,6 @@ export class PlexAuth implements IPlexAuth {
     private _emitter: EventEmitter<PlexAuthEvents>;
     private _credentialsEpoch = 0;
 
-    /**
-     * Create a new PlexAuth instance.
-     * @param config - Plex API client identification config
-     */
     constructor(config: PlexAuthConfig) {
         this._emitter = new EventEmitter<PlexAuthEvents>();
         this._state = {
@@ -344,12 +340,10 @@ export class PlexAuth implements IPlexAuth {
     }
 
 
-    /** Check if currently authenticated. */
     public isAuthenticated(): boolean {
         return this._state.activeToken !== null;
     }
 
-    /** Get current user token. */
     public getCurrentUser(): PlexAuthToken | null {
         return this._state.activeToken;
     }

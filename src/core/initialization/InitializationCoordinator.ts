@@ -375,7 +375,6 @@ export class InitializationCoordinator {
         // EventEmitter is already ready (synchronous)
         this._callbacks.status.updateModuleStatus('event-emitter', 'ready', undefined, 0);
 
-        // Initialize Lifecycle and Navigation in parallel
         const promises: Promise<void>[] = [];
 
         if (this._deps.modules.lifecycle) {

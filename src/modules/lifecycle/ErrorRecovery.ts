@@ -34,11 +34,6 @@ export class ErrorRecovery {
         if (callbacks.onDifferentServer) this._onDifferentServer = callbacks.onDifferentServer;
     }
 
-    /**
-     * Get recovery actions for an error.
-     * @param error - Error to handle
-     * @returns Array of possible recovery actions
-     */
     public handleError(error: AppError): ErrorAction[] {
         switch (error.code) {
             case AppErrorCode.AUTH_EXPIRED:
@@ -98,13 +93,6 @@ export class ErrorRecovery {
         }
     }
 
-    /**
-     * Create an AppError with the given parameters.
-     * @param code - Error code
-     * @param message - Error message
-     * @param context - Optional context
-     * @returns Constructed AppError
-     */
     public createError(
         code: AppErrorCode,
         message: string,
@@ -124,11 +112,6 @@ export class ErrorRecovery {
         return error;
     }
 
-    /**
-     * Get user-facing message for an error code.
-     * @param code - Error code
-     * @returns User-friendly message
-     */
     public getUserMessage(code: AppErrorCode): string {
         switch (code) {
             case AppErrorCode.AUTH_EXPIRED:

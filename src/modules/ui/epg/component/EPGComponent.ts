@@ -1,5 +1,3 @@
-/** EPG component that renders the Electronic Program Guide surface. */
-
 import { EventEmitter } from '../../../../utils/EventEmitter';
 import { EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from '../constants';
 import {
@@ -30,7 +28,6 @@ import type {
 } from '../types';
 
 /**
- * EPG Component class.
  * Render/focus/event surface for the Electronic Program Guide grid.
  * Implements virtualized rendering for 60fps performance on TV hardware.
  */
@@ -206,9 +203,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.removeAllListeners();
     }
 
-    /**
-     * Initialize error boundary with recovery callbacks.
-     */
     private initializeErrorBoundary(): void {
         this.errorBoundary.setCallbacks({
             showFallbackRow: (context: string) => {
@@ -226,7 +220,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             },
         });
 
-        // Forward degraded mode events
         this.errorBoundary.on('degradedMode', (data) => {
             if (this._isDebugEnabled()) {
                 this._appendDebugLog('EPG.degradedMode', data);
@@ -234,9 +227,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         });
     }
 
-    /**
-     * Create the DOM structure for the EPG.
-     */
     private createDOMStructure(): void {
         if (!this.containerElement) return;
 
@@ -296,12 +286,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.shellView.syncClassicShellVisibility(mode, this.state.isVisible);
     }
 
-    /**
-     * Calculate the grid anchor time (start of schedule day, typically midnight).
-     *
-     * @param currentTime - Current time in milliseconds
-     * @returns Anchor time (start of day) in milliseconds
-     */
     private calculateGridAnchorTime(currentTime: number): number {
         const date = new Date(currentTime);
         date.setHours(0, 0, 0, 0);
@@ -443,9 +427,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.emit('close', undefined);
     }
 
-    /**
-     * Toggle EPG visibility.
-     */
     toggle(): void {
         if (this.state.isVisible) {
             this.hide();
@@ -454,21 +435,11 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
-    /**
-     * Check if EPG is currently visible.
-     *
-     * @returns true if visible
-     */
     isVisible(): boolean {
         return this.state.isVisible;
     }
 
 
-    /**
-     * Load channel list into EPG.
-     *
-     * @param channels - Array of channel configurations
-     */
     loadChannels(channels: ChannelConfig[]): void {
         this.state.channels = channels;
         this.channelIds = channels.map((c) => c.id);
@@ -557,12 +528,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
-    /**
-     * Load schedule for a specific channel.
-     *
-     * @param channelId - Channel ID
-     * @param schedule - Schedule window with programs
-     */
     loadScheduleForChannel(channelId: string, schedule: ScheduleWindow): void {
         this.state.schedules.set(channelId, schedule);
         this.state.scheduleLoadTimes.set(channelId, Date.now());
@@ -694,12 +659,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.focusNavigator.scrollToChannel(channelIndex);
     }
 
-    /**
-     * Handle D-pad navigation input.
-     *
-     * @param direction - Navigation direction
-     * @returns true if navigation was handled, false if at boundary
-     */
     handleNavigation(direction: 'up' | 'down' | 'left' | 'right'): boolean {
         return this.focusNavigator.handleNavigation(direction);
     }
@@ -711,30 +670,15 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         return this.focusNavigator.handlePage(direction);
     }
 
-    /**
-     * Handle OK/Select button press.
-     *
-     * @returns true if handled
-     */
     handleSelect(): boolean {
         return this.focusNavigator.handleSelect();
     }
 
-    /**
-     * Handle Back button press.
-     *
-     * @returns true if handled (closes EPG), false if already hidden
-     */
     handleBack(): boolean {
         return this.focusNavigator.handleBack();
     }
 
 
-    /**
-     * Get current EPG state.
-     *
-     * @returns Current EPG state
-     */
     getState(): EPGState {
         const { scrollPosition, currentTime, focusedCell, isVisible } = this.state;
         const { visibleHours, visibleChannels } = this.config;

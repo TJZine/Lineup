@@ -127,16 +127,10 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
         this.errorCounts.clear();
     }
 
-    /**
-     * Get current error count for a type.
-     */
     getErrorCount(type: EPGErrorType): number {
         return this.errorCounts.get(type) || 0;
     }
 
-    /**
-     * Check if in degraded mode for a type.
-     */
     isDegraded(type: EPGErrorType): boolean {
         return this.getErrorCount(type) >= this.MAX_ERRORS_PER_TYPE;
     }
