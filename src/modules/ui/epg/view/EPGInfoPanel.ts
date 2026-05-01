@@ -27,6 +27,13 @@ type InfoPanelTemplateBindings = {
     qualityContainer: HTMLElement | null;
 };
 
+type TitleDisplayState = {
+    isEpisode: boolean;
+    hasShowTitleText: boolean;
+    showTitleText: string;
+    titleText: string;
+};
+
 /**
  * EPG Info Panel class.
  * Displays program details in an overlay at the bottom of the EPG.
@@ -346,10 +353,21 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         program: ScheduledProgram,
         options: { allowHdrFetch: boolean; showDescription: boolean }
     ): void {
-        const { item } = program;
+        const titleState = this.applyTitleText(program);
+        this.applyClearLogo(program, titleState);
 
+        this.updateMetaAndTags(program);
+        this.applyGenres(program);
+        this.applyDescription(program, options.showDescription);
+
+        this.updateQualityBadges(program, undefined, { allowHdrFetch: options.allowHdrFetch });
+    }
+
+    private applyTitleText(program: ScheduledProgram): TitleDisplayState {
+        const { item } = program;
         const showTitle = this.showTitleElement;
         const title = this.titleElement;
+
         if (item.type === 'episode') {
             const showText = this.getEffectiveShowTitle(item);
             if (showTitle) {
@@ -368,35 +386,46 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 title.textContent = item.fullTitle || item.title;
             }
         }
-        const hasShowTitleText = Boolean(showTitle?.textContent?.trim());
 
+        return {
+            isEpisode: item.type === 'episode',
+            hasShowTitleText: Boolean(showTitle?.textContent?.trim()),
+            showTitleText: showTitle?.textContent ?? '',
+            titleText: title?.textContent ?? '',
+        };
+    }
+
+    private applyClearLogo(program: ScheduledProgram, titleState: TitleDisplayState): void {
+        const { item } = program;
+        const showTitle = this.showTitleElement;
+        const title = this.titleElement;
+        const clearLogo = this.clearLogoElement;
         const preferClearLogos = this.nowPlayingDisplayStore.readPreferClearLogosEnabledAndClean(true);
         const clearLogoPath = (item as { clearLogo?: string | null }).clearLogo ?? null;
         const clearLogoUrl = preferClearLogos && clearLogoPath
             ? (this.thumbResolver?.(clearLogoPath, 520, 84) ?? null)
             : null;
 
-        const clearLogo = this.clearLogoElement;
         if (clearLogoUrl && clearLogo) {
             clearLogo.onerror = (): void => {
                 clearLogo.onerror = null;
                 clearLogo.removeAttribute('src');
                 clearLogo.alt = '';
                 clearLogo.style.display = 'none';
-                if (item.type === 'episode') {
-                    if (showTitle) showTitle.style.display = hasShowTitleText ? 'block' : 'none';
+                if (titleState.isEpisode) {
+                    if (showTitle) showTitle.style.display = titleState.hasShowTitleText ? 'block' : 'none';
                 } else {
                     if (title) title.style.display = '';
                 }
             };
 
-            clearLogo.alt = item.type === 'episode'
-                ? (showTitle?.textContent ?? '')
-                : (title?.textContent ?? '');
+            clearLogo.alt = titleState.isEpisode
+                ? titleState.showTitleText
+                : titleState.titleText;
             clearLogo.src = clearLogoUrl;
             clearLogo.style.display = 'block';
 
-            if (item.type === 'episode') {
+            if (titleState.isEpisode) {
                 if (showTitle) showTitle.style.display = 'none';
                 if (title) title.style.display = '';
             } else {
@@ -407,59 +436,77 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             clearLogo.removeAttribute('src');
             clearLogo.style.display = 'none';
             clearLogo.alt = '';
-            if (item.type === 'episode') {
-                if (showTitle) showTitle.style.display = hasShowTitleText ? 'block' : 'none';
-                if (title) title.style.display = '';
-            } else {
-                if (title) title.style.display = '';
+            this.restoreTextVisibilityForLogoFallback(titleState);
+        }
+    }
+
+    private restoreTextVisibilityForLogoFallback(titleState: TitleDisplayState): void {
+        if (titleState.isEpisode) {
+            if (this.showTitleElement) {
+                this.showTitleElement.style.display = titleState.hasShowTitleText ? 'block' : 'none';
             }
+            if (this.titleElement) {
+                this.titleElement.style.display = '';
+            }
+            return;
         }
 
-        this.updateMetaAndTags(program);
+        if (this.titleElement) {
+            this.titleElement.style.display = '';
+        }
+    }
 
+    private applyGenres(program: ScheduledProgram): void {
         const genres = this.genresElement;
-        if (genres) {
-            const genreText = item.genres && item.genres.length > 0
-                ? item.genres.slice(0, 3).join(' • ')
-                : '';
-            genres.textContent = genreText;
-            genres.style.display = genreText ? 'block' : 'none';
+        if (!genres) {
+            return;
         }
 
+        const genreText = program.item.genres && program.item.genres.length > 0
+            ? program.item.genres.slice(0, 3).join(' • ')
+            : '';
+        genres.textContent = genreText;
+        genres.style.display = genreText ? 'block' : 'none';
+    }
+
+    private applyDescription(program: ScheduledProgram, visible: boolean): void {
         const description = this.descriptionElement;
         const descriptionInner = this.descriptionInnerElement;
-        if (description && descriptionInner) {
-            if (options.showDescription) {
-                const summary = item.summary?.trim() ?? '';
-                descriptionInner.textContent = summary;
-                description.style.display = summary ? 'block' : 'none';
-
-                if (!summary) {
-                    description.dataset.scrollActive = 'false';
-                    description.style.removeProperty('--scroll-distance');
-                } else {
-                    const overflowPx = Math.max(0, descriptionInner.scrollHeight - description.clientHeight);
-                    if (overflowPx > 4) {
-                        description.dataset.scrollActive = 'true';
-                        description.style.setProperty('--scroll-distance', `-${overflowPx}px`);
-                    } else {
-                        description.dataset.scrollActive = 'false';
-                        description.style.removeProperty('--scroll-distance');
-                    }
-                }
-            } else {
-                if (descriptionInner.textContent) {
-                    descriptionInner.textContent = '';
-                }
-                if (description.style.display !== 'none') {
-                    description.style.display = 'none';
-                }
-                description.dataset.scrollActive = 'false';
-                description.style.removeProperty('--scroll-distance');
-            }
+        if (!description || !descriptionInner) {
+            return;
         }
 
-        this.updateQualityBadges(program, undefined, { allowHdrFetch: options.allowHdrFetch });
+        if (!visible) {
+            if (descriptionInner.textContent) {
+                descriptionInner.textContent = '';
+            }
+            if (description.style.display !== 'none') {
+                description.style.display = 'none';
+            }
+            description.dataset.scrollActive = 'false';
+            description.style.removeProperty('--scroll-distance');
+            return;
+        }
+
+        const summary = program.item.summary?.trim() ?? '';
+        descriptionInner.textContent = summary;
+        description.style.display = summary ? 'block' : 'none';
+
+        if (!summary) {
+            description.dataset.scrollActive = 'false';
+            description.style.removeProperty('--scroll-distance');
+            return;
+        }
+
+        const overflowPx = Math.max(0, descriptionInner.scrollHeight - description.clientHeight);
+        if (overflowPx > 4) {
+            description.dataset.scrollActive = 'true';
+            description.style.setProperty('--scroll-distance', `-${overflowPx}px`);
+            return;
+        }
+
+        description.dataset.scrollActive = 'false';
+        description.style.removeProperty('--scroll-distance');
     }
 
     private updateContentFull(program: ScheduledProgram): void {
@@ -641,56 +688,18 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         mode: 'fast' | 'full',
         infoBackgroundModeOverride?: 0 | 1 | 2
     ): void {
-        const backdrop = this.backdropElement;
         const poster = this.posterElement;
         if (!poster) return;
 
-        const { item } = program;
         const infoBackgroundMode = infoBackgroundModeOverride ?? this.resolveInfoBackgroundMode();
         const shouldShowVisiblePoster = this.presentationMode === 'overlay';
         const preserveBleedDuringFastPath = mode !== 'full' && infoBackgroundMode === 0;
 
-        if (backdrop) {
-            if (mode === 'full' && infoBackgroundMode === 2) {
-                const art = item.art ?? null;
-                if (art) {
-                    const resolvedBackdrop = this.thumbResolver?.(art, 960, 540) || null;
-                    if (resolvedBackdrop) {
-                        backdrop.src = resolvedBackdrop;
-                        backdrop.style.display = 'block';
-                    } else {
-                        backdrop.removeAttribute('src');
-                        backdrop.style.display = 'none';
-                    }
-                } else {
-                    backdrop.removeAttribute('src');
-                    backdrop.style.display = 'none';
-                }
-            } else {
-                backdrop.removeAttribute('src');
-                backdrop.style.display = 'none';
-            }
-        }
+        this.applyBackdrop(program, mode, infoBackgroundMode);
 
         if (!shouldShowVisiblePoster) {
-            poster.removeAttribute('src');
-            poster.style.display = 'none';
-
-            if (preserveBleedDuringFastPath) {
-                return;
-            }
-
-            if (infoBackgroundMode === 0) {
-                const sampleUrl = this.resolvePosterSampleUrl(program);
-                if (!sampleUrl) {
-                    this.dynamicBackground.clearDynamicColor();
-                    return;
-                }
-                this.dynamicBackground.scheduleDynamicColor(program, sampleUrl);
-                return;
-            }
-
-            this.dynamicBackground.clearDynamicColor();
+            this.hidePoster(poster);
+            this.applyDynamicBackground(program, mode, infoBackgroundMode, preserveBleedDuringFastPath);
             return;
         }
 
@@ -700,42 +709,91 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         const height = mode === 'fast' ? 240 : 480;
         const resolvedUrl = this.thumbResolver?.(preferredThumb, width, height) || null;
         if (resolvedUrl) {
-            poster.src = resolvedUrl;
-            const showTitle = item.type === 'episode' ? this.getEffectiveShowTitle(item) : '';
-            poster.alt = showTitle.length ? showTitle : item.title;
-            poster.style.display = 'block';
-            if (preserveBleedDuringFastPath) {
-                return;
-            }
-
-            if (mode !== 'full') {
-                this.dynamicBackground.clearDynamicColor();
-                return;
-            }
-
-            if (infoBackgroundMode === 0) {
-                const sampleUrl = this.resolvePosterSampleUrl(program);
-                if (!sampleUrl) {
-                    this.dynamicBackground.clearDynamicColor();
-                    return;
-                }
-                this.dynamicBackground.scheduleDynamicColor(program, sampleUrl);
-                return;
-            }
-
-            this.dynamicBackground.clearDynamicColor();
+            this.showPoster(poster, program, resolvedUrl);
+            this.applyDynamicBackground(program, mode, infoBackgroundMode, preserveBleedDuringFastPath);
             return;
         }
 
         // Hide poster when unresolved (prevents file:/// errors on webOS)
+        this.hidePoster(poster);
+        this.clearDynamicBackgroundForMissingPoster(preserveBleedDuringFastPath);
+    }
+
+    private applyBackdrop(
+        program: ScheduledProgram,
+        mode: 'fast' | 'full',
+        infoBackgroundMode: 0 | 1 | 2
+    ): void {
+        const backdrop = this.backdropElement;
+        if (!backdrop) {
+            return;
+        }
+
+        if (mode === 'full' && infoBackgroundMode === 2) {
+            const art = program.item.art ?? null;
+            if (art) {
+                const resolvedBackdrop = this.thumbResolver?.(art, 960, 540) || null;
+                if (resolvedBackdrop) {
+                    backdrop.src = resolvedBackdrop;
+                    backdrop.style.display = 'block';
+                    return;
+                }
+            }
+        }
+
+        backdrop.removeAttribute('src');
+        backdrop.style.display = 'none';
+    }
+
+    private showPoster(
+        poster: HTMLImageElement,
+        program: ScheduledProgram,
+        resolvedUrl: string
+    ): void {
+        const { item } = program;
+        poster.src = resolvedUrl;
+        const showTitle = item.type === 'episode' ? this.getEffectiveShowTitle(item) : '';
+        poster.alt = showTitle.length ? showTitle : item.title;
+        poster.style.display = 'block';
+    }
+
+    private hidePoster(poster: HTMLImageElement): void {
         poster.removeAttribute('src');
         poster.style.display = 'none';
+    }
 
+    private applyDynamicBackground(
+        program: ScheduledProgram,
+        mode: 'fast' | 'full',
+        infoBackgroundMode: 0 | 1 | 2,
+        preserveBleedDuringFastPath: boolean
+    ): void {
         if (preserveBleedDuringFastPath) {
             return;
         }
 
+        if (mode !== 'full') {
+            this.dynamicBackground.clearDynamicColor();
+            return;
+        }
+
+        if (infoBackgroundMode === 0) {
+            const sampleUrl = this.resolvePosterSampleUrl(program);
+            if (!sampleUrl) {
+                this.dynamicBackground.clearDynamicColor();
+                return;
+            }
+            this.dynamicBackground.scheduleDynamicColor(program, sampleUrl);
+            return;
+        }
+
         this.dynamicBackground.clearDynamicColor();
+    }
+
+    private clearDynamicBackgroundForMissingPoster(preserveBleedDuringFastPath: boolean): void {
+        if (!preserveBleedDuringFastPath) {
+            this.dynamicBackground.clearDynamicColor();
+        }
     }
 
     private extractShowTitleFromFullTitle(fullTitle: string): string | null {
