@@ -254,11 +254,11 @@ Accepted residuals and source-disproved S0 artifact gaps:
   - `absorb_now_scope`: DCR package proof reconciliation only. Production/test fixes remain out of DCR-EXIT.
   - `current_status`: blocked until `DCR-16` closes or is maintainer-routed.
   - `replan_triggers`: Any DCR package has open actual issues, a completed package lacks source-backed evidence, DCR-16 changes alter package membership, or reconciliation finds unowned same-area residue.
-- `ready_now_slice`: `DCR-EXIT-S2`
-- `ready_now_execution_unit`: `DCR-EXIT-W2`
-- `ready_now_state`: blocked; do not execute until `blocked_until` clears.
+- `ready_now_slice`: `none`
+- `ready_now_execution_unit`: `none`
+- `ready_now_state`: blocked; no DCR-EXIT execution unit is approved while `blocked_until` is active.
 - `blocked_until`: `DCR-16` is complete or explicitly maintainer-routed out of DCR.
-- `next_action`: Launch `DCR-16`; do not resume `DCR-EXIT-S2`.
+- `next_action`: Launch `DCR-16`; fresh sessions should consult `next_action` for the next executable cleanup-loop package and must not resume `DCR-EXIT-S2`.
 - `recommended_slice_order`:
   1. `DCR-EXIT-S0`
   2. `DCR-EXIT-S1`

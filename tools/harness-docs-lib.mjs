@@ -584,7 +584,13 @@ function getChecklistLinkedPackagePlanErrors(content) {
         'checklist-linked plans must include `ready_now_slice` in `## Package Decomposition`',
         '`ready_now_slice` must be an inline scalar value in `## Package Decomposition`'
     );
-    if (readyNowSlice !== null && !sliceIdRe.test(readyNowSlice)) {
+    const readyNowState = parseInlineField(packageDecomposition, '`ready_now_state`');
+    const blockedUntil = parseInlineField(packageDecomposition, '`blocked_until`');
+    const hasBlockedReadyNowState = readyNowState?.toLowerCase().startsWith('blocked') === true && blockedUntil !== null;
+    const readyNowSliceIsNone = readyNowSlice === 'none';
+    if (readyNowSliceIsNone && !hasBlockedReadyNowState) {
+        errors.push('`ready_now_slice` may be `none` only when `ready_now_state` is blocked and `blocked_until` is set');
+    } else if (readyNowSlice !== null && !readyNowSliceIsNone && !sliceIdRe.test(readyNowSlice)) {
         errors.push(sliceIdError);
     }
 
@@ -604,7 +610,12 @@ function getChecklistLinkedPackagePlanErrors(content) {
             errors.push('`slice_table` must define at least one package-scoped slice section');
         }
 
-        if (readyNowSlice !== null && sliceSections.length > 0 && !declaredSliceIds.has(readyNowSlice)) {
+        if (
+            readyNowSlice !== null &&
+            !readyNowSliceIsNone &&
+            sliceSections.length > 0 &&
+            !declaredSliceIds.has(readyNowSlice)
+        ) {
             errors.push('`ready_now_slice` must reference a declared `slice_table` slice');
         }
 
@@ -663,10 +674,25 @@ function getChecklistLinkedPackagePlanErrors(content) {
         'checklist-linked plans must include `ready_now_execution_unit` in `## Package Decomposition`',
         '`ready_now_execution_unit` must be an inline scalar value in `## Package Decomposition`'
     );
+    const readyNowExecutionUnitIsNone = readyNowExecutionUnit === 'none';
+    const hasBlockedReadyNowPointers = hasBlockedReadyNowState &&
+        readyNowSliceIsNone &&
+        readyNowExecutionUnitIsNone;
+    if (readyNowExecutionUnitIsNone && !hasBlockedReadyNowState) {
+        errors.push('`ready_now_execution_unit` may be `none` only when `ready_now_state` is blocked and `blocked_until` is set');
+    }
+    if (
+        hasBlockedReadyNowState &&
+        (readyNowSliceIsNone || readyNowExecutionUnitIsNone) &&
+        !hasBlockedReadyNowPointers
+    ) {
+        errors.push('blocked ready-now plans must set both `ready_now_slice` and `ready_now_execution_unit` to `none`');
+    }
     const executionWavesBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`execution_waves`');
     const isWaveScoped = executionWavesBlock !== null || (
         readyNowExecutionUnit !== null &&
         readyNowSlice !== null &&
+        !hasBlockedReadyNowPointers &&
         readyNowExecutionUnit !== readyNowSlice
     );
 
@@ -702,10 +728,15 @@ function getChecklistLinkedPackagePlanErrors(content) {
         }
 
         const waveIds = waveEntries.map((entry) => entry.waveId);
-        if (readyNowExecutionUnit !== null && waveIds.length > 0 && !waveIds.includes(readyNowExecutionUnit)) {
+        if (
+            readyNowExecutionUnit !== null &&
+            !hasBlockedReadyNowPointers &&
+            waveIds.length > 0 &&
+            !waveIds.includes(readyNowExecutionUnit)
+        ) {
             errors.push('`ready_now_execution_unit` must match one declared `wave_id` when `execution_waves` are present');
         }
-        if (readyNowExecutionUnit !== null && readyNowSlice !== null) {
+        if (readyNowExecutionUnit !== null && readyNowSlice !== null && !hasBlockedReadyNowPointers) {
             const selectedWave = waveEntries.find((entry) => entry.waveId === readyNowExecutionUnit) ?? null;
             if (selectedWave !== null) {
                 const firstDeclaredSlice = getDeclaredExecutionWaveSliceIds(selectedWave.content, sliceIdPattern)[0] ?? null;
