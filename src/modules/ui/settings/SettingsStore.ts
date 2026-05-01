@@ -8,7 +8,10 @@ import {
     type EpgPastItemsWindow,
 } from '../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
-import { PlaybackSettingsStore } from '../../settings/PlaybackSettingsStore';
+import {
+    PlaybackSettingsStore,
+    type Hdr10FallbackModeValue,
+} from '../../settings/PlaybackSettingsStore';
 import { ProfileSessionStore } from '../../settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
 import {
@@ -208,31 +211,12 @@ export class SettingsStore {
         }
     }
 
-    readHdr10FallbackModeValueAndClean(): 0 | 1 | 2 {
-        if (this.readToggleSettingAndClean('forceHdr10Fallback')) {
-            return 2;
-        }
-        if (this.readToggleSettingAndClean('smartHdr10Fallback')) {
-            return 1;
-        }
-        return 0;
+    readHdr10FallbackModeValueAndClean(): Hdr10FallbackModeValue {
+        return this._playbackSettingsStore.readHdr10FallbackModeValueAndClean();
     }
 
-    writeHdr10FallbackModeValue(value: 0 | 1 | 2): void {
-        switch (value) {
-            case 1:
-                this.writeToggleSetting('smartHdr10Fallback', true);
-                this.writeToggleSetting('forceHdr10Fallback', false);
-                return;
-            case 2:
-                this.writeToggleSetting('smartHdr10Fallback', false);
-                this.writeToggleSetting('forceHdr10Fallback', true);
-                return;
-            case 0:
-            default:
-                this.writeToggleSetting('smartHdr10Fallback', false);
-                this.writeToggleSetting('forceHdr10Fallback', false);
-        }
+    writeHdr10FallbackModeValue(value: Hdr10FallbackModeValue): void {
+        this._playbackSettingsStore.writeHdr10FallbackModeValue(value);
     }
 
     readEpgLayoutModeValueAndClean(): 0 | 1 {

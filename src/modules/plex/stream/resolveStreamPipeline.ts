@@ -1,4 +1,5 @@
 import { AppErrorCode } from '../../../types/app-errors';
+import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
 import type { StreamResolverError } from './interfaces';
 import {
     getDirectPlayDecision,
@@ -33,7 +34,7 @@ export interface ResolveStreamPipelineArgs {
     allowDirectPlayAudioFallback: boolean;
     dtsPassthroughEnabled: boolean;
     userAgent: string | null;
-    hdr10FallbackMode: 'off' | 'smart' | 'force';
+    hdr10FallbackMode: Hdr10FallbackMode;
     createError: CreateResolverError;
     buildDirectPlayUrl: (
         partKey: string,

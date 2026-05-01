@@ -4,6 +4,7 @@
 
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { AppErrorCode } from '../../../types/app-errors';
+import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
     IPlexStreamResolver,
@@ -530,7 +531,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
 
-    private _getHdr10FallbackMode(): 'off' | 'smart' | 'force' {
+    private _getHdr10FallbackMode(): Hdr10FallbackMode {
         return this._config.playbackPolicyReader.readHdr10FallbackModeAndClean();
     }
 

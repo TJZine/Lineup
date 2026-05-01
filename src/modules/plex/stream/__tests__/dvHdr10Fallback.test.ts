@@ -1,5 +1,4 @@
 import {
-    computeHdr10FallbackMode,
     hasHdr10BaseLayer,
     inferHdr10BaseLayer,
     isLetterboxAspectRatio,
@@ -248,10 +247,4 @@ describe('dvHdr10Fallback', () => {
         });
     });
 
-    describe('computeHdr10FallbackMode', () => {
-        it('prefers force over smart', () => {
-            const mode = computeHdr10FallbackMode({ smartHdr10Fallback: true, forceHdr10Fallback: true });
-            expect(mode).toBe('force');
-        });
-    });
 });
