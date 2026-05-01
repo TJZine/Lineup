@@ -1471,9 +1471,9 @@ as intake.
   `DCR-EXIT-S2`; do not perform DCR-EXIT package proof reconciliation inside
   DCR-16.
 
-### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
+### [x] `DCR-EXIT` Dimension Cleanup Exit Gate
 
-- Status: ready for fresh `DCR-EXIT-S2` reconciliation session
+- Status: completed
 - Plan: `docs/plans/2026-04-30-dcr-exit-final-dimension-audit-plan.md`
 - Dimensions/rubric tags: final reconciliation, full rubric coverage,
   source-backed proof, test confidence, dependency/config/tooling health,
@@ -1528,8 +1528,7 @@ as intake.
   verification already run, final `npm run verify`, and `npm run verify:docs`.
   `npm run plans:check` applies while the active plan is the handoff surface.
   External/manual score refresh is maintainer-owned after this gate closes.
-- Ready-now execution unit: `DCR-EXIT-W2` with ready-now slice
-  `DCR-EXIT-S2` for the next fresh `DCR-EXIT` cleanup-loop session.
+- Ready-now execution unit: none; `DCR-EXIT` is complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1545,16 +1544,22 @@ as intake.
   finds new same-area production residue not owned by a package; docs conflict
   with source; security issue appears; a finding lacks final owner/revisit
   trigger; score refresh output is treated as task intake.
-- Last touched: 2026-04-30
+- Last touched: 2026-05-01
 - Verification: S0 audit artifacts recorded in local controller run storage and
-  summarized in the active plan; `npm run plans:check` passed; `npm run
-  verify:docs` passed; read-only S0 routing review approved with no material
-  findings.
-- Follow-ups: `DCR-11` through `DCR-16` are complete; future-port residuals
-  remain owned by port/test owner as above.
-- Handoff: start `DCR-EXIT-S2` in a fresh `DCR-EXIT` cleanup-loop session. Do
-  not run a fresh scoring-only pass, and do not treat DCR-16 closeout as package
-  proof reconciliation.
+  summarized in the completed plan; `DCR-EXIT-S1` routing review approved with
+  no material findings; DCR-11 through DCR-16 package closeout evidence was
+  reconciled in the completed DCR-EXIT package proof matrix; owner decisions
+  were reconciled in the completed owner-decision ledger; docs/source truth was
+  reconciled with the only stale plan-state contradiction corrected in the
+  archived DCR-10 plan and the stale DCR-EXIT S2 handoff removed from the
+  active plan. Final `npm run plans:check`, `npm run verify:docs`, `npm run
+  verify`, and `git diff --check` passed. Final adversarial priority-exit
+  closure review was clean after stale historical S2 wording was corrected.
+- Follow-ups: none inside DCR. `DCR-EXIT-D1` remains external/manual
+  maintainer-owned after closeout and must not block or reopen DCR by itself.
+  Future-port residuals remain owned by the port/test owner as above.
+- Handoff: no further DCR cleanup-loop session is required. Do not run a fresh
+  scoring-only pass as DCR closeout work.
 
 ## FCP Baseline History
 
