@@ -31,9 +31,9 @@ Therefore `DCR-EXIT-S1` is now the next required gate before package reconciliat
 
 Execution update after `DCR-15` closeout on 2026-05-01:
 
-- `DCR-11`, `DCR-12`, `DCR-13`, `DCR-14`, and `DCR-15` are complete.
-- `DCR-EXIT-S2` remains blocked until `DCR-16` closes or is explicitly maintainer-routed out of DCR.
-- The next cleanup-loop implementation package is `DCR-16`, not `DCR-EXIT`.
+- `DCR-11`, `DCR-12`, `DCR-13`, `DCR-14`, `DCR-15`, and `DCR-16` are complete.
+- `DCR-EXIT-S2` is unblocked for the next fresh `DCR-EXIT` cleanup-loop session.
+- This DCR-16 closeout does not perform `DCR-EXIT-S2` package proof reconciliation.
 
 ## Non-Goals
 
@@ -232,7 +232,7 @@ Accepted residuals and source-disproved S0 artifact gaps:
   - `DCR-EXIT-D1` is external/manual by maintainer after closeout and is not active plan coverage.
 - `coverage_ledger`:
   - `DCR-EXIT-A0`: `slice_id` `DCR-EXIT-S0` and `DCR-EXIT-S1`; `execution_unit` `DCR-EXIT-W0` and `DCR-EXIT-W1`; default survivor disposition is `split follow-up` until routed to a checklist package, source-disproved, or accepted as residual with owner/revisit/non-blocker/future-port wording.
-  - `DCR-EXIT-A1`: `slice_id` `DCR-EXIT-S2`; `execution_unit` `DCR-EXIT-S2`; default survivor disposition is `deferred` until `DCR-16` is closed or maintainer-routed out of DCR.
+  - `DCR-EXIT-A1`: `slice_id` `DCR-EXIT-S2`; `execution_unit` `DCR-EXIT-W2`; default survivor disposition is `deferred` until `DCR-EXIT-S2` completes package proof matrix reconciliation.
   - `DCR-EXIT-A2`: `slice_id` `DCR-EXIT-S3`; `execution_unit` `DCR-EXIT-S3`; default survivor disposition is `deferred` with final owner assigned by the controller.
   - `DCR-EXIT-A3`: `slice_id` `DCR-EXIT-S4`; `execution_unit` `DCR-EXIT-S4`; default survivor disposition is `deferred` with final owner assigned by the controller.
 - `execution_waves`:
@@ -247,28 +247,27 @@ Accepted residuals and source-disproved S0 artifact gaps:
   - `completion_condition`: Active plan/checklist state reflects the S0 synthesis, new checklist follow-up packages, accepted residual candidates, source-disproved rows, and next ready-now package.
   - `absorb_now_scope`: Plan/checklist routing only. No production/test implementation is absorbed during W1.
   - `replan_triggers`: Plan conformance failure, reviewer rejection, missing S0 artifact reference, missing final disposition, or contradiction between the plan, checklist, and S0 synthesis.
-  - `current_status`: complete. `DCR-11` through `DCR-15` are also complete; DCR-EXIT package reconciliation is blocked on `DCR-16`.
+  - `current_status`: complete. `DCR-11` through `DCR-16` are also complete; DCR-EXIT package reconciliation can resume at `DCR-EXIT-S2` in a fresh session.
   - `wave_id`: `DCR-EXIT-W2`
   - `slice_ids`: `DCR-EXIT-S2`
-  - `completion_condition`: `DCR-16` is complete or explicitly maintainer-routed out of DCR, then package proof matrix reconciliation is completed.
+  - `completion_condition`: `DCR-16` is complete; package proof matrix reconciliation is completed in a fresh `DCR-EXIT-S2` session.
   - `absorb_now_scope`: DCR package proof reconciliation only. Production/test fixes remain out of DCR-EXIT.
-  - `current_status`: blocked until `DCR-16` closes or is maintainer-routed.
+  - `current_status`: ready for a fresh `DCR-EXIT-S2` reconciliation session.
   - `replan_triggers`: Any DCR package has open actual issues, a completed package lacks source-backed evidence, DCR-16 changes alter package membership, or reconciliation finds unowned same-area residue.
-- `ready_now_slice`: `none`
-- `ready_now_execution_unit`: `none`
-- `ready_now_state`: blocked; no DCR-EXIT execution unit is approved while `blocked_until` is active.
-- `blocked_until`: `DCR-16` is complete or explicitly maintainer-routed out of DCR.
-- `next_action`: Launch `DCR-16`; fresh sessions should consult `next_action` for the next executable cleanup-loop package and must not resume `DCR-EXIT-S2`.
+- `ready_now_slice`: `DCR-EXIT-S2`
+- `ready_now_execution_unit`: `DCR-EXIT-W2`
+- `ready_now_state`: ready; start `DCR-EXIT-S2` in a fresh `DCR-EXIT` cleanup-loop session.
+- `blocked_until`: none; `DCR-16` closed on 2026-05-01.
+- `next_action`: Launch a fresh `DCR-EXIT` cleanup-loop session for `DCR-EXIT-S2`; do not treat DCR-16 closeout as package proof reconciliation.
 - `recommended_slice_order`:
   1. `DCR-EXIT-S0`
   2. `DCR-EXIT-S1`
-  3. `DCR-11` through `DCR-15` checklist packages, complete
-  4. `DCR-16` checklist package, with its own cleanup-loop plan and review
-  5. `DCR-EXIT-S2`
-  6. `DCR-EXIT-S3`
-  7. `DCR-EXIT-S4`
-  8. `DCR-EXIT-S5`
-- `parallel_execution_policy`: S0 reviewer lanes are complete. `DCR-EXIT-S1` is serial plan/checklist routing. Implementation parallelism is allowed only inside later package plans when the approved plan proves disjoint write scopes and verification. `DCR-16` owns the next implementation surface and must use its own approved cleanup-loop plan. `DCR-EXIT-S2` through `DCR-EXIT-S5` remain blocked/serial until `DCR-16` closes or is maintainer-routed.
+  3. `DCR-11` through `DCR-16` checklist packages, complete
+  4. `DCR-EXIT-S2`
+  5. `DCR-EXIT-S3`
+  6. `DCR-EXIT-S4`
+  7. `DCR-EXIT-S5`
+- `parallel_execution_policy`: S0 reviewer lanes are complete. `DCR-EXIT-S1` is serial plan/checklist routing. DCR-11 through DCR-16 package execution is complete. `DCR-EXIT-S2` through `DCR-EXIT-S5` remain serial final reconciliation gates.
 
 ### S0 Audit Lane Design
 
@@ -597,25 +596,23 @@ Before closing `DCR-EXIT`, execution must record:
 
 MODEL_SUGGESTION
 PLANNER: gpt-5.5 high
-IMPLEMENTER: n/a for `DCR-EXIT` until `DCR-16` closes; package sessions use gpt-5.5 medium cleanup_worker after their own approved plans
+IMPLEMENTER: n/a until `DCR-EXIT-S2` selects a bounded docs/checklist reconciliation unit
 REVIEWER: gpt-5.5 high
 WHY: Tier 3 priority-exit routing gate with cross-boundary S0 evidence, security/docs/source risk, and checklist closeout consequences. Use gpt-5.4 fallback if gpt-5.5 is unavailable.
 
 ```text
 NEXT_SESSION_HANDOFF
 LAUNCHER: $lineup-cleanup-loop
-PLAN: none yet
-CHECKLIST: ARCHITECTURE_CLEANUP_CHECKLIST.md section DCR-16
+PLAN: docs/plans/2026-04-30-dcr-exit-final-dimension-audit-plan.md
+CHECKLIST: ARCHITECTURE_CLEANUP_CHECKLIST.md section DCR-EXIT
 TASK_FAMILY: cleanup/refactor
 CLEANUP_SUBTYPE: checklist-linked
-PACKAGE_ID: DCR-16
-READY_NOW_EXECUTION_UNIT: none until plan is written
-READY_NOW_SLICE: none until plan is written
+PACKAGE_ID: DCR-EXIT
+READY_NOW_EXECUTION_UNIT: DCR-EXIT-W2
+READY_NOW_SLICE: DCR-EXIT-S2
 MESSAGE:
-  Run cleanup-loop for DCR-16. DCR-EXIT-S0 and S1 are complete, and DCR-11
-  through DCR-15 are closed. DCR-EXIT-S2 remains blocked until DCR-16 closes
-  or is explicitly maintainer-routed out of DCR. Use the active
-  DCR-EXIT plan only for S0 routing context; do not resume DCR-EXIT
-  reconciliation, do not run Desloppify intake or score refresh, and do not
-  implement production/test fixes inside DCR-EXIT.
+  Run cleanup-loop for DCR-EXIT-S2. DCR-EXIT-S0 and S1 are complete, and
+  DCR-11 through DCR-16 are closed. Use the active DCR-EXIT plan for package
+  proof matrix reconciliation. Do not run Desloppify intake or score refresh,
+  and do not treat DCR-16 closeout as DCR-EXIT-S2 reconciliation.
 ```

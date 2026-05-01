@@ -1,4 +1,4 @@
-**Plan Status:** active
+**Plan Status:** completed
 **Task family:** cleanup/refactor
 **Cleanup subtype:** checklist-linked
 
@@ -8,13 +8,13 @@
 
 Retire `DCR-16-A1` / `S0-L10-F4` by removing or source-disproving generated-style, step-by-step, and trivial method comments that remain in production hot-path source after the code-signal cleanup was marked complete.
 
-This is a behavior-neutral comment-only cleanup. The ready execution surface is intentionally small even though it crosses several hot-path ownership areas:
+This was a behavior-neutral comment-only cleanup across several hot-path ownership areas. The approved execution surface is now complete:
 
-ready_now_execution_unit: `DCR-16-S1`
+ready_now_execution_unit: `none`
 
-ready_now_slice: `DCR-16-S1`
+ready_now_slice: `none`
 
-No implementation may start until the worker confirms the freshness gate and this plan still reflects current source. If source audit proves additional same-pattern residue in the exact files in scope, the worker may absorb it into `DCR-16-S1`. If the cleanup needs code movement or a wider file set, stop and replan.
+Next action: start a fresh `DCR-EXIT` cleanup-loop session for `DCR-EXIT-S2`. Do not execute `DCR-16-S1` again unless maintainers explicitly reopen this completed package.
 
 ## Non-Goals
 
@@ -73,7 +73,7 @@ Planning discovery used Codanna first, then deterministic `rg`/direct reads for 
 
 - `get_index_info`: 12,023 symbols across 779 files, semantic search enabled, index updated 7 minutes before planning.
 - `search_documents`: `DCR-16 Production Source-Signal Residue S0-L10-F4` found `CURRENT_STATE.md`, the active DCR-EXIT plan, and related completed DCR package plans. It confirmed DCR-16 is the remaining DCR-EXIT blocker.
-- `search_documents`: `DCR-EXIT DCR-16 blocker S0-L10-F4` found the active DCR-EXIT blocker lines and DCR-15 closeout context showing `DCR-EXIT-S2` is blocked on `DCR-16` only.
+- `search_documents`: `DCR-EXIT DCR-16 blocker S0-L10-F4` found the active DCR-EXIT blocker lines and DCR-15 closeout context showing that, at planning time, `DCR-EXIT-S2` was blocked on `DCR-16` only.
 - `semantic_search_with_context`: `production source generated-style step comments trivial comments app shell orchestrator channel setup plex subtitle settings` found representative hot-path symbols including `src/App.ts` `_buildConfig`, `ChannelManager`, and settings/subtitle surfaces. This was useful for ownership context but insufficient for exact comment classification.
 - `analyze_impact`: not required for this plan because approved implementation is comments-only and must not change symbols, types, call paths, imports, exports, selectors, or runtime order. If implementation needs any token/signature/API/import/export change, stop before editing and run impact analysis for the affected symbol in a revised plan.
 - Fallback: `rg` and direct `nl`/`sed` reads were required for exact S0 artifact lines and current-source comment matches. Fallback reads covered the checklist DCR-16/DCR-EXIT entries, active DCR-EXIT plan routing rows, S0-L10 lane report, S0 synthesis, `CURRENT_STATE.md`, and the source-family files summarized below.
@@ -87,7 +87,7 @@ S0-L10 evidence snapshot:
 - The local DCR-EXIT S0 AI-generated-debt lane report records `S0-L10-F4` as: production hot-path files still carry generated-style step and trivial method comments after code-signal cleanup was marked complete.
 - The lane report routes `S0-L10-F4` to a split final DCR package owned by `DCR-FINAL-COMMENT-RESIDUE`, the AI-generated residue/code-signal owner with app-shell/scheduler/navigation/UI reviewers.
 - The S0 synthesis records the same finding as low-severity AI-generated debt, with required verification: behavior-neutral diff audit, `git diff --check`, targeted source search, and typecheck/tests only if signatures/code move.
-- The active DCR-EXIT plan maps `DCR-16` to `S0-L10-F4` and blocks `DCR-EXIT-S2` until DCR-16 closes or is maintainer-routed.
+- At planning time, the active DCR-EXIT plan mapped `DCR-16` to `S0-L10-F4` and blocked `DCR-EXIT-S2` until DCR-16 closed or was maintainer-routed.
 
 Current source audit across S0-L10 source families:
 
@@ -163,9 +163,9 @@ Classification rules for implementation:
 
   1. `DCR-16-S1`
   2. Package closeout docs only after implementation and review are clean
-- `ready_now_slice`: `DCR-16-S1`
-- `ready_now_execution_unit`: `DCR-16-S1`
-- `parallel_execution_policy`: serial only. The package is a single behavior-neutral comment cleanup slice across related hot-path source files. Parallel edits would make the no-code-token diff audit harder to trust.
+- `ready_now_slice`: none; package complete
+- `ready_now_execution_unit`: none; package complete
+- `parallel_execution_policy`: serial only. The package executed as one behavior-neutral comment cleanup slice; no further DCR-16 implementation unit is ready.
 
 No `execution_waves` or `coverage_ledger` are used because the approved execution unit is a single slice.
 
@@ -354,6 +354,19 @@ After clean implementation and review:
 - Do not perform DCR-EXIT-S2 reconciliation, owner-decision ledger work, package proof reconciliation, or final DCR-EXIT closeout inside DCR-16.
 - Do not update `CURRENT_STATE.md` unless a closeout reviewer requires a source-disproved note. No ownership or architecture change is expected.
 
+## Closeout Evidence
+
+Completed on 2026-05-01.
+
+- `DCR-16-S1` removed generated-style step narration, duplicate file/class banners, trivial method JSDoc, and obvious DOM/pool/action narration from the approved 19 production files.
+- Implementation commit: `bfb28057` (`refactor: remove dcr-16 source comment residue`).
+- The source diff is deletion-only and comment-only. It changes no executable code tokens, imports/exports, signatures, selectors, CSS, tests, storage keys, event names, Plex auth/library/stream behavior, or runtime order.
+- Targeted post-search and bounded all-family audit left only source-disproved retained categories: contract/interface comments, platform/security/token/logging comments, lifecycle/focus/accessibility comments, public API notes, persistence/storage notes, Plex policy comments, EPG focus/performance/virtualization rationale, and player/runtime comments.
+- Plan review, closure check, fresh final plan approval, and implementation review were clean.
+- Verification passed: `git diff --check`, `npm run plans:check`, and `npm run verify:docs`.
+- `npm run verify` was skipped because DCR-16 changed comments/docs only and no executable code, UI/navigation/orchestrator/Plex runtime tokens, selectors, CSS runtime declarations, tests, imports/exports, storage keys, or Plex behavior moved.
+- Closeout updates are limited to this plan, the DCR-16 checklist mini-record, and minimal DCR-EXIT blocker references so `DCR-EXIT-S2` can start in a later fresh session.
+
 ## MODEL_SUGGESTION
 
 ```text
@@ -369,42 +382,16 @@ WHY: Tier 3 checklist blocker with source classification and strict scope-contro
 ```text
 NEXT_SESSION_HANDOFF
 LAUNCHER: $lineup-cleanup-loop
-PLAN: docs/plans/2026-05-01-dcr-16-production-source-signal-residue-plan.md
-CHECKLIST: ARCHITECTURE_CLEANUP_CHECKLIST.md section DCR-16
+PLAN: docs/plans/2026-04-30-dcr-exit-final-dimension-audit-plan.md
+CHECKLIST: ARCHITECTURE_CLEANUP_CHECKLIST.md section DCR-EXIT
 TASK_FAMILY: cleanup/refactor
 CLEANUP_SUBTYPE: checklist-linked
-PACKAGE_ID: DCR-16
-READY_NOW_EXECUTION_UNIT: DCR-16-S1
-READY_NOW_SLICE: DCR-16-S1
-FILES:
-  src/App.ts
-  src/bootstrap.ts
-  src/core/initialization/InitializationCoordinator.ts
-  src/core/orchestrator/AppOrchestrator.ts
-  src/modules/lifecycle/ErrorRecovery.ts
-  src/modules/navigation/NavigationManager.ts
-  src/modules/scheduler/channel-manager/ChannelManager.ts
-  src/modules/scheduler/channel-manager/ContentResolver.ts
-  src/modules/ui/settings/SettingsScreen.ts
-  src/modules/ui/server-select/ServerSelectScreen.ts
-  src/modules/ui/epg/component/EPGComponent.ts
-  src/modules/ui/epg/view/EPGVirtualizer.ts
-  src/modules/ui/epg/view/EPGInfoPanel.ts
-  src/modules/ui/epg/view/EPGChannelList.ts
-  src/modules/ui/epg/view/EPGErrorBoundary.ts
-  src/modules/plex/auth/PlexAuth.ts
-  src/modules/plex/library/PlexLibrary.ts
-  src/modules/plex/stream/PlexStreamResolver.ts
-  src/modules/plex/stream/streamMimeType.ts
+PACKAGE_ID: DCR-EXIT
+READY_NOW_EXECUTION_UNIT: DCR-EXIT-W2
+READY_NOW_SLICE: DCR-EXIT-S2
 MESSAGE:
-  Execute DCR-16-S1 only. Remove generated-style, step-by-step, and trivial
-  method comments in the approved production files, preserving all runtime,
-  platform, security/token/logging, focus/accessibility, lifecycle, public
-  contract, webOS/browser, Plex auth/library/stream, and non-obvious performance
-  comments. Do not edit production code tokens, tests, CSS, imports/exports,
-  selectors, APIs, storage keys, Plex behavior, or runtime order. Run the
-  bounded all-family audit and stop/replan if it finds obvious same-pattern
-  production residue outside the approved files that cannot be source-disproved.
-  After clean implementation/review, update only DCR-16 closeout docs and minimal
-  DCR-EXIT blocker references. Do not resume DCR-EXIT-S2 inside this package.
+  Run cleanup-loop for DCR-EXIT-S2. DCR-EXIT-S0 and S1 are complete, and
+  DCR-11 through DCR-16 are closed. Use the active DCR-EXIT plan for package
+  proof matrix reconciliation. Do not run Desloppify intake or score refresh,
+  and do not treat DCR-16 closeout as DCR-EXIT-S2 reconciliation.
 ```

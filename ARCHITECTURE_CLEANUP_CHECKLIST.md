@@ -1424,13 +1424,13 @@ as intake.
   implementation/review; final `npm run typecheck`, `npm run verify`,
   `npm run plans:check`, `npm run verify:docs`, and `git diff --check` passed.
 - Follow-ups: none yet.
-- Handoff: DCR-15 is closed. Do not resume `DCR-EXIT-S2` until `DCR-16` is
-  complete or explicitly maintainer-routed out of DCR.
+- Handoff: DCR-15 is closed. DCR-16 is now also closed; resume with a fresh
+  `DCR-EXIT` cleanup-loop session for `DCR-EXIT-S2`.
 
-### [ ] `DCR-16` Production Source-Signal Residue
+### [x] `DCR-16` Production Source-Signal Residue
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-01-dcr-16-production-source-signal-residue-plan.md`
 - Dimensions/rubric tags: AI-generated debt, code signal, low-level elegance
 - Scope owner: code-signal owner with app-shell, scheduler, navigation, and UI
   reviewers
@@ -1443,18 +1443,37 @@ as intake.
   behavior-neutral edits and search proof without changing runtime behavior.
 - Verification routing: targeted source search, behavior-neutral diff audit,
   `git diff --check`, and typecheck/tests only if code moves.
-- Ready-now execution unit: none until plan is written.
+- Completion evidence: `DCR-16-A1` / `S0-L10-F4` closed by the approved
+  `DCR-16-S1` behavior-neutral comment-only cleanup. The source pass removed
+  generated-style step narration, duplicate file/class banners, trivial method
+  JSDoc, and obvious DOM/pool/action narration from the approved 19 production
+  files without changing code tokens, imports/exports, signatures, selectors,
+  CSS, storage keys, event names, tests, or runtime order. Remaining source
+  search matches are source-disproved as retained contract, platform,
+  security/token/logging, lifecycle, focus/accessibility, public API,
+  persistence, Plex, or runtime invariant commentary.
+- Ready-now execution unit: none; package complete.
 - Stop/replan triggers: cleanup requires behavior changes, signatures move, or
   overlaps with source files still being actively changed by `DCR-12` through
   `DCR-15`.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-01
+- Verification: clean plan review, closure check, and fresh final plan approval;
+  clean implementation review; targeted post-search and bounded all-family
+  audit left only retained/source-disproved comment categories; source diff was
+  deletion-only and comment-only across the approved 19 files; `git diff
+  --check`, `npm run plans:check`, and `npm run verify:docs` passed. `npm run
+  verify` was skipped because the package changed no executable code, UI/
+  navigation/orchestrator/Plex runtime tokens, selectors, CSS runtime
+  declarations, tests, imports/exports, storage keys, or Plex auth/library/
+  stream behavior.
 - Follow-ups: none yet.
-- Handoff: run after behavior-moving packages to avoid churn.
+- Handoff: DCR-16 is closed. Start the next fresh cleanup-loop session for
+  `DCR-EXIT-S2`; do not perform DCR-EXIT package proof reconciliation inside
+  DCR-16.
 
 ### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
 
-- Status: blocked
+- Status: ready for fresh `DCR-EXIT-S2` reconciliation session
 - Plan: `docs/plans/2026-04-30-dcr-exit-final-dimension-audit-plan.md`
 - Dimensions/rubric tags: final reconciliation, full rubric coverage,
   source-backed proof, test confidence, dependency/config/tooling health,
@@ -1509,8 +1528,8 @@ as intake.
   verification already run, final `npm run verify`, and `npm run verify:docs`.
   `npm run plans:check` applies while the active plan is the handoff surface.
   External/manual score refresh is maintainer-owned after this gate closes.
-- Ready-now execution unit: none for DCR-EXIT; final reconciliation remains
-  blocked until `DCR-16` closes or is maintainer-routed.
+- Ready-now execution unit: `DCR-EXIT-W2` with ready-now slice
+  `DCR-EXIT-S2` for the next fresh `DCR-EXIT` cleanup-loop session.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1531,13 +1550,11 @@ as intake.
   summarized in the active plan; `npm run plans:check` passed; `npm run
   verify:docs` passed; read-only S0 routing review approved with no material
   findings.
-- Follow-ups: `DCR-11` through `DCR-15` are complete; `DCR-16` remains
-  admitted from S0 findings; future-port residuals remain owned by port/test
-  owner as above.
-- Handoff: stop DCR-EXIT here and start `DCR-16` in a fresh cleanup-loop
-  session. Do not run a fresh scoring-only pass or implement production/test
-  fixes inside DCR-EXIT. Follow-up package `DCR-16` must close or be
-  maintainer-routed before final reconciliation resumes.
+- Follow-ups: `DCR-11` through `DCR-16` are complete; future-port residuals
+  remain owned by port/test owner as above.
+- Handoff: start `DCR-EXIT-S2` in a fresh `DCR-EXIT` cleanup-loop session. Do
+  not run a fresh scoring-only pass, and do not treat DCR-16 closeout as package
+  proof reconciliation.
 
 ## FCP Baseline History
 
