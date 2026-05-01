@@ -184,7 +184,7 @@ export class PlaybackRecoveryManager {
         }
     }
 
-    resetDirectFallbackAttempts(): void {
+    resetDirectFallbackAndBurnInAttempts(): void {
         this._directFallbackAttemptedForItemKey.clear();
         this._burnInAttemptedForItemKey.clear();
     }

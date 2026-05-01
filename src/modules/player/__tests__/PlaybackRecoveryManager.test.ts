@@ -715,6 +715,59 @@ describe('PlaybackRecoveryManager', () => {
         expect(ok).toBe(false);
     });
 
+    it('resets direct fallback and automatic burn-in attempt guards', async () => {
+        expectPlaybackRecoveryWarn({
+            event: 'transcodeFallback.start',
+            reason: 'reason',
+            itemKey: 'item-1',
+        }, { times: 2 });
+        expectPlaybackRecoveryWarn({
+            event: 'burnInReload.start',
+            reason: 'subtitle_extract_failed:test',
+            trackId: 'sub-keyless',
+            itemKey: 'item-1',
+        }, { times: 2 });
+        expectPlaybackRecoveryError({
+            event: 'burnInReload.failed',
+            reason: 'subtitle_extract_failed:test',
+            trackId: 'sub-keyless',
+            itemKey: 'item-1',
+            safeError: expect.any(Object),
+        }, { times: 2 });
+        const { manager, resolver } = setup();
+
+        const firstDirectFallback = await manager.attemptTranscodeFallbackForCurrentProgram('reason');
+        const blockedDirectFallback = await manager.attemptTranscodeFallbackForCurrentProgram('reason');
+        expect(firstDirectFallback).toBe(true);
+        expect(blockedDirectFallback).toBe(false);
+
+        (resolver.resolveStream as jest.Mock).mockRejectedValue(new Error('burn-in failed'));
+        const firstBurnIn = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+        const blockedBurnIn = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+        expect(firstBurnIn).toEqual({ outcome: 'failed' });
+        expect(blockedBurnIn).toEqual({ outcome: 'ignored', reason: 'already_attempted' });
+
+        manager.resetDirectFallbackAndBurnInAttempts();
+
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(makeDecision());
+        const resetDirectFallback = await manager.attemptTranscodeFallbackForCurrentProgram('reason');
+        (resolver.resolveStream as jest.Mock).mockRejectedValue(new Error('burn-in failed'));
+        const resetBurnIn = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+
+        expect(resetDirectFallback).toBe(true);
+        expect(resetBurnIn).toEqual({ outcome: 'failed' });
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(4);
+    });
+
     it('ignores stored subtitle track selections (no per-item or global persistence)', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
         localStorage.setItem(
