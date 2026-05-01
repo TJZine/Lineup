@@ -10,6 +10,7 @@ import {
 } from '../plex/shared/plexUrl';
 import { fetchSubtitleFallbackVtt } from './subtitleFallbackPipeline';
 import { SubtitleDebugLogger } from '../debug/SubtitleDebugLogger';
+import { snapshotNativeTextTracks } from './nativeTextTrackDebugSnapshot';
 
 interface SubtitleTrackContext {
     serverUri: string | null;
@@ -60,26 +61,6 @@ export class SubtitleManager {
 
     private _logSubtitleDebug(event: string, contextFactory: () => Record<string, unknown>): void {
         this._subtitleDebugLogger.log(event, contextFactory);
-    }
-
-    private _snapshotNativeTextTracks(): Array<Record<string, unknown>> {
-        if (!this._videoElement) return [];
-        const list = this._videoElement.textTracks;
-        const result: Array<Record<string, unknown>> = [];
-        for (let i = 0; i < list.length; i++) {
-            const t = list[i];
-            if (!t) continue;
-            result.push({
-                id: t.id,
-                kind: t.kind,
-                label: t.label,
-                language: t.language,
-                mode: t.mode,
-                cuesLength: t.cues?.length ?? null,
-                activeCuesLength: t.activeCues?.length ?? null,
-            });
-        }
-        return result;
     }
 
     public initialize(videoElement: HTMLVideoElement): void {
@@ -224,7 +205,7 @@ export class SubtitleManager {
 
         this._logSubtitleDebug('setActiveTrack', () => ({
             activeTrackId: trackId,
-            nativeTextTracks: this._snapshotNativeTextTracks(),
+            nativeTextTracks: snapshotNativeTextTracks(this._videoElement),
         }));
     }
 
@@ -343,7 +324,7 @@ export class SubtitleManager {
                 id: track.id,
                 path,
                 error: 'track_error',
-                nativeTextTracks: this._snapshotNativeTextTracks(),
+                nativeTextTracks: snapshotNativeTextTracks(this._videoElement),
             }));
             void this._triggerFallback(track, 'track_error', loadToken);
         };
@@ -403,7 +384,7 @@ export class SubtitleManager {
             path,
             textTracksLength,
             cuesLength,
-            nativeTextTracks: this._snapshotNativeTextTracks(),
+            nativeTextTracks: snapshotNativeTextTracks(this._videoElement),
         }));
         if (this._activeTrackId === track.id) {
             this._applyTrackModeShowing(track.id);

@@ -37,6 +37,48 @@ function createMockVideoElement(): HTMLVideoElement {
     return video;
 }
 
+function installMockTextTracks(
+    video: HTMLVideoElement,
+    tracks: Array<{
+        id: string;
+        kind: TextTrackKind;
+        label: string;
+        language: string;
+        mode: TextTrackMode;
+        cuesLength?: number | null;
+        activeCuesLength?: number | null;
+    }>
+): void {
+    const mockTextTracks: Record<number, unknown> & {
+        length: number;
+        item: (index: number) => TextTrack | null;
+    } = {
+        length: tracks.length,
+        item: jest.fn((index: number) => mockTextTracks[index] as TextTrack | null),
+    };
+
+    tracks.forEach((track, index) => {
+        mockTextTracks[index] = {
+            id: track.id,
+            kind: track.kind,
+            label: track.label,
+            language: track.language,
+            mode: track.mode,
+            cues: track.cuesLength === null
+                ? null
+                : { length: track.cuesLength ?? 0 },
+            activeCues: track.activeCuesLength === null
+                ? null
+                : { length: track.activeCuesLength ?? 0 },
+        };
+    });
+
+    Object.defineProperty(video, 'textTracks', {
+        get: (): TextTrackList => mockTextTracks as unknown as TextTrackList,
+        configurable: true,
+    });
+}
+
 function getTrackElement(video: HTMLVideoElement, trackId: string): HTMLTrackElement | null {
     return video.querySelector(`track#${trackId}`);
 }
@@ -311,6 +353,49 @@ describe('SubtitleManager', () => {
 
             manager.setActiveTrack(null);
             expect(manager.getActiveTrackId()).toBeNull();
+        });
+
+        it('logs the native text-track debug snapshot without token-bearing fields', () => {
+            enableSubtitleDebugLogging();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            installMockTextTracks(videoElement, [
+                {
+                    id: 'en',
+                    kind: 'subtitles',
+                    label: 'English',
+                    language: 'en',
+                    mode: 'showing',
+                    cuesLength: 3,
+                    activeCuesLength: 1,
+                },
+            ]);
+
+            try {
+                manager.setActiveTrack(null);
+
+                const payload = warnSpy.mock.calls.find(
+                    (call) => call[1] === 'SubtitleManager' && call[2] === 'setActiveTrack'
+                )?.[3];
+
+                expect(JSON.parse(String(payload))).toEqual({
+                    activeTrackId: null,
+                    nativeTextTracks: [
+                        {
+                            id: 'en',
+                            kind: 'subtitles',
+                            label: 'English',
+                            language: 'en',
+                            mode: 'hidden',
+                            cuesLength: 3,
+                            activeCuesLength: 1,
+                        },
+                    ],
+                });
+                expect(String(payload)).not.toContain('X-Plex-Token');
+                expect(String(payload)).not.toContain('http://');
+            } finally {
+                warnSpy.mockRestore();
+            }
         });
 
         it('does not classify keyless text tracks as burn-in and attempts extraction on selection', async () => {

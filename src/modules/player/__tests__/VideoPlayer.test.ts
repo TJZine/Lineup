@@ -12,6 +12,7 @@ import { AudioTrackManager } from '../AudioTrackManager';
 import type { VideoPlayerConfig, StreamDescriptor } from '../types';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../platform';
 import { APP_SHELL_CONTAINER_IDS } from '../../ui/common/appShellContainerIds';
+import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 
 // ============================================
 // Test Helpers
@@ -48,6 +49,58 @@ function createMockDescriptor(
         isLive: false,
         ...overrides,
     };
+}
+
+function installMockTextTracks(
+    video: HTMLVideoElement,
+    tracks: Array<{
+        id: string;
+        kind: TextTrackKind;
+        label: string;
+        language: string;
+        mode: TextTrackMode;
+        cuesLength?: number | null;
+        activeCuesLength?: number | null;
+    }>
+): void {
+    const mockTextTracks: Record<number, unknown> & {
+        length: number;
+        item: (index: number) => TextTrack | null;
+    } = {
+        length: tracks.length,
+        item: jest.fn((index: number) => mockTextTracks[index] as TextTrack | null),
+    };
+
+    tracks.forEach((track, index) => {
+        mockTextTracks[index] = {
+            id: track.id,
+            kind: track.kind,
+            label: track.label,
+            language: track.language,
+            mode: track.mode,
+            cues: track.cuesLength === null
+                ? null
+                : { length: track.cuesLength ?? 0 },
+            activeCues: track.activeCuesLength === null
+                ? null
+                : { length: track.activeCuesLength ?? 0 },
+        };
+    });
+
+    Object.defineProperty(video, 'textTracks', {
+        get: (): TextTrackList => mockTextTracks as unknown as TextTrackList,
+        configurable: true,
+    });
+}
+
+const developerSettingsStore = new DeveloperSettingsStore();
+
+function enableSubtitleDebugLogging(): void {
+    developerSettingsStore.writeSubtitleDebugLoggingEnabled(true);
+}
+
+function clearSubtitleDebugLogging(): void {
+    developerSettingsStore.clearSubtitleDebugLoggingEnabled();
 }
 
 type FakeSubtitleManager = {
@@ -158,6 +211,7 @@ describe('VideoPlayer', () => {
     });
 
     afterEach(() => {
+        clearSubtitleDebugLogging();
         // Cleanup
         if (container && container.parentNode) {
             container.remove();
@@ -442,6 +496,53 @@ describe('VideoPlayer', () => {
             expect(player.getCurrentDescriptor()).toBe(newerDescriptor);
             expect(videoElement.src).toContain('newer.m3u8');
             expect(seekCalls).toEqual([10]);
+        });
+
+        it('logs the native text-track debug snapshot without token-bearing fields', async () => {
+            enableSubtitleDebugLogging();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const videoElement = container.querySelector('video') as HTMLVideoElement;
+            installMockTextTracks(videoElement, [
+                {
+                    id: 'en',
+                    kind: 'subtitles',
+                    label: 'English',
+                    language: 'en',
+                    mode: 'hidden',
+                    cuesLength: 2,
+                    activeCuesLength: null,
+                },
+            ]);
+
+            try {
+                await player.loadStream(createMockDescriptor({
+                    url: 'http://example.com/stream.m3u8?X-Plex-Token=secret-token',
+                }));
+
+                const payload = warnSpy.mock.calls.find(
+                    (call) => call[1] === 'VideoPlayer' && call[2] === 'loadStream_subtitles_loaded'
+                )?.[3];
+
+                expect(JSON.parse(String(payload))).toEqual({
+                    burnInTracks: [],
+                    nativeTextTracks: [
+                        {
+                            id: 'en',
+                            kind: 'subtitles',
+                            label: 'English',
+                            language: 'en',
+                            mode: 'hidden',
+                            cuesLength: 2,
+                            activeCuesLength: null,
+                        },
+                    ],
+                });
+                expect(String(payload)).not.toContain('secret-token');
+                expect(String(payload)).not.toContain('X-Plex-Token');
+                expect(String(payload)).not.toContain('http://example.com');
+            } finally {
+                warnSpy.mockRestore();
+            }
         });
     });
 
