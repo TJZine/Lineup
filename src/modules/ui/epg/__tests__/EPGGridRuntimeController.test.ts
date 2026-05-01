@@ -9,6 +9,59 @@ import type { EPGConfig, EPGInternalState, ScheduleWindow, ScheduledProgram } fr
 describe('EPGGridRuntimeController', () => {
     const anchor = new Date('2026-04-30T00:00:00Z').getTime();
 
+    const setupQueuedRaf = (): {
+        rafQueue: Array<{ id: number; cb: FrameRequestCallback }>;
+        cancelAnimationFrameMock: jest.Mock<void, [handle: number]>;
+        restore: () => void;
+    } => {
+        const originalNodeEnv = process.env.NODE_ENV;
+        const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+        const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+        const rafQueue: Array<{ id: number; cb: FrameRequestCallback }> = [];
+        let nextId = 1;
+        const requestAnimationFrameMock = jest.fn((cb: FrameRequestCallback): number => {
+            const id = nextId++;
+            rafQueue.push({ id, cb });
+            return id;
+        });
+        const cancelAnimationFrameMock = jest.fn((handle: number): void => {
+            const index = rafQueue.findIndex((entry) => entry.id === handle);
+            if (index >= 0) {
+                rafQueue.splice(index, 1);
+            }
+        });
+
+        process.env.NODE_ENV = 'production';
+        Object.defineProperty(globalThis, 'requestAnimationFrame', {
+            configurable: true,
+            writable: true,
+            value: requestAnimationFrameMock,
+        });
+        Object.defineProperty(globalThis, 'cancelAnimationFrame', {
+            configurable: true,
+            writable: true,
+            value: cancelAnimationFrameMock,
+        });
+
+        return {
+            rafQueue,
+            cancelAnimationFrameMock,
+            restore: (): void => {
+                process.env.NODE_ENV = originalNodeEnv;
+                Object.defineProperty(globalThis, 'requestAnimationFrame', {
+                    configurable: true,
+                    writable: true,
+                    value: originalRequestAnimationFrame,
+                });
+                Object.defineProperty(globalThis, 'cancelAnimationFrame', {
+                    configurable: true,
+                    writable: true,
+                    value: originalCancelAnimationFrame,
+                });
+            },
+        };
+    };
+
     const createProgram = (): ScheduledProgram => ({
         item: {
             ratingKey: 'program-1',
@@ -217,6 +270,29 @@ describe('EPGGridRuntimeController', () => {
         controller.removeVisibilityListener();
         document.dispatchEvent(new Event('visibilitychange'));
         expect(virtualizer.updateTemporalClasses).not.toHaveBeenCalled();
+    });
+
+    it('cancels a pending throttled render during destroy', () => {
+        const queuedRaf = setupQueuedRaf();
+        try {
+            const { controller, virtualizer } = createHarness();
+
+            controller.renderGrid();
+
+            expect(queuedRaf.rafQueue).toHaveLength(1);
+            const pendingFrame = queuedRaf.rafQueue[0]!;
+
+            controller.destroy();
+
+            expect(queuedRaf.cancelAnimationFrameMock).toHaveBeenCalledWith(1);
+            expect(queuedRaf.rafQueue).toHaveLength(0);
+
+            pendingFrame.cb(16);
+
+            expect(virtualizer.renderVisibleCells).not.toHaveBeenCalled();
+        } finally {
+            queuedRaf.restore();
+        }
     });
 
     it('coordinates render pass ordering and dedupes visible range emissions', () => {
