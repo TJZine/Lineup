@@ -39,7 +39,7 @@ describe('LifecycleStatePersistenceQueue', () => {
 
     afterEach(() => {
         jest.useRealTimers();
-        warnSpy.mockRestore();
+        jest.restoreAllMocks();
     });
 
     function createQueue(): LifecycleStatePersistenceQueue {

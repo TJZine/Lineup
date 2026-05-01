@@ -21,6 +21,7 @@ describe('createPlatformIdentityService', () => {
             'X-Plex-Product': canonicalConfig.product,
             'X-Plex-Version': canonicalConfig.version,
             'X-Plex-Platform': canonicalConfig.platform,
+            'X-Plex-Platform-Version': canonicalConfig.platformVersion,
             'X-Plex-Device': canonicalConfig.device,
             'X-Plex-Device-Name': canonicalConfig.deviceName,
             'X-Plex-Model': 'LGTV',

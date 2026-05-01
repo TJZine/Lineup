@@ -83,7 +83,7 @@ export class EPGFocusNavigator {
         this.focusPlaceholder(channelIndex, targetTime);
     }
 
-    focusProgram(channelIndex: number, programIndex: number): void {
+    focusProgram(channelIndex: number, programIndex: number, requestedFocusTimeMs?: number): void {
         const state = this.context.getState();
         if (channelIndex < 0 || channelIndex >= state.channels.length) return;
 
@@ -101,9 +101,10 @@ export class EPGFocusNavigator {
             previousFocus.cellElement.classList.remove(EPG_CLASSES.CELL_FOCUSED);
         }
 
-        const didScroll = this.ensureCellVisible(channelIndex, program);
-
-        const focusTimeMs = this.getProgramFocusTime(program);
+        const focusTimeMs = this.resolveProgramFocusTime(program, requestedFocusTimeMs);
+        const didScroll = requestedFocusTimeMs === undefined
+            ? this.ensureCellVisible(channelIndex, program)
+            : this.ensureChannelVisible(channelIndex) || this.ensureTimeVisible(focusTimeMs);
         state.focusTimeMs = focusTimeMs;
         state.focusedCell = {
             kind: 'program',
@@ -169,7 +170,7 @@ export class EPGFocusNavigator {
         const state = this.context.getState();
         const previousOffset = state.scrollPosition.timeOffset;
         const minutesFromAnchor = (time - state.gridAnchorTime) / 60000;
-        state.scrollPosition.timeOffset = Math.max(0, minutesFromAnchor);
+        state.scrollPosition.timeOffset = this.clampTimeOffset(minutesFromAnchor);
         state.focusTimeMs = time;
 
         this.context.getTimeHeader().updateScrollPosition(state.scrollPosition.timeOffset);
@@ -356,21 +357,19 @@ export class EPGFocusNavigator {
     private ensureCellVisible(channelIndex: number, program: ScheduledProgram): boolean {
         const state = this.context.getState();
         const { scrollPosition } = state;
-        const { visibleHours, totalHours } = this.context.getConfig();
+        const { visibleHours } = this.context.getConfig();
         let didScroll = this.ensureChannelVisible(channelIndex);
 
         const programStartMinutes = (program.scheduledStartTime - state.gridAnchorTime) / 60000;
         const programEndMinutes = (program.scheduledEndTime - state.gridAnchorTime) / 60000;
         const visibleEndMinutes = scrollPosition.timeOffset + (visibleHours * 60);
-        const maxOffset = Math.max(0, (totalHours * 60) - (visibleHours * 60));
-        const clampTimeOffset = (minutes: number): number => Math.max(0, Math.min(minutes, maxOffset));
 
         if (programStartMinutes < scrollPosition.timeOffset) {
-            state.scrollPosition.timeOffset = clampTimeOffset(programStartMinutes);
+            state.scrollPosition.timeOffset = this.clampTimeOffset(programStartMinutes);
             this.context.getTimeHeader().updateScrollPosition(state.scrollPosition.timeOffset);
             didScroll = true;
         } else if (programEndMinutes > visibleEndMinutes) {
-            state.scrollPosition.timeOffset = clampTimeOffset(programEndMinutes - (visibleHours * 60));
+            state.scrollPosition.timeOffset = this.clampTimeOffset(programEndMinutes - (visibleHours * 60));
             this.context.getTimeHeader().updateScrollPosition(state.scrollPosition.timeOffset);
             didScroll = true;
         }
@@ -380,18 +379,16 @@ export class EPGFocusNavigator {
 
     private ensureTimeVisible(targetTimeMs: number): boolean {
         const state = this.context.getState();
-        const { visibleHours, totalHours } = this.context.getConfig();
+        const { visibleHours } = this.context.getConfig();
         const minutesFromAnchor = (targetTimeMs - state.gridAnchorTime) / 60000;
-        const maxOffset = Math.max(0, (totalHours * 60) - (visibleHours * 60));
-        const clampOffset = (minutes: number): number => Math.max(0, Math.min(minutes, maxOffset));
         let didScroll = false;
 
         if (minutesFromAnchor < state.scrollPosition.timeOffset) {
-            state.scrollPosition.timeOffset = clampOffset(minutesFromAnchor);
+            state.scrollPosition.timeOffset = this.clampTimeOffset(minutesFromAnchor);
             this.context.getTimeHeader().updateScrollPosition(state.scrollPosition.timeOffset);
             didScroll = true;
         } else if (minutesFromAnchor > state.scrollPosition.timeOffset + (visibleHours * 60)) {
-            state.scrollPosition.timeOffset = clampOffset(minutesFromAnchor - (visibleHours * 60));
+            state.scrollPosition.timeOffset = this.clampTimeOffset(minutesFromAnchor - (visibleHours * 60));
             this.context.getTimeHeader().updateScrollPosition(state.scrollPosition.timeOffset);
             didScroll = true;
         }
@@ -405,6 +402,15 @@ export class EPGFocusNavigator {
         const elapsed = typeof program.elapsedMs === 'number' ? program.elapsedMs : 0;
         const candidate = start + Math.max(0, elapsed);
         return Math.min(Math.max(candidate, start), Math.max(start, end - 1));
+    }
+
+    private resolveProgramFocusTime(program: ScheduledProgram, requestedFocusTimeMs?: number): number {
+        if (!Number.isFinite(requestedFocusTimeMs)) {
+            return this.getProgramFocusTime(program);
+        }
+        const start = program.scheduledStartTime;
+        const end = Math.max(start, program.scheduledEndTime - 1);
+        return Math.min(Math.max(requestedFocusTimeMs as number, start), end);
     }
 
     private focusPlaceholder(channelIndex: number, targetTime: number): void {
@@ -594,7 +600,9 @@ export class EPGFocusNavigator {
             return false;
         }
 
-        state.scrollPosition.timeOffset += EPG_CONSTANTS.TIME_SCROLL_AMOUNT;
+        state.scrollPosition.timeOffset = this.clampTimeOffset(
+            state.scrollPosition.timeOffset + EPG_CONSTANTS.TIME_SCROLL_AMOUNT
+        );
         this.context.getTimeHeader().updateScrollPosition(state.scrollPosition.timeOffset);
         this.context.renderGrid();
 
@@ -632,6 +640,15 @@ export class EPGFocusNavigator {
             }
         }
 
-        this.focusProgram(channelIndex, programIndex);
+        this.focusProgram(channelIndex, programIndex, targetTime);
+    }
+
+    private getMaxTimeOffsetMinutes(): number {
+        const { visibleHours, totalHours } = this.context.getConfig();
+        return Math.max(0, (totalHours * 60) - (visibleHours * 60));
+    }
+
+    private clampTimeOffset(minutes: number): number {
+        return Math.max(0, Math.min(minutes, this.getMaxTimeOffsetMinutes()));
     }
 }

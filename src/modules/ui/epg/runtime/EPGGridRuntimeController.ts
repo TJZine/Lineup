@@ -203,9 +203,13 @@ export class EPGGridRuntimeController {
         const now = Date.now();
         const minutesFromAnchor = (now - state.gridAnchorTime) / 60000;
         const centerOffset = minutesFromAnchor - (config.visibleHours * 60 / 2);
-        state.scrollPosition.timeOffset = Math.max(0, centerOffset);
+        state.scrollPosition.timeOffset = this.clampTimeOffset(centerOffset);
         state.focusTimeMs = now;
         this.context.getTimeHeader().updateScrollPosition(state.scrollPosition.timeOffset);
+        this.context.getVirtualizer().updateScrollPosition(state.scrollPosition.timeOffset);
+        if (state.isVisible && state.isInitialized) {
+            this.renderGridInternal();
+        }
     }
 
     updateTimeIndicatorPosition(): void {
@@ -244,5 +248,14 @@ export class EPGGridRuntimeController {
         };
 
         this.visibleRangeEmitter.emit(range);
+    }
+
+    private getMaxTimeOffsetMinutes(): number {
+        const config = this.context.getConfig();
+        return Math.max(0, (config.totalHours * 60) - (config.visibleHours * 60));
+    }
+
+    private clampTimeOffset(minutes: number): number {
+        return Math.max(0, Math.min(minutes, this.getMaxTimeOffsetMinutes()));
     }
 }

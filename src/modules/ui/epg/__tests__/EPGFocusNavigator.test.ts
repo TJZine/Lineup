@@ -31,8 +31,13 @@ describe('EPGFocusNavigator', () => {
 
     const createHarness = (): {
         navigator: EPGFocusNavigator;
+        config: EPGConfig;
         state: EPGInternalState;
         events: Array<[keyof EPGEventMap, unknown]>;
+        renderGrid: jest.Mock;
+        timeHeader: {
+            updateScrollPosition: jest.Mock;
+        };
         libraryTabs: {
             visible: boolean;
             pickerOpen: boolean;
@@ -85,6 +90,8 @@ describe('EPGFocusNavigator', () => {
             autoScrollToNow: false,
         };
         const events: Array<[keyof EPGEventMap, unknown]> = [];
+        const renderGrid = jest.fn();
+        const timeHeader = { updateScrollPosition: jest.fn() };
         let libraryTabsFocused = false;
         const libraryTabs = {
             visible: true,
@@ -106,7 +113,7 @@ describe('EPGFocusNavigator', () => {
                 updateScrollPosition: jest.fn(),
                 flashWrapCue: jest.fn(),
             }) as never,
-            getTimeHeader: (): never => ({ updateScrollPosition: jest.fn() }) as never,
+            getTimeHeader: (): never => timeHeader as never,
             getVirtualizer: (): never => ({
                 setFocusedCell: jest.fn(() => document.createElement('button')),
             }) as never,
@@ -115,7 +122,7 @@ describe('EPGFocusNavigator', () => {
             setIsLibraryTabsFocused: (focused): void => {
                 libraryTabsFocused = focused;
             },
-            renderGrid: jest.fn(),
+            renderGrid,
             renderGridInternal: jest.fn(),
             hide: jest.fn((): void => {
                 state.isVisible = false;
@@ -131,8 +138,11 @@ describe('EPGFocusNavigator', () => {
 
         return {
             navigator,
+            config,
             state,
             events,
+            renderGrid,
+            timeHeader,
             libraryTabs,
             setLibraryTabsFocused: (focused): void => {
                 libraryTabsFocused = focused;
@@ -149,6 +159,18 @@ describe('EPGFocusNavigator', () => {
         expect(navigator.handleNavigation('up')).toBe(true);
         expect(state.focusedCell?.channelIndex).toBe(2);
         expect(state.focusTimeMs).toBe(anchor + 60 * 60 * 1000);
+    });
+
+    it('preserves explicit target time when focusing a program by time', () => {
+        const { navigator, state } = createHarness();
+        const targetTime = anchor + 90 * 60 * 1000;
+
+        navigator.focusProgramAtTime(0, targetTime);
+
+        expect(state.focusedCell?.kind).toBe('program');
+        expect(state.focusedCell?.programIndex).toBe(1);
+        expect(state.focusedCell?.focusTimeMs).toBe(targetTime);
+        expect(state.focusTimeMs).toBe(targetTime);
     });
 
     it('moves horizontally between programs and emits select payloads for focused programs', () => {
@@ -183,6 +205,42 @@ describe('EPGFocusNavigator', () => {
 
         expect(state.focusedCell?.channelIndex).toBe(2);
         expect(state.focusTimeMs).toBe(anchor + 2 * 60 * 60 * 1000);
+    });
+
+    it('clamps direct time scroll requests to the configured guide window', () => {
+        const { config, navigator, state, timeHeader, renderGrid } = createHarness();
+        const maxOffsetMinutes = (config.totalHours - config.visibleHours) * 60;
+
+        navigator.scrollToTime(anchor + (config.totalHours + 2) * 60 * 60 * 1000);
+
+        expect(state.scrollPosition.timeOffset).toBe(maxOffsetMinutes);
+        expect(state.focusTimeMs).toBe(anchor + (config.totalHours + 2) * 60 * 60 * 1000);
+        expect(timeHeader.updateScrollPosition).toHaveBeenCalledWith(maxOffsetMinutes);
+        expect(renderGrid).toHaveBeenCalled();
+    });
+
+    it('clamps right-edge remote scrolling to the configured guide window', () => {
+        const { config, navigator, state, timeHeader, renderGrid } = createHarness();
+        const maxOffsetMinutes = (config.totalHours - config.visibleHours) * 60;
+        const channel = state.channels[0];
+        const schedule = channel ? state.schedules.get(channel.id) : undefined;
+        const program = schedule?.programs[2];
+        expect(program).toBeDefined();
+        state.focusedCell = {
+            kind: 'program',
+            channelIndex: 0,
+            programIndex: 2,
+            program: program as ScheduledProgram,
+            focusTimeMs: (program as ScheduledProgram).scheduledStartTime,
+            cellElement: null,
+        };
+        state.scrollPosition.timeOffset = maxOffsetMinutes - 10;
+
+        expect(navigator.handleNavigation('right')).toBe(true);
+
+        expect(state.scrollPosition.timeOffset).toBe(maxOffsetMinutes);
+        expect(timeHeader.updateScrollPosition).toHaveBeenCalledWith(maxOffsetMinutes);
+        expect(renderGrid).toHaveBeenCalled();
     });
 
     it('routes library tabs focus, picker movement, selection, and back behavior', () => {

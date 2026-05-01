@@ -157,6 +157,7 @@ describe('EPGGridRuntimeController', () => {
 
     afterEach(() => {
         jest.useRealTimers();
+        jest.restoreAllMocks();
     });
 
     it('creates the current-time indicator under the virtualized content host and refreshes position', () => {
@@ -234,5 +235,20 @@ describe('EPGGridRuntimeController', () => {
         controller.setTimeOffsetToNow();
         expect(state.scrollPosition.timeOffset).toBe(180);
         expect(timeHeader.updateScrollPosition).toHaveBeenCalledWith(180);
+        expect(virtualizer.updateScrollPosition).toHaveBeenCalledWith(180);
+    });
+
+    it('clamps set-time-to-now to the configured guide window and refreshes virtualized cells', () => {
+        const { config, controller, state, virtualizer, timeHeader } = createHarness();
+        const maxOffsetMinutes = (config.totalHours - config.visibleHours) * 60;
+
+        jest.setSystemTime(anchor + (config.totalHours + 2) * 60 * 60 * 1000);
+        controller.setTimeOffsetToNow();
+
+        expect(state.scrollPosition.timeOffset).toBe(maxOffsetMinutes);
+        expect(state.focusTimeMs).toBe(anchor + (config.totalHours + 2) * 60 * 60 * 1000);
+        expect(timeHeader.updateScrollPosition).toHaveBeenCalledWith(maxOffsetMinutes);
+        expect(virtualizer.updateScrollPosition).toHaveBeenCalledWith(maxOffsetMinutes);
+        expect(virtualizer.renderVisibleCells).toHaveBeenCalled();
     });
 });
