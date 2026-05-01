@@ -6,7 +6,7 @@ import { AppErrorCode } from '../../../types/app-errors';
 import type { EventEmitter } from '../../../utils/EventEmitter';
 import { SYNTHETIC_MEDIA_ERROR_CODE_KEY } from '../constants';
 import { RetryManager } from '../RetryManager';
-import type { PlaybackError, PlayerEventMap, VideoPlayerInternalState } from '../types';
+import type { PlaybackError, PlayerEventMap, StreamDescriptor, VideoPlayerInternalState } from '../types';
 import { VideoPlayerEvents } from '../VideoPlayerEvents';
 
 const createState = (): VideoPlayerInternalState => ({
@@ -25,7 +25,7 @@ const createState = (): VideoPlayerInternalState => ({
 
 const attachedEvents: VideoPlayerEvents[] = [];
 
-const createRetryDescriptor = () => ({
+const createRetryDescriptor = (): StreamDescriptor => ({
     url: 'https://example/stream.m3u8',
     protocol: 'hls' as const,
     mimeType: 'application/x-mpegURL',
