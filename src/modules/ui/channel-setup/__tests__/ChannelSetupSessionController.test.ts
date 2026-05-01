@@ -7,7 +7,7 @@ import type {
 import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
 import { ChannelSetupSessionController } from '../ChannelSetupSessionController';
 import type { ChannelSetupBuildOutcome } from '../ChannelSetupSessionContracts';
-import type { ChannelSetupScreenWorkflowPort } from '../ChannelSetupScreenPorts';
+import type { ChannelSetupScreenWorkflowPort } from '../../../../core/channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import { flushPromises } from '../../../../__tests__/helpers';
 import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, makeLibrary } from './channel-setup-test-helpers';

@@ -2,7 +2,7 @@ import type {
     INavigationManager,
     NavigationAsyncFailureReporter,
 } from './interfaces';
-import type { ToastInput } from '../ui/toast/types';
+import type { ToastInput } from '../../shared/toast';
 import type {
     NavigationChannelSwitchingPort,
     NavigationMiniGuidePort,

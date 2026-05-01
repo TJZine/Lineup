@@ -1,6 +1,6 @@
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../modules/scheduler/channel-manager/constants';
+import { normalizeChannelSetupConfig } from '../config/normalizeChannelSetupConfig';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../constants';
-import { normalizeChannelSetupConfig } from '../planning/normalizeChannelSetupConfig';
 import type {
     ChannelExpansionConfig,
     ChannelSetupConfig,

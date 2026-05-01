@@ -4,7 +4,7 @@ import {
     createChannelSetupScreenWorkflowPort,
 } from '../AppLazyScreenPortFactory';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
-import type { ChannelSetupScreenWorkflowPort } from '../../../modules/ui/channel-setup';
+import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 
 type MockRuntimeOrchestrator = {
     requestAuthPin: jest.Mock;

@@ -1,4 +1,4 @@
-import { normalizeToastInput, type ToastInput, type ToastType } from '../../modules/ui/toast/types';
+import { normalizeToastInput, type ToastInput, type ToastType } from '../../shared/toast';
 
 const TOAST_THROTTLE_MS = 1500;
 const TOAST_VISIBLE_MS = 5000;

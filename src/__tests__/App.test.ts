@@ -9,9 +9,9 @@ import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../
 import { AppThemeController } from '../core/app-shell/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
 import type { ChannelSetupWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupWorkflowPort';
+import type { ChannelSetupScreenWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
 import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
-import type { ChannelSetupScreenWorkflowPort } from '../modules/ui/channel-setup';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { createWebOsPlatformServices } from '../platform';
 

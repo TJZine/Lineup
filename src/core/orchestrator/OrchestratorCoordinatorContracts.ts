@@ -62,7 +62,7 @@ import type { NowPlayingDisplayStore } from '../../modules/settings/NowPlayingDi
 import type { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import type { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePreferencesStore';
 import type { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
-import type { ToastInput } from '../../modules/ui/toast/types';
+import type { ToastInput } from '../../shared/toast';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 import type {
     ChannelBadgeOverlayInitPort,

@@ -82,7 +82,7 @@ import {
     PlaybackOptionsCoordinator,
     type IPlaybackOptionsModal,
 } from '../../modules/ui/playback-options';
-import type { ToastInput } from '../../modules/ui/toast/types';
+import type { ToastInput } from '../../shared/toast';
 import {
     ExitConfirmCoordinator,
     ExitConfirmModal,

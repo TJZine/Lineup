@@ -16,7 +16,7 @@ import type { StreamDescriptor } from './types';
 import { subtitleModeAllowsBurnIn, type SubtitleMode } from '../../shared/subtitle-mode';
 import type { AppendIssueDiagnostic } from '../debug/IssueDiagnosticsStore';
 import { SubtitlePreferencesStore } from '../settings/SubtitlePreferencesStore';
-import type { ToastInput } from '../ui/toast/types';
+import type { ToastInput } from '../../shared/toast';
 import { redactSensitiveTokens } from '../../utils/redact';
 import { summarizeErrorForLog } from '../../utils/errors';
 import {

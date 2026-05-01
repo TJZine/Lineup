@@ -1,5 +1,5 @@
 import type { AuthScreenPorts } from '../../modules/ui/auth';
-import type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from '../../modules/ui/channel-setup';
+import type { ChannelSetupScreenPorts } from '../../modules/ui/channel-setup';
 import type { INavigationManager } from '../../modules/navigation';
 import type { ProfileSelectScreenPorts } from '../../modules/ui/profile-select';
 import type {
@@ -8,6 +8,7 @@ import type {
 } from '../../modules/ui/server-select';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
+import type { ChannelSetupScreenWorkflowPort } from '../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
     AppShellAuthRuntimePort,

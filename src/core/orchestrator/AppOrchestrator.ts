@@ -145,7 +145,7 @@ import type { ErrorRecoveryAction } from '../error-recovery/types';
 import {
     buildPlexResourceUrlWithAuth,
 } from '../../modules/plex/shared/plexUrl';
-import type { ToastInput } from '../../modules/ui/toast/types';
+import type { ToastInput } from '../../shared/toast';
 import type { PlatformServices } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 import { summarizeErrorForLog } from '../../utils/errors';

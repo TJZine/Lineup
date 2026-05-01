@@ -7,9 +7,9 @@ import type {
     ServerHealthStatus,
     ServerHealthType,
 } from '../../modules/plex/discovery';
-import type { ChannelSetupScreenWorkflowPort } from '../../modules/ui/channel-setup';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
+import type { ChannelSetupScreenWorkflowPort } from '../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
 
 export interface AppShellNavigationRuntimePort {
