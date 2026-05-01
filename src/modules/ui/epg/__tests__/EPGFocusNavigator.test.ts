@@ -173,6 +173,20 @@ describe('EPGFocusNavigator', () => {
         expect(state.focusTimeMs).toBe(targetTime);
     });
 
+    it('keeps requested-time focus visible after scrolling rows', () => {
+        const { navigator, state, timeHeader } = createHarness();
+        const targetTime = anchor + 150 * 60 * 1000;
+
+        navigator.focusProgramAtTime(2, targetTime);
+
+        expect(state.focusedCell?.kind).toBe('program');
+        expect(state.focusedCell?.channelIndex).toBe(2);
+        expect(state.focusedCell?.programIndex).toBe(2);
+        expect(state.scrollPosition.channelOffset).toBe(1);
+        expect(state.scrollPosition.timeOffset).toBe(30);
+        expect(timeHeader.updateScrollPosition).toHaveBeenCalledWith(30);
+    });
+
     it('moves horizontally between programs and emits select payloads for focused programs', () => {
         const { navigator, state, events } = createHarness();
 
@@ -184,6 +198,27 @@ describe('EPGFocusNavigator', () => {
         expect(navigator.handleSelect()).toBe(true);
         expect(events.some(([event]) => event === 'channelSelected')).toBe(true);
         expect(events.some(([event]) => event === 'programSelected')).toBe(true);
+    });
+
+    it('dedupes same-tick program selection events', () => {
+        jest.useFakeTimers();
+        try {
+            const { navigator, events } = createHarness();
+
+            navigator.focusProgram(0, 0);
+            expect(navigator.handleNavigation('right')).toBe(true);
+
+            expect(navigator.handleSelect()).toBe(true);
+            expect(navigator.handleSelect()).toBe(false);
+
+            jest.runOnlyPendingTimers();
+
+            expect(events.filter(([event]) => event === 'channelSelected')).toHaveLength(1);
+            expect(events.filter(([event]) => event === 'programSelected')).toHaveLength(1);
+            expect(navigator.isSelectInProgress()).toBe(false);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('focuses placeholders when schedules are missing and returns false for placeholder selection', () => {

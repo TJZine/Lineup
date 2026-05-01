@@ -48,6 +48,7 @@ export class EPGGridRuntimeController {
     destroy(): void {
         this.stopTimeUpdateInterval();
         this.removeVisibilityListener();
+        this.timeIndicatorElement?.remove();
         this.timeIndicatorElement = null;
         this.visibleRangeEmitter = new EPGVisibleRangeEmitter();
         this.lastRenderGridDebugLogMs = 0;
@@ -61,9 +62,14 @@ export class EPGGridRuntimeController {
         const programArea = this.context.getProgramAreaElement();
         if (!programArea) return;
 
+        const host = this.context.getVirtualizer().getContentElement() ?? programArea;
+        this.timeIndicatorElement?.remove();
+        host.querySelectorAll(`.${EPG_CLASSES.TIME_INDICATOR}`).forEach((node) => {
+            node.remove();
+        });
+
         this.timeIndicatorElement = document.createElement('div');
         this.timeIndicatorElement.className = EPG_CLASSES.TIME_INDICATOR;
-        const host = this.context.getVirtualizer().getContentElement() ?? programArea;
         host.appendChild(this.timeIndicatorElement);
 
         this.updateTimeIndicatorPosition();

@@ -17,7 +17,7 @@ export function installMockTextTracks(
         item: (index: number) => TextTrack | null;
     } = {
         length: tracks.length,
-        item: jest.fn((index: number) => mockTextTracks[index] as TextTrack | null),
+        item: jest.fn((index: number) => (mockTextTracks[index] as TextTrack | undefined) ?? null),
     };
 
     tracks.forEach((track, index) => {

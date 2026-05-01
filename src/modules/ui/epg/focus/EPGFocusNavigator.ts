@@ -102,9 +102,14 @@ export class EPGFocusNavigator {
         }
 
         const focusTimeMs = this.resolveProgramFocusTime(program, requestedFocusTimeMs);
-        const didScroll = requestedFocusTimeMs === undefined
-            ? this.ensureCellVisible(channelIndex, program)
-            : this.ensureChannelVisible(channelIndex) || this.ensureTimeVisible(focusTimeMs);
+        let didScroll = false;
+        if (requestedFocusTimeMs === undefined) {
+            didScroll = this.ensureCellVisible(channelIndex, program);
+        } else {
+            const channelScrolled = this.ensureChannelVisible(channelIndex);
+            const timeScrolled = this.ensureTimeVisible(focusTimeMs);
+            didScroll = channelScrolled || timeScrolled;
+        }
         state.focusTimeMs = focusTimeMs;
         state.focusedCell = {
             kind: 'program',
@@ -303,11 +308,7 @@ export class EPGFocusNavigator {
 
         const channel = state.channels[focusedCell.channelIndex];
         if (!channel) return false;
-
-        this._isSelectInProgress = true;
-        window.setTimeout(() => {
-            this._isSelectInProgress = false;
-        }, 0);
+        if (focusedCell.kind === 'program' && this._isSelectInProgress) return false;
 
         if (this.context.isDebugEnabled()) {
             const payload = {
@@ -331,6 +332,11 @@ export class EPGFocusNavigator {
         if (focusedCell.kind === 'placeholder') {
             return false;
         }
+
+        this._isSelectInProgress = true;
+        window.setTimeout(() => {
+            this._isSelectInProgress = false;
+        }, 0);
 
         this.context.emit('channelSelected', {
             channel,

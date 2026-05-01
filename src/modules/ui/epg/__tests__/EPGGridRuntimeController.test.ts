@@ -174,6 +174,19 @@ describe('EPGGridRuntimeController', () => {
         expect(virtualizer.updateTemporalClasses).toHaveBeenCalledWith(anchor + 30 * 60 * 1000);
     });
 
+    it('reuses one current-time indicator across repeated creation and destroy', () => {
+        const { controller, virtualizer } = createHarness();
+        const content = virtualizer.getContentElement.mock.results[0]?.value as HTMLElement;
+
+        controller.createTimeIndicator();
+
+        expect(content.querySelectorAll(`.${EPG_CLASSES.TIME_INDICATOR}`)).toHaveLength(1);
+
+        controller.destroy();
+
+        expect(content.querySelector(`.${EPG_CLASSES.TIME_INDICATOR}`)).toBeNull();
+    });
+
     it('starts one interval, refreshes runtime collaborators, and stops cleanly', () => {
         const { controller, updateNowWatchingBanner, syncPeekMode, applyLayoutMode } = createHarness();
         const setIntervalSpy = jest.spyOn(global, 'setInterval');
