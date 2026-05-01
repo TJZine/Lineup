@@ -6,6 +6,7 @@ import { LifecycleStatePersistenceQueue } from '../LifecycleStatePersistenceQueu
 import { TIMING_CONFIG } from '../constants';
 import type { StateManager } from '../StateManager';
 import type { PersistentState } from '../types';
+import { PersistenceWarningBackoffPolicy } from '../../../utils/persistenceWarningBackoffPolicy';
 
 describe('LifecycleStatePersistenceQueue', () => {
     let state: PersistentState;
@@ -17,7 +18,7 @@ describe('LifecycleStatePersistenceQueue', () => {
     let warnSpy: jest.SpyInstance;
 
     beforeEach(() => {
-        jest.useFakeTimers();
+        jest.useFakeTimers().setSystemTime(10_000);
         state = {
             version: 1,
             userPreferences: {
@@ -81,6 +82,39 @@ describe('LifecycleStatePersistenceQueue', () => {
                 isQuotaError: true,
             })
         );
+    });
+
+    it('uses the shared warning policy while preserving the lifecycle warning payload', async () => {
+        const shouldEmitSpy = jest.spyOn(
+            PersistenceWarningBackoffPolicy.prototype,
+            'shouldEmitWarning'
+        );
+        const resetQuotaSpy = jest.spyOn(
+            PersistenceWarningBackoffPolicy.prototype,
+            'resetQuotaBackoff'
+        );
+        const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
+        stateManager.save.mockImplementationOnce(() => {
+            throw saveError;
+        });
+        const queue = createQueue();
+
+        const failedSave = queue.saveState();
+        jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
+
+        await expect(failedSave).rejects.toBe(saveError);
+        expect(shouldEmitSpy).toHaveBeenCalledWith(true);
+        expect(emitPersistenceWarning).toHaveBeenCalledWith({
+            message: 'Persistent storage quota exceeded; save deferred',
+            isQuotaError: true,
+            timestamp: 10_000 + TIMING_CONFIG.SAVE_DEBOUNCE_MS,
+        });
+
+        const successfulSave = queue.saveState();
+        jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
+
+        await expect(successfulSave).resolves.toBeUndefined();
+        expect(resetQuotaSpy).toHaveBeenCalled();
     });
 
     it('does not let failed warning observers mask the original save failure', async () => {

@@ -1,6 +1,7 @@
 import { TIMING_CONFIG } from '../../../config/timing';
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import { PersistenceWarningBackoffPolicy } from '../../../utils/persistenceWarningBackoffPolicy';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
 import type { ChannelManagerEventMap } from './types';
 
@@ -28,8 +29,7 @@ export class ChannelPersistenceSaveQueue {
     private _pendingSaveResolve: (() => void) | null = null;
     private _pendingSaveReject: ((error: unknown) => void) | null = null;
     private _queuedSaveCatchPromise: Promise<void> | null = null;
-    private _nextPersistenceWarningAt = 0;
-    private _persistenceWarningBackoffMs: number = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+    private readonly _persistenceWarningPolicy = new PersistenceWarningBackoffPolicy();
     private _isDisposed = false;
 
     constructor(config: ChannelPersistenceSaveQueueConfig) {
@@ -136,8 +136,7 @@ export class ChannelPersistenceSaveQueue {
     }
 
     markSuccess(): void {
-        this._nextPersistenceWarningAt = 0;
-        this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+        this._persistenceWarningPolicy.resetAll();
     }
 
     emitWarning(error: unknown): boolean {
@@ -205,23 +204,7 @@ export class ChannelPersistenceSaveQueue {
     }
 
     private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {
-        const now = Date.now();
-        if (now < this._nextPersistenceWarningAt) {
-            return false;
-        }
-        const backoff = isQuotaError
-            ? this._persistenceWarningBackoffMs
-            : TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-        this._nextPersistenceWarningAt = now + backoff;
-        if (isQuotaError) {
-            this._persistenceWarningBackoffMs = Math.min(
-                this._persistenceWarningBackoffMs * 2,
-                TIMING_CONFIG.PERSISTENCE_WARNING_MAX_BACKOFF_MS
-            );
-        } else {
-            this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-        }
-        return true;
+        return this._persistenceWarningPolicy.shouldEmitWarning(isQuotaError);
     }
 
     private _markPersistenceFailureReported(error: unknown): void {

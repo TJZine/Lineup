@@ -1,4 +1,6 @@
 import { AppErrorCode } from '../../../../types/app-errors';
+import { STORAGE_CONFIG } from '../../../lifecycle/constants';
+import { PersistenceWarningBackoffPolicy } from '../../../../utils/persistenceWarningBackoffPolicy';
 import { ChannelPersistenceSaveQueue } from '../ChannelPersistenceSaveQueue';
 
 const createDisposedError = (): Error =>
@@ -46,5 +48,53 @@ describe('ChannelPersistenceSaveQueue', () => {
 
         expect(jest.getTimerCount()).toBe(0);
         expect(runSave).not.toHaveBeenCalled();
+    });
+
+    it('uses the shared warning policy while preserving the channel warning payload', () => {
+        jest.useFakeTimers().setSystemTime(20_000);
+        const shouldEmitSpy = jest.spyOn(
+            PersistenceWarningBackoffPolicy.prototype,
+            'shouldEmitWarning'
+        );
+        const emitPersistenceWarning = jest.fn();
+        const queue = new ChannelPersistenceSaveQueue({
+            runSave: jest.fn(),
+            createDisposedError,
+            emitPersistenceWarning,
+            logger: { warn: jest.fn(), error: jest.fn() },
+        });
+        const quotaError = new DOMException('quota', 'QuotaExceededError');
+
+        expect(queue.emitWarning(quotaError)).toBe(true);
+
+        expect(shouldEmitSpy).toHaveBeenCalledWith(true);
+        expect(emitPersistenceWarning).toHaveBeenCalledWith({
+            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+            code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+            isQuotaError: true,
+            timestamp: 20_000,
+        });
+    });
+
+    it('resets the shared warning policy after a successful save', () => {
+        jest.useFakeTimers().setSystemTime(30_000);
+        const resetAllSpy = jest.spyOn(PersistenceWarningBackoffPolicy.prototype, 'resetAll');
+        const emitPersistenceWarning = jest.fn();
+        const queue = new ChannelPersistenceSaveQueue({
+            runSave: jest.fn(),
+            createDisposedError,
+            emitPersistenceWarning,
+            logger: { warn: jest.fn(), error: jest.fn() },
+        });
+        const quotaError = new DOMException('quota', 'QuotaExceededError');
+
+        expect(queue.emitWarning(quotaError)).toBe(true);
+        expect(queue.emitWarning(quotaError)).toBe(false);
+
+        queue.markSuccess();
+
+        expect(resetAllSpy).toHaveBeenCalled();
+        expect(queue.emitWarning(quotaError)).toBe(true);
+        expect(emitPersistenceWarning).toHaveBeenCalledTimes(2);
     });
 });
