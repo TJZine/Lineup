@@ -57,6 +57,7 @@ function throwIfAborted(signal: AbortSignal | null | undefined): void {
 type PlexHomeEndpointResult =
     | { kind: 'response'; response: Response; endpointIndex: number }
     | { kind: 'unsupported' };
+type PlexHomeEndpointRetryPredicate = (response: Response) => boolean;
 
 /**
  * Plex Authentication implementation.
@@ -399,7 +400,11 @@ export class PlexAuth implements IPlexAuth {
                 endpoints.slice(nextEndpointIndex),
                 init,
                 options?.signal ?? null,
-                'Failed to fetch Plex Home users'
+                'Failed to fetch Plex Home users',
+                (response) =>
+                    response.status === 404 ||
+                    response.status === 405 ||
+                    (!response.ok && response.status !== 401 && response.status !== 403)
             );
 
             if (result.kind === 'unsupported') {
@@ -467,10 +472,16 @@ export class PlexAuth implements IPlexAuth {
         endpoints: string[],
         init: RequestInit,
         signal: AbortSignal | null,
-        networkErrorMessage: string
+        networkErrorMessage: string,
+        shouldTryNext: PlexHomeEndpointRetryPredicate
     ): Promise<PlexHomeEndpointResult> {
         try {
-            return await this._requestFirstSupportedHomeEndpoint(endpoints, init, signal);
+            return await this._requestFirstSupportedHomeEndpoint(
+                endpoints,
+                init,
+                signal,
+                shouldTryNext
+            );
         } catch (error) {
             if (isAbortError(error) || signal?.aborted) {
                 throw error;
@@ -490,9 +501,11 @@ export class PlexAuth implements IPlexAuth {
     private async _requestFirstSupportedHomeEndpoint(
         endpoints: string[],
         init: RequestInit,
-        signal?: AbortSignal | null
+        signal: AbortSignal | null,
+        shouldTryNext: PlexHomeEndpointRetryPredicate
     ): Promise<PlexHomeEndpointResult> {
         let lastError: unknown = null;
+        let lastRetryableResponse: Response | null = null;
         for (let index = 0; index < endpoints.length; index++) {
             const url = endpoints[index];
             if (!url) {
@@ -508,7 +521,11 @@ export class PlexAuth implements IPlexAuth {
                 });
                 throwIfAborted(signal);
 
-                if (response.status === 404 || response.status === 405) {
+                if (shouldTryNext(response)) {
+                    if (response.status !== 404 && response.status !== 405) {
+                        lastRetryableResponse = response;
+                        lastError = null;
+                    }
                     continue;
                 }
                 return { kind: 'response', response, endpointIndex: index };
@@ -522,6 +539,15 @@ export class PlexAuth implements IPlexAuth {
 
         if (lastError !== null) {
             throw lastError;
+        }
+
+        if (lastRetryableResponse) {
+            // Surface the latest HTTP failure while telling callers this endpoint slice is exhausted.
+            return {
+                kind: 'response',
+                response: lastRetryableResponse,
+                endpointIndex: endpoints.length - 1,
+            };
         }
 
         return { kind: 'unsupported' };
@@ -574,7 +600,11 @@ export class PlexAuth implements IPlexAuth {
                 const result = await this._requestFirstSupportedHomeEndpoint(
                     endpoints.slice(nextEndpointIndex),
                     init,
-                    options?.signal ?? null
+                    options?.signal ?? null,
+                    (response) =>
+                        response.status === 404 ||
+                        response.status === 405 ||
+                        (!response.ok && response.status !== 401 && response.status !== 403)
                 );
                 if (result.kind === 'unsupported') {
                     response = null;

@@ -1416,6 +1416,29 @@ describe('PlexAuth', () => {
             }
         );
 
+        it('preserves the later transport failure when getHomeUsers sees v2 400 followed by v1 transport failure', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 400,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'bad request' }),
+                    text: async () => '{}',
+                })
+                .mockRejectedValueOnce(new TypeError('Network error'));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.getHomeUsers()).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+                retryable: true,
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
         it('propagates AbortError when getHomeUsers is cancelled by the caller', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
@@ -1574,6 +1597,29 @@ describe('PlexAuth', () => {
                 expect(fetchMock).toHaveBeenCalledTimes(2);
             }
         );
+
+        it('preserves the later transport failure when switchHomeUser sees v2 400 followed by v1 transport failure', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 400,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'bad request' }),
+                    text: async () => '{}',
+                })
+                .mockRejectedValueOnce(new TypeError('Network error'));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expect(auth.switchHomeUser('2')).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+                retryable: true,
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
 
         it('treats 401 + valid account token as wrong PIN', async () => {
             const auth = new PlexAuth(mockConfig);
