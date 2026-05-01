@@ -9,6 +9,10 @@ import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
+import {
+    renderServerSelectList,
+    type ServerSelectEmptyStateReason,
+} from './ServerSelectListView';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 
@@ -534,158 +538,30 @@ export class ServerSelectScreen {
     private _renderServers(
         servers: PlexServer[],
         screenState: ServerSelectScreenState,
-        options?: { savedServerUnavailable?: boolean; emptyStateReason?: 'no_servers' | 'discovery_failed' }
+        options?: { savedServerUnavailable?: boolean; emptyStateReason?: ServerSelectEmptyStateReason }
     ): void {
-        const savedId = screenState.selectedServerId;
-        const savedServerUnavailable = options?.savedServerUnavailable === true;
-        const emptyStateReason = options?.emptyStateReason ?? 'no_servers';
-        const healthMap = screenState.serverHealth;
-
         this._unregisterServerListFocusables();
-        this._listEl.replaceChildren();
-
-        if (servers.length === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'server-empty-state';
-            const icon = document.createElement('div');
-            icon.className = 'server-empty-icon';
-            icon.setAttribute('aria-hidden', 'true');
-
-            const svgNs = 'http://www.w3.org/2000/svg';
-            const svg = document.createElementNS(svgNs, 'svg');
-            svg.setAttribute('viewBox', '0 0 24 24');
-            svg.setAttribute('width', '64');
-            svg.setAttribute('height', '64');
-            svg.setAttribute('stroke', 'currentColor');
-            svg.setAttribute('fill', 'none');
-            svg.setAttribute('stroke-width', '2');
-
-            const p1 = document.createElementNS(svgNs, 'path');
-            p1.setAttribute('d', 'M4 17h16');
-            const p2 = document.createElementNS(svgNs, 'path');
-            p2.setAttribute('d', 'M6 17a6 6 0 0 1 12 0');
-            const p3 = document.createElementNS(svgNs, 'path');
-            p3.setAttribute('d', 'M12 7v4');
-            const p4 = document.createElementNS(svgNs, 'path');
-            p4.setAttribute('d', 'M10 9h4');
-            svg.append(p1, p2, p3, p4);
-            icon.appendChild(svg);
-
-            const title = document.createElement('div');
-            title.className = 'server-empty-title';
-            title.textContent = 'No servers found';
-
-            const description = document.createElement('div');
-            description.className = 'server-empty-description';
-            description.textContent = emptyStateReason === 'discovery_failed'
-                ? 'Server discovery failed. Check network, then select "Retry discovery" to try again.'
-                : 'Ensure your Plex Media Server is running and reachable on your network. Select "Retry discovery" to scan again.';
-
-            empty.replaceChildren(icon, title, description);
-            this._listEl.appendChild(empty);
-            this._updateStaticButtonNeighbors(null);
-            return;
-        }
-
-        const enabledServerButtons: HTMLButtonElement[] = [];
-        const buttonIds = this._buildServerButtonIds(servers.map((server) => server?.id ?? 'unknown'));
-
-        for (let i = 0; i < servers.length; i++) {
-            const server = servers[i];
-            if (!server) continue;
-
-            const row = document.createElement('div');
-            row.className = 'server-row';
-
-            const main = document.createElement('div');
-            main.className = 'server-main';
-
-            const name = document.createElement('div');
-            name.className = 'server-name';
-            name.textContent = server.name;
-            main.appendChild(name);
-
-            const meta = document.createElement('div');
-            meta.className = 'server-meta';
-            meta.textContent = this._buildServerMeta(server, healthMap);
-            main.appendChild(meta);
-
-            row.appendChild(main);
-
-            const actions = document.createElement('div');
-            actions.className = 'server-actions';
-
-            const selectButton = document.createElement('button');
-            selectButton.id = buttonIds[i] ?? 'btn-server-select-unknown';
-            selectButton.className = 'screen-button secondary';
-            selectButton.textContent = 'Connect';
-            selectButton.disabled = this._isSelecting;
-            selectButton.addEventListener('click', () => {
+        const result = renderServerSelectList(this._listEl, servers, screenState, {
+            savedServerUnavailable: options?.savedServerUnavailable,
+            emptyStateReason: options?.emptyStateReason,
+            isSelecting: this._isSelecting,
+            buildServerMeta: (server, healthMap) => this._buildServerMeta(server, healthMap),
+            buildServerButtonIds: (serverIds) => this._buildServerButtonIds(serverIds),
+            onSelectServer: (server) => {
                 this._runScreenAction(
                     () => this._selectServer(server),
                     'Unable to use the selected server.',
                     (error) => this._handleSelectionDispatchError(error, this._visibilityGeneration)
                 );
-            });
-            actions.appendChild(selectButton);
-            row.appendChild(actions);
+            },
+        });
 
-            const health = healthMap[server.id];
-            const pill = document.createElement('div');
-            const normalizedStatus =
-                health?.status === 'ok'
-                || health?.status === 'unreachable'
-                || health?.status === 'auth_required'
-                || health?.status === 'access_denied'
-                    ? health.status
-                    : 'unknown';
-            const statusClass =
-                normalizedStatus === 'auth_required'
-                    ? 'auth-required'
-                    : normalizedStatus === 'access_denied'
-                        ? 'access-denied'
-                        : normalizedStatus;
-            pill.className = `server-status-pill ${statusClass}`;
-
-            let statusText = 'Unknown';
-            if (normalizedStatus === 'ok') statusText = 'OK';
-            else if (normalizedStatus === 'unreachable') statusText = 'Unreachable';
-            else if (normalizedStatus === 'auth_required') statusText = 'Auth Required';
-            else if (normalizedStatus === 'access_denied') statusText = 'Access Denied';
-
-            if (normalizedStatus === 'ok' && typeof health?.latencyMs === 'number' && Number.isFinite(health.latencyMs)) {
-                const ms = Math.round(health.latencyMs);
-                let label = 'OK';
-                if (ms >= 500) {
-                    label = 'Very Slow';
-                    pill.classList.add('latency-very-slow');
-                } else if (ms >= 100) {
-                    label = 'Slow';
-                    pill.classList.add('latency-slow');
-                }
-                pill.textContent = `${label} • ${ms}ms`;
-            } else {
-                pill.textContent = statusText;
-            }
-            main.appendChild(pill);
-
-            if (savedId && server.id === savedId) {
-                row.classList.add('active');
-                // Keep reconnect available even for the currently saved server so users
-                // can re-test connectivity without first clearing selection.
-                selectButton.textContent =
-                    normalizedStatus === 'ok' && !savedServerUnavailable
-                        ? 'Connected'
-                        : 'Reconnect';
-            }
-
-            this._listEl.appendChild(row);
-            if (!selectButton.disabled) {
-                enabledServerButtons.push(selectButton);
-            }
+        if (!result.hasServerRows) {
+            this._updateStaticButtonNeighbors(null);
+            return;
         }
 
-        this._registerServerButtonFocusables(enabledServerButtons);
+        this._registerServerButtonFocusables(result.enabledServerButtons);
     }
 
     private _unregisterServerListFocusables(): void {
