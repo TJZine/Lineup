@@ -7,6 +7,9 @@ import {
     safeLocalStorageSet,
 } from '../../utils/storage';
 
+export type Hdr10FallbackMode = 'off' | 'smart' | 'force';
+export type Hdr10FallbackModeValue = 0 | 1 | 2;
+
 export class PlaybackSettingsStore {
     readTranscodeCompatEnabledAndClean(fallback: boolean = false): boolean {
         return this._readBooleanKey(LINEUP_STORAGE_KEYS.TRANSCODE_COMPAT, fallback);
@@ -32,7 +35,7 @@ export class PlaybackSettingsStore {
         safeLocalStorageSet(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, enabled ? '1' : '0');
     }
 
-    readHdr10FallbackModeAndClean(): 'off' | 'smart' | 'force' {
+    readHdr10FallbackModeAndClean(): Hdr10FallbackMode {
         const force = this.readForceHdr10FallbackEnabledAndClean(false);
         if (force) return 'force';
 
@@ -40,6 +43,27 @@ export class PlaybackSettingsStore {
         if (smart) return 'smart';
 
         return 'off';
+    }
+
+    readHdr10FallbackModeValueAndClean(): Hdr10FallbackModeValue {
+        return this._modeToValue(this.readHdr10FallbackModeAndClean());
+    }
+
+    writeHdr10FallbackModeValue(value: Hdr10FallbackModeValue): void {
+        switch (value) {
+            case 1:
+                this.writeSmartHdr10FallbackEnabled(true);
+                this.writeForceHdr10FallbackEnabled(false);
+                return;
+            case 2:
+                this.writeSmartHdr10FallbackEnabled(false);
+                this.writeForceHdr10FallbackEnabled(true);
+                return;
+            case 0:
+            default:
+                this.writeSmartHdr10FallbackEnabled(false);
+                this.writeForceHdr10FallbackEnabled(false);
+        }
     }
 
     readTranscodeQualityOptionAndClean(): ReturnType<typeof getTranscodeQualityOption> {
@@ -77,6 +101,18 @@ export class PlaybackSettingsStore {
 
     private _readBooleanKey(key: string, fallback: boolean): boolean {
         return readStoredBooleanAndClean(key, fallback);
+    }
+
+    private _modeToValue(mode: Hdr10FallbackMode): Hdr10FallbackModeValue {
+        switch (mode) {
+            case 'force':
+                return 2;
+            case 'smart':
+                return 1;
+            case 'off':
+            default:
+                return 0;
+        }
     }
 
     private _readNormalizedTranscodeQualityOption(): {

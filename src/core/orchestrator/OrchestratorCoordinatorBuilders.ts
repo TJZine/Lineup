@@ -184,7 +184,7 @@ function handleNavigationChannelInputUpdate(
 
 function resetChannelTuningPlaybackGuards(playbackRecovery: PlaybackRecoveryManager): void {
     playbackRecovery.resetPlaybackFailureGuard();
-    playbackRecovery.resetDirectFallbackAttempts();
+    playbackRecovery.resetDirectFallbackAndBurnInAttempts();
 }
 
 function armChannelTransitionForSwitch(

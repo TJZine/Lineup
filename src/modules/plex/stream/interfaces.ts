@@ -8,6 +8,7 @@ import type {
 import type { TranscodeQualityOption } from '../../../config/transcodeQuality';
 import type { PlatformIdentityService } from '../../../platform';
 import type { IDisposable } from '../../../utils/interfaces';
+import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
 
 /**
  * Stream resolver error structure.
@@ -55,7 +56,7 @@ export interface PlexStreamAudioPolicyReader {
 }
 
 export interface PlexStreamPlaybackPolicyReader {
-    readHdr10FallbackModeAndClean(): 'off' | 'smart' | 'force';
+    readHdr10FallbackModeAndClean(): Hdr10FallbackMode;
     readTranscodeCompatEnabledAndClean(fallback?: boolean): boolean;
     readTranscodeQualityOptionAndClean(): TranscodeQualityOption | null;
 }

@@ -3,6 +3,10 @@ import type {
     PlatformServices,
     PlatformRemoteButton,
 } from './services';
+import {
+    createPlexIdentityHeaders,
+    createPlexIdentityMetadata,
+} from '../modules/plex/auth/config';
 
 type KeyMapEntry = readonly [number, PlatformRemoteButton];
 type ChromeToWebOsVersion = Readonly<{
@@ -177,16 +181,14 @@ export function createPlatformIdentityService(): PlatformIdentityService {
         }
     };
 
-    const getDefaultPlexIdentity = (clientIdentifier: string): Readonly<Record<string, string>> => ({
-        'X-Plex-Client-Identifier': clientIdentifier,
-        'X-Plex-Platform': 'webOS',
-        'X-Plex-Product': 'Lineup',
-        'X-Plex-Version': '1.0.0',
-        'X-Plex-Device': 'LG Smart TV',
-        'X-Plex-Device-Name': 'Lineup',
-        'X-Plex-Platform-Version': detectPlatformVersion(),
-        'X-Plex-Model': 'LGTV',
-    });
+    const getDefaultPlexIdentity = (clientIdentifier: string): Readonly<Record<string, string>> => {
+        const metadata = createPlexIdentityMetadata(clientIdentifier, detectPlatformVersion());
+        return createPlexIdentityHeaders(metadata, {
+            platformVersion: metadata.platformVersion,
+            deviceName: metadata.deviceName,
+            model: 'LGTV',
+        });
+    };
 
     return {
         isWebOs,

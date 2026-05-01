@@ -74,6 +74,8 @@ describe('SettingsStore', () => {
             writeSmartHdr10FallbackEnabled: jest.fn(),
             readForceHdr10FallbackEnabledAndClean: jest.fn().mockReturnValue(false),
             writeForceHdr10FallbackEnabled: jest.fn(),
+            readHdr10FallbackModeValueAndClean: jest.fn().mockReturnValue(0),
+            writeHdr10FallbackModeValue: jest.fn(),
         } as unknown as NonNullable<SettingsStoreOptions['playbackSettingsStore']>;
 
         const delegatedStore = new SettingsStore({ playbackSettingsStore });
@@ -93,6 +95,34 @@ describe('SettingsStore', () => {
 
         expect(playbackSettingsStore.writeSmartHdr10FallbackEnabled).toHaveBeenCalledWith(false);
         expect(playbackSettingsStore.writeForceHdr10FallbackEnabled).toHaveBeenCalledWith(true);
+    });
+
+    it('delegates HDR10 fallback mode value reads and writes to PlaybackSettingsStore', () => {
+        const playbackSettingsStore = {
+            readTranscodeCompatEnabledAndClean: jest.fn().mockReturnValue(false),
+            writeTranscodeCompatEnabled: jest.fn(),
+            readSmartHdr10FallbackEnabledAndClean: jest.fn(() => {
+                throw new Error('SettingsStore must not compute HDR10 fallback mode from raw toggles');
+            }),
+            writeSmartHdr10FallbackEnabled: jest.fn(),
+            readForceHdr10FallbackEnabledAndClean: jest.fn(() => {
+                throw new Error('SettingsStore must not compute HDR10 fallback mode from raw toggles');
+            }),
+            writeForceHdr10FallbackEnabled: jest.fn(),
+            readHdr10FallbackModeValueAndClean: jest.fn().mockReturnValue(2),
+            writeHdr10FallbackModeValue: jest.fn(),
+        } as unknown as NonNullable<SettingsStoreOptions['playbackSettingsStore']>;
+        const delegatedStore = new SettingsStore({ playbackSettingsStore });
+
+        expect(delegatedStore.readHdr10FallbackModeValueAndClean()).toBe(2);
+        delegatedStore.writeHdr10FallbackModeValue(1);
+
+        expect(playbackSettingsStore.readHdr10FallbackModeValueAndClean).toHaveBeenCalledTimes(1);
+        expect(playbackSettingsStore.writeHdr10FallbackModeValue).toHaveBeenCalledWith(1);
+        expect(playbackSettingsStore.readSmartHdr10FallbackEnabledAndClean).not.toHaveBeenCalled();
+        expect(playbackSettingsStore.readForceHdr10FallbackEnabledAndClean).not.toHaveBeenCalled();
+        expect(playbackSettingsStore.writeSmartHdr10FallbackEnabled).not.toHaveBeenCalled();
+        expect(playbackSettingsStore.writeForceHdr10FallbackEnabled).not.toHaveBeenCalled();
     });
 
     it('defaults epgNowWatchingEnabled toggle to true when missing', () => {

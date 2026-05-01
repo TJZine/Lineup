@@ -1136,7 +1136,7 @@ as intake.
 
 ### [x] `DCR-11` Verification, Dependency, And Control-Plane Truth
 
-- Status: completed after clean fresh final adversarial review
+- Status: completed
 - Plan: `docs/plans/2026-04-30-dcr-11-verification-dependency-control-plane-truth.md`
 - Dimensions/rubric tags: verified strictness, dependency health, docs/source
   coherence, AI-generated debt, package organization, design coherence
@@ -1329,10 +1329,10 @@ as intake.
 - Handoff: DCR-13 is closed. Do not resume `DCR-EXIT-S2` until `DCR-14`
   through `DCR-16` are complete or explicitly maintainer-routed out of DCR.
 
-### [ ] `DCR-14` EPG Component File-Health Follow-Through
+### [x] `DCR-14` EPG Component File-Health Follow-Through
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-04-30-dcr-14-epg-component-file-health-follow-through.md`
 - Dimensions/rubric tags: file health, design coherence, UI/focus/navigation,
   test strategy
 - Scope owner: EPG/UI owner with design/style review
@@ -1355,20 +1355,38 @@ as intake.
   fresh file-health source audit proving `S0-L01-F2` no longer describes
   current source, source/design audit confirming `S0-L14-F2` remains out of code
   cleanup, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Stop/replan triggers: a cleanup agent proposes visible panel treatment changes,
   focus/navigation changes overlap unrelated UI cleanup, or the planned slices
   do not name concrete owner seams for reducing the `EPGComponent` hotspot.
-- Last touched: not started
-- Verification: not run
+- Completion evidence: `DCR-14-A1` closed through actual `EPGComponent`
+  responsibility reduction. Shell DOM/ARIA/banner ownership moved to
+  `EPGShellView`, focus/navigation/page/select/back ownership moved to
+  `EPGFocusNavigator`, and timer/listener lifecycle, visible-range emission,
+  and grid render coordination moved to `EPGGridRuntimeController`.
+  `EPGComponent.ts` is now a `778`-line `IEPGComponent` facade/wiring owner
+  instead of the owner of rendering, focus/navigation, timers, and grid runtime
+  at the same time. `S0-L14-F2` remains accepted visual/design residual work
+  outside cleanup-agent implementation scope; no EPG CSS or visual panel
+  treatment files changed.
+- Last touched: 2026-04-30
+- Verification: clean final DCR-14 plan approval completed; implementation
+  review found no material findings; focused EPG facade/deferred/coordinator
+  tests passed; focused `EPGShellView`, `EPGFocusNavigator`, and
+  `EPGGridRuntimeController` tests passed; implementation review reran the six
+  EPG suites with `178` tests passing; `npm run verify` passed; controller
+  closeout `npm run plans:check`, `npm run verify:docs`, and `git diff --check`
+  passed.
 - Follow-ups: none yet.
-- Handoff: plan after `DCR-11`; can run independently if no shared UI helpers
-  move.
+- Handoff: DCR-14 is closed. DCR-15 is now also closed. Do not resume
+  `DCR-EXIT-S2` until `DCR-16` is complete or explicitly maintainer-routed out
+  of DCR.
 
-### [ ] `DCR-15` Player, Plex Runtime, Settings, And Media Contracts
+### [x] `DCR-15` Player, Plex Runtime, Settings, And Media Contracts
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-01-dcr-15-player-plex-runtime-settings-media-contracts-plan.md`
 - Dimensions/rubric tags: code quality, duplication, naming quality, error
   consistency, authorization consistency, type safety, incomplete migration
 - Scope owner: player/runtime, Plex stream/library, settings boundary, and
@@ -1396,15 +1414,18 @@ as intake.
 - Verification routing: RetryManager/VideoPlayer, SubtitleManager,
   HDR10/settings resolver, cleanup/debug 401/403, Plex identity, parser
   scalar-validation tests, typecheck, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Stop/replan triggers: auth/session ownership changes, stream error contract
   changes, media parsing policy requires API redesign, or package scope needs
   multiple disjoint plans.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-01
+- Verification: clean plan review; clean implementation reviews for
+  `DCR-15-S1` through `DCR-15-S8`; focused DCR-15 Jest suites passed during
+  implementation/review; final `npm run typecheck`, `npm run verify`,
+  `npm run plans:check`, `npm run verify:docs`, and `git diff --check` passed.
 - Follow-ups: none yet.
-- Handoff: plan after `DCR-11`; split internally only if the approved plan can
-  prove disjoint write scopes and one integration gate.
+- Handoff: DCR-15 is closed. Do not resume `DCR-EXIT-S2` until `DCR-16` is
+  complete or explicitly maintainer-routed out of DCR.
 
 ### [ ] `DCR-16` Production Source-Signal Residue
 
@@ -1433,8 +1454,7 @@ as intake.
 
 ### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
 
-- Status: blocked after S0 route; follow-up packages `DCR-11` through `DCR-16`
-  must close or be maintainer-routed before final reconciliation resumes.
+- Status: blocked
 - Plan: `docs/plans/2026-04-30-dcr-exit-final-dimension-audit-plan.md`
 - Dimensions/rubric tags: final reconciliation, full rubric coverage,
   source-backed proof, test confidence, dependency/config/tooling health,
@@ -1489,9 +1509,8 @@ as intake.
   verification already run, final `npm run verify`, and `npm run verify:docs`.
   `npm run plans:check` applies while the active plan is the handoff surface.
   External/manual score refresh is maintainer-owned after this gate closes.
-- Ready-now execution unit: `DCR-EXIT-S1` routing repair only. After that,
-  `DCR-EXIT` blocks on `DCR-11` through `DCR-16` and the next implementation
-  package is `DCR-11`.
+- Ready-now execution unit: none for DCR-EXIT; final reconciliation remains
+  blocked until `DCR-16` closes or is maintainer-routed.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1512,11 +1531,13 @@ as intake.
   summarized in the active plan; `npm run plans:check` passed; `npm run
   verify:docs` passed; read-only S0 routing review approved with no material
   findings.
-- Follow-ups: `DCR-11` through `DCR-16` admitted from S0 findings; future-port
-  residuals remain owned by port/test owner as above.
-- Handoff: stop DCR-EXIT here and start `DCR-11` in a fresh cleanup-loop
+- Follow-ups: `DCR-11` through `DCR-15` are complete; `DCR-16` remains
+  admitted from S0 findings; future-port residuals remain owned by port/test
+  owner as above.
+- Handoff: stop DCR-EXIT here and start `DCR-16` in a fresh cleanup-loop
   session. Do not run a fresh scoring-only pass or implement production/test
-  fixes inside DCR-EXIT.
+  fixes inside DCR-EXIT. Follow-up package `DCR-16` must close or be
+  maintainer-routed before final reconciliation resumes.
 
 ## FCP Baseline History
 

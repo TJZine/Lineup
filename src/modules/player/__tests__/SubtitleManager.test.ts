@@ -9,6 +9,7 @@ import type { SubtitleTrack } from '../types';
 import type { PlatformSubtitleService } from '../../../platform';
 import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 import { flushPromisesAndMacrotask } from '../../../__tests__/helpers';
+import { installMockTextTracks } from './text-track-test-helpers';
 
 // ============================================
 // Test Helpers
@@ -311,6 +312,49 @@ describe('SubtitleManager', () => {
 
             manager.setActiveTrack(null);
             expect(manager.getActiveTrackId()).toBeNull();
+        });
+
+        it('logs the native text-track debug snapshot without token-bearing fields', () => {
+            enableSubtitleDebugLogging();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            installMockTextTracks(videoElement, [
+                {
+                    id: 'en',
+                    kind: 'subtitles',
+                    label: 'English',
+                    language: 'en',
+                    mode: 'showing',
+                    cuesLength: 3,
+                    activeCuesLength: 1,
+                },
+            ]);
+
+            try {
+                manager.setActiveTrack(null);
+
+                const payload = warnSpy.mock.calls.find(
+                    (call) => call[1] === 'SubtitleManager' && call[2] === 'setActiveTrack'
+                )?.[3];
+
+                expect(JSON.parse(String(payload))).toEqual({
+                    activeTrackId: null,
+                    nativeTextTracks: [
+                        {
+                            id: 'en',
+                            kind: 'subtitles',
+                            label: 'English',
+                            language: 'en',
+                            mode: 'hidden',
+                            cuesLength: 3,
+                            activeCuesLength: 1,
+                        },
+                    ],
+                });
+                expect(String(payload)).not.toContain('X-Plex-Token');
+                expect(String(payload)).not.toContain('http://');
+            } finally {
+                warnSpy.mockRestore();
+            }
         });
 
         it('does not classify keyless text tracks as burn-in and attempts extraction on selection', async () => {

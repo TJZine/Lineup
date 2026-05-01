@@ -63,6 +63,13 @@ const expectDebouncedSaveQuotaWarning = (times: number = 1): void => {
 describe('ChannelManager persistence and storage keys', () => {
     let mockLibrary: jest.Mocked<IPlexLibraryMinimal>;
     let manager: ChannelManager;
+    const createdManagers: ChannelManager[] = [];
+
+    const createManagedChannelManager = (): ChannelManager => {
+        const created = new ChannelManager({ plexLibrary: mockLibrary });
+        createdManagers.push(created);
+        return created;
+    };
 
     beforeEach(() => {
         jest.useFakeTimers();
@@ -76,8 +83,13 @@ describe('ChannelManager persistence and storage keys', () => {
     });
 
     afterEach(async () => {
+        for (const created of createdManagers.splice(0)) {
+            await created.flushSaves().catch(() => undefined);
+            created.dispose();
+        }
         if (manager) {
             await manager.flushSaves().catch(() => undefined);
+            manager.dispose();
         }
         jest.clearAllTimers();
         jest.useRealTimers();
@@ -327,7 +339,7 @@ describe('ChannelManager persistence and storage keys', () => {
             mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, persistedChannel.id);
 
             const writeStoredSpy = jest.spyOn(ChannelRepository.prototype, 'saveStoredChannelData');
-            const loadManager = new ChannelManager({ plexLibrary: mockLibrary });
+            const loadManager = createManagedChannelManager();
 
             await loadManager.loadChannels();
             await loadManager.flushSaves();
@@ -478,7 +490,7 @@ describe('ChannelManager persistence and storage keys', () => {
             });
             await manager.flushSaves();
 
-            const newManager = new ChannelManager({ plexLibrary: mockLibrary });
+            const newManager = createManagedChannelManager();
             await newManager.loadChannels();
 
             expect(newManager.getAllChannels()).toHaveLength(1);
@@ -500,7 +512,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 savedAt: Date.now(),
             }));
 
-            const newManager = new ChannelManager({ plexLibrary: mockLibrary });
+            const newManager = createManagedChannelManager();
             await expect(newManager.loadChannels()).resolves.toBeUndefined();
             expect(newManager.getAllChannels()).toHaveLength(0);
         });
@@ -528,7 +540,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 savedAt: Date.now(),
             }));
 
-            const newManager = new ChannelManager({ plexLibrary: mockLibrary });
+            const newManager = createManagedChannelManager();
             await newManager.loadChannels();
             expect(newManager.getAllChannels()).toHaveLength(0);
         });
@@ -548,7 +560,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 savedAt: Date.now(),
             }));
 
-            const newManager = new ChannelManager({ plexLibrary: mockLibrary });
+            const newManager = createManagedChannelManager();
             await expect(newManager.loadChannels()).resolves.toBeUndefined();
             expect(newManager.getAllChannels()).toHaveLength(1);
             expect(newManager.getAllChannels()[0]!.id).toBe(channel.id);
@@ -574,7 +586,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 savedAt: Date.now(),
             }));
 
-            const newManager = new ChannelManager({ plexLibrary: mockLibrary });
+            const newManager = createManagedChannelManager();
             await newManager.loadChannels();
 
             const loaded = newManager.getAllChannels();

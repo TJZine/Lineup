@@ -74,4 +74,40 @@ describe('OrchestratorChannelSwitchRuntime', () => {
 
         expect(deps.reportError).not.toHaveBeenCalled();
     });
+
+    it('reports non-abort number-based outcome switch failures and returns failed', async () => {
+        const switchError = new Error('switch failed');
+        const channelTuning = {
+            switchToChannelByNumber: jest.fn().mockRejectedValue(switchError),
+        };
+        const deps = createDeps({
+            getChannelTuning: jest.fn(() => channelTuning as never),
+        });
+        const runtime = new OrchestratorChannelSwitchRuntime(deps);
+
+        await expect(runtime.switchToChannelByNumberWithOutcome(7)).resolves.toBe('failed');
+
+        expect(channelTuning.switchToChannelByNumber).toHaveBeenCalledWith(7, undefined);
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.channelSwitch.byNumberOutcome',
+            'switchToChannelByNumberWithOutcome failed',
+            switchError
+        );
+    });
+
+    it('returns aborted for abort-like number-based outcome switch failures without reporting an error', async () => {
+        const abortError = { name: 'AbortError' };
+        const channelTuning = {
+            switchToChannelByNumber: jest.fn().mockRejectedValue(abortError),
+        };
+        const deps = createDeps({
+            getChannelTuning: jest.fn(() => channelTuning as never),
+        });
+        const runtime = new OrchestratorChannelSwitchRuntime(deps);
+
+        await expect(runtime.switchToChannelByNumberWithOutcome(7)).resolves.toBe('aborted');
+
+        expect(channelTuning.switchToChannelByNumber).toHaveBeenCalledWith(7, undefined);
+        expect(deps.reportError).not.toHaveBeenCalled();
+    });
 });

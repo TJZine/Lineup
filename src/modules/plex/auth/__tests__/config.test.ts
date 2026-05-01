@@ -3,7 +3,11 @@
  */
 
 import * as clientIdentifierModule from '../clientIdentifier';
-import { createDefaultPlexAuthConfig } from '../config';
+import {
+    createDefaultPlexAuthConfig,
+    createPlexIdentityHeaders,
+    createPlexIdentityMetadata,
+} from '../config';
 
 describe('createDefaultPlexAuthConfig', () => {
     beforeEach(() => {
@@ -33,6 +37,25 @@ describe('createDefaultPlexAuthConfig', () => {
         const config = createDefaultPlexAuthConfig(undefined, '24.0');
 
         expect(config.platformVersion).toBe('24.0');
+    });
+
+    it('builds canonical Plex identity headers from auth metadata', () => {
+        const metadata = createPlexIdentityMetadata('client-id-1', '24.0');
+
+        expect(createPlexIdentityHeaders(metadata, {
+            platformVersion: metadata.platformVersion,
+            deviceName: metadata.deviceName,
+            model: 'LGTV',
+        })).toEqual({
+            'X-Plex-Client-Identifier': 'client-id-1',
+            'X-Plex-Product': 'Lineup',
+            'X-Plex-Version': '1.0.0',
+            'X-Plex-Platform': 'webOS',
+            'X-Plex-Device': 'LG Smart TV',
+            'X-Plex-Platform-Version': '24.0',
+            'X-Plex-Device-Name': 'Living Room TV',
+            'X-Plex-Model': 'LGTV',
+        });
     });
 
     it('passes through preferred client identifier for boundary-owned resolution', () => {

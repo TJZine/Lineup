@@ -3,7 +3,10 @@ import { PlexLibraryError } from '../PlexLibraryError';
 import {
     parseArrayOrEmpty,
     parseRequiredArray,
+    parseRequiredFiniteNumber,
     parseRequiredObject,
+    parseRequiredString,
+    parseRequiredStringLike,
 } from '../parsing/parserValidation';
 
 describe('parserValidation', () => {
@@ -33,5 +36,23 @@ describe('parserValidation', () => {
                 message: 'Invalid object payload: expected an object',
             })
         );
+    });
+
+    it('returns valid required scalar values unchanged or normalized', () => {
+        expect(parseRequiredString('value', 'object', 'field')).toBe('value');
+        expect(parseRequiredStringLike(123, 'object', 'id')).toBe('123');
+        expect(parseRequiredFiniteNumber(1, 'object', 'count')).toBe(1);
+    });
+
+    it('throws a typed parse error when required scalar values are missing or wrong typed', () => {
+        expect(() => parseRequiredString(undefined, 'object', 'field')).toThrow(
+            expect.objectContaining({
+                code: AppErrorCode.PARSE_ERROR,
+                message: 'Invalid object payload: field is required',
+            })
+        );
+        expect(() => parseRequiredString(123, 'object', 'field')).toThrow(PlexLibraryError);
+        expect(() => parseRequiredStringLike(null, 'object', 'id')).toThrow(PlexLibraryError);
+        expect(() => parseRequiredFiniteNumber(Number.NaN, 'object', 'count')).toThrow(PlexLibraryError);
     });
 });

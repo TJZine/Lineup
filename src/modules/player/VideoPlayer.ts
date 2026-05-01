@@ -32,6 +32,7 @@ import {
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 import { SubtitleDebugLogger } from '../debug/SubtitleDebugLogger';
+import { snapshotNativeTextTracks } from './nativeTextTrackDebugSnapshot';
 
 type MediaSessionPlaybackStateLike = 'none' | 'paused' | 'playing';
 
@@ -123,26 +124,6 @@ export class VideoPlayer implements IVideoPlayer {
         }));
         this._emitter.emit('trackChange', { type: 'subtitle', trackId: null });
         this._emitStateChange();
-    }
-
-    private _snapshotNativeTextTracks(): Array<Record<string, unknown>> {
-        if (!this._videoElement) return [];
-        const list = this._videoElement.textTracks;
-        const result: Array<Record<string, unknown>> = [];
-        for (let i = 0; i < list.length; i++) {
-            const t = list[i];
-            if (!t) continue;
-            result.push({
-                id: t.id,
-                kind: t.kind,
-                label: t.label,
-                language: t.language,
-                mode: t.mode,
-                cuesLength: t.cues?.length ?? null,
-                activeCuesLength: t.activeCues?.length ?? null,
-            });
-        }
-        return result;
     }
 
     private _handleSubtitleDeactivateRequest(
@@ -309,7 +290,7 @@ export class VideoPlayer implements IVideoPlayer {
         );
         this._logSubtitleDebug('loadStream_subtitles_loaded', () => ({
             burnInTracks,
-            nativeTextTracks: this._snapshotNativeTextTracks(),
+            nativeTextTracks: snapshotNativeTextTracks(this._videoElement),
         }));
 
         if (descriptor.preferredSubtitleTrackId !== undefined) {
@@ -334,7 +315,7 @@ export class VideoPlayer implements IVideoPlayer {
         }
 
         this._logSubtitleDebug('canplay', () => ({
-            nativeTextTracks: this._snapshotNativeTextTracks(),
+            nativeTextTracks: snapshotNativeTextTracks(this._videoElement),
         }));
 
         // Set start position AFTER metadata is loaded
@@ -544,7 +525,7 @@ export class VideoPlayer implements IVideoPlayer {
             this._logSubtitleDebug('setSubtitleTrack', () => ({
                 requestedId: trackId,
                 finalId: finalActiveTrackId,
-                nativeTextTracks: this._snapshotNativeTextTracks(),
+                nativeTextTracks: snapshotNativeTextTracks(this._videoElement),
             }));
 
             this._emitter.emit('trackChange', { type: 'subtitle', trackId: finalActiveTrackId });

@@ -189,6 +189,9 @@ after this extraction.
   `PlexStreamResolver.fetchUniversalTranscodeDecision()` remains the public
   delegating contract.
 - `src/modules/plex/auth/PlexAuth.ts` owns the auth credential storage key `lineup_plex_auth`
+- `src/modules/plex/auth/config.ts` owns canonical Plex identity metadata
+  (`product`, `version`, `platform`, `device`, `deviceName`) and identity-header
+  assembly for auth/platform/stream consumers.
 - `src/modules/plex/auth/clientIdentifier.ts` owns `lineup_client_id` resolution/persistence (`resolveClientIdentifier(preferred?: string): string`) and the value is resolved once at config assembly (`createDefaultPlexAuthConfig`) before `PlexAuth` construction
 - `src/modules/plex/auth/plexAuthTransport.ts` owns shared Plex auth transport concerns (`PlexApiError`, request headers, retry transport policy) consumed by auth and discovery
 
@@ -207,7 +210,8 @@ after this extraction.
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` remains the public
   channel-domain API/state owner, while package-local collaborators own focused
   responsibilities: `ChannelPersistenceSaveQueue.ts` owns debounced save
-  promise/timer/warning orchestration through callbacks, and
+  promise/timer/warning orchestration through callbacks and delegates warning
+  backoff timing to `src/utils/persistenceWarningBackoffPolicy.ts`, and
   `ChannelImportNormalizer.ts` owns import payload validation and create-input
   shaping without mutating manager state or changing persistence schema
 
@@ -234,6 +238,9 @@ after this extraction.
 - `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`
 - `src/modules/plex/auth/PlexAuth.ts`
 - `src/modules/plex/auth/clientIdentifier.ts`
+- `src/utils/persistenceWarningBackoffPolicy.ts` owns shared persistence-warning
+  timing/backoff/reset mechanics for lifecycle and scheduler callers; the
+  callers keep their warning payload schemas.
 - these are the current designated owners for storage-backed state
 - `src/modules/ui/settings/SettingsStore.ts` is a UI-facing facade; `debugLogging` and `subtitleDebugLogging` persistence now routes through `src/modules/settings/DeveloperSettingsStore.ts`
 - runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `AppThemeController` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator`/`AudioTrackManager` -> `AudioSettingsStore` policy reads and setup completion state, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
@@ -271,16 +278,19 @@ after this extraction.
 The main structural hotspots still treated as current by this architecture source are:
 
 - `src/App.ts`
-- `src/modules/ui/epg/component/EPGComponent.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
 
 `src/modules/ui/settings/SettingsScreen.ts`,
+`src/modules/ui/epg/component/EPGComponent.ts`,
 `src/modules/plex/stream/PlexStreamResolver.ts`, and
 `src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
 ownership surfaces, but they are no longer treated as current primary file-size
-hotspots after their latest split/delegation passes. `ChannelSetupScreen.ts`
-remains on the active hotspot list until a current source audit proves its
-remaining size and ownership concentration are no longer cleanup-relevant.
+hotspots after their latest split/delegation passes. `EPGComponent.ts` now
+acts as the `IEPGComponent` facade/wiring owner while shell rendering,
+focus/navigation, and grid runtime lifecycle live in package-local EPG owners.
+`ChannelSetupScreen.ts` remains on the active hotspot list until a current
+source audit proves its remaining size and ownership concentration are no
+longer cleanup-relevant.
 
 The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md).
 

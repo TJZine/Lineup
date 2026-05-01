@@ -263,14 +263,20 @@ export class AuthScreen {
     private async _handleCancel(): Promise<void> {
         this._requestToken += 1;
         this._pollToken += 1;
+        const requestToken = this._requestToken;
+        const pollToken = this._pollToken;
         this._abortActivePolling();
         this._stopExpiryTimer();
-        if (this._activePinId !== null) {
+        const activePinId = this._activePinId;
+        if (activePinId !== null) {
             try {
-                await this._ports.cancelPin(this._activePinId);
+                await this._ports.cancelPin(activePinId);
             } catch {
                 // Best-effort cancellation: user intent is to stop polling UI regardless of network state.
             }
+        }
+        if (!this._isCurrentAuthUiOperation(requestToken, pollToken)) {
+            return;
         }
         this._activePinId = null;
         this._activeCode = null;
@@ -478,16 +484,22 @@ export class AuthScreen {
         this._stopExpiryTimer();
         this._requestToken += 1;
         this._pollToken += 1;
+        const requestToken = this._requestToken;
+        const pollToken = this._pollToken;
         this._abortActivePolling();
 
-        if (this._activePinId !== null) {
+        const activePinId = this._activePinId;
+        if (activePinId !== null) {
             try {
-                await this._ports.cancelPin(this._activePinId);
+                await this._ports.cancelPin(activePinId);
             } catch {
                 // best effort
             }
         }
 
+        if (!this._isCurrentAuthUiOperation(requestToken, pollToken)) {
+            return;
+        }
         this._activePinId = null;
         this._activeCode = null;
         this._expiresAt = null;
@@ -495,6 +507,17 @@ export class AuthScreen {
         this._qrWrapEl.style.display = 'none';
         this._setStatus('Code expired.', 'Request a new PIN to continue.', { tone: 'warning' });
         this._setButtons({ request: true, cancel: false, retry: false });
+    }
+
+    private _isCurrentAuthUiOperation(requestToken: number, pollToken: number): boolean {
+        return requestToken === this._requestToken
+            && pollToken === this._pollToken
+            && this._isVisible();
+    }
+
+    private _isVisible(): boolean {
+        return this._container.classList.contains('visible')
+            && this._container.style.display !== 'none';
     }
 
     private _setCountdownWarningVisible(isVisible: boolean): void {

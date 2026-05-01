@@ -1,4 +1,5 @@
 import { parseMediaItem } from '../parsing/mediaItemParser';
+import { AppErrorCode } from '../../../../types/app-errors';
 import type { RawMediaItem } from '../types';
 
 describe('mediaItemParser', () => {
@@ -66,5 +67,35 @@ describe('mediaItemParser', () => {
         expect(nanItem.updatedAt.toISOString()).toBe('2024-01-02T00:00:00.000Z');
         expect(nanItem.lastViewedAt).toBeUndefined();
         expect(overflowItem.lastViewedAt).toBeUndefined();
+    });
+
+    it.each([
+        ['ratingKey', { key: '/library/metadata/movie-4', type: 'movie', title: 'Movie 4' }],
+        ['key', { ratingKey: 'movie-4', type: 'movie', title: 'Movie 4' }],
+        ['type', { ratingKey: 'movie-4', key: '/library/metadata/movie-4', title: 'Movie 4' }],
+        ['title', { ratingKey: 'movie-4', key: '/library/metadata/movie-4', type: 'movie' }],
+    ])('throws a typed parse error when required media item scalar %s is missing', (field, raw) => {
+        expect(() => parseMediaItem(raw as unknown as RawMediaItem)).toThrow(
+            expect.objectContaining({
+                code: AppErrorCode.PARSE_ERROR,
+                message: `Invalid media item payload: ${field} is required`,
+            })
+        );
+    });
+
+    it('throws a typed parse error when required media item scalars have the wrong type', () => {
+        expect(() =>
+            parseMediaItem({
+                ratingKey: 123,
+                key: '/library/metadata/movie-5',
+                type: 'movie',
+                title: 'Movie 5',
+            } as unknown as RawMediaItem)
+        ).toThrow(
+            expect.objectContaining({
+                code: AppErrorCode.PARSE_ERROR,
+                message: 'Invalid media item payload: ratingKey is required',
+            })
+        );
     });
 });

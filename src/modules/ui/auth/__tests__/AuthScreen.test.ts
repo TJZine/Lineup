@@ -592,6 +592,96 @@ describe('AuthScreen', () => {
         expect(status?.textContent ?? '').toContain('Cancelled.');
     });
 
+    it('does not render cancelled state when cancel completes after hide', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const cancelDeferred = createDeferred<void>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 42,
+                code: 'ABCD',
+                expiresAt: new Date(Date.now() + 60_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+            cancelPin: jest.fn().mockImplementation(() => cancelDeferred.promise),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        click(container, '#btn-auth-cancel');
+        await flushPromises();
+
+        screen.hide();
+        cancelDeferred.resolve(undefined);
+        await flushPromises();
+
+        const status = container.querySelector('.screen-status');
+        expect(status?.textContent ?? '').not.toContain('Cancelled.');
+        expect(status?.textContent ?? '').toContain('Ready to request a PIN.');
+        expect(container.style.display).toBe('none');
+    });
+
+    it('does not let stale cancel completion overwrite a newer PIN request', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const cancelDeferred = createDeferred<void>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn()
+                .mockResolvedValueOnce({
+                    id: 42,
+                    code: 'ABCD',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                })
+                .mockResolvedValueOnce({
+                    id: 43,
+                    code: 'WXYZ',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                }),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+            cancelPin: jest.fn((pinId: number) => {
+                if (pinId === 42) {
+                    return cancelDeferred.promise;
+                }
+                return Promise.resolve();
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        click(container, '#btn-auth-cancel');
+        await flushPromises();
+        screen.hide();
+        screen.show();
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        cancelDeferred.resolve(undefined);
+        await flushPromises();
+
+        const pin = Array.from(container.querySelectorAll('.auth-pin-character'))
+            .map((node) => node.textContent)
+            .join('');
+        const status = container.querySelector('.screen-status');
+
+        expect(pin).toBe('WXYZ');
+        expect(status?.textContent ?? '').not.toContain('Cancelled.');
+        expect(ports.pollForPin).toHaveBeenCalledTimes(2);
+    });
+
     it('renders the Plex link QR as a trusted inline SVG with the existing canvas styling hook', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -696,6 +786,102 @@ describe('AuthScreen', () => {
         expect(qr.style.display).toBe('none');
         expect(status?.textContent ?? '').toContain('Code expired.');
         expect(detail?.classList.contains('screen-detail--warning')).toBe(false);
+    });
+
+    it('does not render expired state when expiry cancellation completes after hide', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-02-05T00:00:00.000Z'));
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const cancelDeferred = createDeferred<void>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn().mockResolvedValue({
+                id: 77,
+                code: 'WXYZ',
+                expiresAt: new Date(Date.now() + 1_000),
+                authToken: null,
+                clientIdentifier: 'client-id',
+            }),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+            cancelPin: jest.fn().mockImplementation(() => cancelDeferred.promise),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+
+        jest.advanceTimersByTime(1_500);
+        await flushPromises();
+        screen.hide();
+        cancelDeferred.resolve(undefined);
+        await flushPromises();
+
+        const status = container.querySelector('.screen-status');
+        expect(status?.textContent ?? '').not.toContain('Code expired.');
+        expect(status?.textContent ?? '').toContain('Ready to request a PIN.');
+        expect(container.style.display).toBe('none');
+    });
+
+    it('does not let stale expiry cancellation overwrite a newer PIN request', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-02-05T00:00:00.000Z'));
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+
+        const cancelDeferred = createDeferred<void>();
+        const ports = createPorts({
+            requestAuthPin: jest.fn()
+                .mockResolvedValueOnce({
+                    id: 77,
+                    code: 'WXYZ',
+                    expiresAt: new Date(Date.now() + 1_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                })
+                .mockResolvedValueOnce({
+                    id: 78,
+                    code: 'NEXT',
+                    expiresAt: new Date(Date.now() + 60_000),
+                    authToken: null,
+                    clientIdentifier: 'client-id',
+                }),
+            pollForPin: jest.fn().mockImplementation(() => new Promise(() => undefined)),
+            cancelPin: jest.fn((pinId: number) => {
+                if (pinId === 77) {
+                    return cancelDeferred.promise;
+                }
+                return Promise.resolve();
+            }),
+        });
+
+        const screen = new AuthScreen(container, ports);
+        screen.show();
+
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        jest.advanceTimersByTime(1_500);
+        await flushPromises();
+
+        screen.hide();
+        screen.show();
+        click(container, '#btn-auth-request');
+        await flushPromises();
+        cancelDeferred.resolve(undefined);
+        await flushPromises();
+
+        const pin = Array.from(container.querySelectorAll('.auth-pin-character'))
+            .map((node) => node.textContent)
+            .join('');
+        const status = container.querySelector('.screen-status');
+
+        expect(pin).toBe('NEXT');
+        expect(status?.textContent ?? '').not.toContain('Code expired.');
+        expect(ports.pollForPin).toHaveBeenCalledTimes(2);
     });
 
     it('clears the countdown warning class when polling succeeds after the warning threshold', async () => {

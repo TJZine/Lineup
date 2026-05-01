@@ -6,3 +6,5 @@ export { EPGInfoPanel } from './EPGInfoPanel';
 export { EPGInfoPanelCoordinator } from './EPGInfoPanelCoordinator';
 export { EPGLibraryTabs } from './EPGLibraryTabs';
 export { EPGVisibleRangeEmitter } from './EPGVisibleRangeEmitter';
+export { EPGShellView } from './EPGShellView';
+export type { EPGShellElements } from './EPGShellView';

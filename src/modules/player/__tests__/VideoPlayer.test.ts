@@ -12,6 +12,8 @@ import { AudioTrackManager } from '../AudioTrackManager';
 import type { VideoPlayerConfig, StreamDescriptor } from '../types';
 import type { PlatformPlaybackService, PlatformSubtitleService } from '../../../platform';
 import { APP_SHELL_CONTAINER_IDS } from '../../ui/common/appShellContainerIds';
+import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
+import { installMockTextTracks } from './text-track-test-helpers';
 
 // ============================================
 // Test Helpers
@@ -48,6 +50,16 @@ function createMockDescriptor(
         isLive: false,
         ...overrides,
     };
+}
+
+const developerSettingsStore = new DeveloperSettingsStore();
+
+function enableSubtitleDebugLogging(): void {
+    developerSettingsStore.writeSubtitleDebugLoggingEnabled(true);
+}
+
+function clearSubtitleDebugLogging(): void {
+    developerSettingsStore.clearSubtitleDebugLoggingEnabled();
 }
 
 type FakeSubtitleManager = {
@@ -158,6 +170,7 @@ describe('VideoPlayer', () => {
     });
 
     afterEach(() => {
+        clearSubtitleDebugLogging();
         // Cleanup
         if (container && container.parentNode) {
             container.remove();
@@ -442,6 +455,53 @@ describe('VideoPlayer', () => {
             expect(player.getCurrentDescriptor()).toBe(newerDescriptor);
             expect(videoElement.src).toContain('newer.m3u8');
             expect(seekCalls).toEqual([10]);
+        });
+
+        it('logs the native text-track debug snapshot without token-bearing fields', async () => {
+            enableSubtitleDebugLogging();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const videoElement = container.querySelector('video') as HTMLVideoElement;
+            installMockTextTracks(videoElement, [
+                {
+                    id: 'en',
+                    kind: 'subtitles',
+                    label: 'English',
+                    language: 'en',
+                    mode: 'hidden',
+                    cuesLength: 2,
+                    activeCuesLength: null,
+                },
+            ]);
+
+            try {
+                await player.loadStream(createMockDescriptor({
+                    url: 'http://example.com/stream.m3u8?X-Plex-Token=secret-token',
+                }));
+
+                const payload = warnSpy.mock.calls.find(
+                    (call) => call[1] === 'VideoPlayer' && call[2] === 'loadStream_subtitles_loaded'
+                )?.[3];
+
+                expect(JSON.parse(String(payload))).toEqual({
+                    burnInTracks: [],
+                    nativeTextTracks: [
+                        {
+                            id: 'en',
+                            kind: 'subtitles',
+                            label: 'English',
+                            language: 'en',
+                            mode: 'hidden',
+                            cuesLength: 2,
+                            activeCuesLength: null,
+                        },
+                    ],
+                });
+                expect(String(payload)).not.toContain('secret-token');
+                expect(String(payload)).not.toContain('X-Plex-Token');
+                expect(String(payload)).not.toContain('http://example.com');
+            } finally {
+                warnSpy.mockRestore();
+            }
         });
     });
 
@@ -922,6 +982,42 @@ describe('VideoPlayer', () => {
                     retryCount: 3,
                 })
             );
+        });
+
+        it('clears active retry metadata and synthetic error listeners on unloadStream', () => {
+            const errorHandler = jest.fn();
+            player.on('error', errorHandler);
+
+            let currentTime = 42;
+            const currentTimeSetter = jest.fn((value: number) => {
+                currentTime = value;
+            });
+            Object.defineProperty(videoElement, 'currentTime', {
+                get: () => currentTime,
+                set: currentTimeSetter,
+                configurable: true,
+            });
+            Object.defineProperty(videoElement, 'error', {
+                get: () => ({ code: 2, message: 'Network error' }),
+                configurable: true,
+            });
+            const dispatchEventSpy = jest.spyOn(videoElement, 'dispatchEvent');
+
+            videoElement.dispatchEvent(new Event('error'));
+            jest.advanceTimersByTime(1000);
+            currentTimeSetter.mockClear();
+
+            player.unloadStream();
+            videoElement.dispatchEvent(new Event('loadedmetadata'));
+            jest.advanceTimersByTime(10_000);
+
+            const dispatchedErrorEvents = dispatchEventSpy.mock.calls.filter(
+                ([event]) => event instanceof Event && event.type === 'error'
+            );
+            expect(dispatchedErrorEvents).toHaveLength(1);
+            expect(currentTimeSetter).not.toHaveBeenCalled();
+            expect(videoElement.play).not.toHaveBeenCalled();
+            expect(errorHandler).not.toHaveBeenCalled();
         });
     });
 

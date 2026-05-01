@@ -5,8 +5,8 @@
 import { AppErrorCode } from '../../../types/app-errors';
 import type { EventEmitter } from '../../../utils/EventEmitter';
 import { SYNTHETIC_MEDIA_ERROR_CODE_KEY } from '../constants';
-import type { RetryManager } from '../RetryManager';
-import type { PlaybackError, PlayerEventMap, VideoPlayerInternalState } from '../types';
+import { RetryManager } from '../RetryManager';
+import type { PlaybackError, PlayerEventMap, StreamDescriptor, VideoPlayerInternalState } from '../types';
 import { VideoPlayerEvents } from '../VideoPlayerEvents';
 
 const createState = (): VideoPlayerInternalState => ({
@@ -24,6 +24,21 @@ const createState = (): VideoPlayerInternalState => ({
 });
 
 const attachedEvents: VideoPlayerEvents[] = [];
+
+const createRetryDescriptor = (): StreamDescriptor => ({
+    url: 'https://example/stream.m3u8',
+    protocol: 'hls' as const,
+    mimeType: 'application/x-mpegURL',
+    startPositionMs: 0,
+    mediaMetadata: {
+        title: 'Example',
+        durationMs: 60_000,
+    },
+    subtitleTracks: [],
+    audioTracks: [],
+    durationMs: 60_000,
+    isLive: false,
+});
 
 const createFixture = (): {
     events: VideoPlayerEvents;
@@ -368,5 +383,64 @@ describe('VideoPlayerEvents', () => {
 
         expect(callbacks.setState).toHaveBeenCalledWith({ durationMs: 0 });
         expect(emitter.emit).not.toHaveBeenCalledWith('mediaLoaded', expect.anything());
+    });
+});
+
+describe('RetryManager retry listener teardown', () => {
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    const createRetryFixture = (): {
+        retryManager: RetryManager;
+        video: HTMLVideoElement;
+        playSpy: jest.Mock;
+        currentTimeSetter: jest.Mock;
+        dispatchEventSpy: jest.SpyInstance;
+    } => {
+        jest.useFakeTimers();
+        const video = document.createElement('video');
+        const playSpy = jest.fn().mockResolvedValue(undefined);
+        const currentTimeSetter = jest.fn();
+        let currentTime = 42;
+
+        video.load = jest.fn();
+        video.play = playSpy;
+        Object.defineProperty(video, 'currentTime', {
+            get: () => currentTime,
+            set: (value: number) => {
+                currentTime = value;
+                currentTimeSetter(value);
+            },
+            configurable: true,
+        });
+
+        const dispatchEventSpy = jest.spyOn(video, 'dispatchEvent');
+        const retryManager = new RetryManager();
+        retryManager.initialize(video, 3, 10);
+        retryManager.setDescriptor(createRetryDescriptor());
+        retryManager.handleMediaError(2);
+        jest.advanceTimersByTime(10);
+
+        return { retryManager, video, playSpy, currentTimeSetter, dispatchEventSpy };
+    };
+
+    it('removes active retry metadata listeners on clear', () => {
+        const { retryManager, video, playSpy, currentTimeSetter } = createRetryFixture();
+
+        retryManager.clear();
+        video.dispatchEvent(new Event('loadedmetadata'));
+
+        expect(currentTimeSetter).not.toHaveBeenCalled();
+        expect(playSpy).not.toHaveBeenCalled();
+    });
+
+    it('cancels active retry timeout synthetic errors on destroy', () => {
+        const { retryManager, dispatchEventSpy } = createRetryFixture();
+
+        retryManager.destroy();
+        jest.advanceTimersByTime(10_000);
+
+        expect(dispatchEventSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
     });
 });

@@ -1,5 +1,6 @@
 import { PLEX_AUTH_CONSTANTS } from './constants';
 import type { PlexAuthConfig } from './interfaces';
+import { createPlexIdentityHeaders } from './config';
 import { AppErrorCode } from '../../../types/app-errors';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../../utils/redact';
 
@@ -81,20 +82,10 @@ export function buildRequestHeaders(
     const headers: Record<string, string> = {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'X-Plex-Client-Identifier': config.clientIdentifier,
-        'X-Plex-Product': config.product,
-        'X-Plex-Version': config.version,
-        'X-Plex-Platform': config.platform,
-        'X-Plex-Device': config.device,
+        ...createPlexIdentityHeaders(config, options),
     };
     if (token) {
         headers['X-Plex-Token'] = token;
-    }
-    if (options?.platformVersion) {
-        headers['X-Plex-Platform-Version'] = options.platformVersion;
-    }
-    if (options?.deviceName) {
-        headers['X-Plex-Device-Name'] = options.deviceName;
     }
     return headers;
 }

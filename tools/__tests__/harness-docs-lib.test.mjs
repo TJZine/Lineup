@@ -2215,6 +2215,40 @@ ${buildSingleSlicePackageDecomposition()
     ]);
 });
 
+test('checkPlanConformance allows blocked active plans to expose no ready-now execution unit', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: buildActiveCleanupPlan(
+            buildWaveScopedPackageDecomposition()
+                .replace('- `ready_now_slice`: `P6-W1-S1`', '- `ready_now_slice`: `none`')
+                .replace('- `ready_now_execution_unit`: `W1`', '- `ready_now_execution_unit`: `none`') +
+                [
+                    '- `ready_now_state`: blocked; no execution unit is approved.',
+                    '- `blocked_until`: the prerequisite package closes.',
+                    '- `next_action`: launch the prerequisite package.',
+                ].join('\n')
+        ),
+    });
+
+    assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance rejects none ready-now fields without blocked state', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+        content: buildActiveCleanupPlan(
+            buildSingleSlicePackageDecomposition()
+                .replace('- `ready_now_slice`: `P6-W1-S1`', '- `ready_now_slice`: `none`')
+                .replace('- `ready_now_execution_unit`: `P6-W1-S1`', '- `ready_now_execution_unit`: `none`')
+        ),
+    });
+
+    assert.deepEqual(result.errors, [
+        '`ready_now_slice` may be `none` only when `ready_now_state` is blocked and `blocked_until` is set',
+        '`ready_now_execution_unit` may be `none` only when `ready_now_state` is blocked and `blocked_until` is set',
+    ]);
+});
+
 test('checkPlanConformance requires wave scaffolding when ready_now_execution_unit does not point at ready_now_slice', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-14-cleanup-example.md',

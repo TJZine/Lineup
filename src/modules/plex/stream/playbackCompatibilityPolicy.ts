@@ -1,4 +1,5 @@
 import type { PlexMediaFile, PlexStream } from './types';
+import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
 import { SUPPORTED_AUDIO_CODECS, SUPPORTED_CONTAINERS, SUPPORTED_VIDEO_CODECS, MAX_RESOLUTION } from './constants';
 import { detectHdrLabel } from './hdr';
 import { inferHdr10BaseLayer, shouldApplyHdr10Fallback } from './dvHdr10Fallback';
@@ -74,7 +75,7 @@ type HdrCompatibilityReason = 'force' | 'smart' | 'none';
 export type HdrCompatibilityInputs = {
     media: PlexMediaFile;
     videoStream: PlexStream | null;
-    hdr10FallbackMode: 'off' | 'smart' | 'force';
+    hdr10FallbackMode: Hdr10FallbackMode;
 };
 
 export type HdrCompatibilityDecision = {
@@ -268,7 +269,7 @@ function buildHdr10FallbackRequest(
     isDolbyVision: boolean,
     sourceContainer: string
 ): {
-    mode: 'off' | 'smart' | 'force';
+    mode: Hdr10FallbackMode;
     container: string;
     isDolbyVision: boolean;
     doviProfile: string | null;

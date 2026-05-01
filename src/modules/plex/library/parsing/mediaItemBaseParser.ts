@@ -2,6 +2,7 @@ import type { PlexMediaItem, RawMediaItem } from '../types';
 import { parseMediaFiles } from './mediaFileParser';
 import { toPlexDate } from './mediaItemDetailsParser';
 import { mapMediaType } from './mediaTypeParser';
+import { parseRequiredString } from './parserValidation';
 
 export function buildBaseMediaItem(data: RawMediaItem): PlexMediaItem {
     return {
@@ -11,12 +12,14 @@ export function buildBaseMediaItem(data: RawMediaItem): PlexMediaItem {
 }
 
 function buildMediaIdentity(data: RawMediaItem): Pick<PlexMediaItem, 'ratingKey' | 'key' | 'type' | 'title' | 'sortTitle'> {
+    const title = parseRequiredString(data.title, 'media item', 'title');
+
     return {
-        ratingKey: data.ratingKey,
-        key: data.key,
-        type: mapMediaType(data.type),
-        title: data.title,
-        sortTitle: data.titleSort ?? data.title,
+        ratingKey: parseRequiredString(data.ratingKey, 'media item', 'ratingKey'),
+        key: parseRequiredString(data.key, 'media item', 'key'),
+        type: mapMediaType(parseRequiredString(data.type, 'media item', 'type')),
+        title,
+        sortTitle: data.titleSort ?? title,
     };
 }
 

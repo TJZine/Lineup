@@ -2,6 +2,7 @@ import { TIMING_CONFIG } from './constants';
 import type { StateManager } from './StateManager';
 import type { LifecycleEventMap, PersistentState } from './types';
 import { summarizeErrorForLog } from '../../utils/errors';
+import { PersistenceWarningBackoffPolicy } from '../../utils/persistenceWarningBackoffPolicy';
 
 type PendingSaveWaiter = {
     resolve: () => void;
@@ -21,8 +22,7 @@ export class LifecycleStatePersistenceQueue {
     private _saveDebounceTimer: number | null = null;
     private _pendingState: PersistentState | null = null;
     private _pendingSaveWaiters: PendingSaveWaiter[] = [];
-    private _nextPersistenceWarningAt: number = 0;
-    private _persistenceWarningBackoffMs: number = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+    private readonly _persistenceWarningPolicy = new PersistenceWarningBackoffPolicy();
 
     public constructor(deps: LifecycleStatePersistenceQueueDeps) {
         this._stateManager = deps.stateManager;
@@ -65,7 +65,7 @@ export class LifecycleStatePersistenceQueue {
         try {
             this._stateManager.save(this._pendingState);
             this._pendingState = null;
-            this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
+            this._persistenceWarningPolicy.resetQuotaBackoff();
             this._resolvePendingSaveWaiters();
         } catch (error) {
             if (options?.finalShutdown === true) {
@@ -111,23 +111,7 @@ export class LifecycleStatePersistenceQueue {
     }
 
     private _shouldEmitPersistenceWarning(isQuotaError: boolean): boolean {
-        const now = Date.now();
-        if (now < this._nextPersistenceWarningAt) {
-            return false;
-        }
-        const backoff = isQuotaError
-            ? this._persistenceWarningBackoffMs
-            : TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-        this._nextPersistenceWarningAt = now + backoff;
-        if (isQuotaError) {
-            this._persistenceWarningBackoffMs = Math.min(
-                this._persistenceWarningBackoffMs * 2,
-                TIMING_CONFIG.PERSISTENCE_WARNING_MAX_BACKOFF_MS
-            );
-        } else {
-            this._persistenceWarningBackoffMs = TIMING_CONFIG.PERSISTENCE_WARNING_BACKOFF_MS;
-        }
-        return true;
+        return this._persistenceWarningPolicy.shouldEmitWarning(isQuotaError);
     }
 
     private _isQuotaError(error: unknown): boolean {

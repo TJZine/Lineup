@@ -1,3 +1,5 @@
+import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
+
 type DvProfileInfo = {
     raw: string | null;
     profileId: number | null;
@@ -247,17 +249,6 @@ export function inferHdr10BaseLayer(context: DvHdr10BaseLayerContext): DvHdr10Ba
         isKnownNoHdr10BaseLayer: false,
         debugWhy: 'default',
     };
-}
-
-type Hdr10FallbackMode = 'off' | 'smart' | 'force';
-
-export function computeHdr10FallbackMode(settings: {
-    smartHdr10Fallback: boolean;
-    forceHdr10Fallback: boolean;
-}): Hdr10FallbackMode {
-    if (settings.forceHdr10Fallback) return 'force';
-    if (settings.smartHdr10Fallback) return 'smart';
-    return 'off';
 }
 
 export function shouldApplyHdr10Fallback(args: {
