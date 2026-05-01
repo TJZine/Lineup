@@ -1,6 +1,12 @@
 import type { INavigationManager } from '../../modules/navigation';
 import type { PlexHomeUser, PlexPinRequest } from '../../modules/plex/auth';
-import type { PlexServer, PlexServerSelectionFailureReason } from '../../modules/plex/discovery';
+import type {
+    PlexServer,
+    PlexServerSelectionFailureReason,
+    ServerHealthRecord,
+    ServerHealthStatus,
+    ServerHealthType,
+} from '../../modules/plex/discovery';
 import type { ChannelSetupScreenWorkflowPort } from '../../modules/ui/channel-setup';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
 import type { ThemeName } from '../../modules/ui/theme';
@@ -32,20 +38,11 @@ export type AppShellServerSelectionResult =
         kind: 'selected';
     };
 
-export type AppShellServerHealthStatus =
-    | 'ok'
-    | 'unreachable'
-    | 'auth_required'
-    | 'access_denied';
+export type AppShellServerHealthStatus = ServerHealthStatus;
 
-export type AppShellServerHealthType = 'local' | 'remote' | 'relay' | 'unknown';
+export type AppShellServerHealthType = ServerHealthType;
 
-export type AppShellServerHealthRecord = {
-    status: AppShellServerHealthStatus;
-    type: AppShellServerHealthType;
-    latencyMs?: number;
-    testedAt?: number;
-};
+export type AppShellServerHealthRecord = ServerHealthRecord;
 
 export type AppShellServerSelectState = {
     selectedServerId: string | null;

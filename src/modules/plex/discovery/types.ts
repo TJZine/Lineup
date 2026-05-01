@@ -39,6 +39,21 @@ export interface PlexDiscoverySelectedServerSnapshot {
     storedServerId: string | null;
 }
 
+export type ServerHealthStatus =
+    | 'ok'
+    | 'unreachable'
+    | 'auth_required'
+    | 'access_denied';
+
+export type ServerHealthType = 'local' | 'remote' | 'relay' | 'unknown';
+
+export type ServerHealthRecord = {
+    status: ServerHealthStatus;
+    type: ServerHealthType;
+    latencyMs?: number;
+    testedAt?: number;
+};
+
 export interface PlexServerDiscoveryState {
     servers: PlexServer[];
     selectedServer: PlexServer | null;

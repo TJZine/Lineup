@@ -54,6 +54,10 @@ function throwIfAborted(signal: AbortSignal | null | undefined): void {
     throw signal.reason ?? new DOMException('Aborted', 'AbortError');
 }
 
+type PlexHomeEndpointResult =
+    | { kind: 'response'; response: Response; endpointIndex: number }
+    | { kind: 'unsupported' };
+
 /**
  * Plex Authentication implementation.
  * Handles PIN-based OAuth flow, token storage, and credential lifecycle.
@@ -382,84 +386,70 @@ export class PlexAuth implements IPlexAuth {
             PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL_V1 + PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT,
         ];
 
-        let lastError: unknown = null;
+        let nextEndpointIndex = 0;
         let sawSuccessfulResponse = false;
-        for (let index = 0; index < endpoints.length; index++) {
-            const url = endpoints[index];
-            if (!url) {
+        let lastError: PlexApiError | null = null;
+        const init: RequestInit = {
+            method: 'GET',
+            headers: headers,
+        };
+
+        while (nextEndpointIndex < endpoints.length) {
+            const result = await this._requestFirstSupportedHomeEndpointOrThrowReachabilityError(
+                endpoints.slice(nextEndpointIndex),
+                init,
+                options?.signal ?? null,
+                'Failed to fetch Plex Home users'
+            );
+
+            if (result.kind === 'unsupported') {
+                break;
+            }
+
+            const endpointIndex = nextEndpointIndex + result.endpointIndex;
+            const response = result.response;
+
+            if (response.status === 401) {
+                throw new PlexApiError(
+                    AppErrorCode.AUTH_REQUIRED,
+                    'Unauthorized: account authentication required',
+                    401,
+                    false
+                );
+            }
+            if (response.status === 403) {
+                throw new PlexApiError(
+                    AppErrorCode.AUTH_INVALID,
+                    'Forbidden: account access denied',
+                    403,
+                    false
+                );
+            }
+            if (!response.ok) {
+                lastError = new PlexApiError(
+                    AppErrorCode.SERVER_UNREACHABLE,
+                    `Failed to fetch Plex Home users (status ${response.status})`,
+                    response.status,
+                    response.status >= 500
+                );
+                nextEndpointIndex = endpointIndex + 1;
                 continue;
             }
-            try {
-                throwIfAborted(options?.signal);
-                const init: RequestInit = {
-                    method: 'GET',
-                    headers: headers,
-                };
-                const response = await fetchWithTimeout({
-                    url,
-                    init,
-                    timeoutMs: PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
-                    upstreamSignal: options?.signal ?? null,
-                });
-                throwIfAborted(options?.signal);
 
-                if (response.status === 401) {
-                    throw new PlexApiError(
-                        AppErrorCode.AUTH_REQUIRED,
-                        'Unauthorized: account authentication required',
-                        401,
-                        false
-                    );
-                }
-                if (response.status === 403) {
-                    throw new PlexApiError(
-                        AppErrorCode.AUTH_INVALID,
-                        'Forbidden: account access denied',
-                        403,
-                        false
-                    );
-                }
-                if (response.status === 404 || response.status === 405) {
-                    lastError = null;
-                    continue;
-                }
-                if (!response.ok) {
-                    throw new PlexApiError(
-                        AppErrorCode.SERVER_UNREACHABLE,
-                        `Failed to fetch Plex Home users (status ${response.status})`,
-                        response.status,
-                        response.status >= 500
-                    );
-                }
-
-                const payload = await readPlexResponse(response);
-                const users = parseHomeUsersPayload(payload);
-                sawSuccessfulResponse = true;
-                if (users.length > 0) {
-                    return users;
-                }
-
-                // Some plex.tv variants return a 200 body on v2 that lacks Home users.
-                // Try v1 before concluding there are no profiles.
-                if (index < endpoints.length - 1) {
-                    continue;
-                }
-                return [];
-            } catch (error) {
-                if (isAbortError(error) || options?.signal?.aborted) {
-                    throw error;
-                }
-                if (error instanceof PlexApiError) {
-                    // For auth errors, bail immediately.
-                    if (error.code === AppErrorCode.AUTH_REQUIRED || error.code === AppErrorCode.AUTH_INVALID) {
-                        throw error;
-                    }
-                    if (error.code === AppErrorCode.PARSE_ERROR) {
-                        throw error;
-                    }
-                }
-                lastError = error;
+            const payload = await readPlexResponse(response);
+            const users = parseHomeUsersPayload(payload);
+            sawSuccessfulResponse = true;
+            if (users.length > 0) {
+                return users;
             }
+
+            // Some plex.tv variants return a 200 body on v2 that lacks Home users.
+            // Try v1 before concluding there are no profiles.
+            if (endpointIndex < endpoints.length - 1) {
+                nextEndpointIndex = endpointIndex + 1;
+                continue;
+            }
+            return [];
         }
 
         if (sawSuccessfulResponse) {
@@ -467,21 +457,74 @@ export class PlexAuth implements IPlexAuth {
         }
 
         if (lastError) {
-            if (isAbortError(lastError) || options?.signal?.aborted) {
-                throw lastError;
+            throw lastError;
+        }
+
+        return [];
+    }
+
+    private async _requestFirstSupportedHomeEndpointOrThrowReachabilityError(
+        endpoints: string[],
+        init: RequestInit,
+        signal: AbortSignal | null,
+        networkErrorMessage: string
+    ): Promise<PlexHomeEndpointResult> {
+        try {
+            return await this._requestFirstSupportedHomeEndpoint(endpoints, init, signal);
+        } catch (error) {
+            if (isAbortError(error) || signal?.aborted) {
+                throw error;
             }
-            if (lastError instanceof PlexApiError) {
-                throw lastError;
+            if (error instanceof PlexApiError) {
+                throw error;
             }
             throw new PlexApiError(
                 AppErrorCode.SERVER_UNREACHABLE,
-                'Failed to fetch Plex Home users',
+                networkErrorMessage,
                 undefined,
                 true
             );
         }
+    }
 
-        return [];
+    private async _requestFirstSupportedHomeEndpoint(
+        endpoints: string[],
+        init: RequestInit,
+        signal?: AbortSignal | null
+    ): Promise<PlexHomeEndpointResult> {
+        let lastError: unknown = null;
+        for (let index = 0; index < endpoints.length; index++) {
+            const url = endpoints[index];
+            if (!url) {
+                continue;
+            }
+            try {
+                throwIfAborted(signal);
+                const response = await fetchWithTimeout({
+                    url,
+                    init,
+                    timeoutMs: PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
+                    upstreamSignal: signal ?? null,
+                });
+                throwIfAborted(signal);
+
+                if (response.status === 404 || response.status === 405) {
+                    continue;
+                }
+                return { kind: 'response', response, endpointIndex: index };
+            } catch (error) {
+                if (isAbortError(error) || signal?.aborted) {
+                    throw error;
+                }
+                lastError = error;
+            }
+        }
+
+        if (lastError !== null) {
+            throw lastError;
+        }
+
+        return { kind: 'unsupported' };
     }
 
     public async switchHomeUser(
@@ -517,23 +560,29 @@ export class PlexAuth implements IPlexAuth {
             buildUrl(PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL_V1),
         ];
 
-        let lastError: unknown = null;
+        let lastError: PlexApiError | null = null;
         let response: Response | null = null;
-        for (const url of endpoints) {
+        let nextEndpointIndex = 0;
+        const init: RequestInit = {
+            method: 'POST',
+            headers: headers,
+        };
+
+        while (nextEndpointIndex < endpoints.length) {
             let pinValidationFailure: unknown = null;
             try {
-                throwIfAborted(options?.signal);
-                const init: RequestInit = {
-                    method: 'POST',
-                    headers: headers,
-                };
-                response = await fetchWithTimeout({
-                    url,
+                const result = await this._requestFirstSupportedHomeEndpoint(
+                    endpoints.slice(nextEndpointIndex),
                     init,
-                    timeoutMs: PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
-                    upstreamSignal: options?.signal ?? null,
-                });
-                throwIfAborted(options?.signal);
+                    options?.signal ?? null
+                );
+                if (result.kind === 'unsupported') {
+                    response = null;
+                    break;
+                }
+
+                const endpointIndex = nextEndpointIndex + result.endpointIndex;
+                response = result.response;
 
                 if (response.status === 401) {
                     if (pinValue) {
@@ -585,18 +634,16 @@ export class PlexAuth implements IPlexAuth {
                         false
                     );
                 }
-                if (response.status === 404 || response.status === 405) {
-                    lastError = null;
-                    response = null;
-                    continue;
-                }
                 if (!response.ok) {
-                    throw new PlexApiError(
+                    lastError = new PlexApiError(
                         AppErrorCode.SERVER_UNREACHABLE,
                         `Failed to switch Plex Home user (status ${response.status})`,
                         response.status,
                         response.status >= 500
                     );
+                    response = null;
+                    nextEndpointIndex = endpointIndex + 1;
+                    continue;
                 }
 
                 break;
@@ -618,15 +665,22 @@ export class PlexAuth implements IPlexAuth {
                         throw error;
                     }
                 }
-                lastError = error;
+                if (error instanceof PlexApiError) {
+                    lastError = error;
+                } else {
+                    lastError = new PlexApiError(
+                        AppErrorCode.SERVER_UNREACHABLE,
+                        'Failed to switch Plex Home user',
+                        undefined,
+                        true
+                    );
+                    break;
+                }
             }
         }
 
         if (!response) {
-            if (isAbortError(lastError) || options?.signal?.aborted) {
-                throw lastError;
-            }
-            if (lastError instanceof PlexApiError) {
+            if (lastError) {
                 throw lastError;
             }
             throw new PlexApiError(

@@ -1357,6 +1357,65 @@ describe('PlexAuth', () => {
             expect(String(fetchMock.mock.calls[1][0])).toBe('https://plex.tv/api/home/users');
         });
 
+        it.each([404, 405])(
+            'rejects SERVER_UNREACHABLE when getHomeUsers sees a v2 transport failure followed by v1 %s',
+            async (unsupportedStatus) => {
+                const auth = new PlexAuth(mockConfig);
+                const testToken = createAuthToken('account-token', 'admin');
+                auth.storeCredentials(createAuthData(testToken));
+
+                const fetchMock = jest.fn()
+                    .mockRejectedValueOnce(new TypeError('Network error'))
+                    .mockResolvedValueOnce({
+                        ok: false,
+                        status: unsupportedStatus,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({}),
+                        text: async () => '{}',
+                    });
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+                await expect(auth.getHomeUsers()).rejects.toMatchObject({
+                    code: 'SERVER_UNREACHABLE',
+                    retryable: true,
+                });
+                expect(fetchMock).toHaveBeenCalledTimes(2);
+            }
+        );
+
+        it.each([404, 405])(
+            'preserves SERVER_UNREACHABLE status when getHomeUsers sees v2 500 followed by v1 %s',
+            async (unsupportedStatus) => {
+                const auth = new PlexAuth(mockConfig);
+                const testToken = createAuthToken('account-token', 'admin');
+                auth.storeCredentials(createAuthData(testToken));
+
+                const fetchMock = jest.fn()
+                    .mockResolvedValueOnce({
+                        ok: false,
+                        status: 500,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({ error: 'server failure' }),
+                        text: async () => '{}',
+                    })
+                    .mockResolvedValueOnce({
+                        ok: false,
+                        status: unsupportedStatus,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({}),
+                        text: async () => '{}',
+                    });
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+                await expect(auth.getHomeUsers()).rejects.toMatchObject({
+                    code: 'SERVER_UNREACHABLE',
+                    httpStatus: 500,
+                    retryable: true,
+                });
+                expect(fetchMock).toHaveBeenCalledTimes(2);
+            }
+        );
+
         it('propagates AbortError when getHomeUsers is cancelled by the caller', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('account-token', 'admin');
@@ -1456,6 +1515,65 @@ describe('PlexAuth', () => {
             expect(String(fetchMock.mock.calls[1][0])).toBe('https://plex.tv/api/home/users/kid/switch?pin=1234');
             expect(auth.getCurrentUser()?.token).toBe('child-token');
         });
+
+        it.each([404, 405])(
+            'rejects SERVER_UNREACHABLE when switchHomeUser sees a v2 transport failure followed by v1 %s',
+            async (unsupportedStatus) => {
+                const auth = new PlexAuth(mockConfig);
+                const testToken = createAuthToken('account-token', 'admin');
+                auth.storeCredentials(createAuthData(testToken));
+
+                const fetchMock = jest.fn()
+                    .mockRejectedValueOnce(new TypeError('Network error'))
+                    .mockResolvedValueOnce({
+                        ok: false,
+                        status: unsupportedStatus,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({}),
+                        text: async () => '{}',
+                    });
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+                await expect(auth.switchHomeUser('2')).rejects.toMatchObject({
+                    code: 'SERVER_UNREACHABLE',
+                    retryable: true,
+                });
+                expect(fetchMock).toHaveBeenCalledTimes(2);
+            }
+        );
+
+        it.each([404, 405])(
+            'preserves SERVER_UNREACHABLE status when switchHomeUser sees v2 500 followed by v1 %s',
+            async (unsupportedStatus) => {
+                const auth = new PlexAuth(mockConfig);
+                const testToken = createAuthToken('account-token', 'admin');
+                auth.storeCredentials(createAuthData(testToken));
+
+                const fetchMock = jest.fn()
+                    .mockResolvedValueOnce({
+                        ok: false,
+                        status: 500,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({ error: 'server failure' }),
+                        text: async () => '{}',
+                    })
+                    .mockResolvedValueOnce({
+                        ok: false,
+                        status: unsupportedStatus,
+                        headers: { get: () => 'application/json' },
+                        json: async () => ({}),
+                        text: async () => '{}',
+                    });
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+                await expect(auth.switchHomeUser('2')).rejects.toMatchObject({
+                    code: 'SERVER_UNREACHABLE',
+                    httpStatus: 500,
+                    retryable: true,
+                });
+                expect(fetchMock).toHaveBeenCalledTimes(2);
+            }
+        );
 
         it('treats 401 + valid account token as wrong PIN', async () => {
             const auth = new PlexAuth(mockConfig);
