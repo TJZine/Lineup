@@ -136,29 +136,36 @@ Classification rules for implementation:
 
 - `package_id`: `DCR-16`
 - `checklist_token`: `DCR-16`
-- `ready_now_execution_unit`: `DCR-16-S1`
-- `ready_now_slice`: `DCR-16-S1`
-- `parallel_execution_policy`: serial only. The package is a single behavior-neutral comment cleanup slice across related hot-path source files. Parallel edits would make the no-code-token diff audit harder to trust.
 - `package_issue_ids`:
   - `DCR-16-A1`
   - `S0-L10-F4`
+- `slice_table`:
 
-`slice_table`:
+### `DCR-16-S1` Comment-Only Source-Signal Cleanup
 
-| slice_id | goal | areas/files | exact_issue_ids | verification | dependencies | stop_condition | handoff_condition | parallel policy |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `DCR-16-S1` | Remove or source-disprove generated-style/trivial comments in current S0-L10 hot-path production source without changing behavior. | `src/App.ts`, `src/bootstrap.ts`, `src/core/initialization/InitializationCoordinator.ts`, `src/core/orchestrator/AppOrchestrator.ts`, `src/modules/lifecycle/ErrorRecovery.ts`, `src/modules/navigation/NavigationManager.ts`, `src/modules/scheduler/channel-manager/ChannelManager.ts`, `src/modules/scheduler/channel-manager/ContentResolver.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`, `src/modules/ui/epg/component/EPGComponent.ts`, `src/modules/ui/epg/view/EPGVirtualizer.ts`, `src/modules/ui/epg/view/EPGInfoPanel.ts`, `src/modules/ui/epg/view/EPGChannelList.ts`, `src/modules/ui/epg/view/EPGErrorBoundary.ts`, `src/modules/plex/auth/PlexAuth.ts`, `src/modules/plex/library/PlexLibrary.ts`, `src/modules/plex/stream/PlexStreamResolver.ts`, `src/modules/plex/stream/streamMimeType.ts`. | `DCR-16-A1`, `S0-L10-F4` | Targeted pre/post source search, bounded all-family source audit, behavior-neutral diff audit, `git diff --check`, `npm run plans:check`, `npm run verify:docs`; typecheck/targeted tests only if code tokens move. | `DCR-11` through `DCR-15` are complete and no candidate files are dirty with overlapping comment cleanup. | Stop if any code movement, token/signature/import/export/order/CSS/test change is needed; if bounded audit finds obvious same-pattern production residue outside the approved file list that cannot be source-disproved as contract/platform/security/runtime commentary; if a comment encodes an invariant and cannot be safely classified; or if an approved file is actively changing. | Diff contains only comment removals or narrowed invariant-preserving comment rewrites in approved files; post-search and bounded all-family audit show the S0-L10-F4 residue class retired or each survivor is documented as retained contract commentary. | `serial_only`; one cleanup worker, one review surface. |
+- `goal`: Remove or source-disprove generated-style/trivial comments in current S0-L10 hot-path production source without changing behavior.
+- `areas/files`: `src/App.ts`, `src/bootstrap.ts`, `src/core/initialization/InitializationCoordinator.ts`, `src/core/orchestrator/AppOrchestrator.ts`, `src/modules/lifecycle/ErrorRecovery.ts`, `src/modules/navigation/NavigationManager.ts`, `src/modules/scheduler/channel-manager/ChannelManager.ts`, `src/modules/scheduler/channel-manager/ContentResolver.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/server-select/ServerSelectScreen.ts`, `src/modules/ui/epg/component/EPGComponent.ts`, `src/modules/ui/epg/view/EPGVirtualizer.ts`, `src/modules/ui/epg/view/EPGInfoPanel.ts`, `src/modules/ui/epg/view/EPGChannelList.ts`, `src/modules/ui/epg/view/EPGErrorBoundary.ts`, `src/modules/plex/auth/PlexAuth.ts`, `src/modules/plex/library/PlexLibrary.ts`, `src/modules/plex/stream/PlexStreamResolver.ts`, `src/modules/plex/stream/streamMimeType.ts`.
+- `exact_issue_ids`: `DCR-16-A1`, `S0-L10-F4`
+- `verification`: Targeted pre/post source search, bounded all-family source audit, behavior-neutral diff audit, `git diff --check`, `npm run plans:check`, `npm run verify:docs`; typecheck/targeted tests only if code tokens move.
+- `dependencies`: `DCR-11` through `DCR-15` are complete and no candidate files are dirty with overlapping comment cleanup.
+- `stop_condition`: Stop if any code movement, token/signature/import/export/order/CSS/test change is needed; if bounded audit finds obvious same-pattern production residue outside the approved file list that cannot be source-disproved as contract/platform/security/runtime commentary; if a comment encodes an invariant and cannot be safely classified; or if an approved file is actively changing.
+- `handoff_condition`: Diff contains only comment removals or narrowed invariant-preserving comment rewrites in approved files; post-search and bounded all-family audit show the S0-L10-F4 residue class retired or each survivor is documented as retained contract commentary.
+- `serial_only`: true
+- `parallel_justification`: One cleanup worker and one review surface keep the no-code-token diff audit trustworthy.
 
-`coverage_check`:
+- `coverage_check`:
 
-- `DCR-16-A1` maps only to `DCR-16-S1`.
-- `S0-L10-F4` maps only to `DCR-16-S1`.
-- No issue id is deferred or split. Replan is required before admitting any new package issue id or source family.
+  - `DCR-16-A1` maps only to `DCR-16-S1`.
+  - `S0-L10-F4` maps only to `DCR-16-S1`.
+  - No issue id is deferred or split. Replan is required before admitting any new package issue id or source family.
 
-`recommended_slice_order`:
+- `recommended_slice_order`:
 
-1. `DCR-16-S1`
-2. Package closeout docs only after implementation and review are clean
+  1. `DCR-16-S1`
+  2. Package closeout docs only after implementation and review are clean
+- `ready_now_slice`: `DCR-16-S1`
+- `ready_now_execution_unit`: `DCR-16-S1`
+- `parallel_execution_policy`: serial only. The package is a single behavior-neutral comment cleanup slice across related hot-path source files. Parallel edits would make the no-code-token diff audit harder to trust.
 
 No `execution_waves` or `coverage_ledger` are used because the approved execution unit is a single slice.
 
@@ -269,17 +276,23 @@ Stop and replan if:
 
 Primary verification mode: `refactor-invariance`.
 
-Plan classification: `no new automated test needed`.
+- Verification classification: `no new automated test needed`
 
 Why: the approved implementation surface is comment-only and must not change behavior, public contracts, selectors, CSS, runtime order, imports/exports, or tests. Automated behavior tests would not add signal unless the worker violates the plan and moves code tokens.
 
 Pre-implementation source search:
+
+- Run: `rg -n "^\\s*(//|/\\*\\*|\\*)\\s*(Step|First|Next|Then|Finally|Initialize|Initializes|Create|Creates|Build|Builds|Set up|Setup|Handle|Handles|Get|Gets|Start|Starts|Stop|Stops|Clean up|Cleanup|Update|Updates|Load|Loads|Save|Saves|Render|Renders|Process|Processes|Validate|Validates|Calculate|Calculates|Add|Adds|Remove|Removes|Check|Checks|Convert|Converts|Configure|Configures|Bind|Binds)\\b" src/App.ts src/bootstrap.ts src/core/initialization/InitializationCoordinator.ts src/core/orchestrator/AppOrchestrator.ts src/modules/lifecycle/ErrorRecovery.ts src/modules/navigation/NavigationManager.ts src/modules/scheduler/channel-manager/ChannelManager.ts src/modules/scheduler/channel-manager/ContentResolver.ts src/modules/ui/settings/SettingsScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/epg/component/EPGComponent.ts src/modules/ui/epg/view/EPGVirtualizer.ts src/modules/ui/epg/view/EPGInfoPanel.ts src/modules/ui/epg/view/EPGChannelList.ts src/modules/ui/epg/view/EPGErrorBoundary.ts src/modules/plex/auth/PlexAuth.ts src/modules/plex/library/PlexLibrary.ts src/modules/plex/stream/PlexStreamResolver.ts src/modules/plex/stream/streamMimeType.ts`
+- Expected: selected DCR-16 residue is present before implementation and gone or source-disproved after implementation.
 
 ```sh
 rg -n "^\\s*(//|/\\*\\*|\\*)\\s*(Step|First|Next|Then|Finally|Initialize|Initializes|Create|Creates|Build|Builds|Set up|Setup|Handle|Handles|Get|Gets|Start|Starts|Stop|Stops|Clean up|Cleanup|Update|Updates|Load|Loads|Save|Saves|Render|Renders|Process|Processes|Validate|Validates|Calculate|Calculates|Add|Adds|Remove|Removes|Check|Checks|Convert|Converts|Configure|Configures|Bind|Binds)\\b" src/App.ts src/bootstrap.ts src/core/initialization/InitializationCoordinator.ts src/core/orchestrator/AppOrchestrator.ts src/modules/lifecycle/ErrorRecovery.ts src/modules/navigation/NavigationManager.ts src/modules/scheduler/channel-manager/ChannelManager.ts src/modules/scheduler/channel-manager/ContentResolver.ts src/modules/ui/settings/SettingsScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/epg/component/EPGComponent.ts src/modules/ui/epg/view/EPGVirtualizer.ts src/modules/ui/epg/view/EPGInfoPanel.ts src/modules/ui/epg/view/EPGChannelList.ts src/modules/ui/epg/view/EPGErrorBoundary.ts src/modules/plex/auth/PlexAuth.ts src/modules/plex/library/PlexLibrary.ts src/modules/plex/stream/PlexStreamResolver.ts src/modules/plex/stream/streamMimeType.ts
 ```
 
 Bounded all-family audit proof:
+
+- Run: `rg -n --glob '!**/__tests__/**' --glob '!**/*.test.ts' --glob '!**/*.test.tsx' "^\\s*(//|/\\*\\*|\\*)\\s*(Step|First|Next|Then|Finally|Initialize|Initializes|Create|Creates|Build|Builds|Set up|Setup|Handle|Handles|Get|Gets|Start|Starts|Stop|Stops|Clean up|Cleanup|Update|Updates|Load|Loads|Save|Saves|Render|Renders|Process|Processes|Validate|Validates|Calculate|Calculates|Add|Adds|Remove|Removes|Check|Checks|Convert|Converts|Configure|Configures|Bind|Binds)\\b" src/App.ts src/bootstrap.ts src/core/app-shell src/core/orchestrator src/core/initialization src/modules/lifecycle src/modules/scheduler src/core/channel-setup src/modules/ui src/modules/navigation src/modules/plex src/modules/player src/modules/settings src/modules/debug src/types src/utils src/platform`
+- Expected: all remaining matches are documented as retained/source-disproved contract, platform, security/token/logging, lifecycle, focus/accessibility, public API, persistence, Plex, or runtime invariant commentary; otherwise stop/replan.
 
 ```sh
 rg -n --glob '!**/__tests__/**' --glob '!**/*.test.ts' --glob '!**/*.test.tsx' "^\\s*(//|/\\*\\*|\\*)\\s*(Step|First|Next|Then|Finally|Initialize|Initializes|Create|Creates|Build|Builds|Set up|Setup|Handle|Handles|Get|Gets|Start|Starts|Stop|Stops|Clean up|Cleanup|Update|Updates|Load|Loads|Save|Saves|Render|Renders|Process|Processes|Validate|Validates|Calculate|Calculates|Add|Adds|Remove|Removes|Check|Checks|Convert|Converts|Configure|Configures|Bind|Binds)\\b" src/App.ts src/bootstrap.ts src/core/app-shell src/core/orchestrator src/core/initialization src/modules/lifecycle src/modules/scheduler src/core/channel-setup src/modules/ui src/modules/navigation src/modules/plex src/modules/player src/modules/settings src/modules/debug src/types src/utils src/platform
@@ -288,6 +301,15 @@ rg -n --glob '!**/__tests__/**' --glob '!**/*.test.ts' --glob '!**/*.test.tsx' "
 The worker must include a compact disposition note for this bounded audit in the implementation or closeout handoff: all in-scope obvious residue removed, all remaining matches source-disproved as retained contract/platform/security/runtime/focus/lifecycle/public API commentary, or stop/replan if any obvious same-pattern production residue remains outside the approved files.
 
 Post-implementation verification:
+
+- Run: `git diff -- src/App.ts src/bootstrap.ts src/core/initialization/InitializationCoordinator.ts src/core/orchestrator/AppOrchestrator.ts src/modules/lifecycle/ErrorRecovery.ts src/modules/navigation/NavigationManager.ts src/modules/scheduler/channel-manager/ChannelManager.ts src/modules/scheduler/channel-manager/ContentResolver.ts src/modules/ui/settings/SettingsScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/epg/component/EPGComponent.ts src/modules/ui/epg/view/EPGVirtualizer.ts src/modules/ui/epg/view/EPGInfoPanel.ts src/modules/ui/epg/view/EPGChannelList.ts src/modules/ui/epg/view/EPGErrorBoundary.ts src/modules/plex/auth/PlexAuth.ts src/modules/plex/library/PlexLibrary.ts src/modules/plex/stream/PlexStreamResolver.ts src/modules/plex/stream/streamMimeType.ts`
+- Expected: diff shows only comment deletion or narrowed retained-invariant comment rewrites in approved files.
+- Run: `git diff --check`
+- Expected: no whitespace errors.
+- Run: `npm run plans:check`
+- Expected: serious active plan conformance passed.
+- Run: `npm run verify:docs`
+- Expected: documentation verification passed.
 
 ```sh
 git diff -- src/App.ts src/bootstrap.ts src/core/initialization/InitializationCoordinator.ts src/core/orchestrator/AppOrchestrator.ts src/modules/lifecycle/ErrorRecovery.ts src/modules/navigation/NavigationManager.ts src/modules/scheduler/channel-manager/ChannelManager.ts src/modules/scheduler/channel-manager/ContentResolver.ts src/modules/ui/settings/SettingsScreen.ts src/modules/ui/server-select/ServerSelectScreen.ts src/modules/ui/epg/component/EPGComponent.ts src/modules/ui/epg/view/EPGVirtualizer.ts src/modules/ui/epg/view/EPGInfoPanel.ts src/modules/ui/epg/view/EPGChannelList.ts src/modules/ui/epg/view/EPGErrorBoundary.ts src/modules/plex/auth/PlexAuth.ts src/modules/plex/library/PlexLibrary.ts src/modules/plex/stream/PlexStreamResolver.ts src/modules/plex/stream/streamMimeType.ts
