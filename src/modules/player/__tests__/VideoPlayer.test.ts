@@ -923,6 +923,42 @@ describe('VideoPlayer', () => {
                 })
             );
         });
+
+        it('clears active retry metadata and synthetic error listeners on unloadStream', () => {
+            const errorHandler = jest.fn();
+            player.on('error', errorHandler);
+
+            let currentTime = 42;
+            const currentTimeSetter = jest.fn((value: number) => {
+                currentTime = value;
+            });
+            Object.defineProperty(videoElement, 'currentTime', {
+                get: () => currentTime,
+                set: currentTimeSetter,
+                configurable: true,
+            });
+            Object.defineProperty(videoElement, 'error', {
+                get: () => ({ code: 2, message: 'Network error' }),
+                configurable: true,
+            });
+            const dispatchEventSpy = jest.spyOn(videoElement, 'dispatchEvent');
+
+            videoElement.dispatchEvent(new Event('error'));
+            jest.advanceTimersByTime(1000);
+            currentTimeSetter.mockClear();
+
+            player.unloadStream();
+            videoElement.dispatchEvent(new Event('loadedmetadata'));
+            jest.advanceTimersByTime(10_000);
+
+            const dispatchedErrorEvents = dispatchEventSpy.mock.calls.filter(
+                ([event]) => event instanceof Event && event.type === 'error'
+            );
+            expect(dispatchedErrorEvents).toHaveLength(1);
+            expect(currentTimeSetter).not.toHaveBeenCalled();
+            expect(videoElement.play).not.toHaveBeenCalled();
+            expect(errorHandler).not.toHaveBeenCalled();
+        });
     });
 
     // ========================================

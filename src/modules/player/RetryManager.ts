@@ -7,6 +7,8 @@ export class RetryManager {
     private _retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     private _metadataTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    private _retryLoadCleanup: (() => void) | null = null;
+    private _retryLoadGeneration = 0;
 
     private _videoElement: HTMLVideoElement | null = null;
     private _descriptor: StreamDescriptor | null = null;
@@ -63,6 +65,15 @@ export class RetryManager {
             clearTimeout(this._retryTimer);
             this._retryTimer = null;
         }
+        this._clearActiveRetryLoad();
+    }
+
+    private _clearActiveRetryLoad(): void {
+        this._retryLoadGeneration++;
+        const retryLoadCleanup = this._retryLoadCleanup;
+        this._retryLoadCleanup = null;
+        retryLoadCleanup?.();
+
         if (this._metadataTimeoutId) {
             clearTimeout(this._metadataTimeoutId);
             this._metadataTimeoutId = null;
@@ -98,6 +109,7 @@ export class RetryManager {
         // Capture current time BEFORE calling load() which resets it
         const savedTime = this._videoElement.currentTime;
         const video = this._videoElement;
+        const retryLoadGeneration = this._retryLoadGeneration;
 
         // Clear existing sources
         while (video.firstChild) {
@@ -127,13 +139,23 @@ export class RetryManager {
                 clearTimeout(this._metadataTimeoutId);
                 this._metadataTimeoutId = null;
             }
+            if (this._retryLoadCleanup === cleanup) {
+                this._retryLoadCleanup = null;
+            }
             video.removeEventListener('loadedmetadata', onMetadata);
             video.removeEventListener('error', onError);
         };
+        this._retryLoadCleanup = cleanup;
+
+        const isCurrentRetryLoad = (): boolean =>
+            this._retryLoadGeneration === retryLoadGeneration && this._retryLoadCleanup === cleanup;
 
         // Wait for loadedmetadata before seeking, as load() resets currentTime
         // (VideoPlayer.loadStream uses canplay, but loadedmetadata is sufficient for seeking)
         const onMetadata = (): void => {
+            if (!isCurrentRetryLoad()) {
+                return;
+            }
             cleanup();
             video.currentTime = savedTime;
             video.play().catch(() => {
@@ -142,11 +164,17 @@ export class RetryManager {
         };
 
         const onError = (): void => {
+            if (!isCurrentRetryLoad()) {
+                return;
+            }
             cleanup();
             // Error propagates through VideoPlayerEvents error handler
         };
 
         const onTimeout = (): void => {
+            if (!isCurrentRetryLoad()) {
+                return;
+            }
             cleanup();
             // Trigger error path - the video element may be in a zombie state.
             // Emit a synthetic error event with a recoverable MediaError code hint (NETWORK)
