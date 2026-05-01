@@ -45,8 +45,10 @@ export function formatDuration(durationMs: number): string {
     return `${hours}h ${minutes}m`;
 }
 
-export type CancellableRafThrottle<T extends (...args: unknown[]) => void> =
-    ((...args: Parameters<T>) => void) & { cancel: () => void };
+export interface CancellableRafThrottle<T extends (...args: unknown[]) => void> {
+    (...args: Parameters<T>): void;
+    cancel(): void;
+}
 
 export function rafThrottle<T extends (...args: unknown[]) => void>(
     fn: T

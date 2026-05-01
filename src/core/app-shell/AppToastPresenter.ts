@@ -29,9 +29,20 @@ export class AppToastPresenter {
         }
     }
 
+    private _hideContainer(container: HTMLElement | null): void {
+        if (container === null) {
+            return;
+        }
+
+        container.style.display = 'none';
+        container.style.opacity = '0';
+    }
+
     setContainer(container: HTMLElement | null): void {
         this._clearTimers();
+        this._hideContainer(this._container);
         this._container = container;
+        this._lastToastAt = 0;
     }
 
     show(input: ToastInput): void {
@@ -72,6 +83,7 @@ export class AppToastPresenter {
 
     dispose(): void {
         this._clearTimers();
+        this._hideContainer(this._container);
         this._lastToastAt = 0;
         this._container = null;
     }
