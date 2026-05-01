@@ -256,17 +256,19 @@ Accepted residuals and source-disproved S0 artifact gaps:
   - `replan_triggers`: Any DCR package has open actual issues, a completed package lacks source-backed evidence, DCR-16 changes alter package membership, or reconciliation finds unowned same-area residue.
 - `ready_now_slice`: `DCR-EXIT-S2`
 - `ready_now_execution_unit`: `DCR-EXIT-W2`
+- `ready_now_state`: blocked; do not execute until `blocked_until` clears.
 - `blocked_until`: `DCR-16` is complete or explicitly maintainer-routed out of DCR.
+- `next_action`: Launch `DCR-16`; do not resume `DCR-EXIT-S2`.
 - `recommended_slice_order`:
   1. `DCR-EXIT-S0`
   2. `DCR-EXIT-S1`
-  3. `DCR-11` through `DCR-14` checklist packages, complete
+  3. `DCR-11` through `DCR-15` checklist packages, complete
   4. `DCR-16` checklist package, with its own cleanup-loop plan and review
   5. `DCR-EXIT-S2`
   6. `DCR-EXIT-S3`
   7. `DCR-EXIT-S4`
   8. `DCR-EXIT-S5`
-- `parallel_execution_policy`: S0 reviewer lanes are complete. `DCR-EXIT-S1` is serial plan/checklist routing. Implementation parallelism is allowed only inside later package plans when the approved plan proves disjoint write scopes and verification. `DCR-EXIT-S2` through `DCR-EXIT-S5` remain serial.
+- `parallel_execution_policy`: S0 reviewer lanes are complete. `DCR-EXIT-S1` is serial plan/checklist routing. Implementation parallelism is allowed only inside later package plans when the approved plan proves disjoint write scopes and verification. `DCR-16` owns the next implementation surface and must use its own approved cleanup-loop plan. `DCR-EXIT-S2` through `DCR-EXIT-S5` remain blocked/serial until `DCR-16` closes or is maintainer-routed.
 
 ### S0 Audit Lane Design
 

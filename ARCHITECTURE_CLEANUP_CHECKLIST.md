@@ -1136,7 +1136,7 @@ as intake.
 
 ### [x] `DCR-11` Verification, Dependency, And Control-Plane Truth
 
-- Status: completed after clean fresh final adversarial review
+- Status: completed
 - Plan: `docs/plans/2026-04-30-dcr-11-verification-dependency-control-plane-truth.md`
 - Dimensions/rubric tags: verified strictness, dependency health, docs/source
   coherence, AI-generated debt, package organization, design coherence
@@ -1384,7 +1384,7 @@ as intake.
 
 ### [x] `DCR-15` Player, Plex Runtime, Settings, And Media Contracts
 
-- Status: complete
+- Status: completed
 - Plan:
   `docs/plans/2026-05-01-dcr-15-player-plex-runtime-settings-media-contracts-plan.md`
 - Dimensions/rubric tags: code quality, duplication, naming quality, error
@@ -1454,8 +1454,7 @@ as intake.
 
 ### [ ] `DCR-EXIT` Dimension Cleanup Exit Gate
 
-- Status: blocked after S0 route; follow-up package `DCR-16` must close or be
-  maintainer-routed before final reconciliation resumes.
+- Status: blocked
 - Plan: `docs/plans/2026-04-30-dcr-exit-final-dimension-audit-plan.md`
 - Dimensions/rubric tags: final reconciliation, full rubric coverage,
   source-backed proof, test confidence, dependency/config/tooling health,
@@ -1537,7 +1536,8 @@ as intake.
   owner as above.
 - Handoff: stop DCR-EXIT here and start `DCR-16` in a fresh cleanup-loop
   session. Do not run a fresh scoring-only pass or implement production/test
-  fixes inside DCR-EXIT.
+  fixes inside DCR-EXIT. Follow-up package `DCR-16` must close or be
+  maintainer-routed before final reconciliation resumes.
 
 ## FCP Baseline History
 
