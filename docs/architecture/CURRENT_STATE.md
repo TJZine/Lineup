@@ -271,16 +271,19 @@ after this extraction.
 The main structural hotspots still treated as current by this architecture source are:
 
 - `src/App.ts`
-- `src/modules/ui/epg/component/EPGComponent.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
 
 `src/modules/ui/settings/SettingsScreen.ts`,
+`src/modules/ui/epg/component/EPGComponent.ts`,
 `src/modules/plex/stream/PlexStreamResolver.ts`, and
 `src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
 ownership surfaces, but they are no longer treated as current primary file-size
-hotspots after their latest split/delegation passes. `ChannelSetupScreen.ts`
-remains on the active hotspot list until a current source audit proves its
-remaining size and ownership concentration are no longer cleanup-relevant.
+hotspots after their latest split/delegation passes. `EPGComponent.ts` now
+acts as the `IEPGComponent` facade/wiring owner while shell rendering,
+focus/navigation, and grid runtime lifecycle live in package-local EPG owners.
+`ChannelSetupScreen.ts` remains on the active hotspot list until a current
+source audit proves its remaining size and ownership concentration are no
+longer cleanup-relevant.
 
 The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md).
 
