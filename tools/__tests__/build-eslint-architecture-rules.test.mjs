@@ -16,6 +16,10 @@ function getNoRestrictedImportPatterns(entry) {
     return entry.rules['no-restricted-imports'][1].patterns;
 }
 
+function includesAllValues(actual, expected) {
+    return Array.isArray(actual) && expected.every((value) => actual.includes(value));
+}
+
 test('App restriction patterns block both module roots and descendants', () => {
     const group = getAppRestrictionGroup();
 
@@ -45,12 +49,14 @@ test('storage ownership allowlist names the channel persistence owner, not Chann
 test('runtime UI boundary config preserves composition-root import restrictions', () => {
     const config = buildEslintArchitectureRules(lineupArchitectureRules);
     const rootRestrictionIndex = config.findIndex(
-        (entry) => Array.isArray(entry.files)
-            && entry.files.includes('src/**/*.ts')
-            && entry.ignores?.includes('src/bootstrap.ts')
+        (entry) => includesAllValues(entry.files, ['src/**/*.ts', 'src/**/*.tsx'])
+            && includesAllValues(entry.ignores, lineupArchitectureRules.compositionRootAccessBoundary.allowedImporters)
+            && getNoRestrictedImportPatterns(entry).some((pattern) => pattern.regex?.includes('Orchestrator'))
     );
     const runtimeUiRestrictionIndex = config.findIndex(
-        (entry) => entry.files === lineupArchitectureRules.runtimeUiBoundary.nonUiRuntimeModuleGlobs
+        (entry) => includesAllValues(entry.files, lineupArchitectureRules.runtimeUiBoundary.nonUiRuntimeModuleGlobs)
+            && includesAllValues(entry.ignores, ['src/**/__tests__/**'])
+            && getNoRestrictedImportPatterns(entry).some((pattern) => pattern.group?.includes('../ui/**'))
     );
 
     assert.ok(rootRestrictionIndex > -1, 'expected generic composition-root restriction block');

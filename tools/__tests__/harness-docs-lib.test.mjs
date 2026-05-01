@@ -2252,11 +2252,9 @@ test('checkPlanConformance rejects blocked active plans with mixed ready-now non
             content: buildActiveCleanupPlan(`${packageDecomposition}\n${blockedReadyNowMarkers}`),
         });
 
-        assert.ok(
-            result.errors.includes(
-                'blocked ready-now plans must set both `ready_now_slice` and `ready_now_execution_unit` to `none`'
-            )
-        );
+        assert.deepEqual(result.errors, [
+            'blocked ready-now plans must set both `ready_now_slice` and `ready_now_execution_unit` to `none`',
+        ]);
     }
 });
 
