@@ -1,4 +1,5 @@
 import { parseStream } from '../parsing/streamParser';
+import { AppErrorCode } from '../../../../types/app-errors';
 import type { RawStream } from '../types';
 
 describe('streamParser', () => {
@@ -56,5 +57,33 @@ describe('streamParser', () => {
 
         expect(explicitFalse.doviPresent).toBe(false);
         expect(explicitTrue.doviPresent).toBe(true);
+    });
+
+    it.each([
+        ['id', { streamType: 1, codec: 'hevc' }],
+        ['streamType', { id: '12', codec: 'hevc' }],
+        ['codec', { id: '12', streamType: 1 }],
+    ])('throws a typed parse error when required stream scalar %s is missing', (field, raw) => {
+        expect(() => parseStream(raw as unknown as RawStream)).toThrow(
+            expect.objectContaining({
+                code: AppErrorCode.PARSE_ERROR,
+                message: `Invalid stream payload: ${field} is required`,
+            })
+        );
+    });
+
+    it('throws a typed parse error when required stream scalars have the wrong type', () => {
+        expect(() =>
+            parseStream({
+                id: '12',
+                streamType: '1',
+                codec: 'hevc',
+            } as unknown as RawStream)
+        ).toThrow(
+            expect.objectContaining({
+                code: AppErrorCode.PARSE_ERROR,
+                message: 'Invalid stream payload: streamType is required',
+            })
+        );
     });
 });

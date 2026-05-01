@@ -1,5 +1,10 @@
 import type { PlexStream, RawStream } from '../types';
-import { parseRequiredObject } from './parserValidation';
+import {
+    parseRequiredFiniteNumber,
+    parseRequiredObject,
+    parseRequiredString,
+    parseRequiredStringLike,
+} from './parserValidation';
 
 const VALID_STREAM_TYPES = new Set([1, 2, 3]);
 const TRUE_VALUES = new Set(['1', 'true', 'yes']);
@@ -8,9 +13,9 @@ const FALSE_VALUES = new Set(['0', 'false', 'no']);
 export function parseStream(data: RawStream): PlexStream {
     const streamData = parseRequiredObject<RawStream>(data, 'stream');
     const stream: PlexStream = {
-        id: String(streamData.id),
-        streamType: normalizeStreamType(streamData.streamType),
-        codec: streamData.codec ?? '',
+        id: parseRequiredStringLike(streamData.id, 'stream', 'id'),
+        streamType: normalizeStreamType(parseRequiredFiniteNumber(streamData.streamType, 'stream', 'streamType')),
+        codec: parseRequiredString(streamData.codec, 'stream', 'codec'),
     };
 
     assignOptionalStreamFields(stream, streamData);

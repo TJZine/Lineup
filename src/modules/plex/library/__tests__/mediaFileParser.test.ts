@@ -1,5 +1,6 @@
 import { PlexLibraryError } from '../PlexLibraryError';
 import { parseMediaFiles } from '../parsing/mediaFileParser';
+import { AppErrorCode } from '../../../../types/app-errors';
 
 describe('mediaFileParser', () => {
     it('normalizes codecs and preserves stream details', () => {
@@ -57,5 +58,30 @@ describe('mediaFileParser', () => {
                 },
             ])
         ).toThrow(PlexLibraryError);
+    });
+
+    it('throws a typed parse error when required media file scalars are missing', () => {
+        expect(() => parseMediaFiles([{ duration: 1000 }])).toThrow(
+            expect.objectContaining({
+                code: AppErrorCode.PARSE_ERROR,
+                message: 'Invalid media file payload: id is required',
+            })
+        );
+    });
+
+    it('throws a typed parse error when required media part scalars are missing', () => {
+        expect(() =>
+            parseMediaFiles([
+                {
+                    id: '9',
+                    Part: [{ id: '12' }],
+                },
+            ])
+        ).toThrow(
+            expect.objectContaining({
+                code: AppErrorCode.PARSE_ERROR,
+                message: 'Invalid media part payload: key is required',
+            })
+        );
     });
 });

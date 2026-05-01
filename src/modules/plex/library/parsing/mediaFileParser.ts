@@ -6,7 +6,7 @@ import type {
     RawStream,
 } from '../types';
 import { parseStream } from './streamParser';
-import { parseArrayOrEmpty, parseRequiredObject } from './parserValidation';
+import { parseArrayOrEmpty, parseRequiredObject, parseRequiredString, parseRequiredStringLike } from './parserValidation';
 
 export function parseMediaFiles(mediaFiles: unknown): PlexMediaFile[] {
     return parseArrayOrEmpty<unknown>(mediaFiles, 'media file list').map((mediaFile, index) =>
@@ -25,7 +25,7 @@ function buildBaseMediaFile(data: RawMediaFile): Omit<PlexMediaFile, 'parts'> {
     const normalizedValues = normalizeMediaFileValues(data);
 
     return {
-        id: String(data.id),
+        id: parseRequiredStringLike(data.id, 'media file', 'id'),
         duration: data.duration ?? 0,
         bitrate: data.bitrate ?? 0,
         width: data.width ?? 0,
@@ -41,8 +41,8 @@ function buildBaseMediaFile(data: RawMediaFile): Omit<PlexMediaFile, 'parts'> {
 
 function parseMediaPart(data: RawMediaPart): PlexMediaPart {
     const part: PlexMediaPart = {
-        id: String(data.id),
-        key: data.key,
+        id: parseRequiredStringLike(data.id, 'media part', 'id'),
+        key: parseRequiredString(data.key, 'media part', 'key'),
         duration: data.duration ?? 0,
         file: data.file ?? '',
         size: data.size ?? 0,
