@@ -400,10 +400,10 @@ future platform work harder to reason about.
   `508d52aa`, and `5e548a92`; package closeout verification passed on
   2026-05-02.
 
-### [ ] `FCP-9` Source Signal, Convention, And Local Elegance
+### [x] `FCP-9` Source Signal, Convention, And Local Elegance
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-02-fcp-9-source-signal-convention-local-elegance-plan.md`
 - Dimensions/rubric tags: AI-generated debt, convention drift, low-level
   elegance, naming quality, docs/source coherence
 - Scope owner: source-signal and convention owner with style, architecture docs,
@@ -413,8 +413,8 @@ future platform work harder to reason about.
   remove low-risk noise without reopening DCR-16 as a broad comment sweep.
 - Files in scope:
   - `src/modules/ui/now-playing-info/styles.css` and sibling leaf stylesheets
-  - `src/__tests__/index.test.ts` if stylesheet seam policy tests require
-    updates
+  - `src/modules/ui/__tests__/runtime-token-style-contracts.test.ts` for
+    stylesheet seam policy updates
   - `docs/architecture/CURRENT_STATE.md`
   - `docs/architecture/modules.md`
   - `src/modules/navigation/interfaces.ts`
@@ -452,7 +452,7 @@ future platform work harder to reason about.
   changes, targeted channel setup tests if executor logic moves, `git diff
   --check`, `npm run verify:docs`, and `npm run verify` if executable code
   changes.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -464,8 +464,8 @@ future platform work harder to reason about.
 - Stop/replan triggers: comment pruning removes semantic API guidance; CSS move
   changes visuals; facet table extraction changes failure/progress semantics or
   DCR-7 callback ownership.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-02
+- Verification: `npm run plans:check`; `npm run test:contracts -- src/modules/ui/__tests__/runtime-token-style-contracts.test.ts`; `npm run lint:css`; `npm run verify:docs`; `npm run typecheck`; `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetCountRecoveryWorker.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotFailures.test.ts`; `git diff --check`; final `npm run verify`.
 - Follow-ups: none yet
 - Handoff: start with source audit and behavior-neutral diff constraints; do not
   broaden into a repo-wide comment sweep.
