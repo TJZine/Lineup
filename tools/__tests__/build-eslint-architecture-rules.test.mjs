@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildEslintArchitectureRules } from '../architecture-rules/buildEslintArchitectureRules.mjs';
+import {
+    architectureRuleMessages,
+    buildEslintArchitectureRules,
+} from '../architecture-rules/buildEslintArchitectureRules.mjs';
 import { lineupArchitectureRules } from '../architecture-rules/lineupArchitectureRules.mjs';
 
 function getAppRestrictionGroup() {
@@ -32,6 +35,18 @@ function getNoRestrictedImportPatterns(entry) {
 
 function includesAllValues(actual, expected) {
     return Array.isArray(actual) && expected.every((value) => actual.includes(value));
+}
+
+function findCompositionRootRestrictionPattern(entry) {
+    return getNoRestrictedImportPatterns(entry).find(
+        (pattern) => pattern.message === architectureRuleMessages.compositionRootAccessBoundary
+    );
+}
+
+function findRuntimeUiRestrictionPattern(entry) {
+    return getNoRestrictedImportPatterns(entry).find(
+        (pattern) => pattern.message === architectureRuleMessages.runtimeUiBoundary
+    );
 }
 
 test('App restriction patterns block both module roots and descendants', () => {
@@ -65,24 +80,23 @@ test('runtime UI boundary config preserves composition-root import restrictions'
     const rootRestrictionIndex = config.findIndex(
         (entry) => includesAllValues(entry.files, ['src/**/*.ts', 'src/**/*.tsx'])
             && includesAllValues(entry.ignores, lineupArchitectureRules.compositionRootAccessBoundary.allowedImporters)
-            && getNoRestrictedImportPatterns(entry).some((pattern) => pattern.regex?.includes('Orchestrator'))
+            && findCompositionRootRestrictionPattern(entry)
     );
     const runtimeUiRestrictionIndex = config.findIndex(
         (entry) => includesAllValues(entry.files, lineupArchitectureRules.runtimeUiBoundary.nonUiRuntimeModuleGlobs)
             && includesAllValues(entry.ignores, ['src/**/__tests__/**'])
-            && getNoRestrictedImportPatterns(entry).some((pattern) => pattern.group?.includes('../ui/**'))
+            && findRuntimeUiRestrictionPattern(entry)
     );
 
     assert.ok(rootRestrictionIndex > -1, 'expected generic composition-root restriction block');
     assert.ok(runtimeUiRestrictionIndex > rootRestrictionIndex, 'runtime block must win flat-config overlap');
 
-    const patterns = getNoRestrictedImportPatterns(config[runtimeUiRestrictionIndex]);
     assert.ok(
-        patterns.some((pattern) => pattern.group?.includes('../ui/**')),
+        findRuntimeUiRestrictionPattern(config[runtimeUiRestrictionIndex]),
         'expected runtime UI import restriction'
     );
     assert.ok(
-        patterns.some((pattern) => pattern.regex?.includes('Orchestrator')),
+        findCompositionRootRestrictionPattern(config[runtimeUiRestrictionIndex]),
         'expected composition-root import restriction'
     );
 });

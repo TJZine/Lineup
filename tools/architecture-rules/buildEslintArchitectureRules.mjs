@@ -10,6 +10,11 @@ const RUNTIME_UI_RESTRICTION_MESSAGE =
 const ROOT_IMPORT_RESTRICTION_MESSAGE =
     'Non-composition-root modules cannot import src/App.ts or src/Orchestrator.ts.';
 
+export const architectureRuleMessages = Object.freeze({
+    compositionRootAccessBoundary: ROOT_IMPORT_RESTRICTION_MESSAGE,
+    runtimeUiBoundary: RUNTIME_UI_RESTRICTION_MESSAGE,
+});
+
 function collectExceptionToPaths(rules, ruleName, fromPath) {
     return rules.temporaryExceptions
         .filter((exception) => exception.rule === ruleName && exception.from === fromPath)
