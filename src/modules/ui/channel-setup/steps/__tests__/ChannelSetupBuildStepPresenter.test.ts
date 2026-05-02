@@ -154,4 +154,39 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect((ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).disabled).toBe(false);
         expect(deps.focus.unregisterAll).toHaveBeenCalled();
     });
+
+    it('opens player playback and EPG from the completed build Done action', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0 },
+            }),
+        });
+        const replaceScreen = jest.fn();
+        (deps.screenPorts.getNavigation as jest.Mock).mockReturnValue({
+            replaceScreen,
+            setFocus: jest.fn(),
+        });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
+        await flushPromises();
+
+        expect(replaceScreen).toHaveBeenCalledWith('player');
+        expect(deps.screenPorts.switchToChannelByNumber).toHaveBeenCalledWith(1);
+        expect(deps.screenPorts.openEPG).toHaveBeenCalledTimes(1);
+        const switchOrder = deps.screenPorts.switchToChannelByNumber.mock.invocationCallOrder[0];
+        const epgOrder = deps.screenPorts.openEPG.mock.invocationCallOrder[0];
+        expect(switchOrder).toBeDefined();
+        expect(epgOrder).toBeDefined();
+        if (switchOrder === undefined || epgOrder === undefined) {
+            throw new Error('Expected switch and EPG calls to be recorded');
+        }
+        expect(switchOrder).toBeLessThan(epgOrder);
+    });
 });
