@@ -10,22 +10,14 @@ import type { PlatformIdentityService } from '../../../platform';
 import type { IDisposable } from '../../../utils/interfaces';
 import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
 
-/**
- * Stream resolver error structure.
- * Uses PlexStreamErrorCode for stream resolver errors.
- */
 export type StreamResolverErrorStage =
     | 'media_selection'
     | 'burn_in_selected_part';
 
 export interface StreamResolverError {
-    /** Error code from stream resolver taxonomy */
     code: PlexStreamErrorCode;
-    /** Human-readable error message */
     message: string;
-    /** Whether recovery might succeed */
     recoverable: boolean;
-    /** Milliseconds to wait before retry (if retryable) */
     retryAfterMs?: number;
     /**
      * Optional: disambiguates where `resolveStream()` failed.
@@ -34,16 +26,10 @@ export interface StreamResolverError {
     stage?: StreamResolverErrorStage;
 }
 
-/**
- * Event map for PlexStreamResolver events.
- */
 export interface StreamResolverEventMap {
     error: StreamResolverError;
 }
 
-/**
- * Configuration for PlexStreamResolver.
- */
 export interface PlexStreamDebugOverridesReader {
     readTranscodeProfileNameAndClean(): string | null;
 }
@@ -111,10 +97,6 @@ export interface PlexStreamResolverConfig {
     identityService?: PlatformIdentityService;
 }
 
-/**
- * Plex Stream Resolver Interface.
- * Resolves playback URLs and manages playback sessions.
- */
 export interface IPlexStreamResolver {
     /**
      * Resolve the best stream URL for a media item.
@@ -133,7 +115,6 @@ export interface IPlexStreamResolver {
 
     /**
      * Check if a media item can be played directly without transcoding.
-     * @param item - Media item to check
      * @returns true if direct play is supported
      */
     canDirectPlay(item: PlexStreamMediaItem): boolean;

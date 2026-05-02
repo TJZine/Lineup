@@ -3,9 +3,6 @@ import { redactSensitiveTokens } from '../../../../utils/redact';
 import { AppErrorCode } from '../../../../types/app-errors';
 import type { EPGErrorType } from '../types';
 
-/**
- * Events emitted by EPGErrorBoundary.
- */
 interface EPGErrorBoundaryEvents {
     /** Fired when too many errors of same type occur */
     degradedMode: { type: EPGErrorType; count: number };
@@ -19,16 +16,10 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
     private errorCounts: Map<EPGErrorType, number> = new Map();
     private readonly MAX_ERRORS_PER_TYPE = 3;
 
-    /** Callback to show fallback row in grid */
     private showFallbackRowFn: ((context: string) => void) | null = null;
-    /** Callback to reset scroll position */
     private resetScrollPositionFn: (() => void) | null = null;
-    /** Callback to force recycle all elements */
     private forceRecycleAllFn: (() => void) | null = null;
 
-    /**
-     * Set callbacks for error recovery actions.
-     */
     setCallbacks(callbacks: {
         showFallbackRow?: (context: string) => void;
         resetScrollPosition?: () => void;
@@ -134,9 +125,6 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
         return this.getErrorCount(type) >= this.MAX_ERRORS_PER_TYPE;
     }
 
-    /**
-     * Destroy and cleanup.
-     */
     destroy(): void {
         this.errorCounts.clear();
         this.showFallbackRowFn = null;
