@@ -37,6 +37,10 @@ function includesAllValues(actual, expected) {
     return Array.isArray(actual) && expected.every((value) => actual.includes(value));
 }
 
+function escapeRegexLiteral(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function findCompositionRootRestrictionPattern(entry) {
     return getNoRestrictedImportPatterns(entry).find(
         (pattern) => pattern.message === architectureRuleMessages.compositionRootAccessBoundary
@@ -98,6 +102,57 @@ test('runtime UI boundary config preserves composition-root import restrictions'
     assert.ok(
         findCompositionRootRestrictionPattern(config[runtimeUiRestrictionIndex]),
         'expected composition-root import restriction'
+    );
+});
+
+test('runtime UI exception entries preserve composition-root exceptions for the same file', () => {
+    const exceptionFile = 'src/modules/navigation/SyntheticRuntime.ts';
+    const allowedUiImport = '../ui/epg';
+    const allowedRootImport = '../../Orchestrator';
+    const rules = {
+        ...lineupArchitectureRules,
+        temporaryExceptions: [
+            ...lineupArchitectureRules.temporaryExceptions,
+            {
+                rule: 'runtime-ui-boundary',
+                from: exceptionFile,
+                to: allowedUiImport,
+                reason: 'Synthetic fixture for overlapping architecture exceptions.',
+                cleanupPriority: 'test',
+            },
+            {
+                rule: 'composition-root-access-boundary',
+                from: exceptionFile,
+                to: allowedRootImport,
+                reason: 'Synthetic fixture for overlapping architecture exceptions.',
+                cleanupPriority: 'test',
+            },
+        ],
+    };
+    const config = buildEslintArchitectureRules(rules);
+    const exceptionEntry = config.find(
+        (entry) =>
+            includesAllValues(entry.files, [exceptionFile])
+            && findRuntimeUiRestrictionPattern(entry)
+    );
+
+    const runtimePattern = findRuntimeUiRestrictionPattern(exceptionEntry);
+    const compositionPattern = findCompositionRootRestrictionPattern(exceptionEntry);
+
+    assert.ok(runtimePattern, 'expected runtime UI restriction on exception entry');
+    assert.ok(compositionPattern, 'expected composition-root restriction on exception entry');
+    assert.ok(
+        runtimePattern.group.includes(`!${allowedUiImport}`),
+        'expected runtime UI exception negation on exception entry'
+    );
+    assert.ok(
+        compositionPattern.regex.includes(escapeRegexLiteral(allowedRootImport)),
+        'expected composition-root exception to exclude the configured root import'
+    );
+    assert.equal(
+        new RegExp(compositionPattern.regex).test('App'),
+        true,
+        'expected composition-root exception entry to keep restricting other roots'
     );
 });
 

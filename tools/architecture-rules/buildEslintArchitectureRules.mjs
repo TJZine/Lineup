@@ -186,7 +186,7 @@ export function buildEslintArchitectureRules(rules) {
                     {
                         patterns: [
                             buildRuntimeUiImportPattern(rules, fromPath),
-                            buildCompositionRootImportPattern(rules),
+                            buildCompositionRootImportPattern(rules, fromPath),
                         ],
                     },
                 ],
