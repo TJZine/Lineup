@@ -48,7 +48,7 @@ import {
     extractSearchHubs,
 } from './parsing/libraryResponsePayload';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './constants';
-import { fetchWithTimeoutCore } from '../shared/fetchWithTimeoutCore';
+import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import {
     applyXPlexTokenQueryParam,
     classifyPlexUrlOrigin,
@@ -886,9 +886,9 @@ export class PlexLibrary implements IPlexLibrary {
 
                 let response: Response;
                 try {
-                    response = await fetchWithTimeoutCore(
+                    response = await fetchWithTimeout({
                         url,
-                        {
+                        init: {
                             ...optionsWithoutSignal,
                             headers: {
                                 Accept: 'application/json',
@@ -897,9 +897,9 @@ export class PlexLibrary implements IPlexLibrary {
                                 ...options.headers,
                             },
                         },
-                        requestPolicy.timeoutMs,
-                        externalSignal
-                    );
+                        timeoutMs: requestPolicy.timeoutMs,
+                        upstreamSignal: externalSignal,
+                    });
                 } finally {
                     if (externalSignal) {
                         externalSignal.removeEventListener('abort', onExternalAbort);

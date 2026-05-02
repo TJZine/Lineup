@@ -1,6 +1,6 @@
 import type {
     PlexStreamErrorCode,
-    PlexMediaItem,
+    PlexStreamMediaItem,
     StreamRequest,
     StreamDecision,
     HlsOptions,
@@ -92,7 +92,7 @@ export interface PlexStreamResolverConfig {
     /** Function to get a relay connection (for mixed content fallback) */
     getRelayConnection: () => { uri: string } | null;
     /** Function to get a media item by ratingKey */
-    getItem: (ratingKey: string) => Promise<PlexMediaItem | null>;
+    getItem: (ratingKey: string) => Promise<PlexStreamMediaItem | null>;
     /** Client identifier for session tracking */
     clientIdentifier: string;
     /** Audio playback policy reader seam */
@@ -136,7 +136,7 @@ export interface IPlexStreamResolver {
      * @param item - Media item to check
      * @returns true if direct play is supported
      */
-    canDirectPlay(item: PlexMediaItem): boolean;
+    canDirectPlay(item: PlexStreamMediaItem): boolean;
 
     /**
      * Generate an HLS transcode URL for a media item.

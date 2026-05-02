@@ -5,7 +5,7 @@
 
 import { PlexStreamResolver } from '../PlexStreamResolver';
 import { generatePlexSessionId } from '../plexSessionId';
-import type { PlexMediaFile, PlexMediaItem, PlexMediaPart, PlexStream } from '../types';
+import type { PlexMediaFile, PlexStreamMediaItem, PlexMediaPart, PlexStream } from '../types';
 import { AppErrorCode } from '../../../../types/app-errors';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { PlatformIdentityService } from '../../../../platform';
@@ -22,15 +22,15 @@ function requireValue<T>(value: T | null | undefined): NonNullable<T> {
     return value as NonNullable<T>;
 }
 
-function getPrimaryMedia(item: PlexMediaItem): PlexMediaFile {
+function getPrimaryMedia(item: PlexStreamMediaItem): PlexMediaFile {
     return requireValue(item.media[0]);
 }
 
-function getPrimaryPart(item: PlexMediaItem): PlexMediaPart {
+function getPrimaryPart(item: PlexStreamMediaItem): PlexMediaPart {
     return requireValue(getPrimaryMedia(item).parts[0]);
 }
 
-function getPrimaryVideoStream(item: PlexMediaItem): PlexStream {
+function getPrimaryVideoStream(item: PlexStreamMediaItem): PlexStream {
     return requireValue(getPrimaryPart(item).streams[0]) as PlexStream;
 }
 

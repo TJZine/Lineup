@@ -190,12 +190,12 @@ describe('fetchWithTimeout', () => {
             });
         });
 
-        const request = fetchWithTimeoutCore(
-            'http://example.test/core-upstream-abort',
-            { method: 'GET' },
-            100_000,
-            upstreamController.signal
-        );
+        const request = fetchWithTimeoutCore({
+            url: 'http://example.test/core-upstream-abort',
+            init: { method: 'GET' },
+            timeoutMs: 100_000,
+            upstreamSignal: upstreamController.signal,
+        });
         const requestRejection = request.catch((error) => error);
 
         const passedSignal = (mockFetch.mock.calls[0]?.[1] as RequestInit | undefined)?.signal as AbortSignal | undefined;

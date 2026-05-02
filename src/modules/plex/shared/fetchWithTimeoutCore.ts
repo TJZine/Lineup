@@ -1,9 +1,16 @@
-export async function fetchWithTimeoutCore(
-    url: string,
-    options: RequestInit,
-    timeoutMs: number,
-    upstreamSignal: AbortSignal | null = null
-): Promise<Response> {
+export interface FetchWithTimeoutCoreArgs {
+    url: string;
+    init: RequestInit;
+    timeoutMs: number;
+    upstreamSignal?: AbortSignal | null;
+}
+
+export async function fetchWithTimeoutCore({
+    url,
+    init,
+    timeoutMs,
+    upstreamSignal = null,
+}: FetchWithTimeoutCoreArgs): Promise<Response> {
     const controller = new AbortController();
     const onAbort = (): void => {
         try {
@@ -31,7 +38,7 @@ export async function fetchWithTimeoutCore(
     const timeoutId = setTimeout(() => onAbort(), timeoutMs);
 
     try {
-        return await fetch(url, { ...options, signal: controller.signal });
+        return await fetch(url, { ...init, signal: controller.signal });
     } finally {
         clearTimeout(timeoutId);
         if (upstreamSignal) {

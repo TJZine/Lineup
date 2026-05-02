@@ -28,12 +28,12 @@ describe('fetchWithTimeoutCore', () => {
             );
         }));
 
-        const request = fetchWithTimeoutCore(
-            'http://example.test/core-upstream-abort',
-            { method: 'GET' },
-            5_000,
-            upstreamController.signal
-        );
+        const request = fetchWithTimeoutCore({
+            url: 'http://example.test/core-upstream-abort',
+            init: { method: 'GET' },
+            timeoutMs: 5_000,
+            upstreamSignal: upstreamController.signal,
+        });
         const rejection = request.catch((error) => error);
 
         const passedSignal = mockFetch.mock.calls[0]?.[1]?.signal as AbortSignal | undefined;
@@ -58,12 +58,12 @@ describe('fetchWithTimeoutCore', () => {
         mockFetch.mockResolvedValue(response);
 
         await expect(
-            fetchWithTimeoutCore(
-                'http://example.test/core-listener-fail-open',
-                { method: 'GET' },
-                5_000,
-                upstreamController.signal
-            )
+            fetchWithTimeoutCore({
+                url: 'http://example.test/core-listener-fail-open',
+                init: { method: 'GET' },
+                timeoutMs: 5_000,
+                upstreamSignal: upstreamController.signal,
+            })
         ).resolves.toBe(response);
         expect(addEventListenerSpy).toHaveBeenCalled();
         expect(removeEventListenerSpy).toHaveBeenCalled();
@@ -89,12 +89,12 @@ describe('fetchWithTimeoutCore', () => {
         );
 
         try {
-            const request = fetchWithTimeoutCore(
-                'http://example.test/core-abort-fail-open',
-                { method: 'GET' },
-                5_000,
-                upstreamController.signal
-            );
+            const request = fetchWithTimeoutCore({
+                url: 'http://example.test/core-abort-fail-open',
+                init: { method: 'GET' },
+                timeoutMs: 5_000,
+                upstreamSignal: upstreamController.signal,
+            });
 
             upstreamController.abort();
             expect(abortSpy).toHaveBeenCalled();

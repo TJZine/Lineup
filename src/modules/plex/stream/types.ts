@@ -3,7 +3,7 @@ import type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType } from '..
 
 export type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType };
 
-export interface PlexMediaItem {
+export interface PlexStreamMediaItem {
     ratingKey: string;
     key: string;
     type: PlexMediaType;

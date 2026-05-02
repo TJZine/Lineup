@@ -13,7 +13,7 @@ import type {
     StreamResolverEventMap,
 } from './interfaces';
 import type {
-    PlexMediaItem,
+    PlexStreamMediaItem,
     StreamRequest,
     StreamDecision,
     HlsOptions,
@@ -275,7 +275,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
      * @param item - Media item to check
      * @returns true if direct play is supported
      */
-    canDirectPlay(item: PlexMediaItem): boolean {
+    canDirectPlay(item: PlexStreamMediaItem): boolean {
         if (!item.media || item.media.length === 0) {
             return false;
         }

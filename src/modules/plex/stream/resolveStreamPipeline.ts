@@ -12,7 +12,7 @@ import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from './subtitleDel
 import { selectBestMedia, selectBestMediaWithSubtitleStream } from './mediaSelectionPolicy';
 import type {
     HlsOptions,
-    PlexMediaItem,
+    PlexStreamMediaItem,
     PlexStream,
     StreamDecision,
     StreamRequest,
@@ -28,7 +28,7 @@ type CreateResolverError = (
 ) => StreamResolverError;
 
 export interface ResolveStreamPipelineArgs {
-    item: PlexMediaItem;
+    item: PlexStreamMediaItem;
     request: StreamRequest;
     sessionId: string;
     allowDirectPlayAudioFallback: boolean;
@@ -47,8 +47,8 @@ export interface ResolveStreamPipelineArgs {
 
 export interface ResolveStreamPipelineResult {
     decision: StreamDecision;
-    media: NonNullable<PlexMediaItem['media'][number]>;
-    part: NonNullable<NonNullable<PlexMediaItem['media'][number]>['parts'][number]>;
+    media: NonNullable<PlexStreamMediaItem['media'][number]>;
+    part: NonNullable<NonNullable<PlexStreamMediaItem['media'][number]>['parts'][number]>;
     audioStream: PlexStream | null;
     videoStream: PlexStream | null;
     subtitleStream: PlexStream | null;
