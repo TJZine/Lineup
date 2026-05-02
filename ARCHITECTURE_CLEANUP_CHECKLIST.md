@@ -10,22 +10,25 @@ should not drive the next cleanup task by default.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P13 and FCP-1 through FCP-6 are complete. The old
-  P14 wave ledger is superseded for current decision-making because repeated
-  residual waves did not create meaningful score progress and kept expanding the
-  active control plane.
-- Next safe start: choose the first unchecked `DCR-*` package below, perform
-  package-local source-backed discovery, freeze an execution-grade plan with
-  package decomposition and one `ready_now_execution_unit`, run adversarial plan
-  review, and only then implement the approved unit.
+- Current execution state: P0-P13, FCP-1 through FCP-6, DCR-1 through DCR-16,
+  and DCR-EXIT are complete. The old P14 wave ledger is superseded for current
+  decision-making because repeated residual waves did not create meaningful
+  score progress and kept expanding the active control plane.
+- Next safe start: choose the first unchecked `FCP-*` package in the active
+  Final Cleanup Pass below, perform package-local source-backed discovery,
+  freeze an execution-grade plan with package decomposition and one
+  `ready_now_execution_unit`, run adversarial plan review, and only then
+  implement the approved unit.
 - Preferred launcher: `cleanup-loop` for approved checklist-linked Tier 3
   cleanup packages.
-- Active program: `Dimension Cleanup Refresh` (`DCR-*`) below. The completed
-  `FCP-*` records are baseline history and retained evidence, not the next task
-  queue.
+- Active program: `Final Cleanup Pass` (`FCP-7` through `FCP-12`) below. The
+  completed DCR and historical FCP records are retained evidence, not the next
+  task queue.
 - Desloppify role: rubric input and optional end-of-program external score
-  refresh only. Do not use Desloppify output as concrete issue intake, task
-  admission, execution-unit membership, proof of closure, or wave sequencing.
+  refresh only. The active FCP packages below were admitted by maintainer
+  judgment from current-source review themes; do not use fresh Desloppify
+  output as concrete issue intake, task admission, execution-unit membership,
+  proof of closure, or wave sequencing.
 
 ## Rubric Basis
 
@@ -50,15 +53,15 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
 
 - Work top to bottom unless maintainer direction says otherwise.
 - Keep authoritative execution state in Codex `update_plan`.
-- Start each active DCR package with package-local source-backed discovery over
+- Start each active cleanup package with package-local source-backed discovery over
   the listed files/seams plus targeted adjacent searches required by its
-  stop/replan triggers. Reserve repo-wide audit for `DCR-EXIT` or for a package
-  whose listed scope explicitly requires repo-wide coverage.
+  stop/replan triggers. Reserve repo-wide audit for an exit package or for a
+  package whose listed scope explicitly requires repo-wide coverage.
 - Use rubric dimensions as audit prompts, not as source truth.
 - Freeze one execution-grade plan per priority or per approved package inside a
   priority. Keep small plans local by default; promote to `docs/plans/*` only
   when durable tracked handoff memory is needed.
-- Active `DCR-*` cleanup-loop packages are durable Tier 3 handoff work by
+- Active cleanup-loop packages are durable Tier 3 handoff work by
   default. Write or refresh a tracked `docs/plans/*` execution plan while the
   package is active, then collapse durable outcomes into this checklist and
   current architecture/API docs at closeout. Delete the detailed active plan
@@ -69,12 +72,12 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
   closeout gates; it does not enumerate endless waves.
 - Keep every implementation package bounded by one owner, one seam, one proof
   surface, and explicit stop/replan triggers.
-- For `DCR-*` packages, do not check a package complete unless every listed
+- For active packages, do not check a package complete unless every listed
   `actual issue` is fixed or reclassified with source-backed evidence, every
   `owner decision` is resolved or explicitly accepted with one owner and revisit
   trigger, every accepted residual is recorded with rationale, and the
   package-level completion criteria are satisfied.
-- `DCR-*` cleanup-loop planning must plan coherent execution units or waves when
+- Active cleanup-loop planning must plan coherent execution units or waves when
   the package is large. Do not close a package after one micro-fix while listed
   issues remain. Parallel `cleanup_worker` slices are allowed only when the
   approved plan shows disjoint write scopes, disjoint verification surfaces, and
@@ -88,8 +91,8 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
 
 ## Audit-First Package Rules
 
-For the completed FCP baseline, each priority audit had to produce a short
-source-backed package brief before implementation began:
+For FCP packages, each priority audit must produce a short source-backed package
+brief before implementation begins:
 
 - `source_finding_id`: stable local id such as `FCP-1-SF1`; this is the FCP
   package coverage token and is not a Desloppify or detector issue id
@@ -115,11 +118,11 @@ artifact must use only `source_finding_id` / `source_finding_ids` coverage and
 must not seed intake, membership, proof, closeout, task generation, or ownership
 from imported, detector, or Desloppify ids.
 
-For active DCR checklist-linked plans, package coverage is defined by the
-listed `DCR-*-A*` actual issues and `DCR-*-D*` owner decisions, plus any
-absorbed-now residue that meets the approved execution-unit absorption rules.
-Do not invent FCP-style `source_finding_id` coverage for DCR unless a
-maintainer explicitly changes this control-plane contract.
+For completed DCR checklist-linked plans, package coverage was defined by the
+listed `DCR-*-A*` actual issues and `DCR-*-D*` owner decisions, plus absorbed
+residue that met the approved execution-unit absorption rules. Do not invent
+FCP-style `source_finding_id` coverage for DCR unless a maintainer explicitly
+reopens a DCR package and changes this control-plane contract.
 
 For every FCP package or priority that claims repo-wide or package-wide audit
 coverage, create or update either one tracked master audit artifact for that
@@ -184,26 +187,511 @@ current evidence.
   - source review confirming the closure condition is true and same-area residue
     has one owner
 - FCP closeout exemption: FCP priority closeout does not require Desloppify
-  commands, issue-id reruns, or package-map reconciliation. This historical
-  exemption is superseded for active work by `DCR-EXIT`, and any external score
-  refresh waits until `DCR-EXIT` closes.
+  commands, issue-id reruns, or package-map reconciliation. The active FCP
+  packages still require source audits, proof matrices, targeted verification,
+  and clean closeout review before the next FCP package begins.
 
-## Final FCP Reconciliation Pass
+## Final Cleanup Pass
 
-This historical FCP-only pass is superseded by active `DCR-EXIT`. The retained
-FCP records remain required input to final reconciliation, but final production
-cleanup completion now requires DCR package reconciliation first. This final
-pass must not use Desloppify output, imported issue ids, package maps, score
-deltas, or triage as closure input.
+The `FCP-7` through `FCP-12` packages are the active final cleanup surface before
+Windows port work. They replace the old historical FCP queue with source-backed
+packages grouped by owner, risk, and efficient execution order. The goal is not
+score chasing; it is to retire remaining maintainability risks that would make
+future platform work harder to reason about.
 
-## Dimension Cleanup Refresh
+### FCP Operating Rules
 
-The `DCR-*` packages are the active cleanup surface after the first six FCP
-priorities. They are seeded from deep source review findings, not from a
-Desloppify queue. Rubric dimensions are review prompts only: file health, code
-quality, duplication, test health, security, naming/API/error/abstraction/logic,
-AI-generated residue, type safety, contract coherence, cross-module design, and
-structure/elegance.
+- Treat each unchecked `FCP-*` row below as one checklist-linked package for
+  `cleanup-loop`.
+- Use `source_finding_id` coverage in FCP plans. For example, `FCP-7-SF1` is a
+  valid source-backed finding id for `FCP-7`.
+- Do not copy external review ids, detector ids, package-map ids, score deltas,
+  or raw tool output into FCP package membership, proof, or closeout.
+- A package plan may source-audit and reclassify listed findings, but it may not
+  close by fixing only one symptom while same-package findings remain unowned.
+- Prefer behavior-preserving extraction, type/API contract cleanup, and direct
+  tests over broad rewrites. If a listed large refactor becomes speculative
+  after source review, reclassify it with one final owner and revisit trigger
+  rather than forcing churn.
+- Hotspot packages must close the original source concern, not just reduce line
+  count or extract one helper. Before closeout, the package audit must state
+  whether the original mixed-responsibility finding still describes current
+  source. If yes, continue the package or record an accepted owner/revisit
+  trigger; if no, close with source proof.
+- Broad refactors are allowed when they stay inside one owner boundary and have
+  a stable proof surface. Broad changes that cross UI, persistence, Plex,
+  scheduler, navigation, and platform policy at the same time must split into
+  separate packages or stop for maintainer reapproval.
+- Run `npm run verify` for runtime/UI/Plex/navigation/orchestrator changes and
+  `npm run verify:docs` for checklist/workflow/reference-doc changes.
+
+### [ ] `FCP-7` Boundary And Type Hygiene
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: cross-module architecture, type safety, dependency
+  health, contract coherence, convention drift
+- Scope owner: boundary/type contract owner across server-select, navigation,
+  debug, channel setup, and shared events
+- Why this package exists / production risk: recent cleanup left several small
+  but real boundary leaks and type drift hazards. These are cheap to fix now and
+  expensive to debug during platform work because they normalize circular source
+  dependencies, stale architecture exceptions, and duplicated runtime values.
+- Files in scope:
+  - `src/modules/ui/server-select/*`
+  - `tools/architecture-rules/lineupArchitectureRules.mjs`
+  - architecture-rule tests under `tools/__tests__/`
+  - `src/modules/debug/NowPlayingDebugManager.ts`
+  - `src/core/orchestrator/OrchestratorCoordinatorBuilders.ts`
+  - `src/modules/ui/now-playing-info/interfaces.ts` only for read-only adapter
+    proof unless a public contract change is approved
+  - `src/core/channel-setup/config/*`
+  - `src/core/channel-setup/planning/*`
+  - `src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts`
+  - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`
+  - `src/modules/navigation/NavigationFeaturePorts.ts`
+  - `src/types/channelSwitch.ts`
+  - `src/utils/EventEmitter.ts`, `src/utils/interfaces.ts`, and event-map
+    owner files/tests if the event-map tightening slice is accepted
+- Files out of scope:
+  - server-select discovery/autoconnect/focus state-machine extraction
+  - broad NavigationCoordinator rewrite
+  - channel setup wizard rendering cleanup
+  - debug modal redesign
+- Source findings to retire:
+  - `FCP-7-SF1`: `ServerSelectListView` and `ServerSelectScreen` form a source
+    cycle through shared state types. Move shared server-select display/state
+    shapes into a sibling owner module or narrow the list-view input contract.
+  - `FCP-7-SF2`: architecture lint still carries temporary
+    `NavigationCoordinator` UI-boundary exceptions after the source import
+    violations were removed. Remove stale exceptions and keep the rule active.
+  - `FCP-7-SF3`: the debug module imports a UI overlay interface when it only
+    needs a minimal debug-owned presence/visibility port adapted at the
+    orchestrator boundary.
+  - `FCP-7-SF4`: active channel setup planning code still imports setup-config
+    normalization through a compatibility re-export. Migrate active callers to
+    the canonical config owner and remove the compatibility path if unused.
+  - `FCP-7-SF5`: channel setup UI duplicates the workflow-unavailable error
+    predicate instead of consuming the canonical boundary helper.
+  - `FCP-7-SF6`: navigation duplicates the global channel-switch outcome union.
+    Alias or import the shared owner type so runtime values cannot drift.
+  - `FCP-7-SF7`: shared event maps require string index signatures, widening
+    allowed event names to arbitrary strings. Tighten the emitter contract to
+    closed event maps if impact analysis shows the change is bounded.
+- Completion means: listed type/boundary findings are fixed or
+  source-disproved with one owner; no circular server-select source dependency
+  remains; stale architecture exceptions are removed; duplicated literal unions
+  and error predicates have one owner; event maps either reject arbitrary event
+  names or have a documented accepted owner/revisit trigger.
+- Verification routing: targeted source/import audits, architecture-rule tests,
+  affected unit tests, `npm run typecheck`, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-7-S1` | server-select type cycle and stale architecture exceptions | server-select types, architecture rules/tests | serial first |
+  | `FCP-7-S2` | debug-owned now-playing port and channel setup canonical imports/predicate | debug/orchestrator/channel-setup files/tests | may run after S1 if disjoint |
+  | `FCP-7-S3` | duplicated outcome union and closed event-map typing | shared event/navigation/types/tests | serial; broader type impact |
+
+- Stop/replan triggers: event-map tightening requires broad public API redesign;
+  debug fix changes UI behavior; channel setup import migration reopens DCR-2
+  failure semantics; architecture-rule changes loosen rather than tighten a
+  boundary.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start with a cleanup-loop plan for `FCP-7`, and require Codanna
+  impact analysis before any event-map contract changes.
+
+### [ ] `FCP-8` API, Plex, And Error Contract Coherence
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: API surface coherence, contract coherence, error
+  consistency, type safety, Plex integration, logic clarity
+- Scope owner: Plex/shared transport, scheduler channel contracts, and error
+  contract owners
+- Why this package exists / production risk: platform work benefits from one
+  clear API shape per operation, aligned public interfaces, sanitized error
+  cause preservation, and Plex contracts that do not hide duplicated transport
+  policy or ambiguous media item names.
+- Files in scope:
+  - `src/modules/plex/shared/fetchWithTimeout.ts`
+  - `src/modules/plex/shared/fetchWithTimeoutCore.ts`
+  - `src/modules/plex/library/PlexLibrary.ts`
+  - `src/modules/plex/library/types.ts`
+  - `src/modules/plex/stream/types.ts`
+  - `src/modules/plex/stream/interfaces.ts`
+  - `src/modules/plex/auth/PlexAuth.ts`
+  - Plex tests under `src/modules/plex/**/__tests__/`
+  - `src/modules/scheduler/channel-manager/ChannelManager.ts`
+  - `src/modules/scheduler/channel-manager/interfaces.ts`
+  - `src/core/channel-setup/shared/formatChannelSetupWarning.ts`
+  - `src/modules/scheduler/channel-manager/ChannelImportNormalizer.ts`
+- Files out of scope:
+  - broad Plex auth/session redesign
+  - playback URL/token redaction policy changes except preserving existing
+    redaction coverage
+  - channel persistence schema changes
+- Source findings to retire:
+  - `FCP-8-SF1`: Plex timeout helpers expose both object-shaped and positional
+    public call shapes for the same operation. Keep one public shape and make
+    lower-level core private or shape-aligned.
+  - `FCP-8-SF2`: `ChannelManager.createChannel` accepts `initialContent` while
+    `IChannelManager` does not expose it. Decide and align the public contract.
+  - `FCP-8-SF3`: library and stream packages export different
+    `PlexMediaItem` contracts under the same name. Rename or reuse so imports
+    cannot silently mean different shapes.
+  - `FCP-8-SF4`: Plex auth catch-and-wrap paths drop original failure context.
+    Preserve sanitized causes where `PlexApiError` already supports redaction.
+  - `FCP-8-SF5`: Plex auth still mixes Home endpoint probing, status
+    classification, and profile-switch persistence enough to invite drift.
+    Extract only a focused Home endpoint/status helper or client; keep token,
+    PIN, credential epoch, profile persistence, and event emission in
+    `PlexAuth`.
+  - `FCP-8-SF6`: Plex library repeats pagination guards and accumulation logic
+    in multiple methods. Extract a private page iterator only if tests can prove
+    behavior and error semantics stay unchanged.
+  - `FCP-8-SF7`: channel setup warning formatting and channel import
+    normalization duplicate the same error-detail formatting adapter. Extract a
+    shared local formatter with no new subsystem.
+- Completion means: public API shapes are singular and aligned; Plex auth wraps
+  preserve sanitized causes; Home fallback extraction preserves existing v1/v2
+  fallback, abort, unsupported, PIN, and profile-switch behavior; pagination
+  and error-formatting duplication are removed or source-justified.
+- Verification routing: focused Plex shared/library/auth/stream tests,
+  ChannelManager contract tests, channel setup warning/import tests if touched,
+  `npm run typecheck`, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-8-S1` | shared transport API shape and Plex media item naming | Plex shared/library/stream files/tests | serial first |
+  | `FCP-8-S2` | Plex auth cause preservation and bounded Home endpoint helper | `PlexAuth.ts` and auth tests | serial; auth-sensitive |
+  | `FCP-8-S3` | ChannelManager create contract and shared error-detail formatter | scheduler/channel setup files/tests | may run apart if no shared tests |
+  | `FCP-8-S4` | Plex library pagination helper | `PlexLibrary.ts` and tests | optional wave after S1/S2 |
+
+- Stop/replan triggers: Plex auth extraction changes credential persistence,
+  token redaction, PIN validation, or existing fallback tests; `initialContent`
+  requires product/API decision outside channel manager; pagination helper
+  changes request order or error taxonomy.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start with a cleanup-loop plan for `FCP-8`; treat Plex auth work as
+  the highest-risk slice and keep it bounded.
+
+### [ ] `FCP-9` Source Signal, Convention, And Local Elegance
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: AI-generated debt, convention drift, low-level
+  elegance, naming quality, docs/source coherence
+- Scope owner: source-signal and convention owner with style, architecture docs,
+  and channel setup planning reviewers
+- Why this package exists / production risk: small convention violations and
+  restating comments make real contracts harder to spot. This package should
+  remove low-risk noise without reopening DCR-16 as a broad comment sweep.
+- Files in scope:
+  - `src/modules/ui/now-playing-info/styles.css` and sibling leaf stylesheets
+  - `src/__tests__/index.test.ts` if stylesheet seam policy tests require
+    updates
+  - `docs/architecture/CURRENT_STATE.md`
+  - `docs/architecture/modules.md`
+  - `src/modules/navigation/interfaces.ts`
+  - `src/modules/plex/stream/interfaces.ts`
+  - `src/modules/plex/library/interfaces.ts`
+  - `src/modules/player/AudioTrackManager.ts`
+  - `src/modules/ui/epg/view/EPGErrorBoundary.ts`
+  - `src/modules/ui/epg/view/EPGVirtualizer.ts`
+  - `src/core/channel-setup/planning/ChannelSetupFacetLibraryExecutor.ts`
+- Files out of scope:
+  - visual redesign
+  - public Plex/library API behavior changes
+  - broad generated-comment cleanup outside listed files unless the plan proves
+    a same-family source-signal issue
+- Source findings to retire:
+  - `FCP-9-SF1`: `now-playing-info/styles.css` mixes package seam imports with
+    leaf component rules. Move local rules into a leaf stylesheet and keep the
+    package seam as composition.
+  - `FCP-9-SF2`: architecture references disagree about current hotspot
+    ownership and public surface reality. Update docs to defer to current
+    source-backed hotspot truth.
+  - `FCP-9-SF3`: selected interface files contain JSDoc that mostly restates
+    signatures. Prune only redundant comments; preserve behavior, null/error
+    semantics, Plex quirks, side effects, lifecycle, and public contract notes.
+  - `FCP-9-SF4`: selected implementation comments echo the next statement
+    instead of explaining a constraint. Delete narrating comments; keep
+    platform/performance/failure rationale.
+  - `FCP-9-SF5`: native facet definitions repeat nearly identical enabled
+    branch blocks. Use a local descriptor table inside the existing executor if
+    it improves readability without reopening DCR-7 callback ownership.
+- Completion means: stylesheet seam policy is consistent; architecture docs no
+  longer name stale hotspots; redundant comments are pruned only where
+  behavior-neutral; facet definition repetition is reduced or source-justified.
+- Verification routing: style/import source audits, `npm run lint:css` if CSS
+  changes, targeted channel setup tests if executor logic moves, `git diff
+  --check`, `npm run verify:docs`, and `npm run verify` if executable code
+  changes.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-9-S1` | stylesheet seam and architecture-doc truth | styles + architecture docs/tests | may run first |
+  | `FCP-9-S2` | narrow comment/source-signal cleanup | listed interfaces/implementation files | behavior-neutral |
+  | `FCP-9-S3` | facet descriptor table | facet executor/tests | serial if executable code changes |
+
+- Stop/replan triggers: comment pruning removes semantic API guidance; CSS move
+  changes visuals; facet table extraction changes failure/progress semantics or
+  DCR-7 callback ownership.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start with source audit and behavior-neutral diff constraints; do not
+  broaden into a repo-wide comment sweep.
+
+### [ ] `FCP-10` EPG Renderer Direct Confidence And Presentation Decomposition
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: design coherence, test strategy, UI/focus behavior,
+  mid-level elegance
+- Scope owner: EPG view/rendering owner
+- Why this package exists / production risk: `EPGCellRenderer` owns complex DOM
+  rendering behavior, width-tier policy, text derivation, and focused ticker
+  timing with only indirect coverage. This is the best larger UI refactor to
+  complete before port work because EPG behavior is TV-critical and likely to
+  be revisited during platform adaptation.
+- Files in scope:
+  - `src/modules/ui/epg/view/EPGCellRenderer.ts`
+  - `src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`
+  - `src/modules/ui/epg/view/__tests__/index.test.ts`
+  - `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts` only for affected
+    integration proof
+- Files out of scope:
+  - broad EPGComponent or virtualizer ownership changes already handled by
+    DCR-14
+  - CSS/visual redesign
+  - scheduler/channel data model changes
+- Source findings to retire:
+  - `FCP-10-SF1`: `EPGCellRenderer` combines cell DOM lifecycle, text
+    derivation, width-tier presentation policy, and ticker measurement. Keep the
+    renderer as the DOM adapter but move pure text-layout and presentation
+    decisions into local helpers/presentation models.
+  - `FCP-10-SF2`: `EPGCellRenderer` has complex public behavior but lacks direct
+    tests. Add focused jsdom tests for width tiers, sliver handling, text
+    metrics/shift clamping, focused episode/movie layout, live/progress badge
+    behavior, and ticker timing where stable.
+- Completion means: direct renderer tests cover the high-risk public behavior;
+  pure presentation/text-layout policy is separated enough that the renderer
+  applies a model instead of owning every decision inline; existing
+  virtualizer-level behavior remains intact.
+- Verification routing: focused `EPGCellRenderer` tests, affected
+  `EPGVirtualizer` tests, `npm run typecheck`, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-10-S1` | direct renderer tests around current behavior | renderer tests only | serial first |
+  | `FCP-10-S2` | pure presentation/text-layout helper extraction | renderer/helpers/tests | serial after S1 |
+
+- Stop/replan triggers: tests require private probing instead of public renderer
+  methods; helper extraction changes DOM shape, focus hooks, reduced-motion, or
+  ticker behavior; visual changes require maintainer design approval.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start by locking current behavior with direct tests, then extract.
+
+### [ ] `FCP-11` Runtime Owner Reduction Hotspots
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: high-level elegance, design coherence, abstraction
+  fitness, file health, structure navigation
+- Scope owner: UI/runtime hotspot owners
+- Why this package exists / production risk: several remaining classes are
+  still broad enough that future work may reintroduce mixed responsibilities,
+  and prior narrow cleanups sometimes fixed one symptom while leaving the
+  original review sentence source-true. This package is allowed to perform
+  broader refactors than the earlier surgical packages, but only inside named
+  owner seams with behavior locked by tests and source audits. `ChannelManager`
+  and priority-one work in this package is owner-concentration closure, not a
+  claim that stale hotspot docs are authoritative or that those files are
+  current primary file-size hotspots.
+- Files in scope:
+  - `src/modules/ui/server-select/ServerSelectScreen.ts`
+  - `src/modules/ui/server-select/ServerSelectListView.ts`
+  - new server-select package-local runtime/focus/rendering collaborators if
+    the plan proves the owner seam
+  - `src/modules/ui/server-select/__tests__/*`
+  - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
+  - existing and new channel setup package-local rendering, interaction,
+    session, and focus collaborators if the plan proves the owner seam
+  - channel setup UI package tests/helpers
+  - `src/modules/scheduler/channel-manager/ChannelManager.ts`
+  - existing and new scheduler/channel-manager package-local authoring,
+    import/export, persistence-coordination, cache, and retry collaborators if
+    the plan proves the owner seam
+  - channel-manager tests/helpers
+  - `src/core/orchestrator/priority-one/*`
+  - `src/core/orchestrator/OrchestratorRuntimeSeams.ts`
+  - priority-one package-local dependency/assembly collaborators if the plan
+    proves forwarding layers add no owner value
+  - priority-one/orchestrator tests
+- Files out of scope:
+  - Plex auth Home endpoint/client cleanup owned by `FCP-8`
+  - EPG renderer cleanup owned by `FCP-10`
+  - package folder reorganization owned by `FCP-12`
+  - cross-package behavior changes to Plex, scheduler persistence schema,
+    navigation public API, or platform policy unless a stop/replan gate promotes
+    that work into a separate package
+- Source findings to retire:
+  - `FCP-11-SF1`: after the list-view extraction, prove whether
+    `ServerSelectScreen` still combines screen rendering, async discovery/select
+    workflows, saved-server reconnect, focus wiring, status policy, visibility
+    generation, and idle tracking. If source proof remains, extract the
+    necessary package-local owners, such as a session runtime and/or focus
+    adapter, until the original mixed-responsibility finding is false. If only
+    the list-view/type-cycle concern remains, record the `FCP-7` cleanup as
+    sufficient with source proof.
+  - `FCP-11-SF2`: `ChannelSetupScreen` remains the package-level convergence
+    point for too many wizard concerns. Extract enough package-local owners to
+    make the original concern false, prioritizing build review/progress
+    rendering, dropdown interaction lifecycle, and session/focus delegation
+    seams that source audit proves are still concentrated in the screen.
+  - `FCP-11-SF3`: `ChannelManager` still spans channel authoring,
+    import/export, persistence coordination, resolution cache, and retry policy.
+    Extract enough package-local owners to make the original concern false,
+    while preserving public channel contracts and persistence schema. The plan
+    must name the target owner set before implementation rather than doing an
+    open-ended rewrite.
+  - `FCP-11-SF4`: priority-one controller assembly may rebuild dependency
+    interfaces mostly by forwarding existing ports. Collapse only direct
+    forwarding layers that add no translation; preserve explicit controller
+    seams where they clarify ownership.
+- Completion means: each hotspot finding is either reduced through one
+  source-backed owner extraction set or reclassified with evidence that the
+  current post-DCR source is acceptable. The package may not close while the
+  original mixed-responsibility sentence remains source-true without an
+  accepted owner/revisit trigger. No package closeout by generic "still large"
+  commentary, and no package closeout after a single helper extraction if the
+  same owner still carries the same workflow mix.
+- Execution boundary: each `FCP-11-S*` row is its own implementation/review unit
+  unless an approved plan creates an explicit wave with disjoint write scopes.
+  Before a slice starts, the plan must freeze the exact `source_finding_ids`,
+  owner seam, files in scope/out of scope, public contracts, proof surface, and
+  source-audit question that decides whether the original finding is false.
+- Verification routing: targeted tests for each touched owner, source audits for
+  moved responsibilities and private-probe avoidance, public-seam tests before
+  helper extraction when behavior is subtle, `npm run typecheck`, then `npm run
+  verify`. Update `docs/architecture/CURRENT_STATE.md` or
+  `docs/architecture/modules.md` when hotspot status or ownership truth changes,
+  and run `npm run verify:docs` for those docs updates.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-11-S1` | server-select owner closure audit and sufficient runtime/focus/session extraction | server-select files/tests | serial; UI/focus-sensitive |
+  | `FCP-11-S2` | channel setup screen owner closure audit and sufficient wizard/render/interaction extraction | channel setup UI files/tests | separate wave if disjoint |
+  | `FCP-11-S3` | ChannelManager owner closure audit and sufficient authoring/import/persistence/cache/retry extraction | scheduler/channel files/tests | separate wave if disjoint |
+  | `FCP-11-S4` | priority-one direct-forwarding reduction | priority-one/orchestrator files/tests | may run apart after impact audit |
+
+- Stop/replan triggers: a slice becomes a broad feature rewrite; focus behavior
+  changes without tests; persistence schema, public channel contracts, or public
+  runtime contracts need to change even if tests can be added; extraction
+  creates a second screen/controller with hidden lifecycle ownership; direct
+  forwarding is needed to preserve an explicit cross-module seam; an owner
+  closure requires changing public API or behavior in a different package; the
+  plan cannot state how the original mixed-responsibility finding will become
+  false.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: this package needs the strongest plan review. Do not start all
+  slices at once; each must name the owner set required to make the original
+  finding false, the behavior tests that lock the move, and the source-audit
+  proof that will decide whether the slice can close.
+
+### [ ] `FCP-12` Package Organization, Structure Navigation, And Final Exit
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: structure navigation, package organization,
+  high-level elegance, docs/source coherence
+- Scope owner: app-shell/core orchestrator package organization owner with final
+  cleanup closeout owner
+- Why this package exists / production risk: even after responsibility
+  extraction, some package roots remain flat enough to slow navigation and code
+  review. This package should perform structure-only reorganization where it
+  improves discoverability, then reconcile the final cleanup pass without using
+  score output as closure proof.
+- Files in scope:
+  - `src/core/app-shell/*`
+  - `src/core/orchestrator/*`
+  - focused subfolders under `src/core/app-shell/` and
+    `src/core/orchestrator/` if created
+  - app-shell/orchestrator tests affected by import moves
+  - `docs/architecture/CURRENT_STATE.md`
+  - `docs/architecture/modules.md`
+  - `ARCHITECTURE_CLEANUP_CHECKLIST.md`
+- Files out of scope:
+  - behavior changes inside app-shell/orchestrator owners unless required by a
+    source-proven import move
+  - FCP-7 through FCP-11 implementation work not yet closed
+  - Windows port implementation
+- Source findings to retire:
+  - `FCP-12-SF1`: `src/core/app-shell` mixes diagnostics, deferred-screen
+    loading, runtime theming, startup UI, toast, containers, and config in one
+    flat folder. Introduce focused subfolders only if exports/imports remain
+    stable and no new root barrel is created.
+  - `FCP-12-SF2`: `src/core/orchestrator` remains a large flat coordination
+    package with distinct composition, event binding, runtime facade, and
+    controller clusters. Stage behavior-neutral foldering around existing
+    owners.
+  - `FCP-12-SF3`: final cleanup pass reconciliation must prove `FCP-7` through
+    `FCP-11` are fixed, source-disproved, or accepted with one owner/revisit
+    trigger before closing this package.
+- Completion means: package reorganization either lands with stable behavior
+  and updated docs/imports, or is source-reclassified as not worth pre-port
+  churn; all active FCP packages are reconciled; architecture docs match current
+  source; final verification and clean closeout review are recorded.
+- Verification routing: import/source audits, targeted app-shell/orchestrator
+  tests affected by moves, `npm run typecheck`, `npm run verify`,
+  `npm run plans:check`, `npm run verify:docs`, and `git diff --check`.
+- Ready-now execution unit: none until `FCP-7` through `FCP-11` are closed or
+  explicitly reclassified.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-12-S1` | app-shell folder organization | app-shell files/tests/docs | serial with S2 unless plan proves disjoint |
+  | `FCP-12-S2` | core orchestrator folder organization | orchestrator files/tests/docs | serial with S1 if imports overlap |
+  | `FCP-12-S3` | final FCP reconciliation and closeout | checklist/docs only unless replanned | serial after S1/S2 |
+
+- Stop/replan triggers: foldering changes public imports, creates barrels that
+  widen API surface, conflicts with unfinished FCP packages, or becomes a
+  behavior refactor.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: do not start `FCP-12` until earlier FCP packages are complete or
+  maintainer-reclassified.
+
+## Dimension Cleanup Refresh History
+
+The `DCR-*` packages below are completed history after the first six FCP
+priorities. They were seeded from deep source review findings, not from a
+Desloppify queue. Rubric dimensions remain review prompts only: file health,
+code quality, duplication, test health, security,
+naming/API/error/abstraction/logic, AI-generated residue, type safety, contract
+coherence, cross-module design, and structure/elegance. The active cleanup
+surface is now the Final Cleanup Pass above.
 
 Discovery note for this refresh: Codanna was not available in the planning
 session that created these package briefs, so file orientation used required
@@ -213,7 +701,9 @@ tool remains unavailable.
 
 ### DCR Operating Rules
 
-- Treat each `DCR-*` row as one checklist-linked package for `cleanup-loop`.
+- Treat each unchecked `DCR-*` row as one checklist-linked package for
+  `cleanup-loop`. All current DCR rows are completed history unless a maintainer
+  explicitly reopens one with current-source proof.
 - Do not use Desloppify output, imported issue ids, score deltas, or old queue
   rows as DCR task intake. A package plan may use rubric dimensions to review
   the scope, but membership is owned by the listed actual issues and owner
@@ -231,12 +721,13 @@ tool remains unavailable.
 - Large packages must plan coherent waves or execution units. A plan that fixes
   one tiny symptom while leaving same-package listed issues unowned is not
   implementation-ready.
-- The active DCR plan lives in `docs/plans/*` while implementation/review is in
-  progress. Keep worker implementation commits focused on source/test changes;
-  checklist and plan-progress updates belong to controller closeout or a
-  separate docs commit. At package closeout, preserve long-term facts in the
-  mini-record, delete or archive the verbose execution plan, and promote only
-  durable architecture/API decisions into the relevant reference docs.
+- When a DCR package is reopened by maintainer direction, its active plan lives
+  in `docs/plans/*` while implementation/review is in progress. Keep worker
+  implementation commits focused on source/test changes; checklist and
+  plan-progress updates belong to controller closeout or a separate docs commit.
+  At package closeout, preserve long-term facts in the mini-record, delete or
+  archive the verbose execution plan, and promote only durable architecture/API
+  decisions into the relevant reference docs.
 - Parallel `cleanup_worker` execution is allowed only when the approved plan's
   slice table proves disjoint write scopes and verification, and names the
   controller-owned integration gate.
@@ -1565,9 +2056,10 @@ as intake.
 
 The six `FCP-*` priorities below produced real improvements and are preserved
 as baseline evidence. They were too conservative and narrow for the intended
-production cleanup finish. Do not choose `FCP-*` or `FCP-EXIT` as the next active
-cleanup-loop package unless a maintainer explicitly reopens that history; use
-the `DCR-*` packages above instead.
+production cleanup finish. Do not choose historical `FCP-1` through `FCP-6` or
+the legacy `FCP-EXIT` anchor as the next active cleanup-loop package unless a
+maintainer explicitly reopens that history; use active `FCP-7` through `FCP-12`
+above instead.
 
 ### [x] `FCP-1` Architecture And Handoff Coherence
 
@@ -1691,7 +2183,7 @@ the `DCR-*` packages above instead.
 - Handoff: Fresh FCP-2 closeout review found no material findings and approved
   completion after accepting the proof matrix, accepted/no-action owner record,
   verification evidence, and mini-record update. Historical next priority was
-  `FCP-3`; active follow-up now routes through the DCR packages above.
+  `FCP-3`; later DCR routing superseded this old follow-up.
 
 ### [x] `FCP-3` Focused Design Coherence
 
@@ -1746,8 +2238,7 @@ the `DCR-*` packages above instead.
   found no findings and approved completion after accepting the proof matrix,
   accepted/no-action and deferred-outside-selected-package owner records,
   security triage, verification evidence, and mini-record update. Historical
-  next priority was `FCP-4`; active follow-up now routes through the DCR
-  packages above.
+  next priority was `FCP-4`; later DCR routing superseded this old follow-up.
 
 ### [x] `FCP-4` AI-Generated Residue And Code Signal
 
@@ -1842,7 +2333,7 @@ the `DCR-*` packages above instead.
 - Handoff: FCP-5 is completed after source audit, execution plan, proof matrix,
   verification evidence, security triage/P0 disposition, implementation review,
   and clean priority-exit closeout review. Historical next priority was
-  `FCP-6`; active follow-up now routes through the DCR packages above.
+  `FCP-6`; later DCR routing superseded this old follow-up.
 
 ### [x] `FCP-6` Test Confidence For The Port
 
@@ -1886,11 +2377,12 @@ the `DCR-*` packages above instead.
   execution plan, proof matrix, verification evidence, security triage/P0
   disposition, clean implementation review, clean priority-exit closeout
   review, and owned residuals recorded.
-  Historical next step was `FCP-EXIT`, but that is superseded by the active
-  `DCR-*` refresh. Do not start `FCP-EXIT` unless a maintainer explicitly
-  reopens the FCP baseline; use `DCR-1` or another selected DCR package.
+  Historical next step was `FCP-EXIT`, but that was superseded by the completed
+  DCR refresh and then by the active `FCP-7` through `FCP-12` final cleanup
+  pass. Do not start this legacy `FCP-EXIT` unless a maintainer explicitly
+  reopens the old FCP baseline.
 
-### [ ] `FCP-EXIT` Superseded FCP Exit Anchor
+### [x] `FCP-EXIT` Superseded FCP Exit Anchor
 
 - Close only if: every `FCP-*` priority is completed or explicitly deferred with
   one final owner, all priority closeout reviews are clean, current architecture
@@ -1908,14 +2400,15 @@ the `DCR-*` packages above instead.
   score refresh may be run to compare rubric movement. It must not reopen the
   checklist by itself; any new work still needs maintainer approval and a
   source-backed audit.
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: retained as a historical anchor only. Do not declare final production
-  cleanup complete or run an external score refresh until `DCR-EXIT` completes
-  after all active DCR packages are reconciled.
+- Status: retired historical anchor
+- Plan: none; replaced by completed `DCR-EXIT` and active `FCP-12` final
+  reconciliation
+- Last touched: 2026-05-01
+- Verification: superseded by completed DCR-EXIT verification; not rerun for
+  this retained historical anchor
+- Follow-ups: active final cleanup now lives in `FCP-7` through `FCP-12`.
+- Handoff: retained as a historical anchor only. Do not start this legacy
+  `FCP-EXIT`; use active `FCP-7` through `FCP-12` above.
 
 ## Not Active Checklist Scope By Default
 
