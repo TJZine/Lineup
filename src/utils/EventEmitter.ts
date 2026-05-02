@@ -13,7 +13,7 @@ function reportHandlerError(event: PropertyKey, error: unknown): void {
     warnHandlerError(event, summarizeErrorForLog(error));
 }
 
-export class EventEmitter<TEventMap extends Record<string, unknown>>
+export class EventEmitter<TEventMap extends object>
     implements IEventEmitter<TEventMap> {
     private _handlers: Map<keyof TEventMap, Set<(payload: unknown) => void>> =
         new Map();

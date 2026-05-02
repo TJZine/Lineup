@@ -391,7 +391,6 @@ export interface ChannelManagerEventMap {
         isQuotaError: boolean;
         timestamp: number;
     };
-    [key: string]: unknown;
 }
 
 // Internal State

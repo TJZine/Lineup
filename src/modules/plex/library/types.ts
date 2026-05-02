@@ -167,7 +167,6 @@ export interface PlexLibraryEvents {
     /** Emitted when authentication expires (401 response) */
     authExpired: undefined;
     libraryRefreshed: { libraryId: string };
-    [key: string]: unknown;
 }
 
 /**

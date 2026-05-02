@@ -6,7 +6,7 @@ export interface IDisposable {
  * Type-safe event emitter interface with error isolation.
  * One handler's error does not prevent other handlers from executing.
  *
- * @template TEventMap - A record type mapping event names to payload types
+ * @template TEventMap - An object type mapping event names to payload types
  *
  * @example
  * ```typescript
@@ -20,7 +20,7 @@ export interface IDisposable {
  * emitter.emit('userLogin', { userId: '123' });
  * ```
  */
-export interface IEventEmitter<TEventMap extends Record<string, unknown>> {
+export interface IEventEmitter<TEventMap extends object> {
     on<K extends keyof TEventMap>(
         event: K,
         handler: (payload: TEventMap[K]) => void

@@ -74,7 +74,7 @@ export interface MixedContentConfig {
     logWarnings: boolean;
 }
 
-export interface PlexServerDiscoveryEvents extends Record<string, unknown> {
+export interface PlexServerDiscoveryEvents {
     serverChange: PlexServer | null;
     connectionChange: string | null;
 }

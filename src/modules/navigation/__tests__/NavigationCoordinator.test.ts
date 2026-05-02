@@ -124,7 +124,8 @@ const makeNavigation = (): {
             event: K,
             handler: (payload: NavigationEventMap[K]) => void
         ): IDisposable => {
-            handlers[event] = handler;
+            const typedHandlers = handlers as Record<K, (payload: NavigationEventMap[K]) => void>;
+            typedHandlers[event] = handler;
             const dispose = jest.fn((): void => {
                 if (handlers[event] === handler) {
                     delete handlers[event];

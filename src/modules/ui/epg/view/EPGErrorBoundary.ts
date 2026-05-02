@@ -9,7 +9,6 @@ import type { EPGErrorType } from '../types';
 interface EPGErrorBoundaryEvents {
     /** Fired when too many errors of same type occur */
     degradedMode: { type: EPGErrorType; count: number };
-    [key: string]: unknown;
 }
 
 /**

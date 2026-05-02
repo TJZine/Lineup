@@ -5,7 +5,6 @@ import type { PlatformInputService } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 
 interface RemoteHandlerEventMap {
-    [key: string]: unknown;
     keyDown: KeyEvent;
     keyUp: { button: RemoteButton; wasLongPress: boolean };
     longPress: { button: RemoteButton };

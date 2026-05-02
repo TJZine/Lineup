@@ -160,7 +160,6 @@ export interface PlaybackError extends PlayerError {
     retryAfterMs?: number;
 }
 
-/** Index signature required for EventEmitter<TEventMap extends Record<string, unknown>> constraint. */
 export interface PlayerEventMap {
     stateChange: PlaybackState;
     timeUpdate: { currentTimeMs: number; durationMs: number };
@@ -169,7 +168,6 @@ export interface PlayerEventMap {
     ended: undefined;
     error: PlaybackError;
     mediaLoaded: { durationMs: number; tracks: { audio: AudioTrack[]; subtitle: SubtitleTrack[] } };
-    [key: string]: unknown;
 }
 
 export interface VideoPlayerInternalState {

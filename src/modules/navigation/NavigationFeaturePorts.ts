@@ -1,5 +1,7 @@
+import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+
 export type NavigationPlaybackOptionsSectionId = 'subtitles' | 'audio';
-export type NavigationChannelSwitchOutcome = 'switched' | 'aborted' | 'failed';
+export type NavigationChannelSwitchOutcome = ChannelSwitchOutcome;
 
 export interface NavigationEpgPort {
     isVisible: () => boolean;

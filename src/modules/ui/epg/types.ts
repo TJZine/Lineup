@@ -176,8 +176,6 @@ export interface EPGEventMap {
     libraryFilterChanged: { libraryId: string | null };
     timeScroll: { direction: 'left' | 'right'; newOffset: number };
     channelScroll: { direction: 'up' | 'down'; newOffset: number };
-    /** Index signature for EventEmitter compatibility */
-    [key: string]: unknown;
 }
 
 

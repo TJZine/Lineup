@@ -76,5 +76,4 @@ export interface SchedulerEventMap {
     programStart: ScheduledProgram;
     programEnd: ScheduledProgram;
     scheduleSync: SchedulerState;
-    [key: string]: unknown;
 }

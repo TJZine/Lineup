@@ -80,8 +80,6 @@ export interface LifecycleAsyncError {
  * Used with EventEmitter for type-safe event handling.
  */
 export interface LifecycleEventMap {
-    /** Index signature for EventEmitter compatibility */
-    [key: string]: unknown;
     /** Emitted when app phase changes */
     phaseChange: { from: AppPhase; to: AppPhase };
     /** Emitted when visibility changes (background/foreground) */
