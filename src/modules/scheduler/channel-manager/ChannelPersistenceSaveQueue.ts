@@ -122,6 +122,17 @@ export class ChannelPersistenceSaveQueue {
         this.flush();
     }
 
+    supersedePendingSave(): void {
+        if (this._isDisposed || !this._saveTimer) {
+            return;
+        }
+
+        clearTimeout(this._saveTimer);
+        this._saveTimer = null;
+        this.markSuccess();
+        this._resolvePendingSave();
+    }
+
     dispose(): void {
         this._isDisposed = true;
         if (this._saveTimer) {

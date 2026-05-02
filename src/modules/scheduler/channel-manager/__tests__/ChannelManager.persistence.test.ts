@@ -387,6 +387,34 @@ describe('ChannelManager persistence and storage keys', () => {
             );
         });
 
+        it('does not let an older pending debounced save overwrite replaceAllChannels storage', async () => {
+            await manager.createChannel({
+                name: 'Old Channel',
+                contentSource: createMockContentSource(),
+            });
+
+            await manager.replaceAllChannels([
+                createBaseChannel({
+                    id: 'replacement-channel',
+                    name: 'Replacement Channel',
+                    number: 12,
+                    contentSource: createMockContentSource('replacement-library'),
+                }),
+            ], { currentChannelId: 'replacement-channel' });
+
+            await settleSaveDebounce();
+
+            const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
+                channels?: Array<{ id?: string }>;
+                channelOrder?: string[];
+                currentChannelId?: string | null;
+            };
+
+            expect(persisted.channels?.map((channel) => channel.id)).toEqual(['replacement-channel']);
+            expect(persisted.channelOrder).toEqual(['replacement-channel']);
+            expect(persisted.currentChannelId).toBe('replacement-channel');
+        });
+
         it('emits throttled persistenceWarning for debounced background save failures', async () => {
             expectDebouncedSaveQuotaWarning();
             const warningHandler = jest.fn();

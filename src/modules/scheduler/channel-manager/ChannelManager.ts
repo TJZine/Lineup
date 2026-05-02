@@ -282,6 +282,7 @@ export class ChannelManager implements IChannelManager {
                 currentChannelId: nextCurrentChannelId,
                 savedAt: Date.now(),
             });
+            this._persistence.supersedePendingSave();
             this._persistence.markSuccess();
         } catch (error) {
             this._persistence.reportFailure(

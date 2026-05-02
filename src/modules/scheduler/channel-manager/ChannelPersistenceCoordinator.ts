@@ -87,6 +87,10 @@ export class ChannelPersistenceCoordinator {
         this._persistStoredChannelData(data);
     }
 
+    supersedePendingSave(): void {
+        this._saveQueue.supersedePendingSave();
+    }
+
     persistCurrentChannelId(channelId: string): void {
         try {
             this._persistCurrentChannelId(channelId);
