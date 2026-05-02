@@ -140,6 +140,7 @@ export class EPGCellRenderer {
 
         element.classList.remove(
             EPG_CLASSES.CELL_FOCUSED,
+            EPG_CLASSES.CELL_FOCUSED_COMPACT,
             EPG_CLASSES.CELL_CURRENT,
             EPG_CLASSES.CELL_PAST,
             EPG_CLASSES.CELL_LOADING,

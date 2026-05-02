@@ -143,7 +143,7 @@ export interface IChannelManager {
 
 export interface ChannelCreateOptions {
     signal?: AbortSignal | null;
-    initialContent?: ResolvedContentItem[] | undefined;
+    initialContent?: ReadonlyArray<ResolvedContentItem> | undefined;
 }
 
 export interface ChannelManagerConfig {

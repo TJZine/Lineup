@@ -211,6 +211,21 @@ describe('ChannelManager', () => {
             expect(handler).toHaveBeenCalledWith(expect.objectContaining({ name: 'Updated' }));
         });
 
+        it('ignores explicit undefined update values so required fields are preserved', async () => {
+            const channel = await manager.createChannel({
+                name: 'Original',
+                contentSource: createMockContentSource(),
+            });
+
+            const updated = await manager.updateChannel(channel.id, {
+                name: undefined,
+                contentSource: undefined,
+            } as unknown as ChannelUpdateInput);
+
+            expect(updated.name).toBe('Original');
+            expect(updated.contentSource).toEqual(channel.contentSource);
+        });
+
         it('throws ChannelError when updating a missing channel', async () => {
             await expect(manager.updateChannel('missing-channel', { name: 'Nope' })).rejects.toMatchObject({
                 name: 'ChannelError',

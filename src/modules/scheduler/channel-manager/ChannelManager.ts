@@ -7,7 +7,7 @@ import { fnv1a32Uint } from '../../../utils/hash';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './ContentResolver';
-import { ChannelAuthoringService } from './ChannelAuthoringService';
+import { ChannelAuthoringService, omitUndefinedChannelUpdates } from './ChannelAuthoringService';
 import { ChannelImportExportService } from './ChannelImportExportService';
 import { ChannelPersistenceCoordinator, normalizeStorageKey } from './ChannelPersistenceCoordinator';
 import { ChannelResolutionCache } from './ChannelResolutionCache';
@@ -216,7 +216,8 @@ export class ChannelManager implements IChannelManager {
         this._resolutionCache = new ChannelResolutionCache();
         this._retryScheduler = new ChannelRetryScheduler({
             getChannel: (channelId): ChannelConfig | null => this._state.channels.get(channelId) ?? null,
-            resolve: (channel): Promise<ResolvedChannelContent> => this._resolveContentInternal(channel),
+            resolve: (channel, isCurrent): Promise<ResolvedChannelContent> =>
+                this._resolveContentInternal(channel, { shouldApply: isCurrent }),
             logger: this._logger,
         });
         this._importExport = new ChannelImportExportService({
@@ -316,12 +317,14 @@ export class ChannelManager implements IChannelManager {
 
         try {
             if (options?.initialContent) {
-                channel.itemCount = options.initialContent.length;
-                channel.totalDurationMs = options.initialContent.reduce((sum, item) => sum + item.durationMs, 0);
+                const initialItems = this._resolutionCache.cloneItems(options.initialContent);
+                const orderedInitialItems = this._resolutionCache.cloneItems(initialItems);
+                channel.itemCount = initialItems.length;
+                channel.totalDurationMs = initialItems.reduce((sum, item) => sum + item.durationMs, 0);
                 channel.lastContentRefresh = Date.now();
                 resolvedContent = {
-                    items: options.initialContent,
-                    orderedItems: options.initialContent,
+                    items: initialItems,
+                    orderedItems: orderedInitialItems,
                     totalDurationMs: channel.totalDurationMs,
                     channelId: channel.id,
                     resolvedAt: channel.lastContentRefresh
@@ -363,12 +366,13 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
+        const filteredUpdates = omitUndefinedChannelUpdates(updates);
         const peerChannels = Array.from(this._state.channels.values()).filter((candidate) => candidate.id !== id);
-        const updated = this._authoring.updateChannel(channel, updates, peerChannels);
+        const updated = this._authoring.updateChannel(channel, filteredUpdates, peerChannels);
 
         let resolvedContent: ResolvedChannelContent | null = null;
 
-        if (affectsResolvedContent(updates)) {
+        if (affectsResolvedContent(filteredUpdates)) {
             try {
                 resolvedContent = await this._resolveContentForAuthoring(updated);
                 this._applyResolvedContentMetadata(updated, resolvedContent);
@@ -647,6 +651,10 @@ export class ChannelManager implements IChannelManager {
 
             const { data, didMutate: didMutateFromNormalization } = normalized;
 
+            this._retryScheduler.cancelAll();
+            this._contentResolver.clearCaches();
+            this._resolutionCache.clear();
+
             // Restore state
             this._state.channels.clear();
             for (const channel of data.channels) {
@@ -838,14 +846,17 @@ export class ChannelManager implements IChannelManager {
 
     private async _resolveContentInternal(
         channel: ChannelConfig,
-        options?: { signal?: AbortSignal | null }
+        options?: { signal?: AbortSignal | null; shouldApply?: () => boolean }
     ): Promise<ResolvedChannelContent> {
         const cached = this._resolutionCache.get(channel.id);
 
         try {
             const items = await this._resolveFilteredItems(channel, options);
-
             const result = this._createResolvedContent(channel, items);
+
+            if (options?.shouldApply && !options.shouldApply()) {
+                return result;
+            }
 
             // Cache
             this._resolutionCache.set(result);
@@ -859,6 +870,10 @@ export class ChannelManager implements IChannelManager {
 
             return this._resolutionCache.cloneContent(result);
         } catch (error) {
+            if (options?.shouldApply && !options.shouldApply()) {
+                throw error;
+            }
+
             // Cache fallback is allowed for network errors and graceful source-unavailable errors.
             // SCHEDULER_EMPTY_CHANNEL and other non-network errors should propagate
             if (error instanceof ChannelError && error.code === AppErrorCode.SCHEDULER_EMPTY_CHANNEL) {

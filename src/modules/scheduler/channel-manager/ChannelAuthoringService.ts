@@ -3,7 +3,7 @@ import { AppErrorCode } from '../../../types/app-errors';
 import { CHANNEL_ERROR_MESSAGES, MAX_CHANNELS, MAX_CHANNEL_NUMBER, MIN_CHANNEL_NUMBER } from './constants';
 import { ChannelError } from './ChannelErrors';
 import { isValidContentSource } from './ChannelContentSourceValidator';
-import type { ChannelConfig, ChannelCreateInput } from './types';
+import type { ChannelConfig, ChannelCreateInput, ChannelUpdateInput } from './types';
 
 type ChannelAuthoringServiceConfig = {
     generateId: () => string;
@@ -13,6 +13,16 @@ type ChannelAuthoringServiceConfig = {
 type ChannelAuthoringLogger = {
     warn: (message: string, ...args: unknown[]) => void;
 };
+
+export function omitUndefinedChannelUpdates(updates: ChannelUpdateInput): ChannelUpdateInput {
+    const filtered: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) {
+            filtered[key] = value;
+        }
+    }
+    return filtered as ChannelUpdateInput;
+}
 
 export type ReplacementChannelState = {
     channels: Map<string, ChannelConfig>;
@@ -132,16 +142,17 @@ export class ChannelAuthoringService {
 
     updateChannel(
         channel: ChannelConfig,
-        updates: Partial<ChannelCreateInput>,
+        updates: ChannelUpdateInput,
         existingChannels: Iterable<ChannelConfig>
     ): ChannelConfig {
-        if (typeof updates.number === 'number' && updates.number !== channel.number) {
-            this._validateRequestedNumber(updates.number, existingChannels);
+        const filteredUpdates = omitUndefinedChannelUpdates(updates);
+        if (typeof filteredUpdates.number === 'number' && filteredUpdates.number !== channel.number) {
+            this._validateRequestedNumber(filteredUpdates.number, existingChannels);
         }
 
         return {
             ...channel,
-            ...updates,
+            ...filteredUpdates,
             id: channel.id,
             createdAt: channel.createdAt,
             updatedAt: this._now(),

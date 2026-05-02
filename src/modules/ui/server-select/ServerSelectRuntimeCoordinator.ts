@@ -244,15 +244,13 @@ export class ServerSelectRuntimeCoordinator {
                 this._activeLoadGeneration = null;
             }
 
-            if (!this._canUpdateUi(generation)) {
-                this._resolveIdleIfSettled();
-                return;
+            if (this._canUpdateUi(generation)) {
+                this._adapter.removeStatusSpinner();
+                this._adapter.setControlsDisabled(false);
+                this._adapter.setClearButtonDisabled(this._isClearing || this._isSelecting, generation);
+                this._adapter.restoreFocus(generation);
             }
 
-            this._adapter.removeStatusSpinner();
-            this._adapter.setControlsDisabled(false);
-            this._adapter.setClearButtonDisabled(this._isClearing || this._isSelecting, generation);
-            this._adapter.restoreFocus(generation);
             this._resolveIdleIfSettled();
         }
     }

@@ -5,11 +5,12 @@ export class ChannelResolutionCache {
     private readonly _resolvedContent = new Map<string, ResolvedChannelContent>();
 
     get(channelId: string): ResolvedChannelContent | null {
-        return this._resolvedContent.get(channelId) ?? null;
+        const content = this._resolvedContent.get(channelId);
+        return content ? this.cloneContent(content) : null;
     }
 
     set(content: ResolvedChannelContent): void {
-        this._resolvedContent.set(content.channelId, content);
+        this._resolvedContent.set(content.channelId, this.cloneContent(content));
     }
 
     delete(channelId: string): void {
@@ -29,7 +30,7 @@ export class ChannelResolutionCache {
         return content.isStale === true || Date.now() - content.resolvedAt > CACHE_TTL_MS;
     }
 
-    cloneItems(items: ResolvedContentItem[]): ResolvedContentItem[] {
+    cloneItems(items: ReadonlyArray<ResolvedContentItem>): ResolvedContentItem[] {
         return items.map((item) => this.cloneItem(item));
     }
 

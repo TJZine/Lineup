@@ -1,4 +1,4 @@
-import { summarizeErrorForLog } from '../../../utils/errors';
+import { formatErrorDetailForMessage } from '../../../utils/errors';
 import { isValidContentSource } from './ChannelContentSourceValidator';
 import {
     isValidBuildStrategy,
@@ -8,20 +8,6 @@ import {
 } from './ChannelValueValidators';
 import { CHANNEL_ERROR_MESSAGES } from './constants';
 import type { ChannelCreateInput } from './types';
-
-export function formatChannelSetupWarningDetail(detail: unknown): string {
-    const summary = summarizeErrorForLog(detail);
-    if (typeof summary === 'string') {
-        return summary;
-    }
-    if (summary && typeof summary === 'object') {
-        if ('message' in summary && typeof summary.message === 'string') {
-            return summary.message;
-        }
-        return JSON.stringify(summary);
-    }
-    return String(summary);
-}
 
 export type ChannelImportNormalizationResult =
     | { ok: true; channels: ChannelCreateInput[]; skippedCount: number }
@@ -155,6 +141,6 @@ export class ChannelImportNormalizer {
     }
 
     formatErrorMessage(error: unknown): string {
-        return formatChannelSetupWarningDetail(error);
+        return formatErrorDetailForMessage(error);
     }
 }

@@ -82,6 +82,12 @@ interface MediaPaginationContinueContext {
     accumulatedItems: PlexMediaItem[];
     nextOffset: number;
     pageSize: number;
+    totalSize: number | null;
+}
+
+interface MediaPaginationPage {
+    items: PlexMediaItem[];
+    totalSize?: number | null;
 }
 
 interface MediaPaginationOptions<TResponse> {
@@ -90,7 +96,7 @@ interface MediaPaginationOptions<TResponse> {
     pageSize: number;
     signal?: AbortSignal | null;
     buildUrl: (offset: number, pageSize: number) => string;
-    parsePageItems: (response: TResponse) => PlexMediaItem[];
+    parsePage: (response: TResponse) => MediaPaginationPage;
     shouldContinue: (context: MediaPaginationContinueContext) => boolean;
     formatGuardContext: (state: MediaPaginationState) => string;
 }
@@ -326,9 +332,9 @@ export class PlexLibrary implements IPlexLibrary {
 
                 return this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
             },
-            parsePageItems: (response) => {
+            parsePage: (response) => {
                 const metadata = extractMetadataArray(response, `library items for section ${libraryId}`);
-                return parseMediaItems(metadata);
+                return { items: parseMediaItems(metadata) };
             },
             shouldContinue: ({ pageItems, accumulatedItems }) =>
                 pageItems.length === pageSize &&
@@ -466,7 +472,6 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to all episodes sorted by season/episode
      */
     async getShowEpisodes(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]> {
-        let totalSize: number | null = null;
         const allEpisodes = await this._fetchPagedMediaItems<PlexMediaContainer<RawMediaItem>>({
             operationName: 'getShowEpisodes',
             initialOffset: 0,
@@ -479,17 +484,19 @@ export class PlexLibrary implements IPlexLibrary {
                     'X-Plex-Container-Size': pageSize,
                 }
             ),
-            parsePageItems: (response) => {
+            parsePage: (response) => {
                 const mediaContainer = extractMediaContainer(response, `show episodes for ${showKey}`);
                 const reportedTotal = mediaContainer.totalSize;
-                if (typeof reportedTotal === 'number' && Number.isFinite(reportedTotal)) {
-                    totalSize = reportedTotal;
-                }
 
                 const metadata = extractMetadataArray(response, `show episodes for ${showKey}`);
-                return parseMediaItems(metadata);
+                return {
+                    items: parseMediaItems(metadata),
+                    totalSize: typeof reportedTotal === 'number' && Number.isFinite(reportedTotal)
+                        ? reportedTotal
+                        : null,
+                };
             },
-            shouldContinue: ({ pageItems, nextOffset, pageSize }) => {
+            shouldContinue: ({ pageItems, nextOffset, pageSize, totalSize }) => {
                 if (pageItems.length === 0) {
                     return false;
                 }
@@ -714,6 +721,7 @@ export class PlexLibrary implements IPlexLibrary {
     ): Promise<PlexMediaItem[]> {
         const items: PlexMediaItem[] = [];
         let offset = options.initialOffset;
+        let totalSize: number | null = null;
         let pageCounter = 0;
 
         while (true) {
@@ -738,7 +746,11 @@ export class PlexLibrary implements IPlexLibrary {
                 break;
             }
 
-            const pageItems = options.parsePageItems(response);
+            const page = options.parsePage(response);
+            const pageItems = page.items;
+            if (typeof page.totalSize === 'number' && Number.isFinite(page.totalSize)) {
+                totalSize = page.totalSize;
+            }
             items.push(...pageItems);
             offset += pageItems.length;
 
@@ -747,6 +759,7 @@ export class PlexLibrary implements IPlexLibrary {
                 accumulatedItems: items,
                 nextOffset: offset,
                 pageSize: options.pageSize,
+                totalSize,
             })) {
                 break;
             }

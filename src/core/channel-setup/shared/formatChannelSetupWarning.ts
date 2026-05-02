@@ -1,4 +1,4 @@
-import { formatChannelSetupWarningDetail } from '../../../modules/scheduler/channel-manager/ChannelImportNormalizer';
+import { formatErrorDetailForMessage } from '../../../utils/errors';
 
 export function formatChannelSetupWarning(message: string, ...details: unknown[]): string {
     if (details.length === 0) {
@@ -6,7 +6,7 @@ export function formatChannelSetupWarning(message: string, ...details: unknown[]
     }
 
     const suffix = details
-        .map(formatChannelSetupWarningDetail)
+        .map(formatErrorDetailForMessage)
         .join('; ');
 
     return `${message}: ${suffix}`;

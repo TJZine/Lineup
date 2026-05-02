@@ -7,17 +7,23 @@ type ChannelRetrySchedulerLogger = {
 
 type ChannelRetrySchedulerConfig = {
     getChannel: (channelId: string) => ChannelConfig | null;
-    resolve: (channel: ChannelConfig) => Promise<unknown>;
+    resolve: (channel: ChannelConfig, isCurrent: () => boolean) => Promise<unknown>;
     logger: ChannelRetrySchedulerLogger;
+};
+
+type PendingRetry = {
+    timeout: ReturnType<typeof setTimeout>;
+    generation: number;
 };
 
 export class ChannelRetryScheduler {
     private static readonly RETRY_DELAY_MS = 30000;
 
     private readonly _getChannel: (channelId: string) => ChannelConfig | null;
-    private readonly _resolve: (channel: ChannelConfig) => Promise<unknown>;
+    private readonly _resolve: (channel: ChannelConfig, isCurrent: () => boolean) => Promise<unknown>;
     private readonly _logger: ChannelRetrySchedulerLogger;
-    private readonly _pendingRetries = new Map<string, ReturnType<typeof setTimeout>>();
+    private readonly _pendingRetries = new Map<string, PendingRetry>();
+    private _generation = 0;
 
     constructor(config: ChannelRetrySchedulerConfig) {
         this._getChannel = config.getChannel;
@@ -30,12 +36,13 @@ export class ChannelRetryScheduler {
             return;
         }
 
+        const generation = this._generation;
         const timeout = setTimeout(() => {
             this._pendingRetries.delete(channelId);
-            this._execute(channelId);
+            void this._execute(channelId, generation);
         }, ChannelRetryScheduler.RETRY_DELAY_MS);
 
-        this._pendingRetries.set(channelId, timeout);
+        this._pendingRetries.set(channelId, { timeout, generation });
     }
 
     cancel(channelId: string): void {
@@ -43,29 +50,39 @@ export class ChannelRetryScheduler {
         if (!pendingRetry) {
             return;
         }
-        clearTimeout(pendingRetry);
+        clearTimeout(pendingRetry.timeout);
         this._pendingRetries.delete(channelId);
     }
 
     cancelAll(): void {
-        for (const timeout of this._pendingRetries.values()) {
-            clearTimeout(timeout);
+        this._generation += 1;
+        for (const pendingRetry of this._pendingRetries.values()) {
+            clearTimeout(pendingRetry.timeout);
         }
         this._pendingRetries.clear();
     }
 
-    private _execute(channelId: string): void {
+    private async _execute(channelId: string, generation: number): Promise<void> {
+        const isCurrent = (): boolean => generation === this._generation;
+        if (!isCurrent()) {
+            return;
+        }
         const channel = this._getChannel(channelId);
         if (!channel) {
             return;
         }
 
-        this._resolve(channel)
-            .then(() => {
-                this._logger.warn(`Retry succeeded for channel ${channelId}`);
-            })
-            .catch((error) => {
-                this._logger.warn(`Retry failed for channel ${channelId}`, summarizeErrorForLog(error));
-            });
+        try {
+            await this._resolve(channel, isCurrent);
+            if (!isCurrent()) {
+                return;
+            }
+            this._logger.warn(`Retry succeeded for channel ${channelId}`);
+        } catch (error) {
+            if (!isCurrent()) {
+                return;
+            }
+            this._logger.warn(`Retry failed for channel ${channelId}`, summarizeErrorForLog(error));
+        }
     }
 }

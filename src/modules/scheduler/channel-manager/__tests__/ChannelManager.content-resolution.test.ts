@@ -1,6 +1,7 @@
 import { ChannelManager } from '../ChannelManager';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
+import type { ResolvedContentItem } from '../types';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
     installMockLocalStorage,
@@ -115,6 +116,49 @@ describe('ChannelManager content resolution', () => {
             await manager.resolveChannelContent(channel.id);
 
             expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(0);
+        });
+
+        it('takes ownership of initial content arrays passed during channel creation', async () => {
+            const initialContent: ResolvedContentItem[] = [
+                {
+                    ratingKey: 'initial-1',
+                    type: 'movie' as const,
+                    title: 'Initial Movie',
+                    fullTitle: 'Initial Movie',
+                    durationMs: 6000,
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                    genres: ['Drama'],
+                    mediaInfo: { resolution: '1080p' },
+                },
+            ];
+
+            const channel = await manager.createChannel(
+                { contentSource: createMockContentSource() },
+                { initialContent }
+            );
+
+            initialContent.push({
+                ratingKey: 'mutated-array',
+                type: 'movie',
+                title: 'Mutated Array',
+                fullTitle: 'Mutated Array',
+                durationMs: 6000,
+                thumb: null,
+                year: 2026,
+                scheduledIndex: 1,
+            });
+            initialContent[0]!.title = 'Mutated Title';
+            initialContent[0]!.genres?.push('Mutated Genre');
+            initialContent[0]!.mediaInfo!.resolution = '240p';
+
+            const resolved = await manager.resolveChannelContent(channel.id);
+
+            expect(resolved.items).toHaveLength(1);
+            expect(resolved.items[0]?.title).toBe('Initial Movie');
+            expect(resolved.items[0]?.genres).toEqual(['Drama']);
+            expect(resolved.items[0]?.mediaInfo).toEqual({ resolution: '1080p' });
         });
 
         it('should force refresh bypasses cache', async () => {

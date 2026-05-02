@@ -5,7 +5,14 @@ import { ChannelPersistenceSaveQueue } from './ChannelPersistenceSaveQueue';
 import { ChannelRepository } from './ChannelRepository';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
 import { ChannelError } from './ChannelErrors';
-import type { ChannelConfig, ChannelManagerEventMap, StoredChannelData } from './types';
+import type {
+    ChannelConfig,
+    ChannelContentSource,
+    ChannelManagerEventMap,
+    ContentFilter,
+    ManualContentItem,
+    StoredChannelData,
+} from './types';
 
 type ChannelPersistenceCoordinatorLogger = {
     warn: (message: string, ...args: unknown[]) => void;
@@ -72,15 +79,18 @@ export class ChannelPersistenceCoordinator {
     }
 
     queueSave(state: PersistableChannelState): void {
-        this._saveQueue.queueWithSnapshot(() => this._persistState(state));
+        const snapshot = makeChannelSnapshot(state);
+        this._saveQueue.queueWithSnapshot(() => this._persistStoredChannelData(snapshot));
     }
 
     save(state: PersistableChannelState): Promise<void> {
-        return this._saveQueue.saveWithSnapshot(() => this._persistState(state));
+        const snapshot = makeChannelSnapshot(state);
+        return this._saveQueue.saveWithSnapshot(() => this._persistStoredChannelData(snapshot));
     }
 
     flush(state: PersistableChannelState): void {
-        this._saveQueue.flushWithSnapshot(() => this._persistState(state));
+        const snapshot = makeChannelSnapshot(state);
+        this._saveQueue.flushWithSnapshot(() => this._persistStoredChannelData(snapshot));
     }
 
     persistStoredChannelData(data: StoredChannelData): void {
@@ -104,6 +114,7 @@ export class ChannelPersistenceCoordinator {
     persistCurrentChannelIdBestEffort(channelId: string): void {
         try {
             this._persistCurrentChannelId(channelId);
+            this._saveQueue.markSuccess();
         } catch (error) {
             this._logger.warn('Failed to persist current channel', summarizeErrorForLog(error));
             this._saveQueue.emitWarning(error);
@@ -120,15 +131,6 @@ export class ChannelPersistenceCoordinator {
 
     dispose(): void {
         this._saveQueue.dispose();
-    }
-
-    private _persistState(state: PersistableChannelState): void {
-        this._persistStoredChannelData({
-            channels: Array.from(state.channels),
-            channelOrder: state.channelOrder,
-            currentChannelId: state.currentChannelId,
-            savedAt: Date.now(),
-        });
     }
 
     private _persistStoredChannelData(data: StoredChannelData): void {
@@ -180,4 +182,57 @@ export function normalizeStorageKey(value: string | undefined, fallback: string)
 
 function createDisposedError(): ChannelError {
     return new ChannelError(AppErrorCode.CHANNEL_MANAGER_DISPOSED, 'ChannelManager disposed', false);
+}
+
+function makeChannelSnapshot(state: PersistableChannelState): StoredChannelData {
+    return {
+        channels: Array.from(state.channels, cloneChannelForPersistence),
+        channelOrder: [...state.channelOrder],
+        currentChannelId: state.currentChannelId,
+        savedAt: Date.now(),
+    };
+}
+
+function cloneChannelForPersistence(channel: ChannelConfig): ChannelConfig {
+    return {
+        ...channel,
+        contentSource: cloneContentSource(channel.contentSource),
+        ...(channel.contentFilters ? { contentFilters: cloneContentFilters(channel.contentFilters) } : {}),
+    };
+}
+
+function cloneContentFilters(filters: ContentFilter[]): ContentFilter[] {
+    return filters.map((filter) => ({ ...filter }));
+}
+
+function cloneContentSource(source: ChannelContentSource): ChannelContentSource {
+    switch (source.type) {
+        case 'library':
+            return {
+                ...source,
+                ...(source.libraryFilter ? { libraryFilter: { ...source.libraryFilter } } : {}),
+            };
+        case 'manual':
+            return {
+                ...source,
+                items: source.items.map(cloneManualContentItem),
+            };
+        case 'mixed':
+            return {
+                ...source,
+                sources: source.sources.map(cloneContentSource),
+            };
+        case 'show':
+            return {
+                ...source,
+                ...(source.seasonFilter ? { seasonFilter: [...source.seasonFilter] } : {}),
+            };
+        case 'collection':
+        case 'playlist':
+            return { ...source };
+    }
+}
+
+function cloneManualContentItem(item: ManualContentItem): ManualContentItem {
+    return { ...item };
 }

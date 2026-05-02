@@ -1,9 +1,7 @@
 import { fetchWithTimeoutCore } from './fetchWithTimeoutCore';
 import type { FetchWithTimeoutCoreArgs } from './fetchWithTimeoutCore';
 
-export interface FetchWithTimeoutArgs extends FetchWithTimeoutCoreArgs {
-    upstreamSignal?: AbortSignal | null;
-}
+export type FetchWithTimeoutArgs = FetchWithTimeoutCoreArgs;
 
 type MergedAbortSignal = {
     signal: AbortSignal | null;

@@ -1,14 +1,12 @@
-import {
-    ChannelImportNormalizer,
-    formatChannelSetupWarningDetail,
-} from '../ChannelImportNormalizer';
+import { formatErrorDetailForMessage } from '../../../../utils/errors';
+import { ChannelImportNormalizer } from '../ChannelImportNormalizer';
 
 describe('ChannelImportNormalizer error formatting', () => {
     it('formats primitive import errors through the shared channel setup detail formatter', () => {
         const normalizer = new ChannelImportNormalizer();
 
         expect(normalizer.formatErrorMessage('plain failure')).toBe('plain failure');
-        expect(formatChannelSetupWarningDetail('plain failure')).toBe('plain failure');
+        expect(formatErrorDetailForMessage('plain failure')).toBe('plain failure');
     });
 
     it('formats Error and object import errors consistently', () => {

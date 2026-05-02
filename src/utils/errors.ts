@@ -25,6 +25,20 @@ export function summarizeErrorForLog(value: unknown): unknown {
     return value;
 }
 
+export function formatErrorDetailForMessage(detail: unknown): string {
+    const summary = summarizeErrorForLog(detail);
+    if (typeof summary === 'string') {
+        return summary;
+    }
+    if (summary && typeof summary === 'object') {
+        if ('message' in summary && typeof summary.message === 'string') {
+            return summary.message;
+        }
+        return JSON.stringify(summary);
+    }
+    return String(summary);
+}
+
 export function isAbortLikeError(error: unknown, signal?: AbortSignal): boolean {
     if (signal?.aborted) return true;
     if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') {

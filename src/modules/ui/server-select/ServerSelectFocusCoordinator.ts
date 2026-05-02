@@ -4,6 +4,7 @@ import type {
 } from '../../navigation';
 
 export const SERVER_SELECT_FOCUS_RESTORE_DELAY_MS = 50;
+const SERVER_SELECT_RESTORE_PRIORITY_BASE = 1000;
 
 export type ServerSelectStaticButtons = {
     refreshButton: HTMLButtonElement;
@@ -96,7 +97,7 @@ export class ServerSelectFocusCoordinator {
                     element: button,
                     neighbors,
                     restoreGroup: 'server-select-list',
-                    restorePriority: 1000 - i,
+                    restorePriority: SERVER_SELECT_RESTORE_PRIORITY_BASE - i,
                     onFocus: () => {
                         try {
                             button.scrollIntoView({ block: 'nearest' });

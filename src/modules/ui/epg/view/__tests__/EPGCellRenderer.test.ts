@@ -337,6 +337,7 @@ describe('EPGCellRenderer', () => {
 
         expect(element.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(false);
         expect(element.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(false);
+        expect(element.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
         expect(element.classList.contains(EPG_CLASSES.CELL_LOADING)).toBe(false);
         expect(element.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('');
         expect(element.getAttribute('data-key')).toBeNull();

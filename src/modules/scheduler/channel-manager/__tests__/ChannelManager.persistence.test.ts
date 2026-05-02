@@ -1,4 +1,5 @@
 import { ChannelError, ChannelManager } from '../ChannelManager';
+import { ChannelPersistenceCoordinator } from '../ChannelPersistenceCoordinator';
 import { ChannelRepository } from '../ChannelRepository';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal } from '../interfaces';
@@ -384,6 +385,88 @@ describe('ChannelManager persistence and storage keys', () => {
                     currentChannelId: expect.anything(),
                     savedAt: expect.any(Number),
                 })
+            );
+        });
+
+        it('captures queued save payloads before later state mutations can leak into the write', async () => {
+            const coordinator = new ChannelPersistenceCoordinator({
+                logger: { warn: jest.fn(), error: jest.fn() },
+                emitPersistenceWarning: jest.fn(),
+            });
+            const channel = createBaseChannel({ id: 'queued-channel', name: 'Queued Name' });
+            const channelOrder = ['queued-channel'];
+            const writeStoredSpy = jest.spyOn(ChannelRepository.prototype, 'saveStoredChannelData');
+
+            coordinator.queueSave({
+                channels: [channel],
+                channelOrder,
+                currentChannelId: 'queued-channel',
+            });
+
+            channel.name = 'Mutated Name';
+            channelOrder.push('late-channel');
+
+            await settleSaveDebounce();
+
+            expect(writeStoredSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    channels: [expect.objectContaining({ id: 'queued-channel', name: 'Queued Name' })],
+                    channelOrder: ['queued-channel'],
+                    currentChannelId: 'queued-channel',
+                })
+            );
+            coordinator.dispose();
+        });
+
+        it('resets current-channel warning throttling after a best-effort save succeeds', () => {
+            const emitPersistenceWarning = jest.fn();
+            const coordinator = new ChannelPersistenceCoordinator({
+                logger: { warn: jest.fn(), error: jest.fn() },
+                emitPersistenceWarning,
+            });
+            const saveCurrentSpy = jest
+                .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
+                .mockReturnValueOnce({ ok: false, reason: 'quota-exceeded' })
+                .mockReturnValueOnce({ ok: true })
+                .mockReturnValueOnce({ ok: false, reason: 'quota-exceeded' });
+
+            coordinator.persistCurrentChannelIdBestEffort('channel-1');
+            coordinator.persistCurrentChannelIdBestEffort('channel-1');
+            coordinator.persistCurrentChannelIdBestEffort('channel-1');
+
+            expect(saveCurrentSpy).toHaveBeenCalledTimes(3);
+            expect(emitPersistenceWarning).toHaveBeenCalledTimes(2);
+            coordinator.dispose();
+        });
+
+        it('clears stale resolved content and resolver caches when loading restored channels', async () => {
+            const channel = await manager.createChannel({
+                name: 'Old Channel',
+                contentSource: createMockContentSource('old-lib'),
+            });
+            await manager.resolveChannelContent(channel.id);
+            mockLibrary.getLibraryItems.mockClear();
+
+            const restoredChannel = createBaseChannel({
+                ...channel,
+                name: 'Restored Channel',
+                contentSource: createMockContentSource('new-lib'),
+                itemCount: 0,
+                totalDurationMs: 0,
+            });
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
+                channels: [restoredChannel],
+                channelOrder: [channel.id],
+                currentChannelId: channel.id,
+                savedAt: Date.now(),
+            }));
+
+            await manager.loadChannels();
+            await manager.resolveChannelContent(channel.id);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledWith(
+                'new-lib',
+                expect.any(Object)
             );
         });
 
