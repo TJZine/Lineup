@@ -481,7 +481,7 @@ future platform work harder to reason about.
   rendering behavior, width-tier policy, text derivation, and focused ticker
   timing with only indirect coverage. This is the best larger UI refactor to
   complete before port work because EPG behavior is TV-critical and likely to
-  be revisited during platform adaptation.
+  be revisited during platform adaptation. We want to adapt this into a best practice maintainability architectural pattern that would be found in a production level codebase. We can expand FCP-10-SF1 to include any additional changes that would get us toward this goal.
 - Files in scope:
   - `src/modules/ui/epg/view/EPGCellRenderer.ts`
   - `src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`
