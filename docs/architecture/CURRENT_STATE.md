@@ -167,6 +167,7 @@ after this extraction.
 - owns remote handling, focus/navigation flow, and navigation coordination
 - `src/modules/navigation/NavigationManager.ts` owns navigation state, screen stack, modal stack, and focus operations
 - `src/modules/navigation/NavigationManager.ts` delegates low-level key routing and timing behavior to `NavigationRemoteInputRouter`, `NavigationDirectionalRepeatController`, and `NavigationChannelNumberInputController`
+- `src/modules/navigation/NavigationFeaturePorts.ts` consumes the shared `ChannelSwitchOutcome` owner from `src/types/channelSwitch.ts`; navigation must not duplicate the outcome literal union.
 
 ### Plex
 
@@ -248,7 +249,7 @@ after this extraction.
 - `src/modules/debug/DebugOverridesStore.ts` is the canonical owner for the `lineup_debug_epg` flag
 - `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts` owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
 - `src/core/channel-setup/build/ChannelSetupBuildScratchStore.ts` owns temporary Channel Setup build-key lifecycle (`lineup_channels_build_tmp_v1:*`, `lineup_current_channel_build_tmp_v1:*`)
-- `src/core/channel-setup/config/normalizeChannelSetupConfig.ts` owns public setup-config normalization for planning, persistence, and UI session hydration; the planning path is a compatibility re-export only
+- `src/core/channel-setup/config/normalizeChannelSetupConfig.ts` owns public setup-config normalization for planning, build execution, persistence, and UI session hydration; callers import the canonical config owner directly.
 - `src/core/channel-setup/workflow/ChannelSetupScreenWorkflowPort.ts` owns the screen-facing workflow contract derived from the full workflow port without planner diagnostics
 - `src/core/channel-setup/planning/ChannelSetupPlanningService.ts` owns plan/review composition and uses `ChannelSetupFacetSnapshotLoader` as its internal facet-snapshot collaborator; collection/playlist facet failures remain partial-warning enrichment failures, while enabled native tag directory/count failures remain blocking or slow planning-boundary failures
 - `src/core/channel-setup/ChannelSetupCoordinator.ts` consumes typed seams for record persistence (`ChannelSetupRecordStore`) and build-scratch cleanup (`ChannelSetupBuildScratchStore`); composition-root wiring no longer forwards raw setup-record storage callbacks
@@ -274,7 +275,13 @@ after this extraction.
 - `src/core/app-shell/AppContainerFactory.ts` materializes a bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell-owned containers plus app-materialized feature mount nodes at document scope, and reparents exactly `player-osd`, `channel-number-overlay`, `channel-badge`, `mini-guide`, and `channel-transition` into that host; the host owns shell-plane structure only, while feature packages keep their DOM markup, visibility, and local z-index ownership
 - `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` is now a UI-facing composition wrapper over `ChannelSetupSessionState` (session state/config serialization/record hydration) and `ChannelSetupSessionRuntime` (workflow I/O, abort/timer lifecycle)
 - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts` owns string-only UI runtime error summaries for load, preview/review, build, blocked, and bookkeeping outcomes; typed planning/build failure details stay in core contracts/logs rather than `ChannelSetupScreen`
+- `src/modules/ui/server-select/types.ts` owns shared server-select display state shapes consumed by both the screen and list view; list rendering must not import screen-owned state types.
+- `src/modules/debug/NowPlayingDebugManager.ts` owns the minimal debug overlay presence port it needs; orchestrator builders adapt the full now-playing-info overlay at the boundary.
 - visual rules are governed by [`docs/design/ui-design-language.md`](../design/ui-design-language.md)
+
+### Shared Runtime Contracts
+
+- `src/utils/EventEmitter.ts` and `src/utils/interfaces.ts` accept closed event-map object types and must not force event-map owners to add arbitrary string index signatures.
 
 ## Current Hotspots
 

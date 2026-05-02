@@ -219,8 +219,8 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - channel setup record persistence and build-scratch lifecycle owners
 - `src/core/channel-setup/config/normalizeChannelSetupConfig.ts` owns public
-  setup-config normalization used by planning, persistence, and UI session
-  hydration
+  setup-config normalization used by planning, build execution, persistence,
+  and UI session hydration; callers import this canonical owner directly
 - `src/core/channel-setup/workflow/ChannelSetupScreenWorkflowPort.ts` owns the
   screen-facing workflow contract derived from the full workflow port without
   diagnostics

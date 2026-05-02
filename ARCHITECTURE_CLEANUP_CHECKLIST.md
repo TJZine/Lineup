@@ -225,10 +225,10 @@ future platform work harder to reason about.
 - Run `npm run verify` for runtime/UI/Plex/navigation/orchestrator changes and
   `npm run verify:docs` for checklist/workflow/reference-doc changes.
 
-### [ ] `FCP-7` Boundary And Type Hygiene
+### [x] `FCP-7` Boundary And Type Hygiene
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-02-fcp-7-boundary-type-hygiene-plan.md`
 - Dimensions/rubric tags: cross-module architecture, type safety, dependency
   health, contract coherence, convention drift
 - Scope owner: boundary/type contract owner across server-select, navigation,
@@ -246,6 +246,7 @@ future platform work harder to reason about.
   - `src/modules/ui/now-playing-info/interfaces.ts` only for read-only adapter
     proof unless a public contract change is approved
   - `src/core/channel-setup/config/*`
+  - `src/core/channel-setup/build/ChannelSetupBuildExecutor.ts`
   - `src/core/channel-setup/planning/*`
   - `src/core/channel-setup/workflow/ChannelSetupWorkflowPort.ts`
   - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts`
@@ -298,11 +299,19 @@ future platform work harder to reason about.
   debug fix changes UI behavior; channel setup import migration reopens DCR-2
   failure semantics; architecture-rule changes loosen rather than tighten a
   boundary.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-02
+- Verification: passed `npm test -- ServerSelectListView ServerSelectScreen`;
+  `node --test tools/__tests__/build-eslint-architecture-rules.test.mjs`;
+  `npm test -- NowPlayingDebugManager OrchestratorCoordinatorBuilders`;
+  `npm test -- ChannelSetupWorkflowPort ChannelSetupSessionRuntime
+  ChannelSetupPlanningService normalizeChannelSetupConfig`;
+  `npm test -- ChannelSetupBuildExecutor`;
+  `npm test -- NavigationCoordinator EventEmitter`;
+  affected event-owner tests; `npm run typecheck`; targeted source audits;
+  `git diff --check`; and `npm run verify`.
 - Follow-ups: none yet
-- Handoff: start with a cleanup-loop plan for `FCP-7`, and require Codanna
-  impact analysis before any event-map contract changes.
+- Handoff: completed by cleanup-loop in commits `611b73e8`, `d51791ef`,
+  and `59f35d72`; package closeout verification passed on 2026-05-02.
 
 ### [ ] `FCP-8` API, Plex, And Error Contract Coherence
 
