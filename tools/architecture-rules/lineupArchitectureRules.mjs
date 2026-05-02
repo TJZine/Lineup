@@ -57,27 +57,6 @@ export const lineupArchitectureRules = {
     },
     temporaryExceptions: [
         {
-            rule: 'runtime-ui-boundary',
-            from: 'src/modules/navigation/NavigationCoordinator.ts',
-            to: '../ui/epg',
-            reason: 'Navigation runtime still depends on EPG contract types until UI/runtime seam cleanup lands.',
-            cleanupPriority: 'P3',
-        },
-        {
-            rule: 'runtime-ui-boundary',
-            from: 'src/modules/navigation/NavigationCoordinator.ts',
-            to: '../ui/now-playing-info',
-            reason: 'Modal id wiring currently lives in UI now-playing package and is still consumed by navigation runtime.',
-            cleanupPriority: 'P3',
-        },
-        {
-            rule: 'runtime-ui-boundary',
-            from: 'src/modules/navigation/NavigationCoordinator.ts',
-            to: '../ui/playback-options/types',
-            reason: 'Playback options section typing is still sourced from UI package pending boundary normalization.',
-            cleanupPriority: 'P3',
-        },
-        {
             rule: 'composition-root-access-boundary',
             from: 'src/core/app-shell/AppOrchestratorConfigFactory.ts',
             to: '../../Orchestrator',

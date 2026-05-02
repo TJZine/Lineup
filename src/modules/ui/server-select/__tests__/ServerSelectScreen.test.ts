@@ -5,8 +5,8 @@
 import {
     ServerSelectScreen,
     type ServerSelectScreenPorts,
-    type ServerSelectScreenState,
 } from '../ServerSelectScreen';
+import type { ServerSelectDisplayState } from '../types';
 import type { ServerSelectScreenNavigationPort } from '../../../navigation';
 import type { PlexServer } from '../../../plex/discovery/types';
 import { createBodyAppendedTestContainer, createDeferred } from '../../../../__tests__/helpers';
@@ -52,8 +52,8 @@ const makeSelectedServerResult = (): Extract<
 });
 
 const makeServerSelectState = (
-    overrides: Partial<ServerSelectScreenState> = {}
-): ServerSelectScreenState => ({
+    overrides: Partial<ServerSelectDisplayState> = {}
+): ServerSelectDisplayState => ({
     selectedServerId: null,
     serverHealth: {},
     ...overrides,
@@ -61,7 +61,7 @@ const makeServerSelectState = (
 
 const setServerSelectState = (
     orchestrator: ServerSelectScreenHarness,
-    state: Partial<ServerSelectScreenState>
+    state: Partial<ServerSelectDisplayState>
 ): void => {
     orchestrator.getSelectedServerScreenState.mockReturnValue(makeServerSelectState(state));
 };

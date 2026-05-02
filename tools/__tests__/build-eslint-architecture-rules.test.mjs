@@ -100,3 +100,13 @@ test('runtime UI boundary config preserves composition-root import restrictions'
         'expected composition-root import restriction'
     );
 });
+
+test('NavigationCoordinator no longer has stale runtime UI temporary exceptions', () => {
+    const staleNavigationUiExceptions = lineupArchitectureRules.temporaryExceptions.filter(
+        (exception) =>
+            exception.rule === 'runtime-ui-boundary'
+            && exception.from === 'src/modules/navigation/NavigationCoordinator.ts'
+    );
+
+    assert.deepEqual(staleNavigationUiExceptions, []);
+});

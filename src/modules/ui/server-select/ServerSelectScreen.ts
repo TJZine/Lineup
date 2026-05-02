@@ -13,6 +13,7 @@ import {
     renderServerSelectList,
     type ServerSelectEmptyStateReason,
 } from './ServerSelectListView';
+import type { ServerSelectDisplayState } from './types';
 
 const FOCUS_RESTORE_DELAY_MS = 50;
 
@@ -27,23 +28,11 @@ export type ServerSelectSelectionResult =
         kind: 'selected';
     };
 
-export type ServerSelectHealthRecord = {
-    status?: string;
-    type?: string;
-    latencyMs?: number;
-    testedAt?: number;
-};
-
-export type ServerSelectScreenState = {
-    selectedServerId: string | null;
-    serverHealth: Record<string, ServerSelectHealthRecord | undefined>;
-};
-
 export interface ServerSelectScreenPorts {
     discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
     selectServer(serverId: string): Promise<ServerSelectSelectionResult>;
     clearSelectedServer(): Promise<void>;
-    getSelectedServerScreenState(): ServerSelectScreenState;
+    getSelectedServerScreenState(): ServerSelectDisplayState;
     requestChannelSetupRerun(): void;
     getNavigation(): ServerSelectScreenNavigationPort | null;
 }
@@ -537,7 +526,7 @@ export class ServerSelectScreen {
 
     private _renderServers(
         servers: PlexServer[],
-        screenState: ServerSelectScreenState,
+        screenState: ServerSelectDisplayState,
         options?: { savedServerUnavailable?: boolean; emptyStateReason?: ServerSelectEmptyStateReason }
     ): void {
         this._unregisterServerListFocusables();

@@ -6,7 +6,7 @@ import {
     renderServerSelectList,
     type ServerSelectRenderOptions,
 } from '../ServerSelectListView';
-import type { ServerSelectScreenState } from '../ServerSelectScreen';
+import type { ServerSelectDisplayState } from '../types';
 import type { PlexServer } from '../../../plex/discovery/types';
 
 const makeServer = (id: string, name: string, owned = true): PlexServer => ({
@@ -21,8 +21,8 @@ const makeServer = (id: string, name: string, owned = true): PlexServer => ({
 });
 
 const makeScreenState = (
-    overrides: Partial<ServerSelectScreenState> = {}
-): ServerSelectScreenState => ({
+    overrides: Partial<ServerSelectDisplayState> = {}
+): ServerSelectDisplayState => ({
     selectedServerId: null,
     serverHealth: {},
     ...overrides,

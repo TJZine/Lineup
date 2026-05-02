@@ -1,5 +1,5 @@
 import type { PlexServer } from '../../plex/discovery/types';
-import type { ServerSelectScreenState } from './ServerSelectScreen';
+import type { ServerSelectDisplayState } from './types';
 
 export type ServerSelectEmptyStateReason = 'no_servers' | 'discovery_failed';
 
@@ -7,7 +7,7 @@ export type ServerSelectRenderOptions = {
     savedServerUnavailable?: boolean | undefined;
     emptyStateReason?: ServerSelectEmptyStateReason | undefined;
     isSelecting: boolean;
-    buildServerMeta: (server: PlexServer, healthMap: ServerSelectScreenState['serverHealth']) => string;
+    buildServerMeta: (server: PlexServer, healthMap: ServerSelectDisplayState['serverHealth']) => string;
     buildServerButtonIds: (serverIds: string[]) => string[];
     onSelectServer: (server: PlexServer) => void;
 };
@@ -20,7 +20,7 @@ export type ServerSelectRenderResult = {
 export function renderServerSelectList(
     listEl: HTMLElement,
     servers: PlexServer[],
-    screenState: ServerSelectScreenState,
+    screenState: ServerSelectDisplayState,
     options: ServerSelectRenderOptions
 ): ServerSelectRenderResult {
     const savedId = screenState.selectedServerId;
@@ -113,12 +113,12 @@ function createEmptyState(emptyStateReason: ServerSelectEmptyStateReason): HTMLE
 
 function createServerRow(options: {
     server: PlexServer;
-    healthMap: ServerSelectScreenState['serverHealth'];
+    healthMap: ServerSelectDisplayState['serverHealth'];
     buttonId: string;
     isSelecting: boolean;
     savedId: string | null;
     savedServerUnavailable: boolean;
-    buildServerMeta: (server: PlexServer, healthMap: ServerSelectScreenState['serverHealth']) => string;
+    buildServerMeta: (server: PlexServer, healthMap: ServerSelectDisplayState['serverHealth']) => string;
     onSelectServer: (server: PlexServer) => void;
 }): { row: HTMLElement; selectButton: HTMLButtonElement } {
     const { server, healthMap } = options;
@@ -173,7 +173,7 @@ function createServerRow(options: {
 }
 
 function createHealthPill(
-    health: ServerSelectScreenState['serverHealth'][string]
+    health: ServerSelectDisplayState['serverHealth'][string]
 ): { normalizedStatus: 'ok' | 'unreachable' | 'auth_required' | 'access_denied' | 'unknown'; pill: HTMLElement } {
     const pill = document.createElement('div');
     const normalizedStatus =
