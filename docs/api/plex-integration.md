@@ -239,7 +239,6 @@ interface StreamResolverError {
 
 interface StreamResolverEventMap {
   error: StreamResolverError;
-  [key: string]: StreamResolverError;
 }
 
 interface IPlexStreamResolver {

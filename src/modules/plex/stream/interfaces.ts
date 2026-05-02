@@ -39,8 +39,6 @@ export interface StreamResolverError {
  */
 export interface StreamResolverEventMap {
     error: StreamResolverError;
-    /** Index signature for EventEmitter compatibility */
-    [key: string]: StreamResolverError;
 }
 
 /**
