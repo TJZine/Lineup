@@ -87,6 +87,20 @@ function createAuthData(token: PlexAuthToken): {
     };
 }
 
+async function expectRetryableServerUnreachable(promise: Promise<unknown>): Promise<void> {
+    let thrown: unknown;
+    try {
+        await promise;
+    } catch (error) {
+        thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(PlexApiError);
+    const plexError = thrown as PlexApiError;
+    expect(plexError.code).toBe(AppErrorCode.SERVER_UNREACHABLE);
+    expect(plexError.retryable).toBe(true);
+}
+
 describe('PlexAuth', () => {
     const mockConfig: PlexAuthConfig = {
         clientIdentifier: 'test-client-id',
@@ -1458,10 +1472,7 @@ describe('PlexAuth', () => {
                 .mockRejectedValueOnce(new TypeError('Network error'));
             (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
-            await expect(auth.getHomeUsers()).rejects.toMatchObject({
-                code: 'SERVER_UNREACHABLE',
-                retryable: true,
-            });
+            await expectRetryableServerUnreachable(auth.getHomeUsers());
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
@@ -1488,6 +1499,19 @@ describe('PlexAuth', () => {
             controller.abort();
 
             await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+        });
+
+        it('maps fetchWithTimeout AbortError timeouts from getHomeUsers to retryable SERVER_UNREACHABLE', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expectRetryableServerUnreachable(auth.getHomeUsers());
+            expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
         it('should build switch URL with pin query param', async () => {
@@ -1666,10 +1690,7 @@ describe('PlexAuth', () => {
                 .mockRejectedValueOnce(new TypeError('Network error'));
             (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
-            await expect(auth.switchHomeUser('2')).rejects.toMatchObject({
-                code: 'SERVER_UNREACHABLE',
-                retryable: true,
-            });
+            await expectRetryableServerUnreachable(auth.switchHomeUser('2'));
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
@@ -1809,6 +1830,19 @@ describe('PlexAuth', () => {
             controller.abort();
 
             await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+        });
+
+        it('maps fetchWithTimeout AbortError timeouts from switchHomeUser to retryable SERVER_UNREACHABLE', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await expectRetryableServerUnreachable(auth.switchHomeUser('2'));
+            expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
         it('propagates AbortError when switchHomeUser is cancelled during profile fetch', async () => {

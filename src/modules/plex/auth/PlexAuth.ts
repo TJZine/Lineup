@@ -54,6 +54,16 @@ function throwIfAborted(signal: AbortSignal | null | undefined): void {
     throw signal.reason ?? new DOMException('Aborted', 'AbortError');
 }
 
+function createPlexHomeNetworkError(message: string, cause?: unknown): PlexApiError {
+    return new PlexApiError(
+        AppErrorCode.SERVER_UNREACHABLE,
+        message,
+        undefined,
+        true,
+        cause
+    );
+}
+
 type PlexHomeEndpointResult =
     | { kind: 'response'; response: Response; endpointIndex: number }
     | { kind: 'unsupported' };
@@ -483,18 +493,13 @@ export class PlexAuth implements IPlexAuth {
                 shouldTryNext
             );
         } catch (error) {
-            if (isAbortError(error) || signal?.aborted) {
+            if (signal?.aborted) {
                 throw error;
             }
             if (error instanceof PlexApiError) {
                 throw error;
             }
-            throw new PlexApiError(
-                AppErrorCode.SERVER_UNREACHABLE,
-                networkErrorMessage,
-                undefined,
-                true
-            );
+            throw createPlexHomeNetworkError(networkErrorMessage, error);
         }
     }
 
@@ -534,7 +539,7 @@ export class PlexAuth implements IPlexAuth {
                 }
                 return { kind: 'response', response, endpointIndex: index };
             } catch (error) {
-                if (isAbortError(error) || signal?.aborted) {
+                if (signal?.aborted) {
                     throw error;
                 }
                 lastError = error;
@@ -686,7 +691,7 @@ export class PlexAuth implements IPlexAuth {
 
                 break;
             } catch (error) {
-                if (isAbortError(error) || options?.signal?.aborted) {
+                if (options?.signal?.aborted) {
                     throw error;
                 }
                 if (error === pinValidationFailure) {
@@ -706,11 +711,9 @@ export class PlexAuth implements IPlexAuth {
                 if (error instanceof PlexApiError) {
                     lastError = error;
                 } else {
-                    lastError = new PlexApiError(
-                        AppErrorCode.SERVER_UNREACHABLE,
+                    lastError = createPlexHomeNetworkError(
                         'Failed to switch Plex Home user',
-                        undefined,
-                        true
+                        error
                     );
                     break;
                 }
