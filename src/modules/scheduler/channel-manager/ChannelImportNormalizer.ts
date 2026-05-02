@@ -9,6 +9,20 @@ import {
 import { CHANNEL_ERROR_MESSAGES } from './constants';
 import type { ChannelCreateInput } from './types';
 
+export function formatChannelSetupWarningDetail(detail: unknown): string {
+    const summary = summarizeErrorForLog(detail);
+    if (typeof summary === 'string') {
+        return summary;
+    }
+    if (summary && typeof summary === 'object') {
+        if ('message' in summary && typeof summary.message === 'string') {
+            return summary.message;
+        }
+        return JSON.stringify(summary);
+    }
+    return String(summary);
+}
+
 export type ChannelImportNormalizationResult =
     | { ok: true; channels: ChannelCreateInput[]; skippedCount: number }
     | { ok: false; error: string };
@@ -141,16 +155,6 @@ export class ChannelImportNormalizer {
     }
 
     formatErrorMessage(error: unknown): string {
-        const summary = summarizeErrorForLog(error);
-        if (typeof summary === 'string') {
-            return summary;
-        }
-        if (summary && typeof summary === 'object') {
-            if ('message' in summary && typeof summary.message === 'string') {
-                return summary.message;
-            }
-            return JSON.stringify(summary);
-        }
-        return String(summary);
+        return formatChannelSetupWarningDetail(error);
     }
 }

@@ -12,7 +12,7 @@ import { ChannelPersistenceSaveQueue } from './ChannelPersistenceSaveQueue';
 import { ChannelImportNormalizer } from './ChannelImportNormalizer';
 import { isValidContentSource } from './ChannelContentSourceValidator';
 import { STORAGE_CONFIG } from '../../lifecycle/constants';
-import type { IChannelManager, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
+import type { IChannelManager, ChannelCreateOptions, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
     ChannelConfig,
@@ -456,7 +456,7 @@ export class ChannelManager implements IChannelManager {
 
     async createChannel(
         config: ChannelCreateInput,
-        options?: { signal?: AbortSignal | null; initialContent?: ResolvedContentItem[] | undefined }
+        options?: ChannelCreateOptions
     ): Promise<ChannelConfig> {
         if (!config.contentSource) {
             throw createChannelContentSourceRequiredError();

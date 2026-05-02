@@ -2,6 +2,7 @@ import type {
     ChannelConfig,
     ChannelCreateInput,
     ResolvedChannelContent,
+    ResolvedContentItem,
     ImportResult,
     ChannelManagerEventMap,
     ChannelUpdateInput,
@@ -15,7 +16,7 @@ export interface IChannelManager {
      * Create a new channel with default values for missing fields.
      * @throws ChannelError if content source is missing or non-fallback content resolution fails
      */
-    createChannel(config: ChannelCreateInput, options?: { signal?: AbortSignal | null }): Promise<ChannelConfig>;
+    createChannel(config: ChannelCreateInput, options?: ChannelCreateOptions): Promise<ChannelConfig>;
 
     /**
      * @throws ChannelError if channel not found or a content-affecting update hits a non-fallback resolution failure
@@ -138,6 +139,11 @@ export interface IChannelManager {
         event: K,
         handler: (payload: ChannelManagerEventMap[K]) => void
     ): IDisposable;
+}
+
+export interface ChannelCreateOptions {
+    signal?: AbortSignal | null;
+    initialContent?: ResolvedContentItem[] | undefined;
 }
 
 export interface ChannelManagerConfig {
