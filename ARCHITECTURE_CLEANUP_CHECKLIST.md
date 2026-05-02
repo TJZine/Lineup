@@ -470,10 +470,11 @@ future platform work harder to reason about.
 - Handoff: start with source audit and behavior-neutral diff constraints; do not
   broaden into a repo-wide comment sweep.
 
-### [ ] `FCP-10` EPG Renderer Direct Confidence And Presentation Decomposition
+### [x] `FCP-10` EPG Renderer Direct Confidence And Presentation Decomposition
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-02-fcp-10-epg-renderer-direct-confidence-presentation-decomposition-plan.md`
 - Dimensions/rubric tags: design coherence, test strategy, UI/focus behavior,
   mid-level elegance
 - Scope owner: EPG view/rendering owner
@@ -508,7 +509,7 @@ future platform work harder to reason about.
   virtualizer-level behavior remains intact.
 - Verification routing: focused `EPGCellRenderer` tests, affected
   `EPGVirtualizer` tests, `npm run typecheck`, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -519,10 +520,17 @@ future platform work harder to reason about.
 - Stop/replan triggers: tests require private probing instead of public renderer
   methods; helper extraction changes DOM shape, focus hooks, reduced-motion, or
   ticker behavior; visual changes require maintainer design approval.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-02
+- Verification: passed `npm run plans:check`; clean plan review; `npm test --
+  --runInBand src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`;
+  `npm test -- --runInBand
+  src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`; `npm run typecheck`;
+  targeted source audits for private renderer presentation-helper residue and
+  renderer/export callers; clean implementation review for `FCP-10-S1` and
+  `FCP-10-S2`; `git diff --check`; and final package `npm run verify`.
 - Follow-ups: none yet
-- Handoff: start by locking current behavior with direct tests, then extract.
+- Handoff: completed by cleanup-loop in commits `2cc71d56` and `37b0871f`;
+  package closeout verification passed on 2026-05-02.
 
 ### [ ] `FCP-11` Runtime Owner Reduction Hotspots
 
