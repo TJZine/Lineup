@@ -313,10 +313,10 @@ future platform work harder to reason about.
 - Handoff: completed by cleanup-loop in commits `611b73e8`, `d51791ef`,
   and `59f35d72`; package closeout verification passed on 2026-05-02.
 
-### [ ] `FCP-8` API, Plex, And Error Contract Coherence
+### [x] `FCP-8` API, Plex, And Error Contract Coherence
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-02-fcp-8-api-plex-error-contract-coherence-plan.md`
 - Dimensions/rubric tags: API surface coherence, contract coherence, error
   consistency, type safety, Plex integration, logic clarity
 - Scope owner: Plex/shared transport, scheduler channel contracts, and error
@@ -386,11 +386,19 @@ future platform work harder to reason about.
   token redaction, PIN validation, or existing fallback tests; `initialContent`
   requires product/API decision outside channel manager; pagination helper
   changes request order or error taxonomy.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-02
+- Verification: passed `npm test -- fetchWithTimeout`;
+  `npm test -- PlexStreamResolver`; `npm test -- PlexLibrary`;
+  `npm test -- PlexAuth`; `npm test -- ChannelManager
+  ChannelImportNormalizer`; `npm test -- formatChannelSetupWarning`;
+  `npm run typecheck`; targeted source audits for timeout helper call shape,
+  media-item exports, auth cause redaction, channel create options,
+  pagination guards, and formatter ownership; `git diff --check`;
+  `npm run verify`; and `npm run verify:docs`.
 - Follow-ups: none yet
-- Handoff: start with a cleanup-loop plan for `FCP-8`; treat Plex auth work as
-  the highest-risk slice and keep it bounded.
+- Handoff: completed by cleanup-loop in commits `b18d23c9`, `65ba1bf1`,
+  `508d52aa`, and `5e548a92`; package closeout verification passed on
+  2026-05-02.
 
 ### [ ] `FCP-9` Source Signal, Convention, And Local Elegance
 
