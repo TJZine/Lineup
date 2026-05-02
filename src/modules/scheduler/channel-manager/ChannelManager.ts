@@ -7,11 +7,12 @@ import { fnv1a32Uint } from '../../../utils/hash';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './ContentResolver';
-import { ChannelRepository } from './ChannelRepository';
-import { ChannelPersistenceSaveQueue } from './ChannelPersistenceSaveQueue';
-import { ChannelImportNormalizer } from './ChannelImportNormalizer';
-import { isValidContentSource } from './ChannelContentSourceValidator';
-import { STORAGE_CONFIG } from '../../lifecycle/constants';
+import { ChannelAuthoringService } from './ChannelAuthoringService';
+import { ChannelImportExportService } from './ChannelImportExportService';
+import { ChannelPersistenceCoordinator, normalizeStorageKey } from './ChannelPersistenceCoordinator';
+import { ChannelResolutionCache } from './ChannelResolutionCache';
+import { ChannelRetryScheduler } from './ChannelRetryScheduler';
+import { ChannelError } from './ChannelErrors';
 import type { IChannelManager, ChannelCreateOptions, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
@@ -23,35 +24,16 @@ import type {
     ImportResult,
     ChannelManagerEventMap,
     ChannelManagerState,
-    StoredChannelData,
     ChannelUpdateInput,
 } from './types';
 import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,
-    CACHE_TTL_MS,
-    MAX_CHANNELS,
-    MIN_CHANNEL_NUMBER,
-    MAX_CHANNEL_NUMBER,
     CHANNEL_ERROR_MESSAGES,
 } from './constants';
 
 
-/**
- * Channel-specific error with AppErrorCode.
- * Error handling guidance lives in repo-local docs and checklists (see `docs/`).
- */
-export class ChannelError extends Error {
-    public readonly code: AppErrorCode;
-    public readonly recoverable: boolean;
-
-    constructor(code: AppErrorCode, message: string, recoverable = false) {
-        super(message);
-        this.name = 'ChannelError';
-        this.code = code;
-        this.recoverable = recoverable;
-    }
-}
+export { ChannelError } from './ChannelErrors';
 
 /**
  * Network-related AppErrorCodes that allow cache fallback.
@@ -176,48 +158,8 @@ function createChannelNotFoundError(): ChannelError {
     );
 }
 
-function createChannelContentSourceRequiredError(): ChannelError {
-    return new ChannelError(
-        AppErrorCode.CHANNEL_CONTENT_SOURCE_REQUIRED,
-        CHANNEL_ERROR_MESSAGES.CONTENT_SOURCE_REQUIRED,
-        false
-    );
-}
-
-function createMaxChannelsReachedError(): ChannelError {
-    return new ChannelError(
-        AppErrorCode.MAX_CHANNELS_REACHED,
-        CHANNEL_ERROR_MESSAGES.MAX_CHANNELS_REACHED,
-        false
-    );
-}
-
-function createDuplicateChannelNumberError(): ChannelError {
-    return new ChannelError(
-        AppErrorCode.DUPLICATE_CHANNEL_NUMBER,
-        CHANNEL_ERROR_MESSAGES.DUPLICATE_CHANNEL_NUMBER,
-        false
-    );
-}
-
-function createInvalidChannelNumberError(): ChannelError {
-    return new ChannelError(
-        AppErrorCode.INVALID_CHANNEL_NUMBER,
-        CHANNEL_ERROR_MESSAGES.INVALID_CHANNEL_NUMBER,
-        false
-    );
-}
-
 function createStorageValidationError(message: string): ChannelError {
     return new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, message, false);
-}
-
-function createDisposedError(): ChannelError {
-    return new ChannelError(AppErrorCode.CHANNEL_MANAGER_DISPOSED, 'ChannelManager disposed', false);
-}
-
-function createPersistenceFallbackError(message: string): ChannelError {
-    return new ChannelError(AppErrorCode.PERSISTENCE_FALLBACK, message, true);
 }
 
 /**
@@ -241,18 +183,17 @@ export class ChannelManager implements IChannelManager {
     private readonly _emitter: EventEmitter<ChannelManagerEventMap>;
     private readonly _contentResolver: ContentResolver;
     private readonly _library: IPlexLibraryMinimal;
-    private readonly _channelRepository: ChannelRepository;
-    private readonly _saveQueue: ChannelPersistenceSaveQueue;
-    private readonly _importNormalizer: ChannelImportNormalizer;
+    private readonly _authoring: ChannelAuthoringService;
+    private readonly _importExport: ChannelImportExportService;
+    private readonly _persistence: ChannelPersistenceCoordinator;
+    private readonly _resolutionCache: ChannelResolutionCache;
+    private readonly _retryScheduler: ChannelRetryScheduler;
     private readonly _logger: {
         warn: (message: string, ...args: unknown[]) => void;
         error: (message: string, ...args: unknown[]) => void;
     };
 
     private _state: ChannelManagerState;
-    /** Pending retry timers keyed by channel id. */
-    private readonly _pendingRetries: Map<string, ReturnType<typeof setTimeout>> = new Map();
-    private static readonly RETRY_DELAY_MS = 30000; // 30 seconds
 
     constructor(config: ChannelManagerConfig) {
         this._emitter = new EventEmitter<ChannelManagerEventMap>();
@@ -261,45 +202,32 @@ export class ChannelManager implements IChannelManager {
             warn: console.warn.bind(console),
             error: console.error.bind(console),
         };
-        const initialStorageKey = ((): string => {
-            if (config.storageKey === undefined) return STORAGE_KEY;
-            const normalized = config.storageKey.trim();
-            if (normalized.length === 0) {
-                throw createStorageValidationError('Storage keys must be non-empty strings');
-            }
-            return normalized;
-        })();
-
-        const initialCurrentChannelKey = ((): string => {
-            if (config.currentChannelKey === undefined) {
-                return initialStorageKey === STORAGE_KEY
-                    ? CURRENT_CHANNEL_KEY
-                    : `${CURRENT_CHANNEL_KEY}:${initialStorageKey}`;
-            }
-            const normalized = config.currentChannelKey.trim();
-            if (normalized.length === 0) {
-                throw createStorageValidationError('Storage keys must be non-empty strings');
-            }
-            return normalized;
-        })();
-
-        this._channelRepository = new ChannelRepository(
-            initialStorageKey,
-            initialCurrentChannelKey,
-            this._logger
-        );
         this._contentResolver = new ContentResolver(this._library, this._logger);
-        this._saveQueue = new ChannelPersistenceSaveQueue({
-            runSave: (): void => this._performSaveSync(),
-            createDisposedError,
+        this._authoring = new ChannelAuthoringService({
+            generateId: generateUUID,
+            now: Date.now,
+        });
+        this._persistence = new ChannelPersistenceCoordinator({
+            storageKey: config.storageKey,
+            currentChannelKey: config.currentChannelKey,
+            logger: this._logger,
             emitPersistenceWarning: (payload): void => this._emitter.emit('persistenceWarning', payload),
+        });
+        this._resolutionCache = new ChannelResolutionCache();
+        this._retryScheduler = new ChannelRetryScheduler({
+            getChannel: (channelId): ChannelConfig | null => this._state.channels.get(channelId) ?? null,
+            resolve: (channel): Promise<ResolvedChannelContent> => this._resolveContentInternal(channel),
             logger: this._logger,
         });
-        this._importNormalizer = new ChannelImportNormalizer();
+        this._importExport = new ChannelImportExportService({
+            getAllChannels: (): ChannelConfig[] => this.getAllChannels(),
+            isChannelNumberInUse: (number): boolean => this._isChannelNumberInUse(number),
+            getNextAvailableNumber: (): number => this._getNextAvailableNumber(),
+            createChannel: (input): Promise<ChannelConfig> => this.createChannel(input),
+        });
 
         this._state = {
             channels: new Map(),
-            resolvedContent: new Map(),
             currentChannelId: null,
             channelOrder: [],
         };
@@ -310,24 +238,21 @@ export class ChannelManager implements IChannelManager {
      * Does not implicitly load; caller should invoke loadChannels().
      */
     setStorageKeys(storageKey: string, currentChannelKey: string): void {
-        const normalizedStorageKey = storageKey.trim();
-        const normalizedCurrentChannelKey = currentChannelKey.trim();
-        if (normalizedStorageKey.length === 0 || normalizedCurrentChannelKey.length === 0) {
-            throw createStorageValidationError('Storage keys must be non-empty strings');
-        }
-        this.cancelPendingRetries();
+        const normalizedStorageKey = normalizeStorageKey(storageKey, STORAGE_KEY);
+        const normalizedCurrentChannelKey = normalizeStorageKey(currentChannelKey, CURRENT_CHANNEL_KEY);
+        this._retryScheduler.cancelAll();
         try {
-            this._saveQueue.flush();
+            this._persistence.flush(this._getPersistableState());
         } catch (error) {
-            this._saveQueue.reportFailure(
+            this._persistence.reportFailure(
                 'ChannelManager.setStorageKeys failed while flushing pending saves',
                 error
             );
         }
-        this._channelRepository.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
+        this._persistence.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
         this._contentResolver.clearCaches();
         this._state.channels.clear();
-        this._state.resolvedContent.clear();
+        this._resolutionCache.clear();
         this._state.channelOrder = [];
         this._state.currentChannelId = null;
     }
@@ -339,69 +264,9 @@ export class ChannelManager implements IChannelManager {
         channels: ChannelConfig[],
         options?: { currentChannelId?: string | null }
     ): Promise<void> {
-        const nextChannels = new Map<string, ChannelConfig>();
-        const nextChannelOrder: string[] = [];
-
-        const availableNumbers: number[] = [];
-        for (let n = MIN_CHANNEL_NUMBER; n <= MAX_CHANNEL_NUMBER; n++) {
-            availableNumbers.push(n);
-        }
-        const usedNumbers = new Set<number>();
-        const takeNextAvailable = (): number | null => {
-            const next = availableNumbers.shift();
-            if (next === undefined) {
-                return null;
-            }
-            usedNumbers.add(next);
-            return next;
-        };
-
-        for (const channel of channels) {
-            if (!isValidContentSource(channel.contentSource)) {
-                this._logger.warn(`Skipping invalid channel ${channel.name} (${channel.id}) during replaceAllChannels`);
-                continue;
-            }
-            if (nextChannels.has(channel.id)) {
-                this._logger.warn(`Skipping duplicate channel ${channel.name} (${channel.id}) during replaceAllChannels`);
-                continue;
-            }
-            if (nextChannelOrder.length >= MAX_CHANNELS) {
-                this._logger.warn(`Skipping channel ${channel.name} (${channel.id}) due to MAX_CHANNELS limit`);
-                continue;
-            }
-            // Clone to avoid mutating caller-owned channel objects.
-            const normalizedChannel: ChannelConfig = { ...channel };
-            const isValidNumber =
-                typeof normalizedChannel.number === 'number' &&
-                Number.isInteger(normalizedChannel.number) &&
-                normalizedChannel.number >= MIN_CHANNEL_NUMBER &&
-                normalizedChannel.number <= MAX_CHANNEL_NUMBER &&
-                !usedNumbers.has(normalizedChannel.number);
-            if (isValidNumber) {
-                const index = availableNumbers.indexOf(normalizedChannel.number);
-                if (index >= 0) {
-                    availableNumbers.splice(index, 1);
-                }
-                usedNumbers.add(normalizedChannel.number);
-            } else {
-                const fallback = takeNextAvailable();
-                if (fallback === null) {
-                    this._logger.warn(`Skipping channel ${channel.name} (${channel.id}) due to number exhaustion`);
-                    continue;
-                }
-                normalizedChannel.number = fallback;
-            }
-            // Normalize seeds so imported channels behave like newly created ones.
-            // This prevents nondeterministic shuffle order / missing live-drift until next app restart.
-            if (typeof normalizedChannel.shuffleSeed !== 'number' || !Number.isFinite(normalizedChannel.shuffleSeed)) {
-                normalizedChannel.shuffleSeed = fnv1a32Uint(`${normalizedChannel.id}:shuffle`);
-            }
-            if (typeof normalizedChannel.phaseSeed !== 'number' || !Number.isFinite(normalizedChannel.phaseSeed)) {
-                normalizedChannel.phaseSeed = fnv1a32Uint(`${normalizedChannel.id}:phase`);
-            }
-            nextChannels.set(normalizedChannel.id, normalizedChannel);
-            nextChannelOrder.push(normalizedChannel.id);
-        }
+        const replacement = this._authoring.buildReplacementState(channels, this._logger);
+        const nextChannels = replacement.channels;
+        const nextChannelOrder = replacement.channelOrder;
 
         const requestedCurrent = options?.currentChannelId ?? null;
         const fallbackCurrent = nextChannelOrder[0] ?? null;
@@ -411,45 +276,30 @@ export class ChannelManager implements IChannelManager {
                 : fallbackCurrent;
 
         try {
-            this._persistStoredChannelData({
+            this._persistence.persistStoredChannelData({
                 channels: Array.from(nextChannels.values()),
                 channelOrder: nextChannelOrder,
                 currentChannelId: nextCurrentChannelId,
                 savedAt: Date.now(),
             });
-            this._saveQueue.markSuccess();
+            this._persistence.markSuccess();
         } catch (error) {
-            this._saveQueue.reportFailure(
+            this._persistence.reportFailure(
                 'ChannelManager.replaceAllChannels failed to persist channels',
                 error
             );
             throw error;
         }
 
-        this.cancelPendingRetries();
+        this._retryScheduler.cancelAll();
         this._contentResolver.clearCaches();
         this._state.channels = nextChannels;
-        this._state.resolvedContent.clear();
+        this._resolutionCache.clear();
         this._state.channelOrder = nextChannelOrder;
         this._state.currentChannelId = nextCurrentChannelId;
 
         if (this._state.currentChannelId) {
-            try {
-                const result = this._channelRepository.saveCurrentChannelId(this._state.currentChannelId);
-                if (!result.ok) {
-                    if (result.reason === 'quota-exceeded') {
-                        throw new ChannelError(
-                            AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                            STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
-                            true
-                        );
-                    }
-                    throw createPersistenceFallbackError('Failed to persist current channel');
-                }
-            } catch (e) {
-                this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
-                this._saveQueue.emitWarning(e);
-            }
+            this._persistence.persistCurrentChannelIdBestEffort(this._state.currentChannelId);
         }
     }
 
@@ -458,81 +308,7 @@ export class ChannelManager implements IChannelManager {
         config: ChannelCreateInput,
         options?: ChannelCreateOptions
     ): Promise<ChannelConfig> {
-        if (!config.contentSource) {
-            throw createChannelContentSourceRequiredError();
-        }
-
-        if (this._state.channels.size >= MAX_CHANNELS) {
-            throw createMaxChannelsReachedError();
-        }
-
-        let channelNumber: number;
-        if (typeof config.number === 'number') {
-            this._validateChannelNumber(config.number);
-            if (this._isChannelNumberInUse(config.number)) {
-                throw createDuplicateChannelNumberError();
-            }
-            channelNumber = config.number;
-        } else {
-            channelNumber = this._getNextAvailableNumber();
-        }
-
-        const channel: ChannelConfig = {
-            id: generateUUID(),
-            number: channelNumber,
-            name:
-                typeof config.name === 'string' && config.name.length > 0
-                    ? config.name
-                    : `Channel ${channelNumber}`,
-            contentSource: config.contentSource,
-            playbackMode: config.playbackMode || 'sequential',
-            startTimeAnchor:
-                typeof config.startTimeAnchor === 'number'
-                    ? config.startTimeAnchor
-                    : Date.now(),
-            skipIntros: config.skipIntros === true,
-            skipCredits: config.skipCredits === true,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            lastContentRefresh: 0,
-            itemCount: 0,
-            totalDurationMs: 0,
-        };
-
-        if (config.description !== undefined) channel.description = config.description;
-        if (config.isAutoGenerated !== undefined) channel.isAutoGenerated = config.isAutoGenerated;
-        if (config.icon !== undefined) channel.icon = config.icon;
-        if (config.color !== undefined) channel.color = config.color;
-        if (config.buildStrategy !== undefined) channel.buildStrategy = config.buildStrategy;
-        if (config.sourceLibraryId !== undefined) channel.sourceLibraryId = config.sourceLibraryId;
-        if (config.sourceLibraryName !== undefined) channel.sourceLibraryName = config.sourceLibraryName;
-        if (typeof config.lineupReplicaIndex === 'number' && Number.isFinite(config.lineupReplicaIndex)) {
-            channel.lineupReplicaIndex = Math.max(0, Math.floor(config.lineupReplicaIndex));
-        }
-        if (typeof config.isPlaybackModeVariant === 'boolean') {
-            channel.isPlaybackModeVariant = config.isPlaybackModeVariant;
-        }
-        if (typeof config.shuffleSeed === 'number' && Number.isFinite(config.shuffleSeed)) {
-            channel.shuffleSeed = config.shuffleSeed;
-        } else {
-            channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
-        }
-        if (typeof config.phaseSeed === 'number' && Number.isFinite(config.phaseSeed)) {
-            channel.phaseSeed = config.phaseSeed;
-        } else {
-            channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
-        }
-        if (
-            channel.playbackMode === 'block'
-            && typeof config.blockSize === 'number'
-            && Number.isFinite(config.blockSize)
-        ) {
-            channel.blockSize = Math.max(1, Math.floor(config.blockSize));
-        }
-        if (config.contentFilters !== undefined) channel.contentFilters = config.contentFilters;
-        if (config.sortOrder !== undefined) channel.sortOrder = config.sortOrder;
-        if (config.maxEpisodeRunTimeMs !== undefined) channel.maxEpisodeRunTimeMs = config.maxEpisodeRunTimeMs;
-        if (config.minEpisodeRunTimeMs !== undefined) channel.minEpisodeRunTimeMs = config.minEpisodeRunTimeMs;
+        const channel = this._authoring.createChannel(config, this._state.channels.values());
 
         let resolvedContent: ResolvedChannelContent | null = null;
         let shouldEmitContentResolved = false;
@@ -568,7 +344,7 @@ export class ChannelManager implements IChannelManager {
         this._state.channelOrder.push(channel.id);
 
         if (resolvedContent) {
-            this._state.resolvedContent.set(channel.id, resolvedContent);
+            this._resolutionCache.set(resolvedContent);
             if (shouldEmitContentResolved) {
                 this._emitter.emit('contentResolved', resolvedContent);
             }
@@ -586,23 +362,8 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
-        if (typeof updates.number === 'number' && updates.number !== channel.number) {
-            this._validateChannelNumber(updates.number);
-            if (this._isChannelNumberInUse(updates.number)) {
-                throw createDuplicateChannelNumberError();
-            }
-        }
-
-        const updated: ChannelConfig = {
-            ...channel,
-            ...updates,
-            id: channel.id,
-            createdAt: channel.createdAt,
-            updatedAt: Date.now(),
-            lastContentRefresh: channel.lastContentRefresh,
-            itemCount: channel.itemCount,
-            totalDurationMs: channel.totalDurationMs,
-        };
+        const peerChannels = Array.from(this._state.channels.values()).filter((candidate) => candidate.id !== id);
+        const updated = this._authoring.updateChannel(channel, updates, peerChannels);
 
         let resolvedContent: ResolvedChannelContent | null = null;
 
@@ -624,7 +385,7 @@ export class ChannelManager implements IChannelManager {
         this._state.channels.set(id, updated);
 
         if (resolvedContent) {
-            this._state.resolvedContent.set(id, resolvedContent);
+            this._resolutionCache.set(resolvedContent);
             if (!resolvedContent.fromCache) {
                 this._emitter.emit('contentResolved', resolvedContent);
             }
@@ -642,7 +403,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         this._state.channels.delete(id);
-        this._state.resolvedContent.delete(id);
+        this._resolutionCache.delete(id);
         this._state.channelOrder = this._state.channelOrder.filter((cid) => cid !== id);
 
         if (this._state.currentChannelId === id) {
@@ -688,10 +449,10 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
-        const cached = this._state.resolvedContent.get(channelId);
-        if (cached && !this._isStale(cached)) {
+        const cached = this._resolutionCache.get(channelId);
+        if (cached && !this._resolutionCache.isStale(cached)) {
             // Return cloned content so callers cannot mutate internal cache state.
-            return this._cloneResolvedContent(cached, {
+            return this._resolutionCache.cloneContent(cached, {
                 fromCache: true,
                 isStale: false,
                 cacheReason: 'fresh',
@@ -714,7 +475,7 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
-        this._state.resolvedContent.delete(channelId);
+        this._resolutionCache.delete(channelId);
         this._contentResolver.invalidateSource(channel.contentSource);
         return this._resolveContentInternal(channel, options);
     }
@@ -732,13 +493,13 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
-        const cached = this._state.resolvedContent.get(channelId);
-        if (cached && !this._isStale(cached)) {
-            return this._cloneResolvedItems(cached.items);
+        const cached = this._resolutionCache.get(channelId);
+        if (cached && !this._resolutionCache.isStale(cached)) {
+            return this._resolutionCache.cloneItems(cached.items);
         }
 
         const items = await this._resolveFilteredItems(channel, options);
-        return this._cloneResolvedItems(items);
+        return this._resolutionCache.cloneItems(items);
     }
 
 
@@ -762,23 +523,7 @@ export class ChannelManager implements IChannelManager {
         this._state.currentChannelId = channelId;
 
         // Persist current channel separately (namespaced to the active store)
-        try {
-            const result = this._channelRepository.saveCurrentChannelId(channelId);
-            if (!result.ok) {
-                if (result.reason === 'quota-exceeded') {
-                    throw new ChannelError(
-                        AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                        STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
-                        true
-                    );
-                }
-                throw createPersistenceFallbackError('Failed to persist current channel');
-            }
-            this._onPersistenceSuccess();
-        } catch (e) {
-            this._logger.warn('Failed to persist current channel', summarizeErrorForLog(e));
-            this._saveQueue.emitWarning(e);
-        }
+        this._persistence.persistCurrentChannelId(channelId);
 
         const index = this._state.channelOrder.indexOf(channelId);
         this._emitter.emit('channelSwitch', { channel, index });
@@ -819,47 +564,14 @@ export class ChannelManager implements IChannelManager {
      * Export all channels as JSON string.
      */
     exportChannels(): string {
-        const channels = this.getAllChannels();
-        return JSON.stringify(channels, null, 2);
+        return this._importExport.exportChannels();
     }
 
     /**
      * Import channels from JSON string.
      */
     async importChannels(data: string): Promise<ImportResult> {
-        const result: ImportResult = {
-            success: false,
-            importedCount: 0,
-            skippedCount: 0,
-            errors: [],
-        };
-
-        const normalized = this._importNormalizer.normalizePayload(data);
-        if (!normalized.ok) {
-            result.errors.push(normalized.error);
-            return result;
-        }
-        result.skippedCount += normalized.skippedCount;
-
-        for (const channelData of normalized.channels) {
-            try {
-                if (
-                    typeof channelData.number === 'number' &&
-                    this._isChannelNumberInUse(channelData.number)
-                ) {
-                    channelData.number = this._getNextAvailableNumber();
-                }
-
-                await this.createChannel(channelData);
-                result.importedCount++;
-            } catch (e) {
-                result.skippedCount++;
-                result.errors.push(`Failed to import channel: ${this._importNormalizer.formatErrorMessage(e)}`);
-            }
-        }
-
-        result.success = result.importedCount > 0;
-        return result;
+        return this._importExport.importChannels(data);
     }
 
 
@@ -868,7 +580,7 @@ export class ChannelManager implements IChannelManager {
      */
     flushSaves(): Promise<void> {
         try {
-            this._saveQueue.flush();
+            this._persistence.flush(this._getPersistableState());
             return Promise.resolve();
         } catch (error) {
             return Promise.reject(error);
@@ -876,8 +588,8 @@ export class ChannelManager implements IChannelManager {
     }
 
     dispose(): void {
-        this.cancelPendingRetries();
-        this._saveQueue.dispose();
+        this._retryScheduler.cancelAll();
+        this._persistence.dispose();
         this._contentResolver.clearCaches();
         this._emitter.removeAllListeners();
     }
@@ -886,41 +598,23 @@ export class ChannelManager implements IChannelManager {
      * Queues a debounced persistence write through the channel repository/store boundary.
      */
     saveChannels(): Promise<void> {
-        return this._saveQueue.save();
+        return this._persistence.save(this._getPersistableState());
     }
 
     private _queueSave(): void {
-        this._saveQueue.queue();
+        this._persistence.queueSave(this._getPersistableState());
     }
 
-    private _onPersistenceSuccess(): void {
-        this._saveQueue.markSuccess();
-    }
-
-    private _performSaveSync(): void {
-        const data: StoredChannelData = {
-            channels: Array.from(this._state.channels.values()),
+    private _getPersistableState(): {
+        channels: Iterable<ChannelConfig>;
+        channelOrder: string[];
+        currentChannelId: string | null;
+    } {
+        return {
+            channels: this._state.channels.values(),
             channelOrder: this._state.channelOrder,
             currentChannelId: this._state.currentChannelId,
-            savedAt: Date.now(),
         };
-
-        this._persistStoredChannelData(data);
-    }
-
-    private _persistStoredChannelData(data: StoredChannelData): void {
-        const writeResult = this._channelRepository.saveStoredChannelData(data);
-
-        if (!writeResult.ok && writeResult.reason === 'quota-exceeded') {
-            throw new ChannelError(
-                AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
-                true
-            );
-        }
-        if (!writeResult.ok && writeResult.reason === 'unavailable') {
-            throw createPersistenceFallbackError('Failed to persist channels to storage');
-        }
     }
 
     private _assertExactChannelOrder(orderedIds: string[]): void {
@@ -945,7 +639,7 @@ export class ChannelManager implements IChannelManager {
      */
     async loadChannels(): Promise<void> {
         try {
-            const normalized = this._channelRepository.loadNormalized();
+            const normalized = this._persistence.loadNormalized();
             if (!normalized) {
                 return;
             }
@@ -979,49 +673,6 @@ export class ChannelManager implements IChannelManager {
         handler: (payload: ChannelManagerEventMap[K]) => void
     ): IDisposable {
         return this._emitter.on(event, handler);
-    }
-
-
-    private _cloneResolvedItem(item: ResolvedContentItem): ResolvedContentItem {
-        const cloned: ResolvedContentItem = { ...item };
-        if (item.genres) {
-            cloned.genres = [...item.genres];
-        }
-        if (item.directors) {
-            cloned.directors = [...item.directors];
-        }
-        if (item.mediaInfo) {
-            cloned.mediaInfo = { ...item.mediaInfo };
-        }
-        return cloned;
-    }
-
-    private _cloneResolvedItems(items: ResolvedContentItem[]): ResolvedContentItem[] {
-        return items.map((item) => this._cloneResolvedItem(item));
-    }
-
-    private _cloneResolvedContent(
-        content: ResolvedChannelContent,
-        overrides?: Partial<Pick<ResolvedChannelContent, 'fromCache' | 'isStale' | 'cacheReason'>>
-    ): ResolvedChannelContent {
-        const cloned: ResolvedChannelContent = {
-            ...content,
-            items: this._cloneResolvedItems(content.items),
-            orderedItems: this._cloneResolvedItems(content.orderedItems),
-        };
-        const fromCache = overrides?.fromCache ?? content.fromCache;
-        const isStale = overrides?.isStale ?? content.isStale;
-        const cacheReason = overrides?.cacheReason ?? content.cacheReason;
-        if (fromCache !== undefined) {
-            cloned.fromCache = fromCache;
-        }
-        if (isStale !== undefined) {
-            cloned.isStale = isStale;
-        }
-        if (cacheReason !== undefined) {
-            cloned.cacheReason = cacheReason;
-        }
-        return cloned;
     }
 
     private async _resolveFilteredItems(
@@ -1140,7 +791,7 @@ export class ChannelManager implements IChannelManager {
         channel: ChannelConfig,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedChannelContent> {
-        const cached = this._state.resolvedContent.get(channel.id);
+        const cached = this._resolutionCache.get(channel.id);
 
         try {
             const items = await this._resolveFilteredItems(channel, options);
@@ -1151,13 +802,13 @@ export class ChannelManager implements IChannelManager {
             }
 
             if (isNetworkError(error) && cached) {
-                const wasStale = this._isStale(cached);
+                const wasStale = this._resolutionCache.isStale(cached);
                 this._logger.warn(
                     `Resolution failed for channel ${channel.id} during authoring due to network error, using cached content as stale (ttlStale: ${wasStale})`,
                     summarizeErrorForLog(error)
                 );
-                this._queueRetry(channel.id);
-                return this._cloneResolvedContent(cached, {
+                this._retryScheduler.queue(channel.id);
+                return this._resolutionCache.cloneContent(cached, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'network_error',
@@ -1169,7 +820,7 @@ export class ChannelManager implements IChannelManager {
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
                 );
-                return this._cloneResolvedContent(cached, {
+                return this._resolutionCache.cloneContent(cached, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'content_unavailable',
@@ -1188,7 +839,7 @@ export class ChannelManager implements IChannelManager {
         channel: ChannelConfig,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedChannelContent> {
-        const cached = this._state.resolvedContent.get(channel.id);
+        const cached = this._resolutionCache.get(channel.id);
 
         try {
             const items = await this._resolveFilteredItems(channel, options);
@@ -1196,7 +847,7 @@ export class ChannelManager implements IChannelManager {
             const result = this._createResolvedContent(channel, items);
 
             // Cache
-            this._state.resolvedContent.set(channel.id, result);
+            this._resolutionCache.set(result);
             this._emitter.emit('contentResolved', result);
 
             // Issue 4: Update channel metadata after every successful resolve
@@ -1205,7 +856,7 @@ export class ChannelManager implements IChannelManager {
 
             this._queueSave();
 
-            return this._cloneResolvedContent(result);
+            return this._resolutionCache.cloneContent(result);
         } catch (error) {
             // Cache fallback is allowed for network errors and graceful source-unavailable errors.
             // SCHEDULER_EMPTY_CHANNEL and other non-network errors should propagate
@@ -1215,13 +866,13 @@ export class ChannelManager implements IChannelManager {
             }
 
             if (isNetworkError(error) && cached) {
-                const isStale = this._isStale(cached);
+                const isStale = this._resolutionCache.isStale(cached);
                 this._logger.warn(
                     `Resolution failed for channel ${channel.id} due to network error, using cached content (stale: ${isStale})`,
                     summarizeErrorForLog(error)
                 );
-                this._queueRetry(channel.id);
-                return this._cloneResolvedContent(cached, {
+                this._retryScheduler.queue(channel.id);
+                return this._resolutionCache.cloneContent(cached, {
                     fromCache: true,
                     isStale,
                     cacheReason: 'network_error',
@@ -1234,7 +885,7 @@ export class ChannelManager implements IChannelManager {
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
                 );
-                return this._cloneResolvedContent(cached, {
+                return this._resolutionCache.cloneContent(cached, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'content_unavailable',
@@ -1247,14 +898,9 @@ export class ChannelManager implements IChannelManager {
             // by code/status policy, so ordering here is not load-bearing.
             if (isAccessDeniedError(error)) {
                 // Prevent any future cache fallback for a persistent 403.
-                this._state.resolvedContent.delete(channel.id);
+                this._resolutionCache.delete(channel.id);
                 this._contentResolver.invalidateSource(channel.contentSource);
-
-                const pendingRetry = this._pendingRetries.get(channel.id);
-                if (pendingRetry) {
-                    clearTimeout(pendingRetry);
-                    this._pendingRetries.delete(channel.id);
-                }
+                this._retryScheduler.cancel(channel.id);
 
                 throw this._createAccessDeniedResolutionError(channel, error);
             }
@@ -1264,89 +910,11 @@ export class ChannelManager implements IChannelManager {
         }
     }
 
-    private _isStale(content: ResolvedChannelContent): boolean {
-        return content.isStale === true || Date.now() - content.resolvedAt > CACHE_TTL_MS;
-    }
-
-    private _validateChannelNumber(number: number): void {
-        if (
-            !Number.isInteger(number) ||
-            number < MIN_CHANNEL_NUMBER ||
-            number > MAX_CHANNEL_NUMBER
-        ) {
-            throw createInvalidChannelNumberError();
-        }
-    }
-
     private _isChannelNumberInUse(number: number): boolean {
-        for (const channel of this._state.channels.values()) {
-            if (channel.number === number) {
-                return true;
-            }
-        }
-        return false;
+        return this._authoring.isChannelNumberInUse(number, this._state.channels.values());
     }
 
     private _getNextAvailableNumber(): number {
-        const usedNumbers = new Set<number>();
-        for (const channel of this._state.channels.values()) {
-            usedNumbers.add(channel.number);
-        }
-
-        for (let n = MIN_CHANNEL_NUMBER; n <= MAX_CHANNEL_NUMBER; n++) {
-            if (!usedNumbers.has(n)) {
-                return n;
-            }
-        }
-
-        // Fallback (should never reach due to MAX_CHANNELS check)
-        return this._state.channels.size + 1;
-    }
-
-    /**
-     * Queue a retry for network errors.
-     * Implements spec requirement to retry failed content resolution.
-     */
-    private _queueRetry(channelId: string): void {
-        // Don't queue if already pending
-        if (this._pendingRetries.has(channelId)) {
-            return;
-        }
-
-        const timeout = setTimeout(() => {
-            this._pendingRetries.delete(channelId);
-            this._executeRetry(channelId);
-        }, ChannelManager.RETRY_DELAY_MS);
-
-        this._pendingRetries.set(channelId, timeout);
-    }
-
-    /**
-     * Execute a queued retry for a channel.
-     */
-    private _executeRetry(channelId: string): void {
-        const channel = this._state.channels.get(channelId);
-        if (!channel) {
-            return;
-        }
-
-        this._resolveContentInternal(channel)
-            .then(() => {
-                this._logger.warn(`Retry succeeded for channel ${channelId}`);
-            })
-            .catch((error) => {
-                this._logger.warn(`Retry failed for channel ${channelId}`, summarizeErrorForLog(error));
-                // Could implement exponential backoff here if needed
-            });
-    }
-
-    /**
-     * Cancel any pending retries (useful for cleanup).
-     */
-    private cancelPendingRetries(): void {
-        for (const timeout of this._pendingRetries.values()) {
-            clearTimeout(timeout);
-        }
-        this._pendingRetries.clear();
+        return this._authoring.getNextAvailableNumber(this._state.channels.values());
     }
 }

@@ -18,7 +18,7 @@ type ChannelPersistenceSaveQueueConfig = {
 };
 
 export class ChannelPersistenceSaveQueue {
-    private readonly _runSave: () => void;
+    private _runSave: () => void;
     private readonly _createDisposedError: () => Error;
     private readonly _emitPersistenceWarning: (payload: ChannelManagerEventMap['persistenceWarning']) => void;
     private readonly _logger: PersistenceLogger;
@@ -63,6 +63,11 @@ export class ChannelPersistenceSaveQueue {
         return pendingSave;
     }
 
+    saveWithSnapshot(runSave: () => void): Promise<void> {
+        this._runSave = runSave;
+        return this.save();
+    }
+
     queue(): void {
         if (this._isDisposed) {
             this._markPersistenceFailureReported(this._createDisposedError());
@@ -97,6 +102,11 @@ export class ChannelPersistenceSaveQueue {
         });
     }
 
+    queueWithSnapshot(runSave: () => void): void {
+        this._runSave = runSave;
+        this.queue();
+    }
+
     flush(): void {
         if (this._isDisposed || !this._saveTimer) {
             return;
@@ -105,6 +115,11 @@ export class ChannelPersistenceSaveQueue {
         clearTimeout(this._saveTimer);
         this._saveTimer = null;
         this._runPendingSaveNow();
+    }
+
+    flushWithSnapshot(runSave: () => void): void {
+        this._runSave = runSave;
+        this.flush();
     }
 
     dispose(): void {
