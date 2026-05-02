@@ -542,7 +542,7 @@ export class PlexAuth implements IPlexAuth {
             }
         }
 
-        if (lastError !== null && !sawUnsupportedResponse) {
+        if (lastError !== null) {
             throw lastError;
         }
 
