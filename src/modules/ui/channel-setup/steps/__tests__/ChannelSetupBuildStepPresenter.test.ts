@@ -65,7 +65,38 @@ const createSnapshot = (
     ...overrides,
 });
 
-const createDeps = (snapshot: ChannelSetupSessionSnapshot, overrides: Record<string, unknown> = {}) => {
+type BuildStepPresenterTestDeps = {
+    session: {
+        getSnapshot: jest.Mock;
+        ensureReviewLoaded: jest.Mock;
+        clearReviewAndReturnToStep2: jest.Mock;
+        beginConfirmedBuild: jest.Mock;
+        toggleReplaceConfirm: jest.Mock;
+        cancelBuild: jest.Mock;
+        setStep: jest.Mock;
+        beginBuild: jest.Mock;
+    };
+    focus: {
+        registerLinear: jest.Mock;
+        unregisterAll: jest.Mock;
+    };
+    screenPorts: {
+        getNavigation: jest.Mock;
+        getSelectedServerId: jest.Mock;
+        openServerSelect: jest.Mock;
+        switchToChannelByNumber: jest.Mock;
+        openEPG: jest.Mock;
+    };
+    getPreferredFocusId: jest.Mock;
+    setPreferredFocusId: jest.Mock;
+    getVisibilityToken: jest.Mock;
+    renderStep: jest.Mock;
+};
+
+const createDeps = (
+    snapshot: ChannelSetupSessionSnapshot,
+    overrides: Partial<BuildStepPresenterTestDeps['session']> = {}
+): BuildStepPresenterTestDeps => {
     const session = {
         getSnapshot: jest.fn(() => snapshot),
         ensureReviewLoaded: jest.fn(),

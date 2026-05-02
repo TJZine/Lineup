@@ -154,7 +154,7 @@ export class ServerSelectScreen implements ServerSelectRuntimeScreenAdapter {
             ports,
             adapter: this,
             statusPolicy: this._statusPolicy,
-            hasPendingFocusRestore: (generation) => this._focusCoordinator.hasPendingRestoreFocus(generation),
+            hasPendingFocusRestore: (generation: number): boolean => this._focusCoordinator.hasPendingRestoreFocus(generation),
         });
     }
 
