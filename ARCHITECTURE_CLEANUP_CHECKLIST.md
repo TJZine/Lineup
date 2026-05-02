@@ -10,12 +10,12 @@ should not drive the next cleanup task by default.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P13, FCP-1 through FCP-6, DCR-1 through DCR-16,
+- Current execution state: P0-P13, FCP-1 through FCP-11, DCR-1 through DCR-16,
   and DCR-EXIT are complete. The old P14 wave ledger is superseded for current
   decision-making because repeated residual waves did not create meaningful
   score progress and kept expanding the active control plane.
-- Next safe start: choose the first unchecked `FCP-*` package in the active
-  Final Cleanup Pass below, perform package-local source-backed discovery,
+- Next safe start: plan `FCP-12`, the first unchecked package in the active
+  Final Cleanup Pass below. Perform package-local source-backed discovery,
   freeze an execution-grade plan with package decomposition and one
   `ready_now_execution_unit`, run adversarial plan review, and only then
   implement the approved unit.
@@ -532,10 +532,11 @@ future platform work harder to reason about.
 - Handoff: completed by cleanup-loop in commits `2cc71d56` and `37b0871f`;
   package closeout verification passed on 2026-05-02.
 
-### [ ] `FCP-11` Runtime Owner Reduction Hotspots
+### [x] `FCP-11` Runtime Owner Reduction Hotspots
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-02-fcp-11-runtime-owner-reduction-hotspots-plan.md`
 - Dimensions/rubric tags: high-level elegance, design coherence, abstraction
   fitness, file health, structure navigation
 - Scope owner: UI/runtime hotspot owners
@@ -617,7 +618,7 @@ future platform work harder to reason about.
   verify`. Update `docs/architecture/CURRENT_STATE.md` or
   `docs/architecture/modules.md` when hotspot status or ownership truth changes,
   and run `npm run verify:docs` for those docs updates.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -635,13 +636,29 @@ future platform work harder to reason about.
   closure requires changing public API or behavior in a different package; the
   plan cannot state how the original mixed-responsibility finding will become
   false.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: this package needs the strongest plan review. Do not start all
-  slices at once; each must name the owner set required to make the original
-  finding false, the behavior tests that lock the move, and the source-audit
-  proof that will decide whether the slice can close.
+- Last touched: 2026-05-02
+- Verification: passed `npm run plans:check`; clean plan review; targeted
+  `FCP-11-S1` server-select tests; targeted `FCP-11-S2` channel setup tests
+  including build `Done` success-path proof; targeted `FCP-11-S3`
+  channel-manager/persistence/cache/retry tests including stale debounced-save
+  regression proof; targeted `FCP-11-S4` priority-one/orchestrator assembly
+  tests; `npm run typecheck`; `npm run verify:architecture`; `git diff
+  --check`; and clean final implementation reviews for `FCP-11-S1` through
+  `FCP-11-S4`. Final package `npm run verify` and `npm run verify:docs`
+  passed during closeout.
+- Follow-ups: none
+- Proof matrix: `FCP-11-SF1` retired by commit `d56a13ca` (server-select
+  runtime/focus/status owners); `FCP-11-SF2` retired by commits `aefbbfd0` and
+  `606ad0ae` (channel setup dropdown/build presenter owners plus public
+  success-path proof); `FCP-11-SF3` retired by commits `42d93a9d` and
+  `6ed9d0c6` (ChannelManager owner split plus debounced-save interleaving fix);
+  `FCP-11-SF4` retired by commit `f02cc0a1` (priority-one forwarding collapse
+  while preserving owner-value seams). `51c60d02` records the lint-gate fix for
+  reviewed FCP-11 files.
+- Handoff: completed by cleanup-loop on 2026-05-02 after source-backed owner
+  closure, targeted verification, clean implementation review, and package
+  closeout verification. Next safe package is `FCP-12` only after this closeout
+  commit and review evidence remain clean.
 
 ### [ ] `FCP-12` Package Organization, Structure Navigation, And Final Exit
 
@@ -668,7 +685,7 @@ future platform work harder to reason about.
 - Files out of scope:
   - behavior changes inside app-shell/orchestrator owners unless required by a
     source-proven import move
-  - FCP-7 through FCP-11 implementation work not yet closed
+  - reopening completed FCP-7 through FCP-11 implementation work
   - Windows port implementation
 - Source findings to retire:
   - `FCP-12-SF1`: `src/core/app-shell` mixes diagnostics, deferred-screen
@@ -689,8 +706,8 @@ future platform work harder to reason about.
 - Verification routing: import/source audits, targeted app-shell/orchestrator
   tests affected by moves, `npm run typecheck`, `npm run verify`,
   `npm run plans:check`, `npm run verify:docs`, and `git diff --check`.
-- Ready-now execution unit: none until `FCP-7` through `FCP-11` are closed or
-  explicitly reclassified.
+- Ready-now execution unit: none until the `FCP-12` plan is written and
+  reviewed clean.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
