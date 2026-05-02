@@ -71,6 +71,30 @@ type LibrarySectionsLookupSource =
     | { kind: 'available'; libraries: PlexLibrarySection[] }
     | { kind: 'unavailable'; error: PlexLibraryError };
 
+interface MediaPaginationState {
+    fetched: number;
+    offset: number;
+    pageSize: number;
+}
+
+interface MediaPaginationContinueContext {
+    pageItems: PlexMediaItem[];
+    accumulatedItems: PlexMediaItem[];
+    nextOffset: number;
+    pageSize: number;
+}
+
+interface MediaPaginationOptions<TResponse> {
+    operationName: string;
+    initialOffset: number;
+    pageSize: number;
+    signal?: AbortSignal | null;
+    buildUrl: (offset: number, pageSize: number) => string;
+    parsePageItems: (response: TResponse) => PlexMediaItem[];
+    shouldContinue: (context: MediaPaginationContinueContext) => boolean;
+    formatGuardContext: (state: MediaPaginationState) => string;
+}
+
 const resolveRequestProfileForIntent = (
     intent: PlexLibraryRequestIntent | undefined
 ): PrivateRequestProfile => (intent === 'preview' ? 'interactive' : 'default');
@@ -276,56 +300,42 @@ export class PlexLibrary implements IPlexLibrary {
         libraryId: string,
         options: LibraryQueryOptions = {}
     ): Promise<PlexMediaItem[]> {
-        const items: PlexMediaItem[] = [];
-        let offset = options.offset ?? 0;
         const pageSize = options.limit ?? PLEX_LIBRARY_CONSTANTS.DEFAULT_PAGE_SIZE;
-        let hasMore = true;
-        let pageCounter = 0;
+        const items = await this._fetchPagedMediaItems<PlexMediaContainer<RawMediaItem>>({
+            operationName: 'getLibraryItems',
+            initialOffset: options.offset ?? 0,
+            pageSize,
+            signal: options.signal ?? null,
+            buildUrl: (offset, requestedPageSize) => {
+                const params: Record<string, string | number> = {
+                    'X-Plex-Container-Start': offset,
+                    'X-Plex-Container-Size': requestedPageSize,
+                };
 
-        while (hasMore) {
-            if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
-                const message =
-                    `[PlexLibrary] Pagination guard tripped in getLibraryItems ` +
-                    `(libraryId=${libraryId}, fetched=${items.length}, pageSize=${pageSize}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`;
-                this._logger.error(message);
-                throw new PlexLibraryError(AppErrorCode.PAGINATION_LIMIT_EXCEEDED, message);
-            }
-            const params: Record<string, string | number> = {
-                'X-Plex-Container-Start': offset,
-                'X-Plex-Container-Size': pageSize,
-            };
+                if (options.sort) {
+                    params['sort'] = options.sort;
+                }
 
-            if (options.sort) {
-                params['sort'] = options.sort;
-            }
+                if (options.filter) {
+                    Object.assign(params, options.filter);
+                }
 
-            if (options.filter) {
-                Object.assign(params, options.filter);
-            }
+                if (options.includeCollections) {
+                    params['includeCollections'] = 1;
+                }
 
-            if (options.includeCollections) {
-                params['includeCollections'] = 1;
-            }
-
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options.signal ?? null });
-
-        if (!response) {
-            break; // Empty/error response, stop pagination
-        }
-
-        const metadata = extractMetadataArray(response, `library items for section ${libraryId}`);
-        const pageItems = parseMediaItems(metadata);
-
-            items.push(...pageItems);
-            offset += pageItems.length;
-
-            // Stop if we got fewer items than requested (last page)
-            // or if we've reached the user-specified limit
-            hasMore =
+                return this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
+            },
+            parsePageItems: (response) => {
+                const metadata = extractMetadataArray(response, `library items for section ${libraryId}`);
+                return parseMediaItems(metadata);
+            },
+            shouldContinue: ({ pageItems, accumulatedItems }) =>
                 pageItems.length === pageSize &&
-                (!options.limit || items.length < options.limit);
-        }
+                (!options.limit || accumulatedItems.length < options.limit),
+            formatGuardContext: ({ fetched }) =>
+                `(libraryId=${libraryId}, fetched=${fetched}, pageSize=${pageSize}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`,
+        });
 
         // Trim to exact limit if specified
         if (options.limit && items.length > options.limit) {
@@ -456,58 +466,43 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to all episodes sorted by season/episode
      */
     async getShowEpisodes(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]> {
-        const allEpisodes: PlexMediaItem[] = [];
-        let offset = 0;
         let totalSize: number | null = null;
-        let pageCounter = 0;
-
-        while (true) {
-            if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
-                const message =
-                    `[PlexLibrary] Pagination guard tripped in getShowEpisodes ` +
-                    `(showKey=${showKey}, fetched=${allEpisodes.length}, offset=${offset}, pageSize=${PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`;
-                this._logger.error(message);
-                throw new PlexLibraryError(AppErrorCode.PAGINATION_LIMIT_EXCEEDED, message);
-            }
-            const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA_ALL_LEAVES(showKey), {
-                'X-Plex-Container-Start': offset,
-                'X-Plex-Container-Size': PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE,
-            });
-            const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, {
-                signal: options?.signal ?? null,
-            });
-
-            if (!response) {
-                break;
-            }
-
-            const mediaContainer = extractMediaContainer(response, `show episodes for ${showKey}`);
-            const reportedTotal = mediaContainer.totalSize;
-            if (typeof reportedTotal === 'number' && Number.isFinite(reportedTotal)) {
-                totalSize = reportedTotal;
-            }
-
-            const metadata = extractMetadataArray(response, `show episodes for ${showKey}`);
-            const pageEpisodes = parseMediaItems(metadata);
-            if (pageEpisodes.length === 0) {
-                break;
-            }
-            allEpisodes.push(...pageEpisodes);
-            offset += pageEpisodes.length;
-
-            // If Plex reports a total, continue paging until we reach it.
-            if (totalSize !== null) {
-                if (offset >= totalSize) {
-                    break;
+        const allEpisodes = await this._fetchPagedMediaItems<PlexMediaContainer<RawMediaItem>>({
+            operationName: 'getShowEpisodes',
+            initialOffset: 0,
+            pageSize: PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE,
+            signal: options?.signal ?? null,
+            buildUrl: (offset, pageSize) => this._buildUrl(
+                PLEX_ENDPOINTS.LIBRARY_METADATA_ALL_LEAVES(showKey),
+                {
+                    'X-Plex-Container-Start': offset,
+                    'X-Plex-Container-Size': pageSize,
                 }
-                continue;
-            }
+            ),
+            parsePageItems: (response) => {
+                const mediaContainer = extractMediaContainer(response, `show episodes for ${showKey}`);
+                const reportedTotal = mediaContainer.totalSize;
+                if (typeof reportedTotal === 'number' && Number.isFinite(reportedTotal)) {
+                    totalSize = reportedTotal;
+                }
 
-            // Fallback when totalSize is unavailable.
-            if (totalSize === null && pageEpisodes.length < PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE) {
-                break;
-            }
-        }
+                const metadata = extractMetadataArray(response, `show episodes for ${showKey}`);
+                return parseMediaItems(metadata);
+            },
+            shouldContinue: ({ pageItems, nextOffset, pageSize }) => {
+                if (pageItems.length === 0) {
+                    return false;
+                }
+
+                if (totalSize !== null) {
+                    return nextOffset < totalSize;
+                }
+
+                return pageItems.length >= pageSize;
+            },
+            formatGuardContext: ({ fetched, offset, pageSize }) =>
+                `(showKey=${showKey}, fetched=${fetched}, offset=${offset}, pageSize=${pageSize}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`,
+        });
 
         return allEpisodes.sort((a, b) => {
             const aSeason = typeof a.seasonNumber === 'number' ? a.seasonNumber : 0;
@@ -712,6 +707,52 @@ export class PlexLibrary implements IPlexLibrary {
         const detail = reason === 'empty' ? 'returned no directory entries' : 'endpoint unavailable';
         this._logger.warn(`[PlexLibrary] ${label} ${detail} for library ${libraryId}`);
         options.onUnsupported?.(reason);
+    }
+
+    private async _fetchPagedMediaItems<TResponse>(
+        options: MediaPaginationOptions<TResponse>
+    ): Promise<PlexMediaItem[]> {
+        const items: PlexMediaItem[] = [];
+        let offset = options.initialOffset;
+        let pageCounter = 0;
+
+        while (true) {
+            if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
+                const message =
+                    `[PlexLibrary] Pagination guard tripped in ${options.operationName} ` +
+                    options.formatGuardContext({
+                        fetched: items.length,
+                        offset,
+                        pageSize: options.pageSize,
+                    });
+                this._logger.error(message);
+                throw new PlexLibraryError(AppErrorCode.PAGINATION_LIMIT_EXCEEDED, message);
+            }
+
+            const url = options.buildUrl(offset, options.pageSize);
+            const response = await this._fetchWithRetry<TResponse>(url, {
+                signal: options.signal ?? null,
+            });
+
+            if (!response) {
+                break;
+            }
+
+            const pageItems = options.parsePageItems(response);
+            items.push(...pageItems);
+            offset += pageItems.length;
+
+            if (!options.shouldContinue({
+                pageItems,
+                accumulatedItems: items,
+                nextOffset: offset,
+                pageSize: options.pageSize,
+            })) {
+                break;
+            }
+        }
+
+        return items;
     }
 
     async getActors(
