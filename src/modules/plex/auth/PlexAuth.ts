@@ -525,7 +525,6 @@ export class PlexAuth implements IPlexAuth {
                 if (shouldTryNext(response)) {
                     if (response.status === 404 || response.status === 405) {
                         sawUnsupportedResponse = true;
-                        lastError = null;
                         continue;
                     }
 
