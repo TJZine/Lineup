@@ -286,19 +286,20 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 ## Current Hotspot Reference
 
-The most important structural hotspots remain and should be treated as active work targets:
+The primary structural hotspots still treated as current by
+[`CURRENT_STATE.md`](./CURRENT_STATE.md) are:
 
-- `src/Orchestrator.ts`
 - `src/App.ts`
-- `src/modules/ui/epg/component/EPGComponent.ts`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-- `src/modules/scheduler/channel-manager/ChannelManager.ts`
 
-`src/modules/ui/settings/SettingsScreen.ts`,
-and `src/modules/plex/stream/PlexStreamResolver.ts` remain backlog-owned
-surfaces, but current source size/delegation evidence no longer supports
-listing them as primary active hotspots. `ChannelSetupScreen.ts` remains an
-active hotspot until a current source audit proves otherwise.
+`src/Orchestrator.ts`, `src/modules/ui/settings/SettingsScreen.ts`,
+`src/modules/ui/epg/component/EPGComponent.ts`,
+`src/modules/plex/stream/PlexStreamResolver.ts`, and
+`src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
+backlog or ownership surfaces where listed below, but current source
+size/delegation evidence no longer supports listing them as primary active
+hotspots. `ChannelSetupScreen.ts` remains an active hotspot until a current
+source audit proves otherwise.
 
 ## Cleanup Backlog Direction
 
