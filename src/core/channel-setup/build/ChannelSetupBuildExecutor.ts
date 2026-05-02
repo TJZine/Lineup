@@ -9,7 +9,7 @@ import { diffChannelPlans } from '../planning/ChannelSetupPlanningTypes';
 import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
 import type { ChannelSetupBuildCommitter } from './ChannelSetupBuildCommitter';
 import { isSignalAborted } from '../shared/utils';
-import { normalizeChannelSetupConfig } from '../planning/normalizeChannelSetupConfig';
+import { normalizeChannelSetupConfig } from '../config/normalizeChannelSetupConfig';
 import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';
 
 export interface ChannelSetupBuildExecutorDeps {

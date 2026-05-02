@@ -115,7 +115,10 @@ import type {
     OrchestratorPlaybackRecoveryBuilderInput,
     OrchestratorPlayerOsdCoordinatorBuilderInput,
 } from './OrchestratorCoordinatorContracts';
-import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
+import {
+    NowPlayingDebugManager,
+    type NowPlayingDebugOverlayPort,
+} from '../../modules/debug/NowPlayingDebugManager';
 import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../utils/storage';
 
 const DEFAULT_SEEK_INCREMENT_SECONDS = 10;
@@ -319,7 +322,15 @@ export function buildNowPlayingDebugManager(
         nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,
         getNavigation: (): INavigationManager | null => input.modules.navigation,
         getStreamResolver: (): IPlexStreamResolver | null => input.modules.plexStreamResolver,
-        getNowPlayingInfo: (): INowPlayingInfoOverlay | null => input.overlays.nowPlayingInfo,
+        getNowPlayingInfo: (): NowPlayingDebugOverlayPort | null => {
+            const overlay = input.overlays.nowPlayingInfo;
+            if (!overlay) {
+                return null;
+            }
+            return {
+                isVisible: (): boolean => overlay.isVisible(),
+            };
+        },
         getCurrentProgram: (): ScheduledProgram | null =>
             input.modules.scheduler.getCurrentProgram() ?? input.playback.state.getCurrentProgramForPlayback(),
         getCurrentStreamDecision: (): StreamDecision | null => input.playback.state.getCurrentStreamDecision(),
