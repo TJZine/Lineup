@@ -13,7 +13,21 @@ function getAppRestrictionGroup() {
 
 function getNoRestrictedImportPatterns(entry) {
     assert.ok(entry, 'expected config entry');
-    return entry.rules['no-restricted-imports'][1].patterns;
+    const restriction = entry.rules?.['no-restricted-imports'];
+    if (!Array.isArray(restriction) || restriction.length < 2) {
+        return [];
+    }
+
+    const options = restriction[1];
+    if (
+        options === null ||
+        typeof options !== 'object' ||
+        !Array.isArray(options.patterns)
+    ) {
+        return [];
+    }
+
+    return options.patterns;
 }
 
 function includesAllValues(actual, expected) {

@@ -2244,6 +2244,10 @@ test('checkPlanConformance rejects blocked active plans with mixed ready-now non
             .replace('- `ready_now_slice`: `P6-W1-S1`', '- `ready_now_slice`: `none`'),
         buildWaveScopedPackageDecomposition()
             .replace('- `ready_now_execution_unit`: `W1`', '- `ready_now_execution_unit`: `none`'),
+        buildSingleSlicePackageDecomposition()
+            .replace('- `ready_now_slice`: `P6-W1-S1`', '- `ready_now_slice`: `none`'),
+        buildSingleSlicePackageDecomposition()
+            .replace('- `ready_now_execution_unit`: `P6-W1-S1`', '- `ready_now_execution_unit`: `none`'),
     ];
 
     for (const packageDecomposition of mixedPointerPackages) {
