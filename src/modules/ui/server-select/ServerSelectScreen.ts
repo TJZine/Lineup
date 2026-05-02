@@ -1,10 +1,5 @@
 import type { PlexServer } from '../../plex/discovery/types';
-import { PlexApiError } from '../../plex/auth';
-import type { PlexServerSelectionFailureReason } from '../../plex/discovery';
-import type {
-    FocusableElement,
-    ServerSelectScreenNavigationPort,
-} from '../../navigation';
+import type { ServerSelectScreenNavigationPort } from '../../navigation';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
@@ -13,31 +8,28 @@ import {
     renderServerSelectList,
     type ServerSelectEmptyStateReason,
 } from './ServerSelectListView';
-import type { ServerSelectDisplayState } from './types';
+import {
+    ServerSelectFocusCoordinator,
+    type ServerSelectStaticButtons,
+} from './ServerSelectFocusCoordinator';
+import {
+    ServerSelectRuntimeCoordinator,
+    type ServerSelectRuntimeScreenAdapter,
+} from './ServerSelectRuntimeCoordinator';
+import { ServerSelectStatusPolicy } from './ServerSelectStatusPolicy';
+import type {
+    ServerSelectDisplayState,
+    ServerSelectScreenPorts,
+} from './types';
 
-const FOCUS_RESTORE_DELAY_MS = 50;
+export type {
+    ServerSelectSelectionFailureReason,
+    ServerSelectSelectionResult,
+} from './types';
 
-export type ServerSelectSelectionFailureReason = 'server_not_found' | PlexServerSelectionFailureReason;
+export type { ServerSelectScreenPorts } from './types';
 
-export type ServerSelectSelectionResult =
-    | {
-        kind: 'selection_failed';
-        reason: ServerSelectSelectionFailureReason;
-    }
-    | {
-        kind: 'selected';
-    };
-
-export interface ServerSelectScreenPorts {
-    discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
-    selectServer(serverId: string): Promise<ServerSelectSelectionResult>;
-    clearSelectedServer(): Promise<void>;
-    getSelectedServerScreenState(): ServerSelectDisplayState;
-    requestChannelSetupRerun(): void;
-    getNavigation(): ServerSelectScreenNavigationPort | null;
-}
-
-export class ServerSelectScreen {
+export class ServerSelectScreen implements ServerSelectRuntimeScreenAdapter {
     private _container: HTMLElement;
     private _ports: ServerSelectScreenPorts;
     private _destroyScreenShell: (() => void) | null = null;
@@ -51,21 +43,9 @@ export class ServerSelectScreen {
     private _setupButton: HTMLButtonElement;
     private _switchProfileButton: HTMLButtonElement;
     private _clearButton: HTMLButtonElement;
-    private _isLoading: boolean = false;
-    private _isClearing: boolean = false;
-    private _isVisible: boolean = false;
-    private _isDestroyed: boolean = false;
-    private _visibilityGeneration: number = 0;
-    private _activeLoadGeneration: number | null = null;
-    private _activeClearGeneration: number | null = null;
-    private _isSelecting: boolean = false;
-    private _activeSelectGeneration: number | null = null;
-    private _restoreFocusTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    private _restoreFocusGeneration: number | null = null;
-    private _registeredServerButtonIds: string[] = [];
-    private _lastDiscoveredServers: PlexServer[] = [];
-    private _idlePromise: Promise<void> = Promise.resolve();
-    private _resolveIdlePromise: (() => void) | null = null;
+    private _statusPolicy = new ServerSelectStatusPolicy();
+    private _focusCoordinator = new ServerSelectFocusCoordinator();
+    private _runtime: ServerSelectRuntimeCoordinator;
 
     constructor(container: HTMLElement, ports: ServerSelectScreenPorts) {
         this._container = container;
@@ -92,11 +72,7 @@ export class ServerSelectScreen {
                     label: 'Retry discovery',
                     variant: 'primary',
                     onSelect: (): void => {
-                        this._runScreenAction(
-                            () => this.refresh(),
-                            'Failed to discover servers.',
-                            (error) => this._handleDiscoveryLoadError(error)
-                        );
+                        void this.refresh();
                     },
                 },
                 {
@@ -104,7 +80,7 @@ export class ServerSelectScreen {
                     label: 'Re-run Setup',
                     variant: 'secondary',
                     onSelect: (): void => {
-                        this._clearError();
+                        this.clearError();
                         this._ports.requestChannelSetupRerun();
                     },
                 },
@@ -122,7 +98,7 @@ export class ServerSelectScreen {
                     label: 'Clear Saved Server',
                     variant: 'secondary',
                     onSelect: (): void => {
-                        this._handleClearSelection();
+                        this._runtime.handleClearSelection();
                     },
                 },
             ],
@@ -152,8 +128,6 @@ export class ServerSelectScreen {
         shell.contentEl.insertBefore(autoConnectHint, this._statusEl);
         this._autoConnectHintEl = autoConnectHint;
 
-        // Note: We cache action button references. If ScreenShell actions are ever re-rendered via shell.setActions(),
-        // these references must be re-queried.
         const refreshButton = shell.actionsEl.querySelector('#btn-server-refresh');
         const setupButton = shell.actionsEl.querySelector('#btn-server-setup');
         const switchProfileButton = shell.actionsEl.querySelector('#btn-server-switch-profile');
@@ -175,346 +149,159 @@ export class ServerSelectScreen {
         list.className = 'server-list';
         shell.panelEl.appendChild(list);
         this._listEl = list;
+
+        this._runtime = new ServerSelectRuntimeCoordinator({
+            ports,
+            adapter: this,
+            statusPolicy: this._statusPolicy,
+            hasPendingFocusRestore: (generation) => this._focusCoordinator.hasPendingRestoreFocus(generation),
+        });
     }
 
     destroy(): void {
-        this._isDestroyed = true;
-        this.hide();
-        if (this._restoreFocusTimeoutId !== null) {
-            clearTimeout(this._restoreFocusTimeoutId);
-            this._restoreFocusTimeoutId = null;
-        }
-        this._resolveIdleIfSettled();
+        this._runtime.destroy();
+        this._focusCoordinator.destroy();
         this._destroyScreenShell?.();
         this._destroyScreenShell = null;
     }
 
     async whenIdle(): Promise<void> {
-        return this._hasPendingUiWork() ? this._idlePromise : Promise.resolve();
+        return this._runtime.whenIdle();
     }
 
     show(options?: { allowAutoConnect?: boolean }): void {
-        if (this._isDestroyed) {
-            return;
-        }
-
-        this._isVisible = true;
-        this._visibilityGeneration += 1;
-        const generation = this._visibilityGeneration;
-        this._container.style.display = 'flex';
-        this._container.classList.add('visible');
-        this._clearError();
-        this._setStatus('', '');
-        this._registerFocusables();
-        // Manual server-select entry should not reconnect implicitly unless explicitly requested.
-        const allowAutoConnect = options?.allowAutoConnect === true;
-        this._runScreenAction(
-            () => this._loadServers({ autoSelect: allowAutoConnect, forceRefresh: false }, generation),
-            'Failed to discover servers.',
-            (error) => this._handleDiscoveryLoadError(error, generation)
-        );
-    }
-
-    private async _loadServers(
-        options: { autoSelect: boolean; forceRefresh: boolean },
-        generation = this._visibilityGeneration
-    ): Promise<void> {
-        if ((this._isLoading && this._activeLoadGeneration === generation) || !this._canUpdateUi(generation)) {
-            return;
-        }
-        this._ensureIdlePromise();
-        this._isLoading = true;
-        this._activeLoadGeneration = generation;
-
-        try {
-            this._unregisterServerListFocusables();
-            this._listEl.replaceChildren();
-            const screenState = this._ports.getSelectedServerScreenState();
-            const savedId = screenState.selectedServerId;
-            const isAutoConnectAttempt = options.autoSelect && Boolean(screenState.selectedServerId);
-            this._setAutoConnectHintVisible(isAutoConnectAttempt);
-            this._setStatus(
-                isAutoConnectAttempt ? 'Reconnecting to saved server…' : 'Discovering servers…',
-                isAutoConnectAttempt ? 'If that fails, choose any server below.' : '',
-                'loading'
-            );
-            this._statusEl.classList.add('panel-spinner');
-
-            // Disable controls
-            this._refreshButton.disabled = true;
-            this._setupButton.disabled = true;
-            this._switchProfileButton.disabled = true;
-            this._clearButton.disabled = true;
-
-            const servers = await this._ports.discoverServers(options.forceRefresh);
-
-            if (!this._canUpdateUi(generation)) {
-                return;
-            }
-
-            this._lastDiscoveredServers = servers.slice();
-            this._statusEl.classList.remove('panel-spinner');
-            let autoSelectError: unknown | null = null;
-            let savedServerUnavailable = false;
-
-            if (isAutoConnectAttempt && this._isSelecting) {
-                this._renderServers(servers, screenState, { emptyStateReason: 'no_servers' });
-                this._setServerListStatus(servers);
-                this._setAutoConnectHintVisible(false);
-                return;
-            }
-
-            if (options.autoSelect) {
-                if (savedId && servers.some(s => s.id === savedId)) {
-                    try {
-                        const result = await this._ports.selectServer(savedId);
-
-                        if (!this._canUpdateUi(generation)) {
-                            return;
-                        }
-
-                        this._setAutoConnectHintVisible(false);
-
-                        if (result.kind === 'selected') {
-                            this._setStatus('Connected…', 'Continuing startup…', 'success');
-                            return;
-                        }
-                        savedServerUnavailable = true;
-                        autoSelectError = new Error(this._selectionFailureMessage(result.reason));
-                    } catch (error) {
-                        savedServerUnavailable = true;
-                        autoSelectError = error;
-                    }
-                } else if (savedId) {
-                    savedServerUnavailable = true;
-                    autoSelectError = new Error('Saved server was not found during discovery.');
-                }
-            }
-
-            if (!this._canUpdateUi(generation)) {
-                return;
-            }
-
-            // Fallback to rendering list
-            this._renderServers(
-                servers,
-                this._ports.getSelectedServerScreenState(),
-                { savedServerUnavailable, emptyStateReason: 'no_servers' }
-            );
-            this._setServerListStatus(servers, { savedServerUnavailable, autoSelectError });
-            this._setAutoConnectHintVisible(false);
-        } catch (error) {
-            if (!this._canUpdateUi(generation)) {
-                return;
-            }
-
-            this._lastDiscoveredServers = [];
-            this._statusEl.classList.remove('panel-spinner');
-            this._handleError(error, 'Failed to discover servers.');
-            this._setStatus('Discovery failed.', '', 'error');
-            this._renderServers([], { selectedServerId: null, serverHealth: {} }, { emptyStateReason: 'discovery_failed' });
-            this._setAutoConnectHintVisible(false);
-        } finally {
-            if (this._activeLoadGeneration === generation) {
-                this._isLoading = false;
-                this._activeLoadGeneration = null;
-            }
-
-            if (!this._canUpdateUi(generation)) {
-                this._resolveIdleIfSettled();
-                return;
-            }
-
-            this._statusEl.classList.remove('panel-spinner');
-            this._refreshButton.disabled = false;
-            this._setupButton.disabled = false;
-            this._switchProfileButton.disabled = false;
-            this._clearButton.disabled = this._isClearing || this._isSelecting;
-            this._restoreFocus(generation);
-            this._resolveIdleIfSettled();
-        }
-    }
-
-    private _setServerListStatus(
-        servers: PlexServer[],
-        options?: { savedServerUnavailable?: boolean; autoSelectError?: unknown | null }
-    ): void {
-        if (this._isSelecting) {
-            this._setStatus(
-                'Selection in progress.',
-                'Wait for the current server connection attempt to finish.',
-                'loading'
-            );
-            return;
-        }
-
-        if (servers.length === 0) {
-            this._setStatus('No servers found.', 'Ensure your Plex server is reachable.', 'warning');
-            return;
-        }
-
-        if (options?.savedServerUnavailable === true) {
-            this._handleError(options.autoSelectError, 'Unable to use the saved server.');
-            this._setStatus('Saved server unavailable.', 'Select a server from the list.', 'warning');
-            return;
-        }
-
-        this._setStatus('Select a server from the list.', '', 'neutral');
-    }
-
-    private _restoreFocus(generation = this._visibilityGeneration): void {
-        const nav = this._ports.getNavigation();
-        if (nav) {
-            if (this._restoreFocusTimeoutId !== null) {
-                clearTimeout(this._restoreFocusTimeoutId);
-                this._restoreFocusTimeoutId = null;
-                this._restoreFocusGeneration = null;
-            }
-            this._restoreFocusGeneration = generation;
-            this._restoreFocusTimeoutId = setTimeout(() => {
-                this._restoreFocusTimeoutId = null;
-                this._restoreFocusGeneration = null;
-                if (!this._canUpdateUi(generation)) return;
-                if (nav.restoreFocusForCurrentScreen()) {
-                    this._resolveIdleIfSettled();
-                    return;
-                }
-                nav.setFocus('btn-server-refresh');
-                this._resolveIdleIfSettled();
-            }, FOCUS_RESTORE_DELAY_MS);
-            this._ensureIdlePromise();
-        }
+        this._runtime.show(options);
     }
 
     hide(): void {
-        this._isVisible = false;
-        this._visibilityGeneration += 1;
-        this._unregisterFocusables();
-        if (this._restoreFocusTimeoutId !== null) {
-            clearTimeout(this._restoreFocusTimeoutId);
-            this._restoreFocusTimeoutId = null;
-            this._restoreFocusGeneration = null;
-        }
-        this._setServerConnectButtonsDisabled(true);
-        this._container.style.display = 'none';
-        this._container.classList.remove('visible');
-        this._resolveIdleIfSettled();
+        this._runtime.hide();
     }
 
     async refresh(): Promise<void> {
-        const generation = this._visibilityGeneration;
-        if (this._isLoading && this._activeLoadGeneration === generation) {
+        await this._runtime.refresh();
+    }
+
+    showContainer(): void {
+        this._container.style.display = 'flex';
+        this._container.classList.add('visible');
+    }
+
+    hideContainer(): void {
+        this._container.style.display = 'none';
+        this._container.classList.remove('visible');
+    }
+
+    isContainerVisible(): boolean {
+        return this._container.classList.contains('visible');
+    }
+
+    getNavigation(): ServerSelectScreenNavigationPort | null {
+        return this._ports.getNavigation();
+    }
+
+    registerFocusables(): void {
+        this._focusCoordinator.registerFocusables(this.getNavigation(), this._getStaticButtons());
+    }
+
+    unregisterFocusables(): void {
+        this._focusCoordinator.unregisterFocusables(this.getNavigation());
+    }
+
+    restoreFocus(generation: number): void {
+        this._focusCoordinator.restoreFocus({
+            nav: this.getNavigation(),
+            generation,
+            canUpdateUi: () => this.isContainerVisible(),
+            onPending: () => {
+                this._runtime.markFocusRestorePending();
+            },
+            onSettled: () => {
+                this._runtime.notifyFocusRestoreSettled();
+            },
+        });
+    }
+
+    cancelRestoreFocus(): void {
+        this._focusCoordinator.cancelRestoreFocus();
+    }
+
+    unregisterServerListFocusables(): void {
+        this._focusCoordinator.unregisterServerListFocusables(this.getNavigation());
+    }
+
+    replaceServerListChildren(): void {
+        this._listEl.replaceChildren();
+    }
+
+    renderServers(
+        servers: PlexServer[],
+        screenState: ServerSelectDisplayState,
+        options?: { savedServerUnavailable?: boolean; emptyStateReason?: ServerSelectEmptyStateReason }
+    ): void {
+        this.unregisterServerListFocusables();
+        const result = renderServerSelectList(this._listEl, servers, screenState, {
+            savedServerUnavailable: options?.savedServerUnavailable,
+            emptyStateReason: options?.emptyStateReason,
+            isSelecting: this._runtime.isSelecting,
+            buildServerMeta: (server, healthMap) => this._statusPolicy.buildServerMeta(server, healthMap),
+            buildServerButtonIds: (serverIds) => this._buildServerButtonIds(serverIds),
+            onSelectServer: (server) => this._runtime.selectServer(server),
+        });
+
+        if (!result.hasServerRows) {
+            this._focusCoordinator.updateStaticButtonNeighbors(this.getNavigation(), this._getStaticButtons(), null);
             return;
         }
-        this._clearError();
-        await this._loadServers({ autoSelect: false, forceRefresh: true }, generation);
+
+        this._focusCoordinator.registerServerButtonFocusables(
+            this.getNavigation(),
+            this._getStaticButtons(),
+            result.enabledServerButtons
+        );
     }
 
-    private _canUpdateUi(generation = this._visibilityGeneration): boolean {
-        return generation === this._visibilityGeneration
-            && this._isVisible
-            && !this._isDestroyed
-            && this._container.classList.contains('visible');
-    }
-
-    private _isLoadingCurrentGeneration(generation: number): boolean {
-        return this._isLoading && this._activeLoadGeneration === generation;
-    }
-
-    private _setClearButtonDisabled(disabled: boolean, generation = this._visibilityGeneration): void {
-        if (!this._canUpdateUi(generation)) {
-            return;
-        }
-
-        this._clearButton.disabled = disabled;
-    }
-
-    private _setServerConnectButtonsDisabled(disabled: boolean): void {
+    setServerConnectButtonsDisabled(disabled: boolean): void {
         const buttons = Array.from(this._listEl.querySelectorAll<HTMLButtonElement>('.server-actions button'));
         for (const button of buttons) {
             button.disabled = disabled;
         }
 
         if (disabled) {
-            this._unregisterServerListFocusables();
-            if (this._canUpdateUi()) {
-                this._updateStaticButtonNeighbors(null);
+            this.unregisterServerListFocusables();
+            if (this.isContainerVisible()) {
+                this._focusCoordinator.updateStaticButtonNeighbors(this.getNavigation(), this._getStaticButtons(), null);
             }
             return;
         }
 
-        if (!this._canUpdateUi()) {
+        if (!this.isContainerVisible()) {
             return;
         }
 
-        this._registerServerButtonFocusables(buttons);
-    }
-
-    private _handleClearSelection(): void {
-        const generation = this._visibilityGeneration;
-        if (this._isSelecting || this._isClearing || !this._canUpdateUi(generation)) {
-            return;
-        }
-
-        this._runScreenAction(
-            () => this._handleClearSelectionAsync(generation),
-            'Could not clear saved server.',
-            (error) => this._handleClearSelectionError(error, generation)
+        this._focusCoordinator.registerServerButtonFocusables(
+            this.getNavigation(),
+            this._getStaticButtons(),
+            buttons
         );
     }
 
-    private async _handleClearSelectionAsync(generation: number): Promise<void> {
-        if (this._isSelecting || this._isClearing || !this._canUpdateUi(generation)) {
+    setControlsDisabled(disabled: boolean): void {
+        this._refreshButton.disabled = disabled;
+        this._setupButton.disabled = disabled;
+        this._switchProfileButton.disabled = disabled;
+        this._clearButton.disabled = disabled;
+    }
+
+    setClearButtonDisabled(disabled: boolean, generation: number): void {
+        void generation;
+        if (!this.isContainerVisible()) {
             return;
         }
 
-        try {
-            this._ensureIdlePromise();
-            this._isClearing = true;
-            this._activeClearGeneration = generation;
-            this._clearError();
-            this._setClearButtonDisabled(true, generation);
-            await this._ports.clearSelectedServer();
-
-            if (!this._canUpdateUi(generation)) {
-                return;
-            }
-
-            this._setAutoConnectHintVisible(false);
-            this._setStatus('Selection cleared.', 'Pick a server to continue.', 'success');
-            this._renderServers(
-                this._lastDiscoveredServers,
-                this._ports.getSelectedServerScreenState(),
-                { emptyStateReason: 'no_servers' }
-            );
-            this._restoreFocus(generation);
-        } catch (error) {
-            if (!this._canUpdateUi(generation)) {
-                return;
-            }
-
-            this._handleError(error, 'Could not clear saved server.');
-            this._setStatus('Selection not cleared.', 'Try again.', 'error');
-        } finally {
-            if (this._activeClearGeneration === generation) {
-                this._isClearing = false;
-                this._activeClearGeneration = null;
-            }
-
-            const currentGeneration = this._visibilityGeneration;
-            if (
-                !this._isSelecting
-                && !this._isClearing
-                && this._canUpdateUi(currentGeneration)
-                && !this._isLoadingCurrentGeneration(currentGeneration)
-            ) {
-                this._setClearButtonDisabled(false, currentGeneration);
-            }
-            this._resolveIdleIfSettled();
-        }
+        this._clearButton.disabled = disabled;
     }
 
-    private _setAutoConnectHintVisible(visible: boolean): void {
+    setAutoConnectHintVisible(visible: boolean): void {
         if (visible) {
             this._autoConnectHintEl.classList.add('visible');
             this._autoConnectHintEl.removeAttribute('hidden');
@@ -524,311 +311,7 @@ export class ServerSelectScreen {
         this._autoConnectHintEl.setAttribute('hidden', 'true');
     }
 
-    private _renderServers(
-        servers: PlexServer[],
-        screenState: ServerSelectDisplayState,
-        options?: { savedServerUnavailable?: boolean; emptyStateReason?: ServerSelectEmptyStateReason }
-    ): void {
-        this._unregisterServerListFocusables();
-        const result = renderServerSelectList(this._listEl, servers, screenState, {
-            savedServerUnavailable: options?.savedServerUnavailable,
-            emptyStateReason: options?.emptyStateReason,
-            isSelecting: this._isSelecting,
-            buildServerMeta: (server, healthMap) => this._buildServerMeta(server, healthMap),
-            buildServerButtonIds: (serverIds) => this._buildServerButtonIds(serverIds),
-            onSelectServer: (server) => {
-                this._runScreenAction(
-                    () => this._selectServer(server),
-                    'Unable to use the selected server.',
-                    (error) => this._handleSelectionDispatchError(error, this._visibilityGeneration)
-                );
-            },
-        });
-
-        if (!result.hasServerRows) {
-            this._updateStaticButtonNeighbors(null);
-            return;
-        }
-
-        this._registerServerButtonFocusables(result.enabledServerButtons);
-    }
-
-    private _unregisterServerListFocusables(): void {
-        if (this._registeredServerButtonIds.length === 0) {
-            return;
-        }
-        const nav = this._ports.getNavigation();
-        if (nav) {
-            for (const id of this._registeredServerButtonIds) {
-                nav.unregisterFocusable(id);
-            }
-        }
-        this._registeredServerButtonIds = [];
-    }
-
-    private _registerServerButtonFocusables(buttons: HTMLButtonElement[]): void {
-        this._unregisterServerListFocusables();
-
-        const enabledServerButtons = buttons.filter((button) => !button.disabled);
-        const navForButtons = this._ports.getNavigation();
-        if (navForButtons) {
-            for (let i = 0; i < enabledServerButtons.length; i++) {
-                const button = enabledServerButtons[i];
-                if (!button) continue;
-                const neighbors: FocusableElement['neighbors'] = {};
-                const upButtonId = i === 0 ? 'btn-server-refresh' : enabledServerButtons[i - 1]?.id;
-                const downButtonId = enabledServerButtons[i + 1]?.id;
-                if (upButtonId) {
-                    neighbors.up = upButtonId;
-                }
-                if (downButtonId) {
-                    neighbors.down = downButtonId;
-                }
-                navForButtons.registerFocusable({
-                    id: button.id,
-                    element: button,
-                    neighbors,
-                    restoreGroup: 'server-select-list',
-                    restorePriority: 1000 - i,
-                    onFocus: () => {
-                        try {
-                            button.scrollIntoView({ block: 'nearest' });
-                        } catch {
-                            button.scrollIntoView();
-                        }
-                    },
-                });
-            }
-        }
-        this._registeredServerButtonIds = enabledServerButtons.map((button) => button.id);
-
-        this._updateStaticButtonNeighbors(enabledServerButtons[0]?.id ?? null);
-    }
-
-    private async _selectServer(server: PlexServer): Promise<void> {
-        const generation = this._visibilityGeneration;
-
-        if (this._isSelecting || !this._canUpdateUi(generation)) {
-            return;
-        }
-
-        try {
-            this._ensureIdlePromise();
-            this._isSelecting = true;
-            this._activeSelectGeneration = generation;
-            this._setServerConnectButtonsDisabled(true);
-            this._setClearButtonDisabled(true, generation);
-            this._clearError();
-            this._setStatus(`Connecting to ${server.name}…`, '', 'loading');
-            this._detailEl.textContent = '';
-            const result = await this._ports.selectServer(server.id);
-
-            if (!this._canUpdateUi(generation) || this._activeSelectGeneration !== generation) {
-                return;
-            }
-
-            if (result.kind === 'selected') {
-                this._setStatus(`Connected to ${server.name}.`, 'Continuing startup…', 'success');
-                return;
-            }
-            this._setStatus('Connection failed.', '', 'error');
-            this._detailEl.textContent = '';
-            this._errorEl.textContent = this._selectionFailureMessage(result.reason);
-        } catch (error) {
-            if (!this._canUpdateUi(generation) || this._activeSelectGeneration !== generation) {
-                return;
-            }
-
-            this._clearError();
-            this._setStatus('Connection failed.', '', 'error');
-            this._detailEl.textContent = '';
-            this._handleError(error, 'Unable to use the selected server.');
-        } finally {
-            if (this._activeSelectGeneration === generation) {
-                this._isSelecting = false;
-                this._activeSelectGeneration = null;
-            }
-
-            const currentGeneration = this._visibilityGeneration;
-            if (
-                this._canUpdateUi(currentGeneration)
-                && !this._isSelecting
-                && !this._isLoadingCurrentGeneration(currentGeneration)
-                && !this._isClearing
-            ) {
-                this._setClearButtonDisabled(false, currentGeneration);
-                if (currentGeneration === generation) {
-                    this._setServerConnectButtonsDisabled(false);
-                } else {
-                    this._renderServers(
-                        this._lastDiscoveredServers,
-                        this._ports.getSelectedServerScreenState(),
-                        { emptyStateReason: 'no_servers' }
-                    );
-                    this._setServerListStatus(this._lastDiscoveredServers);
-                    this._restoreFocus(currentGeneration);
-                }
-            }
-            this._resolveIdleIfSettled();
-        }
-    }
-
-    private _hasPendingUiWork(): boolean {
-        const generation = this._visibilityGeneration;
-        return (this._isLoading && this._activeLoadGeneration === generation)
-            || (this._isClearing && this._activeClearGeneration === generation)
-            || (this._isSelecting && this._activeSelectGeneration === generation)
-            || (
-                this._restoreFocusTimeoutId !== null
-                && this._restoreFocusGeneration === generation
-            );
-    }
-
-    private _ensureIdlePromise(): void {
-        if (this._resolveIdlePromise) {
-            return;
-        }
-
-        this._idlePromise = new Promise((resolve) => {
-            this._resolveIdlePromise = resolve;
-        });
-    }
-
-    private _resolveIdleIfSettled(): void {
-        if (this._hasPendingUiWork() || !this._resolveIdlePromise) {
-            return;
-        }
-
-        const resolve = this._resolveIdlePromise;
-        this._resolveIdlePromise = null;
-        resolve();
-    }
-
-    private _selectionFailureMessage(
-        reason: 'server_not_found' | 'unreachable' | 'auth_required' | 'access_denied'
-    ): string {
-        switch (reason) {
-            case 'server_not_found':
-                return 'Selected server is no longer available.';
-            case 'auth_required':
-                return 'Authentication required. Sign in to Plex and try again.';
-            case 'access_denied':
-                return 'This Plex profile does not have access to that server. Choose another profile or update Plex sharing.';
-            case 'unreachable':
-                return 'Selected server is unreachable right now.';
-        }
-    }
-
-    private _runScreenAction(
-        action: () => Promise<void>,
-        fallbackMessage: string,
-        onError?: (error: unknown) => void
-    ): void {
-        let promise: Promise<void>;
-        try {
-            promise = action();
-        } catch (error) {
-            if (onError) {
-                onError(error);
-                return;
-            }
-            this._handleError(error, fallbackMessage);
-            return;
-        }
-
-        void promise.catch((error: unknown) => {
-            if (onError) {
-                onError(error);
-                return;
-            }
-            this._handleError(error, fallbackMessage);
-        });
-    }
-
-    private _handleDiscoveryLoadError(
-        error: unknown,
-        generation = this._visibilityGeneration
-    ): void {
-        if (!this._canUpdateUi(generation)) {
-            return;
-        }
-
-        this._lastDiscoveredServers = [];
-        this._statusEl.classList.remove('panel-spinner');
-        this._handleError(error, 'Failed to discover servers.');
-        this._setStatus('Discovery failed.', '', 'error');
-        try {
-            this._renderServers(
-                [],
-                { selectedServerId: null, serverHealth: {} },
-                { emptyStateReason: 'discovery_failed' }
-            );
-        } catch {
-            this._unregisterServerListFocusables();
-            this._listEl.replaceChildren();
-        }
-        this._setAutoConnectHintVisible(false);
-    }
-
-    private _handleClearSelectionError(error: unknown, generation: number): void {
-        if (!this._canUpdateUi(generation)) {
-            return;
-        }
-
-        this._handleError(error, 'Could not clear saved server.');
-        this._setStatus('Selection not cleared.', 'Try again.', 'error');
-    }
-
-    private _handleSelectionDispatchError(
-        error: unknown,
-        generation: number
-    ): void {
-        if (!this._canUpdateUi(generation)) {
-            return;
-        }
-
-        this._clearError();
-        this._setStatus('Connection failed.', '', 'error');
-        this._detailEl.textContent = '';
-        this._handleError(error, 'Unable to use the selected server.');
-    }
-
-    private _buildServerMeta(
-        server: PlexServer,
-        healthMap: Record<string, { status?: string; type?: string; latencyMs?: number; testedAt?: number } | undefined>
-    ): string {
-        const ownership = server.owned ? 'Owned' : `Shared by ${server.sourceTitle}`;
-        const health = healthMap[server.id];
-
-        let lastInfo: string;
-        if (typeof health?.testedAt !== 'number') {
-            lastInfo = 'Last: —';
-        } else if (health?.status === 'ok') {
-            lastInfo = `Last connected: ${this._formatRelativeTime(health.testedAt)}`;
-        } else {
-            lastInfo = `Last checked: ${this._formatRelativeTime(health.testedAt)}`;
-        }
-
-        return `${ownership} • ${lastInfo}`;
-    }
-
-    private _formatRelativeTime(timestamp: number): string {
-        const deltaMs = Math.max(0, Date.now() - timestamp);
-        const seconds = Math.floor(deltaMs / 1000);
-        if (seconds < 60) return 'just now';
-        const minutes = Math.floor(seconds / 60);
-        if (minutes < 60) return minutes === 1 ? '1 min ago' : `${minutes} mins ago`;
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
-        const days = Math.floor(hours / 24);
-        return days === 1 ? '1 day ago' : `${days} days ago`;
-    }
-
-    private _buildServerButtonIds(serverIds: string[]): string[] {
-        return buildDeterministicButtonIds('btn-server-select-', serverIds);
-    }
-
-    private _setStatus(status: string, detail: string, tone: ScreenTone = 'neutral'): void {
+    setStatus(status: string, detail: string, tone: ScreenTone = 'neutral'): void {
         if (this._shellSetStatus) {
             if (status.length === 0) {
                 this._shellSetStatus(null);
@@ -841,98 +324,36 @@ export class ServerSelectScreen {
         this._detailEl.textContent = detail;
     }
 
-    private _clearError(): void {
+    clearError(): void {
         this._errorEl.textContent = '';
     }
 
-    private _handleError(error: unknown, fallback: string): void {
-        if (error instanceof PlexApiError) {
-            this._errorEl.textContent = `${error.code}: ${error.message}`;
-            return;
-        }
-        const message = error instanceof Error ? error.message : fallback;
+    setError(message: string): void {
         this._errorEl.textContent = message;
     }
 
-    private _registerFocusables(): void {
-        const nav = this._ports.getNavigation();
-        if (!nav) return;
-
-        this._registerStaticButtons(null);
-
-        // Set initial focus
-        nav.setFocus('btn-server-refresh', { persist: false });
+    setDetail(text: string): void {
+        this._detailEl.textContent = text;
     }
 
-    private _unregisterFocusables(): void {
-        const nav = this._ports.getNavigation();
-        if (!nav) return;
-
-        nav.unregisterFocusable('btn-server-refresh');
-        nav.unregisterFocusable('btn-server-setup');
-        nav.unregisterFocusable('btn-server-switch-profile');
-        nav.unregisterFocusable('btn-server-forget');
-
-        this._unregisterServerListFocusables();
+    addStatusSpinner(): void {
+        this._statusEl.classList.add('panel-spinner');
     }
 
-    private _updateStaticButtonNeighbors(firstListFocusableId: string | null): void {
-        const nav = this._ports.getNavigation();
-        if (!nav) return;
-
-        this._registerStaticButtons(firstListFocusableId);
+    removeStatusSpinner(): void {
+        this._statusEl.classList.remove('panel-spinner');
     }
 
-    private _registerStaticButtons(firstListFocusableId: string | null): void {
-        const nav = this._ports.getNavigation();
-        if (!nav) return;
+    private _getStaticButtons(): ServerSelectStaticButtons {
+        return {
+            refreshButton: this._refreshButton,
+            setupButton: this._setupButton,
+            switchProfileButton: this._switchProfileButton,
+            clearButton: this._clearButton,
+        };
+    }
 
-        const staticButtons: Array<{
-            id: string;
-            element: HTMLButtonElement;
-            left?: string;
-            right?: string;
-        }> = [
-            {
-                id: 'btn-server-refresh',
-                element: this._refreshButton,
-                right: 'btn-server-setup',
-            },
-            {
-                id: 'btn-server-setup',
-                element: this._setupButton,
-                left: 'btn-server-refresh',
-                right: 'btn-server-switch-profile',
-            },
-            {
-                id: 'btn-server-switch-profile',
-                element: this._switchProfileButton,
-                left: 'btn-server-setup',
-                right: 'btn-server-forget',
-            },
-            {
-                id: 'btn-server-forget',
-                element: this._clearButton,
-                left: 'btn-server-switch-profile',
-            },
-        ];
-
-        for (const button of staticButtons) {
-            const neighbors: FocusableElement['neighbors'] = {};
-            if (button.left) {
-                neighbors.left = button.left;
-            }
-            if (button.right) {
-                neighbors.right = button.right;
-            }
-            if (firstListFocusableId) {
-                neighbors.down = firstListFocusableId;
-            }
-            nav.registerFocusable({
-                id: button.id,
-                element: button.element,
-                neighbors,
-            });
-        }
+    private _buildServerButtonIds(serverIds: string[]): string[] {
+        return buildDeterministicButtonIds('btn-server-select-', serverIds);
     }
 }
