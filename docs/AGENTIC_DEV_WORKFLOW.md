@@ -142,6 +142,30 @@ When tracked docs conflict, use this order:
    - one work unit at a time
    - prefer extraction over expansion in hotspot files
    - avoid compatibility shims unless explicitly approved
+   - avoid circular source dependencies, including type-only cycles; move
+     shared shapes into sibling owner modules such as `types.ts`,
+     `contracts.ts`, or an owner-owned public contract file
+   - keep public interfaces and concrete implementation signatures aligned; do
+     not hide extra options on concrete classes
+   - use one public API shape for one operation; do not keep parallel
+     object-shaped and positional helper variants unless a documented private
+     adapter requires it
+   - keep temporary architecture exceptions short-lived, with a removal trigger
+     and a source audit when the related boundary cleanup lands
+   - keep package seam files as composition/import surfaces; move leaf behavior,
+     CSS rules, and feature-specific policy into leaf files
+   - give shared literal unions one owner; downstream modules import, alias, or
+     assert exactness instead of duplicating values
+   - preserve sanitized error causes when wrapping failures unless the boundary
+     has a documented redaction reason
+   - remove compatibility re-exports after active callers migrate; do not let
+     production code keep importing through a migration path
+   - test through public seams; when a test needs private probing, extract a
+     real collaborator or add public behavior proof instead of weakening the
+     private-probe baseline
+   - split large UI/runtime classes by owner: DOM rendering, focus/navigation,
+     async workflow, persistence, platform/domain policy, and diagnostics
+     should not quietly accumulate in one class
 8. Verify based on risk.
    - `npm run verify` for UI, navigation, Orchestrator, or Plex work
    - `npm run verify:docs` for workflow/control-plane/reference doc changes

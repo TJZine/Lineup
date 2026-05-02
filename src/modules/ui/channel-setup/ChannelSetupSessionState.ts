@@ -9,7 +9,7 @@ import {
     DEFAULT_CHANNEL_EXPANSION,
     DEFAULT_SERIES_ORDERING,
 } from '../../../core/channel-setup/constants';
-import { normalizeChannelSetupConfig } from '../../../core/channel-setup/planning/normalizeChannelSetupConfig';
+import { normalizeChannelSetupConfig } from '../../../core/channel-setup/config/normalizeChannelSetupConfig';
 import {
     DEFAULT_CHANNEL_SETUP_MAX,
 } from '../../scheduler/channel-manager/constants';

@@ -10,6 +10,11 @@ const RUNTIME_UI_RESTRICTION_MESSAGE =
 const ROOT_IMPORT_RESTRICTION_MESSAGE =
     'Non-composition-root modules cannot import src/App.ts or src/Orchestrator.ts.';
 
+export const architectureRuleMessages = Object.freeze({
+    compositionRootAccessBoundary: ROOT_IMPORT_RESTRICTION_MESSAGE,
+    runtimeUiBoundary: RUNTIME_UI_RESTRICTION_MESSAGE,
+});
+
 function collectExceptionToPaths(rules, ruleName, fromPath) {
     return rules.temporaryExceptions
         .filter((exception) => exception.rule === ruleName && exception.from === fromPath)
@@ -30,6 +35,33 @@ function buildRegexSourceWithExcludedLiterals(alternatives, excludedLiterals) {
     }
     const excluded = excludedLiterals.map(escapeRegexLiteral).join('|');
     return `^(?!(?:${excluded})$)(?:${alternatives.join('|')})$`;
+}
+
+function buildRuntimeUiImportPattern(rules, fromPath = null) {
+    const allowedRuntimeUiPaths = fromPath
+        ? collectExceptionToPaths(rules, 'runtime-ui-boundary', fromPath).map(
+              (allowedPath) => `!${allowedPath}`
+          )
+        : [];
+
+    return {
+        group: [...rules.runtimeUiBoundary.forbiddenUiImportPatterns, ...allowedRuntimeUiPaths],
+        message: RUNTIME_UI_RESTRICTION_MESSAGE,
+    };
+}
+
+function buildCompositionRootImportPattern(rules, fromPath = null) {
+    const allowedRootPaths = fromPath
+        ? collectExceptionToPaths(rules, 'composition-root-access-boundary', fromPath)
+        : [];
+
+    return {
+        regex: buildRegexSourceWithExcludedLiterals(
+            rules.compositionRootAccessBoundary.restrictedImportRegexAlternatives,
+            allowedRootPaths
+        ),
+        message: ROOT_IMPORT_RESTRICTION_MESSAGE,
+    };
 }
 
 export function buildEslintArchitectureRules(rules) {
@@ -109,6 +141,29 @@ export function buildEslintArchitectureRules(rules) {
             },
         },
         {
+            files: ['src/**/*.ts', 'src/**/*.tsx'],
+            ignores: ['src/**/__tests__/**', ...allowedRootImporters, ...compositionRootExceptionFiles],
+            rules: {
+                'no-restricted-imports': [
+                    'error',
+                    {
+                        patterns: [buildCompositionRootImportPattern(rules)],
+                    },
+                ],
+            },
+        },
+        ...compositionRootExceptionFiles.map((fromPath) => ({
+            files: [fromPath],
+            rules: {
+                'no-restricted-imports': [
+                    'error',
+                    {
+                        patterns: [buildCompositionRootImportPattern(rules, fromPath)],
+                    },
+                ],
+            },
+        })),
+        {
             files: rules.runtimeUiBoundary.nonUiRuntimeModuleGlobs,
             ignores: ['src/**/__tests__/**', ...runtimeUiExceptionFiles],
             rules: {
@@ -116,10 +171,8 @@ export function buildEslintArchitectureRules(rules) {
                     'error',
                     {
                         patterns: [
-                            {
-                                group: rules.runtimeUiBoundary.forbiddenUiImportPatterns,
-                                message: RUNTIME_UI_RESTRICTION_MESSAGE,
-                            },
+                            buildRuntimeUiImportPattern(rules),
+                            buildCompositionRootImportPattern(rules),
                         ],
                     },
                 ],
@@ -132,59 +185,8 @@ export function buildEslintArchitectureRules(rules) {
                     'error',
                     {
                         patterns: [
-                            {
-                                group: [
-                                    ...rules.runtimeUiBoundary.forbiddenUiImportPatterns,
-                                    ...collectExceptionToPaths(
-                                        rules,
-                                        'runtime-ui-boundary',
-                                        fromPath
-                                    ).map((allowedPath) => `!${allowedPath}`),
-                                ],
-                                message: RUNTIME_UI_RESTRICTION_MESSAGE,
-                            },
-                        ],
-                    },
-                ],
-            },
-        })),
-        {
-            files: ['src/**/*.ts', 'src/**/*.tsx'],
-            ignores: ['src/**/__tests__/**', ...allowedRootImporters, ...compositionRootExceptionFiles],
-            rules: {
-                'no-restricted-imports': [
-                    'error',
-                    {
-                        patterns: [
-                            {
-                                regex: buildRegexSource(
-                                    rules.compositionRootAccessBoundary.restrictedImportRegexAlternatives
-                                ),
-                                message: ROOT_IMPORT_RESTRICTION_MESSAGE,
-                            },
-                        ],
-                    },
-                ],
-            },
-        },
-        ...compositionRootExceptionFiles.map((fromPath) => ({
-            files: [fromPath],
-            rules: {
-                'no-restricted-imports': [
-                    'error',
-                    {
-                        patterns: [
-                            {
-                                regex: buildRegexSourceWithExcludedLiterals(
-                                    rules.compositionRootAccessBoundary.restrictedImportRegexAlternatives,
-                                    collectExceptionToPaths(
-                                        rules,
-                                        'composition-root-access-boundary',
-                                        fromPath
-                                    )
-                                ),
-                                message: ROOT_IMPORT_RESTRICTION_MESSAGE,
-                            },
+                            buildRuntimeUiImportPattern(rules, fromPath),
+                            buildCompositionRootImportPattern(rules, fromPath),
                         ],
                     },
                 ],

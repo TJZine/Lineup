@@ -29,7 +29,7 @@ import {
     type ChannelSetupPlanningIntent,
 } from './ChannelSetupFacetSnapshotLoader';
 import { createEmptyChannelSetupEstimates } from './ChannelSetupPlanningTypes';
-import { normalizeChannelSetupConfig } from './normalizeChannelSetupConfig';
+import { normalizeChannelSetupConfig } from '../config/normalizeChannelSetupConfig';
 
 export interface ChannelSetupPlanningServiceDeps {
     plexLibrary: IPlexLibrary;

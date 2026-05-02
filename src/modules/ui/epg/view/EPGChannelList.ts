@@ -28,12 +28,6 @@ export class EPGChannelList {
     private wrapFlashTimer: ReturnType<typeof setTimeout> | null = null;
     private _categoryColorsEnabled = true;
 
-    /**
-     * Initialize the channel list.
-     *
-     * @param parentElement - Parent element to append channel list to
-     * @param config - EPG configuration
-     */
     initialize(parentElement: HTMLElement, config: EPGConfig): void {
         this.config = config;
 
@@ -90,19 +84,11 @@ export class EPGChannelList {
         }, 300);
     }
 
-    /**
-     * Update the channel list.
-     *
-     * @param channels - Array of channel configurations
-     */
     updateChannels(channels: ChannelConfig[]): void {
         this.channels = channels;
         this.renderChannels();
     }
 
-    /**
-     * Render channel rows.
-     */
     private renderChannels(): void {
         if (!this.contentElement || !this.config) return;
 
@@ -200,11 +186,6 @@ export class EPGChannelList {
         this.applyFocusToRenderedRows();
     }
 
-    /**
-     * Create a channel row element.
-     *
-     * @returns The row element
-     */
     private createChannelRow(): HTMLElement {
         const row = document.createElement('div');
         row.className = EPG_CLASSES.CHANNEL_ROW;
@@ -325,11 +306,6 @@ export class EPGChannelList {
         }
     }
 
-    /**
-     * Update scroll position to sync with grid.
-     *
-     * @param channelOffset - First visible channel index
-     */
     updateScrollPosition(channelOffset: number): void {
         if (!this.contentElement || !this.config) return;
 
@@ -357,12 +333,6 @@ export class EPGChannelList {
         this.applyFocusToRenderedRows();
     }
 
-    /**
-     * Get channel at index.
-     *
-     * @param index - Channel index
-     * @returns Channel config or null
-     */
     getChannel(index: number): ChannelConfig | null {
         if (index >= 0 && index < this.channels.length) {
             const channel = this.channels[index];
@@ -371,11 +341,6 @@ export class EPGChannelList {
         return null;
     }
 
-    /**
-     * Get total channel count.
-     *
-     * @returns Number of channels
-     */
     getChannelCount(): number {
         return this.channels.length;
     }

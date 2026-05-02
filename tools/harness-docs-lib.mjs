@@ -681,15 +681,16 @@ function getChecklistLinkedPackagePlanErrors(content) {
     if (readyNowExecutionUnitIsNone && !hasBlockedReadyNowState) {
         errors.push('`ready_now_execution_unit` may be `none` only when `ready_now_state` is blocked and `blocked_until` is set');
     }
-    if (
-        hasBlockedReadyNowState &&
+    const hasMixedBlockedReadyNowPointers = hasBlockedReadyNowState &&
         (readyNowSliceIsNone || readyNowExecutionUnitIsNone) &&
-        !hasBlockedReadyNowPointers
-    ) {
+        !hasBlockedReadyNowPointers;
+    if (hasMixedBlockedReadyNowPointers) {
         errors.push('blocked ready-now plans must set both `ready_now_slice` and `ready_now_execution_unit` to `none`');
     }
+    const shouldValidateReadyNowGraph = !hasMixedBlockedReadyNowPointers;
     const executionWavesBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`execution_waves`');
     const isWaveScoped = executionWavesBlock !== null || (
+        shouldValidateReadyNowGraph &&
         readyNowExecutionUnit !== null &&
         readyNowSlice !== null &&
         !hasBlockedReadyNowPointers &&
@@ -730,13 +731,19 @@ function getChecklistLinkedPackagePlanErrors(content) {
         const waveIds = waveEntries.map((entry) => entry.waveId);
         if (
             readyNowExecutionUnit !== null &&
+            shouldValidateReadyNowGraph &&
             !hasBlockedReadyNowPointers &&
             waveIds.length > 0 &&
             !waveIds.includes(readyNowExecutionUnit)
         ) {
             errors.push('`ready_now_execution_unit` must match one declared `wave_id` when `execution_waves` are present');
         }
-        if (readyNowExecutionUnit !== null && readyNowSlice !== null && !hasBlockedReadyNowPointers) {
+        if (
+            readyNowExecutionUnit !== null &&
+            readyNowSlice !== null &&
+            shouldValidateReadyNowGraph &&
+            !hasBlockedReadyNowPointers
+        ) {
             const selectedWave = waveEntries.find((entry) => entry.waveId === readyNowExecutionUnit) ?? null;
             if (selectedWave !== null) {
                 const firstDeclaredSlice = getDeclaredExecutionWaveSliceIds(selectedWave.content, sliceIdPattern)[0] ?? null;

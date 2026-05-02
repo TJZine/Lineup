@@ -4,20 +4,7 @@ import {
     safeLocalStorageSet,
 } from '../../../utils/storage';
 import { PLEX_DISCOVERY_CONSTANTS } from './constants';
-
-export type ServerHealthStatus =
-    | 'ok'
-    | 'unreachable'
-    | 'auth_required'
-    | 'access_denied';
-export type ServerHealthType = 'local' | 'remote' | 'relay' | 'unknown';
-
-export type ServerHealthRecord = {
-    status: ServerHealthStatus;
-    type: ServerHealthType;
-    latencyMs?: number;
-    testedAt?: number;
-};
+import type { ServerHealthRecord, ServerHealthStatus, ServerHealthType } from './types';
 
 export type ServerHealthMap = Record<string, ServerHealthRecord>;
 

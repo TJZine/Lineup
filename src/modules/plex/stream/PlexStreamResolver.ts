@@ -57,10 +57,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _subtitleDebugProbeCoordinator: SubtitleStreamDebugProbeCoordinator;
     private readonly _universalTranscodeDecisionClient: UniversalTranscodeDecisionClient;
 
-    /**
-     * Create a new PlexStreamResolver instance.
-     * @param config - Configuration with auth and server accessors
-     */
     constructor(config: PlexStreamResolverConfig) {
         this._config = config;
         this._emitter = new EventEmitter<StreamResolverEventMap>();
@@ -540,9 +536,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
 
-    /**
-     * Create a StreamResolverError.
-     */
     private _createError(
         code: StreamResolverError['code'],
         message: string,

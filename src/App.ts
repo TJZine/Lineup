@@ -113,14 +113,11 @@ export class App {
             this._themeController = new AppThemeController();
             this._themeController.initialize();
 
-            // Create root containers
             const containerRefs = this._createContainers();
             const platformServices = createWebOsPlatformServices();
 
-            // Build configuration
             const config = this._buildConfig(platformServices);
 
-            // Create and initialize orchestrator
             const orchestrator = new AppOrchestrator(platformServices);
             this._orchestrator = orchestrator;
             await orchestrator.initialize(config);
@@ -136,7 +133,6 @@ export class App {
                 this._toastPresenter.show(toast);
             });
 
-            // Start the orchestrator
             await orchestrator.start();
         } catch (error) {
             console.error('App startup failed:', summarizeErrorForLog(error));
@@ -347,18 +343,12 @@ export class App {
         }
     }
 
-    /**
-     * Build orchestrator configuration.
-     */
     private _buildConfig(
         platformServices: PlatformServices = createWebOsPlatformServices()
     ): ReturnType<typeof createAppOrchestratorConfig> {
         return createAppOrchestratorConfig(platformServices);
     }
 
-    /**
-     * Show error overlay with recovery actions.
-     */
     showErrorOverlay(error: LifecycleAppError): void {
         if (!this._orchestrator) {
             return;
@@ -372,25 +362,17 @@ export class App {
         this._blockingErrorOverlayPresenter.show(error, actions);
     }
 
-    /**
-     * Hide error overlay.
-     */
     hideErrorOverlay(options?: { fromModalClose?: boolean }): void {
         this._blockingErrorOverlayPresenter.hide(options);
     }
 
-    /**
-     * Show fatal error when app cannot start.
-     */
     private _showFatalError(error: unknown): void {
         const message = error instanceof Error ? error.message : String(error);
         const root = document.getElementById('app');
         if (root) {
-            // Create container
             const container = document.createElement('div');
             container.className = 'fatal-error';
 
-            // Title
             const title = document.createElement('h1');
             title.textContent = 'Application Error';
             container.appendChild(title);

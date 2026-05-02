@@ -2,14 +2,17 @@ import { summarizeErrorForLog } from '../../utils/errors';
 import type { INavigationManager } from '../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../plex/stream';
 import type { ScheduledProgram } from '../scheduler/scheduler';
-import type { INowPlayingInfoOverlay } from '../ui/now-playing-info';
 import { DebugOverridesStore } from './DebugOverridesStore';
+
+export interface NowPlayingDebugOverlayPort {
+    isVisible(): boolean;
+}
 
 export interface NowPlayingDebugManagerDeps {
     nowPlayingModalId: string;
     getNavigation: () => INavigationManager | null;
     getStreamResolver: () => IPlexStreamResolver | null;
-    getNowPlayingInfo: () => INowPlayingInfoOverlay | null;
+    getNowPlayingInfo: () => NowPlayingDebugOverlayPort | null;
 
     getCurrentProgram: () => ScheduledProgram | null;
     getCurrentStreamDecision: () => StreamDecision | null;

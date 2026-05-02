@@ -46,6 +46,7 @@ export class EPGGridRuntimeController {
     }
 
     destroy(): void {
+        this.throttledRenderGrid.cancel();
         this.stopTimeUpdateInterval();
         this.removeVisibilityListener();
         this.timeIndicatorElement?.remove();

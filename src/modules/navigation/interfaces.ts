@@ -216,13 +216,7 @@ export interface FocusGroup {
     columns?: number;
 }
 
-/**
- * Navigation events.
- * NOTE: The index signature is required for EventEmitter<T> generic constraint.
- * EventEmitter expects T extends Record<string, unknown>.
- */
 export interface NavigationEventMap {
-    [key: string]: unknown;
     keyPress: KeyEvent;
     keyUp: { button: RemoteButton };
     screenChange: { from: Screen; to: Screen };

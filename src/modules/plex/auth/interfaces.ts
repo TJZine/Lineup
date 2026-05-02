@@ -111,7 +111,7 @@ export interface StoredAuthData {
     version: number;
     data: PlexAuthData;
 }
-export interface PlexAuthEvents extends Record<string, unknown> {
+export interface PlexAuthEvents {
     authChange: boolean;
     profileChange: { fromUserId: string | null; toUserId: string };
 }

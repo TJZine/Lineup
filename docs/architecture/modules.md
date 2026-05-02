@@ -86,6 +86,8 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/shared/`
 
 - shared utilities and domain-neutral constants used across features
+- `src/shared/toast.ts` owns the UI-neutral toast payload contract consumed by
+  runtime modules and re-exported by `src/modules/ui/toast/`
 
 ### `src/styles/`
 
@@ -216,6 +218,12 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/core/channel-setup/`
 
 - channel setup record persistence and build-scratch lifecycle owners
+- `src/core/channel-setup/config/normalizeChannelSetupConfig.ts` owns public
+  setup-config normalization used by planning, build execution, persistence,
+  and UI session hydration; callers import this canonical owner directly
+- `src/core/channel-setup/workflow/ChannelSetupScreenWorkflowPort.ts` owns the
+  screen-facing workflow contract derived from the full workflow port without
+  diagnostics
 - `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`
 - owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
 - `src/core/channel-setup/build/ChannelSetupBuildScratchStore.ts`

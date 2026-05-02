@@ -89,7 +89,28 @@ describe('AppToastPresenter', () => {
         expect(jest.getTimerCount()).toBe(0);
 
         jest.advanceTimersByTime(5000);
-        expect(container.style.display).toBe('block');
+        expect(container.style.display).toBe('none');
         expect(container.style.opacity).toBe('0');
+    });
+
+    it('hides a previous container and clears throttle when container changes', () => {
+        const presenter = new AppToastPresenter();
+        const firstContainer = createToastContainer();
+        const secondContainer = createToastContainer();
+
+        presenter.setContainer(firstContainer);
+        jest.setSystemTime(10_000);
+        presenter.show({ message: 'First', type: 'info' });
+        expect(firstContainer.style.display).toBe('block');
+
+        presenter.setContainer(secondContainer);
+        jest.setSystemTime(10_100);
+        presenter.show({ message: 'Second', type: 'success' });
+
+        expect(firstContainer.style.display).toBe('none');
+        expect(firstContainer.style.opacity).toBe('0');
+        expect(secondContainer.textContent).toBe('✓ Second');
+        expect(secondContainer.style.display).toBe('block');
+        expect(secondContainer.style.opacity).toBe('1');
     });
 });

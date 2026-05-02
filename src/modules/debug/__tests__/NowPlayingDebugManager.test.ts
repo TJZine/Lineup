@@ -1,10 +1,13 @@
-import { NowPlayingDebugManager, type NowPlayingDebugManagerDeps } from '../NowPlayingDebugManager';
+import {
+    NowPlayingDebugManager,
+    type NowPlayingDebugManagerDeps,
+    type NowPlayingDebugOverlayPort,
+} from '../NowPlayingDebugManager';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { DebugOverridesStore } from '../DebugOverridesStore';
 import type { INavigationManager } from '../../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../../plex/stream';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
-import type { INowPlayingInfoOverlay } from '../../ui/now-playing-info';
 
 const modalId = 'now-playing';
 
@@ -74,7 +77,9 @@ const setup = (overrides: Partial<NowPlayingDebugManagerDeps> = {}): {
     const navigation = makeNavigation();
     const decision = makeDecision();
     const program = makeProgram();
-    const nowPlayingInfo = {} as INowPlayingInfoOverlay;
+    const nowPlayingInfo: NowPlayingDebugOverlayPort = {
+        isVisible: jest.fn(() => false),
+    };
     const resolver: IPlexStreamResolver = {
         fetchUniversalTranscodeDecision: jest.fn().mockResolvedValue({ videoDecision: 'copy' }),
     } as unknown as IPlexStreamResolver;
@@ -220,7 +225,7 @@ describe('NowPlayingDebugManager', () => {
             nowPlayingModalId: modalId,
             getNavigation: () => navigationOpen,
             getStreamResolver: () => openResolver,
-            getNowPlayingInfo: () => ({} as INowPlayingInfoOverlay),
+            getNowPlayingInfo: () => ({ isVisible: jest.fn(() => false) }),
             getCurrentProgram: () => makeProgram(),
             getCurrentStreamDecision: () => openDecision,
             debugOverridesStore: new DebugOverridesStore(),
@@ -252,7 +257,7 @@ describe('NowPlayingDebugManager', () => {
             nowPlayingModalId: modalId,
             getNavigation: () => navigationOpen,
             getStreamResolver: () => resolver,
-            getNowPlayingInfo: () => ({} as INowPlayingInfoOverlay),
+            getNowPlayingInfo: () => ({ isVisible: jest.fn(() => false) }),
             getCurrentProgram: () => makeProgram(),
             getCurrentStreamDecision: () => decision,
             debugOverridesStore: new DebugOverridesStore(),
@@ -294,7 +299,7 @@ describe('NowPlayingDebugManager', () => {
             nowPlayingModalId: modalId,
             getNavigation: () => navigationOpen,
             getStreamResolver: () => resolver,
-            getNowPlayingInfo: () => ({} as INowPlayingInfoOverlay),
+            getNowPlayingInfo: () => ({ isVisible: jest.fn(() => false) }),
             getCurrentProgram: () => makeProgram(),
             getCurrentStreamDecision: () => decision,
             debugOverridesStore: new DebugOverridesStore(),
@@ -348,7 +353,7 @@ describe('NowPlayingDebugManager', () => {
             nowPlayingModalId: modalId,
             getNavigation: () => makeNavigation(),
             getStreamResolver: () => resolver,
-            getNowPlayingInfo: () => ({} as INowPlayingInfoOverlay),
+            getNowPlayingInfo: () => ({ isVisible: jest.fn(() => false) }),
             getCurrentProgram: () => makeProgram(),
             getCurrentStreamDecision: () => decision,
             debugOverridesStore: new DebugOverridesStore(),

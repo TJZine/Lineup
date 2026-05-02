@@ -3,7 +3,8 @@ import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces'
 import type {
     ChannelBuildSummary,
 } from '../../../../core/channel-setup/types';
-import type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from '../ChannelSetupScreenPorts';
+import type { ChannelSetupScreenWorkflowPort } from '../../../../core/channel-setup/workflow/ChannelSetupScreenWorkflowPort';
+import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
 import type { ChannelSetupScreen } from '../ChannelSetupScreen';
 
 type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;

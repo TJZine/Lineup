@@ -72,7 +72,6 @@ interface PlexTagDirectoryQueryOptions {
 interface PlexLibraryEvents {
   authExpired: undefined;
   libraryRefreshed: { libraryId: string };
-  [key: string]: unknown;
 }
 
 interface IPlexLibrary {

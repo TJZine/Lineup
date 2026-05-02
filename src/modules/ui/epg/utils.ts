@@ -45,31 +45,52 @@ export function formatDuration(durationMs: number): string {
     return `${hours}h ${minutes}m`;
 }
 
+export interface CancellableRafThrottle<T extends (...args: unknown[]) => void> {
+    (...args: Parameters<T>): void;
+    cancel(): void;
+}
+
 export function rafThrottle<T extends (...args: unknown[]) => void>(
     fn: T
-): (...args: Parameters<T>) => void {
+): CancellableRafThrottle<T> {
     // In test environments (jsdom), RAF may not fire reliably
     // Fall back to synchronous execution
     const isTestEnv = typeof process !== 'undefined' &&
         process.env.NODE_ENV === 'test';
 
     if (isTestEnv || typeof requestAnimationFrame === 'undefined') {
-        return fn;
+        const immediate = ((...args: Parameters<T>): void => {
+            fn(...args);
+        }) as CancellableRafThrottle<T>;
+        immediate.cancel = (): void => {};
+        return immediate;
     }
 
     let rafId: number | null = null;
     let latestArgs: Parameters<T> | null = null;
 
-    return (...args: Parameters<T>): void => {
+    const throttled = ((...args: Parameters<T>): void => {
         latestArgs = args;
 
         if (rafId === null) {
             rafId = requestAnimationFrame(() => {
+                const argsToApply = latestArgs;
                 rafId = null;
-                if (latestArgs !== null) {
-                    fn(...latestArgs);
+                latestArgs = null;
+                if (argsToApply !== null) {
+                    fn(...argsToApply);
                 }
             });
         }
+    }) as CancellableRafThrottle<T>;
+
+    throttled.cancel = (): void => {
+        if (rafId !== null && typeof cancelAnimationFrame !== 'undefined') {
+            cancelAnimationFrame(rafId);
+        }
+        rafId = null;
+        latestArgs = null;
     };
+
+    return throttled;
 }

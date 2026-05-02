@@ -238,11 +238,6 @@ export class EPGVirtualizer {
         this.totalChannels = count;
     }
 
-    /**
-     * Update the grid anchor time.
-     *
-     * @param anchorTime - New anchor time (Unix ms)
-     */
     setGridAnchorTime(anchorTime: number): void {
         this.gridAnchorTime = anchorTime;
     }
@@ -297,13 +292,6 @@ export class EPGVirtualizer {
         };
     }
 
-    /**
-     * Check if a program overlaps with a time range.
-     *
-     * @param program - The scheduled program
-     * @param timeRange - Time range in minutes from anchor
-     * @returns true if program overlaps the range
-     */
     private overlapsTimeRange(
         program: ScheduledProgram,
         timeRange: { start: number; end: number }
@@ -735,14 +723,7 @@ export class EPGVirtualizer {
         return false;
     }
 
-    /**
-     * Get an element from the pool or create a new one.
-     * Pool elements are cleaned before reuse.
-     *
-     * @returns A DOM element ready for use
-     */
     private getOrCreateElement(): HTMLElement {
-        // Check pool for reusable element
         for (const [key, element] of this.elementPool) {
             this.elementPool.delete(key);
             this.cellRenderer.resetElement(element);
@@ -772,7 +753,6 @@ export class EPGVirtualizer {
             EPG_CLASSES.CELL_LOADING
         );
 
-        // Add to pool with unique key
         const poolKey = `pool-${Date.now()}-${this.poolSequence++}`;
         this.elementPool.set(poolKey, element);
 
@@ -785,12 +765,6 @@ export class EPGVirtualizer {
         }
     }
 
-    /**
-     * Render a cell to the DOM using a pooled or new element.
-     *
-     * @param key - Unique cell key
-     * @param cellData - Cell data to render
-     */
     private renderCell(key: string, cellData: VirtualizedCellRenderData, nowMs: number): void {
         if (!this.contentElement || !this.config) return;
 
@@ -804,15 +778,9 @@ export class EPGVirtualizer {
         element.style.top = `${(cellData.rowIndex - this.channelOffset) * this.config.rowHeight}px`;
         element.setAttribute('data-key', key);
 
-        // Append to grid
         this.contentElement.appendChild(element);
     }
 
-    /**
-     * Update cell position without recreating.
-     *
-     * @param cellData - Cell data with updated position
-     */
     private updateCellPosition(cellData: VirtualizedCellRenderData): void {
         const element = cellData.cellElement;
         if (!element || !this.config) return;
@@ -957,20 +925,10 @@ export class EPGVirtualizer {
         return null;
     }
 
-    /**
-     * Get the DOM element count (for testing).
-     *
-     * @returns Number of visible cell elements
-     */
     getElementCount(): number {
         return this.visibleCells.size;
     }
 
-    /**
-     * Get pool size (for testing).
-     *
-     * @returns Number of elements in pool
-     */
     getPoolSize(): number {
         return this.elementPool.size;
     }

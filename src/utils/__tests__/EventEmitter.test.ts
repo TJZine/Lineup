@@ -13,6 +13,20 @@ describe('EventEmitter', () => {
     });
 
     describe('on/emit', () => {
+        it('accepts closed interface event maps', () => {
+            interface ClosedEvents {
+                ping: { value: number };
+            }
+
+            const emitter = new EventEmitter<ClosedEvents>();
+            const handler = jest.fn();
+
+            emitter.on('ping', handler);
+            emitter.emit('ping', { value: 7 });
+
+            expect(handler).toHaveBeenCalledWith({ value: 7 });
+        });
+
         it('should call handler with correct payload type', () => {
             type TestEvents = { test: { value: number } };
             const emitter = new EventEmitter<TestEvents>();

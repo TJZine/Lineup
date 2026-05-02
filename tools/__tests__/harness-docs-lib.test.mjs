@@ -2233,6 +2233,35 @@ test('checkPlanConformance allows blocked active plans to expose no ready-now ex
     assert.deepEqual(result.errors, []);
 });
 
+test('checkPlanConformance rejects blocked active plans with mixed ready-now none pointers', () => {
+    const blockedReadyNowMarkers = [
+        '- `ready_now_state`: blocked; no execution unit is approved.',
+        '- `blocked_until`: the prerequisite package closes.',
+        '- `next_action`: launch the prerequisite package.',
+    ].join('\n');
+    const mixedPointerPackages = [
+        buildWaveScopedPackageDecomposition()
+            .replace('- `ready_now_slice`: `P6-W1-S1`', '- `ready_now_slice`: `none`'),
+        buildWaveScopedPackageDecomposition()
+            .replace('- `ready_now_execution_unit`: `W1`', '- `ready_now_execution_unit`: `none`'),
+        buildSingleSlicePackageDecomposition()
+            .replace('- `ready_now_slice`: `P6-W1-S1`', '- `ready_now_slice`: `none`'),
+        buildSingleSlicePackageDecomposition()
+            .replace('- `ready_now_execution_unit`: `P6-W1-S1`', '- `ready_now_execution_unit`: `none`'),
+    ];
+
+    for (const packageDecomposition of mixedPointerPackages) {
+        const result = checkPlanConformance({
+            filePath: 'docs/plans/2026-04-14-cleanup-example.md',
+            content: buildActiveCleanupPlan(`${packageDecomposition}\n${blockedReadyNowMarkers}`),
+        });
+
+        assert.deepEqual(result.errors, [
+            'blocked ready-now plans must set both `ready_now_slice` and `ready_now_execution_unit` to `none`',
+        ]);
+    }
+});
+
 test('checkPlanConformance rejects none ready-now fields without blocked state', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-14-cleanup-example.md',

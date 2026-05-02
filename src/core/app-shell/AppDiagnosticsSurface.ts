@@ -2,7 +2,7 @@ import type { ChannelSetupPlanDiagnosticsResult } from '../channel-setup/plannin
 import type { ChannelSetupConfig, ChannelSetupRecord } from '../channel-setup/types';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
-import type { ToastInput } from '../../modules/ui/toast/types';
+import type { ToastInput } from '../../shared/toast';
 import type { AppShellDiagnosticsRuntimePort } from './AppShellRuntimeContracts';
 import { summarizeChannelSetupPlannerDiagnostics } from './AppDiagnosticsChannelSetupSummary';
 import {

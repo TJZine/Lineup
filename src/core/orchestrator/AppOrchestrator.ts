@@ -145,7 +145,7 @@ import type { ErrorRecoveryAction } from '../error-recovery/types';
 import {
     buildPlexResourceUrlWithAuth,
 } from '../../modules/plex/shared/plexUrl';
-import type { ToastInput } from '../../modules/ui/toast/types';
+import type { ToastInput } from '../../shared/toast';
 import type { PlatformServices } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 import { summarizeErrorForLog } from '../../utils/errors';
@@ -399,11 +399,6 @@ export class AppOrchestrator {
         this._initializeModuleStatus();
     }
 
-    /**
-     * Initialize the orchestrator with configuration.
-     * Creates all module instances but does not start them.
-     * @param config - Configuration for all modules
-     */
     async initialize(config: OrchestratorConfig): Promise<void> {
         this._assertNotShutdown('initialize');
         const orchestratorConfig = this._prepareConfig(config);
@@ -767,10 +762,6 @@ export class AppOrchestrator {
         this._subtitleTrackRecoveryController = controllers.subtitleTrackRecoveryController;
     }
 
-    /**
-     * Start the application - execute initialization sequence and begin playback.
-     * Follows the named startup sequence order per spec.
-     */
     async start(): Promise<void> {
         this._assertNotShutdown('start');
         if (!this._initCoordinator) {
@@ -973,18 +964,12 @@ export class AppOrchestrator {
         this._ready = false;
     }
 
-    /**
-     * Get the status of all modules.
-     */
     getModuleStatus(): Map<string, ModuleStatus> {
         return new Map(
             Array.from(this._moduleStatus, ([id, status]) => [id, this._cloneModuleStatus(status)])
         );
     }
 
-    /**
-     * Check if the orchestrator is ready for operations.
-     */
     isReady(): boolean {
         return this._ready;
     }
@@ -1005,9 +990,6 @@ export class AppOrchestrator {
         return this._storageContext.getServerHealthStorageKey();
     }
 
-    /**
-     * Get the currently active navigation screen.
-     */
     getCurrentScreen(): Screen | null {
         if (!this._navigation) {
             return null;
@@ -1015,9 +997,6 @@ export class AppOrchestrator {
         return this._navigation.getCurrentScreen();
     }
 
-    /**
-     * Get the navigation manager instance.
-     */
     getNavigation(): INavigationManager | null {
         return this._navigation;
     }
@@ -1239,11 +1218,6 @@ export class AppOrchestrator {
         this._requireChannelSetupCoordinator().requestChannelSetupRerun();
     }
 
-    /**
-     * Switch to a channel by ID.
-     * Stops current playback, resolves content, configures scheduler, and syncs.
-     * @param channelId - ID of channel to switch to
-     */
     async switchToChannel(
         channelId: string,
         options?: {
@@ -1341,12 +1315,6 @@ export class AppOrchestrator {
         this._epgCoordinator?.handleGuideSettingChange(change);
     }
 
-    /**
-     * Handle a global application error.
-     * Routes to module-specific handlers first, then reports via lifecycle.
-     * @param error - The error to handle
-     * @param context - Module or operation context
-     */
     handleGlobalError(error: AppError, context: string): void {
         this._assertNotShutdown('handleGlobalError');
         if (this._isHandlingGlobalError) {
@@ -1396,11 +1364,6 @@ export class AppOrchestrator {
         this._errorHandlers.set(moduleId, handler);
     }
 
-    /**
-     * Get recovery actions for a specific error code.
-     * Covers all AppErrorCode values per spec.
-     * @param errorCode - Error code to get actions for
-     */
     getRecoveryActions(errorCode: AppErrorCode): ErrorRecoveryAction[] {
         return getRecoveryActionsHelper(errorCode, {
             goToAuth: (): void => {
@@ -1902,9 +1865,6 @@ export class AppOrchestrator {
         return buildResult.value;
     }
 
-    /**
-     * Get MIME type from stream decision.
-     */
     private _getMimeType(decision: StreamDecision): string {
         if (decision.protocol === 'hls') {
             return MIME_TYPES.hls || 'application/x-mpegURL';

@@ -77,11 +77,6 @@ export class ContentResolver {
     private readonly _sourceCache = new Map<string, SourceCacheEntry>();
     private readonly _sourceInFlight = new Map<string, SourceInFlightEntry>();
 
-    /**
-     * Create a ContentResolver instance.
-     * @param library - PlexLibrary for content fetching
-     * @param logger - Optional logger
-     */
     constructor(
         library: IPlexLibraryMinimal,
         logger?: { warn: (message: string, ...args: unknown[]) => void }
@@ -611,7 +606,6 @@ export class ContentResolver {
                 continue;
             }
 
-            // Build resolved item from cached manual metadata
             results.push({
                 ratingKey: manualItem.ratingKey,
                 type: 'movie', // Default, could be extended in ManualContentItem
