@@ -1,7 +1,5 @@
 import type { PlexServer } from '../../plex/discovery/types';
-import type { ServerSelectDisplayState } from './types';
-
-export type ServerSelectEmptyStateReason = 'no_servers' | 'discovery_failed';
+import type { ServerSelectDisplayState, ServerSelectEmptyStateReason } from './types';
 
 export type ServerSelectRenderOptions = {
     savedServerUnavailable?: boolean | undefined;

@@ -318,17 +318,8 @@ export class ChannelManager implements IChannelManager {
         try {
             if (options?.initialContent) {
                 const initialItems = this._resolutionCache.cloneItems(options.initialContent);
-                const orderedInitialItems = this._resolutionCache.cloneItems(initialItems);
-                channel.itemCount = initialItems.length;
-                channel.totalDurationMs = initialItems.reduce((sum, item) => sum + item.durationMs, 0);
-                channel.lastContentRefresh = Date.now();
-                resolvedContent = {
-                    items: initialItems,
-                    orderedItems: orderedInitialItems,
-                    totalDurationMs: channel.totalDurationMs,
-                    channelId: channel.id,
-                    resolvedAt: channel.lastContentRefresh
-                };
+                resolvedContent = this._createResolvedContent(channel, initialItems);
+                this._applyResolvedContentMetadata(channel, resolvedContent);
             } else {
                 resolvedContent = await this._resolveContentForAuthoring(channel, options);
                 this._applyResolvedContentMetadata(channel, resolvedContent);
@@ -651,6 +642,7 @@ export class ChannelManager implements IChannelManager {
 
             const { data, didMutate: didMutateFromNormalization } = normalized;
 
+            this._persistence.supersedePendingSave();
             this._retryScheduler.cancelAll();
             this._contentResolver.clearCaches();
             this._resolutionCache.clear();

@@ -521,6 +521,15 @@ describe('PlexLibrary', () => {
             );
         });
 
+        it('returns no items without fetching when limit is non-positive', async () => {
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getLibraryItems('1', { limit: 0 })).resolves.toEqual([]);
+            await expect(library.getLibraryItems('1', { limit: -1 })).resolves.toEqual([]);
+
+            expect(fetch).not.toHaveBeenCalled();
+        });
+
         it('should throw when pagination guard is exceeded in getLibraryItems', async () => {
             expectPlexLibraryError(
                 '[PlexLibrary] Pagination guard tripped in getLibraryItems (libraryId=infinite-lib, fetched=100000, pageSize=100, maxIterations=1000)'

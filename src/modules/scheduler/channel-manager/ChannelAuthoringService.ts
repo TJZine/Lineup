@@ -3,6 +3,11 @@ import { AppErrorCode } from '../../../types/app-errors';
 import { CHANNEL_ERROR_MESSAGES, MAX_CHANNELS, MAX_CHANNEL_NUMBER, MIN_CHANNEL_NUMBER } from './constants';
 import { ChannelError } from './ChannelErrors';
 import { isValidContentSource } from './ChannelContentSourceValidator';
+import {
+    cloneChannelForOwnership,
+    cloneContentFilters,
+    cloneContentSource,
+} from './ChannelDomainClone';
 import type { ChannelConfig, ChannelCreateInput, ChannelUpdateInput } from './types';
 
 type ChannelAuthoringServiceConfig = {
@@ -67,7 +72,7 @@ export class ChannelAuthoringService {
                 typeof input.name === 'string' && input.name.length > 0
                     ? input.name
                     : `Channel ${channelNumber}`,
-            contentSource: input.contentSource,
+            contentSource: cloneContentSource(input.contentSource),
             playbackMode: input.playbackMode || 'sequential',
             startTimeAnchor:
                 typeof input.startTimeAnchor === 'number'
@@ -111,7 +116,7 @@ export class ChannelAuthoringService {
             if (!this._shouldAcceptReplacementChannel(channel, nextChannels, nextChannelOrder, logger)) {
                 continue;
             }
-            const normalizedChannel: ChannelConfig = { ...channel };
+            const normalizedChannel = cloneChannelForOwnership(channel);
             const isValidNumber =
                 typeof normalizedChannel.number === 'number' &&
                 Number.isInteger(normalizedChannel.number) &&
@@ -150,9 +155,15 @@ export class ChannelAuthoringService {
             this._validateRequestedNumber(filteredUpdates.number, existingChannels);
         }
 
+        const clonedUpdates: ChannelUpdateInput = {
+            ...filteredUpdates,
+            ...(filteredUpdates.contentSource ? { contentSource: cloneContentSource(filteredUpdates.contentSource) } : {}),
+            ...(filteredUpdates.contentFilters ? { contentFilters: cloneContentFilters(filteredUpdates.contentFilters) } : {}),
+        };
+
         return {
             ...channel,
-            ...filteredUpdates,
+            ...clonedUpdates,
             id: channel.id,
             createdAt: channel.createdAt,
             updatedAt: this._now(),
@@ -223,7 +234,7 @@ export class ChannelAuthoringService {
         ) {
             channel.blockSize = Math.max(1, Math.floor(input.blockSize));
         }
-        if (input.contentFilters !== undefined) channel.contentFilters = input.contentFilters;
+        if (input.contentFilters !== undefined) channel.contentFilters = cloneContentFilters(input.contentFilters);
         if (input.sortOrder !== undefined) channel.sortOrder = input.sortOrder;
         if (input.maxEpisodeRunTimeMs !== undefined) channel.maxEpisodeRunTimeMs = input.maxEpisodeRunTimeMs;
         if (input.minEpisodeRunTimeMs !== undefined) channel.minEpisodeRunTimeMs = input.minEpisodeRunTimeMs;

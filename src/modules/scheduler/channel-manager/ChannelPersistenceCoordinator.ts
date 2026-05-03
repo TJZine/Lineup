@@ -7,12 +7,10 @@ import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
 import { ChannelError } from './ChannelErrors';
 import type {
     ChannelConfig,
-    ChannelContentSource,
     ChannelManagerEventMap,
-    ContentFilter,
-    ManualContentItem,
     StoredChannelData,
 } from './types';
+import { cloneChannelForOwnership } from './ChannelDomainClone';
 
 type ChannelPersistenceCoordinatorLogger = {
     warn: (message: string, ...args: unknown[]) => void;
@@ -186,53 +184,9 @@ function createDisposedError(): ChannelError {
 
 function makeChannelSnapshot(state: PersistableChannelState): StoredChannelData {
     return {
-        channels: Array.from(state.channels, cloneChannelForPersistence),
+        channels: Array.from(state.channels, cloneChannelForOwnership),
         channelOrder: [...state.channelOrder],
         currentChannelId: state.currentChannelId,
         savedAt: Date.now(),
     };
-}
-
-function cloneChannelForPersistence(channel: ChannelConfig): ChannelConfig {
-    return {
-        ...channel,
-        contentSource: cloneContentSource(channel.contentSource),
-        ...(channel.contentFilters ? { contentFilters: cloneContentFilters(channel.contentFilters) } : {}),
-    };
-}
-
-function cloneContentFilters(filters: ContentFilter[]): ContentFilter[] {
-    return filters.map((filter) => ({ ...filter }));
-}
-
-function cloneContentSource(source: ChannelContentSource): ChannelContentSource {
-    switch (source.type) {
-        case 'library':
-            return {
-                ...source,
-                ...(source.libraryFilter ? { libraryFilter: { ...source.libraryFilter } } : {}),
-            };
-        case 'manual':
-            return {
-                ...source,
-                items: source.items.map(cloneManualContentItem),
-            };
-        case 'mixed':
-            return {
-                ...source,
-                sources: source.sources.map(cloneContentSource),
-            };
-        case 'show':
-            return {
-                ...source,
-                ...(source.seasonFilter ? { seasonFilter: [...source.seasonFilter] } : {}),
-            };
-        case 'collection':
-        case 'playlist':
-            return { ...source };
-    }
-}
-
-function cloneManualContentItem(item: ManualContentItem): ManualContentItem {
-    return { ...item };
 }

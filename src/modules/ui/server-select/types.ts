@@ -14,6 +14,8 @@ export type ServerSelectDisplayState = {
     serverHealth: Record<string, ServerSelectHealthRecord | undefined>;
 };
 
+export type ServerSelectEmptyStateReason = 'no_servers' | 'discovery_failed';
+
 export type ServerSelectSelectionFailureReason = 'server_not_found' | PlexServerSelectionFailureReason;
 
 export type ServerSelectSelectionResult =

@@ -1,7 +1,10 @@
 import type { PlexServer } from '../../plex/discovery/types';
 import type { ServerSelectScreenNavigationPort } from '../../navigation';
-import type { ServerSelectEmptyStateReason } from './ServerSelectListView';
-import type { ServerSelectDisplayState, ServerSelectScreenPorts } from './types';
+import type {
+    ServerSelectDisplayState,
+    ServerSelectEmptyStateReason,
+    ServerSelectScreenPorts,
+} from './types';
 import { ServerSelectStatusPolicy } from './ServerSelectStatusPolicy';
 
 export interface ServerSelectRuntimeScreenAdapter {

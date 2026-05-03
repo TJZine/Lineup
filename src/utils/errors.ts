@@ -1,4 +1,4 @@
-import { redactSensitiveTokens } from './redact';
+import { redactSensitiveTokens, safeStringifyForLog } from './redact';
 
 export function summarizeErrorForLog(value: unknown): unknown {
     if (typeof value === 'string') {
@@ -34,7 +34,7 @@ export function formatErrorDetailForMessage(detail: unknown): string {
         if ('message' in summary && typeof summary.message === 'string') {
             return summary.message;
         }
-        return JSON.stringify(summary);
+        return safeStringifyForLog(summary);
     }
     return String(summary);
 }

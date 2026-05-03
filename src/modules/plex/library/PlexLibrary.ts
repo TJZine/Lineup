@@ -306,6 +306,10 @@ export class PlexLibrary implements IPlexLibrary {
         libraryId: string,
         options: LibraryQueryOptions = {}
     ): Promise<PlexMediaItem[]> {
+        if (options.limit !== undefined && options.limit <= 0) {
+            return [];
+        }
+
         const pageSize = options.limit ?? PLEX_LIBRARY_CONSTANTS.DEFAULT_PAGE_SIZE;
         const items = await this._fetchPagedMediaItems<PlexMediaContainer<RawMediaItem>>({
             operationName: 'getLibraryItems',
@@ -338,13 +342,13 @@ export class PlexLibrary implements IPlexLibrary {
             },
             shouldContinue: ({ pageItems, accumulatedItems }) =>
                 pageItems.length === pageSize &&
-                (!options.limit || accumulatedItems.length < options.limit),
+                (options.limit === undefined || accumulatedItems.length < options.limit),
             formatGuardContext: ({ fetched }) =>
                 `(libraryId=${libraryId}, fetched=${fetched}, pageSize=${pageSize}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`,
         });
 
         // Trim to exact limit if specified
-        if (options.limit && items.length > options.limit) {
+        if (options.limit !== undefined && items.length > options.limit) {
             return items.slice(0, options.limit);
         }
 

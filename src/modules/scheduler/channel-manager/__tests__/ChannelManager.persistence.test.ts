@@ -418,6 +418,40 @@ describe('ChannelManager persistence and storage keys', () => {
             coordinator.dispose();
         });
 
+        it('does not let an older pending debounced save overwrite loaded channel storage', async () => {
+            await manager.createChannel({
+                name: 'Old Channel',
+                contentSource: createMockContentSource('old-lib'),
+            });
+
+            const loadedChannel = createBaseChannel({
+                id: 'loaded-channel',
+                name: 'Loaded Channel',
+                number: 22,
+                contentSource: createMockContentSource('loaded-lib'),
+            });
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
+                channels: [loadedChannel],
+                channelOrder: [loadedChannel.id],
+                currentChannelId: loadedChannel.id,
+                savedAt: Date.now(),
+            }));
+
+            await manager.loadChannels();
+            await settleSaveDebounce();
+
+            const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
+                channels?: Array<{ id?: string; name?: string }>;
+                channelOrder?: string[];
+                currentChannelId?: string | null;
+            };
+
+            expect(persisted.channels?.map((channel) => channel.id)).toEqual(['loaded-channel']);
+            expect(persisted.channels?.[0]?.name).toBe('Loaded Channel');
+            expect(persisted.channelOrder).toEqual(['loaded-channel']);
+            expect(persisted.currentChannelId).toBe('loaded-channel');
+        });
+
         it('resets current-channel warning throttling after a best-effort save succeeds', () => {
             const emitPersistenceWarning = jest.fn();
             const coordinator = new ChannelPersistenceCoordinator({

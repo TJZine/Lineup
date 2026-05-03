@@ -4,10 +4,7 @@ import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { createScreenShell } from '../common/ScreenShell';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
-import {
-    renderServerSelectList,
-    type ServerSelectEmptyStateReason,
-} from './ServerSelectListView';
+import { renderServerSelectList } from './ServerSelectListView';
 import {
     ServerSelectFocusCoordinator,
     type ServerSelectStaticButtons,
@@ -19,6 +16,7 @@ import {
 import { ServerSelectStatusPolicy } from './ServerSelectStatusPolicy';
 import type {
     ServerSelectDisplayState,
+    ServerSelectEmptyStateReason,
     ServerSelectScreenPorts,
 } from './types';
 

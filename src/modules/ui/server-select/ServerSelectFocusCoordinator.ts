@@ -128,13 +128,15 @@ export class ServerSelectFocusCoordinator {
         this._restoreFocusTimeoutId = setTimeout(() => {
             this._restoreFocusTimeoutId = null;
             this._restoreFocusGeneration = null;
-            if (!options.canUpdateUi(generation)) return;
-            if (nav.restoreFocusForCurrentScreen()) {
+            try {
+                if (!options.canUpdateUi(generation)) return;
+                if (nav.restoreFocusForCurrentScreen()) {
+                    return;
+                }
+                nav.setFocus('btn-server-refresh');
+            } finally {
                 options.onSettled();
-                return;
             }
-            nav.setFocus('btn-server-refresh');
-            options.onSettled();
         }, SERVER_SELECT_FOCUS_RESTORE_DELAY_MS);
         options.onPending();
     }

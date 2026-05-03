@@ -16,4 +16,14 @@ describe('ChannelImportNormalizer error formatting', () => {
         expect(normalizer.formatErrorMessage({ code: 'NETWORK_TIMEOUT' }))
             .toBe('{"code":"NETWORK_TIMEOUT"}');
     });
+
+    it('formats unserializable object import errors without throwing', () => {
+        const normalizer = new ChannelImportNormalizer();
+        const circular: Record<string, unknown> = {};
+        circular.self = circular;
+
+        const message = normalizer.formatErrorMessage({ code: circular });
+
+        expect(message).toContain('"unserializable":true');
+    });
 });
