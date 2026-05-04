@@ -1,4 +1,4 @@
-import { formatErrorDetailForMessage } from '../../../../utils/errors';
+import { formatErrorDetailForMessage, summarizeErrorForLog } from '../../../../utils/errors';
 import { ChannelImportNormalizer } from '../ChannelImportNormalizer';
 
 describe('ChannelImportNormalizer error formatting', () => {
@@ -15,6 +15,15 @@ describe('ChannelImportNormalizer error formatting', () => {
         expect(normalizer.formatErrorMessage(new Error('Plex timeout'))).toBe('Plex timeout');
         expect(normalizer.formatErrorMessage({ code: 'NETWORK_TIMEOUT' }))
             .toBe('{"code":"NETWORK_TIMEOUT"}');
+    });
+
+    it('formats plain-object message import errors without including auxiliary fields', () => {
+        const normalizer = new ChannelImportNormalizer();
+        const detail = { message: 'oops', code: 'X', ignored: true };
+
+        expect(summarizeErrorForLog(detail)).toEqual({ code: 'X', message: 'oops' });
+        expect(formatErrorDetailForMessage(detail)).toBe('oops');
+        expect(normalizer.formatErrorMessage(detail)).toBe('oops');
     });
 
     it('formats unserializable object import errors without throwing', () => {

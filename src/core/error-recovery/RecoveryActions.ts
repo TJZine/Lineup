@@ -142,6 +142,7 @@ const RECOVERY_GROUP_BY_ERROR_CODE: Record<AppErrorCode, RecoveryActionGroupId> 
     [AppErrorCode.SCROLL_TIMEOUT]: 'dismiss',
     [AppErrorCode.POOL_EXHAUSTED]: 'dismiss',
     [AppErrorCode.CHANNEL_CONTENT_SOURCE_REQUIRED]: 'dismiss',
+    [AppErrorCode.CHANNEL_CONTENT_SOURCE_INVALID]: 'dismiss',
     [AppErrorCode.MAX_CHANNELS_REACHED]: 'dismiss',
     [AppErrorCode.DUPLICATE_CHANNEL_NUMBER]: 'dismiss',
     [AppErrorCode.INVALID_CHANNEL_NUMBER]: 'dismiss',

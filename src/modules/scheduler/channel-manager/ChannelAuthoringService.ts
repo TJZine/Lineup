@@ -8,7 +8,7 @@ import {
     cloneContentFilters,
     cloneContentSource,
 } from './ChannelDomainClone';
-import type { ChannelConfig, ChannelCreateInput, ChannelUpdateInput } from './types';
+import type { ChannelConfig, ChannelContentSource, ChannelCreateInput, ChannelUpdateInput } from './types';
 
 type ChannelAuthoringServiceConfig = {
     generateId: () => string;
@@ -51,6 +51,7 @@ export class ChannelAuthoringService {
                 false
             );
         }
+        const contentSource = this._validateContentSource(input.contentSource);
 
         const channels = Array.from(existingChannels);
         if (channels.length >= MAX_CHANNELS) {
@@ -72,7 +73,7 @@ export class ChannelAuthoringService {
                 typeof input.name === 'string' && input.name.length > 0
                     ? input.name
                     : `Channel ${channelNumber}`,
-            contentSource: cloneContentSource(input.contentSource),
+            contentSource: cloneContentSource(contentSource),
             playbackMode: input.playbackMode || 'sequential',
             startTimeAnchor:
                 typeof input.startTimeAnchor === 'number'
@@ -155,9 +156,15 @@ export class ChannelAuthoringService {
             this._validateRequestedNumber(filteredUpdates.number, existingChannels);
         }
 
+        const hasContentSourceUpdate = Object.prototype.hasOwnProperty.call(filteredUpdates, 'contentSource');
+        const contentSourceUpdate = hasContentSourceUpdate
+            ? this._validateContentSource(filteredUpdates.contentSource)
+            : undefined;
         const clonedUpdates: ChannelUpdateInput = {
             ...filteredUpdates,
-            ...(filteredUpdates.contentSource ? { contentSource: cloneContentSource(filteredUpdates.contentSource) } : {}),
+            ...(hasContentSourceUpdate && contentSourceUpdate
+                ? { contentSource: cloneContentSource(contentSourceUpdate) }
+                : {}),
             ...(filteredUpdates.contentFilters ? { contentFilters: cloneContentFilters(filteredUpdates.contentFilters) } : {}),
         };
 
@@ -238,6 +245,17 @@ export class ChannelAuthoringService {
         if (input.sortOrder !== undefined) channel.sortOrder = input.sortOrder;
         if (input.maxEpisodeRunTimeMs !== undefined) channel.maxEpisodeRunTimeMs = input.maxEpisodeRunTimeMs;
         if (input.minEpisodeRunTimeMs !== undefined) channel.minEpisodeRunTimeMs = input.minEpisodeRunTimeMs;
+    }
+
+    private _validateContentSource(source: unknown): ChannelContentSource {
+        if (!isValidContentSource(source)) {
+            throw new ChannelError(
+                AppErrorCode.CHANNEL_CONTENT_SOURCE_INVALID,
+                CHANNEL_ERROR_MESSAGES.CONTENT_SOURCE_INVALID,
+                false
+            );
+        }
+        return source;
     }
 
     private _validateRequestedNumber(number: number, existingChannels: Iterable<ChannelConfig>): number {

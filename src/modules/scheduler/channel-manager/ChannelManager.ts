@@ -796,6 +796,7 @@ export class ChannelManager implements IChannelManager {
 
         try {
             const items = await this._resolveFilteredItems(channel, options);
+            this._retryScheduler.cancel(channel.id);
             return this._createResolvedContent(channel, items);
         } catch (error) {
             if (error instanceof ChannelError && error.code === AppErrorCode.SCHEDULER_EMPTY_CHANNEL) {
@@ -849,6 +850,8 @@ export class ChannelManager implements IChannelManager {
             if (options?.shouldApply && !options.shouldApply()) {
                 return result;
             }
+
+            this._retryScheduler.cancel(channel.id);
 
             // Cache
             this._resolutionCache.set(result);
