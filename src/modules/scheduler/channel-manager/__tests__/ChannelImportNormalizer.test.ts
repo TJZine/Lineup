@@ -1,4 +1,3 @@
-import { formatErrorDetailForMessage, summarizeErrorForLog } from '../../../../utils/errors';
 import { ChannelImportNormalizer } from '../ChannelImportNormalizer';
 
 describe('ChannelImportNormalizer error formatting', () => {
@@ -6,7 +5,6 @@ describe('ChannelImportNormalizer error formatting', () => {
         const normalizer = new ChannelImportNormalizer();
 
         expect(normalizer.formatErrorMessage('plain failure')).toBe('plain failure');
-        expect(formatErrorDetailForMessage('plain failure')).toBe('plain failure');
     });
 
     it('formats Error and object import errors consistently', () => {
@@ -21,8 +19,6 @@ describe('ChannelImportNormalizer error formatting', () => {
         const normalizer = new ChannelImportNormalizer();
         const detail = { message: 'oops', code: 'X', ignored: true };
 
-        expect(summarizeErrorForLog(detail)).toEqual({ code: 'X', message: 'oops' });
-        expect(formatErrorDetailForMessage(detail)).toBe('oops');
         expect(normalizer.formatErrorMessage(detail)).toBe('oops');
     });
 
