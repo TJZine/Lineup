@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { AppScreenVisibilityCoordinator } from '../AppScreenVisibilityCoordinator';
+import { AppScreenVisibilityCoordinator } from '../chrome/AppScreenVisibilityCoordinator';
 
 type Screen = {
     show: jest.Mock;

@@ -1,11 +1,11 @@
-import { CHANNEL_BADGE_CONTAINER_ID } from '../../modules/ui/channel-badge';
-import { EXIT_CONFIRM_CONTAINER_ID } from '../../modules/ui/exit-confirm';
-import { EPG_CONTAINER_ID } from '../../modules/ui/epg';
-import { PLAYER_OSD_CONTAINER_ID } from '../../modules/ui/player-osd';
-import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID } from '../../modules/ui/channel-number-overlay';
-import { MINI_GUIDE_CONTAINER_ID } from '../../modules/ui/mini-guide';
-import { CHANNEL_TRANSITION_CONTAINER_ID } from '../../modules/ui/channel-transition';
-import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
+import { CHANNEL_BADGE_CONTAINER_ID } from '../../../modules/ui/channel-badge';
+import { EXIT_CONFIRM_CONTAINER_ID } from '../../../modules/ui/exit-confirm';
+import { EPG_CONTAINER_ID } from '../../../modules/ui/epg';
+import { PLAYER_OSD_CONTAINER_ID } from '../../../modules/ui/player-osd';
+import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID } from '../../../modules/ui/channel-number-overlay';
+import { MINI_GUIDE_CONTAINER_ID } from '../../../modules/ui/mini-guide';
+import { CHANNEL_TRANSITION_CONTAINER_ID } from '../../../modules/ui/channel-transition';
+import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
 export interface AppContainerRefs {
     splashContainer: HTMLElement;

@@ -1,4 +1,4 @@
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 export interface AppDiagnosticsDevMenuElements {
     container: HTMLElement;

@@ -4,7 +4,7 @@
 
 import type { LifecycleAppError } from '../../../modules/lifecycle/types';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
-import { AppBlockingErrorOverlayPresenter, type BlockingErrorOverlayAction } from '../AppBlockingErrorOverlayPresenter';
+import { AppBlockingErrorOverlayPresenter, type BlockingErrorOverlayAction } from '../chrome/AppBlockingErrorOverlayPresenter';
 
 const createOverlayContainer = (): HTMLDivElement => {
     const container = document.createElement('div');

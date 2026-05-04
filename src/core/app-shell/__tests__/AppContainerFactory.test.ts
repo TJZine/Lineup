@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { createAppContainers } from '../AppContainerFactory';
+import { createAppContainers } from '../chrome/AppContainerFactory';
 import {
     EXPECTED_APP_ROOT_CHILD_IDS,
     EXPECTED_CONTAINER_IDS,

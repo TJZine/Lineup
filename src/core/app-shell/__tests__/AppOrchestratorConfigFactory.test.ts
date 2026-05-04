@@ -1,4 +1,4 @@
-import { createAppOrchestratorConfig } from '../AppOrchestratorConfigFactory';
+import { createAppOrchestratorConfig } from '../config/AppOrchestratorConfigFactory';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 import { PLAYER_OSD_CONTAINER_ID } from '../../../modules/ui/player-osd';
 import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID } from '../../../modules/ui/channel-number-overlay';

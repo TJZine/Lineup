@@ -1,17 +1,17 @@
-import { createDefaultPlexAuthConfig } from '../../modules/plex/auth';
-import type { NavigationConfig } from '../../modules/navigation';
-import type { VideoPlayerConfig } from '../../modules/player';
-import { createDefaultEpgConfig, type EPGConfig } from '../../modules/ui/epg';
-import type { NowPlayingInfoConfig } from '../../modules/ui/now-playing-info';
-import { APP_SHELL_CONTAINER_IDS } from '../../modules/ui/common/appShellContainerIds';
-import { PLAYER_OSD_CONTAINER_ID, type PlayerOsdConfig } from '../../modules/ui/player-osd';
-import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID, type ChannelNumberOverlayConfig } from '../../modules/ui/channel-number-overlay';
-import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from '../../modules/ui/channel-badge';
-import { MINI_GUIDE_CONTAINER_ID, type MiniGuideConfig } from '../../modules/ui/mini-guide';
-import { CHANNEL_TRANSITION_CONTAINER_ID, type ChannelTransitionConfig } from '../../modules/ui/channel-transition';
-import type { PlaybackOptionsConfig } from '../../modules/ui/playback-options';
-import { createWebOsPlatformServices, type PlatformServices } from '../../platform';
-import type { OrchestratorConfig } from '../orchestrator/OrchestratorTypes';
+import { createDefaultPlexAuthConfig } from '../../../modules/plex/auth';
+import type { NavigationConfig } from '../../../modules/navigation';
+import type { VideoPlayerConfig } from '../../../modules/player';
+import { createDefaultEpgConfig, type EPGConfig } from '../../../modules/ui/epg';
+import type { NowPlayingInfoConfig } from '../../../modules/ui/now-playing-info';
+import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
+import { PLAYER_OSD_CONTAINER_ID, type PlayerOsdConfig } from '../../../modules/ui/player-osd';
+import { CHANNEL_NUMBER_OVERLAY_CONTAINER_ID, type ChannelNumberOverlayConfig } from '../../../modules/ui/channel-number-overlay';
+import { CHANNEL_BADGE_CONTAINER_ID, type ChannelBadgeConfig } from '../../../modules/ui/channel-badge';
+import { MINI_GUIDE_CONTAINER_ID, type MiniGuideConfig } from '../../../modules/ui/mini-guide';
+import { CHANNEL_TRANSITION_CONTAINER_ID, type ChannelTransitionConfig } from '../../../modules/ui/channel-transition';
+import type { PlaybackOptionsConfig } from '../../../modules/ui/playback-options';
+import { createWebOsPlatformServices, type PlatformServices } from '../../../platform';
+import type { OrchestratorConfig } from '../../orchestrator/OrchestratorTypes';
 
 const DEFAULT_NAV_CONFIG: NavigationConfig = {
     enablePointerMode: false,

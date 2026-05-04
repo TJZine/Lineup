@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { AppStartupUiInitializer } from '../AppStartupUiInitializer';
+import { AppStartupUiInitializer } from '../chrome/AppStartupUiInitializer';
 import { EXIT_CONFIRM_CONTAINER_ID } from '../../../modules/ui/exit-confirm';
 import type { ModuleStatus, OrchestratorConfig } from '../../orchestrator/OrchestratorTypes';
 

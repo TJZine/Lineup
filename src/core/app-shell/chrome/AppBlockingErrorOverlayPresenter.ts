@@ -1,5 +1,5 @@
-import type { LifecycleAppError } from '../../modules/lifecycle/types';
-import type { INavigationManager } from '../../modules/navigation';
+import type { LifecycleAppError } from '../../../modules/lifecycle/types';
+import type { INavigationManager } from '../../../modules/navigation';
 
 export interface BlockingErrorOverlayAction {
     label: string;

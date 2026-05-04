@@ -5,13 +5,13 @@
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import {
     AppLazyScreenRegistry,
-} from '../AppLazyScreenRegistry';
+} from '../deferred-screens/AppLazyScreenRegistry';
 import type {
     AppLazyChannelSetupScreenInput,
     AppLazyScreenPortFactory,
     AppLazySettingsRuntimePorts,
-} from '../AppLazyScreenPortFactory';
-import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../constants';
+} from '../deferred-screens/AppLazyScreenPortFactory';
+import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../config/constants';
 
 type MockScreen = {
     show: jest.Mock;

@@ -1,9 +1,9 @@
-import type { ChannelSetupPlanDiagnosticsResult } from '../channel-setup/planning/ChannelSetupPlanDiagnostics';
+import type { ChannelSetupPlanDiagnosticsResult } from '../../channel-setup/planning/ChannelSetupPlanDiagnostics';
 import type {
     ChannelSetupPlannerCountSample,
     ChannelSetupPlannerFacetCountDiagnostics,
     ChannelSetupPlannerLibraryCount,
-} from '../channel-setup/planning/ChannelSetupPlanningTypes';
+} from '../../channel-setup/planning/ChannelSetupPlanningTypes';
 
 type ChannelSetupPlannerFacetFamily = 'genres' | 'directors' | 'decades' | 'studios' | 'actors';
 

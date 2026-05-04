@@ -1,4 +1,4 @@
-import { summarizeChannelSetupPlannerDiagnostics } from '../AppDiagnosticsChannelSetupSummary';
+import { summarizeChannelSetupPlannerDiagnostics } from '../diagnostics/AppDiagnosticsChannelSetupSummary';
 
 describe('summarizeChannelSetupPlannerDiagnostics', () => {
     it('returns bounded overview and capped family samples', () => {

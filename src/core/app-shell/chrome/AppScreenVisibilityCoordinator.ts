@@ -1,4 +1,4 @@
-import type { ServerSelectNavigationParams } from '../../modules/navigation';
+import type { ServerSelectNavigationParams } from '../../../modules/navigation';
 
 interface VisibilityScreen {
     show: () => void;

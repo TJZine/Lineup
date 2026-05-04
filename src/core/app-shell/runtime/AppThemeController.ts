@@ -1,5 +1,5 @@
-import { ThemePreferencesStore } from '../../modules/settings/ThemePreferencesStore';
-import { DEFAULT_THEME, THEME_CLASSES, type ThemeName } from '../../modules/ui/theme/themeDefinitions';
+import { ThemePreferencesStore } from '../../../modules/settings/ThemePreferencesStore';
+import { DEFAULT_THEME, THEME_CLASSES, type ThemeName } from '../../../modules/ui/theme/themeDefinitions';
 
 const isThemeName = (value: string | null): value is ThemeName =>
     !!value && Object.prototype.hasOwnProperty.call(THEME_CLASSES, value);

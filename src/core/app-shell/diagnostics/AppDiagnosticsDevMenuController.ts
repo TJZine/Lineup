@@ -1,8 +1,8 @@
-import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
-import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
-import type { ToastInput } from '../../shared/toast';
-import { safeClearLineupStorage } from '../../utils/storage';
-import type { AppShellDiagnosticsRuntimePort } from './AppShellRuntimeContracts';
+import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
+import { AudioSettingsStore } from '../../../modules/settings/AudioSettingsStore';
+import type { ToastInput } from '../../../shared/toast';
+import { safeClearLineupStorage } from '../../../utils/storage';
+import type { AppShellDiagnosticsRuntimePort } from '../runtime/AppShellRuntimeContracts';
 import {
     type AppDiagnosticsDevMenuElements,
     renderAppDiagnosticsDevMenu,

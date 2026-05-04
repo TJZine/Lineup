@@ -1,4 +1,4 @@
-import type { AppShellPlaybackInfoSnapshot } from './AppShellRuntimeContracts';
+import type { AppShellPlaybackInfoSnapshot } from '../runtime/AppShellRuntimeContracts';
 
 export interface AppDiagnosticsPlaybackInfoText {
     display: string;

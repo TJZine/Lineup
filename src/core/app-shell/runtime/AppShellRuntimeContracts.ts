@@ -1,16 +1,16 @@
-import type { INavigationManager } from '../../modules/navigation';
-import type { PlexHomeUser, PlexPinRequest } from '../../modules/plex/auth';
+import type { INavigationManager } from '../../../modules/navigation';
+import type { PlexHomeUser, PlexPinRequest } from '../../../modules/plex/auth';
 import type {
     PlexServer,
     PlexServerSelectionFailureReason,
     ServerHealthRecord,
     ServerHealthStatus,
     ServerHealthType,
-} from '../../modules/plex/discovery';
-import type { GuideSettingChange } from '../../modules/ui/settings/types';
-import type { ThemeName } from '../../modules/ui/theme';
-import type { ChannelSetupScreenWorkflowPort } from '../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
-import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
+} from '../../../modules/plex/discovery';
+import type { GuideSettingChange } from '../../../modules/ui/settings/types';
+import type { ThemeName } from '../../../modules/ui/theme';
+import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
+import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;

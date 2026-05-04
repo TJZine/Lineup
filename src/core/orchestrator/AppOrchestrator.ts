@@ -153,7 +153,7 @@ import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
 import { createOrchestratorRuntimeControllers } from './OrchestratorRuntimeControllerBuilder';
 import { OrchestratorSchedulePolicy } from './OrchestratorSchedulePolicy';
-import { AppStartupUiInitializer } from '../app-shell/AppStartupUiInitializer';
+import { AppStartupUiInitializer } from '../app-shell/chrome/AppStartupUiInitializer';
 import {
     createDefaultRecoverableRuntimeIssueReporter,
     type RecoverableRuntimeIssueReporter,
