@@ -1409,4 +1409,39 @@ describe('ServerSelectScreen', () => {
         expect(nav.restoreFocusForCurrentScreen).toHaveBeenCalledTimes(1);
         expect(nav.setFocus).not.toHaveBeenCalledWith('btn-server-refresh');
     });
+
+    it('ignores stale delayed focus restore when the visible screen is shown again', async () => {
+        const orchestrator = createOrchestratorStub();
+        const nav = orchestrator.navigation;
+        const container = createBodyAppendedTestContainer();
+        const secondDiscovery = createDeferred<PlexServer[]>();
+
+        orchestrator.discoverServers
+            .mockResolvedValueOnce([makeServer('srv-1', 'First Server')])
+            .mockReturnValueOnce(secondDiscovery.promise);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        nav.restoreFocusForCurrentScreen.mockClear();
+        nav.setFocus.mockClear();
+
+        screen.show({ allowAutoConnect: false });
+        await Promise.resolve();
+
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+
+        expect(nav.restoreFocusForCurrentScreen).not.toHaveBeenCalled();
+        expect(nav.setFocus).toHaveBeenCalledTimes(1);
+        expect(nav.setFocus).toHaveBeenCalledWith('btn-server-refresh', { persist: false });
+
+        secondDiscovery.resolve([makeServer('srv-2', 'Second Server')]);
+        await settleScreen(screen);
+
+        expect(container.querySelectorAll('.server-row')).toHaveLength(1);
+        expect(container.querySelector('.server-row')?.textContent).toContain('Second Server');
+    });
 });

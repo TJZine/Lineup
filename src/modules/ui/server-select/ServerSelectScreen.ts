@@ -205,11 +205,11 @@ export class ServerSelectScreen implements ServerSelectRuntimeScreenAdapter {
         this._focusCoordinator.unregisterFocusables(this.getNavigation());
     }
 
-    restoreFocus(generation: number): void {
+    restoreFocus(generation: number, canUpdateUi: (generation: number) => boolean): void {
         this._focusCoordinator.restoreFocus({
             nav: this.getNavigation(),
             generation,
-            canUpdateUi: () => this.isContainerVisible(),
+            canUpdateUi,
             onPending: () => {
                 this._runtime.markFocusRestorePending();
             },

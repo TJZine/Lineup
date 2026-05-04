@@ -14,7 +14,7 @@ export interface ServerSelectRuntimeScreenAdapter {
     getNavigation(): ServerSelectScreenNavigationPort | null;
     registerFocusables(): void;
     unregisterFocusables(): void;
-    restoreFocus(generation: number): void;
+    restoreFocus(generation: number, canUpdateUi: (generation: number) => boolean): void;
     cancelRestoreFocus(): void;
     unregisterServerListFocusables(): void;
     replaceServerListChildren(): void;
@@ -251,7 +251,7 @@ export class ServerSelectRuntimeCoordinator {
                 this._adapter.removeStatusSpinner();
                 this._adapter.setControlsDisabled(false);
                 this._adapter.setClearButtonDisabled(this._isClearing || this._isSelecting, generation);
-                this._adapter.restoreFocus(generation);
+                this._restoreFocus(generation);
             }
 
             this._resolveIdleIfSettled();
@@ -282,7 +282,7 @@ export class ServerSelectRuntimeCoordinator {
                 this._ports.getSelectedServerScreenState(),
                 { emptyStateReason: 'no_servers' }
             );
-            this._adapter.restoreFocus(generation);
+            this._restoreFocus(generation);
         } catch (error) {
             if (!this._canUpdateUi(generation)) {
                 return;
@@ -370,7 +370,7 @@ export class ServerSelectRuntimeCoordinator {
                         { emptyStateReason: 'no_servers' }
                     );
                     this._setServerListStatus(this._lastDiscoveredServers);
-                    this._adapter.restoreFocus(currentGeneration);
+                    this._restoreFocus(currentGeneration);
                 }
             }
             this._resolveIdleIfSettled();
@@ -444,6 +444,10 @@ export class ServerSelectRuntimeCoordinator {
 
     private _isLoadingCurrentGeneration(generation: number): boolean {
         return this._isLoading && this._activeLoadGeneration === generation;
+    }
+
+    private _restoreFocus(generation: number): void {
+        this._adapter.restoreFocus(generation, (restoreGeneration) => this._canUpdateUi(restoreGeneration));
     }
 
     private _hasPendingUiWork(): boolean {
