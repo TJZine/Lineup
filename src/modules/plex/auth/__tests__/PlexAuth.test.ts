@@ -1744,6 +1744,12 @@ describe('PlexAuth', () => {
                     message: `Network error X-Plex-Token=object-secret url=${leakedUrl}`,
                     request: {
                         url: leakedUrl,
+                        params: {
+                            pin: '2468',
+                        },
+                        body: {
+                            PIN: '1357',
+                        },
                     },
                 });
             (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
@@ -1761,6 +1767,8 @@ describe('PlexAuth', () => {
             expect(cause.summary).toContain('pin=REDACTED');
             expect(cause.summary).not.toContain('object-secret');
             expect(cause.summary).not.toContain('pin=2468');
+            expect(cause.summary).not.toContain('"pin":"2468"');
+            expect(cause.summary).not.toContain('"PIN":"1357"');
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 

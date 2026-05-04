@@ -149,9 +149,25 @@ function sanitizePlexHomeObjectCause(
 
     const sanitized: Record<string, unknown> = {};
     for (const [key, child] of Object.entries(value)) {
-        sanitized[key] = sanitizePlexHomeCauseValue(child, seen);
+        sanitized[key] = isPlexHomePinKey(key)
+            ? sanitizePlexHomePinField(child, seen)
+            : sanitizePlexHomeCauseValue(child, seen);
     }
     return sanitized;
+}
+
+function isPlexHomePinKey(key: string): boolean {
+    return key.toLowerCase() === 'pin';
+}
+
+function sanitizePlexHomePinField(value: unknown, seen: WeakSet<object>): unknown {
+    if (value === null || value === undefined) {
+        return value;
+    }
+    if (typeof value === 'object') {
+        return sanitizePlexHomeObjectCause(value, seen);
+    }
+    return 'REDACTED';
 }
 
 function sanitizePlexHomeCauseValue(value: unknown, seen: WeakSet<object>): unknown {
