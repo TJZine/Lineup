@@ -1504,10 +1504,11 @@ future source-backed replan explicitly reopens one.
   against FCP-11 completed owner seams, focus/lifecycle proof if touched,
   `npm run typecheck`, `git diff --check`, then `npm run verify`.
 
-### [ ] `FCP-20` Pre-Windows Cleanup Exit And Source Reconciliation
+### [x] `FCP-20` Pre-Windows Cleanup Exit And Source Reconciliation
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-20-pre-windows-cleanup-exit-source-reconciliation-plan.md`
 - Dimensions/rubric tags: verified strictness, docs/source coherence,
   package organization, cross-module architecture, test strategy
 - Scope owner: final cleanup controller and pre-Windows reconciliation owner
@@ -1551,7 +1552,7 @@ future source-backed replan explicitly reopens one.
   `git diff --check -- ARCHITECTURE_CLEANUP_CHECKLIST.md`. A final optional
   external score refresh may be recorded only as retrospective signal, not as
   checklist membership or closure proof.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1566,11 +1567,142 @@ future source-backed replan explicitly reopens one.
   coverage; verification fails for runtime work completed in FCP-13 through
   FCP-19; the exit package would need production refactoring instead of
   reconciliation.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start only after `FCP-19` closeout. This is the gate before Windows
-  port work or any broader post-FCP cleanup.
+- Last touched: 2026-05-05
+- Verification: source audits reran for `FCP-13` through `FCP-19`; passed
+  `npm run plans:check`, `npm run verify:docs`,
+  `git diff --check -- ARCHITECTURE_CLEANUP_CHECKLIST.md`, and
+  final controller `npm run verify`.
+- Follow-ups: none
+- Source-finding proof matrix:
+  - `FCP-13-SF1`: resolved. Current selected interface files no longer carry
+    the redundant file-banner/export-signature JSDoc patterns searched by the
+    closeout audit; current semantic API comments remain where they describe
+    lifecycle, nullability, side effects, server quirks, or error behavior.
+  - `FCP-13-SF2`: resolved. The selected player and EPG implementation-comment
+    audit found no old adjacent-statement narration patterns in current source.
+    Remaining comments in those files are behavior, failure, focus, or
+    redaction rationale.
+  - `FCP-13-SF3`: resolved. `ChannelCreateOptions` remains owned by
+    `src/modules/scheduler/channel-manager/interfaces.ts` and is exported from
+    `src/modules/scheduler/channel-manager/index.ts`.
+  - `FCP-13-SF4`: resolved. `PlexAuth.validateToken()` and
+    `docs/api/plex-integration.md` both say explicit `401`/`403` auth-invalid
+    responses return `false`; timeout, cancellation, service/network, and
+    malformed success failures throw typed failures.
+  - `FCP-13-SF5`: resolved. `tools/architecture-rules/lineupArchitectureRules.mjs`
+    has `temporaryExceptions: []`; the only old navigation exception path hit
+    is a tool test proving that stale exception is absent.
+  - `FCP-13-SF6`: resolved. `SubtitleTrackRecoveryController` returns without
+    diagnostics when no burn-in attempt exists, and appends burn-in attempt
+    diagnostics only after a non-ignored result or thrown attempt.
+  - `FCP-13-SF7`: resolved. `isSignalAborted` has no live source/current-doc
+    hits in the audited scope.
+  - `FCP-13-SF8`: resolved. `EPGCellRenderer` uses
+    `clearSubtitlePresentation(...)` for the adjacent non-program and
+    non-episode branches, preserving local reset behavior without duplicate
+    subtitle clearing.
+  - `FCP-13-SF9`: resolved. `StrategyStepController` uses
+    `_createAdjustableToggle(...)` for repeated adjustable controls.
+  - `FCP-14-SF1`: resolved. `PriorityOneControllerCollaborators` builds
+    owner-valued controller dependencies from grouped `PriorityOneAssemblyInput`
+    ports; `PlaybackRuntimeController` consumes grouped playback, scheduler,
+    player-event, and UI runtime ports directly. Preserved seams still carry
+    construction/order, event-binder, and policy ownership.
+  - `FCP-15-SF1`: resolved. `PlexHomeProfileClient` owns Plex Home user list,
+    profile-switch request, endpoint fallback/status classification, and PIN
+    disambiguation support. `PlexAuth` retains credential state, credential
+    epoch, token validation, PIN flow, persistence, and auth/profile events.
+  - `FCP-16-SF1`: resolved. `ChannelPersistenceCoordinator` exposes
+    `persistCurrentChannelIdBestEffort(...)` as explicit non-transactional
+    current-channel pointer persistence while channel-blob saves remain
+    strict through the save queue/repository path.
+  - `FCP-16-SF2`: resolved as source-justified no-code. `ChannelManager`
+    remains the public channel-domain facade while package-local collaborators
+    own authoring, import/export, persistence coordination, save queue, retry,
+    cache, and content-resolution responsibilities.
+  - `FCP-17-SF1`: resolved. `ContentResolver` remains the package-local
+    source-resolution orchestration entrypoint; `SourceResolutionCache` owns
+    source cache/in-flight coalescing, `ContentItemMapper` owns Plex item
+    mapping/media normalization, and `ContentSelectionPolicy` owns filtering,
+    sorting, and playback ordering.
+  - `FCP-18-SF1`: resolved. Current navigation production files live under
+    `contracts/`, `manager/`, `input/`, `coordinator/`, `handlers/`, and
+    `config/`. No old flat navigation leaf file exists. Current architecture
+    docs name the replacement folders and `NavigationManager` /
+    `NavigationFeaturePorts` owner paths.
+  - `FCP-19-SF1`: resolved. Current Plex stream production files live under
+    `contracts/`, `diagnostics/`, `pipeline/`, `policy/`, `resolver/`, and
+    `url/`. No old flat Plex stream leaf file exists. Current API,
+    architecture, and subtitle docs point `IPlexStreamResolver` at
+    `src/modules/plex/stream/contracts/interfaces.ts` and the implementation
+    at `src/modules/plex/stream/resolver/PlexStreamResolver.ts`.
+- Package-local source/`rg` audit summary:
+  - Codanna was refreshed before fallback source reads. `get_index_info`
+    reported 11268 symbols across 761 files, 12503 relationships, semantic
+    search enabled, and 52 embeddings. `search_documents` for the FCP-20 proof
+    matrix was noisy, so deterministic direct reads and package-local `rg`
+    audits are the authoritative execution evidence. Codanna semantic searches
+    for navigation/Plex stream path truth were also noisy and used only as
+    supporting context.
+  - Old navigation flat-path file audit found no live files at
+    `src/modules/navigation/{interfaces,NavigationManager,FocusManager,...}.ts`.
+    Current-doc/source old-path audit found one intentional stale-rule test hit
+    for `src/modules/navigation/NavigationCoordinator.ts`, where the test
+    asserts no stale runtime UI temporary exception exists.
+  - Old Plex stream flat-path file audit found no live files at
+    `src/modules/plex/stream/{interfaces,types,PlexStreamResolver,...}.ts`.
+    Current-doc/source old-path audit found no current architecture/API/subtitle
+    doc hits for old flat Plex stream leaf paths.
+  - Replacement-owner audits found the expected owners:
+    `PlexHomeProfileClient`, `persistCurrentChannelIdBestEffort`,
+    `SourceResolutionCache`, `ContentItemMapper`, `ContentSelectionPolicy`,
+    `_createAdjustableToggle`, grouped navigation folders, grouped Plex stream
+    folders, and current Plex path-truth docs.
+- Architecture/API/subtitle path-truth audit:
+  - `docs/architecture/CURRENT_STATE.md` and `docs/architecture/modules.md`
+    match current navigation, scheduler/channel-manager, ContentResolver,
+    Plex auth, Plex stream, and ChannelSetupScreen ownership/path truth.
+  - `docs/api/plex-integration.md` matches current Plex stream contract path
+    truth and the `validateToken()` error contract.
+  - `docs/development/subtitles.md` points to
+    `src/modules/plex/stream/resolver/PlexStreamResolver.ts` and still matches
+    current subtitle delivery/burn-in architecture. No Plex token/redaction,
+    auth, URL/query/header, stream, or subtitle behavior drift was found.
+- Residual owner ledger:
+  - Active `FCP-20` residuals: none. Every `FCP-13` through `FCP-19` source
+    finding is resolved or source-justified by current source/docs.
+  - Deferred non-active item: ChannelSetupScreen distinct residual remains
+    deferred outside `FCP-20` coverage. Final owner is the channel setup UI
+    owner. Revisit trigger: open a new source-backed brief only if current
+    source proves a distinct ChannelSetupScreen residual not covered by
+    completed `FCP-11` channel setup owner closure or `FCP-13-SF9`
+    strategy-step structural cleanup, or if a planned ChannelSetup change must
+    touch that bridge and would otherwise expand `ChannelSetupScreen`
+    responsibility.
+  - Duplicated priority-one observation: no active residual. It remains covered
+    only by `FCP-14-SF1`.
+- Execution verification results:
+  - `git status --short --branch`: ran before execution; branch
+    `code-health...origin/code-health [ahead 8]` with the controller's
+    `ARCHITECTURE_CLEANUP_CHECKLIST.md` bookkeeping diff, the active untracked
+    FCP-20 plan, and unrelated dirty/untracked files preserved.
+  - Source/`rg` audits above: passed; no stop/replan condition found.
+  - `npm run plans:check`: passed.
+  - `npm run verify:docs`: passed.
+  - `git diff --check -- ARCHITECTURE_CLEANUP_CHECKLIST.md`: passed.
+  - `npm run verify`: passed.
+- Review evidence:
+  - Plan review: initial tracked reviewer found sequencing/bookkeeping gaps; the
+    planner revised the plan, the same reviewer confirmed closure, and a fresh
+    final plan reviewer approved `FCP-20-S1` for execution-unit selection.
+  - Implementation review: fresh tracked reviewer found no material findings and
+    approved `FCP-20-S1` for controller closeout after checking the proof
+    matrix, residual owner ledger, ChannelSetupScreen deferred disposition,
+    duplicated priority-one observation handling, review-evidence sequencing,
+    and diff scope.
+- Handoff: `FCP-20` is closed with no active residuals. Do not start Windows
+  port work, `FCP-EXIT`, or broader post-FCP cleanup without using this closeout
+  record as the pre-port source reconciliation gate.
 
 ## Dimension Cleanup Refresh History
 
