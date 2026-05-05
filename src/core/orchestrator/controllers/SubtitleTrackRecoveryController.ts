@@ -1,12 +1,12 @@
-import { BURN_IN_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
-import type { IVideoPlayer, StreamDescriptor } from '../../modules/player';
+import { BURN_IN_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
+import type { IVideoPlayer, StreamDescriptor } from '../../../modules/player';
 import type {
     AudioTrackReloadResult,
     BurnInSubtitleRecoveryResult,
     PlaybackRecoveryManager,
-} from '../../modules/player/PlaybackRecoveryManager';
-import type { StreamDecision } from '../../modules/plex/stream';
-import { subtitleModeAllowsBurnIn, type SubtitleMode } from '../../shared/subtitle-mode';
+} from '../../../modules/player/PlaybackRecoveryManager';
+import type { StreamDecision } from '../../../modules/plex/stream';
+import { subtitleModeAllowsBurnIn, type SubtitleMode } from '../../../shared/subtitle-mode';
 
 export interface SubtitleTrackRecoveryControllerDeps {
     getVideoPlayer: () => IVideoPlayer | null;

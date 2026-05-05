@@ -1,31 +1,31 @@
-import type { IAppLifecycle } from '../../modules/lifecycle';
-import type { INavigationManager, Screen } from '../../modules/navigation';
+import type { IAppLifecycle } from '../../../modules/lifecycle';
+import type { INavigationManager, Screen } from '../../../modules/navigation';
 import type {
     IVideoPlayer,
     PlaybackError,
     PlaybackState,
     TimeRange,
-} from '../../modules/player';
-import type { IPlexLibrary } from '../../modules/plex/library';
+} from '../../../modules/player';
+import type { IPlexLibrary } from '../../../modules/plex/library';
 import type {
     IPlexStreamResolver,
     StreamResolverError,
-} from '../../modules/plex/stream';
-import type { ChannelManagerEventMap, IChannelManager } from '../../modules/scheduler/channel-manager';
+} from '../../../modules/plex/stream';
+import type { ChannelManagerEventMap, IChannelManager } from '../../../modules/scheduler/channel-manager';
 import type {
     IChannelScheduler,
     ScheduledProgram,
-} from '../../modules/scheduler/scheduler';
+} from '../../../modules/scheduler/scheduler';
 import {
     summarizeEventCleanupFailure,
     type OrchestratorEventCleanupFailure,
     type OrchestratorEventCleanupReporter,
 } from './OrchestratorEventCleanupReporter';
-import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
+import type { RecoverableAsyncFailureReporter } from '../runtime/OrchestratorRuntimeSeams';
 import {
     observeRecoverableAsyncFailure,
     safelyReportCleanupFailures,
-} from './OrchestratorRecoverableRuntimeReporter';
+} from '../runtime/OrchestratorRecoverableRuntimeReporter';
 
 export interface OrchestratorEventBinderDeps {
     cleanupReporter: OrchestratorEventCleanupReporter;

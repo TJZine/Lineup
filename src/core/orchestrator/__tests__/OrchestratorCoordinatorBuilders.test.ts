@@ -3,7 +3,7 @@ import type { EpgVisibleRange } from '../../../modules/ui/epg/types';
 import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorNavigationCoordinatorBuilderInput,
-} from '../OrchestratorCoordinatorContracts';
+} from '../assembly/OrchestratorCoordinatorContracts';
 
 const recordStoreInstance = { kind: 'record-store' };
 const scratchStoreInstance = { kind: 'scratch-store' };
@@ -74,7 +74,7 @@ import {
     buildMiniGuideCoordinator,
     buildNavigationCoordinator,
     buildPlayerOsdCoordinator,
-} from '../OrchestratorCoordinatorBuilders';
+} from '../assembly/OrchestratorCoordinatorBuilders';
 
 const createInput = (): OrchestratorCoordinatorAssemblyInput => {
     const channelManager = {

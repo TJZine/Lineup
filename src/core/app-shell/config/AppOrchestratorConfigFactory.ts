@@ -11,7 +11,7 @@ import { MINI_GUIDE_CONTAINER_ID, type MiniGuideConfig } from '../../../modules/
 import { CHANNEL_TRANSITION_CONTAINER_ID, type ChannelTransitionConfig } from '../../../modules/ui/channel-transition';
 import type { PlaybackOptionsConfig } from '../../../modules/ui/playback-options';
 import { createWebOsPlatformServices, type PlatformServices } from '../../../platform';
-import type { OrchestratorConfig } from '../../orchestrator/OrchestratorTypes';
+import type { OrchestratorConfig } from '../../orchestrator/contracts/OrchestratorTypes';
 
 const DEFAULT_NAV_CONFIG: NavigationConfig = {
     enablePointerMode: false,

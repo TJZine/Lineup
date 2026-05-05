@@ -4,7 +4,7 @@ import {
     createPriorityOneControllersAndBinder,
     type PriorityOneAssemblyInput,
 } from '../priority-one/PriorityOneControllerFactory';
-import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
+import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
 
 const makeProgram = (): ScheduledProgram =>
     ({

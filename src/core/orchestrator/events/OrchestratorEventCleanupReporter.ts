@@ -1,4 +1,4 @@
-import { summarizeErrorForLog } from '../../utils/errors';
+import { summarizeErrorForLog } from '../../../utils/errors';
 
 export type OrchestratorEventCleanupStep =
     | 'event-wiring.cleanup'

@@ -4,7 +4,7 @@ import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
 import {
     ProfileSwitchCleanupController,
     type ProfileSwitchCleanupControllerDeps,
-} from '../orchestrator/ProfileSwitchCleanupController';
+} from '../orchestrator/controllers/ProfileSwitchCleanupController';
 
 type CleanupHarness = {
     controller: ProfileSwitchCleanupController;

@@ -6,7 +6,7 @@ import type {
     PriorityOneRequiredRuntimeModules,
     PriorityOneSchedulerRuntimePort,
     PriorityOneUiRuntimePort,
-} from '../OrchestratorRuntimeSeams';
+} from '../runtime/OrchestratorRuntimeSeams';
 
 export interface PriorityOneAssemblyInput {
     modules: PriorityOneRequiredRuntimeModules;

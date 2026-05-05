@@ -1,4 +1,4 @@
-import { SubtitleTrackRecoveryController, type SubtitleTrackRecoveryControllerDeps } from '../../core/orchestrator/SubtitleTrackRecoveryController';
+import { SubtitleTrackRecoveryController, type SubtitleTrackRecoveryControllerDeps } from '../../core/orchestrator/controllers/SubtitleTrackRecoveryController';
 import type { IVideoPlayer, StreamDescriptor } from '../../modules/player';
 import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import type { StreamDecision } from '../../modules/plex/stream';

@@ -4,7 +4,7 @@
 
 import { AppStartupUiInitializer } from '../chrome/AppStartupUiInitializer';
 import { EXIT_CONFIRM_CONTAINER_ID } from '../../../modules/ui/exit-confirm';
-import type { ModuleStatus, OrchestratorConfig } from '../../orchestrator/OrchestratorTypes';
+import type { ModuleStatus, OrchestratorConfig } from '../../orchestrator/contracts/OrchestratorTypes';
 
 const createConfig = (): OrchestratorConfig => ({
     plexConfig: {} as never,

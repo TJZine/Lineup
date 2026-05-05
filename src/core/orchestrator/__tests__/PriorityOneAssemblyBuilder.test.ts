@@ -1,7 +1,7 @@
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
 import type { StreamDescriptor } from '../../../modules/player';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
-import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
+import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
 import {
     createPriorityOneRuntimeAssembly,
     type PriorityOneRuntimeAssemblyInput,

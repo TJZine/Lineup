@@ -1,7 +1,7 @@
 import {
     OrchestratorEventBinder,
     type OrchestratorEventBinderDeps,
-} from '../../core/orchestrator/OrchestratorEventBinder';
+} from '../../core/orchestrator/events/OrchestratorEventBinder';
 import { AppErrorCode } from '../../modules/lifecycle';
 import type { IAppLifecycle } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';

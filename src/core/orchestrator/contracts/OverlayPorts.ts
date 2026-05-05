@@ -1,5 +1,5 @@
-import type { ChannelBadgeOverlay } from '../../modules/ui/channel-badge';
-import type { ChannelNumberOverlay } from '../../modules/ui/channel-number-overlay';
+import type { ChannelBadgeOverlay } from '../../../modules/ui/channel-badge';
+import type { ChannelNumberOverlay } from '../../../modules/ui/channel-number-overlay';
 
 export type ChannelNumberOverlayInitPort = Pick<
     ChannelNumberOverlay,

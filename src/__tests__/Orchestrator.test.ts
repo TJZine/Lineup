@@ -8,7 +8,7 @@
 
 import { AppOrchestrator } from '../Orchestrator';
 import { AppErrorCode } from '../modules/lifecycle';
-import type { OrchestratorConfig } from '../core/orchestrator/OrchestratorTypes';
+import type { OrchestratorConfig } from '../core/orchestrator/contracts/OrchestratorTypes';
 import {
     NowPlayingInfoCoordinator,
 } from '../modules/ui/now-playing-info';
@@ -28,9 +28,9 @@ import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
 import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
-import * as orchestratorCoordinatorAssembly from '../core/orchestrator/OrchestratorCoordinatorAssembly';
-import { OverlayRuntimePolicyController } from '../core/orchestrator/OverlayRuntimePolicyController';
-import * as recoverableRuntimeReporterModule from '../core/orchestrator/OrchestratorRecoverableRuntimeReporter';
+import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
+import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
+import * as recoverableRuntimeReporterModule from '../core/orchestrator/runtime/OrchestratorRecoverableRuntimeReporter';
 import { expectConsoleWarn } from './helpers';
 import {
     installMockLocalStorage,

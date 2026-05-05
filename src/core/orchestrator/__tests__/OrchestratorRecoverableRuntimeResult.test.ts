@@ -1,7 +1,7 @@
 import {
     captureRecoverableRuntimeResult,
     captureRecoverableRuntimeResultAsync,
-} from '../OrchestratorRecoverableRuntimeResult';
+} from '../runtime/OrchestratorRecoverableRuntimeResult';
 
 describe('OrchestratorRecoverableRuntimeResult', () => {
     it('captures synchronous success and failure outcomes', () => {

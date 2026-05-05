@@ -1,6 +1,6 @@
-import type { StreamDecision } from '../../modules/plex/stream';
-import type { StreamDescriptor } from '../../modules/player';
-import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
+import type { StreamDecision } from '../../../modules/plex/stream';
+import type { StreamDescriptor } from '../../../modules/player';
+import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 
 export interface ProfileSwitchCleanupControllerDeps {
     cancelPendingDayRollover(): void;

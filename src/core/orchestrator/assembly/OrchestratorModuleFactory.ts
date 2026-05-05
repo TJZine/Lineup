@@ -1,62 +1,62 @@
-import { AppLifecycle, type IAppLifecycle } from '../../modules/lifecycle';
-import { NavigationManager, type INavigationManager } from '../../modules/navigation';
-import { PlexAuth, type IPlexAuth } from '../../modules/plex/auth';
-import { PlexServerDiscovery, type IPlexServerDiscovery } from '../../modules/plex/discovery';
+import { AppLifecycle, type IAppLifecycle } from '../../../modules/lifecycle';
+import { NavigationManager, type INavigationManager } from '../../../modules/navigation';
+import { PlexAuth, type IPlexAuth } from '../../../modules/plex/auth';
+import { PlexServerDiscovery, type IPlexServerDiscovery } from '../../../modules/plex/discovery';
 import {
     PlexLibrary,
     type IPlexLibrary,
     type PlexLibraryConfig,
-} from '../../modules/plex/library';
+} from '../../../modules/plex/library';
 import {
     PlexStreamResolver,
     type IPlexStreamResolver,
     type PlexStreamResolverConfig,
-} from '../../modules/plex/stream';
+} from '../../../modules/plex/stream';
 import {
     ChannelManager,
     type IChannelManager,
     type ChannelManagerConfig,
-} from '../../modules/scheduler/channel-manager';
-import { ChannelScheduler, type IChannelScheduler } from '../../modules/scheduler/scheduler';
-import { VideoPlayer, type IVideoPlayer } from '../../modules/player';
-import { DeferredEPGComponent } from '../../modules/ui/epg';
-import type { IEPGComponent, IEPGReadinessPort } from '../../modules/ui/epg';
+} from '../../../modules/scheduler/channel-manager';
+import { ChannelScheduler, type IChannelScheduler } from '../../../modules/scheduler/scheduler';
+import { VideoPlayer, type IVideoPlayer } from '../../../modules/player';
+import { DeferredEPGComponent } from '../../../modules/ui/epg';
+import type { IEPGComponent, IEPGReadinessPort } from '../../../modules/ui/epg';
 import {
     NowPlayingInfoOverlay,
     type INowPlayingInfoOverlay,
-} from '../../modules/ui/now-playing-info';
-import { PlayerOsdOverlay } from '../../modules/ui/player-osd';
+} from '../../../modules/ui/now-playing-info';
+import { PlayerOsdOverlay } from '../../../modules/ui/player-osd';
 import {
     ChannelNumberOverlay,
-} from '../../modules/ui/channel-number-overlay';
+} from '../../../modules/ui/channel-number-overlay';
 import {
     ChannelBadgeOverlay,
-} from '../../modules/ui/channel-badge';
+} from '../../../modules/ui/channel-badge';
 import {
     MiniGuideOverlay,
     type IMiniGuideOverlay,
-} from '../../modules/ui/mini-guide';
+} from '../../../modules/ui/mini-guide';
 import {
     ChannelTransitionOverlay,
-} from '../../modules/ui/channel-transition';
+} from '../../../modules/ui/channel-transition';
 import {
     PlaybackOptionsModal,
     type IPlaybackOptionsModal,
-} from '../../modules/ui/playback-options';
-import { ExitConfirmModal } from '../../modules/ui/exit-confirm';
-import { SleepTimerManager } from '../../modules/ui/sleep-timer';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
-import type { OrchestratorConfig } from './OrchestratorTypes';
+} from '../../../modules/ui/playback-options';
+import { ExitConfirmModal } from '../../../modules/ui/exit-confirm';
+import { SleepTimerManager } from '../../../modules/ui/sleep-timer';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
+import type { OrchestratorConfig } from '../contracts/OrchestratorTypes';
 import type {
     ChannelBadgeOverlayInitPort,
     ChannelNumberOverlayInitPort,
-} from './OverlayPorts';
-import type { PlatformServices } from '../../platform';
-import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
-import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
-import { PlaybackSettingsStore } from '../../modules/settings/PlaybackSettingsStore';
-import type { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
-import { createPlexStreamSubtitleDebugLogPort } from '../../modules/plex/stream/PlexStreamSubtitleDebugLogPort';
+} from '../contracts/OverlayPorts';
+import type { PlatformServices } from '../../../platform';
+import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
+import { AudioSettingsStore } from '../../../modules/settings/AudioSettingsStore';
+import { PlaybackSettingsStore } from '../../../modules/settings/PlaybackSettingsStore';
+import type { DeveloperSettingsStore } from '../../../modules/settings/DeveloperSettingsStore';
+import { createPlexStreamSubtitleDebugLogPort } from '../../../modules/plex/stream/PlexStreamSubtitleDebugLogPort';
 
 export interface OrchestratorModuleFactoryDeps {
     config: OrchestratorConfig;

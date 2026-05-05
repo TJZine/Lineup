@@ -2,8 +2,8 @@ import {
     createRecoverableRuntimeIssueReporter,
     observeRecoverableAsyncFailure,
     safelyReportCleanupFailures,
-} from '../OrchestratorRecoverableRuntimeReporter';
-import type { OrchestratorEventCleanupFailure } from '../OrchestratorEventCleanupReporter';
+} from '../runtime/OrchestratorRecoverableRuntimeReporter';
+import type { OrchestratorEventCleanupFailure } from '../events/OrchestratorEventCleanupReporter';
 import { expectConsoleWarn } from '../../../__tests__/helpers';
 import { AppOrchestrator } from '../../../Orchestrator';
 import { AppErrorCode } from '../../../modules/lifecycle';

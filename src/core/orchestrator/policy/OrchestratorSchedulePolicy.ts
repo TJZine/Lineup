@@ -1,10 +1,10 @@
 import type {
     ChannelConfig,
     ResolvedChannelContent,
-} from '../../modules/scheduler/channel-manager';
-import type { ScheduleConfig } from '../../modules/scheduler/scheduler';
-import { createMulberry32 } from '../../modules/scheduler/shared/prng';
-import { fnv1a32Uint } from '../../utils/hash';
+} from '../../../modules/scheduler/channel-manager';
+import type { ScheduleConfig } from '../../../modules/scheduler/scheduler';
+import { createMulberry32 } from '../../../modules/scheduler/shared/prng';
+import { fnv1a32Uint } from '../../../utils/hash';
 
 export class OrchestratorSchedulePolicy {
     getLocalMidnightMs(timeMs: number): number {

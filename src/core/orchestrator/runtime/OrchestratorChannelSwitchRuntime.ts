@@ -1,12 +1,12 @@
-import type { IChannelManager } from '../../modules/scheduler/channel-manager';
-import type { IVideoPlayer } from '../../modules/player';
-import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
-import { isAbortLikeError } from '../../utils/errors';
-import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
+import type { IVideoPlayer } from '../../../modules/player';
+import type { IChannelScheduler } from '../../../modules/scheduler/scheduler';
+import { isAbortLikeError } from '../../../utils/errors';
+import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type {
     ChannelSwitchOptions,
     ChannelTuningCoordinator,
-} from '../channel-tuning';
+} from '../../channel-tuning';
 
 export interface OrchestratorChannelSwitchRuntimeDeps {
     assertNotShutdown(method: string): void;

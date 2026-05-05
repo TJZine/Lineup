@@ -1,4 +1,4 @@
-import { OrchestratorStorageContext } from '../../core/orchestrator/OrchestratorStorageContext';
+import { OrchestratorStorageContext } from '../../core/orchestrator/storage/OrchestratorStorageContext';
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import { PLEX_DISCOVERY_CONSTANTS } from '../../modules/plex/discovery/constants';
 

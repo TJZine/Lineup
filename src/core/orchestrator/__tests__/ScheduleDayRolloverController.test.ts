@@ -8,7 +8,7 @@ import type { EPGCoordinator } from '../../../modules/ui/epg';
 import {
     ScheduleDayRolloverController,
     type ScheduleDayRolloverControllerDeps,
-} from '../ScheduleDayRolloverController';
+} from '../controllers/ScheduleDayRolloverController';
 
 type RolloverHarness = {
     controller: ScheduleDayRolloverController;

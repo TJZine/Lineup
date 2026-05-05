@@ -1,7 +1,7 @@
-import type { StreamDescriptor } from '../../modules/player';
-import type { StreamDecision } from '../../modules/plex/stream';
-import type { ChannelConfig } from '../../modules/scheduler/channel-manager';
-import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
+import type { StreamDescriptor } from '../../../modules/player';
+import type { StreamDecision } from '../../../modules/plex/stream';
+import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
+import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 
 export interface PlaybackInfoSnapshot {

@@ -1,5 +1,5 @@
-import { OrchestratorEventBinder } from '../OrchestratorEventBinder';
-import type { OrchestratorEventBinderDeps } from '../OrchestratorEventBinder';
+import { OrchestratorEventBinder } from '../events/OrchestratorEventBinder';
+import type { OrchestratorEventBinderDeps } from '../events/OrchestratorEventBinder';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 
 function createProgram(): ScheduledProgram {

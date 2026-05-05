@@ -1,9 +1,9 @@
-import type { AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
-import { summarizeErrorForLog } from '../../utils/errors';
+import type { AppendIssueDiagnostic } from '../../../modules/debug/IssueDiagnosticsStore';
+import { summarizeErrorForLog } from '../../../utils/errors';
 import type {
     OrchestratorEventCleanupFailure,
     OrchestratorEventCleanupReporter,
-} from './OrchestratorEventCleanupReporter';
+} from '../events/OrchestratorEventCleanupReporter';
 import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
 import {
     createRecoverableRuntimeWarningSink,

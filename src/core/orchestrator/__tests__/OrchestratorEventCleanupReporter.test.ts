@@ -1,6 +1,6 @@
 import {
     summarizeEventCleanupFailure,
-} from '../OrchestratorEventCleanupReporter';
+} from '../events/OrchestratorEventCleanupReporter';
 
 describe('OrchestratorEventCleanupReporter', () => {
     it('summarizes cleanup failures for safe logging', () => {

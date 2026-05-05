@@ -1,7 +1,7 @@
 import type {
     IPlexAuth,
     PlexPinRequest,
-} from '../../modules/plex/auth';
+} from '../../../modules/plex/auth';
 
 export interface OrchestratorPlexAuthRuntimeDeps {
     assertNotShutdown(method: string): void;

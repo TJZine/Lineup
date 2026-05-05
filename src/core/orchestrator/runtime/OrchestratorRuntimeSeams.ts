@@ -1,22 +1,22 @@
-import type { AppError, IAppLifecycle } from '../../modules/lifecycle';
-import type { INavigationManager, Screen } from '../../modules/navigation';
+import type { AppError, IAppLifecycle } from '../../../modules/lifecycle';
+import type { INavigationManager, Screen } from '../../../modules/navigation';
 import type {
     IVideoPlayer,
     PlaybackState,
     StreamDescriptor,
     TimeRange,
-} from '../../modules/player';
-import type { IPlexLibrary } from '../../modules/plex/library';
+} from '../../../modules/player';
+import type { IPlexLibrary } from '../../../modules/plex/library';
 import type {
     IPlexStreamResolver,
     StreamResolverError,
-} from '../../modules/plex/stream';
-import type { ChannelManagerEventMap, IChannelManager } from '../../modules/scheduler/channel-manager';
+} from '../../../modules/plex/stream';
+import type { ChannelManagerEventMap, IChannelManager } from '../../../modules/scheduler/channel-manager';
 import type {
     IChannelScheduler,
     ScheduledProgram,
-} from '../../modules/scheduler/scheduler';
-import type { OrchestratorEventCleanupReporter } from './OrchestratorEventCleanupReporter';
+} from '../../../modules/scheduler/scheduler';
+import type { OrchestratorEventCleanupReporter } from '../events/OrchestratorEventCleanupReporter';
 import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
 
 export type RecoverableAsyncFailureReporter = (

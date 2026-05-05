@@ -1,7 +1,7 @@
 import type {
     PriorityOneOptionalRuntimeSurfaces,
     PriorityOnePlaybackRecoveryPort,
-} from '../OrchestratorRuntimeSeams';
+} from '../runtime/OrchestratorRuntimeSeams';
 import type { AppError, IAppLifecycle } from '../../../modules/lifecycle';
 import type { INavigationManager, Screen } from '../../../modules/navigation';
 import type { IVideoPlayer, PlaybackState, TimeRange } from '../../../modules/player';
@@ -9,7 +9,7 @@ import type { IPlexLibrary } from '../../../modules/plex/library';
 import type { IPlexStreamResolver, StreamResolverError } from '../../../modules/plex/stream';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram } from '../../../modules/scheduler/scheduler';
-import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
+import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
 import type { PriorityOneAssemblyInput } from './PriorityOneAssemblyInput';
 import {

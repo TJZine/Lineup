@@ -1,9 +1,9 @@
-import { PLEX_DISCOVERY_CONSTANTS } from '../../modules/plex/discovery/constants';
-import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
+import { PLEX_DISCOVERY_CONSTANTS } from '../../../modules/plex/discovery/constants';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import {
     SelectedServerScreenStateProjection,
     type SelectedServerScreenState,
-} from '../server-selection/SelectedServerScreenStateProjection';
+} from '../../server-selection/SelectedServerScreenStateProjection';
 
 export interface OrchestratorStorageContextDeps {
     getActiveUserId: () => string | null;

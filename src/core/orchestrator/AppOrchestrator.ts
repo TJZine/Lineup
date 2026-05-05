@@ -90,10 +90,10 @@ import {
 } from '../../modules/ui/exit-confirm';
 import { InitializationCoordinator, STARTUP_PHASE } from '../initialization/InitializationCoordinator';
 import { ChannelTuningCoordinator } from '../channel-tuning';
-import { OrchestratorStorageContext } from './OrchestratorStorageContext';
-import { OrchestratorEventBinder } from './OrchestratorEventBinder';
-import { OverlayRuntimePolicyController } from './OverlayRuntimePolicyController';
-import { ProfileSwitchCleanupController } from './ProfileSwitchCleanupController';
+import { OrchestratorStorageContext } from './storage/OrchestratorStorageContext';
+import { OrchestratorEventBinder } from './events/OrchestratorEventBinder';
+import { OverlayRuntimePolicyController } from './controllers/OverlayRuntimePolicyController';
+import { ProfileSwitchCleanupController } from './controllers/ProfileSwitchCleanupController';
 import { PlaybackRuntimeController } from './priority-one/PlaybackRuntimeController';
 import type {
     OrchestratorServerSelectionResult,
@@ -101,16 +101,16 @@ import type {
 import type {
     ModuleStatus,
     OrchestratorConfig,
-} from './OrchestratorTypes';
-import { createOrchestratorModules } from './OrchestratorModuleFactory';
+} from './contracts/OrchestratorTypes';
+import { createOrchestratorModules } from './assembly/OrchestratorModuleFactory';
 import {
     createOrchestratorCoordinatorAssemblyInput,
     createOrchestratorCoordinators,
-} from './OrchestratorCoordinatorAssembly';
+} from './assembly/OrchestratorCoordinatorAssembly';
 import type {
     OrchestratorCoordinatorAssemblyInputDraft,
     OrchestratorCoordinators,
-} from './OrchestratorCoordinatorContracts';
+} from './assembly/OrchestratorCoordinatorContracts';
 import {
     createPriorityOneRuntimeAssembly,
     type PriorityOneControllersAndBinder,
@@ -118,12 +118,12 @@ import {
 import type {
     ChannelBadgeOverlayInitPort,
     ChannelNumberOverlayInitPort,
-} from './OverlayPorts';
-import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackStateAccessors';
+} from './contracts/OverlayPorts';
+import type { OrchestratorPlaybackStateAccessors } from './runtime/OrchestratorPlaybackStateAccessors';
 import {
     createPlaybackInfoSnapshot,
     type PlaybackInfoSnapshot,
-} from './OrchestratorPlaybackInfoSnapshot';
+} from './runtime/OrchestratorPlaybackInfoSnapshot';
 import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
 import { createChannelSetupWorkflowPort } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
 import type { ChannelSetupWorkflowPortOwners } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
@@ -149,24 +149,24 @@ import type { ToastInput } from '../../shared/toast';
 import type { PlatformServices } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 import { summarizeErrorForLog } from '../../utils/errors';
-import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
-import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
-import { createOrchestratorRuntimeControllers } from './OrchestratorRuntimeControllerBuilder';
-import { OrchestratorSchedulePolicy } from './OrchestratorSchedulePolicy';
+import { ScheduleDayRolloverController } from './controllers/ScheduleDayRolloverController';
+import { SubtitleTrackRecoveryController } from './controllers/SubtitleTrackRecoveryController';
+import { createOrchestratorRuntimeControllers } from './runtime/OrchestratorRuntimeControllerBuilder';
+import { OrchestratorSchedulePolicy } from './policy/OrchestratorSchedulePolicy';
 import { AppStartupUiInitializer } from '../app-shell/chrome/AppStartupUiInitializer';
 import {
     createDefaultRecoverableRuntimeIssueReporter,
     type RecoverableRuntimeIssueReporter,
-} from './OrchestratorRecoverableRuntimeReporter';
-import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
+} from './runtime/OrchestratorRecoverableRuntimeReporter';
+import type { RecoverableAsyncFailureReporter } from './runtime/OrchestratorRuntimeSeams';
 import {
     captureRecoverableRuntimeResult,
     captureRecoverableRuntimeResultAsync,
-} from './OrchestratorRecoverableRuntimeResult';
-import { OrchestratorShutdownTeardown } from './OrchestratorShutdownTeardown';
-import { OrchestratorChannelSwitchRuntime } from './OrchestratorChannelSwitchRuntime';
-import { OrchestratorPlexAuthRuntime } from './OrchestratorPlexAuthRuntime';
-import { OrchestratorServerSelectionRuntime } from './OrchestratorServerSelectionRuntime';
+} from './runtime/OrchestratorRecoverableRuntimeResult';
+import { OrchestratorShutdownTeardown } from './runtime/OrchestratorShutdownTeardown';
+import { OrchestratorChannelSwitchRuntime } from './runtime/OrchestratorChannelSwitchRuntime';
+import { OrchestratorPlexAuthRuntime } from './runtime/OrchestratorPlexAuthRuntime';
+import { OrchestratorServerSelectionRuntime } from './runtime/OrchestratorServerSelectionRuntime';
 import type { SelectedServerScreenState } from '../server-selection/SelectedServerScreenStateProjection';
 
 const QA_003B_ISSUE_ID = 'QA-003b';

@@ -1,12 +1,12 @@
 import {
     CHANNEL_INPUT_CONFIG,
     type INavigationManager,
-} from '../../modules/navigation';
+} from '../../../modules/navigation';
 import {
     NavigationCoordinator,
     type NavigationCoordinatorHandlers,
-} from '../../modules/navigation/NavigationCoordinator';
-import { createNavigationCoordinatorRuntimeServices } from '../../modules/navigation/NavigationCoordinatorRuntimeServices';
+} from '../../../modules/navigation/NavigationCoordinator';
+import { createNavigationCoordinatorRuntimeServices } from '../../../modules/navigation/NavigationCoordinatorRuntimeServices';
 import type {
     NavigationChannelSwitchOutcome,
     NavigationChannelSwitchingPort,
@@ -17,89 +17,89 @@ import type {
     NavigationPlayerOsdIntent,
     NavigationPlaybackOptionsSectionId,
     NavigationPlaybackPort,
-} from '../../modules/navigation/NavigationFeaturePorts';
-import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
-import { NavigationChannelNumberHandler } from '../../modules/navigation/NavigationChannelNumberHandler';
-import { NavigationKeyModeRouter } from '../../modules/navigation/NavigationKeyModeRouter';
-import { NavigationModalEffectsHandler } from '../../modules/navigation/NavigationModalEffectsHandler';
-import { NavigationRepeatHandler } from '../../modules/navigation/NavigationRepeatHandler';
+} from '../../../modules/navigation/NavigationFeaturePorts';
+import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
+import { NavigationChannelNumberHandler } from '../../../modules/navigation/NavigationChannelNumberHandler';
+import { NavigationKeyModeRouter } from '../../../modules/navigation/NavigationKeyModeRouter';
+import { NavigationModalEffectsHandler } from '../../../modules/navigation/NavigationModalEffectsHandler';
+import { NavigationRepeatHandler } from '../../../modules/navigation/NavigationRepeatHandler';
 import {
     NavigationScreenEffectsHandler,
     type NavigationUiGuardsPort,
-} from '../../modules/navigation/NavigationScreenEffectsHandler';
-import type { PlaybackOptionsSectionId } from '../../modules/ui/playback-options';
-import type { AppError } from '../../modules/lifecycle';
-import type { IPlexLibrary } from '../../modules/plex/library';
+} from '../../../modules/navigation/NavigationScreenEffectsHandler';
+import type { PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
+import type { AppError } from '../../../modules/lifecycle';
+import type { IPlexLibrary } from '../../../modules/plex/library';
 import type {
     IPlexStreamResolver,
     StreamDecision,
-} from '../../modules/plex/stream';
+} from '../../../modules/plex/stream';
 import type {
     IChannelManager,
     ChannelConfig,
     ResolvedChannelContent,
-} from '../../modules/scheduler/channel-manager';
+} from '../../../modules/scheduler/channel-manager';
 import type {
     IChannelScheduler,
     ScheduledProgram,
     ScheduleConfig,
-} from '../../modules/scheduler/scheduler';
+} from '../../../modules/scheduler/scheduler';
 import type {
     IVideoPlayer,
     StreamDescriptor,
-} from '../../modules/player';
-import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
+} from '../../../modules/player';
+import { PlaybackRecoveryManager } from '../../../modules/player/PlaybackRecoveryManager';
 import {
     EPGCoordinator,
     IEPGComponent,
     EPGConfig,
     EPGUiStatus,
     withEpgVisibleRangeChangeBinding,
-} from '../../modules/ui/epg';
-import type { EpgVisibleRange } from '../../modules/ui/epg/types';
+} from '../../../modules/ui/epg';
+import type { EpgVisibleRange } from '../../../modules/ui/epg/types';
 import {
     NowPlayingInfoCoordinator,
     getNowPlayingInfoAutoHideMs,
     NOW_PLAYING_INFO_MODAL_ID,
     type INowPlayingInfoOverlay,
     type NowPlayingInfoConfig,
-} from '../../modules/ui/now-playing-info';
-import type { PlaybackInfoSnapshotLike } from '../../utils/playbackSummary';
+} from '../../../modules/ui/now-playing-info';
+import type { PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import type {
     IPlayerOsdOverlay,
-} from '../../modules/ui/player-osd';
-import { PlayerOsdCoordinator } from '../../modules/ui/player-osd';
+} from '../../../modules/ui/player-osd';
+import { PlayerOsdCoordinator } from '../../../modules/ui/player-osd';
 import type {
     IMiniGuideOverlay,
-} from '../../modules/ui/mini-guide';
-import { MiniGuideCoordinator } from '../../modules/ui/mini-guide';
+} from '../../../modules/ui/mini-guide';
+import { MiniGuideCoordinator } from '../../../modules/ui/mini-guide';
 import type {
     IChannelTransitionOverlay,
-} from '../../modules/ui/channel-transition';
-import { ChannelTransitionCoordinator } from '../../modules/ui/channel-transition';
+} from '../../../modules/ui/channel-transition';
+import { ChannelTransitionCoordinator } from '../../../modules/ui/channel-transition';
 import {
     PLAYBACK_OPTIONS_MODAL_ID,
     PlaybackOptionsCoordinator,
     type IPlaybackOptionsModal,
-} from '../../modules/ui/playback-options';
-import type { ToastInput } from '../../shared/toast';
+} from '../../../modules/ui/playback-options';
+import type { ToastInput } from '../../../shared/toast';
 import {
     ExitConfirmCoordinator,
     ExitConfirmModal,
     EXIT_CONFIRM_FOCUSABLE_IDS,
     EXIT_CONFIRM_MODAL_ID,
-} from '../../modules/ui/exit-confirm';
-import { ChannelSetupBuildCommitter } from '../channel-setup/build/ChannelSetupBuildCommitter';
-import { ChannelSetupBuildScratchStore } from '../channel-setup/build/ChannelSetupBuildScratchStore';
-import { ChannelSetupBuildExecutor } from '../channel-setup/build/ChannelSetupBuildExecutor';
-import { ChannelSetupCompletionTracker } from '../channel-setup/persistence/ChannelSetupCompletionTracker';
-import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
-import { ChannelSetupPlanningService } from '../channel-setup/planning/ChannelSetupPlanningService';
-import { ChannelSetupRecordStore } from '../channel-setup/persistence/ChannelSetupRecordStore';
-import type { ChannelSetupWorkflowPortOwners } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
-import { ChannelTuningCoordinator } from '../channel-tuning';
-import type { GuideSelectionSnapshot } from '../channel-tuning';
-import { secondsToMilliseconds } from '../../config/timing';
+} from '../../../modules/ui/exit-confirm';
+import { ChannelSetupBuildCommitter } from '../../channel-setup/build/ChannelSetupBuildCommitter';
+import { ChannelSetupBuildScratchStore } from '../../channel-setup/build/ChannelSetupBuildScratchStore';
+import { ChannelSetupBuildExecutor } from '../../channel-setup/build/ChannelSetupBuildExecutor';
+import { ChannelSetupCompletionTracker } from '../../channel-setup/persistence/ChannelSetupCompletionTracker';
+import { ChannelSetupCoordinator } from '../../channel-setup/ChannelSetupCoordinator';
+import { ChannelSetupPlanningService } from '../../channel-setup/planning/ChannelSetupPlanningService';
+import { ChannelSetupRecordStore } from '../../channel-setup/persistence/ChannelSetupRecordStore';
+import type { ChannelSetupWorkflowPortOwners } from '../../channel-setup/workflow/createChannelSetupWorkflowPort';
+import { ChannelTuningCoordinator } from '../../channel-tuning';
+import type { GuideSelectionSnapshot } from '../../channel-tuning';
+import { secondsToMilliseconds } from '../../../config/timing';
 import type {
     OrchestratorChannelSetupBuilderInput,
     OrchestratorChannelTransitionCoordinatorBuilderInput,
@@ -118,8 +118,8 @@ import type {
 import {
     NowPlayingDebugManager,
     type NowPlayingDebugOverlayPort,
-} from '../../modules/debug/NowPlayingDebugManager';
-import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../utils/storage';
+} from '../../../modules/debug/NowPlayingDebugManager';
+import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../../utils/storage';
 
 const DEFAULT_SEEK_INCREMENT_SECONDS = 10;
 

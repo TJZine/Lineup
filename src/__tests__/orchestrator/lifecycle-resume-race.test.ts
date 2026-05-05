@@ -3,7 +3,7 @@ import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
 import type { IAppLifecycle } from '../../modules/lifecycle';
 import type { IVideoPlayer } from '../../modules/player';
 import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
-import { OrchestratorEventBinder } from '../../core/orchestrator/OrchestratorEventBinder';
+import { OrchestratorEventBinder } from '../../core/orchestrator/events/OrchestratorEventBinder';
 import { PlaybackRuntimeController } from '../../core/orchestrator/priority-one/PlaybackRuntimeController';
 import { PlaybackStartController } from '../../core/orchestrator/priority-one/PlaybackStartController';
 import { createDeferred, flushPromises } from '../helpers';

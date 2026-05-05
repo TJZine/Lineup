@@ -1,25 +1,25 @@
-import type { IPlexAuth } from '../../modules/plex/auth';
+import type { IPlexAuth } from '../../../modules/plex/auth';
 import type {
     IPlexServerDiscovery,
     PlexServerSelectionResult,
-} from '../../modules/plex/discovery';
+} from '../../../modules/plex/discovery';
 import type {
     EPGCoordinator,
     IEPGComponent,
-} from '../../modules/ui/epg';
+} from '../../../modules/ui/epg';
 import {
     InitializationCoordinator,
     STARTUP_PHASE,
-} from '../initialization/InitializationCoordinator';
+} from '../../initialization/InitializationCoordinator';
 import {
     ServerSelectionCoordinator,
-} from '../server-selection/ServerSelectionCoordinator';
+} from '../../server-selection/ServerSelectionCoordinator';
 import {
     SelectedServerPersistenceAdapter,
-} from '../server-selection/SelectedServerPersistenceAdapter';
+} from '../../server-selection/SelectedServerPersistenceAdapter';
 import {
     SelectedServerRuntimeController,
-} from '../server-selection/SelectedServerRuntimeController';
+} from '../../server-selection/SelectedServerRuntimeController';
 import type {
     DiscoverySelectedServerSnapshot,
     OrchestratorServerSelectionReadiness,
@@ -27,7 +27,7 @@ import type {
     PersistedSelectedServerSnapshot,
     SelectedServerPersistenceResult,
     SelectedServerStartupResumeResult,
-} from '../server-selection/ServerSelectionTypes';
+} from '../../server-selection/ServerSelectionTypes';
 import {
     captureRecoverableRuntimeResultAsync,
 } from './OrchestratorRecoverableRuntimeResult';

@@ -15,11 +15,11 @@ import type { IPlayerOsdOverlay } from '../../modules/ui/player-osd';
 import type { IMiniGuideOverlay } from '../../modules/ui/mini-guide';
 import type { IChannelTransitionOverlay } from '../../modules/ui/channel-transition';
 import type { IDisposable } from '../../utils/interfaces';
-import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/OrchestratorTypes';
+import type { OrchestratorConfig, ModuleStatus } from '../orchestrator/contracts/OrchestratorTypes';
 import type {
     ChannelBadgeOverlayInitPort,
     ChannelNumberOverlayInitPort,
-} from '../orchestrator/OverlayPorts';
+} from '../orchestrator/contracts/OverlayPorts';
 import { EpgPreferencesStore, type EpgLayoutMode } from '../../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../../modules/settings/ProfileSessionStore';
 import {
@@ -28,7 +28,7 @@ import {
     applyPostReadyRoutingPolicy,
 } from './InitializationStartupPolicy';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
-import type { RecoverableAsyncFailureReporter } from '../orchestrator/OrchestratorRuntimeSeams';
+import type { RecoverableAsyncFailureReporter } from '../orchestrator/runtime/OrchestratorRuntimeSeams';
 
 // Numeric order is significant: lower values are earlier pipeline stages.
 // runStartup compares StartupPhase values and uses Math.min(_startupQueuedPhase, startPhase)

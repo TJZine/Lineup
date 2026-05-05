@@ -2,16 +2,16 @@ import type {
     ChannelConfig,
     IChannelManager,
     ResolvedChannelContent,
-} from '../../modules/scheduler/channel-manager';
-import type { IChannelScheduler, ScheduleConfig } from '../../modules/scheduler/scheduler';
-import type { IVideoPlayer, StreamDescriptor } from '../../modules/player';
-import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
-import type { StreamDecision } from '../../modules/plex/stream';
-import type { EPGCoordinator } from '../../modules/ui/epg';
-import type { AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
-import type { SubtitleMode } from '../../shared/subtitle-mode';
-import { ScheduleDayRolloverController } from './ScheduleDayRolloverController';
-import { SubtitleTrackRecoveryController } from './SubtitleTrackRecoveryController';
+} from '../../../modules/scheduler/channel-manager';
+import type { IChannelScheduler, ScheduleConfig } from '../../../modules/scheduler/scheduler';
+import type { IVideoPlayer, StreamDescriptor } from '../../../modules/player';
+import type { PlaybackRecoveryManager } from '../../../modules/player/PlaybackRecoveryManager';
+import type { StreamDecision } from '../../../modules/plex/stream';
+import type { EPGCoordinator } from '../../../modules/ui/epg';
+import type { AppendIssueDiagnostic } from '../../../modules/debug/IssueDiagnosticsStore';
+import type { SubtitleMode } from '../../../shared/subtitle-mode';
+import { ScheduleDayRolloverController } from '../controllers/ScheduleDayRolloverController';
+import { SubtitleTrackRecoveryController } from '../controllers/SubtitleTrackRecoveryController';
 
 export interface OrchestratorRuntimeControllerBuilderInput {
     scheduleDayRollover: {

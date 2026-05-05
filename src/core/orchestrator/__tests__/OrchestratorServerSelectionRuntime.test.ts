@@ -7,7 +7,7 @@ import { AppErrorCode } from '../../../types/app-errors';
 import {
     OrchestratorServerSelectionRuntime,
     type OrchestratorServerSelectionRuntimeDeps,
-} from '../OrchestratorServerSelectionRuntime';
+} from '../runtime/OrchestratorServerSelectionRuntime';
 
 const createToken = (userId: string): PlexAuthToken => ({
     token: `${userId}-token`,
