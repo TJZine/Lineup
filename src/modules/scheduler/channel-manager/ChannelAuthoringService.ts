@@ -185,9 +185,8 @@ export class ChannelAuthoringService {
     }
 
     getNextAvailableNumber(channels: Iterable<ChannelConfig>): number {
-        const existing = Array.from(channels);
         const usedNumbers = new Set<number>();
-        for (const channel of existing) {
+        for (const channel of channels) {
             usedNumbers.add(channel.number);
         }
 
@@ -197,7 +196,11 @@ export class ChannelAuthoringService {
             }
         }
 
-        return existing.length + 1;
+        throw new ChannelError(
+            AppErrorCode.MAX_CHANNELS_REACHED,
+            CHANNEL_ERROR_MESSAGES.MAX_CHANNELS_REACHED,
+            false
+        );
     }
 
     isChannelNumberInUse(number: number, channels: Iterable<ChannelConfig>): boolean {

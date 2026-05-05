@@ -1,7 +1,7 @@
 import { fnv1a32Uint } from '../../../../utils/hash';
-import { AppErrorCode } from '../../../lifecycle/types';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { ChannelAuthoringService } from '../ChannelAuthoringService';
-import { CHANNEL_ERROR_MESSAGES } from '../constants';
+import { CHANNEL_ERROR_MESSAGES, MAX_CHANNEL_NUMBER, MIN_CHANNEL_NUMBER } from '../constants';
 import type { ChannelCreateInput, ChannelUpdateInput } from '../types';
 import {
     createBaseChannel,
@@ -80,5 +80,25 @@ describe('ChannelAuthoringService', () => {
         expect(updated.lastContentRefresh).toBe(channel.lastContentRefresh);
         expect(updated.itemCount).toBe(channel.itemCount);
         expect(updated.totalDurationMs).toBe(channel.totalDurationMs);
+    });
+
+    it('throws a typed error when no valid channel numbers remain', () => {
+        const service = createService();
+        const channels = Array.from(
+            { length: MAX_CHANNEL_NUMBER - MIN_CHANNEL_NUMBER + 1 },
+            (_value, index) => createBaseChannel({
+                id: `channel-${index + MIN_CHANNEL_NUMBER}`,
+                number: index + MIN_CHANNEL_NUMBER,
+            })
+        );
+
+        expect(() => service.getNextAvailableNumber(channels)).toThrow(
+            expect.objectContaining({
+                name: 'ChannelError',
+                code: AppErrorCode.MAX_CHANNELS_REACHED,
+                message: CHANNEL_ERROR_MESSAGES.MAX_CHANNELS_REACHED,
+                recoverable: false,
+            })
+        );
     });
 });
