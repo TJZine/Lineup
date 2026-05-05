@@ -165,3 +165,16 @@ test('NavigationCoordinator no longer has stale runtime UI temporary exceptions'
 
     assert.deepEqual(staleNavigationUiExceptions, []);
 });
+
+test('app-shell no longer has stale composition-root temporary exceptions', () => {
+    const staleAppShellCompositionRootExceptions = lineupArchitectureRules.temporaryExceptions.filter(
+        (exception) =>
+            exception.rule === 'composition-root-access-boundary'
+            && (
+                exception.from === 'src/core/app-shell/AppOrchestratorConfigFactory.ts'
+                || exception.from === 'src/core/app-shell/AppShellRuntimeContracts.ts'
+            )
+    );
+
+    assert.deepEqual(staleAppShellCompositionRootExceptions, []);
+});

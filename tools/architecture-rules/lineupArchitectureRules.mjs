@@ -55,20 +55,5 @@ export const lineupArchitectureRules = {
         ],
         allowedImporters: ['src/bootstrap.ts'],
     },
-    temporaryExceptions: [
-        {
-            rule: 'composition-root-access-boundary',
-            from: 'src/core/app-shell/AppOrchestratorConfigFactory.ts',
-            to: '../../Orchestrator',
-            reason: 'Config factory currently depends on root orchestrator type export surface.',
-            cleanupPriority: 'P3',
-        },
-        {
-            rule: 'composition-root-access-boundary',
-            from: 'src/core/app-shell/AppShellRuntimeContracts.ts',
-            to: '../../Orchestrator',
-            reason: 'App-shell runtime contracts still reference orchestrator snapshot type from root export.',
-            cleanupPriority: 'P3',
-        },
-    ],
+    temporaryExceptions: [],
 };
