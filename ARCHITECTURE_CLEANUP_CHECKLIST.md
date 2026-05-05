@@ -1394,10 +1394,11 @@ future source-backed replan explicitly reopens one.
   `FCP-20`, `FCP-EXIT`, Windows port work, or other post-FCP cleanup until
   `FCP-19` has clean closeout evidence.
 
-### [ ] `FCP-19` Behavior-Neutral Plex Stream Package Organization
+### [x] `FCP-19` Behavior-Neutral Plex Stream Package Organization
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-19-behavior-neutral-plex-stream-package-organization-plan.md`
 - Dimensions/rubric tags: package organization, structure navigation, Plex
   integration, dependency health, convention drift
 - Scope owner: Plex stream package organization owner
@@ -1428,7 +1429,7 @@ future source-backed replan explicitly reopens one.
   targeted Plex stream tests affected by moves, `npm run typecheck`,
   `git diff --check`, `npm run verify`, and `npm run verify:docs` if
   architecture/API docs change.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1440,11 +1441,52 @@ future source-backed replan explicitly reopens one.
   import moves change public package exports; stream resolution, auth, token
   redaction, subtitle, debug, or playback behavior changes; source audit shows
   organization is not worth pre-port churn.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start only after `FCP-18` closeout. Explicit maintainer approval is
-  required before creating any compatibility shim or root/package barrel.
+- Last touched: 2026-05-05
+- Verification: pre/post source audits for `FCP-19-SF1`; old flat-path import
+  and export audits; replacement-path/public-seam audit; token/redaction
+  sensitive URL and probe audit; targeted Plex stream resolver/pipeline/URL/
+  subtitle diagnostics tests; targeted Plex policy/HDR/session/error/fetch
+  tests; affected Orchestrator and Plex integration docs tests; `npm run
+  test:tools -- --runInBand src/__tests__/tools/plexIntegrationDocs.test.ts`;
+  `npm run plans:check`; `npm run verify:docs`; `npm run typecheck`;
+  `git diff --check`; and final `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-19-SF1`: resolved. Plex stream production files now live under focused
+    owner folders: `contracts/`, `diagnostics/`, `pipeline/`, `policy/`,
+    `resolver/`, and `url/`. The root `src/modules/plex/stream/index.ts`
+    remains the existing public package seam and exports the same public names
+    from moved owners. Old flat-path direct imports were reconciled with no
+    old-path shim files, subfolder barrels, public export widening, playback
+    behavior changes, diagnostic behavior changes, auth/token/redaction
+    changes, or URL-policy changes. `docs/api/plex-integration.md`,
+    `docs/development/subtitles.md`, `docs/architecture/CURRENT_STATE.md`, and
+    `docs/architecture/modules.md` were updated for current path truth.
+- Closeout commits before checklist closeout: `9504a3bd`
+  (`FCP-19-S1` implementation and architecture/API path-truth updates).
+- Review evidence:
+  - Plan review: initial tracked reviewer found missing FCP priority-exit
+    readiness and an overbroad old-path audit regex; the planner revised the
+    plan, the same reviewer confirmed closure, and a fresh final plan reviewer
+    approved `FCP-19-S1` for implementation.
+  - Implementation review: tracked reviewer reported one current subtitle doc
+    path-truth finding; the controller fixed `docs/development/subtitles.md`,
+    and the same reviewer confirmed closure. A fresh final implementation
+    reviewer then found stale `.agent/skills` mirror paths after `.codex/skills`
+    path-truth updates; the controller ran `scripts/sync_agent_skills.sh`, and
+    the reviewer confirmed closure. Review found no runtime, export,
+    token/redaction, URL/query/header, shim/barrel, or behavior-change
+    findings.
+- Deferred analysis note: the active plan includes a read-only
+  `Deferred ChannelSetupScreen Candidate Analysis` addendum. Recommendation:
+  keep the candidate deferred unless a future source-backed brief proves the
+  strategy-step adapter/focus/dropdown bridge is a distinct live residual or a
+  planned ChannelSetup change would otherwise expand `ChannelSetupScreen`
+  responsibility. This analysis is not `FCP-19` coverage and creates no FCP-19
+  follow-up.
+- Handoff: `FCP-19` is closed. The next safe package is `FCP-20`; do not start
+  `FCP-EXIT`, Windows port work, or other post-FCP cleanup until `FCP-20` has
+  clean closeout evidence.
 
 ### Deferred Pre-Port Candidate: ChannelSetupScreen Distinct Residual
 

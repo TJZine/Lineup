@@ -26,7 +26,7 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 - `StreamRequest.subtitleStreamId` is treated as **strict**: if the requested subtitle stream is not present in any selectable media version/part, `resolveStream()` throws `SUBTITLE_STREAM_NOT_FOUND` rather than silently dropping the selection.
 
 Key files:
-- `src/modules/plex/stream/PlexStreamResolver.ts`
+- `src/modules/plex/stream/resolver/PlexStreamResolver.ts`
 - `src/modules/player/PlaybackRecoveryManager.ts`
 - `src/modules/player/VideoPlayer.ts`
 - `src/modules/player/SubtitleManager.ts`
