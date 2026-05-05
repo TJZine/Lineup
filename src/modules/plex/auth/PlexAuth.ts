@@ -216,9 +216,8 @@ export class PlexAuth implements IPlexAuth {
 
     /**
      * Verify a token is still valid by calling Plex API.
-     * Returns false only for explicit auth-invalid responses.
-     * @param token - Plex auth token to validate
-     * @returns true if token is valid, false otherwise
+     * Returns false only for explicit auth-invalid responses (401/403);
+     * service, transport, timeout, and malformed success failures throw.
      */
     public async validateToken(token: string): Promise<boolean> {
         const url = PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.USER_ENDPOINT;

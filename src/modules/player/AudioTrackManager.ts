@@ -5,7 +5,6 @@ import { SUPPORTED_AUDIO_CODECS } from '../plex/stream/constants';
 import type { AudioSettingsStore } from '../settings/AudioSettingsStore';
 
 /**
- * Interface for audio track in HTMLVideoElement.
  * Not all browsers support this - used for HLS audio track switching.
  */
 interface WebOSAudioTrack {
@@ -16,30 +15,19 @@ interface WebOSAudioTrack {
     language: string;
 }
 
-/**
- * Interface for audio track list in HTMLVideoElement.
- */
 interface WebOSAudioTrackList {
     length: number;
     [index: number]: WebOSAudioTrack | undefined;
 }
 
-/**
- * Extended HTMLVideoElement interface for webOS.
- */
 interface HTMLVideoElementWithAudioTracks extends HTMLVideoElement {
     audioTracks?: WebOSAudioTrackList;
 }
 
-/** Maximum retry attempts for audio track switch */
 const AUDIO_TRACK_MAX_RETRIES = 1;
 
-/** Polling interval for track switch verification */
 const TRACK_SWITCH_POLL_INTERVAL_MS = 100;
 
-/**
- * Manages audio track switching with retry logic.
- */
 export type AudioTrackManagerDeps = {
     audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabledAndClean'>;
 };
@@ -81,7 +69,6 @@ export class AudioTrackManager {
 
     /**
      * Switch to a different audio track with retry-on-failure.
-     * @param trackId - Target track ID
      * @throws PlaybackError if switch fails (TRACK_NOT_FOUND, CODEC_UNSUPPORTED, TRACK_SWITCH_TIMEOUT, TRACK_SWITCH_FAILED)
      */
     public async switchTrack(trackId: string): Promise<void> {
@@ -124,7 +111,7 @@ export class AudioTrackManager {
             } catch (error) {
                 lastError = error as PlaybackError;
 
-                // Don't retry timeout errors - preserve the timeout error
+                // Preserve timeout failures instead of retrying into a generic switch failure.
                 if ((error as PlaybackError).code === AppErrorCode.TRACK_SWITCH_TIMEOUT) {
                     isTimeoutError = true;
                     break;
@@ -132,7 +119,6 @@ export class AudioTrackManager {
             }
         }
 
-        // Failed after retries - try to restore previous track
         if (previousTrackId && previousTrackId !== trackId) {
             try {
                 this._restoreTrack(audioTracks, previousTrackId);
@@ -141,12 +127,10 @@ export class AudioTrackManager {
             }
         }
 
-        // If it was a timeout error, throw TRACK_SWITCH_TIMEOUT (not TRACK_SWITCH_FAILED)
         if (isTimeoutError && lastError) {
             throw this._withRestoreFailure(lastError, restoreFailure);
         }
 
-        // Throw TRACK_SWITCH_FAILED after retry for non-timeout errors
         throw this._createError(
             AppErrorCode.TRACK_SWITCH_FAILED,
             `Failed to switch to audio track ${trackId} after retry`,
