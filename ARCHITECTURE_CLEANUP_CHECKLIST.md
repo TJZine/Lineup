@@ -1317,10 +1317,11 @@ future source-backed replan explicitly reopens one.
   `FCP-19` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
   until `FCP-18` has clean closeout evidence.
 
-### [ ] `FCP-18` Behavior-Neutral Navigation Package Organization
+### [x] `FCP-18` Behavior-Neutral Navigation Package Organization
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-18-behavior-neutral-navigation-package-organization-plan.md`
 - Dimensions/rubric tags: package organization, structure navigation,
   cross-module architecture, dependency health, convention drift
 - Scope owner: navigation package organization owner
@@ -1332,7 +1333,7 @@ future source-backed replan explicitly reopens one.
   - `src/modules/navigation/*`
   - `src/modules/navigation/__tests__/*`
   - focused subfolders under `src/modules/navigation/` if created
-  - architecture docs only if navigation ownership claims change
+  - architecture docs when named navigation paths move
 - Files out of scope:
   - behavior changes to navigation input routing, repeat timing, focus policy,
     modal effects, screen effects, public exports, or runtime contracts
@@ -1351,7 +1352,7 @@ future source-backed replan explicitly reopens one.
   targeted navigation tests affected by moves, `npm run typecheck`,
   `git diff --check`, `npm run verify`, and `npm run verify:docs` if
   architecture docs change.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates(these can be done in 1 pass, no need for seperate reviews for both):
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1362,11 +1363,36 @@ future source-backed replan explicitly reopens one.
 - Stop/replan triggers: foldering needs compatibility shims or root barrels;
   import moves change public package exports; navigation behavior changes;
   source audit shows organization is not worth pre-port churn.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start only after `FCP-17` closeout. Explicit maintainer approval is
-  required before creating any compatibility shim or root/package barrel.
+- Last touched: 2026-05-05
+- Verification: pre/post source audits for `FCP-18-SF1`; old flat-path import
+  and export audits; replacement-path/public-seam audit;
+  `ChannelSwitchOutcome` owner audit; targeted navigation tests; targeted
+  orchestrator assembly tests; `npm run typecheck`; `git diff --check`;
+  `npm run plans:check`; `npm run verify:docs`; and final `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-18-SF1`: resolved. Navigation production files now live under
+    focused owner folders: `contracts/`, `manager/`, `input/`, `coordinator/`,
+    `handlers/`, and `config/`. The root `src/modules/navigation/index.ts`
+    remains the existing public package seam and exports the same public names
+    from moved owners. Old flat-path direct imports were reconciled with no
+    old-path shim files, subfolder barrels, public export widening, or behavior
+    changes. `docs/architecture/CURRENT_STATE.md` and
+    `docs/architecture/modules.md` were updated for current path truth.
+- Closeout commits before checklist closeout: `55761660`
+  (`FCP-18-S1` implementation and architecture path-truth updates).
+- Review evidence:
+  - Plan review: initial tracked reviewer found missing FCP priority-exit
+    readiness and architecture path-truth scope gaps; the planner revised the
+    plan, the same reviewer confirmed closure, and a fresh final plan reviewer
+    approved `FCP-18-S1` for implementation.
+  - Implementation review: tracked reviewer reported no blocking findings and
+    approved `FCP-18-S1` for closeout after checking package organization,
+    public export stability, absence of shims/barrels, path-truth docs, and
+    verification evidence.
+- Handoff: `FCP-18` is closed. The next safe package is `FCP-19`; do not start
+  `FCP-20`, `FCP-EXIT`, Windows port work, or other post-FCP cleanup until
+  `FCP-19` has clean closeout evidence.
 
 ### [ ] `FCP-19` Behavior-Neutral Plex Stream Package Organization
 
