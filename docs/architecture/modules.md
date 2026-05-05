@@ -22,14 +22,14 @@ This document is directory-oriented and lists file-level owners where the canoni
 - thin public runtime entry barrel
 - re-exports `AppOrchestrator` and runtime-facing types for app/test import stability
 
-### `src/core/app-shell/AppThemeController.ts`
+### `src/core/app-shell/runtime/AppThemeController.ts`
 
 - app-shell runtime owner for active theme state
 - owns startup theme initialization and runtime theme updates
 - composes Settings theme callbacks into app-shell runtime screen ports
 - delegates persistence reads/writes to `src/modules/settings/ThemePreferencesStore.ts`
 
-### `src/core/app-shell/AppStartupUiInitializer.ts`
+### `src/core/app-shell/chrome/AppStartupUiInitializer.ts`
 
 - app-shell startup UI initializer owner
 - initializes now-playing-info, playback-options, and exit-confirm overlays during startup
@@ -48,13 +48,27 @@ This document is directory-oriented and lists file-level owners where the canoni
   - `src/core/server-selection/`
   - `src/core/__tests__/`
 
+### `src/core/app-shell/`
+
+- app-shell composition collaborators grouped by owner:
+  - `diagnostics/`: diagnostics surface, dev menu, playback-info formatting, and channel-setup summary
+  - `deferred-screens/`: lazy-screen registry and screen port assembly
+  - `runtime/`: app-shell runtime contracts and theme state
+  - `chrome/`: containers, startup UI, visibility, blocking error overlay, and toast presentation
+  - `config/`: app orchestrator config factory and prefetch constants
+- there is no app-shell root barrel or compatibility shim; callers import the owning leaf file directly
+
 ### `src/core/orchestrator/`
 
 - orchestrator-facing core collaborators and shared ownership of orchestrator type definitions
-- `src/core/orchestrator/OrchestratorTypes.ts` is the durable owner of `OrchestratorConfig` and `ModuleStatus`
-- `src/core/orchestrator/OrchestratorModuleFactory.ts` owns runtime module constructor/config assembly for `AppOrchestrator.initialize()`
-- `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
-- `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts` owns schedule-day rollover and subtitle-track recovery controller construction for `AppOrchestrator`
+- `src/core/orchestrator/AppOrchestrator.ts` remains the package-root implementation facade
+- `src/core/orchestrator/contracts/OrchestratorTypes.ts` is the durable owner of `OrchestratorConfig` and `ModuleStatus`
+- `src/core/orchestrator/assembly/OrchestratorModuleFactory.ts` owns runtime module constructor/config assembly for `AppOrchestrator.initialize()`
+- `src/core/orchestrator/assembly/OrchestratorCoordinatorAssembly.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
+- `src/core/orchestrator/runtime/OrchestratorRuntimeControllerBuilder.ts` owns schedule-day rollover and subtitle-track recovery controller construction for `AppOrchestrator`
+- `src/core/orchestrator/events/` owns orchestrator event binding and cleanup reporting
+- `src/core/orchestrator/controllers/` owns runtime controller collaborators such as schedule-day rollover, subtitle-track recovery, profile-switch cleanup, and overlay runtime policy
+- `src/core/orchestrator/policy/` and `src/core/orchestrator/storage/` own schedule policy and storage context respectively
 - `src/core/initialization/InitializationCoordinator.ts` owns orchestrator startup sequencing for the app-shell/orchestrator startup path
 - `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` owns Priority-1 runtime assembly shaping from app-provided runtime refs and callbacks; it shapes the public assembly input directly without a separate no-value forwarding layer
 - `src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts` owns Priority-1 controller and `OrchestratorEventBinder` construction previously in `AppOrchestrator._initializePriorityOneControllers()`
@@ -73,7 +87,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/server-selection/ServerSelectionCoordinator.ts` owns the full selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, full result shaping, transactional persistence handoff, rollback, and selected-server startup-resume invocation
 - `src/core/server-selection/SelectedServerPersistenceAdapter.ts` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
 - `src/core/server-selection/SelectedServerRuntimeController.ts` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
-- `src/core/app-shell/AppShellRuntimeContracts.ts` owns the narrowed app-shell selected-server result exposed to app-shell/server-select callers, and `src/core/app-shell/AppLazyScreenPortFactory.ts` adapts that result into the server-select screen port without exposing core resume details
+- `src/core/app-shell/runtime/AppShellRuntimeContracts.ts` owns the narrowed app-shell selected-server result exposed to app-shell/server-select callers, and `src/core/app-shell/deferred-screens/AppLazyScreenPortFactory.ts` adapts that result into the server-select screen port without exposing core resume details
 
 ### `src/config/`
 
@@ -239,7 +253,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - channel persistence ownership and normalization for channel manager
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
-- owns server/user-scoped channel key families (including selected/current channel state) configured by `src/core/orchestrator/OrchestratorStorageContext.ts`
+- owns server/user-scoped channel key families (including selected/current channel state) configured by `src/core/orchestrator/storage/OrchestratorStorageContext.ts`
 - `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin consumer wrapper over `ChannelPersistenceStore`, not a separate storage owner
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` is the public channel-domain API/state facade; package-local services own authoring/default shaping, import/export orchestration, manager-facing persistence coordination, resolved-content cache/clone policy, and retry timers without changing storage schema ownership.
 
@@ -257,7 +271,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - `src/modules/ui/common/`
 - shared shells, overlay primitives, branding helpers, and cross-surface presentation helpers such as `appShellContainerIds.ts`, `channelDisplay.ts`, and `formatTimecode.ts`
-- `src/core/app-shell/AppContainerFactory.ts` is the app-shell DOM owner that creates the bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell container IDs plus app-materialized feature mount nodes at document scope, and keeps the approved runtime chrome members grouped there in fixed structural order
+- `src/core/app-shell/chrome/AppContainerFactory.ts` is the app-shell DOM owner that creates the bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell container IDs plus app-materialized feature mount nodes at document scope, and keeps the approved runtime chrome members grouped there in fixed structural order
 
 ### Screens and Overlays
 
@@ -281,7 +295,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/ui/toast/`
 - `src/modules/ui/theme/`
 - `src/modules/ui/theme/` is the public owner of theme metadata (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`)
-- runtime theme state/control is app-shell-owned by `src/core/app-shell/AppThemeController.ts`
+- runtime theme state/control is app-shell-owned by `src/core/app-shell/runtime/AppThemeController.ts`
 - `src/modules/ui/settings/` consumes theme metadata plus app-composed runtime callbacks and should not act as a second public owner for those definitions
 - `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` are the staged EPG package owners.
 - `src/modules/ui/server-select/ServerSelectScreen.ts` is the server-select screen adapter; `ServerSelectRuntimeCoordinator.ts`, `ServerSelectFocusCoordinator.ts`, `ServerSelectStatusPolicy.ts`, and `ServerSelectListView.ts` own runtime workflow, focus, status/display policy, and DOM-list rendering respectively.

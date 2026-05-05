@@ -29,13 +29,13 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - eagerly owns splash plus top-level app-shell composition only
 - should stay thin and avoid regaining feature-specific logic
 
-### `src/core/app-shell/AppLazyScreenRegistry.ts`
+### `src/core/app-shell/deferred-screens/AppLazyScreenRegistry.ts`
 
 - owner for deferred app-shell screen loading/instances (`auth`, `profile-select`, `server-select`, `audio-setup`, `channel-setup`, `settings`)
 - owns deferred-screen inflight loading state, prefetch timers, and deferred-screen cleanup
 - consumes focused screen-specific ports from `AppLazyScreenPortFactory`; it no longer owns or accepts a broad multi-feature lazy-screen runtime facade
 
-### `src/core/app-shell/AppLazyScreenPortFactory.ts`
+### `src/core/app-shell/deferred-screens/AppLazyScreenPortFactory.ts`
 
 - focused owner for lazy-screen port assembly at the app-shell boundary
 - builds screen-specific port contracts for deferred screens while delegating runtime operations through app-shell-owned runtime port contracts (`AppShellRuntimeContracts`)
@@ -43,23 +43,33 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - owns the channel-setup screen's selected-server projection as runtime state (`getSelectedServerId`) only; channel setup UI must not construct `ServerSelectionStore` or consume selected-server storage-key getters
 - keeps `src/App.ts` at composition wiring by replacing the previous inline lazy-screen runtime object-literal assembly
 
-### `src/core/app-shell/AppScreenVisibilityCoordinator.ts`
+### `src/core/app-shell/chrome/AppScreenVisibilityCoordinator.ts`
 
 - owner for route-driven app-shell show/hide policy
 - owns splash-backed deferred-screen reveal sequencing for startup and setup routes
 
-### `src/core/app-shell/AppThemeController.ts`
+### `src/core/app-shell/runtime/AppThemeController.ts`
 
 - app-shell-owned runtime owner for active theme state
 - owns theme initialization and theme class application at startup
 - composes Settings runtime theme reads/writes via app-shell runtime ports
 - delegates persisted theme storage to `ThemePreferencesStore`
 
-### `src/core/app-shell/AppStartupUiInitializer.ts`
+### `src/core/app-shell/chrome/AppStartupUiInitializer.ts`
 
 - app-shell-owned startup UI initializer
 - owns startup-time initialization calls for now-playing-info, playback-options, and exit-confirm overlays
 - keeps startup UI readiness sequencing explicit through `src/core/initialization/InitializationCoordinator.ts`'s narrow startup-UI port
+
+### `src/core/app-shell/`
+
+- app-shell package navigation is grouped by owner:
+  - `diagnostics/`: diagnostics surface, dev menu, playback-info formatting, and channel-setup summary
+  - `deferred-screens/`: lazy screen registry and screen port assembly
+  - `runtime/`: app-shell runtime contracts and theme state
+  - `chrome/`: containers, startup UI, visibility, blocking error overlay, and toast presentation
+  - `config/`: app orchestrator config factory and app-shell prefetch constants
+- there is no app-shell root barrel or compatibility shim; callers import the owning leaf file directly
 
 ### `src/core/initialization/InitializationCoordinator.ts`
 
@@ -69,7 +79,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused server-selection collaborators shared between app shell and orchestrator
 - `ServerSelectionCoordinator.selectServer()` owns the full core/orchestrator selected-server workflow/result contract, including discovery-result translation, transactional persistence handoff, rollback, selected-server readiness, persistence status, and selected-server startup-resume invocation
-- app-shell/server-select callers consume the narrowed app-shell result owned by `src/core/app-shell/AppShellRuntimeContracts.ts` and adapted through `src/core/app-shell/AppLazyScreenPortFactory.ts`
+- app-shell/server-select callers consume the narrowed app-shell result owned by `src/core/app-shell/runtime/AppShellRuntimeContracts.ts` and adapted through `src/core/app-shell/deferred-screens/AppLazyScreenPortFactory.ts`
 - `SelectedServerPersistenceAdapter` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
 - `SelectedServerRuntimeController` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper invoked by that flow; it does not own the app-shell orchestration path itself
 
@@ -84,40 +94,41 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - central runtime coordinator implementation owner
 - owns composition-root diagnostics append wiring (`AppendIssueDiagnostic`) for runtime collaborators while `IssueDiagnosticsStore` remains the storage/debug owner
 - constructs the initialization-package `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
-- delegates grouped priority-one runtime assembly shaping to `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` and delegates schedule-day rollover plus subtitle-track recovery construction to `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts`
-- delegates playback info snapshot projection to `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`; `AppOrchestrator` remains the runtime state source and refresh trigger owner
-- delegates coordinator assembly required-module hardening to `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` / `OrchestratorCoordinatorContracts.ts`, which own the typed assembly input seam
-- delegates shutdown teardown failure collection to `src/core/orchestrator/OrchestratorShutdownTeardown.ts` while preserving `AppOrchestrator.shutdown()` ordering, field nulling, and singleton/no-reuse lifecycle ownership
-- delegates channel-switch runtime commands and missing-dependency reporting to `src/core/orchestrator/OrchestratorChannelSwitchRuntime.ts`
-- delegates Plex auth screen-runtime PIN operations to `src/core/orchestrator/OrchestratorPlexAuthRuntime.ts`
-- delegates selected-server projection, selection/clear commands, and selected-server startup-swap handoff to `src/core/orchestrator/OrchestratorServerSelectionRuntime.ts`
+- delegates grouped priority-one runtime assembly shaping to `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` and delegates schedule-day rollover plus subtitle-track recovery construction to `src/core/orchestrator/runtime/OrchestratorRuntimeControllerBuilder.ts`
+- delegates playback info snapshot projection to `src/core/orchestrator/runtime/OrchestratorPlaybackInfoSnapshot.ts`; `AppOrchestrator` remains the runtime state source and refresh trigger owner
+- delegates coordinator assembly required-module hardening to `src/core/orchestrator/assembly/OrchestratorCoordinatorAssembly.ts` / `OrchestratorCoordinatorContracts.ts`, which own the typed assembly input seam
+- delegates shutdown teardown failure collection to `src/core/orchestrator/runtime/OrchestratorShutdownTeardown.ts` while preserving `AppOrchestrator.shutdown()` ordering, field nulling, and singleton/no-reuse lifecycle ownership
+- delegates channel-switch runtime commands and missing-dependency reporting to `src/core/orchestrator/runtime/OrchestratorChannelSwitchRuntime.ts`
+- delegates Plex auth screen-runtime PIN operations to `src/core/orchestrator/runtime/OrchestratorPlexAuthRuntime.ts`
+- delegates selected-server projection, selection/clear commands, and selected-server startup-swap handoff to `src/core/orchestrator/runtime/OrchestratorServerSelectionRuntime.ts`
+- remains the only production file at `src/core/orchestrator/` package root; the package has no root barrel or compatibility shim
 
-### `src/core/orchestrator/OrchestratorPlaybackInfoSnapshot.ts`
+### `src/core/orchestrator/runtime/OrchestratorPlaybackInfoSnapshot.ts`
 
 - focused owner for the `PlaybackInfoSnapshot` projection contract consumed through the public `src/Orchestrator.ts` barrel
 - projects from narrow orchestrator playback/channel state accessors and does not own mutable playback state or Plex/player stream policy
 
-### `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts`
+### `src/core/orchestrator/assembly/OrchestratorCoordinatorAssembly.ts`
 
 - owns coordinator assembly input construction and required-module validation before coordinator creation
 - exposes the typed assembly input seam used by `AppOrchestrator` without no-op module fallbacks or scattered non-null assertions
 
-### `src/core/orchestrator/OrchestratorShutdownTeardown.ts`
+### `src/core/orchestrator/runtime/OrchestratorShutdownTeardown.ts`
 
 - focused shutdown helper for best-effort teardown failure collection
 - preserves continuation after individual teardown failures and returns failures for one aggregate `orchestrator.shutdown.teardown` report from `AppOrchestrator`
 
-### `src/core/orchestrator/OrchestratorChannelSwitchRuntime.ts`
+### `src/core/orchestrator/runtime/OrchestratorChannelSwitchRuntime.ts`
 
 - focused owner for AppOrchestrator-facing channel-switch runtime commands
 - owns ID and number switch delegation, missing channel-tuning dependency reporting, outcome-aware number-switch adaptation, and best-effort next/previous channel commands
 
-### `src/core/orchestrator/OrchestratorPlexAuthRuntime.ts`
+### `src/core/orchestrator/runtime/OrchestratorPlexAuthRuntime.ts`
 
 - focused owner for AppOrchestrator-facing Plex auth screen-runtime PIN operations
 - preserves initialized/shutdown checks for `requestAuthPin`, `pollForPin`, and `cancelPin` while Plex auth remains the credential/token owner
 
-### `src/core/orchestrator/OrchestratorServerSelectionRuntime.ts`
+### `src/core/orchestrator/runtime/OrchestratorServerSelectionRuntime.ts`
 
 - focused owner for AppOrchestrator-facing selected-server runtime operations
 - owns selected-server ID projection, select/clear commands, selected-server coordinator/runtime-controller handoff, and post-selection startup-swap orchestration
@@ -145,11 +156,11 @@ after this extraction.
 - `PriorityOneAssemblyBuilder.ts` owns the grouped priority-one runtime assembly contract from app-provided runtime refs and callbacks; it shapes the public `PriorityOneAssemblyInput` directly and must not add no-value field-for-field forwarding layers around that contract
 - `PriorityOneControllerFactory.ts` now owns playback start/runtime, overlay runtime policy, profile-switch cleanup, and event-binder assembly for the priority-one path
 
-### `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts`
+### `src/core/orchestrator/runtime/OrchestratorRuntimeControllerBuilder.ts`
 
 - focused owner for schedule-day rollover and subtitle-track recovery controller construction used by `AppOrchestrator`
 
-### `src/core/orchestrator/OrchestratorSchedulePolicy.ts`
+### `src/core/orchestrator/policy/OrchestratorSchedulePolicy.ts`
 
 - focused owner for local-day-key/midnight math and deterministic daily schedule seed policy used by channel-tuning and schedule-day rollover flows
 
@@ -207,7 +218,7 @@ after this extraction.
   state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`;
   `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin
   consumer wrapper over that store, with server/user-scoped keys configured
-  through `src/core/orchestrator/OrchestratorStorageContext.ts`
+  through `src/core/orchestrator/storage/OrchestratorStorageContext.ts`
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` remains the public
   channel-domain API/state owner, while package-local collaborators own focused
   responsibilities: `ChannelAuthoringService.ts` owns authoring/default shaping,
@@ -269,7 +280,7 @@ after this extraction.
 - toast presentation remains under `src/modules/ui/toast/`, while the UI-neutral toast payload contract lives in `src/shared/toast.ts`
 - `src/modules/ui/theme/` owns the public theme metadata contract (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`); runtime theme state/control lives in app-shell ownership (`AppThemeController`), and `src/modules/ui/settings/` consumes theme callbacks through app-composed ports
 - `src/modules/ui/common/` owns cross-surface UI presentation helpers such as `appShellContainerIds`, `channelDisplay`, and the pure `formatTimecode` helper shared by overlay owners
-- `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/AppContainerFactory.ts` and consumed by app-shell/runtime wiring, including the bounded `runtime-chrome-host`; feature-owned mount container IDs such as EPG, player OSD, mini guide, channel badge, channel transition, and exit confirm remain with their feature modules even though `AppContainerFactory` may canonicalize their materialized DOM nodes at document scope
+- `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/chrome/AppContainerFactory.ts` and consumed by app-shell/runtime wiring, including the bounded `runtime-chrome-host`; feature-owned mount container IDs such as EPG, player OSD, mini guide, channel badge, channel transition, and exit confirm remain with their feature modules even though `AppContainerFactory` may canonicalize their materialized DOM nodes at document scope
 - `src/modules/ui/epg/coordinator/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
 - `src/modules/ui/epg/constants.ts` owns canonical EPG default config values, including row height; cross-module callers consume fresh default config objects through the EPG package seam, and app-shell config assembly does not own an independent EPG row-height override
 - `src/modules/ui/epg/startup/buildEPGStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/initialization/InitializationCoordinator.ts`
@@ -277,7 +288,7 @@ after this extraction.
 - `src/modules/ui/epg/coordinator/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through `EpgPreferencesStore`
 - `src/modules/ui/epg/view/index.ts` is package-local for view-layer exports; `src/modules/ui/epg/view/EPGVirtualizer.ts` remains the current virtualized-grid owner, and the EPG package split continues to stage leaf owners under `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`
 - overlay package roots (`now-playing-info`, `player-osd`, `mini-guide`, `channel-transition`, `playback-options`, `exit-confirm`) are the intended cross-module seams for coordinator/value imports used by core/app-shell wiring
-- `src/core/app-shell/AppContainerFactory.ts` materializes a bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell-owned containers plus app-materialized feature mount nodes at document scope, and reparents exactly `player-osd`, `channel-number-overlay`, `channel-badge`, `mini-guide`, and `channel-transition` into that host; the host owns shell-plane structure only, while feature packages keep their DOM markup, visibility, and local z-index ownership
+- `src/core/app-shell/chrome/AppContainerFactory.ts` materializes a bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell-owned containers plus app-materialized feature mount nodes at document scope, and reparents exactly `player-osd`, `channel-number-overlay`, `channel-badge`, `mini-guide`, and `channel-transition` into that host; the host owns shell-plane structure only, while feature packages keep their DOM markup, visibility, and local z-index ownership
 - `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` is now a UI-facing composition wrapper over `ChannelSetupSessionState` (session state/config serialization/record hydration) and `ChannelSetupSessionRuntime` (workflow I/O, abort/timer lifecycle)
 - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts` owns string-only UI runtime error summaries for load, preview/review, build, blocked, and bookkeeping outcomes; typed planning/build failure details stay in core contracts/logs rather than `ChannelSetupScreen`
 - `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the screen shell and step-router owner; package-local collaborators own focused wizard behavior: `ChannelSetupDropdownController.ts` owns dropdown lifecycle, `ChannelSetupBuildStepPresenter.ts` owns build review/progress/success presentation, session/runtime ownership stays in `ChannelSetupSessionController` / `ChannelSetupSessionRuntime`, focus ownership stays in `focus/ChannelSetupFocusCoordinator.ts`, and strategy/step rendering stays in the step controllers.

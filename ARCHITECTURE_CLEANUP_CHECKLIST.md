@@ -10,15 +10,13 @@ should not drive the next cleanup task by default.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P13, FCP-1 through FCP-11, DCR-1 through DCR-16,
+- Current execution state: P0-P13, FCP-1 through FCP-12, DCR-1 through DCR-16,
   and DCR-EXIT are complete. The old P14 wave ledger is superseded for current
   decision-making because repeated residual waves did not create meaningful
   score progress and kept expanding the active control plane.
-- Next safe start: plan `FCP-12`, the first unchecked package in the active
-  Final Cleanup Pass below. Perform package-local source-backed discovery,
-  freeze an execution-grade plan with package decomposition and one
-  `ready_now_execution_unit`, run adversarial plan review, and only then
-  implement the approved unit.
+- Next safe start: no further `FCP-*` package is open. `FCP-EXIT`, Windows port
+  work, or post-FCP cleanup may start only after this `FCP-12` closeout commit
+  and review evidence remain clean.
 - Preferred launcher: `cleanup-loop` for approved checklist-linked Tier 3
   cleanup packages.
 - Active program: `Final Cleanup Pass` (`FCP-7` through `FCP-12`) below. The
@@ -193,11 +191,12 @@ current evidence.
 
 ## Final Cleanup Pass
 
-The `FCP-7` through `FCP-12` packages are the active final cleanup surface before
-Windows port work. They replace the old historical FCP queue with source-backed
-packages grouped by owner, risk, and efficient execution order. The goal is not
-score chasing; it is to retire remaining maintainability risks that would make
-future platform work harder to reason about.
+The `FCP-7` through `FCP-12` packages were the active final cleanup surface before
+Windows port work and are now completed baseline evidence. They replaced the old
+historical FCP queue with source-backed packages grouped by owner, risk, and
+efficient execution order. The goal was not score chasing; it was to retire
+remaining maintainability risks that would make future platform work harder to
+reason about.
 
 ### FCP Operating Rules
 
@@ -660,10 +659,10 @@ future platform work harder to reason about.
   closeout verification. Next safe package is `FCP-12` only after this closeout
   commit and review evidence remain clean.
 
-### [ ] `FCP-12` Package Organization, Structure Navigation, And Final Exit
+### [x] `FCP-12` Package Organization, Structure Navigation, And Final Exit
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-02-fcp-12-package-organization-structure-navigation-final-exit-plan.md`
 - Dimensions/rubric tags: structure navigation, package organization,
   high-level elegance, docs/source coherence
 - Scope owner: app-shell/core orchestrator package organization owner with final
@@ -706,8 +705,7 @@ future platform work harder to reason about.
 - Verification routing: import/source audits, targeted app-shell/orchestrator
   tests affected by moves, `npm run typecheck`, `npm run verify`,
   `npm run plans:check`, `npm run verify:docs`, and `git diff --check`.
-- Ready-now execution unit: none until the `FCP-12` plan is written and
-  reviewed clean.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -719,11 +717,62 @@ future platform work harder to reason about.
 - Stop/replan triggers: foldering changes public imports, creates barrels that
   widen API surface, conflicts with unfinished FCP packages, or becomes a
   behavior refactor.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: do not start `FCP-12` until earlier FCP packages are complete or
-  maintainer-reclassified.
+- Last touched: 2026-05-04
+- Verification: source audits for `src/core/app-shell` and
+  `src/core/orchestrator` old/replacement folder structure, no barrels/shims,
+  no old flat imports, and no package-local cycles; FCP-7 through FCP-12
+  source-finding reconciliation audit; `npm run plans:check`;
+  `npm run verify:docs`; `npm run typecheck`; `git diff --check`; and final
+  `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-12-SF1`: resolved. Current source has focused
+    `src/core/app-shell/diagnostics/`, `deferred-screens/`, `runtime/`,
+    `chrome/`, and `config/` owners; no production import remains from the old
+    flat app-shell leaf paths, and no app-shell root barrel or compatibility
+    shim exists.
+  - `FCP-12-SF2`: resolved. Current source keeps
+    `src/core/orchestrator/AppOrchestrator.ts` as the implementation facade and
+    preserves `priority-one/`, while composition, event, runtime, controller,
+    policy, storage, and contract files live under focused subfolders; no
+    production import remains from the old flat orchestrator leaf paths, and no
+    orchestrator root barrel or compatibility shim exists.
+  - `FCP-12-SF3`: resolved. Current-source audits plus prior reviewed
+    checkpoints prove `FCP-7` through `FCP-11` source findings are fixed or
+    source-disproved with no accepted residuals; `FCP-12-SF1` and
+    `FCP-12-SF2` are resolved above.
+- Final FCP source reconciliation:
+  - `FCP-7`: resolved. Current source shows server-select shared display/state
+    types in `src/modules/ui/server-select/types.ts`, no stale
+    `NavigationCoordinator` runtime-UI architecture exception, a debug-owned
+    now-playing refresh port in `NowPlayingDebugManager`, canonical
+    channel-setup config imports, canonical workflow-unavailable predicate use,
+    navigation aliasing the shared `ChannelSwitchOutcome`, and closed event-map
+    typing for the shared emitter.
+  - `FCP-8`: resolved. Current source shows object-shaped Plex timeout helpers,
+    aligned `ChannelCreateOptions` on `IChannelManager` and `ChannelManager`,
+    library-owned `PlexMediaItem` plus stream-owned `PlexStreamMediaItem`,
+    sanitized Plex auth causes, Home endpoint probing in
+    `plexHomeEndpointClient.ts`, private `_fetchPagedMediaItems` pagination,
+    and shared `formatChannelSetupWarningDetail`.
+  - `FCP-9`: resolved. Current source keeps
+    `now-playing-info/styles.css` as an import seam with content rules in
+    `styles.content.css`, updates architecture docs to current source-backed
+    owners, leaves only semantic contract comments in the audited files, and
+    uses descriptor-driven native facet planning in
+    `ChannelSetupFacetLibraryExecutor`.
+  - `FCP-10`: resolved. Current source has `EPGCellPresentation.ts` as the
+    text/layout/presentation policy owner, `EPGCellRenderer.ts` as the DOM
+    adapter, and direct renderer tests for width tiers, slivers, focused
+    episode/movie layout, live/progress, and ticker timing.
+  - `FCP-11`: resolved. Current source splits server-select runtime/focus/status
+    owners, channel-setup session/focus/dropdown/build-step owners,
+    ChannelManager authoring/import/persistence/cache/retry owners, and
+    priority-one assembly/collaborator owner-value seams.
+  - `FCP-12`: resolved by `bf87a345`, `0a1c64af`, and this closeout.
+- Handoff: `FCP-12` closed the active Final Cleanup Pass. Do not start
+  `FCP-EXIT`, Windows port work, or post-FCP cleanup unless this closeout commit
+  and review evidence remain clean.
 
 ## Dimension Cleanup Refresh History
 
@@ -2100,8 +2149,8 @@ The six `FCP-*` priorities below produced real improvements and are preserved
 as baseline evidence. They were too conservative and narrow for the intended
 production cleanup finish. Do not choose historical `FCP-1` through `FCP-6` or
 the legacy `FCP-EXIT` anchor as the next active cleanup-loop package unless a
-maintainer explicitly reopens that history; use active `FCP-7` through `FCP-12`
-above instead.
+maintainer explicitly reopens that history; use completed `FCP-7` through
+`FCP-12` above as baseline instead.
 
 ### [x] `FCP-1` Architecture And Handoff Coherence
 
@@ -2443,14 +2492,15 @@ above instead.
   checklist by itself; any new work still needs maintainer approval and a
   source-backed audit.
 - Status: retired historical anchor
-- Plan: none; replaced by completed `DCR-EXIT` and active `FCP-12` final
+- Plan: none; replaced by completed `DCR-EXIT` and completed `FCP-12` final
   reconciliation
 - Last touched: 2026-05-01
 - Verification: superseded by completed DCR-EXIT verification; not rerun for
   this retained historical anchor
-- Follow-ups: active final cleanup now lives in `FCP-7` through `FCP-12`.
+- Follow-ups: final cleanup completed in `FCP-7` through `FCP-12`.
 - Handoff: retained as a historical anchor only. Do not start this legacy
-  `FCP-EXIT`; use active `FCP-7` through `FCP-12` above.
+  `FCP-EXIT`; use the completed `FCP-7` through `FCP-12` records above as
+  baseline evidence.
 
 ## Not Active Checklist Scope By Default
 

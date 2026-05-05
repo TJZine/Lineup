@@ -1,4 +1,4 @@
-**Plan Status:** active
+**Plan Status:** completed
 **Task family:** cleanup/refactor
 **Cleanup subtype:** checklist-linked
 
@@ -20,7 +20,7 @@ This is an `FCP-*` source-backed cleanup package. Coverage is defined only by `s
 
 ## Parent Priority Alignment
 
-`FCP-12` is the first unchecked and final package in the active final cleanup pass. `FCP-7` through `FCP-11` are marked completed in `ARCHITECTURE_CLEANUP_CHECKLIST.md`, and `FCP-11` records a proof matrix plus the gate that `FCP-12` may start only after that closeout evidence remains clean.
+At plan start, `FCP-12` was the first unchecked and final package in the active final cleanup pass. `FCP-7` through `FCP-11` were marked completed in `ARCHITECTURE_CLEANUP_CHECKLIST.md`, and `FCP-11` recorded a proof matrix plus the gate that `FCP-12` could start only after that closeout evidence remained clean.
 
 Current architecture docs identify `src/App.ts` as the app-shell composition root and `src/core/app-shell/` as the owner for deferred screens, app-shell runtime ports, screen visibility, theme, startup UI, diagnostics, containers, toast, and config. They identify `src/Orchestrator.ts` as a thin public runtime entry barrel and `src/core/orchestrator/AppOrchestrator.ts` plus collaborators as the runtime implementation and assembly surface. This plan preserves those owners and changes only package navigation paths.
 
@@ -275,8 +275,8 @@ New automated tests are not required for path-only folder moves unless current t
   - `FCP-12-SF2` maps exactly to `FCP-12-S2`.
   - `FCP-12-SF3` maps exactly to `FCP-12-S3`.
   - No defer path is approved at plan freeze. If a fresh slice audit source-disproves `FCP-12-SF1` or `FCP-12-SF2`, stop and update this plan so `FCP-12-S3` records the reclassification with one final owner and revisit trigger.
-- `ready_now_execution_unit`: `FCP-12-S1`
-- `ready_now_slice`: `FCP-12-S1`
+- `ready_now_execution_unit`: none; package complete
+- `ready_now_slice`: none; package complete
 - `recommended_slice_order`: `FCP-12-S1`, then `FCP-12-S2`, then `FCP-12-S3`
 - `parallel_execution_policy`: serial only. Treat each `FCP-12-S*` row as its own implementation/review unit. No execution waves are approved because `S1` and `S2` both affect shared app/orchestrator import paths and `S3` depends on their final dispositions.
 
@@ -306,3 +306,89 @@ Closeout must record:
 - a clean closeout review.
 
 Next-work blocking gate: do not start `FCP-EXIT`, Windows port work, or post-FCP cleanup until `FCP-12-S3` records the final proof matrix, docs/checklist updates pass, final `npm run verify` passes, and clean priority-exit review confirms no same-area FCP residue is unowned.
+
+## Closeout Evidence
+
+`FCP-12` completed on 2026-05-04 after the reviewed `FCP-12-S1` and
+`FCP-12-S2` implementation checkpoints and this `FCP-12-S3` source-backed
+closeout.
+
+Implementation checkpoints:
+
+- `bf87a345` (`FCP-12-S1`): organized `src/core/app-shell/` into
+  `diagnostics/`, `deferred-screens/`, `runtime/`, `chrome/`, and `config/`
+  without app-shell behavior changes.
+- `0a1c64af` (`FCP-12-S2`): organized `src/core/orchestrator/` into
+  `assembly/`, `events/`, `runtime/`, `controllers/`, `policy/`, `storage/`,
+  and `contracts/` while preserving root `AppOrchestrator.ts` and
+  `priority-one/`.
+
+Source finding disposition:
+
+- `FCP-12-SF1`: resolved. Current source no longer has the original flat
+  app-shell diagnostics/deferred-screen/runtime/theme/startup/toast/container
+  config root. The replacement folders own those clusters directly, no
+  production imports target the old flat leaf paths, and no app-shell root
+  barrel or compatibility shim exists.
+- `FCP-12-SF2`: resolved. Current source no longer has the original flat
+  orchestrator composition/event/runtime/controller/storage/policy root. The
+  replacement folders own those clusters directly, root `AppOrchestrator.ts`
+  remains the implementation facade, `priority-one/` remains the priority-one
+  owner, no production imports target the old flat leaf paths, and no
+  orchestrator root barrel or compatibility shim exists.
+- `FCP-12-SF3`: resolved. The final source reconciliation found no unowned
+  `FCP-7` through `FCP-12` residue. `FCP-7` through `FCP-11` were rechecked
+  against current source and prior reviewed commits as supporting evidence, not
+  copied from completed-plan summaries.
+
+Final FCP reconciliation:
+
+- `FCP-7`: resolved. Current source shows the server-select type cycle is gone
+  through `src/modules/ui/server-select/types.ts`; architecture-rule tests keep
+  `NavigationCoordinator` runtime-UI exceptions removed; `NowPlayingDebugManager`
+  consumes a debug-owned refresh port; channel setup callers use canonical
+  config/workflow helpers; navigation aliases `ChannelSwitchOutcome` from
+  `src/types/channelSwitch.ts`; and `EventEmitter<TEventMap extends object>`
+  uses `keyof TEventMap` instead of string index signatures.
+- `FCP-8`: resolved. Current source shows one object-shaped Plex timeout helper
+  shape for production callers; `ChannelCreateOptions` aligns
+  `IChannelManager` and `ChannelManager`; `PlexMediaItem` belongs to library
+  while stream uses `PlexStreamMediaItem`; Plex auth preserves sanitized causes
+  and delegates Home endpoint probing to `plexHomeEndpointClient.ts`;
+  `PlexLibrary` owns private `_fetchPagedMediaItems`; and channel setup/import
+  error details share `formatChannelSetupWarningDetail`.
+- `FCP-9`: resolved. Current source keeps `now-playing-info/styles.css` as a
+  CSS import seam with leaf content rules in `styles.content.css`; architecture
+  docs now name current owners; audited comments are semantic rather than
+  signature restatement; and native facet planning is descriptor-driven inside
+  the existing channel setup planning owner.
+- `FCP-10`: resolved. Current source keeps `EPGCellRenderer.ts` as the DOM
+  adapter and moves presentation/text-layout policy to
+  `EPGCellPresentation.ts`; direct renderer tests cover width tiers, slivers,
+  focused episode/movie layout, live/progress presentation, and ticker timing.
+- `FCP-11`: resolved. Current source splits server-select runtime/focus/status
+  owners, channel-setup session/focus/dropdown/build-step owners,
+  ChannelManager authoring/import/persistence/cache/retry owners, and
+  priority-one assembly/collaborator owner-value seams.
+- `FCP-12`: resolved by `bf87a345`, `0a1c64af`, and this closeout.
+
+Closeout source audits:
+
+- `find src/core/app-shell -maxdepth 2 -type f | sort`
+- `find src/core/orchestrator -maxdepth 2 -type f | sort`
+- `find src/core/app-shell src/core/orchestrator -name 'index.ts' -o -name '*.ts' | sort`
+- `rg --pcre2 -n "core/app-shell/(AppDiagnostics|AppLazy|AppShellRuntimeContracts|AppThemeController|AppStartupUiInitializer|AppToastPresenter|AppContainerFactory|AppOrchestratorConfigFactory|constants|AppBlocking|AppScreenVisibility)|core/orchestrator/(OrchestratorCoordinator|OrchestratorModuleFactory|OrchestratorEvent|OrchestratorRuntime|OrchestratorChannel|OrchestratorPlex|OrchestratorServer|OrchestratorPlayback|OrchestratorRecoverable|OrchestratorShutdown|ScheduleDay|SubtitleTrack|OverlayRuntime|ProfileSwitch|OrchestratorSchedule|OrchestratorStorage|OrchestratorTypes|OverlayPorts)" src --glob '*.ts'`
+- package-local import graph audit over production `src/core/app-shell` and
+  `src/core/orchestrator` files: `cycles=0 files=48`
+
+Verification:
+
+- `npm run plans:check`
+- `npm run verify:docs`
+- `npm run typecheck`
+- `git diff --check`
+- `npm run verify`
+
+No deferred or accepted-residue `FCP-12` follow-ups remain. The next-work gate
+is unchanged: do not start `FCP-EXIT`, Windows port work, or post-FCP cleanup
+unless this closeout commit and review evidence remain clean.
