@@ -134,30 +134,10 @@ export class SubtitleTrackRecoveryController {
                 'subtitle_track_change'
             ) ?? null;
 
-        if (burnInAttempt) {
-            void burnInAttempt
-                .then((result: BurnInSubtitleRecoveryResult) => {
-                    if (result.outcome === 'failed') {
-                        this._deps.appendIssueDiagnostic({
-                            key: 'orchestrator.subtitleTrackChange.burnInFailure',
-                            data: {
-                                trackId,
-                                format,
-                            },
-                        });
-                    }
-                })
-                .catch((error) => {
-                    this._deps.appendIssueDiagnostic({
-                        key: 'orchestrator.subtitleTrackChange.burnInFailure',
-                        data: {
-                            trackId,
-                            format,
-                            error: String(error),
-                        },
-                    });
-                });
+        if (!burnInAttempt) {
+            return;
         }
+
         this._deps.appendIssueDiagnostic({
             key: 'orchestrator.subtitleTrackChange.burnInAttempt',
             data: {
@@ -165,5 +145,28 @@ export class SubtitleTrackRecoveryController {
                 format,
             },
         });
+
+        void burnInAttempt
+            .then((result: BurnInSubtitleRecoveryResult) => {
+                if (result.outcome === 'failed') {
+                    this._deps.appendIssueDiagnostic({
+                        key: 'orchestrator.subtitleTrackChange.burnInFailure',
+                        data: {
+                            trackId,
+                            format,
+                        },
+                    });
+                }
+            })
+            .catch((error) => {
+                this._deps.appendIssueDiagnostic({
+                    key: 'orchestrator.subtitleTrackChange.burnInFailure',
+                    data: {
+                        trackId,
+                        format,
+                        error: String(error),
+                    },
+                });
+            });
     }
 }
