@@ -111,6 +111,33 @@ export class StrategyStepController {
         return button;
     }
 
+    private _createAdjustableToggle(options: {
+        id: string;
+        label: string;
+        meta: string;
+        stateText: string;
+        deps: Pick<StrategyStepDeps, 'openAdjustableControl'>;
+        selected?: boolean;
+        disabled?: boolean;
+        canOpen?: () => boolean;
+    }): HTMLButtonElement {
+        return this._createToggleButton({
+            id: options.id,
+            className: `setup-toggle setup-toggle--adjustable${options.selected ? ' selected' : ''}`,
+            label: options.label,
+            meta: options.meta,
+            stateText: options.stateText,
+            showChevron: true,
+            ...(options.disabled !== undefined ? { disabled: options.disabled } : {}),
+            onClick: () => {
+                if (options.canOpen && !options.canOpen()) {
+                    return;
+                }
+                options.deps.openAdjustableControl(options.id);
+            },
+        });
+    }
+
     private _capitalize(value: string): string {
         return value.charAt(0).toUpperCase() + value.slice(1);
     }
@@ -129,28 +156,20 @@ export class StrategyStepController {
         const right = document.createElement('div');
         right.className = 'setup-detail-pane';
 
-        const buildModeButton = this._createToggleButton({
+        const buildModeButton = this._createAdjustableToggle({
             id: STEP2_CONTROL_IDS.buildMode,
-            className: 'setup-toggle setup-toggle--adjustable',
             label: 'Build mode',
             meta: 'Replace, append, or merge with your lineup.',
             stateText: this._capitalize(state.buildMode),
-            showChevron: true,
-            onClick: () => {
-                deps.openAdjustableControl(STEP2_CONTROL_IDS.buildMode);
-            },
+            deps,
         });
 
-        const combineButton = this._createToggleButton({
+        const combineButton = this._createAdjustableToggle({
             id: STEP2_CONTROL_IDS.combineMode,
-            className: 'setup-toggle setup-toggle--adjustable',
             label: 'Actor/Studio combine',
             meta: 'Separate movies + TV or combine together.',
             stateText: state.actorStudioCombineMode === 'combined' ? 'Combined' : 'Separate',
-            showChevron: true,
-            onClick: () => {
-                deps.openAdjustableControl(STEP2_CONTROL_IDS.combineMode);
-            },
+            deps,
         });
 
         const strategyLabels: Array<{ key: SetupStrategyKey; label: string; detail: string }> = deps.strategyKeys.map((key) => ({
@@ -218,52 +237,37 @@ export class StrategyStepController {
             },
         });
 
-        const alternateCopiesButton = this._createToggleButton({
+        const alternateCopiesButton = this._createAdjustableToggle({
             id: STEP2_CONTROL_IDS.alternateLineupCopies,
-            className: 'setup-toggle setup-toggle--adjustable',
             disabled: !state.channelExpansion.addAlternateLineups,
             label: 'Alternate Lineup Copies',
             meta: 'How many extra copies per generated channel.',
             stateText: String(state.channelExpansion.alternateLineupCopies),
-            showChevron: true,
-            onClick: () => {
-                if (!state.channelExpansion.addAlternateLineups) {
-                    return;
-                }
-                deps.openAdjustableControl(STEP2_CONTROL_IDS.alternateLineupCopies);
-            },
+            deps,
+            canOpen: () => state.channelExpansion.addAlternateLineups,
         });
 
         const baseModeStateText = state.seriesOrdering.basePlaybackMode === 'block'
             ? `Block • ${state.seriesOrdering.baseBlockSize}`
             : state.seriesOrdering.basePlaybackMode.charAt(0).toUpperCase() + state.seriesOrdering.basePlaybackMode.slice(1);
 
-        const baseModeButton = this._createToggleButton({
+        const baseModeButton = this._createAdjustableToggle({
             id: STEP2_CONTROL_IDS.seriesBaseMode,
-            className: `setup-toggle setup-toggle--adjustable${state.seriesOrdering.basePlaybackMode !== 'shuffle' ? ' selected' : ''}`,
             label: 'Base Series Mode',
             meta: 'Default playback mode for TV-derived channels.',
             stateText: baseModeStateText,
-            showChevron: true,
-            onClick: () => {
-                deps.openAdjustableControl(STEP2_CONTROL_IDS.seriesBaseMode);
-            },
+            deps,
+            selected: state.seriesOrdering.basePlaybackMode !== 'shuffle',
         });
 
-        const baseBlockSizeButton = this._createToggleButton({
+        const baseBlockSizeButton = this._createAdjustableToggle({
             id: STEP2_CONTROL_IDS.seriesBaseBlockSize,
-            className: 'setup-toggle setup-toggle--adjustable',
             disabled: state.seriesOrdering.basePlaybackMode !== 'block',
             label: 'Base Block Size',
             meta: 'Episodes per show before switching in block mode.',
             stateText: String(state.seriesOrdering.baseBlockSize),
-            showChevron: true,
-            onClick: () => {
-                if (state.seriesOrdering.basePlaybackMode !== 'block') {
-                    return;
-                }
-                deps.openAdjustableControl(STEP2_CONTROL_IDS.seriesBaseBlockSize);
-            },
+            deps,
+            canOpen: () => state.seriesOrdering.basePlaybackMode === 'block',
         });
 
         const variantTypeStateText = state.channelExpansion.variantType === 'none'
@@ -272,56 +276,39 @@ export class StrategyStepController {
                 ? 'Sequential'
                 : `Block • ${state.channelExpansion.variantBlockSize}`;
 
-        const variantTypeButton = this._createToggleButton({
+        const variantTypeButton = this._createAdjustableToggle({
             id: STEP2_CONTROL_IDS.seriesVariantType,
-            className: `setup-toggle setup-toggle--adjustable${state.channelExpansion.variantType !== 'none' ? ' selected' : ''}`,
             label: 'Variant Type',
             meta: 'Optional extra series channel mode.',
             stateText: variantTypeStateText,
-            showChevron: true,
-            onClick: () => {
-                deps.openAdjustableControl(STEP2_CONTROL_IDS.seriesVariantType);
-            },
+            deps,
+            selected: state.channelExpansion.variantType !== 'none',
         });
 
-        const variantBlockSizeButton = this._createToggleButton({
+        const variantBlockSizeButton = this._createAdjustableToggle({
             id: STEP2_CONTROL_IDS.seriesVariantBlockSize,
-            className: 'setup-toggle setup-toggle--adjustable',
             disabled: state.channelExpansion.variantType !== 'block',
             label: 'Variant Block Size',
             meta: 'Block size for generated block variants.',
             stateText: String(state.channelExpansion.variantBlockSize),
-            showChevron: true,
-            onClick: () => {
-                if (state.channelExpansion.variantType !== 'block') {
-                    return;
-                }
-                deps.openAdjustableControl(STEP2_CONTROL_IDS.seriesVariantBlockSize);
-            },
+            deps,
+            canOpen: () => state.channelExpansion.variantType === 'block',
         });
 
-        const maxButton = this._createToggleButton({
+        const maxButton = this._createAdjustableToggle({
             id: STEP2_CONTROL_IDS.maxChannels,
-            className: 'setup-toggle setup-toggle--adjustable',
             label: 'Max channels',
             meta: `Default ${DEFAULT_CHANNEL_SETUP_MAX}. Limit up to ${MAX_CHANNELS}.`,
             stateText: String(state.maxChannels),
-            showChevron: true,
-            onClick: () => {
-                deps.openAdjustableControl(STEP2_CONTROL_IDS.maxChannels);
-            },
+            deps,
         });
 
-        const minItemsButton = this._createToggleButton({
+        const minItemsButton = this._createAdjustableToggle({
             id: STEP2_CONTROL_IDS.minItems,
-            className: 'setup-toggle setup-toggle--adjustable',
             label: 'Min items',
             meta: 'Minimum content items per channel.',
             stateText: String(state.minItems),
-            showChevron: true,
-            onClick: () => {
-                deps.openAdjustableControl(STEP2_CONTROL_IDS.minItems);
-            },
+            deps,
         });
 
         const expandLineupButton = this._createToggleButton({
