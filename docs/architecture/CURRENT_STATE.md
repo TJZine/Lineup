@@ -223,9 +223,15 @@ after this extraction.
 
 - `src/modules/scheduler/`
 - owns scheduling behavior, shuffle logic, and channel domain flows
-- scheduler shuffle order uses `src/modules/scheduler/shared/prng.ts` as the
-  shared seeded-shuffle owner; `src/modules/scheduler/scheduler/ShuffleGenerator.ts`
-  delegates to that helper instead of owning a duplicate shuffle loop
+- scheduler shuffle/order logic uses shared scheduler helpers:
+  `src/modules/scheduler/shared/prng.ts` owns seeded shuffle,
+  `src/modules/scheduler/shared/blockPlayback.ts` owns block grouping, and
+  `src/modules/scheduler/shared/playbackOrdering.ts` owns common
+  sequential/shuffle/block ordering plus scheduled-index normalization.
+  `src/modules/scheduler/scheduler/ShuffleGenerator.ts` still adapts seeded
+  shuffle for scheduler injection, `ScheduleCalculator.ts` keeps the
+  scheduler-specific injected shuffler seam, and
+  `ContentSelectionPolicy.ts` keeps content-level random playback mode.
 - channel-domain persistence ownership (including selected/current channel
   state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`;
   `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin
@@ -247,8 +253,10 @@ after this extraction.
   package-local source-resolution orchestration entrypoint consumed by
   `ChannelManager`, while `SourceResolutionCache.ts` owns source-result
   cache/in-flight coalescing, `ContentItemMapper.ts` owns Plex item mapping and
-  media metadata normalization, and `ContentSelectionPolicy.ts` owns
-  filtering, sorting, and playback ordering
+  media metadata normalization, and `ContentSelectionPolicy.ts` owns filtering,
+  sorting, content-level random playback mode, and delegation to the shared
+  scheduler playback-ordering owner for common sequential/shuffle/block
+  ordering
 
 ### Player
 

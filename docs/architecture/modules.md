@@ -155,6 +155,12 @@ This document is directory-oriented and lists file-level owners where the canoni
   - `src/modules/scheduler/channel-manager/`
   - `src/modules/scheduler/scheduler/`
   - `src/modules/scheduler/shared/`
+- `src/modules/scheduler/shared/prng.ts` owns seeded shuffle,
+  `src/modules/scheduler/shared/blockPlayback.ts` owns block grouping, and
+  `src/modules/scheduler/shared/playbackOrdering.ts` owns common
+  sequential/shuffle/block ordering plus scheduled-index normalization.
+  `ScheduleCalculator.ts` keeps scheduler-specific injected shuffler wiring,
+  and `ContentSelectionPolicy.ts` keeps content-level random playback mode.
 - `src/modules/scheduler/channel-manager/ContentResolver.ts` remains the
   source-resolution orchestration entrypoint; package-local collaborators own
   source-result cache/coalescing (`SourceResolutionCache.ts`), item
