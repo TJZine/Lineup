@@ -12,8 +12,8 @@ import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import {
     createOrchestratorCoordinators,
     type OrchestratorCoordinatorAssemblyInput,
-} from '../OrchestratorCoordinatorAssembly';
-import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
+} from '../assembly/OrchestratorCoordinatorAssembly';
+import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
 
 const makeProgram = (): ScheduledProgram =>
     ({

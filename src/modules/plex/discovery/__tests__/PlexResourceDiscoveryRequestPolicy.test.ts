@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { AppErrorCode } from '../../../lifecycle/types';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { discoverPlexResourcesWithRequestPolicy } from '../PlexResourceDiscoveryRequestPolicy';
 
 const discoveryHeaders = {

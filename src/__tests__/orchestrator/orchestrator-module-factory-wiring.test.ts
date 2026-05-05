@@ -2,8 +2,8 @@ import { createDefaultPlexAuthConfig } from '../../modules/plex/auth';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 import { createWebOsPlatformServices } from '../../platform';
-import { createOrchestratorModules } from '../../core/orchestrator/OrchestratorModuleFactory';
-import type { OrchestratorConfig } from '../../core/orchestrator/OrchestratorTypes';
+import { createOrchestratorModules } from '../../core/orchestrator/assembly/OrchestratorModuleFactory';
+import type { OrchestratorConfig } from '../../core/orchestrator/contracts/OrchestratorTypes';
 
 describe('createOrchestratorModules wiring', () => {
     afterEach(() => {

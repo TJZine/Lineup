@@ -51,6 +51,7 @@ export async function requestFirstSupportedHomeEndpoint(
 ): Promise<PlexHomeEndpointResult> {
     let lastError: unknown = null;
     let lastRetryableResponse: Response | null = null;
+    let lastRetryableEndpointIndex = -1;
     for (let index = 0; index < endpoints.length; index++) {
         const url = endpoints[index];
         if (!url) {
@@ -72,6 +73,7 @@ export async function requestFirstSupportedHomeEndpoint(
                 }
 
                 lastRetryableResponse = response;
+                lastRetryableEndpointIndex = index;
                 lastError = null;
                 continue;
             }
@@ -92,7 +94,7 @@ export async function requestFirstSupportedHomeEndpoint(
         return {
             kind: 'response',
             response: lastRetryableResponse,
-            endpointIndex: endpoints.length - 1,
+            endpointIndex: lastRetryableEndpointIndex,
         };
     }
 

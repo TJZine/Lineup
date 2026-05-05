@@ -4,7 +4,7 @@ import { ChannelRepository } from '../ChannelRepository';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal } from '../interfaces';
 import { TIMING_CONFIG } from '../../../../config/timing';
-import { AppErrorCode } from '../../../lifecycle/types';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import {

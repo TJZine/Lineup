@@ -6,9 +6,9 @@ import {
     createPlaybackStartController,
     createProfileSwitchCleanupController,
 } from './PriorityOneControllerCollaborators';
-import type { OrchestratorEventBinder } from '../OrchestratorEventBinder';
-import type { OverlayRuntimePolicyController } from '../OverlayRuntimePolicyController';
-import type { ProfileSwitchCleanupController } from '../ProfileSwitchCleanupController';
+import type { OrchestratorEventBinder } from '../events/OrchestratorEventBinder';
+import type { OverlayRuntimePolicyController } from '../controllers/OverlayRuntimePolicyController';
+import type { ProfileSwitchCleanupController } from '../controllers/ProfileSwitchCleanupController';
 import type { PlaybackRuntimeController } from './PlaybackRuntimeController';
 import type { PlaybackStartController } from './PlaybackStartController';
 

@@ -4,9 +4,9 @@
 
 import { App } from '../App';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
-import { createAppOrchestratorConfig } from '../core/app-shell/AppOrchestratorConfigFactory';
-import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/constants';
-import { AppThemeController } from '../core/app-shell/AppThemeController';
+import { createAppOrchestratorConfig } from '../core/app-shell/config/AppOrchestratorConfigFactory';
+import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/config/constants';
+import { AppThemeController } from '../core/app-shell/runtime/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
 import type { ChannelSetupWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupScreenWorkflowPort';

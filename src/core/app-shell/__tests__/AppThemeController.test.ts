@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { AppThemeController } from '../AppThemeController';
+import { AppThemeController } from '../runtime/AppThemeController';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
 describe('AppThemeController', () => {

@@ -5,7 +5,7 @@ import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import {
     OverlayRuntimePolicyController,
     type OverlayRuntimePolicyControllerDeps,
-} from '../../../../core/orchestrator/OverlayRuntimePolicyController';
+} from '../../../../core/orchestrator/controllers/OverlayRuntimePolicyController';
 import type {
     IChannelManager,
     ChannelConfig,

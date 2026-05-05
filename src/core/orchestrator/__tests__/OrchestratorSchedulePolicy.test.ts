@@ -1,5 +1,5 @@
 import type { ChannelConfig, ResolvedChannelContent } from '../../../modules/scheduler/channel-manager';
-import { OrchestratorSchedulePolicy } from '../OrchestratorSchedulePolicy';
+import { OrchestratorSchedulePolicy } from '../policy/OrchestratorSchedulePolicy';
 
 describe('OrchestratorSchedulePolicy', () => {
     it('builds deterministic daily random-mode schedule seeds without reading Date.now when shuffleSeed is missing', () => {

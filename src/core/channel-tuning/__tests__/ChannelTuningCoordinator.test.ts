@@ -1,5 +1,5 @@
 import { ChannelTuningCoordinator } from '../ChannelTuningCoordinator';
-import { AppErrorCode } from '../../../modules/lifecycle';
+import { AppErrorCode } from '../../../types/app-errors';
 import type { IVideoPlayer } from '../../../modules/player';
 import type {
     IChannelManager,

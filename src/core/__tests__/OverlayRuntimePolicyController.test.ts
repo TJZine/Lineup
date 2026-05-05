@@ -1,7 +1,7 @@
 import {
     OverlayRuntimePolicyController,
     type OverlayRuntimePolicyControllerDeps,
-} from '../orchestrator/OverlayRuntimePolicyController';
+} from '../orchestrator/controllers/OverlayRuntimePolicyController';
 
 type OverlayHarness = {
     controller: OverlayRuntimePolicyController;

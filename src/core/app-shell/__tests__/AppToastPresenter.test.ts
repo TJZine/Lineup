@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { AppToastPresenter } from '../AppToastPresenter';
+import { AppToastPresenter } from '../chrome/AppToastPresenter';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
 const createToastContainer = (): HTMLDivElement => {

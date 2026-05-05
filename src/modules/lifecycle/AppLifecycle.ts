@@ -1,5 +1,5 @@
-import { IAppLifecycle } from './interfaces';
-import {
+import type { IAppLifecycle } from './interfaces';
+import type {
     AppPhase,
     AppError,
     PersistentState,
@@ -8,8 +8,8 @@ import {
     LifecycleEventMap,
     LifecycleCallback,
     LifecycleAppError,
-    AppErrorCode,
 } from './types';
+import { AppErrorCode } from '../../types/app-errors';
 import { StateManager } from './StateManager';
 import { ErrorRecovery } from './ErrorRecovery';
 import { LifecycleConnectivityMonitor } from './LifecycleConnectivityMonitor';

@@ -7,7 +7,7 @@ describe('AppShellRuntimeContracts boundaries', () => {
 
     it('does not depend on root orchestrator barrels or concrete orchestrator types', () => {
         const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/AppShellRuntimeContracts.ts'),
+            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
             'utf8'
         );
 
@@ -18,7 +18,7 @@ describe('AppShellRuntimeContracts boundaries', () => {
 
     it('does not expose the core server-selection result through the app-shell port', () => {
         const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/AppShellRuntimeContracts.ts'),
+            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
             'utf8'
         );
 
@@ -29,7 +29,7 @@ describe('AppShellRuntimeContracts boundaries', () => {
 
     it('does not expose diagnostics on the channel setup screen runtime port', () => {
         const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/AppShellRuntimeContracts.ts'),
+            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
             'utf8'
         );
         const match = source.match(/export interface AppShellChannelSetupRuntimePort \{[\s\S]*?\n\}/);
@@ -45,7 +45,7 @@ describe('AppShellRuntimeContracts boundaries', () => {
 
     it('keeps the full channel setup workflow port on the diagnostics runtime port', () => {
         const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/AppShellRuntimeContracts.ts'),
+            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
             'utf8'
         );
         const match = source.match(/export interface AppShellDiagnosticsRuntimePort \{[\s\S]*?\n\}/);
@@ -58,7 +58,7 @@ describe('AppShellRuntimeContracts boundaries', () => {
 
     it('keeps selected-server storage details out of app-shell server-selection ports', () => {
         const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/AppShellRuntimeContracts.ts'),
+            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
             'utf8'
         );
         const match = source.match(/export interface AppShellServerSelectionRuntimePort \{[\s\S]*?\n\}/);

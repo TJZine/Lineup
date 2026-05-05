@@ -6,27 +6,27 @@ import type {
     AppShellProfileRuntimePort,
     AppShellServerSelectionRuntimePort,
     AppShellSettingsRuntimePort,
-} from './core/app-shell/AppShellRuntimeContracts';
+} from './core/app-shell/runtime/AppShellRuntimeContracts';
 import type { AppError, LifecycleAppError, AppPhase, LifecycleEventMap } from './modules/lifecycle/types';
 import type { INavigationManager } from './modules/navigation';
-import { createAppContainers, type AppContainerRefs } from './core/app-shell/AppContainerFactory';
+import { createAppContainers, type AppContainerRefs } from './core/app-shell/chrome/AppContainerFactory';
 import { AppOrchestrator, type AppOrchestratorRuntime } from './Orchestrator';
 import {
     AppLazyScreenRegistry,
-} from './core/app-shell/AppLazyScreenRegistry';
+} from './core/app-shell/deferred-screens/AppLazyScreenRegistry';
 import {
     AppLazyScreenPortFactory,
     createChannelSetupRuntimePort,
-} from './core/app-shell/AppLazyScreenPortFactory';
-import { AppScreenVisibilityCoordinator } from './core/app-shell/AppScreenVisibilityCoordinator';
+} from './core/app-shell/deferred-screens/AppLazyScreenPortFactory';
+import { AppScreenVisibilityCoordinator } from './core/app-shell/chrome/AppScreenVisibilityCoordinator';
 import {
     AppBlockingErrorOverlayPresenter,
     type BlockingErrorOverlayAction,
-} from './core/app-shell/AppBlockingErrorOverlayPresenter';
-import { AppDiagnosticsSurface } from './core/app-shell/AppDiagnosticsSurface';
-import { createAppOrchestratorConfig } from './core/app-shell/AppOrchestratorConfigFactory';
-import { AppToastPresenter } from './core/app-shell/AppToastPresenter';
-import { AppThemeController } from './core/app-shell/AppThemeController';
+} from './core/app-shell/chrome/AppBlockingErrorOverlayPresenter';
+import { AppDiagnosticsSurface } from './core/app-shell/diagnostics/AppDiagnosticsSurface';
+import { createAppOrchestratorConfig } from './core/app-shell/config/AppOrchestratorConfigFactory';
+import { AppToastPresenter } from './core/app-shell/chrome/AppToastPresenter';
+import { AppThemeController } from './core/app-shell/runtime/AppThemeController';
 import { DebugOverridesStore } from './modules/debug/DebugOverridesStore';
 import { SplashScreen } from './modules/ui/splash';
 import { ProfileSessionStore } from './modules/settings/ProfileSessionStore';

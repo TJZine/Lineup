@@ -1,9 +1,9 @@
-import * as overlayPorts from '../OverlayPorts';
+import * as overlayPorts from '../contracts/OverlayPorts';
 import type {
     ChannelBadgeOverlayInitPort,
     ChannelNumberOverlayInitPort,
     ChannelNumberOverlayRuntimePort,
-} from '../OverlayPorts';
+} from '../contracts/OverlayPorts';
 
 describe('OverlayPorts', () => {
     it('exports only type-level overlay port contracts at runtime', () => {

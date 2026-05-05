@@ -8,7 +8,7 @@ import {
     createProfileSwitchCleanupController,
 } from '../priority-one/PriorityOneControllerCollaborators';
 import type { PriorityOneAssemblyInput } from '../priority-one/PriorityOneAssemblyInput';
-import type { OrchestratorPlaybackStateAccessors } from '../OrchestratorPlaybackStateAccessors';
+import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
 import { createTestEventSurface } from './eventSurfaceTestUtils';
 
 const makeProgram = (): ScheduledProgram =>

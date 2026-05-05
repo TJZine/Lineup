@@ -1,6 +1,6 @@
-import { OrchestratorChannelSwitchRuntime } from '../OrchestratorChannelSwitchRuntime';
+import { OrchestratorChannelSwitchRuntime } from '../runtime/OrchestratorChannelSwitchRuntime';
 import { AppErrorCode } from '../../../types/app-errors';
-import type { OrchestratorChannelSwitchRuntimeDeps } from '../OrchestratorChannelSwitchRuntime';
+import type { OrchestratorChannelSwitchRuntimeDeps } from '../runtime/OrchestratorChannelSwitchRuntime';
 
 const createDeps = (
     overrides: Partial<OrchestratorChannelSwitchRuntimeDeps> = {}

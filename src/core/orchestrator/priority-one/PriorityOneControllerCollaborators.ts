@@ -7,15 +7,15 @@ import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import {
     OrchestratorEventBinder,
     type OrchestratorEventBinderDeps,
-} from '../OrchestratorEventBinder';
+} from '../events/OrchestratorEventBinder';
 import {
     OverlayRuntimePolicyController,
     type OverlayRuntimePolicyControllerDeps,
-} from '../OverlayRuntimePolicyController';
+} from '../controllers/OverlayRuntimePolicyController';
 import {
     ProfileSwitchCleanupController,
     type ProfileSwitchCleanupControllerDeps,
-} from '../ProfileSwitchCleanupController';
+} from '../controllers/ProfileSwitchCleanupController';
 import {
     PlaybackRuntimeController,
     type PlaybackRuntimeControllerDeps,

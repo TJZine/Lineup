@@ -6,9 +6,9 @@ import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { flushPromises, setDevBuildForTest } from '../../../__tests__/helpers';
 import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
-import { AppDiagnosticsSurface } from '../AppDiagnosticsSurface';
-import type { AppDiagnosticsAudioSettingsStore } from '../AppDiagnosticsDevMenuController';
-import type { AppShellDiagnosticsRuntimePort } from '../AppShellRuntimeContracts';
+import { AppDiagnosticsSurface } from '../diagnostics/AppDiagnosticsSurface';
+import type { AppDiagnosticsAudioSettingsStore } from '../diagnostics/AppDiagnosticsDevMenuController';
+import type { AppShellDiagnosticsRuntimePort } from '../runtime/AppShellRuntimeContracts';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 
 const createContainer = (): HTMLDivElement => {

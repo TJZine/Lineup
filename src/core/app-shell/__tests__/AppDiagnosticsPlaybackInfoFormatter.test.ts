@@ -1,5 +1,5 @@
-import type { AppShellPlaybackInfoSnapshot } from '../AppShellRuntimeContracts';
-import { formatAppDiagnosticsPlaybackInfo } from '../AppDiagnosticsPlaybackInfoFormatter';
+import type { AppShellPlaybackInfoSnapshot } from '../runtime/AppShellRuntimeContracts';
+import { formatAppDiagnosticsPlaybackInfo } from '../diagnostics/AppDiagnosticsPlaybackInfoFormatter';
 
 const createSnapshot = (
     elapsedMs: number,

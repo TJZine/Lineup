@@ -2,7 +2,7 @@ import {
     AppLazyScreenPortFactory,
     createChannelSetupRuntimePort,
     createChannelSetupScreenWorkflowPort,
-} from '../AppLazyScreenPortFactory';
+} from '../deferred-screens/AppLazyScreenPortFactory';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 

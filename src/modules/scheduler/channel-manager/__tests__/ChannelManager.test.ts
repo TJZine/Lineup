@@ -9,7 +9,7 @@ import type {
     ChannelCreateInput,
     ChannelUpdateInput,
 } from '../types';
-import { AppErrorCode } from '../../../lifecycle/types';
+import { AppErrorCode } from '../../../../types/app-errors';
 import {
     installMockLocalStorage,
     resetMockLocalStorage,

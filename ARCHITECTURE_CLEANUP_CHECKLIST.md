@@ -10,20 +10,21 @@ should not drive the next cleanup task by default.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P13, FCP-1 through FCP-11, DCR-1 through DCR-16,
-  and DCR-EXIT are complete. The old P14 wave ledger is superseded for current
-  decision-making because repeated residual waves did not create meaningful
-  score progress and kept expanding the active control plane.
-- Next safe start: plan `FCP-12`, the first unchecked package in the active
-  Final Cleanup Pass below. Perform package-local source-backed discovery,
-  freeze an execution-grade plan with package decomposition and one
-  `ready_now_execution_unit`, run adversarial plan review, and only then
-  implement the approved unit.
+- Current execution state: P0-P13, FCP-1 through FCP-12, DCR-1 through DCR-16,
+  and DCR-EXIT are complete baseline evidence. The old P14 wave ledger is
+  superseded for current decision-making because repeated residual waves did
+  not create meaningful score progress and kept expanding the active control
+  plane. Fresh post-FCP verification and the retrospective subjective review
+  are rubric context only, not active package intake or closeout proof.
+- Next safe start: `FCP-13` is the first additional pre-Windows-port cleanup
+  package. `FCP-14` through `FCP-20`, `FCP-EXIT`, Windows port work, or other
+  post-FCP cleanup may start only after the preceding FCP package has clean
+  closeout evidence.
 - Preferred launcher: `cleanup-loop` for approved checklist-linked Tier 3
   cleanup packages.
-- Active program: `Final Cleanup Pass` (`FCP-7` through `FCP-12`) below. The
-  completed DCR and historical FCP records are retained evidence, not the next
-  task queue.
+- Active program: `Final Cleanup Pass` (`FCP-13` through `FCP-20`) below. The
+  completed `FCP-7` through `FCP-12`, DCR, and historical FCP records are
+  retained baseline evidence, not the next task queue.
 - Desloppify role: rubric input and optional end-of-program external score
   refresh only. The active FCP packages below were admitted by maintainer
   judgment from current-source review themes; do not use fresh Desloppify
@@ -193,11 +194,34 @@ current evidence.
 
 ## Final Cleanup Pass
 
-The `FCP-7` through `FCP-12` packages are the active final cleanup surface before
-Windows port work. They replace the old historical FCP queue with source-backed
-packages grouped by owner, risk, and efficient execution order. The goal is not
-score chasing; it is to retire remaining maintainability risks that would make
-future platform work harder to reason about.
+The `FCP-7` through `FCP-12` packages were the first final cleanup surface before
+Windows port work and are now completed baseline evidence. Fresh post-FCP
+verification and the retrospective subjective review are rubric context only;
+they are not issue intake, package membership, proof of closure, or wave
+sequencing. The additional packages below were admitted as maintainer-approved
+source-audit themes and use only local `source_finding_id` coverage.
+
+The additional pre-Windows-port pass starts at `FCP-13`. It replaces no
+completed evidence; it adds a bounded queue for source-signal closure,
+shared-core owner cleanup, behavior-neutral package organization, and final
+reconciliation. The goal is not score chasing;
+it is to retire remaining maintainability risks that would make future platform
+work harder to reason about.
+
+Completed baseline summary:
+
+| Package | Completed owner surface | Baseline role |
+| --- | --- | --- |
+| `FCP-7` | Boundary and type hygiene | Historical evidence only |
+| `FCP-8` | API, Plex, and error contracts | Historical evidence only |
+| `FCP-9` | Source signal, convention, and local elegance | Historical evidence only |
+| `FCP-10` | EPG renderer tests and presentation decomposition | Historical evidence only |
+| `FCP-11` | Runtime owner reduction hotspots | Historical evidence only |
+| `FCP-12` | App-shell/orchestrator package organization and first-pass reconciliation | Historical evidence only |
+
+The detailed completed bodies for `FCP-7` through `FCP-12` remain below for
+audit trail and closeout evidence. They are not active work queues unless a
+future source-backed replan explicitly reopens one.
 
 ### FCP Operating Rules
 
@@ -224,6 +248,14 @@ future platform work harder to reason about.
   separate packages or stop for maintainer reapproval.
 - Run `npm run verify` for runtime/UI/Plex/navigation/orchestrator changes and
   `npm run verify:docs` for checklist/workflow/reference-doc changes.
+- Additional pre-Windows-port broad-refactor stop conditions:
+  - no cross-platform feature behavior changes without a replan
+  - no persistence schema changes without a replan
+  - no public API widening without matching docs/tests and maintainer approval
+  - no folder reorganization compatibility shims or root/package barrels unless
+    explicitly approved by the maintainer
+  - no active package may absorb another package's source finding unless the
+    same owner seam, verification envelope, and closeout owner still apply
 
 ### [x] `FCP-7` Boundary And Type Hygiene
 
@@ -660,10 +692,10 @@ future platform work harder to reason about.
   closeout verification. Next safe package is `FCP-12` only after this closeout
   commit and review evidence remain clean.
 
-### [ ] `FCP-12` Package Organization, Structure Navigation, And Final Exit
+### [x] `FCP-12` Package Organization, Structure Navigation, And Final Exit
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-02-fcp-12-package-organization-structure-navigation-final-exit-plan.md`
 - Dimensions/rubric tags: structure navigation, package organization,
   high-level elegance, docs/source coherence
 - Scope owner: app-shell/core orchestrator package organization owner with final
@@ -706,8 +738,7 @@ future platform work harder to reason about.
 - Verification routing: import/source audits, targeted app-shell/orchestrator
   tests affected by moves, `npm run typecheck`, `npm run verify`,
   `npm run plans:check`, `npm run verify:docs`, and `git diff --check`.
-- Ready-now execution unit: none until the `FCP-12` plan is written and
-  reviewed clean.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -719,11 +750,584 @@ future platform work harder to reason about.
 - Stop/replan triggers: foldering changes public imports, creates barrels that
   widen API surface, conflicts with unfinished FCP packages, or becomes a
   behavior refactor.
+- Last touched: 2026-05-04
+- Verification: source audits for `src/core/app-shell` and
+  `src/core/orchestrator` old/replacement folder structure, no barrels/shims,
+  no old flat imports, and no package-local cycles; FCP-7 through FCP-12
+  source-finding reconciliation audit; `npm run plans:check`;
+  `npm run verify:docs`; `npm run typecheck`; `git diff --check`; and final
+  `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-12-SF1`: resolved. Current source has focused
+    `src/core/app-shell/diagnostics/`, `deferred-screens/`, `runtime/`,
+    `chrome/`, and `config/` owners; no production import remains from the old
+    flat app-shell leaf paths, and no app-shell root barrel or compatibility
+    shim exists.
+  - `FCP-12-SF2`: resolved. Current source keeps
+    `src/core/orchestrator/AppOrchestrator.ts` as the implementation facade and
+    preserves `priority-one/`, while composition, event, runtime, controller,
+    policy, storage, and contract files live under focused subfolders; no
+    production import remains from the old flat orchestrator leaf paths, and no
+    orchestrator root barrel or compatibility shim exists.
+  - `FCP-12-SF3`: resolved. Current-source audits plus prior reviewed
+    checkpoints prove `FCP-7` through `FCP-11` source findings are fixed or
+    source-disproved with no accepted residuals; `FCP-12-SF1` and
+    `FCP-12-SF2` are resolved above.
+- Final FCP source reconciliation:
+  - `FCP-7`: resolved. Current source shows server-select shared display/state
+    types in `src/modules/ui/server-select/types.ts`, no stale
+    `NavigationCoordinator` runtime-UI architecture exception, a debug-owned
+    now-playing refresh port in `NowPlayingDebugManager`, canonical
+    channel-setup config imports, canonical workflow-unavailable predicate use,
+    navigation aliasing the shared `ChannelSwitchOutcome`, and closed event-map
+    typing for the shared emitter.
+  - `FCP-8`: resolved. Current source shows object-shaped Plex timeout helpers,
+    aligned `ChannelCreateOptions` on `IChannelManager` and `ChannelManager`,
+    library-owned `PlexMediaItem` plus stream-owned `PlexStreamMediaItem`,
+    sanitized Plex auth causes, Home endpoint probing in
+    `plexHomeEndpointClient.ts`, private `_fetchPagedMediaItems` pagination,
+    and shared `formatChannelSetupWarningDetail`.
+  - `FCP-9`: resolved. Current source keeps
+    `now-playing-info/styles.css` as an import seam with content rules in
+    `styles.content.css`, updates architecture docs to current source-backed
+    owners, leaves only semantic contract comments in the audited files, and
+    uses descriptor-driven native facet planning in
+    `ChannelSetupFacetLibraryExecutor`.
+  - `FCP-10`: resolved. Current source has `EPGCellPresentation.ts` as the
+    text/layout/presentation policy owner, `EPGCellRenderer.ts` as the DOM
+    adapter, and direct renderer tests for width tiers, slivers, focused
+    episode/movie layout, live/progress, and ticker timing.
+  - `FCP-11`: resolved. Current source splits server-select runtime/focus/status
+    owners, channel-setup session/focus/dropdown/build-step owners,
+    ChannelManager authoring/import/persistence/cache/retry owners, and
+    priority-one assembly/collaborator owner-value seams.
+  - `FCP-12`: resolved by `bf87a345`, `0a1c64af`, and this closeout.
+- Handoff: `FCP-12` closed the completed `FCP-7` through `FCP-12` baseline.
+  The next additional pre-Windows-port package is `FCP-13`; do not start
+  `FCP-14` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
+  until the preceding FCP package has clean closeout evidence.
+
+### [ ] `FCP-13` Low-Risk Source Signal, API Export, And Diagnostic Closure
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: source signal, API surface coherence, contract
+  coherence, error consistency, duplication, low-level elegance
+- Scope owner: source-signal and small API/diagnostic contract owner across
+  navigation, Plex, player, EPG, channel setup, scheduler package seams, and
+  architecture rules
+- Why this package exists / production risk: maintainer-admitted source-audit
+  themes found small closure issues that should be cheap to retire before broad
+  refactors. These are low-risk, high-signal cleanups: remove redundant
+  commentary, align public package exports and docs with current behavior,
+  remove obsolete lint exceptions, and fix tiny duplication/diagnostic noise
+  without changing product behavior.
+- Files in scope:
+  - `src/modules/navigation/interfaces.ts`
+  - `src/modules/plex/stream/interfaces.ts`
+  - `src/modules/plex/library/interfaces.ts`
+  - `src/modules/player/AudioTrackManager.ts`
+  - `src/modules/player/ErrorHandler.ts`
+  - `src/modules/ui/epg/view/EPGErrorBoundary.ts`
+  - `src/modules/ui/epg/view/EPGCellRenderer.ts`
+  - `src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`
+  - `src/modules/scheduler/channel-manager/interfaces.ts`
+  - `src/modules/scheduler/channel-manager/index.ts`
+  - `src/modules/scheduler/channel-manager/__tests__/*` only for API export
+    proof if needed
+  - `src/modules/plex/auth/PlexAuth.ts`
+  - `src/modules/plex/auth/__tests__/PlexAuth.test.ts`
+  - `tools/architecture-rules/lineupArchitectureRules.mjs`
+  - `tools/__tests__/build-eslint-architecture-rules.test.mjs`
+  - `src/core/orchestrator/controllers/SubtitleTrackRecoveryController.ts`
+  - `src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts`
+  - `src/core/channel-setup/shared/utils.ts`
+  - call sites/tests for `isSignalAborted` only if the wrapper has live
+    production callers
+  - `src/modules/ui/channel-setup/steps/StrategyStepController.ts`
+  - channel setup UI tests affected by strictly local strategy-step cleanup
+- Files out of scope:
+  - broad repo-wide comment cleanup
+  - behavior changes to navigation, Plex auth, stream resolution, playback,
+    scheduler persistence, channel setup workflow, or EPG visuals
+  - Plex auth extraction, channel manager owner extraction, content resolver
+    decomposition, package folder reorganization, and ChannelSetupScreen
+    convergence cleanup
+- Source findings to retire:
+  - `FCP-13-SF1`: selected navigation, Plex stream, and Plex library interface
+    JSDoc restates TypeScript signatures. Prune redundant comments while
+    preserving semantic notes about lifecycle, nullability, side effects,
+    server quirks, and error behavior.
+  - `FCP-13-SF2`: selected implementation comments in player and EPG files
+    narrate the next statement. Delete only comments that add no constraint,
+    failure rationale, platform rationale, or public contract signal.
+  - `FCP-13-SF3`: `ChannelCreateOptions` is public through
+    `IChannelManager.createChannel` but not exported from the channel-manager
+    package seam. Align the public export surface without widening behavior.
+  - `FCP-13-SF4`: `PlexAuth.validateToken` documentation says invalid tokens
+    return `false`, but implementation throws for non-auth service failures.
+    Align the doc with current tested behavior or replan if the behavior is
+    wrong.
+  - `FCP-13-SF5`: architecture lint still carries obsolete app-shell
+    composition-root exceptions for old paths/reasons. Remove stale exceptions
+    only if current rule tests prove the boundary remains active or stricter.
+  - `FCP-13-SF6`: subtitle burn-in diagnostics can report an attempt even when
+    no burn-in attempt object exists. Emit diagnostics only for actual attempts
+    and preserve existing user warnings.
+  - `FCP-13-SF7`: `isSignalAborted` is a redundant wrapper around
+    `signal?.aborted`. Remove it or source-justify keeping it if current
+    callers need one canonical helper.
+  - `FCP-13-SF8`: `EPGCellRenderer` repeats the same secondary text clearing
+    block in adjacent branches. Consolidate the local logic without changing
+    DOM shape, width-tier behavior, focus hooks, reduced-motion handling, or
+    ticker behavior.
+  - `FCP-13-SF9`: `StrategyStepController` repeats inline structural control
+    patterns. Use a local descriptor table or focused helper only if it reduces
+    concrete repetition without hiding behavior or changing preview, validation,
+    focus, or step lifecycle semantics.
+- Completion means: all listed small source-signal/API/diagnostic findings are
+  fixed or source-disproved; no semantic comments are deleted; channel-manager
+  package exports align with public interfaces; architecture lint exceptions are
+  current; subtitle burn-in diagnostics match actual attempts; EPG renderer
+  duplicate clearing and strategy-step structural repetition are consolidated
+  or accepted with one owner/revisit trigger.
+- Verification routing: targeted source audits for each listed file, focused
+  tests for touched Plex auth, EPG renderer, subtitle recovery, and architecture
+  rules, `npm run typecheck`, `git diff --check`, `npm run plans:check`,
+  `npm run verify:docs` for checklist/architecture-rule docs impact, then
+  `npm run verify` because runtime source changes are likely.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-13-S1` | comment/JSDoc pruning and `validateToken` doc alignment | listed interface/player/EPG/PlexAuth files/tests | may run first; behavior-neutral |
+  | `FCP-13-S2` | channel-manager package export and obsolete architecture exceptions | scheduler package seam + architecture rules/tests | may run apart after source audit |
+  | `FCP-13-S3` | subtitle diagnostic, abort wrapper, and EPG duplicate clearing | subtitle/channel-setup/EPG files/tests | serial if tests overlap |
+  | `FCP-13-S4` | StrategyStepController descriptor/helper cleanup | strategy step controller/tests | serial; only local structural cleanup |
+
+- Stop/replan triggers: comment pruning touches semantic API or platform
+  guidance; `ChannelCreateOptions` requires a new public API decision instead
+  of exporting an existing public type; architecture-rule cleanup loosens a
+  boundary; subtitle diagnostic changes user-visible warnings; EPG renderer
+  consolidation changes DOM/focus/ticker behavior; strategy-step cleanup
+  changes preview, validation, focus, or step lifecycle behavior; abort helper
+  removal requires broader channel setup cancellation policy decisions.
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: do not start `FCP-12` until earlier FCP packages are complete or
-  maintainer-reclassified.
+- Handoff: next safe start. Create an execution-grade plan or light execution
+  brief before implementation; do not fold `FCP-14` owner refactors into this
+  package.
+
+### [ ] `FCP-14` Priority-One Forwarding And Assembly Seam
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: cross-module architecture, abstraction fitness,
+  contract coherence, orchestrator runtime seams
+- Scope owner: priority-one orchestrator assembly owner
+- Why this package exists / production risk: priority-one controller assembly is
+  a shared runtime seam. Any no-value adapter layer makes the Windows port
+  harder to reason about because dependencies appear to be translated when they
+  are mostly forwarded. This package is intentionally only the priority-one
+  forwarding seam.
+- Files in scope:
+  - `src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts`
+  - `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts`
+  - `src/core/orchestrator/priority-one/PlaybackRuntimeController.ts`
+  - `src/core/orchestrator/runtime/OrchestratorRuntimeSeams.ts`
+  - `src/core/orchestrator/controllers/ProfileSwitchCleanupController.ts`
+  - priority-one/orchestrator tests affected by assembly changes
+- Files out of scope:
+  - Plex auth, scheduler/channel-manager, ContentResolver, navigation, Plex
+    stream, UI, persistence schema, and Windows platform behavior
+- Source findings to retire:
+  - `FCP-14-SF1`: priority-one controller assembly rebuilds dependency
+    interfaces mostly by forwarding grouped runtime ports, and the same seam
+    includes a duplicate adapter handoff. Collapse only forwarding layers that
+    add no translation, and preserve seams that encode controller ownership.
+- Completion means: priority-one assembly no longer has no-value double
+  forwarding; preserved seams have source-backed owner value; no runtime public
+  contract or behavior changes.
+- Verification routing: Codanna impact snapshot for priority-one assembly
+  symbols, targeted priority-one/orchestrator tests, source audit for removed
+  forwarding and preserved owner-value seams, `npm run typecheck`,
+  `git diff --check`, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-14-S1` | priority-one forwarding collapse | priority-one/runtime/controller files/tests | single-owner package |
+
+- Stop/replan triggers: direct forwarding is needed to preserve an explicit
+  cross-module seam; a runtime public contract must change; the work needs
+  Plex, scheduler, UI, persistence, or Windows behavior changes; tests require
+  private probing instead of public seam proof.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start only after `FCP-13` closeout. Do not absorb PlexAuth,
+  scheduler/current-channel, or ContentResolver work into this package.
+
+### [ ] `FCP-15` PlexAuth Home, Profile, And Status Helper Boundary
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: Plex integration, authorization consistency, contract
+  coherence, error consistency, persistence ownership
+- Scope owner: Plex auth Home endpoint/status/profile-switch owner
+- Why this package exists / production risk: `PlexAuth` is port-critical auth
+  code. The safe cleanup seam is narrow: Home endpoint fallback, status
+  classification, and profile-switch coordination. Token validation, PIN,
+  credential epoch, persistence, and event behavior must remain stable unless a
+  source audit proves a smaller safe seam and the plan replans explicitly.
+- Files in scope:
+  - `src/modules/plex/auth/PlexAuth.ts`
+  - `src/modules/plex/auth/plexHomeEndpointClient.ts`
+  - `src/modules/plex/auth/*` only for Home endpoint/status/profile-switch
+    extraction proven by source audit
+  - `src/modules/plex/auth/__tests__/*`
+- Files out of scope:
+  - token/PIN behavior changes
+  - credential epoch, storage key, or persistence behavior changes
+  - Plex discovery, library, stream resolution, playback URL, or subtitle
+    behavior
+  - scheduler/channel-manager and priority-one work
+- Source findings to retire:
+  - `FCP-15-SF1`: `PlexAuth` still mixes Home endpoint fallback, profile
+    switching, status classification, and credential persistence. Keep
+    extraction bounded around Home endpoint/status/profile-switch boundaries;
+    preserve token validation, PIN flow, credential epoch, event emission, and
+    persistence behavior unless source audit proves a safe narrower seam.
+- Completion means: Home endpoint/status/profile-switch responsibilities are
+  either owned by a focused auth-local helper or source-justified as acceptable
+  in `PlexAuth`; token, PIN, credential epoch, persistence, and event behavior
+  are preserved with targeted proof.
+- Verification routing: Codanna impact snapshot for `PlexAuth`, targeted auth
+  and initialization/profile-switch tests, source audits for credential/token
+  behavior preservation, `npm run typecheck`, `git diff --check`, then
+  `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-15-S1` | bounded Home/status/profile helper cleanup | Plex auth files/tests | single-owner, auth-sensitive |
+
+- Stop/replan triggers: token validation, PIN flow, credential epoch,
+  persistence schema/key, or event behavior must change; stream/discovery/library
+  code must change; fallback order or error taxonomy changes without an explicit
+  contract decision.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start only after `FCP-14` closeout. Keep this package auth-local.
+
+### [ ] `FCP-16` Scheduler Current-Channel And ChannelManager Persistence Semantics
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: persistence ownership, contract coherence, API
+  surface coherence, scheduler design, test strategy
+- Scope owner: scheduler/channel-manager persistence semantics owner
+- Why this package exists / production risk: current-channel persistence is
+  shared scheduler state. Strict and best-effort methods that both swallow
+  storage failures make behavior hard to reason about before port work. This
+  package also allows only the ChannelManager facade-local owner cleanup needed
+  to clarify that persistence seam.
+- Files in scope:
+  - `src/modules/scheduler/channel-manager/ChannelManager.ts`
+  - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
+  - `src/modules/scheduler/channel-manager/ChannelPersistenceCoordinator.ts`
+  - existing and new package-local channel-manager persistence/facade owners if
+    source audit proves they are needed for the current-channel seam
+  - scheduler/channel-manager persistence/facade tests affected by owner moves
+- Files out of scope:
+  - public channel-manager facade removal or public API widening
+  - persistence schema changes or storage key changes
+  - ContentResolver cache/mapping cleanup
+  - Plex auth, Plex stream, priority-one, navigation, and UI work
+  - Windows platform feature implementation
+- Source findings to retire:
+  - `FCP-16-SF1`: current-channel persistence exposes strict and best-effort
+    methods while both swallow storage failures. Clarify and align semantics
+    before Windows port work, preserving current storage keys and schema unless
+    a replan approves a behavior change.
+  - `FCP-16-SF2`: `ChannelManager` remains a broad public facade across
+    authoring, persistence, cache, import/export, and retry policy. Keep the
+    public facade, but extract or confirm focused package-local owners only
+    where current source still concentrates responsibility around persistence
+    semantics.
+- Completion means: current-channel persistence semantics are named, aligned,
+  and tested; ChannelManager keeps its public facade; any package-local owner
+  extraction stays inside scheduler/channel-manager persistence/facade seams;
+  storage schema and keys are unchanged unless a replan approves otherwise.
+- Verification routing: Codanna impact snapshot for `ChannelManager` and
+  current-channel persistence symbols, targeted channel-manager persistence and
+  facade tests, source audits for storage schema/key preservation,
+  `npm run typecheck`, `git diff --check`, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-16-S1` | current-channel persistence semantics | channel-manager persistence files/tests | serial first |
+  | `FCP-16-S2` | persistence-adjacent ChannelManager facade-local owner cleanup | ChannelManager/facade tests | only if S1 source audit proves need |
+
+- Stop/replan triggers: a persistence schema or storage-key migration is
+  needed; public channel API widens; non-persistence ChannelManager concerns
+  become necessary; ContentResolver changes are required; tests need private
+  probing instead of public seam proof.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start only after `FCP-15` closeout. Keep ContentResolver out of this
+  package.
+
+### [ ] `FCP-17` ContentResolver Cache, Coalescing, And Mapping Boundaries
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: abstraction fitness, scheduler design, duplication,
+  contract coherence, test strategy
+- Scope owner: scheduler ContentResolver owner
+- Why this package exists / production risk: `ContentResolver` is the scheduler
+  entrypoint for source resolution, but it also carries cache/in-flight
+  coordination and item mapping/normalization. This package keeps the
+  orchestration entrypoint stable while isolating only source-proven local
+  cache/coalescing and mapping/normalization owners.
+- Files in scope:
+  - `src/modules/scheduler/channel-manager/ContentResolver.ts`
+  - existing and new package-local ContentResolver collaborators if source
+    audit proves cache/coalescing or mapping/normalization seams
+  - `src/modules/scheduler/channel-manager/__tests__/ContentResolver.test.ts`
+  - `src/modules/scheduler/channel-manager/__tests__/ChannelManager.content-resolution.test.ts`
+  - related scheduler/channel-manager tests affected by ContentResolver owner
+    moves
+- Files out of scope:
+  - ChannelManager persistence/current-channel semantics
+  - public channel-manager API widening
+  - Plex auth, Plex stream, navigation, UI, and Windows feature behavior
+  - persistence schema or storage-key changes
+- Source findings to retire:
+  - `FCP-17-SF1`: `ContentResolver` combines source resolution,
+    cache/in-flight coordination, item mapping/filtering/sorting, and media
+    metadata normalization. Keep the orchestration entrypoint, but extract or
+    confirm local cache/coalescing and mapping/normalization owners where
+    current source proves the mix is still live.
+- Completion means: ContentResolver keeps its public orchestration entrypoint;
+  cache/coalescing and mapping/normalization are owned by package-local
+  collaborators or source-justified; behavior, sorting/filtering semantics, and
+  error behavior are preserved with tests.
+- Verification routing: Codanna impact snapshot for `ContentResolver`,
+  targeted ContentResolver and channel-manager content-resolution tests, source
+  audits for behavior preservation and public entrypoint stability,
+  `npm run typecheck`, `git diff --check`, then `npm run verify`.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-17-S1` | cache/coalescing owner audit and cleanup | ContentResolver collaborators/tests | serial first |
+  | `FCP-17-S2` | mapping/normalization owner audit and cleanup | ContentResolver collaborators/tests | serial after S1 unless plan proves disjoint |
+
+- Stop/replan triggers: public ChannelManager API must widen; persistence
+  behavior changes; Plex auth/stream behavior changes; sorting/filtering/error
+  semantics change; tests need private probing instead of public seam proof.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start only after `FCP-16` closeout.
+
+### [ ] `FCP-18` Behavior-Neutral Navigation Package Organization
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: package organization, structure navigation,
+  cross-module architecture, dependency health, convention drift
+- Scope owner: navigation package organization owner
+- Why this package exists / production risk: the navigation package flat folder
+  mixes input routing, effects, repeat policy, contracts, and managers. The user
+  is willing to do this cleanup if bounded; this package is behavior-neutral
+  folder organization only.
+- Files in scope:
+  - `src/modules/navigation/*`
+  - `src/modules/navigation/__tests__/*`
+  - focused subfolders under `src/modules/navigation/` if created
+  - architecture docs only if navigation ownership claims change
+- Files out of scope:
+  - behavior changes to navigation input routing, repeat timing, focus policy,
+    modal effects, screen effects, public exports, or runtime contracts
+  - Plex stream organization
+  - compatibility barrels, migration shims, or widened package exports
+- Source findings to retire:
+  - `FCP-18-SF1`: the navigation package flat folder mixes input routing,
+    effects, repeat policy, contracts, and managers. Stage behavior-neutral
+    foldering around current owners only if import moves stay local and tests
+    prove no navigation behavior changed.
+- Completion means: navigation is reorganized around focused current owners or
+  source-reclassified as not worth pre-port churn with one owner/revisit
+  trigger; no shim, root barrel, public export widening, or behavior change
+  lands.
+- Verification routing: import/source audits for old and replacement paths,
+  targeted navigation tests affected by moves, `npm run typecheck`,
+  `git diff --check`, `npm run verify`, and `npm run verify:docs` if
+  architecture docs change.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-18-S1` | navigation folder organization | navigation files/tests/docs if needed | single-owner package |
+  | `FCP-18-S2` | import/path reconciliation | navigation imports/tests/docs | serial closeout |
+
+- Stop/replan triggers: foldering needs compatibility shims or root barrels;
+  import moves change public package exports; navigation behavior changes;
+  source audit shows organization is not worth pre-port churn.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start only after `FCP-17` closeout. Explicit maintainer approval is
+  required before creating any compatibility shim or root/package barrel.
+
+### [ ] `FCP-19` Behavior-Neutral Plex Stream Package Organization
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: package organization, structure navigation, Plex
+  integration, dependency health, convention drift
+- Scope owner: Plex stream package organization owner
+- Why this package exists / production risk: the Plex stream package flat folder
+  mixes resolver, policy, URL helpers, subtitle probe/debug, and pipeline code.
+  The user is willing to do this cleanup if bounded; this package is
+  behavior-neutral folder organization only.
+- Files in scope:
+  - `src/modules/plex/stream/*`
+  - `src/modules/plex/stream/__tests__/*`
+  - focused subfolders under `src/modules/plex/stream/` if created
+  - architecture/API docs only if Plex stream ownership claims change
+- Files out of scope:
+  - behavior changes to stream resolution, playback URL policy, subtitle
+    delivery, debug probes, auth handling, token redaction, or public exports
+  - navigation organization
+  - compatibility barrels, migration shims, or widened package exports
+- Source findings to retire:
+  - `FCP-19-SF1`: the Plex stream package flat folder mixes resolver, policy,
+    URL helpers, subtitle probe/debug, and pipeline code. Stage
+    behavior-neutral foldering around current owners only if imports remain
+    stable and no playback/diagnostic behavior changes.
+- Completion means: Plex stream is reorganized around focused current owners or
+  source-reclassified as not worth pre-port churn with one owner/revisit
+  trigger; no shim, root barrel, public export widening, token/redaction change,
+  auth-policy change, or playback behavior change lands.
+- Verification routing: import/source audits for old and replacement paths,
+  targeted Plex stream tests affected by moves, `npm run typecheck`,
+  `git diff --check`, `npm run verify`, and `npm run verify:docs` if
+  architecture/API docs change.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-19-S1` | Plex stream folder organization | Plex stream files/tests/docs if needed | single-owner package |
+  | `FCP-19-S2` | import/path reconciliation | Plex stream imports/tests/docs | serial closeout |
+
+- Stop/replan triggers: foldering needs compatibility shims or root barrels;
+  import moves change public package exports; stream resolution, auth, token
+  redaction, subtitle, debug, or playback behavior changes; source audit shows
+  organization is not worth pre-port churn.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start only after `FCP-18` closeout. Explicit maintainer approval is
+  required before creating any compatibility shim or root/package barrel.
+
+### Deferred Pre-Port Candidate: ChannelSetupScreen Distinct Residual
+
+- Disposition: deferred, not an active checklist-linked package
+- Plan: none
+- Final owner: channel setup UI owner
+- Revisit trigger: open a source-backed brief only if current source proves a
+  distinct ChannelSetupScreen residual not covered by completed `FCP-11`
+  channel setup owner closure or `FCP-13-SF9` strategy-step structural cleanup.
+- Reason: broad ChannelSetupScreen cleanup risks reopening completed FCP-11 work
+  without a new owner seam. It is not active pre-port work until the brief names
+  the exact residual, files in scope/out of scope, behavior invariants,
+  verification proof, and stop/replan triggers.
+- Verification if activated: targeted channel setup UI tests, source audit
+  against FCP-11 completed owner seams, focus/lifecycle proof if touched,
+  `npm run typecheck`, `git diff --check`, then `npm run verify`.
+
+### [ ] `FCP-20` Pre-Windows Cleanup Exit And Source Reconciliation
+
+- Status: not started
+- Plan: none yet
+- Dimensions/rubric tags: verified strictness, docs/source coherence,
+  package organization, cross-module architecture, test strategy
+- Scope owner: final cleanup controller and pre-Windows reconciliation owner
+- Why this package exists / production risk: after `FCP-13` through `FCP-19`,
+  the checklist needs an auditable exit gate before Windows port work. The exit
+  package should reconcile admitted source-audit themes through local
+  `source_finding_id` coverage, prove completed baseline evidence still holds
+  where relevant, and leave no ambiguous owner for accepted residue.
+- Files in scope:
+  - `ARCHITECTURE_CLEANUP_CHECKLIST.md`
+  - `docs/architecture/CURRENT_STATE.md` and `docs/architecture/modules.md`
+    only if FCP-13 through FCP-19 changed architecture truth
+  - package-local audit artifacts if a tracked plan creates them
+  - source files touched by FCP-13 through FCP-19 for read-only reconciliation
+    audits
+- Files out of scope:
+  - new implementation work except fixing checklist/docs inconsistencies found
+    during exit
+  - Windows port implementation
+  - new Desloppify issue intake, raw review id mapping, or score-chasing waves
+  - reopening completed FCP-7 through FCP-12 unless current-source proof shows
+    their recorded baseline evidence is false
+- Source findings to retire:
+  - `FCP-20-SF1`: final pre-Windows cleanup reconciliation must prove
+    `FCP-13` through `FCP-19` local source findings are fixed,
+    source-disproved, accepted with one owner/revisit trigger, or explicitly
+    deferred to the Windows port owner. The duplicated priority-one review
+    observation remains covered only by `FCP-14-SF1`, not by a second checklist
+    member.
+- Completion means: every `FCP-13` through `FCP-19` source finding has a
+  source-backed disposition; all accepted/deferred residuals have one owner and
+  revisit trigger; architecture docs match current source; verification and
+  clean closeout review evidence are recorded; Windows port work has a clear
+  next safe start or a named blocker. Before Windows port work starts, the exit
+  record must include passed results for `npm run plans:check`,
+  `npm run verify:docs`, `npm run verify`, and
+  `git diff --check -- ARCHITECTURE_CLEANUP_CHECKLIST.md`.
+- Verification routing: source-finding proof matrix audit for `FCP-13` through
+  `FCP-19`, package-local `rg` audits for old/replacement patterns, exact
+  commands `npm run plans:check`, `npm run verify:docs`, `npm run verify`, and
+  `git diff --check -- ARCHITECTURE_CLEANUP_CHECKLIST.md`. A final optional
+  external score refresh may be recorded only as retrospective signal, not as
+  checklist membership or closure proof.
+- Ready-now execution unit: none until plan is written.
+- Suggested slice table / wave candidates:
+
+  | Slice | Candidate goal | Write scope | Parallel policy |
+  | --- | --- | --- | --- |
+  | `FCP-20-S1` | source-finding proof matrix and residual owner ledger | checklist/audit artifacts | serial |
+  | `FCP-20-S2` | architecture doc reconciliation if source ownership changed | architecture docs/checklist | serial after S1 |
+  | `FCP-20-S3` | final verification and handoff record | checklist only | serial closeout |
+
+- Stop/replan triggers: exit audit finds a live source issue without one owner;
+  completed FCP-7 through FCP-12 baseline evidence is source-false; a
+  source-audit theme cannot be mapped to local `source_finding_id`
+  coverage; verification fails for runtime work completed in FCP-13 through
+  FCP-19; the exit package would need production refactoring instead of
+  reconciliation.
+- Last touched: not started
+- Verification: not run
+- Follow-ups: none yet
+- Handoff: start only after `FCP-19` closeout. This is the gate before Windows
+  port work or any broader post-FCP cleanup.
 
 ## Dimension Cleanup Refresh History
 
@@ -2100,8 +2704,8 @@ The six `FCP-*` priorities below produced real improvements and are preserved
 as baseline evidence. They were too conservative and narrow for the intended
 production cleanup finish. Do not choose historical `FCP-1` through `FCP-6` or
 the legacy `FCP-EXIT` anchor as the next active cleanup-loop package unless a
-maintainer explicitly reopens that history; use active `FCP-7` through `FCP-12`
-above instead.
+maintainer explicitly reopens that history; use completed `FCP-7` through
+`FCP-12` above as baseline instead.
 
 ### [x] `FCP-1` Architecture And Handoff Coherence
 
@@ -2443,14 +3047,15 @@ above instead.
   checklist by itself; any new work still needs maintainer approval and a
   source-backed audit.
 - Status: retired historical anchor
-- Plan: none; replaced by completed `DCR-EXIT` and active `FCP-12` final
+- Plan: none; replaced by completed `DCR-EXIT` and completed `FCP-12` final
   reconciliation
 - Last touched: 2026-05-01
 - Verification: superseded by completed DCR-EXIT verification; not rerun for
   this retained historical anchor
-- Follow-ups: active final cleanup now lives in `FCP-7` through `FCP-12`.
+- Follow-ups: final cleanup completed in `FCP-7` through `FCP-12`.
 - Handoff: retained as a historical anchor only. Do not start this legacy
-  `FCP-EXIT`; use active `FCP-7` through `FCP-12` above.
+  `FCP-EXIT`; use the completed `FCP-7` through `FCP-12` records above as
+  baseline evidence.
 
 ## Not Active Checklist Scope By Default
 

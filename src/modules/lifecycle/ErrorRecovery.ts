@@ -1,4 +1,5 @@
-import { AppError, AppErrorCode, ErrorAction } from './types';
+import { AppErrorCode } from '../../types/app-errors';
+import type { AppError, ErrorAction } from './types';
 import { ERROR_MESSAGES } from './constants';
 
 /**

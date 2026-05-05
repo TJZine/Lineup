@@ -1,4 +1,4 @@
-import { SubtitleTrackRecoveryController, type SubtitleTrackRecoveryControllerDeps } from '../../core/orchestrator/SubtitleTrackRecoveryController';
+import { SubtitleTrackRecoveryController, type SubtitleTrackRecoveryControllerDeps } from '../../core/orchestrator/controllers/SubtitleTrackRecoveryController';
 import type { IVideoPlayer, StreamDescriptor } from '../../modules/player';
 import type { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
 import type { StreamDecision } from '../../modules/plex/stream';
@@ -203,6 +203,37 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         );
 
         expect(failureDiagnostics).toHaveLength(0);
+    });
+
+    it('does not record burn-in attempt diagnostics when playback recovery is unavailable', async () => {
+        const appendIssueDiagnostic = jest.fn();
+        const nowPlayingWarn = jest.fn();
+
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                appendIssueDiagnostic,
+                nowPlayingWarn,
+                getVideoPlayer: () =>
+                    ({
+                        getAvailableSubtitles: () => [{ id: 'sub-1', format: 'ass' }],
+                    } as unknown as IVideoPlayer),
+                readSubtitleMode: () => 'full',
+                getPlaybackRecovery: () => null,
+                getCurrentStreamDecision: () => null,
+            })
+        );
+
+        controller.handleTrackChange({ type: 'subtitle', trackId: 'sub-1' });
+        await flushPromises();
+
+        expect(nowPlayingWarn).not.toHaveBeenCalled();
+        const burnInDiagnostics = appendIssueDiagnostic.mock.calls.filter(
+            ([payload]: [{ key?: string }]) =>
+                payload?.key === 'orchestrator.subtitleTrackChange.burnInAttempt' ||
+                payload?.key === 'orchestrator.subtitleTrackChange.burnInFailure'
+        );
+
+        expect(burnInDiagnostics).toHaveLength(0);
     });
 
     it('records a diagnostic when burn-in reload rejects', async () => {

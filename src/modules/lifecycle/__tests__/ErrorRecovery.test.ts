@@ -4,7 +4,8 @@
  */
 
 import { ErrorRecovery } from '../ErrorRecovery';
-import { AppError, AppErrorCode } from '../types';
+import { AppErrorCode } from '../../../types/app-errors';
+import { AppError } from '../types';
 
 describe('ErrorRecovery', () => {
     let recovery: ErrorRecovery;

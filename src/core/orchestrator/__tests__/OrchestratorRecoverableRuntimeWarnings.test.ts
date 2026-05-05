@@ -1,4 +1,4 @@
-import { createRecoverableRuntimeWarningSink } from '../OrchestratorRecoverableRuntimeWarnings';
+import { createRecoverableRuntimeWarningSink } from '../runtime/OrchestratorRecoverableRuntimeWarnings';
 
 describe('OrchestratorRecoverableRuntimeWarnings', () => {
     afterEach(() => {

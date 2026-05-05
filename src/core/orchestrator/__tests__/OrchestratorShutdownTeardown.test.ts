@@ -1,4 +1,4 @@
-import { OrchestratorShutdownTeardown } from '../OrchestratorShutdownTeardown';
+import { OrchestratorShutdownTeardown } from '../runtime/OrchestratorShutdownTeardown';
 
 describe('OrchestratorShutdownTeardown', () => {
     it('records sync failures and continues later teardown steps', () => {

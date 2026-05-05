@@ -1,8 +1,8 @@
 import {
     OrchestratorEventBinder,
     type OrchestratorEventBinderDeps,
-} from '../../core/orchestrator/OrchestratorEventBinder';
-import { AppErrorCode } from '../../modules/lifecycle';
+} from '../../core/orchestrator/events/OrchestratorEventBinder';
+import { AppErrorCode } from '../../types/app-errors';
 import type { IAppLifecycle } from '../../modules/lifecycle';
 import type { INavigationManager } from '../../modules/navigation';
 import type { IVideoPlayer } from '../../modules/player';

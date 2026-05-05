@@ -1,7 +1,7 @@
 import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorCoordinatorAssemblyInputDraft,
-} from '../OrchestratorCoordinatorContracts';
+} from '../assembly/OrchestratorCoordinatorContracts';
 import type { PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
 
 const buildEpgCoordinator = jest.fn();
@@ -18,7 +18,7 @@ const buildExitConfirmCoordinator = jest.fn();
 const buildChannelTuningCoordinator = jest.fn();
 const buildNavigationCoordinator = jest.fn();
 
-jest.mock('../OrchestratorCoordinatorBuilders', () => ({
+jest.mock('../assembly/OrchestratorCoordinatorBuilders', () => ({
     buildEpgCoordinator: (...args: unknown[]): unknown => buildEpgCoordinator(...args),
     bindEpgVisibleRangeChange: (...args: unknown[]): unknown => bindEpgVisibleRangeChange(...args),
     buildChannelSetupOwners: (...args: unknown[]): unknown => buildChannelSetupOwners(...args),
@@ -37,7 +37,7 @@ jest.mock('../OrchestratorCoordinatorBuilders', () => ({
 import {
     createOrchestratorCoordinatorAssemblyInput,
     createOrchestratorCoordinators,
-} from '../OrchestratorCoordinatorAssembly';
+} from '../assembly/OrchestratorCoordinatorAssembly';
 
 type PlaybackOptionsPreparationResult = {
     focusableIds: string[];

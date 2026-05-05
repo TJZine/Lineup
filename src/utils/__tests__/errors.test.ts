@@ -69,6 +69,14 @@ describe('formatErrorDetailForMessage', () => {
         expect(formatErrorDetailForMessage({ code: 'NETWORK_TIMEOUT' }))
             .toBe('{"code":"NETWORK_TIMEOUT"}');
     });
+
+    it('stringifies null fallback details', () => {
+        expect(formatErrorDetailForMessage(null)).toBe('null');
+    });
+
+    it('stringifies numeric fallback details', () => {
+        expect(formatErrorDetailForMessage(123)).toBe('123');
+    });
 });
 
 describe('isAbortLikeError', () => {

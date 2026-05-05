@@ -7,7 +7,7 @@ import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
-import type { ModuleStatus } from '../orchestrator/OrchestratorTypes';
+import type { ModuleStatus } from '../orchestrator/contracts/OrchestratorTypes';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
 
 type UpdateModuleStatus = (

@@ -7,7 +7,7 @@ import type {
     PriorityOneSchedulerRuntimePort,
     PriorityOneUiRuntimePort,
     RecoverableAsyncFailureReporter,
-} from '../OrchestratorRuntimeSeams';
+} from '../runtime/OrchestratorRuntimeSeams';
 
 describe('OrchestratorRuntimeSeams', () => {
     it('accepts minimal runtime-safe fixtures that satisfy the priority-one seam contracts', () => {

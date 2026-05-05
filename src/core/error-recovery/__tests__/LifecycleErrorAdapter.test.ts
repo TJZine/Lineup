@@ -1,5 +1,5 @@
 import { toLifecycleAppError } from '../LifecycleErrorAdapter';
-import { AppErrorCode } from '../../../modules/lifecycle';
+import { AppErrorCode } from '../../../types/app-errors';
 import type { AppError, LifecycleAppError } from '../../../modules/lifecycle';
 import type { ErrorRecoveryAction } from '../types';
 
