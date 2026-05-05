@@ -1233,8 +1233,9 @@ future source-backed replan explicitly reopens one.
 
 ### [ ] `FCP-17` ContentResolver Cache, Coalescing, And Mapping Boundaries
 
-- Status: not started
-- Plan: none yet
+- Status: in progress
+- Plan:
+  `docs/plans/2026-05-05-fcp-17-contentresolver-cache-coalescing-mapping-boundaries-plan.md`
 - Dimensions/rubric tags: abstraction fitness, scheduler design, duplication,
   contract coherence, test strategy
 - Scope owner: scheduler ContentResolver owner
@@ -1270,7 +1271,7 @@ future source-backed replan explicitly reopens one.
   targeted ContentResolver and channel-manager content-resolution tests, source
   audits for behavior preservation and public entrypoint stability,
   `npm run typecheck`, `git diff --check`, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: `FCP-17-S1`
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1281,10 +1282,12 @@ future source-backed replan explicitly reopens one.
 - Stop/replan triggers: public ChannelManager API must widen; persistence
   behavior changes; Plex auth/stream behavior changes; sorting/filtering/error
   semantics change; tests need private probing instead of public seam proof.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-05, active plan created
+- Verification: planning validation passed `npm run plans:check`,
+  `npm run verify:docs`, and `git diff --check`; implementation verification
+  not run yet.
 - Follow-ups: none yet
-- Handoff: start only after `FCP-16` closeout.
+- Handoff: active plan is ready for `FCP-17-S1`; implementation has not started.
 
 ### [ ] `FCP-18` Behavior-Neutral Navigation Package Organization
 
@@ -1321,7 +1324,7 @@ future source-backed replan explicitly reopens one.
   `git diff --check`, `npm run verify`, and `npm run verify:docs` if
   architecture docs change.
 - Ready-now execution unit: none until plan is written.
-- Suggested slice table / wave candidates:
+- Suggested slice table / wave candidates(these can be done in 1 pass, no need for seperate reviews for both):
 
   | Slice | Candidate goal | Write scope | Parallel policy |
   | --- | --- | --- | --- |
