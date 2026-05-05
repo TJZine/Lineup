@@ -2,4 +2,4 @@ export { PlexStreamResolver, PlexStreamErrorCode } from './PlexStreamResolver';
 export { mapPlexStreamErrorCodeToAppErrorCode } from './types';
 export { getMimeType } from './streamMimeType';
 export type { IPlexStreamResolver, PlexStreamResolverConfig, StreamResolverError } from './interfaces';
-export type { StreamRequest, StreamDecision, HlsOptions, PlexMediaItem, PlexStream } from './types';
+export type { StreamRequest, StreamDecision, HlsOptions, PlexStreamMediaItem, PlexStream } from './types';

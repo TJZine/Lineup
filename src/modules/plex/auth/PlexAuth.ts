@@ -34,6 +34,11 @@ import {
 } from './plexAuthPayloadParsers';
 import { AppErrorCode } from '../../../types/app-errors';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
+import {
+    createPlexHomeNetworkError,
+    requestFirstSupportedHomeEndpoint,
+    requestFirstSupportedHomeEndpointOrThrowReachabilityError,
+} from './plexHomeEndpointClient';
 
 // Re-export for consumers
 export { PlexApiError } from './plexAuthTransport';
@@ -53,21 +58,6 @@ function throwIfAborted(signal: AbortSignal | null | undefined): void {
     }
     throw signal.reason ?? new DOMException('Aborted', 'AbortError');
 }
-
-function createPlexHomeNetworkError(message: string, cause?: unknown): PlexApiError {
-    return new PlexApiError(
-        AppErrorCode.SERVER_UNREACHABLE,
-        message,
-        undefined,
-        true,
-        cause
-    );
-}
-
-type PlexHomeEndpointResult =
-    | { kind: 'response'; response: Response; endpointIndex: number }
-    | { kind: 'unsupported' };
-type PlexHomeEndpointRetryPredicate = (response: Response) => boolean;
 
 /**
  * Plex Authentication implementation.
@@ -296,7 +286,8 @@ export class PlexAuth implements IPlexAuth {
                     AppErrorCode.NETWORK_TIMEOUT,
                     'Token validation timed out',
                     undefined,
-                    true
+                    true,
+                    error
                 );
             }
             if (error instanceof PlexApiError) {
@@ -306,7 +297,8 @@ export class PlexAuth implements IPlexAuth {
                 AppErrorCode.SERVER_UNREACHABLE,
                 'Network error during token validation',
                 undefined,
-                true
+                true,
+                error
             );
         }
     }
@@ -406,15 +398,11 @@ export class PlexAuth implements IPlexAuth {
         };
 
         while (nextEndpointIndex < endpoints.length) {
-            const result = await this._requestFirstSupportedHomeEndpointOrThrowReachabilityError(
+            const result = await requestFirstSupportedHomeEndpointOrThrowReachabilityError(
                 endpoints.slice(nextEndpointIndex),
                 init,
                 options?.signal ?? null,
-                'Failed to fetch Plex Home users',
-                (response) =>
-                    response.status === 404 ||
-                    response.status === 405 ||
-                    (!response.ok && response.status !== 401 && response.status !== 403)
+                'Failed to fetch Plex Home users'
             );
 
             if (result.kind === 'unsupported') {
@@ -478,94 +466,6 @@ export class PlexAuth implements IPlexAuth {
         return [];
     }
 
-    private async _requestFirstSupportedHomeEndpointOrThrowReachabilityError(
-        endpoints: string[],
-        init: RequestInit,
-        signal: AbortSignal | null,
-        networkErrorMessage: string,
-        shouldTryNext: PlexHomeEndpointRetryPredicate
-    ): Promise<PlexHomeEndpointResult> {
-        try {
-            return await this._requestFirstSupportedHomeEndpoint(
-                endpoints,
-                init,
-                signal,
-                shouldTryNext
-            );
-        } catch (error) {
-            if (signal?.aborted) {
-                throw error;
-            }
-            if (error instanceof PlexApiError) {
-                throw error;
-            }
-            throw createPlexHomeNetworkError(networkErrorMessage, error);
-        }
-    }
-
-    private async _requestFirstSupportedHomeEndpoint(
-        endpoints: string[],
-        init: RequestInit,
-        signal: AbortSignal | null,
-        shouldTryNext: PlexHomeEndpointRetryPredicate
-    ): Promise<PlexHomeEndpointResult> {
-        let lastError: unknown = null;
-        let lastRetryableResponse: Response | null = null;
-        let sawUnsupportedResponse = false;
-        for (let index = 0; index < endpoints.length; index++) {
-            const url = endpoints[index];
-            if (!url) {
-                continue;
-            }
-            try {
-                throwIfAborted(signal);
-                const response = await fetchWithTimeout({
-                    url,
-                    init,
-                    timeoutMs: PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS,
-                    upstreamSignal: signal ?? null,
-                });
-                throwIfAborted(signal);
-
-                if (shouldTryNext(response)) {
-                    if (response.status === 404 || response.status === 405) {
-                        sawUnsupportedResponse = true;
-                        continue;
-                    }
-
-                    lastRetryableResponse = response;
-                    lastError = null;
-                    continue;
-                }
-                return { kind: 'response', response, endpointIndex: index };
-            } catch (error) {
-                if (signal?.aborted) {
-                    throw error;
-                }
-                lastError = error;
-            }
-        }
-
-        if (lastError !== null) {
-            throw lastError;
-        }
-
-        if (lastRetryableResponse) {
-            // Surface the latest HTTP failure while telling callers this endpoint slice is exhausted.
-            return {
-                kind: 'response',
-                response: lastRetryableResponse,
-                endpointIndex: endpoints.length - 1,
-            };
-        }
-
-        if (sawUnsupportedResponse) {
-            return { kind: 'unsupported' };
-        }
-
-        return { kind: 'unsupported' };
-    }
-
     public async switchHomeUser(
         userId: string,
         options?: { pin?: string | null; signal?: AbortSignal | null }
@@ -610,14 +510,10 @@ export class PlexAuth implements IPlexAuth {
         while (nextEndpointIndex < endpoints.length) {
             let pinValidationFailure: unknown = null;
             try {
-                const result = await this._requestFirstSupportedHomeEndpoint(
+                const result = await requestFirstSupportedHomeEndpoint(
                     endpoints.slice(nextEndpointIndex),
                     init,
-                    options?.signal ?? null,
-                    (response) =>
-                        response.status === 404 ||
-                        response.status === 405 ||
-                        (!response.ok && response.status !== 401 && response.status !== 403)
+                    options?.signal ?? null
                 );
                 if (result.kind === 'unsupported') {
                     response = null;

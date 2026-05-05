@@ -13,7 +13,7 @@ import type {
     StreamResolverEventMap,
 } from './interfaces';
 import type {
-    PlexMediaItem,
+    PlexStreamMediaItem,
     StreamRequest,
     StreamDecision,
     HlsOptions,
@@ -275,7 +275,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
      * @param item - Media item to check
      * @returns true if direct play is supported
      */
-    canDirectPlay(item: PlexMediaItem): boolean {
+    canDirectPlay(item: PlexStreamMediaItem): boolean {
         if (!item.media || item.media.length === 0) {
             return false;
         }
@@ -378,17 +378,14 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         event: K,
         handler: (payload: StreamResolverEventMap[K]) => void
     ): IDisposable {
-        // Type assertion to handler union - EventEmitter accepts this via index signature
-        type HandlerUnion = (payload: StreamResolverEventMap[keyof StreamResolverEventMap]) => void;
-        return this._emitter.on(event, handler as HandlerUnion);
+        return this._emitter.on(event, handler);
     }
 
     off<K extends keyof StreamResolverEventMap>(
         event: K,
         handler: (payload: StreamResolverEventMap[K]) => void
     ): void {
-        type HandlerUnion = (payload: StreamResolverEventMap[keyof StreamResolverEventMap]) => void;
-        this._emitter.off(event, handler as HandlerUnion);
+        this._emitter.off(event, handler);
     }
 
 

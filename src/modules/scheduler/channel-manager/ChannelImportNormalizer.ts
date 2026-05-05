@@ -1,4 +1,4 @@
-import { summarizeErrorForLog } from '../../../utils/errors';
+import { formatErrorDetailForMessage } from '../../../utils/errors';
 import { isValidContentSource } from './ChannelContentSourceValidator';
 import {
     isValidBuildStrategy,
@@ -141,16 +141,6 @@ export class ChannelImportNormalizer {
     }
 
     formatErrorMessage(error: unknown): string {
-        const summary = summarizeErrorForLog(error);
-        if (typeof summary === 'string') {
-            return summary;
-        }
-        if (summary && typeof summary === 'object') {
-            if ('message' in summary && typeof summary.message === 'string') {
-                return summary.message;
-            }
-            return JSON.stringify(summary);
-        }
-        return String(summary);
+        return formatErrorDetailForMessage(error);
     }
 }

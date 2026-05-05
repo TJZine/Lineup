@@ -1,4 +1,4 @@
-import { isAbortLikeError, summarizeErrorForLog } from '../errors';
+import { formatErrorDetailForMessage, isAbortLikeError, summarizeErrorForLog } from '../errors';
 
 describe('summarizeErrorForLog', () => {
     it('redacts string input', () => {
@@ -53,6 +53,21 @@ describe('summarizeErrorForLog', () => {
     it('passes through non-object non-string values', () => {
         expect(summarizeErrorForLog(null)).toBeNull();
         expect(summarizeErrorForLog(123)).toBe(123);
+    });
+});
+
+describe('formatErrorDetailForMessage', () => {
+    it('passes through summarized string details', () => {
+        expect(formatErrorDetailForMessage('plain failure')).toBe('plain failure');
+    });
+
+    it('prefers a summarized message over auxiliary object fields', () => {
+        expect(formatErrorDetailForMessage({ message: 'oops', code: 'X', ignored: true })).toBe('oops');
+    });
+
+    it('stringifies summarized objects without a message', () => {
+        expect(formatErrorDetailForMessage({ code: 'NETWORK_TIMEOUT' }))
+            .toBe('{"code":"NETWORK_TIMEOUT"}');
     });
 });
 

@@ -142,7 +142,7 @@ after this extraction.
 ### `src/core/orchestrator/priority-one/`
 
 - focused owner for the grouped priority-one runtime assembly contract plus controller/binder composition
-- `PriorityOneAssemblyBuilder.ts` owns the grouped priority-one runtime assembly contract from app-provided runtime refs and callbacks
+- `PriorityOneAssemblyBuilder.ts` owns the grouped priority-one runtime assembly contract from app-provided runtime refs and callbacks; it shapes the public `PriorityOneAssemblyInput` directly and must not add no-value field-for-field forwarding layers around that contract
 - `PriorityOneControllerFactory.ts` now owns playback start/runtime, overlay runtime policy, profile-switch cleanup, and event-binder assembly for the priority-one path
 
 ### `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts`
@@ -210,11 +210,16 @@ after this extraction.
   through `src/core/orchestrator/OrchestratorStorageContext.ts`
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` remains the public
   channel-domain API/state owner, while package-local collaborators own focused
-  responsibilities: `ChannelPersistenceSaveQueue.ts` owns debounced save
-  promise/timer/warning orchestration through callbacks and delegates warning
-  backoff timing to `src/utils/persistenceWarningBackoffPolicy.ts`, and
-  `ChannelImportNormalizer.ts` owns import payload validation and create-input
-  shaping without mutating manager state or changing persistence schema
+  responsibilities: `ChannelAuthoringService.ts` owns authoring/default shaping,
+  `ChannelImportExportService.ts` owns import/export orchestration,
+  `ChannelPersistenceCoordinator.ts` owns manager-facing persistence
+  coordination, `ChannelResolutionCache.ts` owns resolved-content clone/stale
+  policy, `ChannelRetryScheduler.ts` owns retry timers, and
+  `ChannelPersistenceSaveQueue.ts` owns debounced save promise/timer/warning
+  orchestration through callbacks while delegating warning backoff timing to
+  `src/utils/persistenceWarningBackoffPolicy.ts`. `ChannelImportNormalizer.ts`
+  owns import payload validation and create-input shaping without mutating
+  manager state or changing persistence schema
 
 ### Player
 
@@ -275,6 +280,8 @@ after this extraction.
 - `src/core/app-shell/AppContainerFactory.ts` materializes a bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell-owned containers plus app-materialized feature mount nodes at document scope, and reparents exactly `player-osd`, `channel-number-overlay`, `channel-badge`, `mini-guide`, and `channel-transition` into that host; the host owns shell-plane structure only, while feature packages keep their DOM markup, visibility, and local z-index ownership
 - `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` is now a UI-facing composition wrapper over `ChannelSetupSessionState` (session state/config serialization/record hydration) and `ChannelSetupSessionRuntime` (workflow I/O, abort/timer lifecycle)
 - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts` owns string-only UI runtime error summaries for load, preview/review, build, blocked, and bookkeeping outcomes; typed planning/build failure details stay in core contracts/logs rather than `ChannelSetupScreen`
+- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the screen shell and step-router owner; package-local collaborators own focused wizard behavior: `ChannelSetupDropdownController.ts` owns dropdown lifecycle, `ChannelSetupBuildStepPresenter.ts` owns build review/progress/success presentation, session/runtime ownership stays in `ChannelSetupSessionController` / `ChannelSetupSessionRuntime`, focus ownership stays in `focus/ChannelSetupFocusCoordinator.ts`, and strategy/step rendering stays in the step controllers.
+- `src/modules/ui/server-select/ServerSelectScreen.ts` is the public screen/DOM adapter for server select. Runtime workflow, discovery/select/clear/reconnect, visibility generation, and idle ownership live in `ServerSelectRuntimeCoordinator.ts`; focus registration/restore lives in `ServerSelectFocusCoordinator.ts`; status and server-display policy live in `ServerSelectStatusPolicy.ts`; `ServerSelectListView.ts` remains DOM-list rendering only.
 - `src/modules/ui/server-select/types.ts` owns shared server-select display state shapes consumed by both the screen and list view; list rendering must not import screen-owned state types.
 - `src/modules/debug/NowPlayingDebugManager.ts` owns the minimal debug overlay presence port it needs; orchestrator builders adapt the full now-playing-info overlay at the boundary.
 - visual rules are governed by [`docs/design/ui-design-language.md`](../design/ui-design-language.md)
@@ -288,7 +295,6 @@ after this extraction.
 The main structural hotspots still treated as current by this architecture source are:
 
 - `src/App.ts`
-- `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
 
 `src/modules/ui/settings/SettingsScreen.ts`,
 `src/modules/ui/epg/component/EPGComponent.ts`,
@@ -298,9 +304,10 @@ ownership surfaces, but they are no longer treated as current primary file-size
 hotspots after their latest split/delegation passes. `EPGComponent.ts` now
 acts as the `IEPGComponent` facade/wiring owner while shell rendering,
 focus/navigation, and grid runtime lifecycle live in package-local EPG owners.
-`ChannelSetupScreen.ts` remains on the active hotspot list until a current
-source audit proves its remaining size and ownership concentration are no
-longer cleanup-relevant.
+`ChannelSetupScreen.ts` is no longer treated as a current primary hotspot after
+the FCP-11 owner split; it remains a screen adapter/step router with dropdown,
+build presentation, session/runtime, focus, and strategy/step behavior owned by
+package-local collaborators.
 
 The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md).
 

@@ -1,4 +1,4 @@
-import { redactSensitiveTokens } from './redact';
+import { redactSensitiveTokens, safeStringifyForLog } from './redact';
 
 export function summarizeErrorForLog(value: unknown): unknown {
     if (typeof value === 'string') {
@@ -23,6 +23,20 @@ export function summarizeErrorForLog(value: unknown): unknown {
         };
     }
     return value;
+}
+
+export function formatErrorDetailForMessage(detail: unknown): string {
+    const summary = summarizeErrorForLog(detail);
+    if (typeof summary === 'string') {
+        return summary;
+    }
+    if (summary && typeof summary === 'object') {
+        if ('message' in summary && typeof summary.message === 'string') {
+            return summary.message;
+        }
+        return safeStringifyForLog(summary);
+    }
+    return String(summary);
 }
 
 export function isAbortLikeError(error: unknown, signal?: AbortSignal): boolean {

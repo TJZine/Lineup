@@ -3,10 +3,6 @@ import type { IDisposable } from '../../utils/interfaces';
 
 // Navigation module interfaces - local definitions matching the app's shared type surface.
 
-/**
- * Navigation Manager Interface
- * Handles remote control input and focus management
- */
 export interface INavigationManager {
     initialize(config: NavigationConfig): void;
     destroy(): void;
@@ -65,7 +61,6 @@ export interface INavigationManager {
         handler: (payload: NavigationEventMap[K]) => void
     ): void;
 
-    // Long-press handling
     handleLongPress(button: RemoteButton, callback: () => void): void;
     cancelLongPress(): void;
 }
@@ -78,10 +73,6 @@ interface SetFocusOptions {
     persist?: boolean;
 }
 
-/**
- * Focus Manager Interface (internal)
- * Manages focus state, focus ring display, and focus navigation within groups.
- */
 export interface IFocusManager {
     /**
      * Set focus on an element.
@@ -101,19 +92,10 @@ export interface IFocusManager {
     hideFocusRing(): void;
 }
 
-/**
- * Remote control button identifiers
- */
 export type RemoteButton = PlatformRemoteButton;
 
-/**
- * Navigation direction for focus movement
- */
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
-/**
- * Processed key event
- */
 export interface KeyEvent {
     button: RemoteButton;
     isRepeat: boolean;
@@ -130,9 +112,6 @@ export type NavigationAsyncFailureReporter = (
     error: unknown
 ) => void;
 
-/**
- * Application screens
- */
 export type Screen =
     | 'splash'
     | 'auth'
@@ -151,25 +130,15 @@ export interface ServerSelectNavigationParams {
     allowAutoConnect: boolean;
 }
 
-/**
- * Navigation manager configuration
- */
 export interface NavigationConfig {
     /** Enable Magic Remote pointer mode */
     enablePointerMode: boolean;
-    /** Key repeat initial delay (ms) */
     keyRepeatDelayMs: number;
-    /** Key repeat interval (ms) */
     keyRepeatIntervalMs: number;
-    /** Remember focus per screen */
     focusMemoryEnabled: boolean;
-    /** Log key events to console */
     debugMode: boolean;
 }
 
-/**
- * Current navigation state
- */
 export interface NavigationState {
     currentScreen: Screen;
     screenStack: Screen[];
@@ -178,36 +147,25 @@ export interface NavigationState {
     isPointerActive: boolean;
 }
 
-/**
- * A focusable UI element
- */
 export interface FocusableElement {
     id: string;
     element: HTMLElement;
-    /** Focus group membership */
     group?: string;
     /** Relative precedence for restore fallback within a restore group (higher values are restored first). */
     restorePriority?: number;
     /** Restore group identifier used when saved focus id no longer exists */
     restoreGroup?: string;
-    /** Explicit neighbor mappings */
     neighbors: {
         up?: string;
         down?: string;
         left?: string;
         right?: string;
     };
-    /** Called when element receives focus */
     onFocus?: () => void;
-    /** Called when element loses focus */
     onBlur?: () => void;
-    /** Called when element is selected (OK pressed) */
     onSelect?: () => void;
 }
 
-/**
- * A group of focusable elements
- */
 export interface FocusGroup {
     id: string;
     elements: string[];

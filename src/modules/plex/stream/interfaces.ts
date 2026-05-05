@@ -1,6 +1,6 @@
 import type {
     PlexStreamErrorCode,
-    PlexMediaItem,
+    PlexStreamMediaItem,
     StreamRequest,
     StreamDecision,
     HlsOptions,
@@ -10,22 +10,14 @@ import type { PlatformIdentityService } from '../../../platform';
 import type { IDisposable } from '../../../utils/interfaces';
 import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
 
-/**
- * Stream resolver error structure.
- * Uses PlexStreamErrorCode for stream resolver errors.
- */
 export type StreamResolverErrorStage =
     | 'media_selection'
     | 'burn_in_selected_part';
 
 export interface StreamResolverError {
-    /** Error code from stream resolver taxonomy */
     code: PlexStreamErrorCode;
-    /** Human-readable error message */
     message: string;
-    /** Whether recovery might succeed */
     recoverable: boolean;
-    /** Milliseconds to wait before retry (if retryable) */
     retryAfterMs?: number;
     /**
      * Optional: disambiguates where `resolveStream()` failed.
@@ -34,18 +26,10 @@ export interface StreamResolverError {
     stage?: StreamResolverErrorStage;
 }
 
-/**
- * Event map for PlexStreamResolver events.
- */
 export interface StreamResolverEventMap {
     error: StreamResolverError;
-    /** Index signature for EventEmitter compatibility */
-    [key: string]: StreamResolverError;
 }
 
-/**
- * Configuration for PlexStreamResolver.
- */
 export interface PlexStreamDebugOverridesReader {
     readTranscodeProfileNameAndClean(): string | null;
 }
@@ -94,7 +78,7 @@ export interface PlexStreamResolverConfig {
     /** Function to get a relay connection (for mixed content fallback) */
     getRelayConnection: () => { uri: string } | null;
     /** Function to get a media item by ratingKey */
-    getItem: (ratingKey: string) => Promise<PlexMediaItem | null>;
+    getItem: (ratingKey: string) => Promise<PlexStreamMediaItem | null>;
     /** Client identifier for session tracking */
     clientIdentifier: string;
     /** Audio playback policy reader seam */
@@ -113,10 +97,6 @@ export interface PlexStreamResolverConfig {
     identityService?: PlatformIdentityService;
 }
 
-/**
- * Plex Stream Resolver Interface.
- * Resolves playback URLs and manages playback sessions.
- */
 export interface IPlexStreamResolver {
     /**
      * Resolve the best stream URL for a media item.
@@ -135,10 +115,9 @@ export interface IPlexStreamResolver {
 
     /**
      * Check if a media item can be played directly without transcoding.
-     * @param item - Media item to check
      * @returns true if direct play is supported
      */
-    canDirectPlay(item: PlexMediaItem): boolean;
+    canDirectPlay(item: PlexStreamMediaItem): boolean;
 
     /**
      * Generate an HLS transcode URL for a media item.

@@ -226,19 +226,19 @@ const SPACING_CONTRACTS: DeclarationContract[] = [
         expected: 'var(--space-1)',
     },
     {
-        file: 'src/modules/ui/now-playing-info/styles.css',
+        file: 'src/modules/ui/now-playing-info/styles.content.css',
         selector: '.now-playing-info-actors',
         property: 'gap',
         expected: 'var(--actor-gap)',
     },
     {
-        file: 'src/modules/ui/now-playing-info/styles.css',
+        file: 'src/modules/ui/now-playing-info/styles.content.css',
         selector: '.now-playing-info-actors',
         property: '--actor-gap',
         expected: 'var(--space-2)',
     },
     {
-        file: 'src/modules/ui/now-playing-info/styles.css',
+        file: 'src/modules/ui/now-playing-info/styles.content.css',
         selector: '.now-playing-info-progress',
         property: 'gap',
         expected: 'var(--space-2)',
@@ -449,13 +449,13 @@ const LOCAL_SPACING_ALIAS_CONTRACTS: DeclarationContract[] = [
         expected: 'var(--npi-space-3) var(--space-2)',
     },
     {
-        file: 'src/modules/ui/now-playing-info/styles.css',
+        file: 'src/modules/ui/now-playing-info/styles.content.css',
         selector: '.now-playing-info-actors',
         property: 'row-gap',
         expected: 'var(--npi-space-6)',
     },
     {
-        file: 'src/modules/ui/now-playing-info/styles.css',
+        file: 'src/modules/ui/now-playing-info/styles.content.css',
         selector: '.now-playing-info-actor-more',
         property: 'padding',
         expected: 'var(--npi-space-6) var(--npi-space-10)',
@@ -608,7 +608,7 @@ const LOCAL_SPACING_VALUE_CONTRACTS: DeclarationContract[] = [
         expected: '10px',
     },
     {
-        file: 'src/modules/ui/now-playing-info/styles.css',
+        file: 'src/modules/ui/now-playing-info/styles.content.css',
         selector: '.now-playing-info-actors',
         property: '--npi-space-6',
         expected: '6px',
@@ -932,13 +932,13 @@ const COLOR_CONTRACTS: DeclarationContract[] = [
         expected: 'var(--color-text-primary)',
     },
     {
-        file: 'src/modules/ui/now-playing-info/styles.css',
+        file: 'src/modules/ui/now-playing-info/styles.content.css',
         selector: '.now-playing-info-actor',
         property: 'color',
         expected: 'var(--color-text-primary)',
     },
     {
-        file: 'src/modules/ui/now-playing-info/styles.css',
+        file: 'src/modules/ui/now-playing-info/styles.content.css',
         selector: '.now-playing-info-actor-more',
         property: 'color',
         expected: 'var(--color-text-primary)',

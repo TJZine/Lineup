@@ -16,11 +16,6 @@ import type {
  * Calculates cell position from program timing.
  * Pure function for deterministic positioning.
  *
- * @param program - The scheduled program
- * @param gridAnchorTime - Start time of the grid (Unix ms)
- * @param pixelsPerMinute - Scaling factor for width
- * @param now - Current time (Unix ms), defaults to Date.now()
- * @returns EPGProgramCell with position data
  */
 export function positionCell(
     program: ScheduledProgram,
@@ -167,10 +162,6 @@ class RenderPassAccumulator implements RenderPassContext {
     }
 }
 
-/**
- * EPG Virtualizer class.
- * Manages DOM element pooling and efficient grid rendering.
- */
 export class EPGVirtualizer {
     private config: EPGConfig | null = null;
     private gridContainer: HTMLElement | null = null;
@@ -246,7 +237,6 @@ export class EPGVirtualizer {
      * Calculate visible range based on scroll position.
      * Adds buffer rows and time buffer for smooth scrolling.
      *
-     * @param scrollPosition - Current scroll position
      * @returns Visible range with row indices and time window
      */
     calculateVisibleRange(scrollPosition: {
@@ -400,12 +390,6 @@ export class EPGVirtualizer {
     /**
      * Render visible cells with DOM recycling.
      * Main virtualization entry point.
-     *
-     * @param channelIds - Ordered array of channel IDs
-     * @param schedules - Map of channel ID to schedule window
-     * @param range - Visible range from calculateVisibleRange
-     * @param focusedCellKey - Optional focused key to keep focused cell in DOM
-     * @param nowMs - Optional current time snapshot (Unix ms) to keep render pass consistent
      */
     renderVisibleCells(
         channelIds: string[],
@@ -736,15 +720,11 @@ export class EPGVirtualizer {
     /**
      * Return an element to the pool for later reuse.
      * If pool exceeds MAX_POOL_SIZE, oldest entries are removed.
-     *
-     * @param _key - Cell key being recycled (unused, for debugging)
-     * @param cellData - Cell data with element reference
      */
     private recycleElement(_key: string, cellData: VirtualizedCellRenderData): void {
         const element = cellData.cellElement;
         if (!element) return;
 
-        // Remove from DOM but don't destroy
         element.remove();
         element.classList.remove(
             EPG_CLASSES.CELL_FOCUSED,
@@ -756,7 +736,6 @@ export class EPGVirtualizer {
         const poolKey = `pool-${Date.now()}-${this.poolSequence++}`;
         this.elementPool.set(poolKey, element);
 
-        // Prevent pool from growing unbounded
         if (this.elementPool.size > EPG_CONSTANTS.MAX_POOL_SIZE) {
             const oldestKey = this.elementPool.keys().next().value;
             if (oldestKey !== undefined) {
@@ -821,9 +800,6 @@ export class EPGVirtualizer {
         this.cellRenderer.syncFocusedTicker(focusedCell ?? null);
     }
 
-    /**
-     * Force recycle all elements when memory pressure detected.
-     */
     forceRecycleAll(): void {
         this.cellRenderer.clearFocusedTickers();
         for (const [key, cellData] of this.visibleCells) {
@@ -831,15 +807,11 @@ export class EPGVirtualizer {
         }
         this.visibleCells.clear();
 
-        // Clear pool completely to free memory
         this.elementPool.clear();
     }
 
     /**
      * Set focus on a cell element.
-     *
-     * @param channelId - Channel ID
-     * @param programStartTime - Program start time (Unix ms)
      * @returns The focused element or null
      */
     setFocusedCell(

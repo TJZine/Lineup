@@ -271,6 +271,42 @@ describe('ChannelManager error contracts', () => {
         }
     });
 
+    it('cancels a pending retry when a channel successfully resolves before the retry fires', async () => {
+        const logger = { warn: jest.fn(), error: jest.fn() };
+        const localManager = new ChannelManager({ plexLibrary: mockLibrary, logger });
+        const baseNow = Date.now();
+        const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(baseNow);
+
+        try {
+            const channel = await localManager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+
+            nowSpy.mockReturnValue(baseNow + CACHE_TTL_MS + 1);
+            mockLibrary.getLibraryItems.mockRejectedValueOnce(
+                Object.assign(new Error('Network timeout'), {
+                    code: AppErrorCode.NETWORK_TIMEOUT,
+                })
+            );
+
+            const staleResult = await localManager.resolveChannelContent(channel.id);
+            expect(staleResult.cacheReason).toBe('network_error');
+
+            await localManager.refreshChannelContent(channel.id);
+
+            await jest.advanceTimersByTimeAsync(30_000);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(3);
+            expect(logger.warn).not.toHaveBeenCalledWith(
+                `Retry succeeded for channel ${channel.id}`
+            );
+        } finally {
+            nowSpy.mockRestore();
+            await localManager.flushSaves().catch(() => undefined);
+            localManager.dispose();
+        }
+    });
+
     it('skips imported records when create hits a non-fallback content resolution failure', async () => {
         expectConsoleWarn([
             'Access denied resolving channel content',

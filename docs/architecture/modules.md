@@ -56,7 +56,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/orchestrator/OrchestratorCoordinatorAssembly.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
 - `src/core/orchestrator/OrchestratorRuntimeControllerBuilder.ts` owns schedule-day rollover and subtitle-track recovery controller construction for `AppOrchestrator`
 - `src/core/initialization/InitializationCoordinator.ts` owns orchestrator startup sequencing for the app-shell/orchestrator startup path
-- `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` owns Priority-1 runtime assembly shaping from app-provided runtime refs and callbacks
+- `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` owns Priority-1 runtime assembly shaping from app-provided runtime refs and callbacks; it shapes the public assembly input directly without a separate no-value forwarding layer
 - `src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts` owns Priority-1 controller and `OrchestratorEventBinder` construction previously in `AppOrchestrator._initializePriorityOneControllers()`
 - `src/Orchestrator.ts` remains the public re-export surface for external callers (including `src/App.ts` and tests)
 
@@ -241,6 +241,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
 - owns server/user-scoped channel key families (including selected/current channel state) configured by `src/core/orchestrator/OrchestratorStorageContext.ts`
 - `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin consumer wrapper over `ChannelPersistenceStore`, not a separate storage owner
+- `src/modules/scheduler/channel-manager/ChannelManager.ts` is the public channel-domain API/state facade; package-local services own authoring/default shaping, import/export orchestration, manager-facing persistence coordination, resolved-content cache/clone policy, and retry timers without changing storage schema ownership.
 
 ### Direct-storage Exception Wraps (`P3-W3`, completed 2026-03-11)
 
@@ -283,22 +284,26 @@ This document is directory-oriented and lists file-level owners where the canoni
 - runtime theme state/control is app-shell-owned by `src/core/app-shell/AppThemeController.ts`
 - `src/modules/ui/settings/` consumes theme metadata plus app-composed runtime callbacks and should not act as a second public owner for those definitions
 - `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` are the staged EPG package owners.
+- `src/modules/ui/server-select/ServerSelectScreen.ts` is the server-select screen adapter; `ServerSelectRuntimeCoordinator.ts`, `ServerSelectFocusCoordinator.ts`, `ServerSelectStatusPolicy.ts`, and `ServerSelectListView.ts` own runtime workflow, focus, status/display policy, and DOM-list rendering respectively.
+- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the channel-setup screen adapter and step router; dropdown lifecycle lives in `ChannelSetupDropdownController.ts`, build review/progress/success presentation lives in `steps/ChannelSetupBuildStepPresenter.ts`, and session/runtime, focus, strategy interaction, and step rendering stay in their package-local collaborators.
 
 ## Current Hotspot Reference
 
-The most important structural hotspots remain and should be treated as active work targets:
+The primary structural hotspots still treated as current by
+[`CURRENT_STATE.md`](./CURRENT_STATE.md) are:
 
-- `src/Orchestrator.ts`
 - `src/App.ts`
-- `src/modules/ui/epg/component/EPGComponent.ts`
-- `src/modules/ui/channel-setup/ChannelSetupScreen.ts`
-- `src/modules/scheduler/channel-manager/ChannelManager.ts`
 
-`src/modules/ui/settings/SettingsScreen.ts`,
-and `src/modules/plex/stream/PlexStreamResolver.ts` remain backlog-owned
-surfaces, but current source size/delegation evidence no longer supports
-listing them as primary active hotspots. `ChannelSetupScreen.ts` remains an
-active hotspot until a current source audit proves otherwise.
+`src/Orchestrator.ts`, `src/modules/ui/settings/SettingsScreen.ts`,
+`src/modules/ui/epg/component/EPGComponent.ts`,
+`src/modules/plex/stream/PlexStreamResolver.ts`, and
+`src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
+backlog or ownership surfaces where listed below, but current source
+size/delegation evidence no longer supports listing them as primary active
+hotspots. `ChannelSetupScreen.ts` is no longer listed as a current primary
+hotspot after FCP-11 because focused package-local owners now carry dropdown,
+build presentation, session/runtime, focus, strategy interaction, and step
+rendering behavior.
 
 ## Cleanup Backlog Direction
 

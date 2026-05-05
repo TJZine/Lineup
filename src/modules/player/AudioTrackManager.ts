@@ -45,13 +45,10 @@ export type AudioTrackManagerDeps = {
 };
 
 export class AudioTrackManager {
-    /** Reference to the video element */
     private _videoElement: HTMLVideoElement | null = null;
 
-    /** Available audio tracks */
     private _tracks: AudioTrack[] = [];
 
-    /** Currently active track ID */
     private _activeTrackId: string | null = null;
 
     private readonly _audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabledAndClean'>;
@@ -66,7 +63,6 @@ export class AudioTrackManager {
 
     public setTracks(tracks: AudioTrack[]): void {
         this._tracks = tracks;
-        // Set first track as active if none set
         if (!this._activeTrackId && tracks.length > 0) {
             const defaultTrack = tracks.find((t) => t.default) || tracks[0];
             if (defaultTrack) {
@@ -120,7 +116,6 @@ export class AudioTrackManager {
         let isTimeoutError = false;
         let restoreFailure: string | null = null;
 
-        // Try with retry
         for (let attempt = 0; attempt <= AUDIO_TRACK_MAX_RETRIES; attempt++) {
             try {
                 await this._switchWithTimeout(audioTracks, targetTrack);
@@ -134,8 +129,6 @@ export class AudioTrackManager {
                     isTimeoutError = true;
                     break;
                 }
-
-                // Log retry
             }
         }
 
@@ -195,7 +188,6 @@ export class AudioTrackManager {
                 );
             }, AUDIO_TRACK_SWITCH_TIMEOUT_MS);
 
-            // Find and enable the target track
             for (let i = 0; i < audioTracks.length; i++) {
                 const track = audioTracks[i];
                 if (track) {
@@ -203,7 +195,6 @@ export class AudioTrackManager {
                 }
             }
 
-            // Immediate check before polling - track switch may be instantaneous
             for (let i = 0; i < audioTracks.length; i++) {
                 if (audioTracks[i]?.id === targetTrack.id && audioTracks[i]?.enabled) {
                     clearTimeout(timeout);

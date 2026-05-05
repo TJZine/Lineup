@@ -239,7 +239,6 @@ interface StreamResolverError {
 
 interface StreamResolverEventMap {
   error: StreamResolverError;
-  [key: string]: StreamResolverError;
 }
 
 interface IPlexStreamResolver {
@@ -247,7 +246,7 @@ interface IPlexStreamResolver {
 
   stopTranscodeSession(sessionId: string): Promise<void>;
 
-  canDirectPlay(item: PlexMediaItem): boolean;
+  canDirectPlay(item: PlexStreamMediaItem): boolean;
 
   /** Throws StreamResolverError synchronously when a transcode URL cannot be built. */
   getTranscodeUrl(itemKey: string, options: HlsOptions): string;

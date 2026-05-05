@@ -211,6 +211,107 @@ describe('ChannelManager', () => {
             expect(handler).toHaveBeenCalledWith(expect.objectContaining({ name: 'Updated' }));
         });
 
+        it('takes ownership of mutable content source and filter inputs', async () => {
+            const contentSource = {
+                ...createMockContentSource('owned-lib'),
+                libraryFilter: { genre: 'Drama' },
+            };
+            const contentFilters: ChannelCreateInput['contentFilters'] = [
+                { field: 'year', operator: 'gte', value: 2020 },
+            ];
+
+            const channel = await manager.createChannel({
+                contentSource,
+                contentFilters,
+            });
+
+            contentSource.libraryFilter.genre = 'Comedy';
+            contentFilters[0]!.value = 1990;
+
+            const stored = manager.getChannel(channel.id);
+            expect(stored?.contentSource).toEqual(expect.objectContaining({
+                libraryFilter: { genre: 'Drama' },
+            }));
+            expect(stored?.contentFilters).toEqual([
+                { field: 'year', operator: 'gte', value: 2020 },
+            ]);
+        });
+
+        it('takes ownership of mutable content source and filter updates', async () => {
+            const channel = await manager.createChannel({
+                name: 'Original',
+                contentSource: createMockContentSource(),
+            });
+            const contentSource = {
+                ...createMockContentSource('updated-lib'),
+                libraryFilter: { genre: 'Drama' },
+            };
+            const contentFilters: ChannelUpdateInput['contentFilters'] = [
+                { field: 'year', operator: 'gte', value: 2020 },
+            ];
+
+            const updated = await manager.updateChannel(channel.id, {
+                contentSource,
+                contentFilters,
+            });
+
+            contentSource.libraryFilter.genre = 'Comedy';
+            contentFilters[0]!.value = 1990;
+
+            expect(updated.contentSource).toEqual(expect.objectContaining({
+                libraryFilter: { genre: 'Drama' },
+            }));
+            expect(updated.contentFilters).toEqual([
+                { field: 'year', operator: 'gte', value: 2020 },
+            ]);
+            expect(manager.getChannel(channel.id)?.contentSource).toEqual(expect.objectContaining({
+                libraryFilter: { genre: 'Drama' },
+            }));
+        });
+
+        it('takes ownership of mutable replacement channel content fields', async () => {
+            const replacement = createBaseChannel({
+                id: 'replacement',
+                contentSource: {
+                    ...createMockContentSource('replacement-lib'),
+                    libraryFilter: { genre: 'Drama' },
+                },
+                contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+            });
+
+            await manager.replaceAllChannels([replacement]);
+
+            const source = replacement.contentSource;
+            if (source.type !== 'library' || !source.libraryFilter || !replacement.contentFilters) {
+                throw new Error('replacement fixture should use mutable library content fields');
+            }
+            source.libraryFilter.genre = 'Comedy';
+            replacement.contentFilters[0]!.value = 1990;
+
+            const stored = manager.getChannel('replacement');
+            expect(stored?.contentSource).toEqual(expect.objectContaining({
+                libraryFilter: { genre: 'Drama' },
+            }));
+            expect(stored?.contentFilters).toEqual([
+                { field: 'year', operator: 'gte', value: 2020 },
+            ]);
+        });
+
+        it('ignores explicit undefined update values so required fields are preserved', async () => {
+            const channel = await manager.createChannel({
+                name: 'Original',
+                contentSource: createMockContentSource(),
+            });
+
+            const updated = await manager.updateChannel(channel.id, {
+                name: undefined,
+                contentSource: undefined,
+            } as unknown as ChannelUpdateInput);
+
+            expect(updated.name).toBe('Original');
+            expect(updated.contentSource).toEqual(channel.contentSource);
+        });
+
         it('throws ChannelError when updating a missing channel', async () => {
             await expect(manager.updateChannel('missing-channel', { name: 'Nope' })).rejects.toMatchObject({
                 name: 'ChannelError',

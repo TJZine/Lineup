@@ -1,6 +1,7 @@
 import { ChannelManager } from '../ChannelManager';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
+import type { ResolvedContentItem } from '../types';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
     installMockLocalStorage,
@@ -115,6 +116,80 @@ describe('ChannelManager content resolution', () => {
             await manager.resolveChannelContent(channel.id);
 
             expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(0);
+        });
+
+        it('takes ownership of initial content arrays passed during channel creation', async () => {
+            const initialContent: ResolvedContentItem[] = [
+                {
+                    ratingKey: 'initial-1',
+                    type: 'movie' as const,
+                    title: 'Initial Movie',
+                    fullTitle: 'Initial Movie',
+                    durationMs: 6000,
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                    genres: ['Drama'],
+                    mediaInfo: { resolution: '1080p' },
+                },
+            ];
+
+            const channel = await manager.createChannel(
+                { contentSource: createMockContentSource() },
+                { initialContent }
+            );
+
+            initialContent.push({
+                ratingKey: 'mutated-array',
+                type: 'movie',
+                title: 'Mutated Array',
+                fullTitle: 'Mutated Array',
+                durationMs: 6000,
+                thumb: null,
+                year: 2026,
+                scheduledIndex: 1,
+            });
+            initialContent[0]!.title = 'Mutated Title';
+            initialContent[0]!.genres?.push('Mutated Genre');
+            initialContent[0]!.mediaInfo!.resolution = '240p';
+
+            const resolved = await manager.resolveChannelContent(channel.id);
+
+            expect(resolved.items).toHaveLength(1);
+            expect(resolved.items[0]?.title).toBe('Initial Movie');
+            expect(resolved.items[0]?.genres).toEqual(['Drama']);
+            expect(resolved.items[0]?.mediaInfo).toEqual({ resolution: '1080p' });
+        });
+
+        it('applies playback ordering to initial content during channel creation', async () => {
+            const initialContent: ResolvedContentItem[] = [
+                createResolvedEpisode('a1', 'Series A'),
+                createResolvedEpisode('b1', 'Series B'),
+                createResolvedEpisode('a2', 'Series A'),
+                createResolvedEpisode('b2', 'Series B'),
+                createResolvedEpisode('a3', 'Series A'),
+            ];
+
+            const channel = await manager.createChannel(
+                {
+                    contentSource: createMockContentSource(),
+                    playbackMode: 'block',
+                    blockSize: 2,
+                },
+                { initialContent }
+            );
+
+            const resolved = await manager.resolveChannelContent(channel.id);
+            const orderedShowTitles = resolved.orderedItems.map((item) => item.showTitle);
+
+            expect(resolved.items.map((item) => item.ratingKey)).toEqual(['a1', 'b1', 'a2', 'b2', 'a3']);
+            expect(resolved.orderedItems.map((item) => item.ratingKey)).not.toEqual(['a1', 'b1', 'a2', 'b2', 'a3']);
+            expect(orderedShowTitles[0]).toBe(orderedShowTitles[1]);
+            expect(orderedShowTitles[2]).toBe(orderedShowTitles[3]);
+            expect(orderedShowTitles[0]).not.toBe(orderedShowTitles[2]);
+            expect(orderedShowTitles[4]).toBe('Series A');
+            expect(channel.itemCount).toBe(5);
+            expect(channel.totalDurationMs).toBe(30000);
         });
 
         it('should force refresh bypasses cache', async () => {
@@ -298,3 +373,17 @@ describe('ChannelManager content resolution', () => {
         });
     });
 });
+
+function createResolvedEpisode(ratingKey: string, showTitle: string): ResolvedContentItem {
+    return {
+        ratingKey,
+        type: 'episode',
+        title: ratingKey,
+        fullTitle: `${showTitle} - ${ratingKey}`,
+        showTitle,
+        durationMs: 6000,
+        thumb: null,
+        year: 2026,
+        scheduledIndex: 0,
+    };
+}

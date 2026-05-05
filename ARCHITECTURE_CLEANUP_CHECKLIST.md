@@ -10,12 +10,12 @@ should not drive the next cleanup task by default.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P13, FCP-1 through FCP-6, DCR-1 through DCR-16,
+- Current execution state: P0-P13, FCP-1 through FCP-11, DCR-1 through DCR-16,
   and DCR-EXIT are complete. The old P14 wave ledger is superseded for current
   decision-making because repeated residual waves did not create meaningful
   score progress and kept expanding the active control plane.
-- Next safe start: choose the first unchecked `FCP-*` package in the active
-  Final Cleanup Pass below, perform package-local source-backed discovery,
+- Next safe start: plan `FCP-12`, the first unchecked package in the active
+  Final Cleanup Pass below. Perform package-local source-backed discovery,
   freeze an execution-grade plan with package decomposition and one
   `ready_now_execution_unit`, run adversarial plan review, and only then
   implement the approved unit.
@@ -313,10 +313,10 @@ future platform work harder to reason about.
 - Handoff: completed by cleanup-loop in commits `611b73e8`, `d51791ef`,
   and `59f35d72`; package closeout verification passed on 2026-05-02.
 
-### [ ] `FCP-8` API, Plex, And Error Contract Coherence
+### [x] `FCP-8` API, Plex, And Error Contract Coherence
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-02-fcp-8-api-plex-error-contract-coherence-plan.md`
 - Dimensions/rubric tags: API surface coherence, contract coherence, error
   consistency, type safety, Plex integration, logic clarity
 - Scope owner: Plex/shared transport, scheduler channel contracts, and error
@@ -386,16 +386,24 @@ future platform work harder to reason about.
   token redaction, PIN validation, or existing fallback tests; `initialContent`
   requires product/API decision outside channel manager; pagination helper
   changes request order or error taxonomy.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-02
+- Verification: passed `npm test -- fetchWithTimeout`;
+  `npm test -- PlexStreamResolver`; `npm test -- PlexLibrary`;
+  `npm test -- PlexAuth`; `npm test -- ChannelManager
+  ChannelImportNormalizer`; `npm test -- formatChannelSetupWarning`;
+  `npm run typecheck`; targeted source audits for timeout helper call shape,
+  media-item exports, auth cause redaction, channel create options,
+  pagination guards, and formatter ownership; `git diff --check`;
+  `npm run verify`; and `npm run verify:docs`.
 - Follow-ups: none yet
-- Handoff: start with a cleanup-loop plan for `FCP-8`; treat Plex auth work as
-  the highest-risk slice and keep it bounded.
+- Handoff: completed by cleanup-loop in commits `b18d23c9`, `65ba1bf1`,
+  `508d52aa`, and `5e548a92`; package closeout verification passed on
+  2026-05-02.
 
-### [ ] `FCP-9` Source Signal, Convention, And Local Elegance
+### [x] `FCP-9` Source Signal, Convention, And Local Elegance
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-02-fcp-9-source-signal-convention-local-elegance-plan.md`
 - Dimensions/rubric tags: AI-generated debt, convention drift, low-level
   elegance, naming quality, docs/source coherence
 - Scope owner: source-signal and convention owner with style, architecture docs,
@@ -405,8 +413,8 @@ future platform work harder to reason about.
   remove low-risk noise without reopening DCR-16 as a broad comment sweep.
 - Files in scope:
   - `src/modules/ui/now-playing-info/styles.css` and sibling leaf stylesheets
-  - `src/__tests__/index.test.ts` if stylesheet seam policy tests require
-    updates
+  - `src/modules/ui/__tests__/runtime-token-style-contracts.test.ts` for
+    stylesheet seam policy updates
   - `docs/architecture/CURRENT_STATE.md`
   - `docs/architecture/modules.md`
   - `src/modules/navigation/interfaces.ts`
@@ -444,7 +452,7 @@ future platform work harder to reason about.
   changes, targeted channel setup tests if executor logic moves, `git diff
   --check`, `npm run verify:docs`, and `npm run verify` if executable code
   changes.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -456,16 +464,17 @@ future platform work harder to reason about.
 - Stop/replan triggers: comment pruning removes semantic API guidance; CSS move
   changes visuals; facet table extraction changes failure/progress semantics or
   DCR-7 callback ownership.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-02
+- Verification: `npm run plans:check`; `npm run test:contracts -- src/modules/ui/__tests__/runtime-token-style-contracts.test.ts`; `npm run lint:css`; `npm run verify:docs`; `npm run typecheck`; `npm test -- --runInBand src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetCountRecoveryWorker.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanner.test.ts src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotFailures.test.ts`; `git diff --check`; final `npm run verify`.
 - Follow-ups: none yet
 - Handoff: start with source audit and behavior-neutral diff constraints; do not
   broaden into a repo-wide comment sweep.
 
-### [ ] `FCP-10` EPG Renderer Direct Confidence And Presentation Decomposition
+### [x] `FCP-10` EPG Renderer Direct Confidence And Presentation Decomposition
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-02-fcp-10-epg-renderer-direct-confidence-presentation-decomposition-plan.md`
 - Dimensions/rubric tags: design coherence, test strategy, UI/focus behavior,
   mid-level elegance
 - Scope owner: EPG view/rendering owner
@@ -473,7 +482,7 @@ future platform work harder to reason about.
   rendering behavior, width-tier policy, text derivation, and focused ticker
   timing with only indirect coverage. This is the best larger UI refactor to
   complete before port work because EPG behavior is TV-critical and likely to
-  be revisited during platform adaptation.
+  be revisited during platform adaptation. We want to adapt this into a best practice maintainability architectural pattern that would be found in a production level codebase. We can expand FCP-10-SF1 to include any additional changes that would get us toward this goal.
 - Files in scope:
   - `src/modules/ui/epg/view/EPGCellRenderer.ts`
   - `src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`
@@ -500,7 +509,7 @@ future platform work harder to reason about.
   virtualizer-level behavior remains intact.
 - Verification routing: focused `EPGCellRenderer` tests, affected
   `EPGVirtualizer` tests, `npm run typecheck`, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -511,15 +520,23 @@ future platform work harder to reason about.
 - Stop/replan triggers: tests require private probing instead of public renderer
   methods; helper extraction changes DOM shape, focus hooks, reduced-motion, or
   ticker behavior; visual changes require maintainer design approval.
-- Last touched: not started
-- Verification: not run
+- Last touched: 2026-05-02
+- Verification: passed `npm run plans:check`; clean plan review; `npm test --
+  --runInBand src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`;
+  `npm test -- --runInBand
+  src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`; `npm run typecheck`;
+  targeted source audits for private renderer presentation-helper residue and
+  renderer/export callers; clean implementation review for `FCP-10-S1` and
+  `FCP-10-S2`; `git diff --check`; and final package `npm run verify`.
 - Follow-ups: none yet
-- Handoff: start by locking current behavior with direct tests, then extract.
+- Handoff: completed by cleanup-loop in commits `2cc71d56` and `37b0871f`;
+  package closeout verification passed on 2026-05-02.
 
-### [ ] `FCP-11` Runtime Owner Reduction Hotspots
+### [x] `FCP-11` Runtime Owner Reduction Hotspots
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-02-fcp-11-runtime-owner-reduction-hotspots-plan.md`
 - Dimensions/rubric tags: high-level elegance, design coherence, abstraction
   fitness, file health, structure navigation
 - Scope owner: UI/runtime hotspot owners
@@ -601,7 +618,7 @@ future platform work harder to reason about.
   verify`. Update `docs/architecture/CURRENT_STATE.md` or
   `docs/architecture/modules.md` when hotspot status or ownership truth changes,
   and run `npm run verify:docs` for those docs updates.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -619,13 +636,29 @@ future platform work harder to reason about.
   closure requires changing public API or behavior in a different package; the
   plan cannot state how the original mixed-responsibility finding will become
   false.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: this package needs the strongest plan review. Do not start all
-  slices at once; each must name the owner set required to make the original
-  finding false, the behavior tests that lock the move, and the source-audit
-  proof that will decide whether the slice can close.
+- Last touched: 2026-05-02
+- Verification: passed `npm run plans:check`; clean plan review; targeted
+  `FCP-11-S1` server-select tests; targeted `FCP-11-S2` channel setup tests
+  including build `Done` success-path proof; targeted `FCP-11-S3`
+  channel-manager/persistence/cache/retry tests including stale debounced-save
+  regression proof; targeted `FCP-11-S4` priority-one/orchestrator assembly
+  tests; `npm run typecheck`; `npm run verify:architecture`; `git diff
+  --check`; and clean final implementation reviews for `FCP-11-S1` through
+  `FCP-11-S4`. Final package `npm run verify` and `npm run verify:docs`
+  passed during closeout.
+- Follow-ups: none
+- Proof matrix: `FCP-11-SF1` retired by commit `d56a13ca` (server-select
+  runtime/focus/status owners); `FCP-11-SF2` retired by commits `aefbbfd0` and
+  `606ad0ae` (channel setup dropdown/build presenter owners plus public
+  success-path proof); `FCP-11-SF3` retired by commits `42d93a9d` and
+  `6ed9d0c6` (ChannelManager owner split plus debounced-save interleaving fix);
+  `FCP-11-SF4` retired by commit `f02cc0a1` (priority-one forwarding collapse
+  while preserving owner-value seams). `51c60d02` records the lint-gate fix for
+  reviewed FCP-11 files.
+- Handoff: completed by cleanup-loop on 2026-05-02 after source-backed owner
+  closure, targeted verification, clean implementation review, and package
+  closeout verification. Next safe package is `FCP-12` only after this closeout
+  commit and review evidence remain clean.
 
 ### [ ] `FCP-12` Package Organization, Structure Navigation, And Final Exit
 
@@ -652,7 +685,7 @@ future platform work harder to reason about.
 - Files out of scope:
   - behavior changes inside app-shell/orchestrator owners unless required by a
     source-proven import move
-  - FCP-7 through FCP-11 implementation work not yet closed
+  - reopening completed FCP-7 through FCP-11 implementation work
   - Windows port implementation
 - Source findings to retire:
   - `FCP-12-SF1`: `src/core/app-shell` mixes diagnostics, deferred-screen
@@ -673,8 +706,8 @@ future platform work harder to reason about.
 - Verification routing: import/source audits, targeted app-shell/orchestrator
   tests affected by moves, `npm run typecheck`, `npm run verify`,
   `npm run plans:check`, `npm run verify:docs`, and `git diff --check`.
-- Ready-now execution unit: none until `FCP-7` through `FCP-11` are closed or
-  explicitly reclassified.
+- Ready-now execution unit: none until the `FCP-12` plan is written and
+  reviewed clean.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |

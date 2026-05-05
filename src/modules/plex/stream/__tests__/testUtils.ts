@@ -1,5 +1,5 @@
 import type { PlexStreamResolverConfig } from '../interfaces';
-import type { PlexMediaItem, PlexMediaFile, PlexStream } from '../types';
+import type { PlexStreamMediaItem, PlexMediaFile, PlexStream } from '../types';
 import type { PlatformIdentityService } from '../../../../platform';
 import { AudioSettingsStore } from '../../../settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../../settings/PlaybackSettingsStore';
@@ -67,7 +67,7 @@ export function createMockMediaItem(
         extraStreams: PlexStream[];
         partKey: string;
     }> = {}
-): PlexMediaItem {
+): PlexStreamMediaItem {
     const defaults = {
         container: 'mp4',
         videoCodec: 'h264',

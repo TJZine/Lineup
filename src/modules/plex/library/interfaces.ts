@@ -32,8 +32,6 @@ export interface PlexTagDirectoryQueryOptions {
  * server failures must reject with `PlexLibraryError`.
  */
 export interface IPlexLibrary {
-    // Library Sections
-
     getLibraries(options?: {
         signal?: AbortSignal | null;
         /**
@@ -54,21 +52,13 @@ export interface IPlexLibrary {
         options?: { signal?: AbortSignal | null }
     ): Promise<PlexLibrarySection | null>;
 
-    // Content Browsing
-
     /**
-     * Get items from a library with optional filtering.
      * Handles pagination transparently.
-     * @param libraryId - Library section ID
-     * @param options - Optional query options
-     * @returns Promise resolving to list of media items
      */
     getLibraryItems(libraryId: string, options?: LibraryQueryOptions): Promise<PlexMediaItem[]>;
 
     /**
      * Get total item count for a library without fetching items.
-     * @param libraryId - Library section ID
-     * @param options - Optional query options (filter/signal)
      * @returns Promise resolving to item count, or `null` only when Plex returns semantic absence
      * (for example an explicit 404) or omits count totals in an otherwise valid payload.
      * Empty 200 bodies and malformed success payload structure reject with `PlexLibraryError`.
@@ -76,8 +66,6 @@ export interface IPlexLibrary {
     getLibraryItemCount(libraryId: string, options?: LibraryQueryOptions): Promise<number | null>;
 
     getItem(ratingKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem | null>;
-
-    // TV Show Hierarchy
 
     getShows(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
 
@@ -87,54 +75,24 @@ export interface IPlexLibrary {
 
     /**
      * Get all episodes for a show (flattened across all seasons).
-     * @param showKey - Show's rating key
      * @returns Promise resolving to all episodes sorted by season/episode
      */
     getShowEpisodes(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
 
-    // Search
-
-    /**
-     * Search for content across libraries.
-     * @param query - Search query string
-     * @param options - Optional search options
-     * @returns Promise resolving to matching items
-     */
     search(query: string, options?: SearchOptions): Promise<PlexMediaItem[]>;
 
-    // Collections/Playlists
-
-    /**
-     * Get collections in a library.
-     * @param libraryId - Library section ID
-     * @returns Promise resolving to list of collections
-     */
     getCollections(libraryId: string, options?: {
         signal?: AbortSignal | null;
         requestIntent?: PlexLibraryRequestIntent;
     }): Promise<PlexCollection[]>;
 
-    /**
-     * Get items in a collection.
-     * @param collectionKey - Collection's rating key
-     * @returns Promise resolving to list of items
-     */
     getCollectionItems(collectionKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
 
-    /**
-     * Get user playlists.
-     * @returns Promise resolving to list of playlists
-     */
     getPlaylists(options?: {
         signal?: AbortSignal | null;
         requestIntent?: PlexLibraryRequestIntent;
     }): Promise<PlexPlaylist[]>;
 
-    /**
-     * Get items in a playlist.
-     * @param playlistKey - Playlist's rating key
-     * @returns Promise resolving to list of items
-     */
     getPlaylistItems(playlistKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
 
     /**
@@ -192,23 +150,15 @@ export interface IPlexLibrary {
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
-    // Image URLs
-
     /**
      * Generate authenticated URL for Plex images.
-     * @param imagePath - Image path from Plex metadata
-     * @param width - Optional resize width
-     * @param height - Optional resize height (defaults to width)
      * @returns Full URL with authentication token, or null when no image URL can be built
      */
     getImageUrl(imagePath: string, width?: number, height?: number): string | null;
 
-    // Refresh
-
     /**
      * Refresh cached library data.
      * Invalidates cache and emits libraryRefreshed event.
-     * @param libraryId - Library section ID to refresh
      */
     refreshLibrary(libraryId: string): Promise<void>;
 
@@ -223,9 +173,6 @@ export interface IPlexLibrary {
     ): void;
 }
 
-/**
- * Configuration for PlexLibrary constructor.
- */
 export interface PlexLibraryConfig {
     /**
      * Function to get auth headers for Plex API requests.

@@ -297,9 +297,9 @@ export class ChannelSetupFacetLibraryExecutor {
 
     private _createNativeFacetDefinitions(library: PlexLibrarySection): NativeFacetTaskDefinition[] {
         const { genreType, detailType } = getTagDirectoryMediaTypesForLibraryType(library.type);
-        const definitions: NativeFacetTaskDefinition[] = [];
-        if (this._options.config.strategyConfig.genres.enabled) {
-            definitions.push({
+        const definitions: Array<NativeFacetTaskDefinition & { enabled: boolean }> = [
+            {
+                enabled: this._options.config.strategyConfig.genres.enabled,
                 family: 'genres',
                 label: 'Genres',
                 mediaType: genreType,
@@ -309,10 +309,9 @@ export class ChannelSetupFacetLibraryExecutor {
                     type: genreType,
                     ...options,
                 }),
-            });
-        }
-        if (this._options.config.strategyConfig.directors.enabled) {
-            definitions.push({
+            },
+            {
+                enabled: this._options.config.strategyConfig.directors.enabled,
                 family: 'directors',
                 label: 'Directors',
                 mediaType: detailType,
@@ -322,10 +321,9 @@ export class ChannelSetupFacetLibraryExecutor {
                     type: detailType,
                     ...options,
                 }),
-            });
-        }
-        if (this._options.config.strategyConfig.decades.enabled) {
-            definitions.push({
+            },
+            {
+                enabled: this._options.config.strategyConfig.decades.enabled,
                 family: 'decades',
                 label: 'Years',
                 mediaType: detailType,
@@ -335,10 +333,9 @@ export class ChannelSetupFacetLibraryExecutor {
                     type: detailType,
                     ...options,
                 }),
-            });
-        }
-        if (this._options.config.strategyConfig.studios.enabled) {
-            definitions.push({
+            },
+            {
+                enabled: this._options.config.strategyConfig.studios.enabled,
                 family: 'studios',
                 label: 'Studios',
                 mediaType: detailType,
@@ -348,10 +345,9 @@ export class ChannelSetupFacetLibraryExecutor {
                     type: detailType,
                     ...options,
                 }),
-            });
-        }
-        if (this._options.config.strategyConfig.actors.enabled) {
-            definitions.push({
+            },
+            {
+                enabled: this._options.config.strategyConfig.actors.enabled,
                 family: 'actors',
                 label: 'Actors',
                 mediaType: detailType,
@@ -361,9 +357,11 @@ export class ChannelSetupFacetLibraryExecutor {
                     type: detailType,
                     ...options,
                 }),
-            });
-        }
-        return definitions;
+            },
+        ];
+        return definitions
+            .filter(({ enabled }) => enabled)
+            .map(({ enabled: _enabled, ...definition }) => definition);
     }
 
     private async _createNativeFacetTask(

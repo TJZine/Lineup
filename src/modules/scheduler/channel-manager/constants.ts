@@ -29,6 +29,7 @@ export const MAX_CHANNEL_NUMBER = 500;
 export const CHANNEL_ERROR_MESSAGES = {
     CHANNEL_NOT_FOUND: 'Channel not found',
     CONTENT_SOURCE_REQUIRED: 'Content source is required',
+    CONTENT_SOURCE_INVALID: 'Content source is invalid',
     MAX_CHANNELS_REACHED: 'Maximum number of channels reached',
     INVALID_CHANNEL_NUMBER: 'Channel number must be an integer between 1 and 500',
     DUPLICATE_CHANNEL_NUMBER: 'Channel number already in use',

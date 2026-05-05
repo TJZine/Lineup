@@ -1,7 +1,6 @@
 /** Channel setup wizard screen. */
 
 import {
-    type ChannelBuildProgress,
     type ChannelSetupConfig,
 } from '../../../core/channel-setup/types';
 import type { FocusableElement, KeyEvent } from '../../navigation';
@@ -10,16 +9,14 @@ import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel
 import {
     SETUP_STRATEGY_KEYS,
 } from './steps/constants';
-import { createDropdownPopover } from '../common/CreateDropdownPopover';
 import { createScreenShell } from '../common/ScreenShell';
-import { renderCappedWarnings } from '../common/render/renderCappedWarnings';
 import { ChannelSetupFocusCoordinator } from './focus/ChannelSetupFocusCoordinator';
+import { ChannelSetupDropdownController } from './ChannelSetupDropdownController';
 import { LibraryStepController } from './steps/LibraryStepController';
 import { StrategyStepController } from './steps/StrategyStepController';
 import { StrategyStepInteractionController } from './steps/StrategyStepInteractionController';
-import { BuildReviewStepController } from './steps/BuildReviewStepController';
-import { BuildProgressStepController } from './steps/BuildProgressStepController';
-import type { BuildReviewStateSnapshot, StrategyStepDropdownConfig } from './steps/types';
+import { ChannelSetupBuildStepPresenter } from './steps/ChannelSetupBuildStepPresenter';
+import type { StrategyStepDropdownConfig } from './steps/types';
 import type { SetupStrategyKey } from './steps/constants';
 import type { RegisterStep2FocusOptions } from './focus/types';
 import { scrollToNearest } from './focus/scrollToNearest';
@@ -27,7 +24,6 @@ import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import { strategySupportsMixedScope } from './ChannelSetupSessionState';
 import type {
     ChannelSetupSessionSnapshot,
-    EstimateKey,
     StrategyStepMutableState,
 } from './ChannelSetupSessionContracts';
 import type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
@@ -60,8 +56,8 @@ export class ChannelSetupScreen {
     private _destroyScreenShell: (() => void) | null = null;
     private readonly _libraryStep = new LibraryStepController();
     private readonly _strategyStep = new StrategyStepController();
-    private readonly _buildReviewStep = new BuildReviewStepController();
-    private readonly _buildProgressStep = new BuildProgressStepController();
+    private readonly _buildStep = new ChannelSetupBuildStepPresenter();
+    private readonly _dropdown = new ChannelSetupDropdownController();
     private _stepEl: HTMLElement;
     private _statusEl: HTMLElement;
     private _detailEl: HTMLElement;
@@ -74,10 +70,7 @@ export class ChannelSetupScreen {
     private _preferredFocusId: string | null = null;
     private _visibilityToken = 0;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
-    private _activeDropdown: { destroy: () => void; dismiss: () => void } | null = null;
-    private _pendingDropdownDeferredRender = false;
     private _previewPanelId = 'setup-preview-panel';
-    private _maxPreviewWarnings = 5;
 
     private _getNearestOptionIndex(options: number[], current: number): number {
         const first = options[0];
@@ -135,9 +128,8 @@ export class ChannelSetupScreen {
     }
 
     private _resetStepUi(statusText: string): void {
-        this._closeDropdown();
+        this._dropdown.reset();
         this._clearStrategyStepTransientState();
-        this._pendingDropdownDeferredRender = false;
         this._preferredFocusId = null;
         this._contentEl.replaceChildren();
         this._stepEl.textContent = '';
@@ -282,8 +274,8 @@ export class ChannelSetupScreen {
         if (focusedId && this._preferredFocusId === null) {
             this._preferredFocusId = focusedId;
         }
-        if (this._activeDropdown) {
-            this._pendingDropdownDeferredRender = true;
+        if (this._dropdown.hasActiveDropdown()) {
+            this._dropdown.deferRender();
             return;
         }
         this._focus.unregisterAll();
@@ -424,14 +416,14 @@ export class ChannelSetupScreen {
         return {
             channelLimitOptions: this._channelLimitOptions,
             deferDropdownRender: (): void => {
-                this._pendingDropdownDeferredRender = true;
+                this._dropdown.deferRender();
             },
             dismissDropdown: (): void => {
-                this._dismissDropdown();
+                this._dropdown.dismiss(() => this._renderStep());
             },
             getPreferredFocusId: (): string | null => this._preferredFocusId,
             getSessionSnapshot: (): ChannelSetupSessionSnapshot => this._session.getSnapshot(),
-            hasActiveDropdown: (): boolean => this._activeDropdown !== null,
+            hasActiveDropdown: (): boolean => this._dropdown.hasActiveDropdown(),
             minItemsOptions: this._minItemsOptions,
             openDropdown: (config: StrategyStepDropdownConfig): void => {
                 this._openStep2Dropdown(config);
@@ -498,14 +490,10 @@ export class ChannelSetupScreen {
             lastReorder: this._strategyInteraction.getLastReorder(),
             scopeButtonId: (strategy) => this._strategyInteraction.scopeButtonId(strategy),
             strategySupportsMixedScope,
-            buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
+            buildPreviewRow: (label, value, key) =>
+                this._buildStep.buildPreviewRow(this._session.getSnapshot(), label, value, key),
             renderCappedWarnings: (warnings, container) => {
-                renderCappedWarnings({
-                    warnings,
-                    container,
-                    maxItems: this._maxPreviewWarnings,
-                    itemClassName: 'setup-preview-warning',
-                });
+                this._buildStep.renderCappedPreviewWarnings(warnings, container);
             },
             applyCategoryChange: (category, focusId) => {
                 this._strategyInteraction.applyCategoryChange(category, focusId, strategyInteraction);
@@ -544,378 +532,39 @@ export class ChannelSetupScreen {
     }
 
     private _openStep2Dropdown(config: StrategyStepDropdownConfig): void {
-        this._closeDropdown();
-        const anchor = document.getElementById(config.anchorId);
-        if (!(anchor instanceof HTMLElement)) {
-            return;
-        }
         const nav = this._screenPorts.getNavigation();
-        this._activeDropdown = createDropdownPopover({
-            anchor,
+        this._dropdown.open(config, {
             container: this._contentEl,
-            options: config.options,
-            currentValue: config.currentValue,
-            onSelect: (value) => {
-                try {
-                    config.onSelect(value);
-                } finally {
-                    this._closeDropdown();
-                    this._preferredFocusId = config.anchorId;
-                    this._flushDeferredDropdownRender();
-                }
-            },
-            onDismiss: () => {
-                nav?.setFocus(config.anchorId);
-            },
             nav,
-            cssClass: 'setup-dropdown',
-            optionCssClass: 'setup-dropdown-option',
+            setPreferredFocusId: (focusId) => {
+                this._preferredFocusId = focusId;
+            },
+            renderStep: () => {
+                this._renderStep();
+            },
         });
-    }
-
-    private _closeDropdown(): void {
-        if (!this._activeDropdown) {
-            return;
-        }
-        const dropdown = this._activeDropdown;
-        this._activeDropdown = null;
-        dropdown.destroy();
-    }
-
-    private _flushDeferredDropdownRender(): void {
-        if (!this._pendingDropdownDeferredRender) {
-            return;
-        }
-        this._pendingDropdownDeferredRender = false;
-        this._renderStep();
-    }
-
-    private _dismissDropdown(): void {
-        if (!this._activeDropdown) {
-            return;
-        }
-        const dropdown = this._activeDropdown;
-        try {
-            dropdown.dismiss();
-        } finally {
-            if (this._activeDropdown === dropdown) {
-                this._activeDropdown = null;
-            }
-        }
-        this._flushDeferredDropdownRender();
     }
 
     private _renderBuildStep(): void {
-        const session = this._session.getSnapshot();
-        if (session.isBuilding) {
-            this._renderBuildProgress();
-        } else {
-            this._renderBuildReview();
-        }
-    }
-
-    private _renderBuildReview(): void {
-        const getReviewState = (): BuildReviewStateSnapshot => {
-            const session = this._session.getSnapshot();
-            return {
-                buildMode: session.buildMode,
-                review: session.review,
-                reviewError: session.reviewError,
-                isReviewLoading: session.isReviewLoading,
-                replaceConfirm: session.replaceConfirm,
-                isBuilding: session.isBuilding,
-                recordApplied: session.recordApplied,
-            };
-        };
-
-        this._buildReviewStep.render({
+        this._buildStep.render({
             contentEl: this._contentEl,
             stepEl: this._stepEl,
             statusEl: this._statusEl,
             detailEl: this._detailEl,
             errorEl: this._errorEl,
         }, {
-            state: getReviewState(),
-            onBackToStrategy: () => {
-                this._session.clearReviewAndReturnToStep2();
-                this._renderStep();
-            },
-            onConfirmBuild: () => {
-                this._session.beginConfirmedBuild();
-                this._renderStep();
-            },
-            onToggleReplaceConfirm: (focusId) => {
+            session: this._session,
+            focus: this._focus,
+            screenPorts: this._screenPorts,
+            getPreferredFocusId: () => this._preferredFocusId,
+            setPreferredFocusId: (focusId) => {
                 this._preferredFocusId = focusId;
-                this._session.toggleReplaceConfirm();
+            },
+            getVisibilityToken: () => this._visibilityToken,
+            renderStep: () => {
                 this._renderStep();
             },
-            buildPreviewRow: (label, value, key) => this._buildPreviewRow(label, value, key),
-            renderCappedWarnings: (warnings, container) => {
-                renderCappedWarnings({
-                    warnings,
-                    container,
-                    maxItems: this._maxPreviewWarnings,
-                    itemClassName: 'setup-preview-warning',
-                });
-            },
-            registerLinearFocusables: (buttons) => {
-                const preferredApplied = this._focus.registerLinear(buttons, this._preferredFocusId);
-                if (preferredApplied) {
-                    this._preferredFocusId = null;
-                }
-            },
         });
-
-        this._kickOffReviewLoadPostRender();
-    }
-
-    private _kickOffReviewLoadPostRender(): void {
-        const session = this._session.getSnapshot();
-        if (
-            session.step !== 3 ||
-            !session.recordApplied ||
-            session.isBuilding ||
-            session.review ||
-            session.isReviewLoading ||
-            session.reviewError
-        ) {
-            return;
-        }
-
-        const token = this._visibilityToken;
-        void Promise.resolve()
-            .then(() => {
-                const current = this._session.getSnapshot();
-                if (
-                    token !== this._visibilityToken ||
-                    current.step !== 3 ||
-                    current.isBuilding ||
-                    current.review ||
-                    current.isReviewLoading ||
-                    current.reviewError
-                ) {
-                    return;
-                }
-                return this._session.ensureReviewLoaded(() => this._renderStep());
-            })
-            .catch((error: unknown) => {
-                if (isAbortLikeError(error)) return;
-                console.warn('Load review failed:', summarizeErrorForLog(error));
-            });
-    }
-
-    private _renderBuildProgress(): void {
-        const session = this._session.getSnapshot();
-        this._buildProgressStep.render({
-            contentEl: this._contentEl,
-            stepEl: this._stepEl,
-            statusEl: this._statusEl,
-            detailEl: this._detailEl,
-            errorEl: this._errorEl,
-        }, {
-            state: { isBuilding: session.isBuilding },
-            registerLinearFocusables: (buttons) => {
-                const preferredApplied = this._focus.registerLinear(buttons, this._preferredFocusId);
-                if (preferredApplied) {
-                    this._preferredFocusId = null;
-                }
-            },
-            onCancelOrBack: (button) => {
-                if (this._session.cancelBuild()) {
-                    button.disabled = true;
-                    button.textContent = 'Canceling...';
-                    return;
-                }
-                this._session.setStep(2);
-                this._renderStep();
-            },
-            onDone: () => {
-                const nav = this._screenPorts.getNavigation();
-                if (nav) {
-                    nav.replaceScreen('player');
-                }
-                this._screenPorts.switchToChannelByNumber(1)
-                    .then(() => this._screenPorts.openEPG())
-                    .catch((error: unknown) => {
-                        if (isAbortLikeError(error)) return;
-                        console.warn('Switch to channel 1 failed:', summarizeErrorForLog(error));
-                    });
-            },
-            startBuild: async (ui) => {
-                await this._startBuild(ui.cancelButton, ui.doneButton, ui.barFill, ui.taskLabel, ui.detailLabel);
-            },
-        });
-    }
-
-    private _applyBuildCanceledUI(
-        cancelButton: HTMLButtonElement,
-        doneButton: HTMLButtonElement,
-        barFill: HTMLElement,
-        taskLabel: HTMLElement,
-        detailLabel: HTMLElement,
-        options?: { disableDone?: boolean }
-    ): void {
-        this._statusEl.textContent = 'Canceled.';
-        this._detailEl.textContent = 'No changes were applied.';
-        taskLabel.textContent = 'Canceled';
-        detailLabel.textContent = '';
-        barFill.style.width = '0%';
-        barFill.classList.remove('indeterminate');
-
-        cancelButton.disabled = false;
-        cancelButton.textContent = 'Back';
-        if (options?.disableDone) {
-            doneButton.disabled = true;
-        }
-        cancelButton.focus();
-    }
-
-    private _applyBuildBlockedUI(
-        cancelButton: HTMLButtonElement,
-        doneButton: HTMLButtonElement,
-        barFill: HTMLElement,
-        taskLabel: HTMLElement,
-        detailLabel: HTMLElement,
-        message: string
-    ): void {
-        this._statusEl.textContent = 'Action required';
-        this._detailEl.textContent = 'No changes were applied.';
-        this._errorEl.textContent = message;
-        taskLabel.textContent = 'Plan blocked';
-        detailLabel.textContent = 'Review the warning and adjust setup before retrying.';
-        barFill.style.width = '0%';
-        barFill.classList.remove('indeterminate');
-
-        cancelButton.disabled = false;
-        cancelButton.textContent = 'Back';
-        doneButton.disabled = true;
-        cancelButton.focus();
-    }
-
-    private async _startBuild(
-        cancelButton: HTMLButtonElement,
-        doneButton: HTMLButtonElement,
-        barFill: HTMLElement,
-        taskLabel: HTMLElement,
-        detailLabel: HTMLElement
-    ): Promise<void> {
-        const token = this._visibilityToken;
-        const outcome = await this._session.beginBuild({
-            onProgress: (p: ChannelBuildProgress): void => {
-                if (token !== this._visibilityToken) {
-                    return;
-                }
-                taskLabel.textContent = p.label;
-                detailLabel.textContent = p.detail;
-
-                if (p.total !== null && p.total > 0) {
-                    const percent = Math.min(100, (p.current / p.total) * 100);
-                    barFill.style.width = `${percent}%`;
-                    barFill.classList.remove('indeterminate');
-                } else {
-                    barFill.style.width = '';
-                    barFill.classList.add('indeterminate');
-                }
-            },
-            onStateChange: () => {
-                // State changes are reflected through subsequent step renders.
-            },
-        });
-
-        if (token !== this._visibilityToken) {
-            return;
-        }
-
-        if (outcome.kind === 'missing-server') {
-            this._errorEl.textContent = 'No server selected.';
-            this._statusEl.textContent = 'Error';
-            taskLabel.textContent = 'Select a server';
-            detailLabel.textContent = '';
-            barFill.style.width = '0%';
-            barFill.classList.remove('indeterminate');
-            cancelButton.disabled = false;
-            cancelButton.textContent = 'Back';
-            doneButton.disabled = true;
-            return;
-        }
-
-        if (outcome.kind === 'blocked') {
-            this._applyBuildBlockedUI(cancelButton, doneButton, barFill, taskLabel, detailLabel, outcome.message);
-            return;
-        }
-
-        if (outcome.kind === 'canceled') {
-            this._applyBuildCanceledUI(cancelButton, doneButton, barFill, taskLabel, detailLabel, { disableDone: true });
-            return;
-        }
-
-        if (outcome.kind === 'error') {
-            this._errorEl.textContent = outcome.message;
-            this._statusEl.textContent = 'Error';
-            taskLabel.textContent = 'Error';
-            detailLabel.textContent = '';
-            barFill.style.width = '0%';
-            barFill.classList.remove('indeterminate');
-            cancelButton.disabled = false;
-            cancelButton.textContent = 'Back';
-            return;
-        }
-
-        this._statusEl.textContent = 'Channels ready.';
-        taskLabel.textContent = 'Complete';
-        detailLabel.textContent = `Created ${outcome.result.created} channels. Skipped ${outcome.result.skipped}.`;
-        barFill.style.width = '100%';
-        barFill.classList.remove('indeterminate');
-        this._errorEl.textContent = outcome.bookkeepingError
-            ? `Channels were created, but setup completion could not be saved: ${outcome.bookkeepingError}`
-            : '';
-
-        cancelButton.disabled = false;
-        doneButton.disabled = outcome.result.created === 0;
-        cancelButton.textContent = 'Back';
-
-        if (outcome.result.created === 0) {
-            this._detailEl.textContent = 'No channels created.';
-        }
-        this._focus.unregisterAll();
-        const preferredApplied = this._focus.registerLinear([doneButton, cancelButton], this._preferredFocusId);
-        if (preferredApplied) {
-            this._preferredFocusId = null;
-        }
-
-        const nav = this._screenPorts.getNavigation();
-        if (nav && !doneButton.disabled) {
-            nav.setFocus(doneButton.id);
-        } else {
-            nav?.setFocus(cancelButton.id);
-        }
-    }
-
-    private _buildPreviewRow(label: string, value: number | string, deltaKey?: EstimateKey): HTMLElement {
-        const session = this._session.getSnapshot();
-        const row = document.createElement('div');
-        row.className = 'setup-preview-row';
-        const labelEl = document.createElement('span');
-        labelEl.className = 'setup-preview-label';
-        labelEl.textContent = label;
-        const valueEl = document.createElement('span');
-        valueEl.className = 'setup-preview-value';
-        const main = document.createElement('span');
-        main.textContent = String(value);
-        valueEl.appendChild(main);
-
-        const now = Date.now();
-        const delta = deltaKey ? session.previewDeltas[deltaKey] : undefined;
-        if (typeof value === 'number' && typeof delta === 'number' && now <= session.previewDeltaExpiresAtMs) {
-            const deltaEl = document.createElement('span');
-            deltaEl.className = `setup-preview-delta ${delta > 0 ? 'positive' : 'negative'}`;
-            deltaEl.textContent = `(${delta > 0 ? '+' : ''}${delta})`;
-            valueEl.appendChild(deltaEl);
-        }
-
-        row.appendChild(labelEl);
-        row.appendChild(valueEl);
-        return row;
     }
 
     private _getSelectedServerId(): string | null {

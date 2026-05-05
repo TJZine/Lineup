@@ -685,6 +685,10 @@ describe('PlexAuth', () => {
                 const promise = auth.validateToken('slow-token');
                 const rejection = expect(promise).rejects.toMatchObject({
                     code: 'NETWORK_TIMEOUT',
+                    cause: {
+                        name: 'AbortError',
+                        message: 'The operation was aborted.',
+                    },
                 });
                 await jest.advanceTimersByTimeAsync(PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS + 50);
                 await rejection;
@@ -695,10 +699,17 @@ describe('PlexAuth', () => {
 
         it('should throw SERVER_UNREACHABLE on network failure during validation', async () => {
             const auth = new PlexAuth(mockConfig);
-            mockFetchFailure(new TypeError('Network error'));
+            const cause = new TypeError('Network error X-Plex-Token=validation-secret');
+            cause.stack = 'TypeError: Network error X-Plex-Token=validation-secret\n    at validateToken';
+            mockFetchFailure(cause);
 
             await expect(auth.validateToken('valid-token')).rejects.toMatchObject({
                 code: 'SERVER_UNREACHABLE',
+                cause: {
+                    name: 'TypeError',
+                    message: 'Network error X-Plex-Token=REDACTED',
+                    stack: 'TypeError: Network error X-Plex-Token=REDACTED\n    at validateToken',
+                },
             });
         });
 
@@ -1461,6 +1472,8 @@ describe('PlexAuth', () => {
             const testToken = createAuthToken('account-token', 'admin');
             auth.storeCredentials(createAuthData(testToken));
 
+            const cause = new TypeError('Network error X-Plex-Token=home-secret');
+            cause.stack = 'TypeError: Network error X-Plex-Token=home-secret\n    at getHomeUsers';
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
                     ok: false,
@@ -1469,10 +1482,18 @@ describe('PlexAuth', () => {
                     json: async () => ({ error: 'bad request' }),
                     text: async () => '{}',
                 })
-                .mockRejectedValueOnce(new TypeError('Network error'));
+                .mockRejectedValueOnce(cause);
             (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
-            await expectRetryableServerUnreachable(auth.getHomeUsers());
+            await expect(auth.getHomeUsers()).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+                retryable: true,
+                cause: {
+                    name: 'TypeError',
+                    message: 'Network error X-Plex-Token=REDACTED',
+                    stack: 'TypeError: Network error X-Plex-Token=REDACTED\n    at getHomeUsers',
+                },
+            });
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
@@ -1679,6 +1700,9 @@ describe('PlexAuth', () => {
             const testToken = createAuthToken('account-token', 'admin');
             auth.storeCredentials(createAuthData(testToken));
 
+            const leakedUrl = 'https://plex.tv/api/home/users/2/switch?pin=1234';
+            const cause = new TypeError(`Network error X-Plex-Token=switch-secret url=${leakedUrl}`);
+            cause.stack = `TypeError: Network error X-Plex-Token=switch-secret url=${leakedUrl}\n    at switchHomeUser`;
             const fetchMock = jest.fn()
                 .mockResolvedValueOnce({
                     ok: false,
@@ -1687,10 +1711,64 @@ describe('PlexAuth', () => {
                     json: async () => ({ error: 'bad request' }),
                     text: async () => '{}',
                 })
-                .mockRejectedValueOnce(new TypeError('Network error'));
+                .mockRejectedValueOnce(cause);
             (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
-            await expectRetryableServerUnreachable(auth.switchHomeUser('2'));
+            await expect(auth.switchHomeUser('2')).rejects.toMatchObject({
+                code: 'SERVER_UNREACHABLE',
+                retryable: true,
+                cause: {
+                    name: 'TypeError',
+                    message: 'Network error X-Plex-Token=REDACTED url=https://plex.tv/api/home/users/2/switch?pin=REDACTED',
+                    stack: 'TypeError: Network error X-Plex-Token=REDACTED url=https://plex.tv/api/home/users/2/switch?pin=REDACTED\n    at switchHomeUser',
+                },
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('redacts token and PIN values from object-shaped switch transport causes', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            auth.storeCredentials(createAuthData(testToken));
+
+            const leakedUrl = 'https://plex.tv/api/home/users/2/switch?pin=2468';
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 400,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ error: 'bad request' }),
+                    text: async () => '{}',
+                })
+                .mockRejectedValueOnce({
+                    message: `Network error X-Plex-Token=object-secret url=${leakedUrl}`,
+                    request: {
+                        url: leakedUrl,
+                        params: {
+                            pin: '2468',
+                        },
+                        body: {
+                            PIN: '1357',
+                        },
+                    },
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            let thrown: unknown;
+            try {
+                await auth.switchHomeUser('2');
+            } catch (error) {
+                thrown = error;
+            }
+
+            expect(thrown).toBeInstanceOf(PlexApiError);
+            const cause = (thrown as PlexApiError).cause as { summary?: string };
+            expect(cause.summary).toContain('X-Plex-Token=REDACTED');
+            expect(cause.summary).toContain('pin=REDACTED');
+            expect(cause.summary).not.toContain('object-secret');
+            expect(cause.summary).not.toContain('pin=2468');
+            expect(cause.summary).not.toContain('"pin":"2468"');
+            expect(cause.summary).not.toContain('"PIN":"1357"');
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 

@@ -400,7 +400,6 @@ export interface ChannelManagerEventMap {
  */
 export interface ChannelManagerState {
     channels: Map<string, ChannelConfig>;
-    resolvedContent: Map<string, ResolvedChannelContent>;
     currentChannelId: string | null;
     channelOrder: string[];
 }

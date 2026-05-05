@@ -1,18 +1,25 @@
 import { EPG_CLASSES } from '../constants';
-import { formatCellTimeLabel } from '../utils';
-import type { CellRenderData, ScheduledProgram } from '../types';
+import {
+    FOCUSED_MOVIE_OVERLAY_CLASS,
+    FOCUSED_TICKER_MIN_OVERFLOW_PX,
+    buildTickerTarget,
+    getCellTimeLabelPresentation,
+    getCellWidthPresentation,
+    getCellWidthTier,
+    getEffectiveTickerClientWidth,
+    getProgramCellTextLayout,
+    getProgressFillWidth,
+    getVisibleTextMetrics,
+    isSliverCell,
+    measureReadyStateTickerOverflow,
+    type CellTextLayout,
+    type EPGCellWidthTier,
+    type EPGCellVisibleTextMetrics,
+    type TickerTarget,
+} from './EPGCellPresentation';
+import type { CellRenderData } from '../types';
 
-const TEXT_GUTTER_PX = 12;
-const TEXT_RIGHT_GUTTER_PX = 12;
-const FOCUSED_TICKER_MIN_OVERFLOW_PX = 4;
-const TIER_WIDE_MIN_PX = 220;
-const TIER_MEDIUM_MIN_PX = 140;
-const TIER_NARROW_MIN_PX = 88;
-const FOCUSED_MOVIE_OVERLAY_CLASS = 'epg-cell-focused-movie-overlay';
-const SLIVER_VISIBLE_WIDTH_MAX_PX = 56;
-
-export type EPGCellWidthTier = 'wide' | 'medium' | 'narrow' | 'tiny';
-type FocusedLayoutMode = 'normal' | 'compact';
+export type { EPGCellWidthTier } from './EPGCellPresentation';
 
 export type EPGRenderedCellData = CellRenderData & {
     visibleWidthPx: number;
@@ -31,32 +38,7 @@ type CellChildren = {
     progressFill: HTMLElement | null;
 };
 
-type CellTextLayout = {
-    title: string;
-    subtitle: string;
-    showSubtitle: boolean;
-    focusedCompactSubtitle?: string;
-    focusedLayoutMode: FocusedLayoutMode;
-};
-
-type TickerTarget = {
-    viewport: HTMLElement;
-    content: HTMLElement;
-    readyClass: string;
-    runningClass: string;
-    distanceVarName: string;
-    durationVarName: string;
-    supportsClampMeasurement: boolean;
-};
-
-export type EPGCellVisibleTextMetrics = {
-    visibleLeftPx: number;
-    visibleRightPx: number;
-    visibleWidthPx: number;
-    safeTextShiftPx: number;
-    isLeftClippedByCell: boolean;
-    isLeftClippedByScroll: boolean;
-};
+export type { EPGCellVisibleTextMetrics } from './EPGCellPresentation';
 
 export class EPGCellRenderer {
     private cellChildrenCache: WeakMap<HTMLElement, CellChildren> = new WeakMap();
@@ -158,6 +140,7 @@ export class EPGCellRenderer {
 
         element.classList.remove(
             EPG_CLASSES.CELL_FOCUSED,
+            EPG_CLASSES.CELL_FOCUSED_COMPACT,
             EPG_CLASSES.CELL_CURRENT,
             EPG_CLASSES.CELL_PAST,
             EPG_CLASSES.CELL_LOADING,
@@ -173,15 +156,11 @@ export class EPGCellRenderer {
     }
 
     getCellWidthTier(width: number): EPGCellWidthTier {
-        if (width >= TIER_WIDE_MIN_PX) return 'wide';
-        if (width >= TIER_MEDIUM_MIN_PX) return 'medium';
-        if (width >= TIER_NARROW_MIN_PX) return 'narrow';
-        return 'tiny';
+        return getCellWidthTier(width);
     }
 
     isSliverCell(cellData: EPGRenderedCellData): boolean {
-        const renderedVisibleWidthPx = this.getRenderedVisibleWidthPx(cellData);
-        return renderedVisibleWidthPx > 0 && renderedVisibleWidthPx <= SLIVER_VISIBLE_WIDTH_MAX_PX;
+        return isSliverCell(cellData);
     }
 
     computeVisibleTextMetrics(input: {
@@ -192,47 +171,7 @@ export class EPGCellRenderer {
         visibleWindowEndMinutes: number;
         pixelsPerMinute: number;
     }): EPGCellVisibleTextMetrics {
-        const {
-            rawLeftPx,
-            clippedLeftPx,
-            clippedWidthPx,
-            visibleWindowStartMinutes,
-            visibleWindowEndMinutes,
-            pixelsPerMinute,
-        } = input;
-        const clippedRightPx = clippedLeftPx + clippedWidthPx;
-        const visibleWindowLeftPx = visibleWindowStartMinutes * pixelsPerMinute;
-        const visibleWindowRightPx = visibleWindowEndMinutes * pixelsPerMinute;
-        const visibleLeftPx = Math.max(clippedLeftPx, visibleWindowLeftPx);
-        const visibleRightPx = Math.min(clippedRightPx, visibleWindowRightPx);
-        const visibleWidthPx = Math.max(0, visibleRightPx - visibleLeftPx);
-        const hiddenLeftPx = Math.max(0, visibleLeftPx - clippedLeftPx);
-        const isLeftClippedByCell = rawLeftPx < 0;
-        const isLeftClippedByScroll = hiddenLeftPx > 0;
-
-        if (!isLeftClippedByScroll || visibleWidthPx <= 0) {
-            return {
-                visibleLeftPx,
-                visibleRightPx,
-                visibleWidthPx,
-                safeTextShiftPx: 0,
-                isLeftClippedByCell,
-                isLeftClippedByScroll,
-            };
-        }
-
-        const desiredShiftPx = hiddenLeftPx;
-        const maxShiftPx = Math.max(0, clippedWidthPx - (TEXT_GUTTER_PX + TEXT_RIGHT_GUTTER_PX));
-        const safeTextShiftPx = Math.max(0, Math.min(desiredShiftPx, maxShiftPx));
-
-        return {
-            visibleLeftPx,
-            visibleRightPx,
-            visibleWidthPx,
-            safeTextShiftPx,
-            isLeftClippedByCell,
-            isLeftClippedByScroll,
-        };
+        return getVisibleTextMetrics(input);
     }
 
     updateCellContent(cellData: EPGRenderedCellData, nowMs: number): void {
@@ -241,7 +180,7 @@ export class EPGCellRenderer {
 
         const children = this.getCellChildren(element);
         const tier = this.getCellWidthTier(cellData.width);
-        const textLayout = this.getProgramCellTextLayout(cellData, cellData.isFocused);
+        const textLayout = getProgramCellTextLayout(cellData, cellData.isFocused);
         if (cellData.kind === 'program') {
             if (children.titleText) {
                 children.titleText.textContent = textLayout.title;
@@ -265,10 +204,10 @@ export class EPGCellRenderer {
             );
             element.classList.add(EPG_CLASSES.CELL_LOADING);
         }
-        this.updateEpisodePresentation(children, cellData, textLayout);
-        this.applyWidthTierPresentation(element, children, tier, cellData, textLayout);
+        this.applyTextPresentation(children, cellData, textLayout);
+        this.applyWidthPresentation(element, children, tier, cellData, textLayout);
         this.updateLiveBadge(element, cellData.isCurrent);
-        this.updateProgressPresentation(children, cellData, nowMs);
+        this.applyProgressPresentation(children, cellData, nowMs);
     }
 
     updatePositionPresentation(cellData: EPGRenderedCellData): void {
@@ -297,7 +236,7 @@ export class EPGCellRenderer {
         element.classList.toggle(EPG_CLASSES.CELL_PAST, cellData.isPast);
         this.updateCellTimeLabelForCell(cellData);
         this.updateLiveBadge(element, cellData.isCurrent);
-        this.updateProgressPresentation(this.getCellChildren(element), cellData, nowMs);
+        this.applyProgressPresentation(this.getCellChildren(element), cellData, nowMs);
     }
 
     clearFocusedTickers(): void {
@@ -330,14 +269,14 @@ export class EPGCellRenderer {
 
         const children = this.getCellChildren(focusedElement);
         const targets = [
-            this.buildTickerTarget(children.title, children.titleText, {
+            buildTickerTarget(children.title, children.titleText, {
                 readyClass: EPG_CLASSES.CELL_TITLE_TICKER_READY,
                 runningClass: EPG_CLASSES.CELL_TITLE_TICKER_RUNNING,
                 distanceVarName: '--epg-title-ticker-distance-px',
                 durationVarName: '--epg-title-ticker-duration-ms',
                 supportsClampMeasurement: true,
             }),
-            this.buildTickerTarget(children.subtitle, children.subtitleText, {
+            buildTickerTarget(children.subtitle, children.subtitleText, {
                 readyClass: EPG_CLASSES.CELL_SUBTITLE_TICKER_READY,
                 runningClass: EPG_CLASSES.CELL_SUBTITLE_TICKER_RUNNING,
                 distanceVarName: '--epg-subtitle-ticker-distance-px',
@@ -352,7 +291,7 @@ export class EPGCellRenderer {
         const activeTargets: TickerTarget[] = [];
 
         for (const target of targets) {
-            const effectiveClientWidth = this.getEffectiveTickerClientWidth(
+            const effectiveClientWidth = getEffectiveTickerClientWidth(
                 target,
                 focusedCell.width,
                 focusedCell.visibleWidthPx,
@@ -371,7 +310,7 @@ export class EPGCellRenderer {
             }
 
             const travelPx = hasClampHiddenText
-                ? this.measureReadyStateTickerOverflow(
+                ? measureReadyStateTickerOverflow(
                     target,
                     focusedCell.width,
                     focusedCell.visibleWidthPx,
@@ -411,10 +350,9 @@ export class EPGCellRenderer {
     ): void {
         if (!timeEl) return;
 
-        const isCompactTime = tier === 'narrow' || tier === 'tiny';
-        const forceFull = !isCompactTime && (cellData.isFocused || cellData.isCurrent);
-        timeEl.textContent = formatCellTimeLabel(startTimeMs, endTimeMs, { compact: isCompactTime, forceFull });
-        timeEl.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, isCompactTime && !forceFull);
+        const presentation = getCellTimeLabelPresentation(tier, cellData, startTimeMs, endTimeMs);
+        timeEl.textContent = presentation.text;
+        timeEl.classList.toggle(EPG_CLASSES.CELL_TIME_COMPACT, presentation.isCompact);
     }
 
     private updateCellTimeLabelForCell(cellData: CellRenderData): void {
@@ -442,49 +380,6 @@ export class EPGCellRenderer {
         }
     }
 
-    private extractShowTitleFromFullTitle(fullTitle: string, episodeTitle?: string): string | null {
-        const withEpisodeCode = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/i);
-        if (withEpisodeCode) {
-            const showTitle = withEpisodeCode[1]?.trim() ?? '';
-            return showTitle.length > 0 ? showTitle : null;
-        }
-
-        const trimmedEpisodeTitle = episodeTitle?.trim() ?? '';
-        if (trimmedEpisodeTitle.length > 0) {
-            const episodeSuffix = ` - ${trimmedEpisodeTitle}`;
-            if (fullTitle.endsWith(episodeSuffix)) {
-                const showTitle = fullTitle.slice(0, -episodeSuffix.length).trim();
-                return showTitle.length > 0 ? showTitle : null;
-            }
-        }
-
-        return null;
-    }
-
-    private formatEpisodeTag(item: ScheduledProgram['item']): string | null {
-        if (item.type !== 'episode') return null;
-
-        const season = item.seasonNumber;
-        const episode = item.episodeNumber;
-        if (typeof season === 'number' && typeof episode === 'number') {
-            const s = String(season).padStart(2, '0');
-            const e = String(episode).padStart(2, '0');
-            return `S${s}E${e}`;
-        }
-
-        const text = `${item.title ?? ''} ${item.fullTitle ?? ''}`;
-        const match = text.match(/\bS(\d{1,2})E(\d{1,2})\b/i);
-        if (!match) return null;
-
-        const s = match[1]!.padStart(2, '0');
-        const e = match[2]!.padStart(2, '0');
-        return `S${s}E${e}`;
-    }
-
-    private normalizeEpisodeTitleForSubtitle(title: string): string {
-        return title.replace(/^\s*S\d{1,2}E\d{1,2}\s*-\s*/i, '').trim();
-    }
-
     private getCellChildren(element: HTMLElement): CellChildren {
         const cached = this.cellChildrenCache.get(element);
         if (cached) {
@@ -506,83 +401,14 @@ export class EPGCellRenderer {
         return children;
     }
 
-    private updateProgressPresentation(children: CellChildren, cellData: CellRenderData, nowMs: number): void {
+    private applyProgressPresentation(children: CellChildren, cellData: CellRenderData, nowMs: number): void {
         if (!children.progressFill) {
             return;
         }
-        if (cellData.kind !== 'program' || !cellData.isCurrent) {
-            children.progressFill.style.width = '0%';
-            return;
-        }
-
-        const duration = cellData.program.scheduledEndTime - cellData.program.scheduledStartTime;
-        if (duration <= 0) {
-            children.progressFill.style.width = '0%';
-            return;
-        }
-
-        const elapsed = nowMs - cellData.program.scheduledStartTime;
-        const progress = Math.max(0, Math.min(100, (elapsed / duration) * 100));
-        children.progressFill.style.width = `${progress.toFixed(2)}%`;
+        children.progressFill.style.width = getProgressFillWidth(cellData, nowMs);
     }
 
-    private getProgramCellTextLayout(
-        cellData: CellRenderData,
-        isFocused: boolean
-    ): CellTextLayout {
-        if (cellData.kind !== 'program') {
-            return {
-                title: cellData.placeholder.label,
-                subtitle: '',
-                showSubtitle: false,
-                focusedLayoutMode: 'normal',
-            };
-        }
-
-        const item = cellData.program.item;
-        if (item.type !== 'episode') {
-            const focusedFullTitle = item.fullTitle.trim();
-            return {
-                title: isFocused && focusedFullTitle.length > 0 ? focusedFullTitle : item.title,
-                subtitle: '',
-                showSubtitle: false,
-                focusedCompactSubtitle: '',
-                focusedLayoutMode: 'normal',
-            };
-        }
-
-        const episodeTitle = this.normalizeEpisodeTitleForSubtitle(item.title);
-        const showTitle = (item.showTitle ?? '').trim() ||
-            this.extractShowTitleFromFullTitle(item.fullTitle, episodeTitle) ||
-            '';
-        const episodeTag = this.formatEpisodeTag(item);
-        const focusedCompactSubtitle =
-            episodeTitle.length > 0 && episodeTag ? `${episodeTag} - ${episodeTitle}` : episodeTitle;
-
-        if (isFocused) {
-            const title = showTitle || item.title;
-            const showSubtitle = focusedCompactSubtitle.length > 0 && focusedCompactSubtitle !== title;
-            return {
-                title,
-                subtitle: episodeTitle,
-                showSubtitle,
-                focusedCompactSubtitle,
-                focusedLayoutMode: 'compact',
-            };
-        }
-
-        const showSubtitle =
-            Boolean(showTitle) || (episodeTitle.length > 0 && episodeTitle !== item.title);
-        return {
-            title: showTitle || item.title,
-            subtitle: showSubtitle ? episodeTitle : '',
-            showSubtitle,
-            focusedCompactSubtitle,
-            focusedLayoutMode: 'normal',
-        };
-    }
-
-    private updateEpisodePresentation(
+    private applyTextPresentation(
         children: CellChildren,
         cellData: CellRenderData,
         textLayout: CellTextLayout
@@ -606,8 +432,7 @@ export class EPGCellRenderer {
             return;
         }
 
-        const item = cellData.program.item;
-        if (item.type !== 'episode') {
+        if (cellData.program.item.type !== 'episode') {
             episode.textContent = '';
             meta.style.display = 'none';
             if (subtitle) {
@@ -619,9 +444,8 @@ export class EPGCellRenderer {
             return;
         }
 
-        const tag = this.formatEpisodeTag(item);
-        if (tag) {
-            episode.textContent = tag;
+        if (textLayout.episodeTag) {
+            episode.textContent = textLayout.episodeTag;
             meta.style.display = 'flex';
         } else {
             episode.textContent = '';
@@ -640,7 +464,7 @@ export class EPGCellRenderer {
         }
     }
 
-    private applyWidthTierPresentation(
+    private applyWidthPresentation(
         element: HTMLElement,
         children: CellChildren,
         tier: EPGCellWidthTier,
@@ -658,12 +482,11 @@ export class EPGCellRenderer {
         const hasMetaContent = (meta?.textContent ?? '').trim().length > 0;
         const hasSubtitleContent = (subtitleText?.textContent ?? '').trim().length > 0;
         const isFocused = cellData.isFocused;
-        const usesFocusedCompactLayout = isFocused && textLayout.focusedLayoutMode === 'compact';
-        const usesFocusedMovieOverlay = isFocused &&
-            !usesFocusedCompactLayout &&
-            cellData.kind === 'program' &&
-            cellData.program.item.type === 'movie';
-        const usesSliverPresentation = this.isSliverCell(cellData) && !usesFocusedCompactLayout;
+        const {
+            usesFocusedCompactLayout,
+            usesFocusedMovieOverlay,
+            usesSliverPresentation,
+        } = getCellWidthPresentation(cellData, textLayout);
         element.classList.toggle(EPG_CLASSES.CELL_FOCUSED_COMPACT, usesFocusedCompactLayout);
         element.classList.toggle(FOCUSED_MOVIE_OVERLAY_CLASS, usesFocusedMovieOverlay);
         element.classList.toggle(EPG_CLASSES.SLIVER_CELL_CLASS, usesSliverPresentation);
@@ -698,10 +521,6 @@ export class EPGCellRenderer {
         }
     }
 
-    private getRenderedVisibleWidthPx(cellData: EPGRenderedCellData): number {
-        return Math.max(0, Math.min(cellData.width, cellData.visibleWidthPx));
-    }
-
     private updateLiveBadge(element: HTMLElement, isCurrent: boolean): void {
         const badge = this.getCellChildren(element).liveBadge;
         if (!badge) return;
@@ -729,57 +548,5 @@ export class EPGCellRenderer {
 
     private prefersReducedMotion(): boolean {
         return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
-    }
-
-    private getEffectiveTickerClientWidth(
-        target: TickerTarget,
-        cellWidthPx: number,
-        visibleWidthPx: number,
-        textShiftPx: number
-    ): number {
-        const shiftedClientWidth = Math.max(0, target.viewport.clientWidth - textShiftPx);
-        if (visibleWidthPx >= cellWidthPx) {
-            return shiftedClientWidth;
-        }
-        return Math.max(0, Math.min(shiftedClientWidth, visibleWidthPx));
-    }
-
-    private measureReadyStateTickerOverflow(
-        target: TickerTarget,
-        cellWidthPx: number,
-        visibleWidthPx: number,
-        textShiftPx: number
-    ): number {
-        target.viewport.classList.add(target.readyClass);
-        void target.viewport.offsetWidth;
-        const effectiveClientWidth = this.getEffectiveTickerClientWidth(
-            target,
-            cellWidthPx,
-            visibleWidthPx,
-            textShiftPx
-        );
-        const contentWidth = Math.max(target.content.scrollWidth, target.viewport.scrollWidth);
-        return Math.max(0, contentWidth - effectiveClientWidth);
-    }
-
-    private buildTickerTarget(
-        viewport: HTMLElement | null,
-        content: HTMLElement | null,
-        options: Omit<TickerTarget, 'viewport' | 'content'>
-    ): TickerTarget | null {
-        if (!viewport || !content) {
-            return null;
-        }
-
-        const text = content.textContent?.trim() ?? '';
-        if (text.length === 0) {
-            return null;
-        }
-
-        return {
-            viewport,
-            content,
-            ...options,
-        };
     }
 }
