@@ -163,6 +163,8 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - OAuth PIN flow
 - Plex token handling
+- Plex Home endpoint fallback and profile-switch request/status policy stay in
+  auth-local helpers; credential persistence and events stay with `PlexAuth`.
 
 ### `src/modules/plex/discovery/`
 
@@ -226,6 +228,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - auth credential persistence and client identifier resolution
 - `src/modules/plex/auth/PlexAuth.ts`
+- `src/modules/plex/auth/plexHomeProfileClient.ts` (Plex Home endpoint
+  fallback, Home status classification, and profile-switch request/status
+  coordination)
 - `src/modules/plex/auth/clientIdentifier.ts`
 - `src/modules/plex/auth/plexAuthTransport.ts` (shared Plex auth transport owner for `PlexApiError`, header construction, and retry transport policy)
 

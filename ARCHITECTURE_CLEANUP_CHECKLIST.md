@@ -1058,10 +1058,11 @@ future source-backed replan explicitly reopens one.
   `FCP-16` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
   until `FCP-15` has clean closeout evidence.
 
-### [ ] `FCP-15` PlexAuth Home, Profile, And Status Helper Boundary
+### [x] `FCP-15` PlexAuth Home, Profile, And Status Helper Boundary
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-15-plexauth-home-profile-status-helper-boundary-plan.md`
 - Dimensions/rubric tags: Plex integration, authorization consistency, contract
   coherence, error consistency, persistence ownership
 - Scope owner: Plex auth Home endpoint/status/profile-switch owner
@@ -1096,7 +1097,7 @@ future source-backed replan explicitly reopens one.
   and initialization/profile-switch tests, source audits for credential/token
   behavior preservation, `npm run typecheck`, `git diff --check`, then
   `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1107,10 +1108,33 @@ future source-backed replan explicitly reopens one.
   persistence schema/key, or event behavior must change; stream/discovery/library
   code must change; fallback order or error taxonomy changes without an explicit
   contract decision.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start only after `FCP-14` closeout. Keep this package auth-local.
+- Last touched: 2026-05-05
+- Verification: pre/post source audits for `FCP-15-SF1`; `npm test -- PlexAuth
+  plexHomeEndpointClient`; `npm test -- plexHomeProfileClient`; `npm test --
+  InitializationStartupPolicy InitializationCoordinator`; `npm run typecheck`;
+  `git diff --check`; `npm run plans:check`; `npm run verify:docs`; and final
+  `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-15-SF1`: resolved. `PlexAuth` no longer owns Plex Home endpoint
+    fallback loops, Home status classification, switch URL/PIN construction,
+    unsupported switch mapping, or wrong-PIN status coordination directly.
+    `plexHomeProfileClient.ts` now owns those auth-local Home/profile request
+    and status responsibilities. `PlexAuth` remains the owner for credential
+    state, credential epoch protection, `lineup_plex_auth` persistence,
+    corruption handling, token validation, PIN flow, active/account token
+    selection, selected-server map preservation, and `authChange` /
+    `profileChange` event emission.
+- Closeout commits before checklist closeout: `3c92127a` (`FCP-15-S1`
+  implementation).
+- Review evidence:
+  - Plan review: fresh tracked reviewer reported no blocking findings and
+    approved `ready_now_execution_unit` / `ready_now_slice` as `FCP-15-S1`.
+  - `FCP-15-S1`: fresh implementation reviewer reported no material findings
+    and approved the execution unit for package closeout.
+- Handoff: `FCP-15` is closed. The next safe package is `FCP-16`; do not start
+  `FCP-17` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
+  until `FCP-16` has clean closeout evidence.
 
 ### [ ] `FCP-16` Scheduler Current-Channel And ChannelManager Persistence Semantics
 
