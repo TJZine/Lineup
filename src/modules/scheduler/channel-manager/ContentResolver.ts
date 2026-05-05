@@ -12,53 +12,14 @@ import type {
     SortOrder,
     PlaybackMode,
 } from './types';
-import { shuffleWithSeed } from '../shared/prng';
-import { applyBlockPlaybackMode } from '../shared/blockPlayback';
 import { PLEX_MEDIA_TYPES } from '../../plex/library/constants';
-import { detectHdrLabel } from '../../plex/stream/hdr';
+import { ContentItemMapper } from './ContentItemMapper';
+import { ContentSelectionPolicy } from './ContentSelectionPolicy';
+import { SourceResolutionCache } from './SourceResolutionCache';
 
 
 const CONTENT_RESOLVER_CACHE_TTL_MS = 5 * 60_000;
 const SHOW_CACHE_TTL_MS = CONTENT_RESOLVER_CACHE_TTL_MS;
-const SOURCE_CACHE_TTL_MS = CONTENT_RESOLVER_CACHE_TTL_MS;
-const SOURCE_CACHE_MAX_ENTRIES = 24;
-
-type SourceCacheEntry = {
-    items: ResolvedContentItem[];
-    cachedAt: number;
-    epoch: number;
-    generation: number;
-};
-
-type SourceInFlightEntry = {
-    controller: AbortController;
-    promise: Promise<ResolvedContentItem[]>;
-    waiters: number;
-    epoch: number;
-    generation: number;
-};
-
-type PlexStreamMinimal = {
-    streamType: number;
-    selected?: boolean;
-    default?: boolean;
-    title?: string;
-    displayTitle?: string;
-    extendedDisplayTitle?: string;
-    language?: string;
-    languageCode?: string;
-    codec?: string;
-    channels?: number;
-    profile?: string;
-    hdr?: string;
-    colorTrc?: string;
-    colorSpace?: string;
-    colorPrimaries?: string;
-    bitDepth?: number;
-    dynamicRange?: string;
-    doviProfile?: string;
-    doviPresent?: boolean;
-};
 
 /**
  * Resolves content from various Plex sources.
@@ -72,10 +33,9 @@ export class ContentResolver {
         string,
         { items: PlexMediaItemMinimal[]; cachedAt: number }
     >();
-    private _cacheEpoch = 0;
-    private readonly _sourceCacheGenerationByKey = new Map<string, number>();
-    private readonly _sourceCache = new Map<string, SourceCacheEntry>();
-    private readonly _sourceInFlight = new Map<string, SourceInFlightEntry>();
+    private readonly _sourceCache = new SourceResolutionCache();
+    private readonly _mapper = new ContentItemMapper();
+    private readonly _selectionPolicy = new ContentSelectionPolicy();
 
     constructor(
         library: IPlexLibraryMinimal,
@@ -86,34 +46,23 @@ export class ContentResolver {
     }
 
     clearCaches(): void {
-        this._cacheEpoch += 1;
         this._showCacheByLibraryId.clear();
         this._sourceCache.clear();
-        this._sourceCacheGenerationByKey.clear();
-        for (const entry of this._sourceInFlight.values()) {
-            entry.controller.abort();
-        }
-        this._sourceInFlight.clear();
     }
 
     invalidateSource(source: ChannelContentSource): void {
-        const key = this._buildSourceCacheKey(source);
-        this._bumpSourceCacheGeneration(key);
-        this._sourceCache.delete(key);
+        this._sourceCache.invalidate(source);
+        this._invalidateShowListCache(source);
+    }
 
-        const inFlight = this._sourceInFlight.get(key);
-        if (inFlight) {
-            inFlight.controller.abort();
-            this._sourceInFlight.delete(key);
-        }
-
+    private _invalidateShowListCache(source: ChannelContentSource): void {
         if (source.type === 'library' && source.libraryType === 'show') {
             this._showCacheByLibraryId.delete(source.libraryId);
         }
 
         if (source.type === 'mixed') {
             for (const subSource of source.sources) {
-                this.invalidateSource(subSource);
+                this._invalidateShowListCache(subSource);
             }
         }
     }
@@ -128,41 +77,11 @@ export class ContentResolver {
         source: ChannelContentSource,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
-        const cacheKey = this._buildSourceCacheKey(source);
-        const epoch = this._cacheEpoch;
-        const generation = this._getSourceCacheGeneration(cacheKey);
-        const cached = this._getCachedSourceItems(cacheKey);
-        if (cached) {
-            return cached;
-        }
-
-        const inFlight = this._sourceInFlight.get(cacheKey);
-        if (inFlight && inFlight.epoch === epoch && inFlight.generation === generation) {
-            return this._awaitInFlight(cacheKey, inFlight, options?.signal ?? null);
-        }
-
-        const controller = new AbortController();
-        const resolvePromise = this._resolveSourceUncached(source, { signal: controller.signal })
-            .then((items) => {
-                this._setCachedSourceItems(cacheKey, items, { epoch, generation });
-                return items;
-            })
-            .finally(() => {
-                const current = this._sourceInFlight.get(cacheKey);
-                if (current && current.promise === resolvePromise) {
-                    this._sourceInFlight.delete(cacheKey);
-                }
-            });
-
-        const entry: SourceInFlightEntry = {
-            controller,
-            promise: resolvePromise,
-            waiters: 0,
-            epoch,
-            generation,
-        };
-        this._sourceInFlight.set(cacheKey, entry);
-        return this._awaitInFlight(cacheKey, entry, options?.signal ?? null);
+        return this._sourceCache.resolve(
+            source,
+            (sourceToResolve, resolveOptions) => this._resolveSourceUncached(sourceToResolve, resolveOptions),
+            options
+        );
     }
 
     private async _resolveSourceUncached(
@@ -241,7 +160,7 @@ export class ContentResolver {
                     if (!episode) continue;
 
                     const showThumb = item.showThumb ?? item.thumb ?? null;
-                    const merged = this._decorateEpisodeFromParent(episode, {
+                    const merged = this._mapper.decorateEpisodeFromParent(episode, {
                         genres: item.genres,
                         directors: item.directors,
                         contentRating: item.contentRating,
@@ -253,7 +172,7 @@ export class ContentResolver {
                         clearLogo: item.clearLogo,
                     });
 
-                    expanded.push(this._toResolvedItem(merged, 0));
+                    expanded.push(this._mapper.toResolvedItem(merged, 0));
                 }
             } catch (error) {
                 if (options?.strict || isAbortLike(error, options?.signal ?? undefined)) {
@@ -266,36 +185,6 @@ export class ContentResolver {
         return expanded;
     }
 
-    private _decorateEpisodeFromParent(
-        episode: PlexMediaItemMinimal,
-        parent: {
-            genres?: string[] | undefined;
-            directors?: string[] | undefined;
-            contentRating?: string | undefined;
-            rating?: number | undefined;
-            year?: number | undefined;
-            grandparentTitle?: string | undefined;
-            grandparentThumb?: string | null | undefined;
-            art?: string | null | undefined;
-            clearLogo?: string | null | undefined;
-        }
-    ): PlexMediaItemMinimal {
-        const merged: PlexMediaItemMinimal = { ...episode };
-
-        // Propagate parent metadata to episodes for filtering and display (best-effort).
-        if (!merged.genres && parent.genres) merged.genres = parent.genres;
-        if (!merged.directors && parent.directors) merged.directors = parent.directors;
-        if (!merged.contentRating && parent.contentRating) merged.contentRating = parent.contentRating;
-        if (!merged.rating && typeof parent.rating === 'number') merged.rating = parent.rating;
-        if (!merged.year && parent.year) merged.year = parent.year;
-        if (!merged.grandparentTitle && parent.grandparentTitle) merged.grandparentTitle = parent.grandparentTitle;
-        if (!merged.grandparentThumb && parent.grandparentThumb) merged.grandparentThumb = parent.grandparentThumb;
-        if (merged.art == null && parent.art) merged.art = parent.art;
-        if (!merged.clearLogo && parent.clearLogo) merged.clearLogo = parent.clearLogo;
-
-        return merged;
-    }
-
     /**
      * Apply filters to content items.
      * @param items - Items to filter
@@ -303,11 +192,7 @@ export class ContentResolver {
      * @returns Filtered items
      */
     applyFilters(items: ResolvedContentItem[], filters: ContentFilter[]): ResolvedContentItem[] {
-        if (!filters.length) {
-            return items;
-        }
-
-        return items.filter((item) => filters.every((filter) => this._matchesFilter(item, filter)));
+        return this._selectionPolicy.applyFilters(items, filters);
     }
 
     /**
@@ -317,49 +202,7 @@ export class ContentResolver {
      * @returns Sorted items (new array)
      */
     applySort(items: ResolvedContentItem[], order: SortOrder): ResolvedContentItem[] {
-        const result = [...items];
-
-        switch (order) {
-            case 'title_asc':
-                result.sort((a, b) => a.title.localeCompare(b.title));
-                break;
-            case 'title_desc':
-                result.sort((a, b) => b.title.localeCompare(a.title));
-                break;
-            case 'year_asc':
-                result.sort((a, b) => a.year - b.year);
-                break;
-            case 'year_desc':
-                result.sort((a, b) => b.year - a.year);
-                break;
-            case 'duration_asc':
-                result.sort((a, b) => a.durationMs - b.durationMs);
-                break;
-            case 'duration_desc':
-                result.sort((a, b) => b.durationMs - a.durationMs);
-                break;
-            case 'episode_order':
-                result.sort((a, b) => {
-                    const seasonA = a.seasonNumber || 0;
-                    const seasonB = b.seasonNumber || 0;
-                    if (seasonA !== seasonB) return seasonA - seasonB;
-                    const epA = a.episodeNumber || 0;
-                    const epB = b.episodeNumber || 0;
-                    return epA - epB;
-                });
-                break;
-            // Issue 9: Implement added_asc/added_desc sorting
-            case 'added_asc':
-                result.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
-                break;
-            case 'added_desc':
-                result.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
-                break;
-            default:
-                break;
-        }
-
-        return result;
+        return this._selectionPolicy.applySort(items, order);
     }
 
     /**
@@ -375,43 +218,7 @@ export class ContentResolver {
         seed: number,
         blockSize?: number
     ): ResolvedContentItem[] {
-        switch (mode) {
-            case 'sequential':
-                return items.map((item, index) => ({
-                    ...item,
-                    scheduledIndex: index,
-                }));
-            case 'shuffle':
-                return shuffleWithSeed(items, seed).map((item, index) => ({
-                    ...item,
-                    scheduledIndex: index,
-                }));
-            case 'block': {
-                const normalizedBlockSize =
-                    typeof blockSize === 'number' && Number.isFinite(blockSize)
-                        ? blockSize
-                        : 3;
-                const effectiveBlockSize = Math.max(1, Math.floor(normalizedBlockSize));
-                const ordered = applyBlockPlaybackMode({
-                    items,
-                    seed,
-                    blockSize: effectiveBlockSize,
-                    shuffleKeys: (keys, seedValue) => shuffleWithSeed(keys, seedValue),
-                });
-                return ordered.map((item, index) => ({
-                    ...item,
-                    scheduledIndex: index,
-                }));
-            }
-            case 'random':
-                // Random mode uses current time as seed for different order each time
-                return shuffleWithSeed(items, Date.now()).map((item, index) => ({
-                    ...item,
-                    scheduledIndex: index,
-                }));
-            default:
-                throw new Error(`Unknown content playback mode: ${String(mode)}`);
-        }
+        return this._selectionPolicy.applyPlaybackMode(items, mode, seed, blockSize);
     }
 
 
@@ -425,7 +232,7 @@ export class ContentResolver {
                 ? { ...options, filter: source.libraryFilter }
                 : options;
             const items = await this._library.getLibraryItems(source.libraryId, optionsWithFilter);
-            return items.map((item, index) => this._toResolvedItem(item, index));
+            return items.map((item, index) => this._mapper.toResolvedItem(item, index));
         }
 
         const hasGenreLibraryFilter = source.libraryFilter && 'genre' in source.libraryFilter;
@@ -434,7 +241,7 @@ export class ContentResolver {
                 ...options,
                 filter: { ...source.libraryFilter, type: PLEX_MEDIA_TYPES.SHOW },
             });
-            const resolvedShows = items.map((item, index) => this._toResolvedItem(item, index));
+            const resolvedShows = items.map((item, index) => this._mapper.toResolvedItem(item, index));
             return this._expandShowContainers(resolvedShows, {
                 signal: options?.signal ?? null,
                 strict: true,
@@ -492,7 +299,7 @@ export class ContentResolver {
             const parent = parentKey ? parentMap.get(parentKey) : null;
 
             if (parent) {
-                const merged = this._decorateEpisodeFromParent(episode, {
+                const merged = this._mapper.decorateEpisodeFromParent(episode, {
                     genres: parent.genres,
                     directors: parent.directors,
                     contentRating: parent.contentRating,
@@ -509,7 +316,7 @@ export class ContentResolver {
             }
         }
 
-        return decorated.map((item, index) => this._toResolvedItem(item, index));
+        return decorated.map((item, index) => this._mapper.toResolvedItem(item, index));
     }
 
     private async _resolveCollectionSource(
@@ -530,7 +337,7 @@ export class ContentResolver {
                     const episodes = await this._library.getShowEpisodes(item.ratingKey, options);
                     if (episodes.length > 0) {
                         const decorated = episodes.map((episode) => {
-                            return this._decorateEpisodeFromParent(episode, {
+                            return this._mapper.decorateEpisodeFromParent(episode, {
                                 genres: item.genres,
                                 directors: item.directors,
                                 contentRating: item.contentRating,
@@ -552,7 +359,7 @@ export class ContentResolver {
             expanded.push(item);
         }
 
-        return expanded.map((item, index) => this._toResolvedItem(item, index));
+        return expanded.map((item, index) => this._mapper.toResolvedItem(item, index));
     }
 
     private async _resolveShowSource(
@@ -572,7 +379,7 @@ export class ContentResolver {
             );
         }
 
-        return filtered.map((item, index) => this._toResolvedItem(item, index));
+        return filtered.map((item, index) => this._mapper.toResolvedItem(item, index));
     }
 
     private async _resolvePlaylistSource(
@@ -581,7 +388,7 @@ export class ContentResolver {
     ): Promise<ResolvedContentItem[]> {
         // Issue 5: Let errors propagate for cached fallback handling
         const items = await this._library.getPlaylistItems(source.playlistKey, options);
-        return items.map((item, index) => this._toResolvedItem(item, index));
+        return items.map((item, index) => this._mapper.toResolvedItem(item, index));
     }
 
     // Issue 7: Use cached metadata from manual source instead of fetching from Plex
@@ -642,384 +449,6 @@ export class ContentResolver {
         }
     }
 
-
-    private _buildSourceCacheKey(source: ChannelContentSource): string {
-        return this._stableSerialize(source);
-    }
-
-    private _getSourceCacheGeneration(key: string): number {
-        return this._sourceCacheGenerationByKey.get(key) ?? 0;
-    }
-
-    private _bumpSourceCacheGeneration(key: string): number {
-        const next = (this._sourceCacheGenerationByKey.get(key) ?? 0) + 1;
-        this._sourceCacheGenerationByKey.set(key, next);
-        return next;
-    }
-
-    private _createAbortError(): unknown {
-        try {
-            return new DOMException('Aborted', 'AbortError');
-        } catch {
-            const error = new Error('Aborted');
-            error.name = 'AbortError';
-            return error;
-        }
-    }
-
-    private _awaitInFlight(
-        key: string,
-        entry: SourceInFlightEntry,
-        signal: AbortSignal | null
-    ): Promise<ResolvedContentItem[]> {
-        if (signal?.aborted) {
-            return Promise.reject(this._createAbortError());
-        }
-
-        entry.waiters += 1;
-        let released = false;
-        const release = (): void => {
-            if (released) return;
-            released = true;
-            entry.waiters -= 1;
-            if (entry.waiters > 0) {
-                return;
-            }
-            const current = this._sourceInFlight.get(key);
-            if (current !== entry) {
-                return;
-            }
-            entry.controller.abort();
-            this._sourceInFlight.delete(key);
-        };
-
-        if (!signal) {
-            return entry.promise.then((items) => this._cloneResolvedItems(items)).finally(release);
-        }
-
-        let onAbort: (() => void) | null = null;
-        const abortPromise = new Promise<ResolvedContentItem[]>((_, reject) => {
-            onAbort = (): void => reject(this._createAbortError());
-            signal.addEventListener('abort', onAbort, { once: true });
-        });
-
-        return Promise.race([
-            entry.promise.then((items) => this._cloneResolvedItems(items)),
-            abortPromise,
-        ]).finally(() => {
-            if (onAbort) {
-                signal.removeEventListener('abort', onAbort);
-            }
-            release();
-        });
-    }
-
-    private _stableSerialize(value: unknown): string {
-        if (value === undefined) {
-            return JSON.stringify(null);
-        }
-        if (value === null || typeof value !== 'object') {
-            return JSON.stringify(value);
-        }
-        if (Array.isArray(value)) {
-            return `[${value.map((entry) => this._stableSerialize(entry)).join(',')}]`;
-        }
-
-        const entries = Object
-            .entries(value as Record<string, unknown>)
-            .filter(([, entry]) => entry !== undefined)
-            .sort(([left], [right]) => left.localeCompare(right));
-        return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${this._stableSerialize(entry)}`).join(',')}}`;
-    }
-
-    private _getCachedSourceItems(key: string): ResolvedContentItem[] | null {
-        const cached = this._sourceCache.get(key);
-        if (!cached) {
-            return null;
-        }
-
-        if (cached.epoch !== this._cacheEpoch || cached.generation !== this._getSourceCacheGeneration(key)) {
-            this._sourceCache.delete(key);
-            return null;
-        }
-
-        if (Date.now() - cached.cachedAt > SOURCE_CACHE_TTL_MS) {
-            this._sourceCache.delete(key);
-            return null;
-        }
-
-        this._sourceCache.delete(key);
-        this._sourceCache.set(key, cached);
-        return this._cloneResolvedItems(cached.items);
-    }
-
-    private _setCachedSourceItems(
-        key: string,
-        items: ResolvedContentItem[],
-        scope: { epoch: number; generation: number }
-    ): void {
-        if (scope.epoch !== this._cacheEpoch) {
-            return;
-        }
-        if (scope.generation !== this._getSourceCacheGeneration(key)) {
-            return;
-        }
-
-        this._sourceCache.delete(key);
-        this._sourceCache.set(key, {
-            items: this._cloneResolvedItems(items),
-            cachedAt: Date.now(),
-            epoch: scope.epoch,
-            generation: scope.generation,
-        });
-
-        while (this._sourceCache.size > SOURCE_CACHE_MAX_ENTRIES) {
-            const oldest = this._sourceCache.keys().next().value;
-            if (oldest === undefined) {
-                break;
-            }
-            this._sourceCache.delete(oldest);
-        }
-    }
-
-    private _cloneResolvedItems(items: ResolvedContentItem[]): ResolvedContentItem[] {
-        return items.map((item, index) => ({
-            ...item,
-            scheduledIndex: index,
-        }));
-    }
-
-    private _toResolvedItem(item: PlexMediaItemMinimal, index: number): ResolvedContentItem {
-        const fullTitle = this._buildFullTitle(item);
-
-        const resolved: ResolvedContentItem = {
-            ratingKey: item.ratingKey,
-            type: item.type,
-            title: item.title,
-            fullTitle,
-            durationMs: item.durationMs,
-            thumb: item.thumb,
-            year: item.year,
-            scheduledIndex: index,
-        };
-
-        // Optional properties - only add if defined
-        if (typeof item.seasonNumber === 'number') {
-            resolved.seasonNumber = item.seasonNumber;
-        }
-        if (typeof item.episodeNumber === 'number') {
-            resolved.episodeNumber = item.episodeNumber;
-        }
-        if (item.grandparentTitle) {
-            resolved.showTitle = item.grandparentTitle;
-        }
-        if (item.grandparentThumb) {
-            resolved.showThumb = item.grandparentThumb;
-        }
-        if (item.art !== undefined) {
-            resolved.art = item.art;
-        }
-        if (item.clearLogo) {
-            resolved.clearLogo = item.clearLogo;
-        }
-        // Issue 8: Include filterable fields
-        if (typeof item.rating === 'number') {
-            resolved.rating = item.rating;
-        }
-        if (item.contentRating) {
-            resolved.contentRating = item.contentRating;
-        }
-        if (item.genres && item.genres.length > 0) {
-            resolved.genres = item.genres;
-        }
-        if (item.directors && item.directors.length > 0) {
-            resolved.directors = item.directors;
-        }
-        if (item.summary && item.summary.trim().length > 0) {
-            resolved.summary = item.summary;
-        }
-        const mediaInfo = this._buildMediaInfo(item);
-        if (mediaInfo) {
-            resolved.mediaInfo = mediaInfo;
-        }
-        if (typeof item.viewCount === 'number') {
-            resolved.watched = item.viewCount > 0;
-        }
-        if (item.addedAt) {
-            resolved.addedAt = item.addedAt.getTime();
-        }
-
-        return resolved;
-    }
-
-    private _buildMediaInfo(item: PlexMediaItemMinimal): ResolvedContentItem['mediaInfo'] | undefined {
-        const media = item.media?.[0];
-        if (!media) return undefined;
-
-        const mediaInfo: ResolvedContentItem['mediaInfo'] = {};
-        const resolution = this._normalizeResolution(media.videoResolution);
-        if (resolution) mediaInfo.resolution = resolution;
-
-        const streams = media.parts?.[0]?.streams ?? [];
-        const videoStream = streams.find((stream) => stream.streamType === 1);
-        const hdr = this._detectHdrFromStream(videoStream);
-        if (hdr) mediaInfo.hdr = hdr;
-        if (hdr === 'Dolby Vision') {
-            const dvProfile = videoStream?.doviProfile ?? videoStream?.profile;
-            if (dvProfile) {
-                mediaInfo.dvProfile = dvProfile;
-            }
-        }
-
-        const audioStream = this._selectAudioStream(streams);
-        if (audioStream?.codec) mediaInfo.audioCodec = audioStream.codec;
-        if (typeof audioStream?.channels === 'number') mediaInfo.audioChannels = audioStream.channels;
-        if (!mediaInfo.audioCodec && media.audioCodec) mediaInfo.audioCodec = media.audioCodec;
-        if (mediaInfo.audioChannels === undefined && typeof media.audioChannels === 'number') {
-            mediaInfo.audioChannels = media.audioChannels;
-        }
-        const audioTitle = audioStream?.title || audioStream?.language || audioStream?.languageCode;
-        if (audioTitle) mediaInfo.audioTrackTitle = audioTitle;
-
-        return Object.keys(mediaInfo).length > 0 ? mediaInfo : undefined;
-    }
-
-    private _normalizeResolution(resolution?: string): string | undefined {
-        if (!resolution) return undefined;
-        const normalized = resolution.trim().toLowerCase();
-        if (normalized === '4k' || normalized === 'uhd' || normalized === '2160' || normalized === '2160p') {
-            return '4K';
-        }
-        if (normalized === '1080' || normalized === '1080p') {
-            return '1080p';
-        }
-        if (normalized === '720' || normalized === '720p') {
-            return '720p';
-        }
-        return resolution;
-    }
-
-    private _detectHdrFromStream(stream?: PlexStreamMinimal): string | undefined {
-        return detectHdrLabel(stream);
-    }
-
-    private _selectAudioStream(
-        streams: PlexStreamMinimal[]
-    ): PlexStreamMinimal | undefined {
-        const audioStreams = streams.filter((stream) => stream.streamType === 2);
-        if (audioStreams.length === 0) return undefined;
-        return (
-            audioStreams.find((stream) => stream.selected) ??
-            audioStreams.find((stream) => stream.default) ??
-            audioStreams[0]
-        );
-    }
-
-    private _buildFullTitle(item: PlexMediaItemMinimal): string {
-        if (item.type === 'episode') {
-            const showTitle = item.grandparentTitle || '';
-            const seasonNum = item.seasonNumber;
-            const epNum = item.episodeNumber;
-            const seasonStr =
-                typeof seasonNum === 'number' ? `S${String(seasonNum).padStart(2, '0')}` : '';
-            const epStr = typeof epNum === 'number' ? `E${String(epNum).padStart(2, '0')}` : '';
-            const episodeCode = seasonStr && epStr ? `${seasonStr}${epStr}` : '';
-
-            if (showTitle && episodeCode) {
-                return `${showTitle} - ${episodeCode} - ${item.title}`;
-            } else if (showTitle) {
-                return `${showTitle} - ${item.title}`;
-            }
-        }
-
-        return item.title;
-    }
-
-    private _matchesFilter(item: ResolvedContentItem, filter: ContentFilter): boolean {
-        // Issue 8: Get value from item including filterable fields
-        let value: unknown;
-        switch (filter.field) {
-            case 'year':
-                value = item.year;
-                break;
-            case 'duration':
-                value = item.durationMs;
-                break;
-            case 'rating':
-                value = item.rating;
-                if (value === undefined) return false;
-                break;
-            case 'contentRating':
-                value = item.contentRating;
-                if (value === undefined) return false;
-                break;
-            case 'genre': {
-                // Genre is array - special handling for contains/notContains/eq/neq
-                const genres = item.genres || [];
-                if (filter.operator === 'contains') {
-                    return genres.some((g) => g.toLowerCase().includes(String(filter.value).toLowerCase()));
-                } else if (filter.operator === 'notContains') {
-                    return !genres.some((g) => g.toLowerCase().includes(String(filter.value).toLowerCase()));
-                } else if (filter.operator === 'eq') {
-                    return genres.some((g) => g.toLowerCase() === String(filter.value).toLowerCase());
-                } else if (filter.operator === 'neq') {
-                    return !genres.some((g) => g.toLowerCase() === String(filter.value).toLowerCase());
-                }
-                return true;
-            }
-            case 'director': {
-                const directors = item.directors || [];
-                if (filter.operator === 'contains') {
-                    return directors.some((d) => d.toLowerCase().includes(String(filter.value).toLowerCase()));
-                } else if (filter.operator === 'notContains') {
-                    return !directors.some((d) => d.toLowerCase().includes(String(filter.value).toLowerCase()));
-                } else if (filter.operator === 'eq') {
-                    return directors.some((d) => d.toLowerCase() === String(filter.value).toLowerCase());
-                } else if (filter.operator === 'neq') {
-                    return !directors.some((d) => d.toLowerCase() === String(filter.value).toLowerCase());
-                }
-                return true;
-            }
-            case 'watched':
-                value = item.watched;
-                if (value === undefined) return false;
-                break;
-            case 'addedAt':
-                value = item.addedAt;
-                if (value === undefined) return false;
-                break;
-            default:
-                return true;
-        }
-
-        switch (filter.operator) {
-            case 'eq':
-                return value === filter.value;
-            case 'neq':
-                return value !== filter.value;
-            case 'gt':
-            case 'gte':
-            case 'lt':
-            case 'lte': {
-                // Validate both values are finite numbers before comparison
-                const numVal = Number(value);
-                const numFilter = Number(filter.value);
-                if (!Number.isFinite(numVal) || !Number.isFinite(numFilter)) {
-                    return true; // Skip filter when values aren't valid numbers
-                }
-                if (filter.operator === 'gt') return numVal > numFilter;
-                if (filter.operator === 'gte') return numVal >= numFilter;
-                if (filter.operator === 'lt') return numVal < numFilter;
-                return numVal <= numFilter;
-            }
-            case 'contains':
-                return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
-            case 'notContains':
-                return !String(value).toLowerCase().includes(String(filter.value).toLowerCase());
-            default:
-                return true;
-        }
-    }
 
     private _interleave(arrays: ResolvedContentItem[][]): ResolvedContentItem[] {
         const result: ResolvedContentItem[] = [];
