@@ -99,6 +99,7 @@ const makeSetup = (
         saveLifecycleState: jest.fn<Promise<void>, []>(async () => {
             callOrder.push('save-lifecycle-state');
         }),
+        reportRecoverableAsyncFailure: jest.fn(),
         ...resolvedOverrides,
     } as jest.Mocked<PlaybackRuntimeControllerDeps>;
 
@@ -217,6 +218,52 @@ describe('PlaybackRuntimeController', () => {
 
         expect(playbackRecovery.handledContext).toBe('video-player');
         expect(deps.uiRuntime.handleGlobalError).not.toHaveBeenCalled();
+    });
+
+    it('reports playback failure handler errors and still routes fatal playback errors to the UI surface', () => {
+        const error: PlaybackError = {
+            code: AppErrorCode.PLAYBACK_DECODE_ERROR,
+            message: 'fatal',
+            recoverable: false,
+            retryCount: 0,
+        };
+        const handlerError = { code: 'RECOVERY_HANDLER_FAILED', message: 'handler failed' };
+        const { controller, deps } = makeSetup((callOrder) => ({
+            playback: {
+                ...makePlaybackMocks(callOrder),
+                playbackRecovery: {
+                    isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(false),
+                    handlePlaybackFailure: jest.fn(() => {
+                        throw handlerError;
+                    }),
+                },
+            },
+        }));
+
+        controller.handlePlaybackError(error);
+
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledTimes(1);
+        expect(deps.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'orchestrator.playbackRecovery.handlePlaybackFailure',
+            'Playback recovery failure handler threw',
+            handlerError,
+            {
+                context: 'video-player',
+                playbackError: {
+                    code: AppErrorCode.PLAYBACK_DECODE_ERROR,
+                    message: 'fatal',
+                },
+            }
+        );
+        expect(deps.uiRuntime.handleGlobalError).toHaveBeenCalledTimes(1);
+        expect(deps.uiRuntime.handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.PLAYBACK_DECODE_ERROR,
+                message: 'fatal',
+                recoverable: false,
+            },
+            'video-player'
+        );
     });
 
     it('routes non-recoverable player errors through handleGlobalError when playback failure handling is unavailable', () => {

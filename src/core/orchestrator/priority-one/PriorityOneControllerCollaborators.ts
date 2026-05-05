@@ -141,6 +141,7 @@ function createPlaybackRuntimeDeps(input: PriorityOneAssemblyInput): PlaybackRun
         playerEvents: input.playerEvents,
         uiRuntime: input.uiRuntime,
         saveLifecycleState: (): Promise<void> => input.modules.lifecycle.saveState(),
+        reportRecoverableAsyncFailure: input.events.reportRecoverableAsyncFailure,
     };
 }
 

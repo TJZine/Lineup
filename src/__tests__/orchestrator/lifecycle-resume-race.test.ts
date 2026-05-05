@@ -104,6 +104,7 @@ const wireLifecycleResumeHarness = (overrides: {
             showInfoBanner: (): void => undefined,
         },
         saveLifecycleState: async (): Promise<void> => undefined,
+        reportRecoverableAsyncFailure: (): void => undefined,
     });
 
     const binder = new OrchestratorEventBinder({

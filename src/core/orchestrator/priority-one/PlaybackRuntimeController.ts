@@ -3,11 +3,13 @@ import {
     type PlaybackState,
     type TimeRange,
 } from '../../../modules/player';
+import { summarizeErrorForLog } from '../../../utils/errors';
 import type {
     PriorityOnePlaybackRuntimePort,
     PriorityOnePlayerEventPort,
     PriorityOneSchedulerRuntimePort,
     PriorityOneUiRuntimePort,
+    RecoverableAsyncFailureReporter,
 } from '../runtime/OrchestratorRuntimeSeams';
 
 type PlayerTimeUpdatePayload = {
@@ -29,6 +31,7 @@ export interface PlaybackRuntimeControllerDeps {
         'handleGlobalError' | 'showInfoBanner'
     >;
     saveLifecycleState(): Promise<void>;
+    reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
 }
 
 export interface OverlayReadinessSnapshot {
@@ -140,7 +143,16 @@ export class PlaybackRuntimeController {
             try {
                 playbackRecovery.handlePlaybackFailure('video-player', error);
                 return;
-            } catch {
+            } catch (handlerError: unknown) {
+                this._deps.reportRecoverableAsyncFailure(
+                    'orchestrator.playbackRecovery.handlePlaybackFailure',
+                    'Playback recovery failure handler threw',
+                    handlerError,
+                    {
+                        context: 'video-player',
+                        playbackError: summarizeErrorForLog(error),
+                    }
+                );
                 // Fall through so fatal playback errors still reach the UI error surface.
             }
         }
