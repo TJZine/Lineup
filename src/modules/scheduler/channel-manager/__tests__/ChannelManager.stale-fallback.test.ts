@@ -1,7 +1,7 @@
 import { ChannelManager } from '../ChannelManager';
 import type { IPlexLibraryMinimal } from '../interfaces';
 import { CACHE_TTL_MS } from '../constants';
-import { AppErrorCode } from '../../../lifecycle/types';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
     createMockContentSource,

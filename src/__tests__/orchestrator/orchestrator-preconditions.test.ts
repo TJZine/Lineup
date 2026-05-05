@@ -1,5 +1,5 @@
 import { AppOrchestrator } from '../../Orchestrator';
-import { AppErrorCode } from '../../modules/lifecycle';
+import { AppErrorCode } from '../../types/app-errors';
 
 describe('AppOrchestrator precondition errors', () => {
     it('throws AppError-shaped precondition errors before initialization', async () => {

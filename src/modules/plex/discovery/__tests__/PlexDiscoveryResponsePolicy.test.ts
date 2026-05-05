@@ -1,5 +1,5 @@
 import { PLEX_DISCOVERY_CONSTANTS } from '../constants';
-import { AppErrorCode } from '../../../lifecycle/types';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { PlexApiError } from '../../auth/plexAuthTransport';
 import { redactUrlForLog } from '../../../../utils/redact';
 import {

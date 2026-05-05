@@ -1,5 +1,6 @@
 import { LifecycleAsyncErrorReporter } from '../LifecycleAsyncErrorReporter';
-import { AppErrorCode, type AppError, type LifecycleEventMap } from '../types';
+import { AppErrorCode } from '../../../types/app-errors';
+import type { AppError, LifecycleEventMap } from '../types';
 
 type ReporterFixture = {
     reporter: LifecycleAsyncErrorReporter;

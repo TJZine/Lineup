@@ -1,4 +1,5 @@
-import { AppErrorCode, type IAppLifecycle } from '../../../modules/lifecycle';
+import { AppErrorCode } from '../../../types/app-errors';
+import type { IAppLifecycle } from '../../../modules/lifecycle';
 import type { INavigationManager } from '../../../modules/navigation';
 import type {
     IPlexAuth,

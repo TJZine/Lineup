@@ -1,5 +1,6 @@
 import { summarizeErrorForLog } from '../../utils/errors';
-import { AppErrorCode, type AppError, type LifecycleEventMap } from './types';
+import { AppErrorCode } from '../../types/app-errors';
+import type { AppError, LifecycleEventMap } from './types';
 
 export interface LifecycleAsyncErrorReporterDeps {
     emitAsyncError(payload: LifecycleEventMap['asyncError']): void;

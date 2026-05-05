@@ -1,12 +1,12 @@
-import {
+import type {
     AppPhase,
     AppError,
     AppLifecycleState,
     MemoryUsage,
     LifecycleCallback,
     LifecycleEventMap,
-    AppErrorCode,
 } from './types';
+import { AppErrorCode } from '../../types/app-errors';
 import type { IDisposable } from '../../utils/interfaces';
 
 export interface IAppLifecycle {

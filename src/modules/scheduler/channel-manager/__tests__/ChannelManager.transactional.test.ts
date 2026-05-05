@@ -2,7 +2,7 @@ import { ChannelManager } from '../ChannelManager';
 import { ChannelRepository } from '../ChannelRepository';
 import { ContentResolver } from '../ContentResolver';
 import type { IPlexLibraryMinimal } from '../interfaces';
-import { AppErrorCode } from '../../../lifecycle/types';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { STORAGE_CONFIG } from '../../../lifecycle/constants';
 import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
 import {

@@ -6,7 +6,7 @@ import {
     readPlexResponse,
     type PlexResponsePayload,
 } from '../plexAuthPayloadParsers';
-import { AppErrorCode } from '../../../lifecycle/types';
+import { AppErrorCode } from '../../../../types/app-errors';
 
 describe('readPlexResponse', () => {
     it('throws PARSE_ERROR for malformed JSON bodies without double-reading the response', async () => {

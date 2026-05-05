@@ -1,5 +1,5 @@
 import { PlaybackRecoveryManager, type PlaybackRecoveryDeps } from '../PlaybackRecoveryManager';
-import { AppErrorCode } from '../../lifecycle';
+import { AppErrorCode } from '../../../types/app-errors';
 import type { IVideoPlayer, StreamDescriptor } from '../index';
 import type { IPlexStreamResolver, StreamDecision } from '../../plex/stream';
 import type { PlexStream } from '../../plex/shared/types';

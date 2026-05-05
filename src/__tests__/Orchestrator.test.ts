@@ -7,7 +7,7 @@
 
 
 import { AppOrchestrator } from '../Orchestrator';
-import { AppErrorCode } from '../modules/lifecycle';
+import { AppErrorCode } from '../types/app-errors';
 import type { OrchestratorConfig } from '../core/orchestrator/contracts/OrchestratorTypes';
 import {
     NowPlayingInfoCoordinator,

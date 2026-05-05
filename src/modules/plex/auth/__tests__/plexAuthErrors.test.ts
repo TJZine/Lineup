@@ -1,4 +1,4 @@
-import { AppErrorCode } from '../../../lifecycle';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { isPlexAuthRecoverable } from '../plexAuthErrors';
 
 describe('isPlexAuthRecoverable', () => {
