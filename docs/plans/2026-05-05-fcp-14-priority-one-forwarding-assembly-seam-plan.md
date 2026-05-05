@@ -161,7 +161,7 @@ Absorb-now rule: absorb only newly discovered residue that stays within the same
 
 ## Verification Commands
 
-Verification classification: `new regression/contract test required`.
+- Verification classification: `new regression/contract test required`
 
 Primary proof mode: `refactor-invariance` for behavior-preserving assembly cleanup, with `contract-first` proof for priority-one internal assembly/port contract changes.
 
@@ -226,8 +226,31 @@ Package closeout:
 
 - `package_id`: `FCP-14`
 - `checklist_token`: `FCP-14`
-- `package_issue_ids`: n/a for FCP source-backed packages; use `source_finding_ids`
-- `source_finding_ids`: `FCP-14-SF1`
+- `source_finding_ids`:
+  - `FCP-14-SF1`
+- `slice_table`:
+
+### `FCP-14-S1` Priority-One Forwarding Collapse
+
+- `goal`: collapse priority-one forwarding layers that add no owner value while preserving controller ownership seams.
+- `areas/files`:
+  - `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts`
+  - `src/core/orchestrator/priority-one/PriorityOneAssemblyInput.ts`
+  - `src/core/orchestrator/priority-one/PriorityOneControllerCollaborators.ts`
+  - `src/core/orchestrator/priority-one/PriorityOneControllerFactory.ts`
+  - `src/core/orchestrator/priority-one/PlaybackRuntimeController.ts`
+  - `src/core/orchestrator/runtime/OrchestratorRuntimeSeams.ts`
+  - `src/core/orchestrator/controllers/ProfileSwitchCleanupController.ts`
+  - `src/core/orchestrator/AppOrchestrator.ts` call site only if required
+  - affected priority-one/orchestrator tests
+- `source_finding_ids`:
+  - `FCP-14-SF1`
+- `verification`: pre/post source audits for removed pure forwarding and preserved owner-value seams; `npm test -- PriorityOneAssemblyBuilder PriorityOneControllerCollaborators PriorityOneControllerFactory`; `npm test -- PlaybackRuntimeController ProfileSwitchCleanupController OrchestratorRuntimeSeams`; `npm test -- lifecycle-resume-race` and affected AppOrchestrator tests as touched; `npm run typecheck`; `git diff --check`; package closeout `npm run verify`.
+- `dependencies`: none
+- `stop_condition`: stop if a forwarding layer carries controller owner value; if public runtime contracts, UI/focus behavior, Plex behavior, persistence behavior, navigation behavior, scheduler/channel-manager ownership, Windows behavior, or broad AppOrchestrator refactor is needed; or if proof requires private probing.
+- `handoff_condition`: the `FCP-14-SF1` sentence is false for current source, or any retained forwarding is source-justified with one final owner/revisit trigger; tests/audits/typecheck/verify pass.
+- `serial_only`: true
+- `parallel_justification`: single owner seam across tightly coupled priority-one assembly and controller deps; splitting would duplicate source audits and weaken parity proof.
 - `coverage_check`:
   - `FCP-14-SF1` maps exactly to `FCP-14-S1`.
 - `ready_now_execution_unit`: `FCP-14-S1`
@@ -235,15 +258,15 @@ Package closeout:
 - `recommended_slice_order`: `FCP-14-S1`, then package closeout source audit and docs/checklist updates if earned.
 - `parallel_execution_policy`: serial single-slice package. No parallel worker split and no execution wave are approved. Implementation and review should treat `FCP-14-S1` as one coherent priority-one assembly unit.
 
-| slice_id | goal | areas/files | source_finding_ids | verification | dependencies | stop_condition | handoff_condition | serial_only | parallel_justification |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `FCP-14-S1` | Collapse priority-one forwarding layers that add no owner value while preserving controller ownership seams. | `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts`, `PriorityOneAssemblyInput.ts`, `PriorityOneControllerCollaborators.ts`, `PriorityOneControllerFactory.ts`, `PlaybackRuntimeController.ts`, `src/core/orchestrator/runtime/OrchestratorRuntimeSeams.ts`, `src/core/orchestrator/controllers/ProfileSwitchCleanupController.ts`, `src/core/orchestrator/AppOrchestrator.ts` call site only if required, and affected priority-one/orchestrator tests. | `FCP-14-SF1` | Pre/post source audits for removed pure forwarding and preserved owner-value seams; `npm test -- PriorityOneAssemblyBuilder PriorityOneControllerCollaborators PriorityOneControllerFactory`; `npm test -- PlaybackRuntimeController ProfileSwitchCleanupController OrchestratorRuntimeSeams`; `npm test -- lifecycle-resume-race` and affected AppOrchestrator tests as touched; `npm run typecheck`; `git diff --check`; package closeout `npm run verify`. | none | Stop if a forwarding layer carries controller owner value; if public runtime contracts, UI/focus behavior, Plex behavior, persistence behavior, navigation behavior, scheduler/channel-manager ownership, Windows behavior, or broad AppOrchestrator refactor is needed; or if proof requires private probing. | The `FCP-14-SF1` sentence is false for current source, or any retained forwarding is source-justified with one final owner/revisit trigger; tests/audits/typecheck/verify pass. | true | Single owner seam across tightly coupled priority-one assembly and controller deps; splitting would duplicate source audits and weaken parity proof. |
-
 ## Priority-Exit Readiness
 
 This plan is intended to close the whole `FCP-14` package before `FCP-15` can start.
 
-- FCP source findings mapped: `FCP-14-SF1`.
+- `FCP-14-SF1`
+  - disposition: resolved
+  - proof expectation: `FCP-14-S1` source audit proves no-value priority-one forwarding is collapsed and retained seams carry owner value.
+  - final owner: `FCP-14`
+  - revisit trigger: rerun the priority-one source audit if the priority-one assembly owner seam changes or a retained forwarding seam no longer carries controller ownership value.
 - No detector/imported ids are in scope.
 - No deferred or split follow-ups are approved at plan start.
 - If implementation source-disproves part of `FCP-14-SF1`, the final owner remains `FCP-14-S1` closeout unless the source-disproved path reveals a different owner or verification surface, in which case stop and replan.
