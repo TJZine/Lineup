@@ -38,7 +38,7 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 ## Expected Skills
 
 - `ui-composition-patterns`
-- `verification-before-completion`
+- `closeout-verification`
 
 ## Expected Codanna Behavior
 

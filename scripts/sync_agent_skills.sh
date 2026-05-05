@@ -7,7 +7,6 @@ agent_dir="${agent_parent_dir}/skills"
 codex_repo_skills="${repo_root}/.codex/skills"
 codex_home="${CODEX_HOME:-$HOME/.codex}"
 skill_manifest_path="${repo_root}/docs/agentic/skill-mirror-allowlist.txt"
-superpowers_dir="${codex_home}/superpowers/skills"
 global_skills_dir="${codex_home}/skills"
 lock_dir="${agent_parent_dir}/.skills.lock"
 tmp_dir=""
@@ -20,9 +19,6 @@ copy_global_skill() {
   local source_dir=""
 
   case "${source_type}" in
-    superpowers)
-      source_dir="${superpowers_dir}/${skill}"
-      ;;
     global)
       source_dir="${global_skills_dir}/${skill}"
       ;;
@@ -85,7 +81,7 @@ while IFS= read -r raw_line || [[ -n "${raw_line}" ]]; do
     continue
   fi
 
-  if [[ ! "${line}" =~ ^(superpowers|global):([a-z0-9][a-z0-9-]*)$ ]]; then
+  if [[ ! "${line}" =~ ^(global):([a-z0-9][a-z0-9-]*)$ ]]; then
     echo "Invalid skill mirror entry '${line}' in ${skill_manifest_path}" >&2
     exit 1
   fi

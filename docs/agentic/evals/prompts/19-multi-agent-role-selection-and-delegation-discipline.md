@@ -17,7 +17,8 @@ Execute a bounded workflow/control-plane task that includes optional sidecars (f
 ## Expected Skills
 
 - `brainstorming`
-- `verification-before-completion`
+- `closeout-verification`
+- `review-request` when an adversarial sidecar/reviewer pass is requested
 
 ## Expected Codanna Behavior
 

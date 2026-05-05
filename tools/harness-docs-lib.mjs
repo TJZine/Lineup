@@ -7,11 +7,15 @@ export const EVAL_PROMPT_INVENTORY_END_MARKER = '<!-- END MANAGED EVAL PROMPT IN
 export const REQUIRED_REPO_LOCAL_SKILLS = [
     'architecture-boundaries',
     'bounded-worker-execution',
+    'closeout-verification',
+    'debugging-remediation',
     'execution-plan-authoring',
     'model-selection',
     'parallel-sidecars',
     'persistence-boundaries',
     'plex-integration-boundaries',
+    'review-adjudication',
+    'review-request',
     'ui-composition-patterns',
     'verification-strategy',
 ];
@@ -949,7 +953,7 @@ export function parseSkillMirrorManifest(content) {
             continue;
         }
 
-        const match = line.match(/^(superpowers|global):([a-z0-9][a-z0-9-]*)$/u);
+        const match = line.match(/^(global):([a-z0-9][a-z0-9-]*)$/u);
         if (match === null) {
             throw new Error(`Invalid skill mirror manifest entry: ${line}`);
         }

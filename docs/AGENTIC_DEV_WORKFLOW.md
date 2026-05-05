@@ -167,6 +167,7 @@ When tracked docs conflict, use this order:
      async workflow, persistence, platform/domain policy, and diagnostics
      should not quietly accumulate in one class
 8. Verify based on risk.
+   - use repo-local `closeout-verification` before claiming work is complete, staged, committed, pushed, PR-ready, or handed off
    - `npm run verify` for UI, navigation, Orchestrator, or Plex work
    - `npm run verify:docs` for workflow/control-plane/reference doc changes
    - `npm run verify:docs` warns for checklist plan paths that are untracked (including when the path is missing from the workspace and not tracked), and still fails for missing tracked plan references or other docs regressions
@@ -176,6 +177,8 @@ When tracked docs conflict, use this order:
    - otherwise at least `npm run typecheck` and `npm test` for logic-only TypeScript changes
 9. Review before closeout.
    - AI review is the baseline pass
+   - use repo-local `review-request` to send bounded plan, diff, workflow, skill, launcher, or closeout artifacts to a read-only reviewer
+   - use repo-local `review-adjudication` before implementing reviewer feedback, especially when findings conflict, widen scope, or touch Lineup owner boundaries
    - humans still own architecture, product intent, and merge decisions
    - if the work claims to finish a cleanup priority, run a [`priority-exit review`](./agentic/session-prompts/cleanup-review.md) before starting or planning the next priority
    - a priority-exit review must enforce the blocking review checks in [`docs/agentic/session-prompts/cleanup-review.md`](./agentic/session-prompts/cleanup-review.md) together with the closeout requirements owned by [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay) before any `P(n+1)` checklist item, plan, or implementation work is opened
@@ -246,6 +249,14 @@ Use Codex multi-agent support only when it materially improves reliability, thro
   - optional sidecars such as exploration, adversarial review, docs checks, research passes, and waits that should not take over implementation or planning ownership
 - `bounded-worker-execution`
   - approved-plan worker slices with disjoint write scopes and controller-owned integration
+- `debugging-remediation`
+  - unclear bugs, regressions, failing tests, and user-reported symptoms where root cause and owner seam must be proved before fixing
+- `review-request`
+  - bounded packets for read-only reviewer agents and launcher review sessions
+- `review-adjudication`
+  - accepting, modifying, rejecting, deferring, or validating review feedback against current Lineup evidence and scope
+- `closeout-verification`
+  - final evidence checks, diff audit, branch/commit/PR readiness, and handoff truth before completion claims
 - `execution-plan-authoring`
   - serious tracked plans and bounded execution briefs that must freeze seam/scope/verification without pseudo-code bloat
 - `verification-strategy`

@@ -251,17 +251,25 @@ test('parseSkillMirrorManifest throws on invalid allowlist entries', () => {
     assert.throws(
         () =>
             parseSkillMirrorManifest(`
-superpowers:using-superpowers
+legacy:skill
 oops:not valid
             `),
-        /Invalid skill mirror manifest entry: oops:not valid/
+        /Invalid skill mirror manifest entry: legacy:skill/
     );
 });
 
 test('required repo-local skill inventory includes the canonical planner and verification skills', () => {
+    assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('closeout-verification'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('debugging-remediation'));
     assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('execution-plan-authoring'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('review-adjudication'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('review-request'));
     assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('verification-strategy'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/closeout-verification/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/debugging-remediation/SKILL.md'));
     assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/execution-plan-authoring/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/review-adjudication/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/review-request/SKILL.md'));
     assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/verification-strategy/SKILL.md'));
 });
 

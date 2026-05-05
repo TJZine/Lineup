@@ -76,11 +76,12 @@ Freshness gate:
 
 ## Required Skills
 
-1. `using-superpowers`
-2. `ui-composition-patterns`
-3. `verification-strategy`
-4. `execution-plan-authoring`
-5. `architecture-boundaries` only if implementation unexpectedly needs to move bootstrap ownership out of the onboarding screen-shell seam
+1. `ui-composition-patterns`
+2. `verification-strategy`
+3. `execution-plan-authoring`
+4. `debugging-remediation` if current-source proof exposes a live UI/runtime symptom instead of a narrow cleanup residue
+5. `closeout-verification`
+6. `architecture-boundaries` only if implementation unexpectedly needs to move bootstrap ownership out of the onboarding screen-shell seam
 
 ## Codanna Discovery
 

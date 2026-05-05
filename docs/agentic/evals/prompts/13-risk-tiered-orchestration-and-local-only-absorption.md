@@ -17,7 +17,7 @@ Make a small workflow-doc update that is bounded, low-risk, and does not touch a
 ## Expected Skills
 
 - `brainstorming`
-- `verification-before-completion`
+- `closeout-verification`
 
 ## Expected Codanna Behavior
 
