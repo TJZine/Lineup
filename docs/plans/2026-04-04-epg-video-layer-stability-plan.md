@@ -1,6 +1,6 @@
 # EPG Video Layer Stability Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Codex:** Use the Lineup workflow in `docs/AGENTIC_DEV_WORKFLOW.md`. This standalone remediation plan should execute through the approved cleanup/feature routing and the repo-local skills listed below, not legacy Superpowers launchers.
 
 **Goal:** Eliminate the EPG PiP jank and the sequence-sensitive post-overlay video shift without globally removing the player OSD slide-up polish.
 
@@ -93,14 +93,12 @@
 
 ## Required Skills
 
-- `using-superpowers`
-- `systematic-debugging`
+- `debugging-remediation`
 - `ui-composition-patterns`
 - `architecture-boundaries`
 - `verification-strategy`
 - `execution-plan-authoring`
-- `verification-before-completion`
-- `test-driven-development` when behavior coverage changes are introduced
+- `closeout-verification`
 
 ## Codanna Discovery
 

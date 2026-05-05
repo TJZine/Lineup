@@ -64,9 +64,7 @@ export interface PlexStreamSubtitleDebugLogPort {
 }
 
 export interface PlexStreamResolverConfig {
-    /** Function to get auth headers for Plex API requests */
     getAuthHeaders: () => Record<string, string>;
-    /** Function to get current server URI */
     getServerUri: () => string | null;
     /**
      * Optional: Function to get the currently selected server connection metadata.
@@ -77,9 +75,8 @@ export interface PlexStreamResolverConfig {
     getHttpsConnection: () => { uri: string } | null;
     /** Function to get a relay connection (for mixed content fallback) */
     getRelayConnection: () => { uri: string } | null;
-    /** Function to get a media item by ratingKey */
     getItem: (ratingKey: string) => Promise<PlexStreamMediaItem | null>;
-    /** Client identifier for session tracking */
+    /** Client identifier for Plex session tracking */
     clientIdentifier: string;
     /** Audio playback policy reader seam */
     audioPolicyReader: PlexStreamAudioPolicyReader;
@@ -93,7 +90,6 @@ export interface PlexStreamResolverConfig {
     debugOverridesReader: PlexStreamDebugOverridesReader;
     /** Subtitle debug logging port */
     subtitleDebugLogPort: PlexStreamSubtitleDebugLogPort;
-    /** Optional platform identity abstraction */
     identityService?: PlatformIdentityService;
 }
 
@@ -101,29 +97,23 @@ export interface IPlexStreamResolver {
     /**
      * Resolve the best stream URL for a media item.
      * Determines direct play vs transcoding based on codec compatibility.
-     * @param request - Stream request parameters
-     * @returns Promise resolving to stream decision
      * @throws StreamResolverError on failure
      */
     resolveStream(request: StreamRequest): Promise<StreamDecision>;
 
     /**
      * Best-effort: stop an active transcode session without reporting progress.
-     * @param sessionId - Plex transcode session identifier
      */
     stopTranscodeSession(sessionId: string): Promise<void>;
 
     /**
      * Check if a media item can be played directly without transcoding.
-     * @returns true if direct play is supported
      */
     canDirectPlay(item: PlexStreamMediaItem): boolean;
 
     /**
      * Generate an HLS transcode URL for a media item.
-     * @param itemKey - ratingKey of the media item
      * @param options - HLS transcoding options (required per SSOT)
-     * @returns Full transcode URL
      * @throws StreamResolverError synchronously when a transcode URL cannot be built.
      */
     getTranscodeUrl(itemKey: string, options: HlsOptions): string;

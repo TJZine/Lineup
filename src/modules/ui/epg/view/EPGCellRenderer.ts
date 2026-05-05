@@ -423,24 +423,14 @@ export class EPGCellRenderer {
         if (cellData.kind !== 'program') {
             episode.textContent = '';
             meta.style.display = 'none';
-            if (subtitle) {
-                if (subtitleText) {
-                    subtitleText.textContent = '';
-                }
-                subtitle.style.display = 'none';
-            }
+            this.clearSubtitlePresentation(subtitle, subtitleText);
             return;
         }
 
         if (cellData.program.item.type !== 'episode') {
             episode.textContent = '';
             meta.style.display = 'none';
-            if (subtitle) {
-                if (subtitleText) {
-                    subtitleText.textContent = '';
-                }
-                subtitle.style.display = 'none';
-            }
+            this.clearSubtitlePresentation(subtitle, subtitleText);
             return;
         }
 
@@ -462,6 +452,19 @@ export class EPGCellRenderer {
             }
             subtitle.style.display = textLayout.showSubtitle ? 'block' : 'none';
         }
+    }
+
+    private clearSubtitlePresentation(
+        subtitle: HTMLElement | null,
+        subtitleText: HTMLElement | null
+    ): void {
+        if (!subtitle) {
+            return;
+        }
+        if (subtitleText) {
+            subtitleText.textContent = '';
+        }
+        subtitle.style.display = 'none';
     }
 
     private applyWidthPresentation(

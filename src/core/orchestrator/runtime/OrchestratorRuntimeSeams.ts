@@ -22,7 +22,8 @@ import type { OrchestratorPlaybackStateAccessors } from './OrchestratorPlaybackS
 export type RecoverableAsyncFailureReporter = (
     event: string,
     message: string,
-    error: unknown
+    error: unknown,
+    data?: Record<string, unknown>
 ) => void;
 
 export interface PriorityOnePlaybackRecoveryPort {

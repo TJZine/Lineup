@@ -38,10 +38,6 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
 
     /**
      * Handle an error with appropriate recovery strategy.
-     *
-     * @param type - Error type for categorization
-     * @param context - Where the error occurred (for logging)
-     * @param error - Optional original error
      */
     handleError(type: EPGErrorType, context: string, error?: Error): void {
         const existing = this.errorCounts.get(type);
@@ -79,7 +75,6 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
                 break;
         }
 
-        // If too many errors, emit degraded mode event
         if (count >= this.MAX_ERRORS_PER_TYPE) {
             this.emit('degradedMode', { type, count });
         }
@@ -87,11 +82,6 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
 
     /**
      * Wrap an operation with error handling.
-     *
-     * @param type - Error type if operation fails
-     * @param context - Context for logging
-     * @param operation - Function to execute
-     * @returns Result of operation, or undefined on error
      */
     wrap<T>(
         type: EPGErrorType,

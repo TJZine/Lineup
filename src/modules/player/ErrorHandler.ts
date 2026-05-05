@@ -7,12 +7,6 @@ const MAX_BACKOFF_MS = 30000;
 /**
  * Map MediaError code to PlaybackError.
  * Exported for deterministic testing as required by spec.
- *
- * @param mediaErrorCode - MediaError.code value (1-4)
- * @param retryCount - Current retry count
- * @param retryAttempts - Maximum retry attempts
- * @param retryDelayMs - Base delay for retries (from config)
- * @returns PlaybackError with appropriate code and recoverable flag
  */
 export function mapMediaErrorCodeToPlaybackError(
     mediaErrorCode: number,
@@ -34,7 +28,6 @@ export function mapMediaErrorCodeToPlaybackError(
         case 2: // MEDIA_ERR_NETWORK
             code = AppErrorCode.NETWORK_TIMEOUT;
             message = 'Network error during playback';
-            // Recoverable only if we haven't exhausted retries
             recoverable = retryCount < retryAttempts;
             break;
 
@@ -63,7 +56,6 @@ export function mapMediaErrorCodeToPlaybackError(
         retryCount,
     };
 
-    // Only set retryAfterMs if recoverable
     if (recoverable) {
         error.retryAfterMs = calculateBackoffDelay(retryCount, retryDelayMs);
     }
@@ -71,12 +63,6 @@ export function mapMediaErrorCodeToPlaybackError(
     return error;
 }
 
-/**
- * Calculate retry delay using exponential backoff.
- * @param attemptNumber - Current attempt number (0-based)
- * @param baseDelayMs - Base delay in milliseconds
- * @returns Delay in milliseconds
- */
 function calculateBackoffDelay(attemptNumber: number, baseDelayMs: number): number {
     const calculated = baseDelayMs * Math.pow(2, attemptNumber);
     return Math.min(calculated, MAX_BACKOFF_MS);

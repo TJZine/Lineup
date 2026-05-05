@@ -518,8 +518,7 @@ export class ChannelManager implements IChannelManager {
 
         this._state.currentChannelId = channelId;
 
-        // Persist current channel separately (namespaced to the active store)
-        this._persistence.persistCurrentChannelId(channelId);
+        this._persistence.persistCurrentChannelIdBestEffort(channelId);
 
         const index = this._state.channelOrder.indexOf(channelId);
         this._emitter.emit('channelSwitch', { channel, index });

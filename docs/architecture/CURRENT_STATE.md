@@ -200,7 +200,12 @@ after this extraction.
   non-ok handling, and XML/regex decision parsing while
   `PlexStreamResolver.fetchUniversalTranscodeDecision()` remains the public
   delegating contract.
-- `src/modules/plex/auth/PlexAuth.ts` owns the auth credential storage key `lineup_plex_auth`
+- `src/modules/plex/auth/PlexAuth.ts` owns the auth credential storage key
+  `lineup_plex_auth`, credential epoch, token validation, PIN flow, and auth /
+  profile event emission
+- `src/modules/plex/auth/plexHomeProfileClient.ts` owns Plex Home endpoint
+  fallback, Home status classification, and profile-switch request/status
+  coordination while returning typed auth outcomes to `PlexAuth`
 - `src/modules/plex/auth/config.ts` owns canonical Plex identity metadata
   (`product`, `version`, `platform`, `device`, `deviceName`) and identity-header
   assembly for auth/platform/stream consumers.

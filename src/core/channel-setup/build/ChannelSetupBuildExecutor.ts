@@ -8,7 +8,6 @@ import type {
 import { diffChannelPlans } from '../planning/ChannelSetupPlanningTypes';
 import type { ChannelSetupPlanBuildResult, ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
 import type { ChannelSetupBuildCommitter } from './ChannelSetupBuildCommitter';
-import { isSignalAborted } from '../shared/utils';
 import { normalizeChannelSetupConfig } from '../config/normalizeChannelSetupConfig';
 import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';
 
@@ -55,7 +54,7 @@ export class ChannelSetupBuildExecutor {
         try {
             libraries = await this._deps.planningService.getLibrariesForSetup(signal ?? null);
         } catch (e) {
-            if (isSignalAborted(signal ?? undefined)) {
+            if (checkCanceled()) {
                 reportProgress('fetch_playlists', 'Preparing...', 'Canceled', 0, null);
                 return appendBuildWarnings(createCanceledBuildSummary('fetch_playlists'), workflowWarnings);
             }
@@ -73,7 +72,7 @@ export class ChannelSetupBuildExecutor {
                 reportProgress
             );
         } catch (e) {
-            if (isSignalAborted(signal ?? undefined)) {
+            if (checkCanceled()) {
                 reportProgress('build_pending', 'Preparing...', 'Canceled', 0, null);
                 return appendBuildWarnings(createCanceledBuildSummary('build_pending'), workflowWarnings);
             }

@@ -10,6 +10,7 @@
 - Encode repo-specific architectural, UI, persistence, and Plex boundaries to reduce future tech debt and "AI slop."
 - Keep Lineup's multi-agent patterns repo-local when the repo needs tighter delegation discipline than generic global skills provide.
 - Keep serious-plan authoring repo-local when the repo needs stricter planning depth and verification rules than generic global planner skills provide.
+- Keep debugging, review, and closeout discipline repo-local when Lineup needs evidence routing, owner-boundary checks, and verification gates that generic global skills cannot calibrate.
 - Fit the skill system into a smaller control plane rather than letting skills become a second source of truth for workflow policy.
 
 ## Research Takeaways
@@ -48,6 +49,10 @@ Keep global workflow policy in one owner and boundary-specific judgment in the s
 - [`docs/agentic/session-prompts/README.md`](./session-prompts/README.md) owns launcher routing, launcher inventory, and which tracked role should run each launcher.
 - [`docs/agentic/plan-authoring-standard.md`](./plan-authoring-standard.md) owns required structure for active serious plans; `execution-plan-authoring` owns judgment about how much detail a plan or light execution brief should include.
 - `verification-strategy` owns proof-mode selection; the runbook should keep only high-level command routing.
+- `debugging-remediation` owns root-cause investigation and remediation seam selection when a Lineup symptom, regression, or failing test has an unclear cause.
+- `review-request` owns the packet shape and routing for asking a read-only reviewer to inspect a bounded artifact.
+- `review-adjudication` owns accept/modify/reject/defer/validate decisions for review feedback after it is received.
+- `closeout-verification` owns final evidence checks, diff audit, and branch/commit/PR readiness before completion claims.
 - `model-selection` owns model maps and reasoning-effort guidance; the runbook owns only when a handoff should include `MODEL_SUGGESTION`.
 - Boundary skills (`architecture-boundaries`, `persistence-boundaries`, `plex-integration-boundaries`, and `ui-composition-patterns`) own Lineup-specific boundary constraints and should not duplicate global routing/tiering rules except where those rules affect the boundary decision itself.
 - Delegation skills (`parallel-sidecars` and `bounded-worker-execution`) own optional sidecar and bounded-worker decision gates; the runbook owns the broader multi-agent default posture.
@@ -60,11 +65,15 @@ When a rule appears in multiple places, prefer moving the detailed version to th
 
 - `architecture-boundaries`
 - `bounded-worker-execution`
+- `closeout-verification`
+- `debugging-remediation`
 - `execution-plan-authoring`
 - `model-selection`
 - `parallel-sidecars`
 - `persistence-boundaries`
 - `plex-integration-boundaries`
+- `review-adjudication`
+- `review-request`
 - `ui-composition-patterns`
 - `verification-strategy`
 
@@ -72,7 +81,7 @@ These are the source-of-truth Lineup skills. They are authored in `.codex/skills
 
 ### Mirrored Global Skills For Antigravity
 
-- The exact mirrored set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) for both `superpowers` and `global` skills.
+- The exact mirrored set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) for global skills.
 - Maintainers should update only `skill-mirror-allowlist.txt` when the pinned mirror set changes.
 
 These are mirrored into `.agent/skills/` because the repo workflow depends on them and the allowlist keeps the Antigravity surface reproducible. The mirror is a convenience/materialization layer for Antigravity, not the canonical Codex source of a global skill.
@@ -98,14 +107,18 @@ Local-only by default:
 
 - `architecture-boundaries`: protects composition roots and hotspot decomposition.
 - `bounded-worker-execution`: keeps worker delegation limited to approved, disjoint plan slices with local controller integration and verification.
+- `closeout-verification`: keeps completion, branch, commit, push, PR, and handoff claims tied to fresh observed evidence and intended diffs.
+- `debugging-remediation`: keeps unclear bugs and regressions rooted in reproduction, source evidence, owner seams, and verification instead of intuition patches.
 - `execution-plan-authoring`: keeps Lineup plans decision-complete at seam/scope/verification level without inheriting generic pseudo-code-heavy planning defaults.
 - `verification-strategy`: makes verification explicit and risk-matched without turning every change into fail-first TDD or brittle-test scaffolding.
 - `ui-composition-patterns`: pairs global UI design skills with Lineup's TV-specific design language and focus rules.
 - `persistence-boundaries`: keeps storage ownership centralized and typed.
 - `plex-integration-boundaries`: keeps Plex transport/policy complexity out of unrelated modules.
 - `parallel-sidecars`: keeps optional multi-agent usage shallow, role-disciplined, and off the immediate critical path.
+- `review-adjudication`: calibrates reviewer feedback against current Lineup evidence, plan scope, and boundary ownership before implementation.
+- `review-request`: standardizes bounded packets for reviewer agents and launcher reviews without passing unbounded session history.
 - `model-selection`: keeps Lineup session-to-session model advice explicit, cheap by default, and only auto-emitted for high-risk handoffs.
-- `brainstorming`: lightweight ambiguity-resolution across projects without inheriting the old superpowers spec-writing and planner-coupling workflow.
+- `brainstorming`: lightweight ambiguity-resolution across projects without inheriting generic spec-writing and planner-coupling workflow.
 - `frontend-design`: marketing/brand-forward UI generation (landing pages, posters, high-aesthetic surfaces) aligned with anti-slop goals.
 - `interface-design`: product interface design skill for dashboards/admin/settings/tools and other data-heavy UIs.
 - `desloppify`: useful for recurring debt audits and cleanup planning as the architecture cleanup continues.
@@ -120,7 +133,12 @@ Local-only by default:
 - For plan authoring, prefer repo-local skills:
   - `verification-strategy` to choose the proof mode and avoid brittle verification
   - `execution-plan-authoring` to freeze the execution seam without pseudo-code bloat
-- If a mirrored global subagent skill stops being useful for Antigravity, remove it from [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) instead of encoding negative routing rules in the main workflow docs.
+- For debugging, review, and closeout, prefer repo-local skills:
+  - `debugging-remediation` for unclear symptoms, regressions, and failing tests
+  - `review-request` for bounded reviewer packets
+  - `review-adjudication` for acting on review feedback
+  - `closeout-verification` before completion, commit, push, PR, or handoff claims
+- If a mirrored global skill stops being useful for Antigravity, remove it from [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) instead of encoding negative routing rules in the main workflow docs.
 
 ## UI Skill Recommendation
 

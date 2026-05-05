@@ -99,16 +99,10 @@ export class ChannelPersistenceCoordinator {
         this._saveQueue.supersedePendingSave();
     }
 
-    persistCurrentChannelId(channelId: string): void {
-        try {
-            this._persistCurrentChannelId(channelId);
-            this._saveQueue.markSuccess();
-        } catch (error) {
-            this._logger.warn('Failed to persist current channel', summarizeErrorForLog(error));
-            this._saveQueue.emitWarning(error);
-        }
-    }
-
+    /**
+     * Persist the separate current-channel pointer without making the caller's
+     * state transition transactional on localStorage availability.
+     */
     persistCurrentChannelIdBestEffort(channelId: string): void {
         try {
             this._persistCurrentChannelId(channelId);

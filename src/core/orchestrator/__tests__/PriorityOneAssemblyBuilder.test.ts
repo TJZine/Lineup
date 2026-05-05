@@ -1,6 +1,7 @@
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
 import type { StreamDescriptor } from '../../../modules/player';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import { AppErrorCode } from '../../../types/app-errors';
 import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
 import {
     createPriorityOneRuntimeAssembly,
@@ -52,6 +53,11 @@ describe('createPriorityOneRuntimeAssembly', () => {
         const refreshPlaybackOptions = jest.fn();
         const maybeAutoShowNowPlayingStreamDebugHud = jest.fn();
         const maybeFetchNowPlayingStreamDecisionForDebugHud = jest.fn().mockResolvedValue(undefined);
+        const playbackFailureHandlerError = new Error('recovery handler failed');
+        const handlePlaybackFailure = jest.fn(() => {
+            throw playbackFailureHandlerError;
+        });
+        const reportRecoverableRuntimeError = jest.fn();
         const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
             getCurrentProgramForPlayback: jest.fn().mockReturnValue(program),
             setCurrentProgramForPlayback: jest.fn(),
@@ -124,7 +130,7 @@ describe('createPriorityOneRuntimeAssembly', () => {
                     resetPlaybackFailureGuard: jest.fn(),
                     tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
                     tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
-                    handlePlaybackFailure: jest.fn(),
+                    handlePlaybackFailure,
                     isStreamRecoveryInProgress: jest.fn().mockReturnValue(false),
                 },
             },
@@ -172,7 +178,7 @@ describe('createPriorityOneRuntimeAssembly', () => {
                 handlePlexStreamError: jest.fn(),
                 showPersistenceWarning: jest.fn(),
                 reportRecoverableRuntimeIssue: cleanupReporter,
-                reportRecoverableRuntimeError: jest.fn(),
+                reportRecoverableRuntimeError,
             },
         };
 
@@ -183,6 +189,12 @@ describe('createPriorityOneRuntimeAssembly', () => {
         scheduler.emit('programStart', program);
         await flushPromises();
         priorityOne.playbackRuntimeController.stopActiveTranscodeSession();
+        priorityOne.playbackRuntimeController.handlePlaybackError({
+            code: AppErrorCode.PLAYBACK_DECODE_ERROR,
+            message: 'fatal',
+            recoverable: false,
+            retryCount: 0,
+        });
         priorityOne.overlayRuntimePolicyController.toggleNowPlayingInfoOverlay();
         priorityOne.eventBinder.dispose();
 
@@ -196,6 +208,18 @@ describe('createPriorityOneRuntimeAssembly', () => {
         expect(maybeFetchNowPlayingStreamDecisionForDebugHud).toHaveBeenCalledTimes(1);
         expect(refreshPlaybackOptions).toHaveBeenCalledTimes(1);
         expect(stopTranscodeSessionById).toHaveBeenCalledWith('transcode-session-1');
+        expect(reportRecoverableRuntimeError).toHaveBeenCalledWith(
+            'orchestrator.playbackRecovery.handlePlaybackFailure',
+            'Playback recovery failure handler threw',
+            playbackFailureHandlerError,
+            {
+                context: 'video-player',
+                playbackError: {
+                    code: AppErrorCode.PLAYBACK_DECODE_ERROR,
+                    message: 'fatal',
+                },
+            }
+        );
         expect(openModal).toHaveBeenCalledWith(NOW_PLAYING_INFO_MODAL_ID);
         expect(closeModal).not.toHaveBeenCalled();
         expect(cleanupReporter).toHaveBeenCalledWith(

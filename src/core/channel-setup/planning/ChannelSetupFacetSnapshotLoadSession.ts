@@ -6,7 +6,6 @@ import type {
 } from '../../../modules/plex/library';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
-import { isSignalAborted } from '../shared/utils';
 import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
 import {
     ChannelSetupFacetLibraryExecutor,
@@ -305,7 +304,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
     }
 
     private _callerCanceled(): boolean {
-        return isSignalAborted(this._options.signal ?? undefined);
+        return this._options.signal?.aborted === true;
     }
 
     private _failureStopRequested(): boolean {

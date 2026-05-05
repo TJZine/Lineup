@@ -309,9 +309,10 @@ export class AppOrchestrator {
     private readonly _reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter = (
         event,
         message,
-        error
+        error,
+        data
     ): void => {
-        this._warnRecoverableRuntimeError(event, message, error);
+        this._warnRecoverableRuntimeError(event, message, error, data);
     };
 
     constructor(platformServices?: PlatformServices) {

@@ -5,6 +5,7 @@ import {
     ProfileSwitchCleanupController,
     type ProfileSwitchCleanupControllerDeps,
 } from '../orchestrator/controllers/ProfileSwitchCleanupController';
+import type { OrchestratorPlaybackStateAccessors } from '../orchestrator/runtime/OrchestratorPlaybackStateAccessors';
 
 type CleanupHarness = {
     controller: ProfileSwitchCleanupController;
@@ -16,32 +17,43 @@ const makeCleanupHarness = (
     overrides: Partial<ProfileSwitchCleanupControllerDeps> = {}
 ): CleanupHarness => {
     const callOrder: string[] = [];
-
-    const deps = {
-        cancelPendingDayRollover: jest.fn<void, []>(() => {
-            callOrder.push('cancelPendingDayRollover');
-        }),
-        stopPlayback: jest.fn<void, []>(() => {
-            callOrder.push('stopPlayback');
-        }),
-        unloadCurrentChannel: jest.fn<void, []>(() => {
-            callOrder.push('unloadChannel');
-        }),
-        setPendingNowPlayingChannelId: jest.fn<void, [string | null]>((channelId) => {
-            callOrder.push(`setPendingNowPlayingChannelId:${channelId === null ? 'null' : channelId}`);
-        }),
-        setShouldAutoShowInfoBannerOnNextPlay: jest.fn<void, [boolean]>((value) => {
-            callOrder.push(`setAutoShow:${String(value)}`);
-        }),
+    const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+        getCurrentProgramForPlayback: jest.fn().mockReturnValue(null),
         setCurrentProgramForPlayback: jest.fn<void, [ScheduledProgram | null]>((program) => {
             callOrder.push(`setProgram:${program === null ? 'null' : 'value'}`);
         }),
+        getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
         setCurrentStreamDescriptor: jest.fn<void, [StreamDescriptor | null]>((descriptor) => {
             callOrder.push(`setDescriptor:${descriptor === null ? 'null' : 'value'}`);
         }),
+        getCurrentStreamDecision: jest.fn().mockReturnValue(null),
         setCurrentStreamDecision: jest.fn<void, [StreamDecision | null]>((decision) => {
             callOrder.push(`setDecision:${decision === null ? 'null' : 'value'}`);
         }),
+        getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+        setPendingNowPlayingChannelId: jest.fn<void, [string | null]>((channelId) => {
+            callOrder.push(`setPendingNowPlayingChannelId:${channelId === null ? 'null' : channelId}`);
+        }),
+        getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+        setShouldAutoShowInfoBannerOnNextPlay: jest.fn<void, [boolean]>((value) => {
+            callOrder.push(`setAutoShow:${String(value)}`);
+        }),
+    };
+    const deps = {
+        schedulerRuntime: {
+            cancelPendingDayRollover: jest.fn<void, []>(() => {
+                callOrder.push('cancelPendingDayRollover');
+            }),
+        },
+        playback: {
+            playbackState,
+            stopPlayback: jest.fn<void, []>(() => {
+                callOrder.push('stopPlayback');
+            }),
+            unloadCurrentChannel: jest.fn<void, []>(() => {
+                callOrder.push('unloadChannel');
+            }),
+        },
         ...overrides,
     } as jest.Mocked<ProfileSwitchCleanupControllerDeps>;
 
@@ -58,7 +70,7 @@ describe('ProfileSwitchCleanupController', () => {
 
         controller.prepareForProfileSwitch();
 
-        expect(deps.cancelPendingDayRollover).toHaveBeenCalledTimes(1);
+        expect(deps.schedulerRuntime.cancelPendingDayRollover).toHaveBeenCalledTimes(1);
         expect(callOrder).toEqual([
             'cancelPendingDayRollover',
             'stopPlayback',

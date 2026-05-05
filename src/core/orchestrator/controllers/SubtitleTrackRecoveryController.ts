@@ -138,16 +138,12 @@ export class SubtitleTrackRecoveryController {
             return;
         }
 
-        this._deps.appendIssueDiagnostic({
-            key: 'orchestrator.subtitleTrackChange.burnInAttempt',
-            data: {
-                trackId,
-                format,
-            },
-        });
-
         void burnInAttempt
             .then((result: BurnInSubtitleRecoveryResult) => {
+                if (result.outcome === 'ignored') {
+                    return;
+                }
+                this._appendBurnInAttemptDiagnostic(trackId, format);
                 if (result.outcome === 'failed') {
                     this._deps.appendIssueDiagnostic({
                         key: 'orchestrator.subtitleTrackChange.burnInFailure',
@@ -159,6 +155,7 @@ export class SubtitleTrackRecoveryController {
                 }
             })
             .catch((error) => {
+                this._appendBurnInAttemptDiagnostic(trackId, format);
                 this._deps.appendIssueDiagnostic({
                     key: 'orchestrator.subtitleTrackChange.burnInFailure',
                     data: {
@@ -168,5 +165,15 @@ export class SubtitleTrackRecoveryController {
                     },
                 });
             });
+    }
+
+    private _appendBurnInAttemptDiagnostic(trackId: string, format: string): void {
+        this._deps.appendIssueDiagnostic({
+            key: 'orchestrator.subtitleTrackChange.burnInAttempt',
+            data: {
+                trackId,
+                format,
+            },
+        });
     }
 }

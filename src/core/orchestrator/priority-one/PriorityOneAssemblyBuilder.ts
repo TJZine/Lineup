@@ -233,8 +233,8 @@ function buildPriorityOneAssemblyInput(
                     { failures }
                 );
             },
-            reportRecoverableAsyncFailure: (event, message, error): void => {
-                orchestratorCallbacks.reportRecoverableRuntimeError(event, message, error);
+            reportRecoverableAsyncFailure: (event, message, error, data): void => {
+                orchestratorCallbacks.reportRecoverableRuntimeError(event, message, error, data);
             },
         },
         nowPlayingModalId: NOW_PLAYING_INFO_MODAL_ID,

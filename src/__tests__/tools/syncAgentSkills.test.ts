@@ -89,10 +89,10 @@ describe('sync_agent_skills.sh', () => {
         );
         writeFile(
             path.join(repoRoot, 'docs/agentic/skill-mirror-allowlist.txt'),
-            'superpowers:global-skill\n'
+            'global:global-skill\n'
         );
         writeFile(
-            path.join(codexHome, 'superpowers/skills/global-skill/SKILL.md'),
+            path.join(codexHome, 'skills/global-skill/SKILL.md'),
             '# Global skill\n'
         );
 
@@ -109,5 +109,35 @@ describe('sync_agent_skills.sh', () => {
         expect(existsSync(path.join(repoRoot, '.agent/skills/repo-skill/SKILL.md'))).toBe(true);
         expect(existsSync(path.join(repoRoot, '.agent/skills/global-skill/SKILL.md'))).toBe(true);
         expect(existsSync(path.join(repoRoot, '.agent/skills/draft-only/SKILL.md'))).toBe(false);
+    });
+
+    it('rejects unsupported mirror sources', () => {
+        const repoRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-sync-skills-'));
+        const codexHome = mkdtempSync(path.join(os.tmpdir(), 'lineup-sync-skills-home-'));
+        tempRoots.push(repoRoot, codexHome);
+
+        const scriptPath = path.join(repoRoot, 'scripts/sync_agent_skills.sh');
+        mkdirSync(path.dirname(scriptPath), { recursive: true });
+        copyFileSync(sourceScriptPath, scriptPath);
+        chmodSync(scriptPath, 0o755);
+
+        writeFile(
+            path.join(repoRoot, 'docs/agentic/skill-mirror-allowlist.txt'),
+            'unsupported:legacy-skill\n'
+        );
+
+        const result = spawnSync('/bin/bash', [scriptPath], {
+            cwd: repoRoot,
+            env: {
+                ...process.env,
+                CODEX_HOME: codexHome,
+            },
+            encoding: 'utf8',
+        });
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Invalid skill mirror entry');
+        expect(result.stderr).toContain('unsupported:legacy-skill');
+        expect(existsSync(path.join(repoRoot, '.agent/skills/legacy-skill/SKILL.md'))).toBe(false);
     });
 });

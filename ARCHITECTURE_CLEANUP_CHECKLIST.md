@@ -808,10 +808,11 @@ future source-backed replan explicitly reopens one.
   `FCP-14` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
   until the preceding FCP package has clean closeout evidence.
 
-### [ ] `FCP-13` Low-Risk Source Signal, API Export, And Diagnostic Closure
+### [x] `FCP-13` Low-Risk Source Signal, API Export, And Diagnostic Closure
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-13-low-risk-source-signal-api-export-diagnostic-closure-plan.md`
 - Dimensions/rubric tags: source signal, API surface coherence, contract
   coherence, error consistency, duplication, low-level elegance
 - Scope owner: source-signal and small API/diagnostic contract owner across
@@ -897,7 +898,7 @@ future source-backed replan explicitly reopens one.
   rules, `npm run typecheck`, `git diff --check`, `npm run plans:check`,
   `npm run verify:docs` for checklist/architecture-rule docs impact, then
   `npm run verify` because runtime source changes are likely.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -914,17 +915,76 @@ future source-backed replan explicitly reopens one.
   consolidation changes DOM/focus/ticker behavior; strategy-step cleanup
   changes preview, validation, focus, or step lifecycle behavior; abort helper
   removal requires broader channel setup cancellation policy decisions.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: next safe start. Create an execution-grade plan or light execution
-  brief before implementation; do not fold `FCP-14` owner refactors into this
-  package.
+- Last touched: 2026-05-05
+- Verification: targeted source audits for all listed source-finding surfaces;
+  `npm test -- PlexAuth`; `node --test
+  tools/__tests__/build-eslint-architecture-rules.test.mjs`; targeted subtitle
+  recovery warning contract tests; channel setup cancellation/caller tests for
+  the removed abort helper; direct EPG renderer tests; `npm test --
+  StrategyStepController`; `npm run plans:check`; `npm run verify:docs`;
+  `npm run typecheck`; `git diff --check`; and final `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-13-SF1`: resolved. Redundant selected interface JSDoc in navigation,
+    Plex stream, and Plex library contracts was pruned while lifecycle,
+    nullability, side-effect, server-quirk, and error-behavior guidance was
+    preserved.
+  - `FCP-13-SF2`: resolved. Adjacent-statement implementation comments in the
+    selected player and EPG files were removed or narrowed; failure-handling,
+    security/redaction, focus, and behavior rationale comments were preserved.
+  - `FCP-13-SF3`: resolved. `ChannelCreateOptions` remains owned by
+    `src/modules/scheduler/channel-manager/interfaces.ts` and is now exported
+    from the channel-manager package seam without changing
+    `IChannelManager.createChannel` behavior.
+  - `FCP-13-SF4`: resolved. `PlexAuth.validateToken` class documentation now
+    matches current tested behavior: explicit `401`/`403` auth-invalid
+    responses return `false`, while timeout, service, transport, and malformed
+    success failures throw.
+  - `FCP-13-SF5`: resolved. Obsolete old-path app-shell composition-root
+    exceptions were removed from architecture lint, and rule tests prove the
+    composition-root boundary remains enforced.
+  - `FCP-13-SF6`: resolved. Subtitle burn-in attempt diagnostics are emitted
+    only for source-proven attempts while failure diagnostics and user warnings
+    remain intact.
+  - `FCP-13-SF7`: resolved. The redundant `isSignalAborted` wrapper and its
+    shared utility file were removed; live channel setup callers now use direct
+    `signal?.aborted` or existing cancellation checks with targeted caller
+    coverage.
+  - `FCP-13-SF8`: resolved. `EPGCellRenderer` consolidates the adjacent
+    secondary-text clearing logic locally without changing DOM shape,
+    width-tier behavior, focus hooks, reduced-motion handling, or ticker
+    behavior.
+  - `FCP-13-SF9`: resolved. `StrategyStepController` now uses a local helper
+    for repeated adjustable-control construction while preserving preview,
+    validation, focus registration, category state, and step lifecycle
+    behavior.
+- Closeout commits: `117206d4` (plan), `e650740b` (`FCP-13-S1`), `eb924084`
+  (`FCP-13-S2`), `4d27965c` (`FCP-13-S3`), `8a3f2470` (plan conformance), and
+  `eb19ba7f` (`FCP-13-S4`). The unrelated dirty/untracked paths present at
+  handoff remained unstaged and are not FCP-13 closure evidence.
+- Review evidence:
+  - Plan review: fresh tracked reviewer reported no material findings and
+    approved `ready_now_execution_unit` / `ready_now_slice` as `FCP-13-S1`.
+  - `FCP-13-S1`: initial review found one remaining EPG narration comment; the
+    same reviewer closure check cleared the amended commit, and a fresh final
+    reviewer approved `e650740b` clean.
+  - `FCP-13-S2`: fresh implementation review approved `eb924084` clean.
+  - `FCP-13-S3`: fresh implementation review approved `4d27965c` clean.
+  - Plan conformance revision: fresh reviewer approved `8a3f2470` clean after
+    `npm run plans:check` / `npm run verify:docs` passed against the tracked
+    active plan.
+  - `FCP-13-S4`: fresh implementation review found no code issues in
+    `eb19ba7f`; the only finding was the pre-existing unrelated dirty/untracked
+    workspace state, now accounted for in this closeout record.
+- Handoff: `FCP-13` is closed. The next safe package is `FCP-14`; do not start
+  `FCP-15` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
+  until `FCP-14` has clean closeout evidence.
 
-### [ ] `FCP-14` Priority-One Forwarding And Assembly Seam
+### [x] `FCP-14` Priority-One Forwarding And Assembly Seam
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-14-priority-one-forwarding-assembly-seam-plan.md`
 - Dimensions/rubric tags: cross-module architecture, abstraction fitness,
   contract coherence, orchestrator runtime seams
 - Scope owner: priority-one orchestrator assembly owner
@@ -955,7 +1015,7 @@ future source-backed replan explicitly reopens one.
   symbols, targeted priority-one/orchestrator tests, source audit for removed
   forwarding and preserved owner-value seams, `npm run typecheck`,
   `git diff --check`, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -966,16 +1026,43 @@ future source-backed replan explicitly reopens one.
   cross-module seam; a runtime public contract must change; the work needs
   Plex, scheduler, UI, persistence, or Windows behavior changes; tests require
   private probing instead of public seam proof.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start only after `FCP-13` closeout. Do not absorb PlexAuth,
-  scheduler/current-channel, or ContentResolver work into this package.
+- Last touched: 2026-05-05
+- Verification: pre/post source audits for `FCP-14-SF1`; `npm test --
+  PriorityOneAssemblyBuilder PriorityOneControllerCollaborators
+  PriorityOneControllerFactory`; `npm test -- PlaybackRuntimeController
+  ProfileSwitchCleanupController OrchestratorRuntimeSeams`; `npm test --
+  lifecycle-resume-race`; `npm run typecheck`; `npm run plans:check`;
+  `npm run verify:docs`; `git diff --check`; and final `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-14-SF1`: resolved. `PriorityOneControllerCollaborators` no longer
+    rebuilds method-by-method dependency interfaces for playback runtime and
+    profile-switch cleanup when the grouped priority-one runtime ports already
+    carry the same contract. `PlaybackRuntimeController` now consumes grouped
+    playback, scheduler, player-event, and UI runtime ports directly, while
+    `ProfileSwitchCleanupController` consumes the grouped scheduler/playback
+    ports it needs. Preserved priority-one seams still carry owner value:
+    `PriorityOneAssemblyBuilder` keeps null-safe optional surface adaptation,
+    delayed channel-badge synchronization, recoverable transcode-stop error
+    reporting, UI side-effect aggregation, event cleanup reporting, and
+    lifecycle/event wiring; event-binder shaping and controller construction
+    order remain in the priority-one owner.
+- Closeout commits before checklist closeout: `f9d16061` (plan), `ddc49e95`
+  (`FCP-14-S1` implementation), and `fd74c705` (plan conformance).
+- Review evidence:
+  - Plan review: fresh tracked reviewer reported no material findings and
+    approved `ready_now_execution_unit` / `ready_now_slice` as `FCP-14-S1`.
+  - `FCP-14-S1`: fresh implementation reviewer reported no material findings
+    and approved the execution unit for package closeout.
+- Handoff: `FCP-14` is closed. The next safe package is `FCP-15`; do not start
+  `FCP-16` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
+  until `FCP-15` has clean closeout evidence.
 
-### [ ] `FCP-15` PlexAuth Home, Profile, And Status Helper Boundary
+### [x] `FCP-15` PlexAuth Home, Profile, And Status Helper Boundary
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-15-plexauth-home-profile-status-helper-boundary-plan.md`
 - Dimensions/rubric tags: Plex integration, authorization consistency, contract
   coherence, error consistency, persistence ownership
 - Scope owner: Plex auth Home endpoint/status/profile-switch owner
@@ -1010,7 +1097,7 @@ future source-backed replan explicitly reopens one.
   and initialization/profile-switch tests, source audits for credential/token
   behavior preservation, `npm run typecheck`, `git diff --check`, then
   `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1021,15 +1108,39 @@ future source-backed replan explicitly reopens one.
   persistence schema/key, or event behavior must change; stream/discovery/library
   code must change; fallback order or error taxonomy changes without an explicit
   contract decision.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start only after `FCP-14` closeout. Keep this package auth-local.
+- Last touched: 2026-05-05
+- Verification: pre/post source audits for `FCP-15-SF1`; `npm test -- PlexAuth
+  plexHomeEndpointClient`; `npm test -- plexHomeProfileClient`; `npm test --
+  InitializationStartupPolicy InitializationCoordinator`; `npm run typecheck`;
+  `git diff --check`; `npm run plans:check`; `npm run verify:docs`; and final
+  `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-15-SF1`: resolved. `PlexAuth` no longer owns Plex Home endpoint
+    fallback loops, Home status classification, switch URL/PIN construction,
+    unsupported switch mapping, or wrong-PIN status coordination directly.
+    `plexHomeProfileClient.ts` now owns those auth-local Home/profile request
+    and status responsibilities. `PlexAuth` remains the owner for credential
+    state, credential epoch protection, `lineup_plex_auth` persistence,
+    corruption handling, token validation, PIN flow, active/account token
+    selection, selected-server map preservation, and `authChange` /
+    `profileChange` event emission.
+- Closeout commits before checklist closeout: `3c92127a` (`FCP-15-S1`
+  implementation).
+- Review evidence:
+  - Plan review: fresh tracked reviewer reported no blocking findings and
+    approved `ready_now_execution_unit` / `ready_now_slice` as `FCP-15-S1`.
+  - `FCP-15-S1`: fresh implementation reviewer reported no material findings
+    and approved the execution unit for package closeout.
+- Handoff: `FCP-15` is closed. The next safe package is `FCP-16`; do not start
+  `FCP-17` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
+  until `FCP-16` has clean closeout evidence.
 
-### [ ] `FCP-16` Scheduler Current-Channel And ChannelManager Persistence Semantics
+### [x] `FCP-16` Scheduler Current-Channel And ChannelManager Persistence Semantics
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-16-scheduler-current-channel-channelmanager-persistence-semantics-plan.md`
 - Dimensions/rubric tags: persistence ownership, contract coherence, API
   surface coherence, scheduler design, test strategy
 - Scope owner: scheduler/channel-manager persistence semantics owner
@@ -1069,7 +1180,7 @@ future source-backed replan explicitly reopens one.
   current-channel persistence symbols, targeted channel-manager persistence and
   facade tests, source audits for storage schema/key preservation,
   `npm run typecheck`, `git diff --check`, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1081,11 +1192,44 @@ future source-backed replan explicitly reopens one.
   needed; public channel API widens; non-persistence ChannelManager concerns
   become necessary; ContentResolver changes are required; tests need private
   probing instead of public seam proof.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start only after `FCP-15` closeout. Keep ContentResolver out of this
-  package.
+- Last touched: 2026-05-05
+- Verification: pre/post source audits for `FCP-16-SF1`; source-backed no-code
+  disposition audit for `FCP-16-SF2`; package-local storage key/schema and
+  current-channel call audits; `npm test -- ChannelPersistenceStore
+  ChannelRepository ChannelManager.persistence ChannelManager.transactional`;
+  `npm test -- ChannelManager ChannelTuningCoordinator
+  OrchestratorChannelSwitchRuntime`; `npm run typecheck`; `git diff --check`;
+  `npm run plans:check`; `npm run verify:docs`; and final `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-16-SF1`: resolved. `ChannelPersistenceCoordinator` no longer exposes
+    duplicate strict and best-effort current-channel persistence methods with
+    identical swallow/warn semantics. The public current-channel path is
+    explicitly best-effort through `persistCurrentChannelIdBestEffort()`;
+    `ChannelManager.setCurrentChannel()` preserves the public facade behavior
+    of updating in-memory current channel, emitting `channelSwitch`, and
+    emitting the existing persistence warning without throwing when the
+    separate current-channel write fails. Storage keys, scoped server/user key
+    formats, and `StoredChannelData` schema were source-audited unchanged.
+  - `FCP-16-SF2`: resolved as source-justified no-code after `FCP-16-S1`.
+    Current source no longer concentrates current-channel persistence semantics
+    in `ChannelManager` beyond public facade wiring. `ChannelManager` remains
+    the single final owner of public facade exposure, delegating persistence
+    coordination to `ChannelPersistenceCoordinator`; no package-local owner
+    extraction, public API widening, or broader `ChannelManager` decomposition
+    was needed.
+- Closeout commits before checklist closeout: `d74f88c3` (`FCP-16-S1`
+  implementation).
+- Review evidence:
+  - Plan review: fresh tracked reviewer reported no blocking findings and
+    approved `ready_now_execution_unit` / `ready_now_slice` as `FCP-16-S1`.
+  - `FCP-16-S1`: fresh implementation reviewer reported no material findings
+    and approved the execution unit for next-unit selection.
+  - `FCP-16-S2`: fresh implementation reviewer reported no material findings
+    and approved the source-justified no-code disposition for package closeout.
+- Handoff: `FCP-16` is closed. The next safe package is `FCP-17`; do not start
+  `FCP-18` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
+  until `FCP-17` has clean closeout evidence.
 
 ### [ ] `FCP-17` ContentResolver Cache, Coalescing, And Mapping Boundaries
 

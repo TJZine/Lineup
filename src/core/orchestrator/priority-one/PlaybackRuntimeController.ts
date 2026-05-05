@@ -1,9 +1,16 @@
-import type { AppError } from '../../../modules/lifecycle';
 import {
     type PlaybackError,
     type PlaybackState,
     type TimeRange,
 } from '../../../modules/player';
+import { summarizeErrorForLog } from '../../../utils/errors';
+import type {
+    PriorityOnePlaybackRuntimePort,
+    PriorityOnePlayerEventPort,
+    PriorityOneSchedulerRuntimePort,
+    PriorityOneUiRuntimePort,
+    RecoverableAsyncFailureReporter,
+} from '../runtime/OrchestratorRuntimeSeams';
 
 type PlayerTimeUpdatePayload = {
     currentTimeMs: number;
@@ -16,24 +23,15 @@ type PlayerBufferUpdatePayload = {
 };
 
 export interface PlaybackRuntimeControllerDeps {
-    isStreamRecoveryInProgress(): boolean;
-    getActiveTranscodeSessionId(): string | null;
-    stopTranscodeSession(sessionId: string): void;
-    skipToNextProgram(): void;
-    pausePlayer(): void;
-    playPlayer(): Promise<void>;
-    pauseSchedulerSync(): void;
-    resumeSchedulerSync(): void;
-    syncSchedulerToCurrentTime(): void;
+    playback: PriorityOnePlaybackRuntimePort;
+    schedulerRuntime: PriorityOneSchedulerRuntimePort;
+    playerEvents: PriorityOnePlayerEventPort;
+    uiRuntime: Pick<
+        PriorityOneUiRuntimePort,
+        'handleGlobalError' | 'showInfoBanner'
+    >;
     saveLifecycleState(): Promise<void>;
-    handleGlobalError(error: AppError, context: string): void;
-    handlePlaybackFailure(context: string, error: unknown): void;
-    onPlayerStateChange(state: PlaybackState): void;
-    shouldAutoShowInfoBannerOnNextPlay(): boolean;
-    clearAutoShowInfoBannerOnNextPlay(): void;
-    showInfoBanner(): void;
-    onPlayerTimeUpdate(payload: PlayerTimeUpdatePayload): void;
-    onPlayerBufferUpdate(payload: PlayerBufferUpdatePayload): void;
+    reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter;
 }
 
 export interface OverlayReadinessSnapshot {
@@ -51,6 +49,15 @@ export class PlaybackRuntimeController {
     };
 
     constructor(private readonly _deps: PlaybackRuntimeControllerDeps) {}
+
+    private _getActiveTranscodeSessionId(): string | null {
+        const decision = this._deps.playback.playbackState.getCurrentStreamDecision();
+        if (!decision || !decision.isTranscoding || !decision.sessionId) {
+            return null;
+        }
+
+        return decision.sessionId;
+    }
 
     public trackProgramStart(promise: Promise<void>): Promise<void> {
         this._lastProgramStartPromise = promise;
@@ -85,16 +92,16 @@ export class PlaybackRuntimeController {
     }
 
     public async handleLifecyclePause(): Promise<void> {
-        this._deps.pausePlayer();
-        this._deps.pauseSchedulerSync();
+        this._deps.playback.pausePlayer();
+        this._deps.schedulerRuntime.pauseSchedulerSync();
         await this._deps.saveLifecycleState();
     }
 
     public async handleLifecycleResume(): Promise<void> {
         const lastProgramStartBefore = this._lastProgramStartPromise;
 
-        this._deps.resumeSchedulerSync();
-        this._deps.syncSchedulerToCurrentTime();
+        this._deps.schedulerRuntime.resumeSchedulerSync();
+        this._deps.schedulerRuntime.syncSchedulerToCurrentTime();
 
         const lastProgramStartAfter = this._lastProgramStartPromise;
 
@@ -106,21 +113,21 @@ export class PlaybackRuntimeController {
             return;
         }
 
-        await this._deps.playPlayer();
+        await this._deps.playback.playPlayer();
     }
 
     public handlePlayerEnded(): void {
-        if (this._deps.isStreamRecoveryInProgress()) {
+        if (this._deps.playback.playbackRecovery.isStreamRecoveryInProgress()) {
             return;
         }
 
         this.stopActiveTranscodeSession();
-        this._deps.skipToNextProgram();
+        this._deps.playback.skipToNextProgram();
     }
 
     public handlePlaybackError(error: PlaybackError): void {
         if (error.recoverable) {
-            this._deps.handleGlobalError(
+            this._deps.uiRuntime.handleGlobalError(
                 {
                     code: error.code,
                     message: error.message,
@@ -131,11 +138,37 @@ export class PlaybackRuntimeController {
             return;
         }
 
-        this._deps.handlePlaybackFailure('video-player', error);
+        const playbackRecovery = this._deps.playback.playbackRecovery;
+        if (playbackRecovery.handlePlaybackFailure) {
+            try {
+                playbackRecovery.handlePlaybackFailure('video-player', error);
+                return;
+            } catch (handlerError: unknown) {
+                this._deps.reportRecoverableAsyncFailure(
+                    'orchestrator.playbackRecovery.handlePlaybackFailure',
+                    'Playback recovery failure handler threw',
+                    handlerError,
+                    {
+                        context: 'video-player',
+                        playbackError: summarizeErrorForLog(error),
+                    }
+                );
+                // Fall through so fatal playback errors still reach the UI error surface.
+            }
+        }
+
+        this._deps.uiRuntime.handleGlobalError(
+            {
+                code: error.code,
+                message: error.message,
+                recoverable: false,
+            },
+            'video-player'
+        );
     }
 
     public handlePlayerStateChange(state: PlaybackState): void {
-        this._deps.onPlayerStateChange(state);
+        this._deps.playerEvents.onPlayerStateChange(state);
 
         if (state.status === 'playing' && this._overlayReadiness.pendingReason !== 'none') {
             this._overlayReadiness.pendingReason = 'none';
@@ -145,27 +178,27 @@ export class PlaybackRuntimeController {
 
         if (
             state.status === 'playing' &&
-            this._deps.shouldAutoShowInfoBannerOnNextPlay()
+            this._deps.playback.playbackState.getShouldAutoShowInfoBannerOnNextPlay()
         ) {
-            this._deps.clearAutoShowInfoBannerOnNextPlay();
-            this._deps.showInfoBanner();
+            this._deps.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay(false);
+            this._deps.uiRuntime.showInfoBanner();
         }
     }
 
     public handlePlayerTimeUpdate(payload: PlayerTimeUpdatePayload): void {
-        this._deps.onPlayerTimeUpdate(payload);
+        this._deps.playerEvents.onPlayerTimeUpdate(payload);
     }
 
     public handlePlayerBufferUpdate(payload: PlayerBufferUpdatePayload): void {
-        this._deps.onPlayerBufferUpdate(payload);
+        this._deps.playerEvents.onPlayerBufferUpdate(payload);
     }
 
     public stopActiveTranscodeSession(): void {
-        const sessionId = this._deps.getActiveTranscodeSessionId();
+        const sessionId = this._getActiveTranscodeSessionId();
         if (!sessionId) {
             return;
         }
 
-        this._deps.stopTranscodeSession(sessionId);
+        this._deps.playback.stopTranscodeSessionById(sessionId);
     }
 }

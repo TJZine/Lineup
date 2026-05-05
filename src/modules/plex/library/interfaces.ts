@@ -24,9 +24,6 @@ export interface PlexTagDirectoryQueryOptions {
 }
 
 /**
- * Plex Library Interface.
- * Provides access to Plex media libraries and content.
- *
  * Semantic absence is represented by `null` or an empty array only for real
  * not-found or empty-success outcomes. Malformed payloads, timeouts, and
  * server failures must reject with `PlexLibraryError`.
@@ -95,56 +92,26 @@ export interface IPlexLibrary {
 
     getPlaylistItems(playlistKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]>;
 
-    /**
-     * Get actors for a library section (tag directory).
-     * @param libraryId - Library section ID
-     * @param options - Query options (type required)
-     * @returns Promise resolving to list of tag directory entries
-     */
     getActors(
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
-    /**
-     * Get studios for a library section (tag directory).
-     * @param libraryId - Library section ID
-     * @param options - Query options (type required)
-     * @returns Promise resolving to list of tag directory entries
-     */
     getStudios(
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
-    /**
-     * Get genres for a library section (tag directory).
-     * @param libraryId - Library section ID
-     * @param options - Query options (type required)
-     * @returns Promise resolving to list of tag directory entries
-     */
     getGenres(
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
-    /**
-     * Get directors for a library section (tag directory).
-     * @param libraryId - Library section ID
-     * @param options - Query options (type required)
-     * @returns Promise resolving to list of tag directory entries
-     */
     getDirectors(
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
-    /**
-     * Get years for a library section (tag directory).
-     * @param libraryId - Library section ID
-     * @param options - Query options (type required)
-     * @returns Promise resolving to list of tag directory entries
-     */
     getYears(
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
@@ -174,22 +141,13 @@ export interface IPlexLibrary {
 }
 
 export interface PlexLibraryConfig {
-    /**
-     * Function to get auth headers for Plex API requests.
-     * Should return headers including X-Plex-Token when authenticated.
-     */
+    /** Should include X-Plex-Token when authenticated. */
     getAuthHeaders: () => Record<string, string>;
 
-    /**
-     * Function to get the current server URI.
-     * Should return the active Plex server connection URI.
-     */
+    /** Active Plex server connection URI. */
     getServerUri: () => string | null;
 
-    /**
-     * Function to get the current auth token.
-     * Used for appending to image URLs.
-     */
+    /** Used for appending auth to active-server-owned image URLs. */
     getAuthToken: () => string | null;
 
     /**
