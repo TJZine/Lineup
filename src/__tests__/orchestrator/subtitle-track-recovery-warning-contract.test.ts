@@ -168,6 +168,13 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         await flushPromises();
 
         expect(appendIssueDiagnostic).toHaveBeenCalledWith({
+            key: 'orchestrator.subtitleTrackChange.burnInAttempt',
+            data: {
+                trackId: 'sub-1',
+                format: 'ass',
+            },
+        });
+        expect(appendIssueDiagnostic).toHaveBeenCalledWith({
             key: 'orchestrator.subtitleTrackChange.burnInFailure',
             data: {
                 trackId: 'sub-1',
@@ -201,8 +208,12 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         const failureDiagnostics = appendIssueDiagnostic.mock.calls.filter(
             ([payload]: [{ key?: string }]) => payload?.key === 'orchestrator.subtitleTrackChange.burnInFailure'
         );
+        const attemptDiagnostics = appendIssueDiagnostic.mock.calls.filter(
+            ([payload]: [{ key?: string }]) => payload?.key === 'orchestrator.subtitleTrackChange.burnInAttempt'
+        );
 
         expect(failureDiagnostics).toHaveLength(0);
+        expect(attemptDiagnostics).toHaveLength(0);
     });
 
     it('does not record burn-in attempt diagnostics when playback recovery is unavailable', async () => {
@@ -260,6 +271,13 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
         controller.handleTrackChange({ type: 'subtitle', trackId: 'sub-1' });
         await flushPromises();
 
+        expect(appendIssueDiagnostic).toHaveBeenCalledWith({
+            key: 'orchestrator.subtitleTrackChange.burnInAttempt',
+            data: {
+                trackId: 'sub-1',
+                format: 'ass',
+            },
+        });
         expect(appendIssueDiagnostic).toHaveBeenCalledWith({
             key: 'orchestrator.subtitleTrackChange.burnInFailure',
             data: {

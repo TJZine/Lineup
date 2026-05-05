@@ -9,7 +9,6 @@ import type { IPlexLibrary } from '../../../modules/plex/library';
 import type { ChannelBuildProgress, ChannelBuildSummary, ChannelSetupConfig } from '../types';
 import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetupPlanningTypes';
 import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
-import { isSignalAborted } from '../shared/utils';
 import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';
 
 type BuildProgressReporter = (
@@ -166,7 +165,7 @@ export class ChannelSetupBuildCommitter {
                 }
                 summary.created++;
             } catch (error) {
-                if (isSignalAborted(signal ?? undefined)) {
+                if (checkCanceled()) {
                     summary.skipped = computeSkipped();
                     summary.reachedMaxChannels = reachedMax;
                     summary.canceled = true;
