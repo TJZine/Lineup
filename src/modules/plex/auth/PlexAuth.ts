@@ -435,8 +435,7 @@ export class PlexAuth implements IPlexAuth {
                     response.status,
                     response.status >= 500
                 );
-                nextEndpointIndex = endpointIndex + 1;
-                continue;
+                break;
             }
 
             const payload = await readPlexResponse(response);
@@ -520,7 +519,6 @@ export class PlexAuth implements IPlexAuth {
                     break;
                 }
 
-                const endpointIndex = nextEndpointIndex + result.endpointIndex;
                 response = result.response;
 
                 if (response.status === 401) {
@@ -581,8 +579,7 @@ export class PlexAuth implements IPlexAuth {
                         response.status >= 500
                     );
                     response = null;
-                    nextEndpointIndex = endpointIndex + 1;
-                    continue;
+                    break;
                 }
 
                 break;
