@@ -90,6 +90,7 @@ describe('PlexHomeProfileClient', () => {
         });
 
         expect(validateAccountToken).toHaveBeenCalledWith('account-token');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(String(fetchMock.mock.calls[0]![0])).toBe('https://plex.tv/api/v2/home/users/kid/switch?pin=1234');
     });
 

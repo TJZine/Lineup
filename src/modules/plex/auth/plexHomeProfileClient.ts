@@ -129,25 +129,21 @@ export class PlexHomeProfileClient {
 
         let lastError: PlexApiError | null = null;
         let response: Response | null = null;
-        let nextEndpointIndex = 0;
+        let pinValidationFailure: unknown = null;
         const init: RequestInit = {
             method: 'POST',
             headers,
         };
 
-        while (nextEndpointIndex < endpoints.length) {
-            let pinValidationFailure: unknown = null;
-            try {
-                const result = await requestFirstSupportedHomeEndpoint(
-                    endpoints.slice(nextEndpointIndex),
-                    init,
-                    options.signal ?? null
-                );
-                if (result.kind === 'unsupported') {
-                    response = null;
-                    break;
-                }
-
+        try {
+            const result = await requestFirstSupportedHomeEndpoint(
+                endpoints,
+                init,
+                options.signal ?? null
+            );
+            if (result.kind === 'unsupported') {
+                response = null;
+            } else {
                 response = result.response;
 
                 if (response.status === 401 || response.status === 403) {
@@ -176,38 +172,32 @@ export class PlexHomeProfileClient {
                         response.status >= 500
                     );
                     response = null;
-                    break;
+                }
+            }
+        } catch (error) {
+            if (options.signal?.aborted) {
+                throw error;
+            }
+            if (error === pinValidationFailure) {
+                throw error;
+            }
+            if (error instanceof PlexApiError) {
+                if (
+                    error.code === AppErrorCode.AUTH_REQUIRED ||
+                    error.code === AppErrorCode.AUTH_INVALID ||
+                    error.code === AppErrorCode.AUTH_FAILED ||
+                    error.code === AppErrorCode.PARSE_ERROR ||
+                    error.code === AppErrorCode.RATE_LIMITED
+                ) {
+                    throw error;
                 }
 
-                break;
-            } catch (error) {
-                if (options.signal?.aborted) {
-                    throw error;
-                }
-                if (error === pinValidationFailure) {
-                    throw error;
-                }
-                if (error instanceof PlexApiError) {
-                    if (
-                        error.code === AppErrorCode.AUTH_REQUIRED ||
-                        error.code === AppErrorCode.AUTH_INVALID ||
-                        error.code === AppErrorCode.AUTH_FAILED ||
-                        error.code === AppErrorCode.PARSE_ERROR ||
-                        error.code === AppErrorCode.RATE_LIMITED
-                    ) {
-                        throw error;
-                    }
-                }
-                if (error instanceof PlexApiError) {
-                    lastError = error;
-                    break;
-                } else {
-                    lastError = createPlexHomeNetworkError(
-                        'Failed to switch Plex Home user',
-                        error
-                    );
-                    break;
-                }
+                lastError = error;
+            } else {
+                lastError = createPlexHomeNetworkError(
+                    'Failed to switch Plex Home user',
+                    error
+                );
             }
         }
 
