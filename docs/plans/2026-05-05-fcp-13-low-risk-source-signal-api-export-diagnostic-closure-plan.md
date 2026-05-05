@@ -1,4 +1,4 @@
-**Plan Status:** active
+**Plan Status:** completed
 **Task family:** cleanup/refactor
 **Cleanup subtype:** checklist-linked
 
