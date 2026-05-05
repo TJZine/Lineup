@@ -1136,10 +1136,11 @@ future source-backed replan explicitly reopens one.
   `FCP-17` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
   until `FCP-16` has clean closeout evidence.
 
-### [ ] `FCP-16` Scheduler Current-Channel And ChannelManager Persistence Semantics
+### [x] `FCP-16` Scheduler Current-Channel And ChannelManager Persistence Semantics
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-16-scheduler-current-channel-channelmanager-persistence-semantics-plan.md`
 - Dimensions/rubric tags: persistence ownership, contract coherence, API
   surface coherence, scheduler design, test strategy
 - Scope owner: scheduler/channel-manager persistence semantics owner
@@ -1179,7 +1180,7 @@ future source-backed replan explicitly reopens one.
   current-channel persistence symbols, targeted channel-manager persistence and
   facade tests, source audits for storage schema/key preservation,
   `npm run typecheck`, `git diff --check`, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1191,11 +1192,44 @@ future source-backed replan explicitly reopens one.
   needed; public channel API widens; non-persistence ChannelManager concerns
   become necessary; ContentResolver changes are required; tests need private
   probing instead of public seam proof.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start only after `FCP-15` closeout. Keep ContentResolver out of this
-  package.
+- Last touched: 2026-05-05
+- Verification: pre/post source audits for `FCP-16-SF1`; source-backed no-code
+  disposition audit for `FCP-16-SF2`; package-local storage key/schema and
+  current-channel call audits; `npm test -- ChannelPersistenceStore
+  ChannelRepository ChannelManager.persistence ChannelManager.transactional`;
+  `npm test -- ChannelManager ChannelTuningCoordinator
+  OrchestratorChannelSwitchRuntime`; `npm run typecheck`; `git diff --check`;
+  `npm run plans:check`; `npm run verify:docs`; and final `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-16-SF1`: resolved. `ChannelPersistenceCoordinator` no longer exposes
+    duplicate strict and best-effort current-channel persistence methods with
+    identical swallow/warn semantics. The public current-channel path is
+    explicitly best-effort through `persistCurrentChannelIdBestEffort()`;
+    `ChannelManager.setCurrentChannel()` preserves the public facade behavior
+    of updating in-memory current channel, emitting `channelSwitch`, and
+    emitting the existing persistence warning without throwing when the
+    separate current-channel write fails. Storage keys, scoped server/user key
+    formats, and `StoredChannelData` schema were source-audited unchanged.
+  - `FCP-16-SF2`: resolved as source-justified no-code after `FCP-16-S1`.
+    Current source no longer concentrates current-channel persistence semantics
+    in `ChannelManager` beyond public facade wiring. `ChannelManager` remains
+    the single final owner of public facade exposure, delegating persistence
+    coordination to `ChannelPersistenceCoordinator`; no package-local owner
+    extraction, public API widening, or broader `ChannelManager` decomposition
+    was needed.
+- Closeout commits before checklist closeout: `d74f88c3` (`FCP-16-S1`
+  implementation).
+- Review evidence:
+  - Plan review: fresh tracked reviewer reported no blocking findings and
+    approved `ready_now_execution_unit` / `ready_now_slice` as `FCP-16-S1`.
+  - `FCP-16-S1`: fresh implementation reviewer reported no material findings
+    and approved the execution unit for next-unit selection.
+  - `FCP-16-S2`: fresh implementation reviewer reported no material findings
+    and approved the source-justified no-code disposition for package closeout.
+- Handoff: `FCP-16` is closed. The next safe package is `FCP-17`; do not start
+  `FCP-18` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
+  until `FCP-17` has clean closeout evidence.
 
 ### [ ] `FCP-17` ContentResolver Cache, Coalescing, And Mapping Boundaries
 
