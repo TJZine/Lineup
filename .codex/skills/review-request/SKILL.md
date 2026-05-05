@@ -93,6 +93,20 @@ Ask the reviewer to:
 
 Do not ask the reviewer to rewrite the work unless the task is explicitly a planning or docs review.
 
+## Defect Checklist
+
+For every review, explicitly scan for:
+
+- correctness bugs and behavioral regressions
+- security, privacy, data-loss, or persistence risks
+- architecture ownership drift, boundary leakage, hotspot growth, and new coupling
+- maintainability issues: misleading names, dead code, debug leftovers, unnecessary indirection, premature abstraction, harmful duplication
+- performance, async, lifecycle, cleanup, and resource-leak risks
+- missing or weak tests, brittle tests, and insufficient verification
+- UX, accessibility, focus, and motion regressions when UI is touched
+- docs, checklist, plan, workflow, or generated artifact drift
+- diff hygiene: unrelated changes, local-only artifacts, stale paths, and scope creep
+
 ## After Review
 
 Use `review-adjudication` before implementing findings:
