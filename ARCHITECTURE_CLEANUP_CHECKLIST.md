@@ -10,22 +10,22 @@ should not drive the next cleanup task by default.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P13, FCP-1 through FCP-20, DCR-1 through DCR-16,
+- Current execution state: P0-P13, FCP-1 through FCP-21, DCR-1 through DCR-16,
   and DCR-EXIT are complete baseline evidence. The old P14 wave ledger is
   superseded for current decision-making because repeated residual waves did
   not create meaningful score progress and kept expanding the active control
   plane. Fresh post-FCP verification and the retrospective subjective review
   are rubric context only, not active package intake or closeout proof.
-- Next safe start: `FCP-21` is the first final port-foundation cleanup package.
-  `FCP-22` through `FCP-25`, Windows port work, or other post-FCP cleanup may
+- Next safe start: `FCP-22` is the next final port-foundation cleanup package.
+  `FCP-23` through `FCP-25`, Windows port work, or other post-FCP cleanup may
   start only after the preceding FCP package has clean closeout evidence. No
   separate `FCP-EXIT` is part of the normal future queue; legacy `FCP-EXIT`
   remains retired unless a maintainer explicitly reopens it.
 - Preferred launcher: `cleanup-loop` for approved checklist-linked Tier 3
   cleanup packages. `FCP-25` is a final review gate intended for a
   `lineup-cleanup-review` agent.
-- Active program: `Final Cleanup Pass` (`FCP-21` through `FCP-25`) below. The
-  completed `FCP-7` through `FCP-20`, DCR, and historical FCP records are
+- Active program: `Final Cleanup Pass` (`FCP-22` through `FCP-25`) below. The
+  completed `FCP-7` through `FCP-21`, DCR, and historical FCP records are
   retained baseline evidence, not the next task queue.
 - Desloppify role: rubric input and retrospective final-gate refresh only. The
   active FCP packages below are admitted by maintainer judgment from
@@ -197,12 +197,12 @@ current evidence.
 
 ## Final Cleanup Pass
 
-The `FCP-7` through `FCP-20` packages are completed baseline evidence before
-Windows port-foundation work. Fresh post-FCP verification and retrospective
-subjective review remain rubric context only; they are not issue intake,
-package membership, proof of closure, or wave sequencing. The active packages
-below were admitted as maintainer-approved source-audit themes and use only
-local `source_finding_id` coverage.
+The `FCP-7` through `FCP-21` packages are completed baseline evidence before
+remaining Windows port-foundation work. Fresh post-FCP verification and
+retrospective subjective review remain rubric context only; they are not issue
+intake, package membership, proof of closure, or wave sequencing. The remaining
+active packages below were admitted as maintainer-approved source-audit themes
+and use only local `source_finding_id` coverage.
 
 The final port-foundation pass starts at `FCP-21`. It replaces no completed
 evidence; it reshapes the active queue into larger runtime, scheduler, UI,
@@ -277,7 +277,7 @@ proof, a local `source_finding_id`, one owner seam, and a reviewed plan.
 | `FCP-9` | Source-signal and convention cleanup: now-playing stylesheet seam, architecture docs path/truth updates, redundant selected comments pruned, and native facet planning moved to descriptor-driven structure. | Plan `docs/plans/2026-05-02-fcp-9-source-signal-convention-local-elegance-plan.md`; style/import audits, runtime token style contracts, CSS lint, targeted channel setup tests, `npm run plans:check`, `npm run verify:docs`, `npm run typecheck`, `git diff --check`, and final `npm run verify` passed; no follow-ups recorded. |
 | `FCP-10` | EPG renderer direct confidence and presentation decomposition: `EPGCellPresentation.ts` owns text/layout/presentation policy, `EPGCellRenderer.ts` stays the DOM adapter, and direct tests cover width tiers, slivers, focused layouts, live/progress, and ticker timing. | Plan `docs/plans/2026-05-02-fcp-10-epg-renderer-direct-confidence-presentation-decomposition-plan.md`; commits `2cc71d56` and `37b0871f`; `EPGCellRenderer` and `EPGVirtualizer` tests, source audits, `npm run typecheck`, `git diff --check`, and `npm run verify` passed; clean implementation reviews closed. |
 | `FCP-11` | Runtime owner hotspot reduction: server-select runtime/focus/status owners, channel setup session/focus/dropdown/build-step owners, ChannelManager authoring/import/persistence/cache/retry owners, and priority-one forwarding collapse with owner-value seams preserved. | Plan `docs/plans/2026-05-02-fcp-11-runtime-owner-reduction-hotspots-plan.md`; proof commits `d56a13ca`, `aefbbfd0`, `606ad0ae`, `42d93a9d`, `6ed9d0c6`, `f02cc0a1`, and `51c60d02`; targeted slice tests, `npm run typecheck`, `npm run verify:architecture`, `git diff --check`, final `npm run verify`, and `npm run verify:docs` passed; no follow-ups recorded. |
-| `FCP-12` | Package organization and reconciliation: app-shell and orchestrator moved into focused owner folders with no root barrels/shims, architecture docs updated, and `FCP-7` through `FCP-12` source findings reconciled. | Plan `docs/plans/2026-05-02-fcp-12-package-organization-structure-navigation-final-exit-plan.md`; commits `bf87a345` and `0a1c64af` plus closeout; old/replacement folder audits, no-barrel/no-shim audits, `npm run plans:check`, `npm run verify:docs`, `npm run typecheck`, `git diff --check`, and final `npm run verify` passed; current next safe start is `FCP-21`. |
+| `FCP-12` | Package organization and reconciliation: app-shell and orchestrator moved into focused owner folders with no root barrels/shims, architecture docs updated, and `FCP-7` through `FCP-12` source findings reconciled. | Plan `docs/plans/2026-05-02-fcp-12-package-organization-structure-navigation-final-exit-plan.md`; commits `bf87a345` and `0a1c64af` plus closeout; old/replacement folder audits, no-barrel/no-shim audits, `npm run plans:check`, `npm run verify:docs`, `npm run typecheck`, `git diff --check`, and final `npm run verify` passed; historical closeout pointed to `FCP-13`. |
 
 Important `FCP-7` through `FCP-12` baseline facts retained for future audits:
 
@@ -292,17 +292,18 @@ Important `FCP-7` through `FCP-12` baseline facts retained for future audits:
   are baseline proof for any later EPG cleanup.
 - Runtime owner reductions from `FCP-11` and package organization from
   `FCP-12` should not be reopened by size or folder preference alone.
-- `FCP-12` historical closeout pointed to `FCP-13`; that queue is now completed
-  and compacted below. Current next safe start is `FCP-21`.
+- `FCP-12` historical closeout pointed to `FCP-13`; `FCP-13` through
+  `FCP-21` are now completed and compacted below. Current next safe start is
+  `FCP-22`.
 
 ### FCP-13 Through FCP-20 Completed Baseline Summary
 
 The previous active queue is complete and compacted here because several of its
 late packages were too small for cleanup-loop planning overhead. These records
 remain closeout evidence and port-readiness baseline context; they are not live
-checklist membership for `FCP-21` through `FCP-25` unless the new package source
-audit proves a current residual. Local `source_finding_id` coverage remains the
-only accepted package-membership language.
+checklist membership for remaining `FCP-22` through `FCP-25` work unless the
+new package source audit proves a current residual. Local `source_finding_id`
+coverage remains the only accepted package-membership language.
 
 | Package | Completed baseline evidence | Closeout proof retained |
 | --- | --- | --- |
@@ -315,9 +316,9 @@ only accepted package-membership language.
 | `FCP-19` | Plex stream package behavior-neutral organization into focused current-owner folders with public seam preserved and no playback, token/redaction, auth, subtitle, diagnostic, URL-policy, shim, barrel, or export widening changes. | Plan `docs/plans/2026-05-05-fcp-19-behavior-neutral-plex-stream-package-organization-plan.md`; commit `9504a3bd`; old/replacement path audits, Plex stream/policy/HDR/session/error/fetch/docs tests, API/architecture/subtitle path-truth updates, `npm run plans:check`, `npm run verify:docs`, `git diff --check`, and `npm run verify` passed; review follow-ups closed. |
 | `FCP-20` | Pre-Windows cleanup exit reconciled `FCP-13` through `FCP-19`, reran source/`rg` audits, recorded no active residuals, and kept the ChannelSetupScreen candidate deferred outside `FCP-20` coverage. | Plan `docs/plans/2026-05-05-fcp-20-pre-windows-cleanup-exit-source-reconciliation-plan.md`; source-finding proof matrix and residual owner ledger recorded; `npm run plans:check`, `npm run verify:docs`, `git diff --check -- ARCHITECTURE_CLEANUP_CHECKLIST.md`, and `npm run verify` passed; final review approved closeout. |
 
-Baseline carry-forward into `FCP-21` through `FCP-25`:
+Baseline carry-forward into `FCP-22` through `FCP-25`:
 
-- `FCP-13` through `FCP-20` are complete. New active packages may only reopen
+- `FCP-13` through `FCP-21` are complete. New active packages may only reopen
   current-source residuals, source-disproved baseline gaps, or port-readiness
   contract gaps that fit their owner seam.
 - The old deferred ChannelSetupScreen candidate is absorbed into active
@@ -330,10 +331,10 @@ Baseline carry-forward into `FCP-21` through `FCP-25`:
 - Raw Desloppify, detector, review, or external issue ids remain invalid as
   checklist membership. Use only package-local `source_finding_id` coverage.
 
-### [ ] `FCP-21` Port Runtime, Playback, And Plex Auth Readiness
+### [x] `FCP-21` Port Runtime, Playback, And Plex Auth Readiness
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-05-fcp-21-port-runtime-playback-plex-auth-readiness-plan.md`
 - Dimensions/rubric tags: runtime contracts, playback portability, Plex
   integration, authorization consistency, API surface coherence, test strategy,
   cross-module architecture
@@ -392,7 +393,9 @@ Baseline carry-forward into `FCP-21` through `FCP-25`:
   playback/Plex/orchestrator tests; `npm run typecheck`; `git diff --check`;
   `npm run verify`; `npm run plans:check` and `npm run verify:docs` when a
   tracked plan or docs change.
-- Ready-now execution unit: none until plan is written.
+- Completed execution unit: `FCP-21-W1` (`FCP-21-S1`, `FCP-21-S2`,
+  `FCP-21-S3`), with `FCP-21-S4` and `FCP-21-S5` closed as no-code
+  source-disproved dispositions.
 - Suggested slice/wave table:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -409,12 +412,28 @@ Baseline carry-forward into `FCP-21` through `FCP-25`:
   UI workflow, or package-organization work; direct tests require private
   probing instead of public seam proof; completed `FCP-14` or `FCP-15` evidence
   appears source-false.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: next safe start. A planner must write and review an execution-grade
-  plan before any worker begins implementation; the first ready-now unit remains
-  none until that plan selects a coherent wave.
+- Closeout proof matrix:
+
+  | Source finding | Disposition | Proof |
+  | --- | --- | --- |
+  | `FCP-21-SF1` | resolved | `IVideoPlayer` now states the existing async reject/resolve/event-reporting contract; direct `VideoPlayer` / `VideoPlayerEvents` tests cover playback rejection and seek behavior without runtime behavior changes. |
+  | `FCP-21-SF2` | resolved | `UniversalTranscodeDecisionClient` has direct constructor-seam tests for request conversion, decision URL conversion with existing query preservation, auth failure passthrough, non-ok handling, timeout, and XML/fallback parsing. |
+  | `FCP-21-SF3` | resolved | `src/modules/plex/shared/plexUrl.ts` owns reusable `X-Plex-Token` header reads and query application; approved Plex/player/discovery/playback-options callers route through the canonical helper without request-shape, redaction, auth, stream URL, or UI behavior changes. |
+  | `FCP-21-SF4` | source-disproved | Priority-one runtime/assembly audit found no distinct live no-value forwarding, contract ambiguity, or ownership residue beyond completed `FCP-14`; no priority-one code was changed. |
+  | `FCP-21-SF5` | source-disproved | PlexAuth Home/profile/status audit found no distinct live auth-local boundary residue beyond completed `FCP-15`; no PlexAuth Home/profile code was changed. |
+
+- Last touched: 2026-05-05
+- Verification: `npm run plans:check` passed; `npm run verify:docs` passed;
+  package source audits for playback async contracts, universal transcode
+  decisions, token/header helpers, priority-one follow-through, and PlexAuth
+  Home/profile follow-through passed; targeted playback/Plex/orchestrator tests
+  passed; `npm run typecheck` passed; `git diff --check` passed; full
+  verification passed (`npm run verify`); final implementation review for
+  commit `646451ad` reported no blocking findings.
+- Follow-ups: none.
+- Handoff: `FCP-22` is the next safe start. Do not start `FCP-23` through
+  `FCP-25`, Windows work, or other post-FCP cleanup until `FCP-22` has its own
+  clean closeout evidence.
 
 ### [ ] `FCP-22` Port Scheduler, Channel, And Content Readiness
 
@@ -493,9 +512,11 @@ Baseline carry-forward into `FCP-21` through `FCP-25`:
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: blocked on `FCP-21` closeout by sequencing. A planner must write and
+- Handoff: next safe start after completed `FCP-21`. A planner must write and
   review an execution-grade plan before implementation; ready-now remains none
-  until that plan selects a coherent wave.
+  until that plan selects a coherent wave. `FCP-23` through `FCP-25`, Windows
+  work, and other post-FCP cleanup remain blocked until `FCP-22` has clean
+  closeout evidence.
 
 ### [ ] `FCP-23` Port UI Workflow Readiness
 
@@ -802,7 +823,7 @@ cleanup-loop packages unless a maintainer explicitly reopens the old baseline.
 | `FCP-4` | AI-generated residue and code signal: scheduler restating comments compressed, invariant comments preserved, and unused `ShuffleResult`/barrel export removed. | Archived plan/audit in git history; commit `f9eca40b`; source audits, scheduler tests, `npm run typecheck`, `npm run verify`, `git diff --check`, `git diff --cached --check`, and `npm run verify:docs` passed; residual comment/API owners recorded. |
 | `FCP-5` | Portability readiness: lifecycle state persistence routed through optional-storage helpers while webOS, browser API, native media, filesystem absence, and Plex token/security assumptions were owner-classified. | Archived plan/audit in git history; commit `2f54311e`; focused `StateManager` tests, raw-storage audit, `npm run typecheck`, `npm run verify`, `npm run verify:docs`, and `git diff --check` passed. Future port owners retain Windows/Electron shell, media, filesystem, and security revisit triggers. |
 | `FCP-6` | Test confidence for the port: `ExitConfirmCoordinator` tests added for modal/accessibility/focus/Cancel/Exit-to-Home/window-close/cleanup behavior; other port-critical paths accepted as existing coverage or future-port proof. | Archived plan/audit in git history; commit `ef09466b`; focused exit-confirm tests, `npm run typecheck`, `npm run verify`, `npm run verify:docs`, and `git diff --check` passed. `FCP-6-SF11` remains future-port test owner work for real Windows/Electron shell, device Plex, native media, and manual integration proof. |
-| `FCP-EXIT` | Legacy exit anchor retired and superseded by completed `DCR-EXIT`, `FCP-12`, and the current `FCP-21` through `FCP-25` active program. | Retained historical anchor only; do not start legacy `FCP-EXIT` without maintainer reopening. |
+| `FCP-EXIT` | Legacy exit anchor retired and superseded by completed `DCR-EXIT`, `FCP-12`, and the current `FCP-22` through `FCP-25` active program. | Retained historical anchor only; do not start legacy `FCP-EXIT` without maintainer reopening. |
 
 ## Not Active Checklist Scope By Default
 
@@ -914,6 +935,6 @@ source cleanup passes and left detailed accounting in
 That ledger is now historical, not active control-plane state. Do not route new
 work through old P14 waves, old focused-review admissions, or old detector issue
 ids by default. Any future work in the same source areas must enter through the
-active `FCP-21` through `FCP-25` packages, or through a maintainer-approved
+active `FCP-22` through `FCP-25` packages, or through a maintainer-approved
 source-backed package after the final port gate closes with a named owner seam,
 proof surface, and reviewed plan.
