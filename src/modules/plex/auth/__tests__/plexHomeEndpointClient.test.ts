@@ -73,6 +73,27 @@ describe('requestFirstSupportedHomeEndpoint', () => {
         expect(fetchSpy).toHaveBeenCalledTimes(2);
     });
 
+    it('returns the last retryable response after trying every retryable endpoint', async () => {
+        const retryableResponse1 = createResponse(500);
+        const retryableResponse2 = createResponse(502);
+        const fetchSpy = jest.spyOn(globalThis, 'fetch')
+            .mockResolvedValueOnce(retryableResponse1)
+            .mockResolvedValueOnce(retryableResponse2);
+
+        const result = await requestFirstSupportedHomeEndpoint(
+            HOME_ENDPOINTS,
+            { method: 'GET' },
+            null
+        );
+
+        expect(result).toEqual({
+            kind: 'response',
+            response: retryableResponse2,
+            endpointIndex: 1,
+        });
+        expect(fetchSpy).toHaveBeenCalledTimes(HOME_ENDPOINTS.length);
+    });
+
     it('returns the later successful response endpoint index after unsupported endpoints', async () => {
         const response = createResponse(200);
         const fetchSpy = jest.spyOn(globalThis, 'fetch')

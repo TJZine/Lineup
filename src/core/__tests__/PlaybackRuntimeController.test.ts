@@ -31,8 +31,50 @@ const makePlaybackState = (
     ...overrides,
 });
 
+const makePlaybackMocks = (
+    callOrder: string[],
+    playbackState = makePlaybackState()
+): jest.Mocked<PlaybackRuntimeControllerDeps['playback']> => ({
+    playbackState,
+    playbackRecovery: {
+        isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(false),
+        handlePlaybackFailure: jest.fn(),
+    },
+    stopPlayback: jest.fn(),
+    unloadCurrentChannel: jest.fn(),
+    stopTranscodeSessionById: jest.fn<void, [string]>((sessionId: string) => {
+        callOrder.push(`stop:${sessionId}`);
+    }),
+    skipToNextProgram: jest.fn<void, []>(() => {
+        callOrder.push('skip');
+    }),
+    pausePlayer: jest.fn<void, []>(() => {
+        callOrder.push('pause-player');
+    }),
+    playPlayer: jest.fn<Promise<void>, []>(async () => {
+        callOrder.push('play-player');
+    }),
+});
+
+const makeSchedulerRuntimeMocks = (
+    callOrder: string[]
+): jest.Mocked<PlaybackRuntimeControllerDeps['schedulerRuntime']> => ({
+    cancelPendingDayRollover: jest.fn(),
+    pauseSchedulerSync: jest.fn<void, []>(() => {
+        callOrder.push('pause-scheduler');
+    }),
+    resumeSchedulerSync: jest.fn<void, []>(() => {
+        callOrder.push('resume-scheduler');
+    }),
+    syncSchedulerToCurrentTime: jest.fn<void, []>(() => {
+        callOrder.push('sync-scheduler');
+    }),
+});
+
 const makeSetup = (
-    overrides: Partial<PlaybackRuntimeControllerDeps> = {}
+    overrides: Partial<PlaybackRuntimeControllerDeps> | ((
+        callOrder: string[]
+    ) => Partial<PlaybackRuntimeControllerDeps>) = {}
 ): {
     controller: PlaybackRuntimeController;
     deps: jest.Mocked<PlaybackRuntimeControllerDeps>;
@@ -40,40 +82,11 @@ const makeSetup = (
 } => {
     const callOrder: string[] = [];
     const playbackState = makePlaybackState();
+    const resolvedOverrides =
+        typeof overrides === 'function' ? overrides(callOrder) : overrides;
     const deps = {
-        playback: {
-            playbackState,
-            playbackRecovery: {
-                isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(false),
-                handlePlaybackFailure: jest.fn(),
-            },
-            stopPlayback: jest.fn(),
-            unloadCurrentChannel: jest.fn(),
-            stopTranscodeSessionById: jest.fn<void, [string]>((sessionId: string) => {
-                callOrder.push(`stop:${sessionId}`);
-            }),
-            skipToNextProgram: jest.fn<void, []>(() => {
-                callOrder.push('skip');
-            }),
-            pausePlayer: jest.fn<void, []>(() => {
-                callOrder.push('pause-player');
-            }),
-            playPlayer: jest.fn<Promise<void>, []>(async () => {
-                callOrder.push('play-player');
-            }),
-        },
-        schedulerRuntime: {
-            cancelPendingDayRollover: jest.fn(),
-            pauseSchedulerSync: jest.fn<void, []>(() => {
-                callOrder.push('pause-scheduler');
-            }),
-            resumeSchedulerSync: jest.fn<void, []>(() => {
-                callOrder.push('resume-scheduler');
-            }),
-            syncSchedulerToCurrentTime: jest.fn<void, []>(() => {
-                callOrder.push('sync-scheduler');
-            }),
-        },
+        playback: makePlaybackMocks(callOrder, playbackState),
+        schedulerRuntime: makeSchedulerRuntimeMocks(callOrder),
         playerEvents: {
             onPlayerStateChange: jest.fn(),
             onPlayerTimeUpdate: jest.fn(),
@@ -86,7 +99,7 @@ const makeSetup = (
         saveLifecycleState: jest.fn<Promise<void>, []>(async () => {
             callOrder.push('save-lifecycle-state');
         }),
-        ...overrides,
+        ...resolvedOverrides,
     } as jest.Mocked<PlaybackRuntimeControllerDeps>;
 
     return {
@@ -98,14 +111,14 @@ const makeSetup = (
 
 describe('PlaybackRuntimeController', () => {
     it('does nothing on ended while stream recovery is in progress', () => {
-        const { controller, deps, callOrder } = makeSetup({
+        const { controller, deps, callOrder } = makeSetup((callOrder) => ({
             playback: {
-                ...makeSetup().deps.playback,
+                ...makePlaybackMocks(callOrder),
                 playbackRecovery: {
                     isStreamRecoveryInProgress: jest.fn().mockReturnValue(true),
                 },
             },
-        });
+        }));
 
         controller.handlePlayerEnded();
 
@@ -126,14 +139,14 @@ describe('PlaybackRuntimeController', () => {
     });
 
     it('no-ops stopActiveTranscodeSession when no active transcode session id exists', () => {
-        const { controller, deps } = makeSetup({
+        const { controller, deps } = makeSetup((callOrder) => ({
             playback: {
-                ...makeSetup().deps.playback,
+                ...makePlaybackMocks(callOrder),
                 playbackState: makePlaybackState({
                     getCurrentStreamDecision: jest.fn().mockReturnValue(null),
                 }),
             },
-        });
+        }));
 
         controller.stopActiveTranscodeSession();
 
@@ -179,6 +192,64 @@ describe('PlaybackRuntimeController', () => {
         expect(deps.uiRuntime.handleGlobalError).not.toHaveBeenCalled();
     });
 
+    it('invokes non-recoverable playback failure handling with its recovery object binding', () => {
+        const error: PlaybackError = {
+            code: AppErrorCode.PLAYBACK_DECODE_ERROR,
+            message: 'fatal',
+            recoverable: false,
+            retryCount: 0,
+        };
+        const playbackRecovery = {
+            handledContext: null as string | null,
+            isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(false),
+            handlePlaybackFailure(context: string): void {
+                this.handledContext = context;
+            },
+        };
+        const { controller, deps } = makeSetup((callOrder) => ({
+            playback: {
+                ...makePlaybackMocks(callOrder),
+                playbackRecovery,
+            },
+        }));
+
+        controller.handlePlaybackError(error);
+
+        expect(playbackRecovery.handledContext).toBe('video-player');
+        expect(deps.uiRuntime.handleGlobalError).not.toHaveBeenCalled();
+    });
+
+    it('routes non-recoverable player errors through handleGlobalError when playback failure handling is unavailable', () => {
+        const error: PlaybackError = {
+            code: AppErrorCode.PLAYBACK_DECODE_ERROR,
+            message: 'fatal',
+            recoverable: false,
+            retryCount: 0,
+        };
+        const playbackRecovery = {
+            isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(false),
+        };
+        const { controller, deps } = makeSetup((callOrder) => ({
+            playback: {
+                ...makePlaybackMocks(callOrder),
+                playbackRecovery,
+            },
+        }));
+
+        controller.handlePlaybackError(error);
+
+        expect(playbackRecovery).not.toHaveProperty('handlePlaybackFailure');
+        expect(deps.uiRuntime.handleGlobalError).toHaveBeenCalledTimes(1);
+        expect(deps.uiRuntime.handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.PLAYBACK_DECODE_ERROR,
+                message: 'fatal',
+                recoverable: false,
+            },
+            'video-player'
+        );
+    });
+
     it('forwards every state change to the state-change callback', () => {
         const state: PlaybackState = {
             status: 'paused',
@@ -215,14 +286,14 @@ describe('PlaybackRuntimeController', () => {
             activeAudioId: 'audio-1',
             errorInfo: null,
         };
-        const { controller, deps } = makeSetup({
+        const { controller, deps } = makeSetup((callOrder) => ({
             playback: {
-                ...makeSetup().deps.playback,
+                ...makePlaybackMocks(callOrder),
                 playbackState: makePlaybackState({
                     getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(true),
                 }),
             },
-        });
+        }));
 
         controller.handlePlayerStateChange(state);
 
@@ -261,14 +332,14 @@ describe('PlaybackRuntimeController', () => {
             activeAudioId: 'audio-1',
             errorInfo: null,
         };
-        const { controller, deps } = makeSetup({
+        const { controller, deps } = makeSetup((callOrder) => ({
             playback: {
-                ...makeSetup().deps.playback,
+                ...makePlaybackMocks(callOrder),
                 playbackState: makePlaybackState({
                     getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(true),
                 }),
             },
-        });
+        }));
 
         controller.handlePlayerStateChange(state);
 
@@ -462,14 +533,14 @@ describe('PlaybackRuntimeController', () => {
     it('handleLifecycleResume awaits a newer tracked program start triggered during sync and skips play', async () => {
         const originalStart = createDeferred<void>();
         const replacementStart = createDeferred<void>();
-        const { controller, deps } = makeSetup({
+        const { controller, deps } = makeSetup((callOrder) => ({
             schedulerRuntime: {
-                ...makeSetup().deps.schedulerRuntime,
+                ...makeSchedulerRuntimeMocks(callOrder),
                 syncSchedulerToCurrentTime: jest.fn(() => {
                     controller.trackProgramStart(replacementStart.promise);
                 }),
             },
-        });
+        }));
 
         controller.trackProgramStart(originalStart.promise);
 

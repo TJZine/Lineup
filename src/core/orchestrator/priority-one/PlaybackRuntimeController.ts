@@ -135,7 +135,24 @@ export class PlaybackRuntimeController {
             return;
         }
 
-        this._deps.playback.playbackRecovery.handlePlaybackFailure?.('video-player', error);
+        const playbackRecovery = this._deps.playback.playbackRecovery;
+        if (playbackRecovery.handlePlaybackFailure) {
+            try {
+                playbackRecovery.handlePlaybackFailure('video-player', error);
+                return;
+            } catch {
+                // Fall through so fatal playback errors still reach the UI error surface.
+            }
+        }
+
+        this._deps.uiRuntime.handleGlobalError(
+            {
+                code: error.code,
+                message: error.message,
+                recoverable: false,
+            },
+            'video-player'
+        );
     }
 
     public handlePlayerStateChange(state: PlaybackState): void {

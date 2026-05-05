@@ -98,7 +98,7 @@ describe('PlexHomeProfileClient', () => {
             config: mockConfig,
             validateAccountToken: jest.fn(),
         });
-        jest.spyOn(globalThis, 'fetch')
+        const fetchSpy = jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(404, { error: 'not found' }))
             .mockResolvedValueOnce(createJsonResponse(405, { error: 'not allowed' }));
 
@@ -108,6 +108,57 @@ describe('PlexHomeProfileClient', () => {
         })).rejects.toMatchObject({
             code: AppErrorCode.RESOURCE_NOT_FOUND,
         });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops after remaining switch endpoints reject with a non-terminal Plex API error', async () => {
+        const client = new PlexHomeProfileClient({
+            config: mockConfig,
+            validateAccountToken: jest.fn(),
+        });
+        const firstError = new PlexApiError(
+            AppErrorCode.SERVER_UNREACHABLE,
+            'first endpoint failed',
+            undefined,
+            true
+        );
+        const lastError = new PlexApiError(
+            AppErrorCode.SERVER_UNREACHABLE,
+            'last endpoint failed',
+            undefined,
+            true
+        );
+        const fetchSpy = jest.spyOn(globalThis, 'fetch')
+            .mockRejectedValueOnce(firstError)
+            .mockRejectedValueOnce(lastError);
+
+        await expect(client.requestHomeUserSwitch({
+            userId: 'kid',
+            accountToken: 'account-token',
+        })).rejects.toBe(lastError);
+
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('classifies rate-limited switch responses as RATE_LIMITED', async () => {
+        const client = new PlexHomeProfileClient({
+            config: mockConfig,
+            validateAccountToken: jest.fn(),
+        });
+        const fetchSpy = jest.spyOn(globalThis, 'fetch')
+            .mockResolvedValueOnce(createJsonResponse(429, { error: 'slow down' }))
+            .mockResolvedValueOnce(createJsonResponse(404, { error: 'not found' }));
+
+        await expect(client.requestHomeUserSwitch({
+            userId: 'kid',
+            accountToken: 'account-token',
+        })).rejects.toMatchObject({
+            code: AppErrorCode.RATE_LIMITED,
+            httpStatus: 429,
+        });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
     });
 
     it('redacts token and PIN values from switch transport causes', async () => {

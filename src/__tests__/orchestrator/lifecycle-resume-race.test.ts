@@ -67,7 +67,8 @@ const wireLifecycleResumeHarness = (overrides: {
                 shouldResetAutoShowInfoBannerOnAbort: false,
             };
         },
-        isProgramStillCurrent: (program): boolean => currentProgram === program,
+        isProgramStillCurrent: (program): boolean =>
+            playbackState.getCurrentProgramForPlayback() === program,
         handleProgramStartUiSideEffects: (): void => undefined,
         handleStreamResolved: (): void => undefined,
         clearAutoShowInfoBannerAfterAbortedStart: (): void => undefined,

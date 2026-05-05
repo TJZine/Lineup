@@ -160,6 +160,14 @@ export class PlexHomeProfileClient {
                         }
                     );
                 }
+                if (response.status === 429) {
+                    throw new PlexApiError(
+                        AppErrorCode.RATE_LIMITED,
+                        'Rate limited by Plex API',
+                        429,
+                        true
+                    );
+                }
                 if (!response.ok) {
                     lastError = new PlexApiError(
                         AppErrorCode.SERVER_UNREACHABLE,
@@ -192,6 +200,7 @@ export class PlexHomeProfileClient {
                 }
                 if (error instanceof PlexApiError) {
                     lastError = error;
+                    break;
                 } else {
                     lastError = createPlexHomeNetworkError(
                         'Failed to switch Plex Home user',
