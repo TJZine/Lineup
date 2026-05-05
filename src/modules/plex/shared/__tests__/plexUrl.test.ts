@@ -5,12 +5,14 @@
 
 import {
     applyXPlexQueryParamsFromHeaders,
+    applyXPlexTokenQueryParamFromHeaders,
     applyXPlexTokenQueryParamIfTrusted,
     buildPlexResourceUrlWithAuth,
     classifyPlexUrlOrigin,
     buildPlexUrlFromKey,
     isLikelyPlexServerKeyPath,
     PLEX_CLOUD_TRUSTED_ORIGINS,
+    readXPlexTokenFromHeaders,
     tryBuildPlexServerUrlFromKey,
 } from '../plexUrl';
 
@@ -163,6 +165,23 @@ describe('shared plexUrl helpers', () => {
             const url = new URL('https://cdn.example/images/poster.jpg');
             applyXPlexTokenQueryParamIfTrusted(url, 'cloud-token', PLEX_CLOUD_TRUSTED_ORIGINS);
             expect(url.searchParams.get('X-Plex-Token')).toBeNull();
+        });
+    });
+
+    describe('X-Plex-Token header helpers', () => {
+        it('reads only non-empty canonical token header values', () => {
+            expect(readXPlexTokenFromHeaders({ 'X-Plex-Token': 'token-1' })).toBe('token-1');
+            expect(readXPlexTokenFromHeaders({ 'X-Plex-Token': '' })).toBeNull();
+            expect(readXPlexTokenFromHeaders({ 'X-Plex-Token': null })).toBeNull();
+            expect(readXPlexTokenFromHeaders({ 'x-plex-token': 'lowercase-token' })).toBeNull();
+        });
+
+        it('applies the canonical token header value to URL search params', () => {
+            const params = new URLSearchParams();
+
+            applyXPlexTokenQueryParamFromHeaders(params, { 'X-Plex-Token': 'token-1' });
+
+            expect(params.get('X-Plex-Token')).toBe('token-1');
         });
     });
 

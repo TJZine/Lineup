@@ -23,8 +23,9 @@ import type { ToastInput } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
 import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
 import {
-    applyXPlexTokenQueryParam,
+    applyXPlexTokenQueryParamFromHeaders,
     buildPlexUrlFromKey,
+    readXPlexTokenFromHeaders,
     tryBuildPlexServerUrlFromKey,
 } from '../../plex/shared/plexUrl';
 
@@ -429,14 +430,9 @@ export class PlaybackOptionsCoordinator {
     ): string {
         const itemKey = context.itemKey ?? this.getCurrentProgramItemKey() ?? 'global';
         const serverKey = context.serverUri ?? 'unknown-server';
-        const token = this.getAuthTokenFromHeaders(context.authHeaders);
+        const token = readXPlexTokenFromHeaders(context.authHeaders);
         const accountKey = token ? this.hashForCacheKeyScope(token) : 'anonymous';
         return `${serverKey}::${accountKey}::${itemKey}::${trackId}`;
-    }
-
-    private getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
-        const token = headers['X-Plex-Token'];
-        return typeof token === 'string' && token.length > 0 ? token : null;
     }
 
     private buildSubtitleProbeUrl(track: SubtitleTrack, context: NonNullable<StreamDescriptor['subtitleContext']>): URL | null {
@@ -459,8 +455,7 @@ export class PlaybackOptionsCoordinator {
             } else {
                 url = new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
             }
-            const token = this.getAuthTokenFromHeaders(context.authHeaders);
-            applyXPlexTokenQueryParam(url.searchParams, token);
+            applyXPlexTokenQueryParamFromHeaders(url.searchParams, context.authHeaders);
             return url;
         } catch {
             return null;

@@ -3,7 +3,7 @@ import {
     type SubtitleTextContentFormat,
 } from '../../../../shared/subtitleTextFormatDetection';
 import { redactUrlForLog } from '../../../../utils/redact';
-import { applyXPlexTokenQueryParam, tryBuildPlexServerUrlFromKey } from '../../shared/plexUrl';
+import { applyXPlexTokenQueryParam, readXPlexTokenFromHeaders, tryBuildPlexServerUrlFromKey } from '../../shared/plexUrl';
 
 export type SubtitleTextFormat = SubtitleTextContentFormat;
 export type SubtitleProbeUrlSource = 'key' | 'id_fallback';
@@ -59,11 +59,6 @@ function resolveSubtitleProbeBaseUrl(input: SubtitleStreamProbeRequestInput): {
     };
 }
 
-function readTokenFromHeaders(headers: Record<string, string>): string | null {
-    const token = headers['X-Plex-Token'];
-    return typeof token === 'string' && token.length > 0 ? token : null;
-}
-
 function buildRedactedTrackSrcQueryAuth(baseUrl: URL, token: string | null): string | null {
     if (!token) {
         return null;
@@ -92,7 +87,7 @@ export function buildSubtitleStreamProbeRequestContext(
         },
         redactedTrackSrcQueryAuth: buildRedactedTrackSrcQueryAuth(
             baseUrl,
-            readTokenFromHeaders(input.authHeaders)
+            readXPlexTokenFromHeaders(input.authHeaders)
         ),
         redactedUrl: redactUrlForLog(baseUrl.toString()),
         urlSource,

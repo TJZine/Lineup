@@ -1,6 +1,7 @@
 import {
     applyXPlexQueryParamsFromHeaders,
-    applyXPlexTokenQueryParam,
+    applyXPlexTokenQueryParamFromHeaders,
+    readXPlexTokenFromHeaders,
 } from '../../shared/plexUrl';
 import {
     applyPlexSessionQueryParams,
@@ -24,16 +25,11 @@ export interface PlexSubtitleFetchAttempt {
     headers: Record<string, string>;
 }
 
-function getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
-    const token = headers['X-Plex-Token'];
-    return typeof token === 'string' && token.length > 0 ? token : null;
-}
-
 export function buildPlexSubtitleFetchAttempts(
     initialUrl: URL,
     authHeaders: Record<string, string>
 ): PlexSubtitleFetchAttempt[] {
-    const tokenFromHeaders = getAuthTokenFromHeaders(authHeaders);
+    const tokenFromHeaders = readXPlexTokenFromHeaders(authHeaders);
     const baseAcceptHeader = { Accept: 'text/vtt, text/plain, */*' };
     const attempts: PlexSubtitleFetchAttempt[] = [
         { name: 'query', url: initialUrl, headers: baseAcceptHeader },
@@ -91,7 +87,7 @@ export function buildPlexSubtitleTranscodeUrl(
         url.searchParams.set('download', '1');
 
         applyPlexSessionQueryParams(url.searchParams, context.sessionId);
-        applyXPlexTokenQueryParam(url.searchParams, getAuthTokenFromHeaders(context.authHeaders));
+        applyXPlexTokenQueryParamFromHeaders(url.searchParams, context.authHeaders);
         applyXPlexQueryParamsFromHeaders(url.searchParams, context.authHeaders);
         ensurePlexClientProfileName(url.searchParams);
 

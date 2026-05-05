@@ -1,6 +1,7 @@
 import {
     applyXPlexTokenQueryParamIfTrusted,
     PLEX_CLOUD_TRUSTED_ORIGINS,
+    readXPlexTokenFromHeaders,
 } from '../shared/plexUrl';
 import { PLEX_DISCOVERY_CONSTANTS } from './constants';
 
@@ -11,7 +12,7 @@ export interface DiscoveryFetchVariant {
 
 export function buildDiscoveryFetchVariants(headers: Record<string, string>): DiscoveryFetchVariant[] {
     const baseUrl = buildDiscoveryResourcesUrl(PLEX_DISCOVERY_CONSTANTS.PLEX_TV_BASE_URL);
-    const token = headers['X-Plex-Token'];
+    const token = readXPlexTokenFromHeaders(headers);
     const baseUrlString = baseUrl.toString();
     const variants: DiscoveryFetchVariant[] = [
         { url: baseUrlString, headers },

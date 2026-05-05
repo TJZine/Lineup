@@ -4,7 +4,7 @@ import { redactSensitiveTokens } from '../../utils/redact';
 import type { PlatformSubtitleService } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 import {
-    applyXPlexTokenQueryParam,
+    applyXPlexTokenQueryParamFromHeaders,
     buildPlexUrlFromKey,
     tryBuildPlexServerUrlFromKey,
 } from '../plex/shared/plexUrl';
@@ -266,11 +266,6 @@ export class SubtitleManager {
         this._trackTimers.delete(trackId);
     }
 
-    private _getAuthTokenFromHeaders(headers: Record<string, string>): string | null {
-        const token = headers['X-Plex-Token'];
-        return typeof token === 'string' && token.length > 0 ? token : null;
-    }
-
     private _buildDirectTrackUrl(track: SubtitleTrack): string | null {
         try {
             const baseUri = this._subtitleContext?.resolvedBaseUrl
@@ -298,8 +293,7 @@ export class SubtitleManager {
             }
             const authHeaders = this._subtitleContext?.authHeaders;
             if (authHeaders) {
-                const token = this._getAuthTokenFromHeaders(authHeaders);
-                applyXPlexTokenQueryParam(url.searchParams, token);
+                applyXPlexTokenQueryParamFromHeaders(url.searchParams, authHeaders);
             }
             return url.toString();
         } catch {

@@ -690,6 +690,22 @@ describe('VideoPlayer', () => {
             expect(videoElement?.play).toHaveBeenCalled();
         });
 
+        it('rejects native play failures without emitting player error events', async () => {
+            const videoElement = container.querySelector('video') as HTMLVideoElement;
+            const playFailure = new Error('native play rejected');
+            expectConsoleError([
+                'video_player_play_failed',
+                expect.objectContaining({ message: 'native play rejected' }),
+            ]);
+            (videoElement.play as jest.Mock).mockRejectedValueOnce(playFailure);
+            const errorHandler = jest.fn();
+            player.on('error', errorHandler);
+
+            await expect(player.play()).rejects.toBe(playFailure);
+
+            expect(errorHandler).not.toHaveBeenCalled();
+        });
+
         it('should call video.pause() on pause()', () => {
             const videoElement = container.querySelector('video');
             player.pause();
@@ -825,6 +841,21 @@ describe('VideoPlayer', () => {
 
             // 60s - 10s = 50s
             expect(currentTimeValue).toBe(50);
+        });
+
+        it('rejects when seeked is not observed before timeout', async () => {
+            Object.defineProperty(videoElement, 'currentTime', {
+                get: () => currentTimeValue,
+                set: (val: number) => {
+                    currentTimeValue = val;
+                },
+                configurable: true,
+            });
+
+            const seekPromise = player.seekTo(120000);
+            jest.advanceTimersByTime(5001);
+
+            await expect(seekPromise).rejects.toThrow('Seek operation timed out');
         });
     });
 
