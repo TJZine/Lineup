@@ -194,8 +194,6 @@ const VERIFICATION_CLASSIFICATION_LINE_RE =
 const PLAN_LIST_ENTRY_RE = /^\s*(?:[-*]|\d+\.)\s+\S+/mu;
 const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
 const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
-const LEGACY_SUPERPOWERS_REQUIRED_SKILL_RE =
-    /\b(?:dispatching-parallel-agents|executing-plans|finishing-a-development-branch|receiving-code-review|requesting-code-review|subagent-driven-development|systematic-debugging|test-driven-development|using-git-worktrees|verification-before-completion|writing-skills)\b|\bsuperpowers:[a-z0-9-]+\b/iu;
 const FCP_CHECKLIST_TOKEN_RE = /^FCP-(?:\d+|EXIT)$/u;
 const LEGACY_CHECKLIST_SLICE_ID_PATTERN = '[PS]\\d+-W\\d+-S\\d+';
 const DCR_CHECKLIST_SLICE_ID_PATTERN = 'DCR-(?:\\d+|EXIT)-S\\d+';
@@ -1291,12 +1289,6 @@ export function checkPlanConformance({ filePath, content }) {
     if (requiredSkills !== null) {
         if (!/\bexecution-plan-authoring\b/u.test(requiredSkills)) {
             errors.push('required skills section must include `execution-plan-authoring` for active serious plans');
-        }
-        if (/\bwriting-plans\b/u.test(requiredSkills)) {
-            errors.push('required skills section must not include legacy `writing-plans` for active serious plans');
-        }
-        if (LEGACY_SUPERPOWERS_REQUIRED_SKILL_RE.test(requiredSkills)) {
-            errors.push('required skills section must not include legacy Superpowers workflow skills for active serious plans');
         }
     }
 

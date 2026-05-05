@@ -116,7 +116,7 @@ When tracked docs conflict, use this order:
    - for checklist-linked package plans, `coverage_ledger` is execution-only and must not redefine package membership, which remains owned by the checklist companion map
    - for checklist-linked package plans, absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting; otherwise replan before execution continues
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
-   - use repo-local `execution-plan-authoring` as the authoritative planner skill for Lineup serious plans; do not let global `writing-plans` override the repo plan standard
+   - use repo-local `execution-plan-authoring` as the authoritative planner skill for Lineup serious plans
    - use repo-local `verification-strategy` to choose the proof mode before freezing verification commands or deciding whether new tests are needed
    - serious tracked plans must be decision-complete at the seam, scope, ownership, and verification level without turning into pseudo-code master plans
    - serious tracked plans should freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk

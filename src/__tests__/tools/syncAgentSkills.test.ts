@@ -111,7 +111,7 @@ describe('sync_agent_skills.sh', () => {
         expect(existsSync(path.join(repoRoot, '.agent/skills/draft-only/SKILL.md'))).toBe(false);
     });
 
-    it('rejects legacy superpowers mirror entries', () => {
+    it('rejects unsupported mirror sources', () => {
         const repoRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-sync-skills-'));
         const codexHome = mkdtempSync(path.join(os.tmpdir(), 'lineup-sync-skills-home-'));
         tempRoots.push(repoRoot, codexHome);
@@ -123,7 +123,7 @@ describe('sync_agent_skills.sh', () => {
 
         writeFile(
             path.join(repoRoot, 'docs/agentic/skill-mirror-allowlist.txt'),
-            'superpowers:legacy-skill\n'
+            'unsupported:legacy-skill\n'
         );
 
         const result = spawnSync('/bin/bash', [scriptPath], {
@@ -137,7 +137,7 @@ describe('sync_agent_skills.sh', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('Invalid skill mirror entry');
-        expect(result.stderr).toContain('superpowers:legacy-skill');
+        expect(result.stderr).toContain('unsupported:legacy-skill');
         expect(existsSync(path.join(repoRoot, '.agent/skills/legacy-skill/SKILL.md'))).toBe(false);
     });
 });
