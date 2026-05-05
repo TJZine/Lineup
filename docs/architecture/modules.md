@@ -148,6 +148,11 @@ This document is directory-oriented and lists file-level owners where the canoni
   - `src/modules/scheduler/channel-manager/`
   - `src/modules/scheduler/scheduler/`
   - `src/modules/scheduler/shared/`
+- `src/modules/scheduler/channel-manager/ContentResolver.ts` remains the
+  source-resolution orchestration entrypoint; package-local collaborators own
+  source-result cache/coalescing (`SourceResolutionCache.ts`), item
+  mapping/media normalization (`ContentItemMapper.ts`), and selection policy
+  (`ContentSelectionPolicy.ts`)
 
 ### `src/modules/settings/`
 

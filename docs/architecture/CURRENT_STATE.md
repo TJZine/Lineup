@@ -236,6 +236,12 @@ after this extraction.
   `src/utils/persistenceWarningBackoffPolicy.ts`. `ChannelImportNormalizer.ts`
   owns import payload validation and create-input shaping without mutating
   manager state or changing persistence schema
+- `src/modules/scheduler/channel-manager/ContentResolver.ts` remains the
+  package-local source-resolution orchestration entrypoint consumed by
+  `ChannelManager`, while `SourceResolutionCache.ts` owns source-result
+  cache/in-flight coalescing, `ContentItemMapper.ts` owns Plex item mapping and
+  media metadata normalization, and `ContentSelectionPolicy.ts` owns
+  filtering, sorting, and playback ordering
 
 ### Player
 

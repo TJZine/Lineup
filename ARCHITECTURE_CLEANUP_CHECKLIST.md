@@ -1231,9 +1231,9 @@ future source-backed replan explicitly reopens one.
   `FCP-18` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
   until `FCP-17` has clean closeout evidence.
 
-### [ ] `FCP-17` ContentResolver Cache, Coalescing, And Mapping Boundaries
+### [x] `FCP-17` ContentResolver Cache, Coalescing, And Mapping Boundaries
 
-- Status: in progress
+- Status: completed
 - Plan:
   `docs/plans/2026-05-05-fcp-17-contentresolver-cache-coalescing-mapping-boundaries-plan.md`
 - Dimensions/rubric tags: abstraction fitness, scheduler design, duplication,
@@ -1271,7 +1271,7 @@ future source-backed replan explicitly reopens one.
   targeted ContentResolver and channel-manager content-resolution tests, source
   audits for behavior preservation and public entrypoint stability,
   `npm run typecheck`, `git diff --check`, then `npm run verify`.
-- Ready-now execution unit: `FCP-17-S1`
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1282,12 +1282,40 @@ future source-backed replan explicitly reopens one.
 - Stop/replan triggers: public ChannelManager API must widen; persistence
   behavior changes; Plex auth/stream behavior changes; sorting/filtering/error
   semantics change; tests need private probing instead of public seam proof.
-- Last touched: 2026-05-05, active plan created
-- Verification: planning validation passed `npm run plans:check`,
-  `npm run verify:docs`, and `git diff --check`; implementation verification
-  not run yet.
-- Follow-ups: none yet
-- Handoff: active plan is ready for `FCP-17-S1`; implementation has not started.
+- Last touched: 2026-05-05
+- Verification: pre/post source audits for `FCP-17-SF1`; focused
+  cache/coalescing, mixed invalidation, mapping/normalization, filtering,
+  sorting, playback, and public error behavior tests; `npm test --
+  ContentResolver ChannelManager.content-resolution`; `npm test --
+  ChannelManager.error-semantics`; `npm run typecheck`; `git diff --check`;
+  `npm run plans:check`; `npm run verify:docs`; and final `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-17-SF1`: resolved. `ContentResolver` remains the stable
+    scheduler/channel-manager source-resolution orchestration entrypoint and
+    keeps the public methods consumed by `ChannelManager`. Source-result
+    cache/coalescing semantics now live in package-local `SourceResolutionCache`;
+    Plex item mapping and media metadata normalization live in package-local
+    `ContentItemMapper`; filtering, sorting, and playback ordering live in
+    package-local `ContentSelectionPolicy`. Public channel-manager API,
+    persistence/current-channel behavior, Plex behavior, and UI/navigation
+    behavior were unchanged.
+- Closeout commits before checklist closeout: `43bbd179` (`FCP-17-S1`
+  implementation) and `0343b591` (mixed-source cache invalidation test
+  follow-up).
+- Review evidence:
+  - Plan review: initial tracked reviewer found checklist-state and
+    verification-plan gaps; the planner revised the plan/checklist, the same
+    reviewer confirmed closure, and a fresh final plan reviewer approved
+    `FCP-17-S1` for implementation.
+  - Implementation review: initial tracked reviewer found a missing
+    mixed-source cached invalidation proof; the worker added the public-seam
+    test in `0343b591`, the same reviewer confirmed closure, and a fresh final
+    implementation reviewer reported no blocking findings and approved
+    `FCP-17-S1` for package closeout.
+- Handoff: `FCP-17` is closed. The next safe package is `FCP-18`; do not start
+  `FCP-19` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
+  until `FCP-18` has clean closeout evidence.
 
 ### [ ] `FCP-18` Behavior-Neutral Navigation Package Organization
 
