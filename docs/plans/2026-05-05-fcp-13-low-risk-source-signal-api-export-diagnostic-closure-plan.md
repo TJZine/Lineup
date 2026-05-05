@@ -174,78 +174,78 @@ Absorb-now rule: absorb only newly discovered residue that stays within the same
 
 ## Verification Commands
 
-Verification strategy classification: `new regression/contract test required`.
+- Verification classification: `new regression/contract test required`
 
 Primary proof mode: `refactor-invariance` for behavior-neutral source-signal and local duplication cleanup, with `contract-first` proof for package export, Plex auth documentation alignment, architecture rules, and subtitle diagnostic behavior.
 
 Plan validation:
 
-- `npm run plans:check`
+- Run: `npm run plans:check`
   - Expected: this active tracked plan satisfies Universal Plan Core and FCP cleanup-overlay structure.
 
 Ready-now `FCP-13-S1` verification:
 
 - Targeted pre/post source audit over the S1 files.
   - Expected: only redundant comments/JSDoc are removed or narrowed; no TypeScript tokens, imports, exports, selectors, runtime logic, or public signatures change except `PlexAuth.validateToken` comment text.
-- `npm test -- PlexAuth`
+- Run: `npm test -- PlexAuth`
   - Expected: validate-token behavior remains aligned with existing contract: `false` only for explicit auth-invalid outcomes, throws for timeout/service/network/malformed success failures.
-- `npm run typecheck`
+- Run: `npm run typecheck`
   - Expected: no TypeScript errors.
-- `git diff --check`
+- Run: `git diff --check`
   - Expected: no whitespace errors.
 
 `FCP-13-S2` verification:
 
-- `npm test -- ChannelManager`
+- Run: `npm test -- ChannelManager`
   - Expected: channel-manager behavior remains unchanged after exporting `ChannelCreateOptions`; if no runtime code changes occur, typecheck plus export/import proof may be sufficient.
-- `node --test tools/__tests__/build-eslint-architecture-rules.test.mjs`
+- Run: `node --test tools/__tests__/build-eslint-architecture-rules.test.mjs`
   - Expected: architecture-rule tests pass, stale old-path app-shell exceptions are gone if source-proven stale, and composition-root restrictions remain active or stricter.
 - Source audits:
   - `rg -n "export type \\{[^}]*ChannelCreateOptions|ChannelCreateOptions" src/modules/scheduler/channel-manager/index.ts src/modules/scheduler/channel-manager/interfaces.ts`
     - Expected: `ChannelCreateOptions` is exported from the package seam and still owned by `interfaces.ts`.
   - `rg -n "src/core/app-shell/(AppOrchestratorConfigFactory|AppShellRuntimeContracts)\\.ts|to: '../../Orchestrator'" tools/architecture-rules/lineupArchitectureRules.mjs`
     - Expected: no obsolete old-path exceptions remain unless source audit records a still-live exception with current path/reason.
-- `npm run typecheck`
-- `git diff --check`
+- Run: `npm run typecheck`
+- Run: `git diff --check`
 
 `FCP-13-S3` verification:
 
-- `npm test -- subtitle-track-recovery-warning-contract`
+- Run: `npm test -- subtitle-track-recovery-warning-contract`
   - Expected: subtitle burn-in diagnostics are emitted only for source-proven actual attempts; existing user warnings for disable/recovery failures remain unchanged.
-- `npm test -- ChannelSetupFacetSnapshotLoadSession ChannelSetupFacetSnapshotLoader`
+- Run: `npm test -- ChannelSetupFacetSnapshotLoadSession ChannelSetupFacetSnapshotLoader`
   - Expected: removing or inlining `isSignalAborted` preserves caller-canceled and failure-stop behavior.
-- `npm test -- --runInBand src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`
+- Run: `npm test -- --runInBand src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`
   - Expected: EPG renderer DOM, text layout, width tier, sliver, focus, reduced-motion, ticker, live/progress, placeholder, and reset behavior remain unchanged after duplicate clearing consolidation.
 - Source audits:
   - `rg -n "isSignalAborted" src/core/channel-setup`
     - Expected: no redundant wrapper remains, or implementation output source-justifies one canonical helper.
   - targeted diff audit of `EPGCellRenderer.applyTextPresentation`
     - Expected: duplicate adjacent secondary-text clearing is consolidated locally without DOM/behavior drift.
-- `npm run typecheck`
-- `git diff --check`
+- Run: `npm run typecheck`
+- Run: `git diff --check`
 
 `FCP-13-S4` verification:
 
-- `npm test -- StrategyStepController`
+- Run: `npm test -- StrategyStepController`
   - Expected: strategy category rendering, toggles, scope buttons, priority rows, preview panel, footer actions, focus registration, and state updates remain unchanged.
 - Run affected channel setup UI tests only if `StrategyStepController` changes touch shared step/focus behavior.
 - Source audit:
   - Expected: repeated structural control patterns are reduced by a local helper/descriptor table, or implementation records a source-justified no-code disposition if the current explicit controls are clearer and safer.
-- `npm run typecheck`
-- `git diff --check`
+- Run: `npm run typecheck`
+- Run: `git diff --check`
 
 Package closeout:
 
 - Source-finding proof matrix for `FCP-13-SF1` through `FCP-13-SF9`.
   - Expected: every original source finding sentence is answered as fixed, source-disproved, deferred, or reclassified with one final owner.
 - Package-local old/replacement pattern audits for comments, exports, architecture exceptions, diagnostics, abort helper, EPG duplicate clearing, and strategy-step repetition.
-- `npm run verify:docs`
+- Run: `npm run verify:docs`
   - Expected: required if checklist/current-state/modules/plan docs are updated during closeout.
-- `npm run plans:check`
+- Run: `npm run plans:check`
   - Expected: active/completed plan structure remains valid after closeout updates.
-- `npm run typecheck`
-- `git diff --check`
-- `npm run verify`
+- Run: `npm run typecheck`
+- Run: `git diff --check`
+- Run: `npm run verify`
   - Expected: full UI/navigation/Plex/runtime package gate passes before marking `FCP-13` complete.
 
 Do not use fresh post-FCP verification, subjective review, detector score output, stale hotspot docs, line count, or package-map output as membership or closure proof.
@@ -272,8 +272,89 @@ Do not use fresh post-FCP verification, subjective review, detector score output
 
 - `package_id`: `FCP-13`
 - `checklist_token`: `FCP-13`
-- `package_issue_ids`: n/a for FCP source-backed packages; use `source_finding_ids`
 - `source_finding_ids`: `FCP-13-SF1`, `FCP-13-SF2`, `FCP-13-SF3`, `FCP-13-SF4`, `FCP-13-SF5`, `FCP-13-SF6`, `FCP-13-SF7`, `FCP-13-SF8`, `FCP-13-SF9`
+- `slice_table`:
+
+### `FCP-13-S1` Comment And ValidateToken Documentation
+
+- `goal`: prune redundant comment/JSDoc signal and align `PlexAuth.validateToken` class docs with current tested behavior.
+- `areas/files`:
+  - `src/modules/navigation/interfaces.ts`
+  - `src/modules/plex/stream/interfaces.ts`
+  - `src/modules/plex/library/interfaces.ts`
+  - `src/modules/player/AudioTrackManager.ts`
+  - `src/modules/player/ErrorHandler.ts`
+  - `src/modules/ui/epg/view/EPGErrorBoundary.ts`
+  - `src/modules/ui/epg/view/EPGCellRenderer.ts`
+  - `src/modules/plex/auth/PlexAuth.ts`
+  - `src/modules/plex/auth/__tests__/PlexAuth.test.ts` if needed
+- `source_finding_ids`:
+  - `FCP-13-SF1`
+  - `FCP-13-SF2`
+  - `FCP-13-SF4`
+- `verification`: targeted comment/doc source audit; `npm test -- PlexAuth`; `npm run typecheck`; `git diff --check`.
+- `dependencies`: none
+- `stop_condition`: stop if pruning removes semantic guidance, if non-comment code changes are needed beyond doc text, or if `validateToken` behavior is wrong rather than docs stale.
+- `handoff_condition`: only redundant comments are removed or narrowed; semantic guidance is preserved; `validateToken` docs say `false` only for `401`/`403` and throws for non-auth failures; tests/typecheck pass.
+- `serial_only`: true
+- `parallel_justification`: ready-now because the source audit confirms behavior-neutral comment/doc cleanup with contained PlexAuth verification.
+
+### `FCP-13-S2` Channel Export And Architecture Rule Exceptions
+
+- `goal`: align the channel-manager package export surface and remove obsolete app-shell architecture-rule exceptions only when enforcement remains active.
+- `areas/files`:
+  - `src/modules/scheduler/channel-manager/interfaces.ts`
+  - `src/modules/scheduler/channel-manager/index.ts`
+  - `src/modules/scheduler/channel-manager/__tests__/*` only for export proof if needed
+  - `tools/architecture-rules/lineupArchitectureRules.mjs`
+  - `tools/__tests__/build-eslint-architecture-rules.test.mjs`
+- `source_finding_ids`:
+  - `FCP-13-SF3`
+  - `FCP-13-SF5`
+- `verification`: export source audit; focused ChannelManager/export proof as needed; architecture-rule tests; `npm run typecheck`; `git diff --check`.
+- `dependencies`: `FCP-13-S1` clean review
+- `stop_condition`: stop if export requires behavior widening, a compatibility seam, or a new API decision; stop if architecture exception removal loosens enforcement or hides a live violation.
+- `handoff_condition`: `ChannelCreateOptions` is exported through the package seam; obsolete old-path architecture exceptions are removed or rejustified with current source proof; tests/audits pass.
+- `serial_only`: true
+- `parallel_justification`: API seam and architecture-rule edits are low-risk but distinct from comment pruning, so execute after S1 review.
+
+### `FCP-13-S3` Diagnostics Abort Helper And EPG Duplicate Clearing
+
+- `goal`: close subtitle burn-in diagnostic noise, abort wrapper redundancy, and EPG secondary-text clearing duplication without behavior drift.
+- `areas/files`:
+  - `src/core/orchestrator/controllers/SubtitleTrackRecoveryController.ts`
+  - `src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts`
+  - `src/core/channel-setup/shared/utils.ts`
+  - `src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts` and local tests if wrapper removal requires caller edits
+  - `src/modules/ui/epg/view/EPGCellRenderer.ts`
+  - `src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`
+- `source_finding_ids`:
+  - `FCP-13-SF6`
+  - `FCP-13-SF7`
+  - `FCP-13-SF8`
+- `verification`: subtitle warning-contract tests; channel setup facet loader/session tests as touched; direct EPGCellRenderer tests; source audits; `npm run typecheck`; `git diff --check`.
+- `dependencies`: `FCP-13-S2` clean review unless controller proves no overlapping source/test work and no replan trigger fired.
+- `stop_condition`: stop if diagnostics change warnings or recovery behavior, abort cleanup changes cancellation semantics, EPG cleanup changes DOM/focus/ticker/width-tier/reduced-motion behavior, or source audit proves one item is already false and the planned edit would be churn.
+- `handoff_condition`: subtitle diagnostic disposition is source-proven; abort wrapper is removed or justified; EPG duplicate clearing is consolidated locally; focused tests/audits pass.
+- `serial_only`: true
+- `parallel_justification`: this slice combines small executable cleanup under one verification envelope and should be reviewed as a coherent runtime/UI invariance unit.
+
+### `FCP-13-S4` StrategyStepController Structural Cleanup
+
+- `goal`: reduce StrategyStepController structural repetition with a local descriptor/helper only if it improves clarity without changing behavior.
+- `areas/files`:
+  - `src/modules/ui/channel-setup/steps/StrategyStepController.ts`
+  - `src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts`
+  - affected channel setup UI tests only if shared step/focus behavior changes
+- `source_finding_ids`:
+  - `FCP-13-SF9`
+- `verification`: `npm test -- StrategyStepController`; affected channel setup UI tests as touched; source audit; `npm run typecheck`; `git diff --check`; package closeout `npm run verify`.
+- `dependencies`: `FCP-13-S3` clean review unless controller explicitly replans.
+- `stop_condition`: stop if cleanup hides behavior, changes preview/status/focus/validation/lifecycle semantics, needs cross-file helpers, or makes the current explicit controls clearer than the proposed abstraction.
+- `handoff_condition`: repetition is reduced by a local helper/descriptor or source-justified as accepted explicitness with `FCP-13` closeout owner; tests/audits pass.
+- `serial_only`: true
+- `parallel_justification`: UI-adjacent strategy-step work is local but should run after prior package slices to keep review and closeout accounting simple.
+
 - `coverage_check`:
   - `FCP-13-SF1` maps exactly to `FCP-13-S1`.
   - `FCP-13-SF2` maps exactly to `FCP-13-S1`.
@@ -289,13 +370,6 @@ Do not use fresh post-FCP verification, subjective review, detector score output
 - `ready_now_slice`: `FCP-13-S1`
 - `recommended_slice_order`: `FCP-13-S1`, then `FCP-13-S2`, then `FCP-13-S3`, then `FCP-13-S4`, then package closeout source audit and docs/checklist updates if earned.
 - `parallel_execution_policy`: serial only by default. Do not start all slices at once. No execution waves are approved. After `FCP-13-S1` clean review, the controller may select the next listed slice only if no replan trigger fired and no overlapping uncommitted work remains.
-
-| slice_id | goal | areas/files | source_finding_ids | verification | dependencies | stop_condition | handoff_condition | serial_only | parallel_justification |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `FCP-13-S1` | Prune redundant comment/JSDoc signal and align `PlexAuth.validateToken` class docs with current tested behavior. | `src/modules/navigation/interfaces.ts`, `src/modules/plex/stream/interfaces.ts`, `src/modules/plex/library/interfaces.ts`, `src/modules/player/AudioTrackManager.ts`, `src/modules/player/ErrorHandler.ts`, `src/modules/ui/epg/view/EPGErrorBoundary.ts`, `src/modules/ui/epg/view/EPGCellRenderer.ts`, `src/modules/plex/auth/PlexAuth.ts`, `src/modules/plex/auth/__tests__/PlexAuth.test.ts` if needed. | `FCP-13-SF1`, `FCP-13-SF2`, `FCP-13-SF4` | Targeted comment/doc source audit; `npm test -- PlexAuth`; `npm run typecheck`; `git diff --check`. | none | Stop if pruning removes semantic guidance, if non-comment code changes are needed beyond doc text, or if `validateToken` behavior is wrong rather than docs stale. | Only redundant comments are removed or narrowed; semantic guidance is preserved; `validateToken` docs say `false` only for `401`/`403` and throws for non-auth failures; tests/typecheck pass. | true | Ready-now because the source audit confirms behavior-neutral comment/doc cleanup with contained PlexAuth verification. |
-| `FCP-13-S2` | Align the channel-manager package export surface and remove obsolete app-shell architecture-rule exceptions only when enforcement remains active. | `src/modules/scheduler/channel-manager/interfaces.ts`, `src/modules/scheduler/channel-manager/index.ts`, `src/modules/scheduler/channel-manager/__tests__/*` only for export proof if needed, `tools/architecture-rules/lineupArchitectureRules.mjs`, `tools/__tests__/build-eslint-architecture-rules.test.mjs`. | `FCP-13-SF3`, `FCP-13-SF5` | Export source audit; focused ChannelManager/export proof as needed; architecture-rule tests; `npm run typecheck`; `git diff --check`. | `FCP-13-S1` clean review. | Stop if export requires behavior widening, a compatibility seam, or a new API decision; stop if architecture exception removal loosens enforcement or hides a live violation. | `ChannelCreateOptions` is exported through the package seam; obsolete old-path architecture exceptions are removed or rejustified with current source proof; tests/audits pass. | true | API seam and architecture-rule edits are low-risk but distinct from comment pruning, so execute after S1 review. |
-| `FCP-13-S3` | Close subtitle burn-in diagnostic noise, abort wrapper redundancy, and EPG secondary-text clearing duplication without behavior drift. | `src/core/orchestrator/controllers/SubtitleTrackRecoveryController.ts`, `src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts`, `src/core/channel-setup/shared/utils.ts`, `src/core/channel-setup/planning/ChannelSetupFacetSnapshotLoadSession.ts` and local tests if wrapper removal requires caller edits, `src/modules/ui/epg/view/EPGCellRenderer.ts`, `src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`. | `FCP-13-SF6`, `FCP-13-SF7`, `FCP-13-SF8` | Subtitle warning-contract tests; channel setup facet loader/session tests as touched; direct EPGCellRenderer tests; source audits; `npm run typecheck`; `git diff --check`. | `FCP-13-S2` clean review unless controller proves no overlapping source/test work and no replan trigger fired. | Stop if diagnostics change warnings or recovery behavior, abort cleanup changes cancellation semantics, EPG cleanup changes DOM/focus/ticker/width-tier/reduced-motion behavior, or source audit proves one item is already false and the planned edit would be churn. | Subtitle diagnostic disposition is source-proven; abort wrapper is removed or justified; EPG duplicate clearing is consolidated locally; focused tests/audits pass. | true | This slice combines small executable cleanup under one verification envelope and should be reviewed as a coherent runtime/UI invariance unit. |
-| `FCP-13-S4` | Reduce StrategyStepController structural repetition with a local descriptor/helper only if it improves clarity without changing behavior. | `src/modules/ui/channel-setup/steps/StrategyStepController.ts`, `src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts`, affected channel setup UI tests only if shared step/focus behavior changes. | `FCP-13-SF9` | `npm test -- StrategyStepController`; affected channel setup UI tests as touched; source audit; `npm run typecheck`; `git diff --check`; package closeout `npm run verify`. | `FCP-13-S3` clean review unless controller explicitly replans. | Stop if cleanup hides behavior, changes preview/status/focus/validation/lifecycle semantics, needs cross-file helpers, or makes the current explicit controls clearer than the proposed abstraction. | Repetition is reduced by a local helper/descriptor or source-justified as accepted explicitness with `FCP-13` closeout owner; tests/audits pass. | true | UI-adjacent strategy-step work is local but should run after prior package slices to keep review and closeout accounting simple. |
 
 No `execution_waves` or parallel worker units are approved by this plan.
 
@@ -319,8 +393,44 @@ No deferred or split follow-ups are approved before implementation. If any findi
 
 This plan is intended to close the whole `FCP-13` package once all four slices are implemented or source-disproved, reviewed, verified, and source-audited.
 
-- FCP source findings mapped: `FCP-13-SF1`, `FCP-13-SF2`, `FCP-13-SF3`, `FCP-13-SF4`, `FCP-13-SF5`, `FCP-13-SF6`, `FCP-13-SF7`, `FCP-13-SF8`, `FCP-13-SF9`.
+- `FCP-13-SF1`
+  - planned disposition: resolved
+  - final owner: `FCP-13`
+  - revisit trigger: rerun the source audit if the comment/JSDoc seam changes before closeout
+- `FCP-13-SF2`
+  - planned disposition: resolved
+  - final owner: `FCP-13`
+  - revisit trigger: rerun the source audit if the implementation-comment seam changes before closeout
+- `FCP-13-SF3`
+  - planned disposition: resolved
+  - final owner: `FCP-13`
+  - revisit trigger: rerun the source audit if the channel-manager package seam changes before closeout
+- `FCP-13-SF4`
+  - planned disposition: resolved
+  - final owner: `FCP-13`
+  - revisit trigger: rerun the source audit if `validateToken` behavior or docs change before closeout
+- `FCP-13-SF5`
+  - planned disposition: resolved
+  - final owner: `FCP-13`
+  - revisit trigger: rerun the source audit if architecture-rule exceptions change before closeout
+- `FCP-13-SF6`
+  - planned disposition: resolved
+  - final owner: `FCP-13`
+  - revisit trigger: rerun the source audit if subtitle burn-in diagnostic behavior changes before closeout
+- `FCP-13-SF7`
+  - planned disposition: resolved
+  - final owner: `FCP-13`
+  - revisit trigger: rerun the source audit if channel setup cancellation helpers change before closeout
+- `FCP-13-SF8`
+  - planned disposition: resolved
+  - final owner: `FCP-13`
+  - revisit trigger: rerun the source audit if EPGCellRenderer secondary-text logic changes before closeout
+- `FCP-13-SF9`
+  - planned disposition: resolved
+  - final owner: `FCP-13`
+  - revisit trigger: rerun the source audit if StrategyStepController structure changes before closeout
 - Detector/imported issue ids are not in scope.
 - No deferred or split follow-ups are approved at plan freeze.
-- Before any `FCP-14` planning or work starts, `FCP-13` must have a source-finding proof matrix, package-local source audit rerun, targeted tests, `npm run verify`, clean closeout review, and updated checklist/current-state records if ownership truth changed.
+- No `FCP-14` planning or work may start until `FCP-13` has a source-finding proof matrix, package-local source audit rerun, targeted tests, `npm run verify`, clean closeout review, and updated checklist/current-state records if ownership truth changed.
+- priority-exit review blocks FCP-(n+1) until FCP-n is completed
 - Security gate: no open P0 security findings are known for this package from source audit. If implementation discovers one, stop and route it as a blocker with one owner.
