@@ -7,7 +7,7 @@ import type {
     SchedulerPlaybackMode,
 } from './types';
 import { SCHEDULER_ERROR_MESSAGES } from './constants';
-import { applyBlockPlaybackMode } from '../shared/blockPlayback';
+import { applyPlaybackOrdering } from '../shared/playbackOrdering';
 
 function assertNeverPlaybackMode(mode: never): never {
     throw new Error(`Unknown scheduler playback mode: ${String(mode)}`);
@@ -155,36 +155,15 @@ export function applyPlaybackMode(
 ): ResolvedContentItem[] {
     switch (mode) {
         case 'sequential':
-            return items.map((item, index) => ({
-                ...item,
-                scheduledIndex: index,
-            }));
-
-        case 'shuffle': {
-            const shuffled = shuffler.shuffle(items, seed);
-            return shuffled.map((item, index) => ({
-                ...item,
-                scheduledIndex: index,
-            }));
-        }
-
-        case 'block': {
-            const normalizedBlockSize =
-                typeof blockSize === 'number' && Number.isFinite(blockSize)
-                    ? blockSize
-                    : 3;
-            const effectiveBlockSize = Math.max(1, Math.floor(normalizedBlockSize));
-            const ordered = applyBlockPlaybackMode({
+        case 'shuffle':
+        case 'block':
+            return applyPlaybackOrdering({
                 items,
+                mode,
                 seed,
-                blockSize: effectiveBlockSize,
-                shuffleKeys: (keys, seedValue) => shuffler.shuffle(keys, seedValue),
+                blockSize,
+                shuffleItems: (values, seedValue) => shuffler.shuffle(values, seedValue),
             });
-            return ordered.map((item, index) => ({
-                ...item,
-                scheduledIndex: index,
-            }));
-        }
 
         default:
             return assertNeverPlaybackMode(mode);

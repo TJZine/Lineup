@@ -5,7 +5,7 @@ import type {
     SortOrder,
 } from './types';
 import { shuffleWithSeed } from '../shared/prng';
-import { applyBlockPlaybackMode } from '../shared/blockPlayback';
+import { applyPlaybackOrdering } from '../shared/playbackOrdering';
 
 export class ContentSelectionPolicy {
     applyFilters(items: ResolvedContentItem[], filters: ContentFilter[]): ResolvedContentItem[] {
@@ -69,32 +69,15 @@ export class ContentSelectionPolicy {
     ): ResolvedContentItem[] {
         switch (mode) {
             case 'sequential':
-                return items.map((item, index) => ({
-                    ...item,
-                    scheduledIndex: index,
-                }));
             case 'shuffle':
-                return shuffleWithSeed(items, seed).map((item, index) => ({
-                    ...item,
-                    scheduledIndex: index,
-                }));
-            case 'block': {
-                const normalizedBlockSize =
-                    typeof blockSize === 'number' && Number.isFinite(blockSize)
-                        ? blockSize
-                        : 3;
-                const effectiveBlockSize = Math.max(1, Math.floor(normalizedBlockSize));
-                const ordered = applyBlockPlaybackMode({
+            case 'block':
+                return applyPlaybackOrdering({
                     items,
+                    mode,
                     seed,
-                    blockSize: effectiveBlockSize,
-                    shuffleKeys: (keys, seedValue) => shuffleWithSeed(keys, seedValue),
+                    blockSize,
+                    shuffleItems: shuffleWithSeed,
                 });
-                return ordered.map((item, index) => ({
-                    ...item,
-                    scheduledIndex: index,
-                }));
-            }
             case 'random':
                 return shuffleWithSeed(items, Date.now()).map((item, index) => ({
                     ...item,
