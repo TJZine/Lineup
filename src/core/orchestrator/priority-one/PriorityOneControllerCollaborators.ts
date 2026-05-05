@@ -14,7 +14,6 @@ import {
 } from '../controllers/OverlayRuntimePolicyController';
 import {
     ProfileSwitchCleanupController,
-    type ProfileSwitchCleanupControllerDeps,
 } from '../controllers/ProfileSwitchCleanupController';
 import {
     PlaybackRuntimeController,
@@ -63,17 +62,6 @@ function markProgramStarting(
         programAtStart: program,
         shouldResetAutoShowInfoBannerOnAbort,
     };
-}
-
-function getActiveTranscodeSessionId(
-    playbackState: PriorityOneAssemblyInput['playback']['playbackState']
-): string | null {
-    const decision = playbackState.getCurrentStreamDecision();
-    if (!decision || !decision.isTranscoding || !decision.sessionId) {
-        return null;
-    }
-
-    return decision.sessionId;
 }
 
 function createOverlayRuntimePolicyDeps(
@@ -148,84 +136,11 @@ function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStart
 
 function createPlaybackRuntimeDeps(input: PriorityOneAssemblyInput): PlaybackRuntimeControllerDeps {
     return {
-        isStreamRecoveryInProgress: (): boolean =>
-            input.playback.playbackRecovery.isStreamRecoveryInProgress(),
-        getActiveTranscodeSessionId: (): string | null =>
-            getActiveTranscodeSessionId(input.playback.playbackState),
-        stopTranscodeSession: (sessionId): void => {
-            input.playback.stopTranscodeSessionById(sessionId);
-        },
-        skipToNextProgram: (): void => {
-            input.playback.skipToNextProgram();
-        },
-        pausePlayer: (): void => {
-            input.playback.pausePlayer();
-        },
-        playPlayer: (): Promise<void> => input.playback.playPlayer(),
-        pauseSchedulerSync: (): void => {
-            input.schedulerRuntime.pauseSchedulerSync();
-        },
-        resumeSchedulerSync: (): void => {
-            input.schedulerRuntime.resumeSchedulerSync();
-        },
-        syncSchedulerToCurrentTime: (): void => {
-            input.schedulerRuntime.syncSchedulerToCurrentTime();
-        },
+        playback: input.playback,
+        schedulerRuntime: input.schedulerRuntime,
+        playerEvents: input.playerEvents,
+        uiRuntime: input.uiRuntime,
         saveLifecycleState: (): Promise<void> => input.modules.lifecycle.saveState(),
-        handleGlobalError: (error, context): void => {
-            input.uiRuntime.handleGlobalError(error, context);
-        },
-        handlePlaybackFailure: (context, error): void => {
-            input.playback.playbackRecovery.handlePlaybackFailure?.(context, error);
-        },
-        onPlayerStateChange: (state): void => {
-            input.playerEvents.onPlayerStateChange(state);
-        },
-        shouldAutoShowInfoBannerOnNextPlay: (): boolean =>
-            input.playback.playbackState.getShouldAutoShowInfoBannerOnNextPlay(),
-        clearAutoShowInfoBannerOnNextPlay: (): void => {
-            input.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay(false);
-        },
-        showInfoBanner: (): void => {
-            input.uiRuntime.showInfoBanner();
-        },
-        onPlayerTimeUpdate: (payload): void => {
-            input.playerEvents.onPlayerTimeUpdate(payload);
-        },
-        onPlayerBufferUpdate: (payload): void => {
-            input.playerEvents.onPlayerBufferUpdate(payload);
-        },
-    };
-}
-
-function createProfileSwitchCleanupDeps(
-    input: PriorityOneAssemblyInput
-): ProfileSwitchCleanupControllerDeps {
-    return {
-        cancelPendingDayRollover: (): void => {
-            input.schedulerRuntime.cancelPendingDayRollover();
-        },
-        stopPlayback: (): void => {
-            input.playback.stopPlayback();
-        },
-        unloadCurrentChannel: (): void => {
-            input.playback.unloadCurrentChannel();
-        },
-        setPendingNowPlayingChannelId: (channelId): void => {
-            input.playback.playbackState.setPendingNowPlayingChannelId(channelId);
-        },
-        setShouldAutoShowInfoBannerOnNextPlay: (value): void => {
-            input.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay(value);
-        },
-        setCurrentProgramForPlayback: (program): void => {
-            input.playback.playbackState.setCurrentProgramForPlayback(program);
-        },
-        setCurrentStreamDescriptor: (stream): void => {
-            input.playback.playbackState.setCurrentStreamDescriptor(stream);
-        },
-        setCurrentStreamDecision: (decision): void => {
-            input.playback.playbackState.setCurrentStreamDecision(decision);
-        },
     };
 }
 
@@ -319,7 +234,10 @@ export function createPlaybackRuntimeController(
 export function createProfileSwitchCleanupController(
     input: PriorityOneAssemblyInput
 ): ProfileSwitchCleanupController {
-    return new ProfileSwitchCleanupController(createProfileSwitchCleanupDeps(input));
+    return new ProfileSwitchCleanupController({
+        schedulerRuntime: input.schedulerRuntime,
+        playback: input.playback,
+    });
 }
 
 export function createEventBinder(

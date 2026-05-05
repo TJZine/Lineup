@@ -6,6 +6,7 @@ import type { IChannelScheduler } from '../../modules/scheduler/scheduler';
 import { OrchestratorEventBinder } from '../../core/orchestrator/events/OrchestratorEventBinder';
 import { PlaybackRuntimeController } from '../../core/orchestrator/priority-one/PlaybackRuntimeController';
 import { PlaybackStartController } from '../../core/orchestrator/priority-one/PlaybackStartController';
+import type { OrchestratorPlaybackStateAccessors } from '../../core/orchestrator/runtime/OrchestratorPlaybackStateAccessors';
 import { createDeferred, flushPromises } from '../helpers';
 
 const wireLifecycleResumeHarness = (overrides: {
@@ -30,6 +31,20 @@ const wireLifecycleResumeHarness = (overrides: {
     };
 }): void => {
     let currentProgram: ScheduledProgram | null = null;
+    const playbackState: OrchestratorPlaybackStateAccessors = {
+        getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+        setCurrentProgramForPlayback: (program): void => {
+            currentProgram = program;
+        },
+        getCurrentStreamDescriptor: (): StreamDescriptor | null => null,
+        setCurrentStreamDescriptor: (): void => undefined,
+        getCurrentStreamDecision: (): null => null,
+        setCurrentStreamDecision: (): void => undefined,
+        getPendingNowPlayingChannelId: (): null => null,
+        setPendingNowPlayingChannelId: (): void => undefined,
+        getShouldAutoShowInfoBannerOnNextPlay: (): boolean => false,
+        setShouldAutoShowInfoBannerOnNextPlay: (): void => undefined,
+    };
 
     const playbackStartController = new PlaybackStartController({
         getVideoPlayer: (): typeof overrides.videoPlayer => overrides.videoPlayer,
@@ -46,7 +61,7 @@ const wireLifecycleResumeHarness = (overrides: {
             programAtStart: ScheduledProgram;
             shouldResetAutoShowInfoBannerOnAbort: boolean;
         } => {
-            currentProgram = program;
+            playbackState.setCurrentProgramForPlayback(program);
             return {
                 programAtStart: program,
                 shouldResetAutoShowInfoBannerOnAbort: false,
@@ -59,24 +74,35 @@ const wireLifecycleResumeHarness = (overrides: {
     });
 
     const playbackRuntimeController = new PlaybackRuntimeController({
-        isStreamRecoveryInProgress: (): boolean => false,
-        getActiveTranscodeSessionId: (): string | null => null,
-        stopTranscodeSession: (): void => undefined,
-        skipToNextProgram: (): void => undefined,
-        pausePlayer: (): void => undefined,
-        playPlayer: (): Promise<void> => overrides.videoPlayer.play(),
-        pauseSchedulerSync: (): void => undefined,
-        resumeSchedulerSync: (): void => overrides.scheduler.resumeSyncTimer(),
-        syncSchedulerToCurrentTime: (): void => overrides.scheduler.syncToCurrentTime(),
+        playback: {
+            playbackState,
+            playbackRecovery: {
+                isStreamRecoveryInProgress: (): boolean => false,
+                handlePlaybackFailure: (): void => undefined,
+            },
+            stopPlayback: (): void => undefined,
+            unloadCurrentChannel: (): void => undefined,
+            stopTranscodeSessionById: (): void => undefined,
+            skipToNextProgram: (): void => undefined,
+            pausePlayer: (): void => undefined,
+            playPlayer: (): Promise<void> => overrides.videoPlayer.play(),
+        },
+        schedulerRuntime: {
+            cancelPendingDayRollover: (): void => undefined,
+            pauseSchedulerSync: (): void => undefined,
+            resumeSchedulerSync: (): void => overrides.scheduler.resumeSyncTimer(),
+            syncSchedulerToCurrentTime: (): void => overrides.scheduler.syncToCurrentTime(),
+        },
+        playerEvents: {
+            onPlayerStateChange: (): void => undefined,
+            onPlayerTimeUpdate: (): void => undefined,
+            onPlayerBufferUpdate: (): void => undefined,
+        },
+        uiRuntime: {
+            handleGlobalError: (): void => undefined,
+            showInfoBanner: (): void => undefined,
+        },
         saveLifecycleState: async (): Promise<void> => undefined,
-        handleGlobalError: (): void => undefined,
-        handlePlaybackFailure: (): void => undefined,
-        onPlayerStateChange: (): void => undefined,
-        shouldAutoShowInfoBannerOnNextPlay: (): boolean => false,
-        clearAutoShowInfoBannerOnNextPlay: (): void => undefined,
-        showInfoBanner: (): void => undefined,
-        onPlayerTimeUpdate: (): void => undefined,
-        onPlayerBufferUpdate: (): void => undefined,
     });
 
     const binder = new OrchestratorEventBinder({
