@@ -26,19 +26,12 @@ import {
     fetchWithRetry,
 } from './plexAuthTransport';
 import {
-    readPlexResponse,
     parsePinResponse,
     parseUserResponse,
-    parseHomeUsersPayload,
-    parseSwitchResponsePayload,
 } from './plexAuthPayloadParsers';
 import { AppErrorCode } from '../../../types/app-errors';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
-import {
-    createPlexHomeNetworkError,
-    requestFirstSupportedHomeEndpoint,
-    requestFirstSupportedHomeEndpointOrThrowReachabilityError,
-} from './plexHomeEndpointClient';
+import { PlexHomeProfileClient } from './plexHomeProfileClient';
 
 // Re-export for consumers
 export { PlexApiError } from './plexAuthTransport';
@@ -67,10 +60,15 @@ function throwIfAborted(signal: AbortSignal | null | undefined): void {
 export class PlexAuth implements IPlexAuth {
     private _state: PlexAuthState;
     private _emitter: EventEmitter<PlexAuthEvents>;
+    private readonly _homeProfileClient: PlexHomeProfileClient;
     private _credentialsEpoch = 0;
 
     constructor(config: PlexAuthConfig) {
         this._emitter = new EventEmitter<PlexAuthEvents>();
+        this._homeProfileClient = new PlexHomeProfileClient({
+            config,
+            validateAccountToken: (token): Promise<boolean> => this.validateToken(token),
+        });
         this._state = {
             config,
             accountToken: null,
@@ -378,90 +376,7 @@ export class PlexAuth implements IPlexAuth {
             );
         }
 
-        const headers = buildRequestHeaders(this._state.config, this._state.accountToken.token);
-        // Keep v2-first with v1 fallback: some plex.tv variants return a 200 payload from v2
-        // with no usable Home users. Existing tests cover this fallback behavior.
-        // Revisit removing v1 only after capturing production traces proving v2 responses are
-        // consistently complete for webOS targets.
-        const endpoints = [
-            PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT,
-            PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL_V1 + PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT,
-        ];
-
-        let nextEndpointIndex = 0;
-        let sawSuccessfulResponse = false;
-        let lastError: PlexApiError | null = null;
-        const init: RequestInit = {
-            method: 'GET',
-            headers: headers,
-        };
-
-        while (nextEndpointIndex < endpoints.length) {
-            const result = await requestFirstSupportedHomeEndpointOrThrowReachabilityError(
-                endpoints.slice(nextEndpointIndex),
-                init,
-                options?.signal ?? null,
-                'Failed to fetch Plex Home users'
-            );
-
-            if (result.kind === 'unsupported') {
-                break;
-            }
-
-            const endpointIndex = nextEndpointIndex + result.endpointIndex;
-            const response = result.response;
-
-            if (response.status === 401) {
-                throw new PlexApiError(
-                    AppErrorCode.AUTH_REQUIRED,
-                    'Unauthorized: account authentication required',
-                    401,
-                    false
-                );
-            }
-            if (response.status === 403) {
-                throw new PlexApiError(
-                    AppErrorCode.AUTH_INVALID,
-                    'Forbidden: account access denied',
-                    403,
-                    false
-                );
-            }
-            if (!response.ok) {
-                lastError = new PlexApiError(
-                    AppErrorCode.SERVER_UNREACHABLE,
-                    `Failed to fetch Plex Home users (status ${response.status})`,
-                    response.status,
-                    response.status >= 500
-                );
-                break;
-            }
-
-            const payload = await readPlexResponse(response);
-            const users = parseHomeUsersPayload(payload);
-            sawSuccessfulResponse = true;
-            if (users.length > 0) {
-                return users;
-            }
-
-            // Some plex.tv variants return a 200 body on v2 that lacks Home users.
-            // Try v1 before concluding there are no profiles.
-            if (endpointIndex < endpoints.length - 1) {
-                nextEndpointIndex = endpointIndex + 1;
-                continue;
-            }
-            return [];
-        }
-
-        if (sawSuccessfulResponse) {
-            return [];
-        }
-
-        if (lastError) {
-            throw lastError;
-        }
-
-        return [];
+        return this._homeProfileClient.getHomeUsers(this._state.accountToken.token, options);
     }
 
     public async switchHomeUser(
@@ -479,153 +394,12 @@ export class PlexAuth implements IPlexAuth {
 
         const epoch = this._credentialsEpoch;
         const accountToken = this._state.accountToken;
-        const headers = buildRequestHeaders(this._state.config, accountToken.token);
-        const pinValue = options?.pin && options.pin.trim().length > 0 ? options.pin.trim() : null;
-
-        const buildUrl = (base: string): string => {
-            const url = new URL(
-                `${base}${PLEX_AUTH_CONSTANTS.HOME_USERS_ENDPOINT}/${encodeURIComponent(userId)}/switch`
-            );
-            if (pinValue) {
-                url.searchParams.set('pin', pinValue);
-            }
-            return url.toString();
-        };
-
-        const endpoints = [
-            buildUrl(PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL),
-            buildUrl(PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL_V1),
-        ];
-
-        let lastError: PlexApiError | null = null;
-        let response: Response | null = null;
-        let nextEndpointIndex = 0;
-        const init: RequestInit = {
-            method: 'POST',
-            headers: headers,
-        };
-
-        while (nextEndpointIndex < endpoints.length) {
-            let pinValidationFailure: unknown = null;
-            try {
-                const result = await requestFirstSupportedHomeEndpoint(
-                    endpoints.slice(nextEndpointIndex),
-                    init,
-                    options?.signal ?? null
-                );
-                if (result.kind === 'unsupported') {
-                    response = null;
-                    break;
-                }
-
-                response = result.response;
-
-                if (response.status === 401) {
-                    if (pinValue) {
-                        let stillValid = false;
-                        try {
-                            stillValid = await this.validateToken(accountToken.token);
-                        } catch (error) {
-                            pinValidationFailure = error;
-                            throw error;
-                        }
-                        if (stillValid) {
-                            throw new PlexApiError(
-                                AppErrorCode.AUTH_FAILED,
-                                'Incorrect PIN',
-                                401,
-                                false
-                            );
-                        }
-                    }
-                    throw new PlexApiError(
-                        AppErrorCode.AUTH_REQUIRED,
-                        'Unauthorized: account token is not valid for profile switching',
-                        401,
-                        false
-                    );
-                }
-                if (response.status === 403) {
-                    if (pinValue) {
-                        let stillValid = false;
-                        try {
-                            stillValid = await this.validateToken(accountToken.token);
-                        } catch (error) {
-                            pinValidationFailure = error;
-                            throw error;
-                        }
-                        if (stillValid) {
-                            throw new PlexApiError(
-                                AppErrorCode.AUTH_FAILED,
-                                'Incorrect PIN',
-                                403,
-                                false
-                            );
-                        }
-                    }
-                    throw new PlexApiError(
-                        AppErrorCode.AUTH_INVALID,
-                        'Forbidden: account token is not valid for profile switching',
-                        403,
-                        false
-                    );
-                }
-                if (!response.ok) {
-                    lastError = new PlexApiError(
-                        AppErrorCode.SERVER_UNREACHABLE,
-                        `Failed to switch Plex Home user (status ${response.status})`,
-                        response.status,
-                        response.status >= 500
-                    );
-                    response = null;
-                    break;
-                }
-
-                break;
-            } catch (error) {
-                if (options?.signal?.aborted) {
-                    throw error;
-                }
-                if (error === pinValidationFailure) {
-                    throw error;
-                }
-                if (error instanceof PlexApiError) {
-                    if (
-                        error.code === AppErrorCode.AUTH_REQUIRED ||
-                        error.code === AppErrorCode.AUTH_INVALID ||
-                        error.code === AppErrorCode.AUTH_FAILED ||
-                        error.code === AppErrorCode.PARSE_ERROR ||
-                        error.code === AppErrorCode.RATE_LIMITED
-                    ) {
-                        throw error;
-                    }
-                }
-                if (error instanceof PlexApiError) {
-                    lastError = error;
-                } else {
-                    lastError = createPlexHomeNetworkError(
-                        'Failed to switch Plex Home user',
-                        error
-                    );
-                    break;
-                }
-            }
-        }
-
-        if (!response) {
-            if (lastError) {
-                throw lastError;
-            }
-            throw new PlexApiError(
-                AppErrorCode.RESOURCE_NOT_FOUND,
-                'Plex Home switching not supported',
-                undefined,
-                false
-            );
-        }
-
-        const payload = await readPlexResponse(response);
-        const parsed = parseSwitchResponsePayload(payload);
+        const parsed = await this._homeProfileClient.requestHomeUserSwitch({
+            userId,
+            accountToken: accountToken.token,
+            pin: options?.pin,
+            signal: options?.signal ?? null,
+        });
         const userToken = await this._fetchUserProfile(parsed.authToken, options?.signal ?? null);
 
         if (
