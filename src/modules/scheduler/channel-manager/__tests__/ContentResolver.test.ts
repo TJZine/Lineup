@@ -335,6 +335,47 @@ describe('ContentResolver', () => {
             ]);
         });
 
+        it('invalidateSource recursively invalidates cached mixed and sub-source results', async () => {
+            const callCountByLibraryId = new Map<string, number>();
+            mockLibrary.getLibraryItems.mockImplementation(async (libraryId: string) => {
+                const callCount = (callCountByLibraryId.get(libraryId) ?? 0) + 1;
+                callCountByLibraryId.set(libraryId, callCount);
+                return [createMockItem({ ratingKey: `item-${libraryId}-${callCount}` })];
+            });
+
+            const sourceA: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-mixed-cache-a',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+            const sourceB: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-mixed-cache-b',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+            const mixed: MixedContentSource = {
+                type: 'mixed',
+                sources: [sourceA, sourceB],
+                mixMode: 'sequential',
+            };
+
+            const first = await resolver.resolveSource(mixed);
+            resolver.invalidateSource(mixed);
+            const second = await resolver.resolveSource(mixed);
+
+            expect(first.map((item) => item.ratingKey)).toEqual([
+                'item-lib-mixed-cache-a-1',
+                'item-lib-mixed-cache-b-1',
+            ]);
+            expect(second.map((item) => item.ratingKey)).toEqual([
+                'item-lib-mixed-cache-a-2',
+                'item-lib-mixed-cache-b-2',
+            ]);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(4);
+        });
+
         it('invalidateSource recursively invalidates mixed sub-sources and aborts their in-flight work', async () => {
             const abortEvents: string[] = [];
             mockLibrary.getLibraryItems.mockImplementation((libraryId: string, options?: { signal?: AbortSignal | null }) => {
