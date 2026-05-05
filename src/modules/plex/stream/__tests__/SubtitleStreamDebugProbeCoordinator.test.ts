@@ -1,5 +1,5 @@
-import { SubtitleStreamDebugProbeCoordinator } from '../SubtitleStreamDebugProbeCoordinator';
-import type { PlexStream } from '../types';
+import { SubtitleStreamDebugProbeCoordinator } from '../diagnostics/SubtitleStreamDebugProbeCoordinator';
+import type { PlexStream } from '../contracts/types';
 
 describe('SubtitleStreamDebugProbeCoordinator', () => {
     let mockFetch: jest.Mock;

@@ -1,5 +1,5 @@
-import { resolveStreamPipeline } from '../resolveStreamPipeline';
-import type { StreamResolverError } from '../interfaces';
+import { resolveStreamPipeline } from '../pipeline/resolveStreamPipeline';
+import type { StreamResolverError } from '../contracts/interfaces';
 import { createMockMediaItem } from './testUtils';
 import { AppErrorCode } from '../../../../types/app-errors';
 

@@ -1,4 +1,4 @@
-import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
+import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
 
 type DvProfileInfo = {
     raw: string | null;

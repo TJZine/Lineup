@@ -2,48 +2,48 @@
  * Resolves playback URLs, handles direct play detection, and manages sessions.
  */
 
-import { EventEmitter } from '../../../utils/EventEmitter';
-import { AppErrorCode } from '../../../types/app-errors';
-import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
-import type { IDisposable } from '../../../utils/interfaces';
+import { EventEmitter } from '../../../../utils/EventEmitter';
+import { AppErrorCode } from '../../../../types/app-errors';
+import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
+import type { IDisposable } from '../../../../utils/interfaces';
 import type {
     IPlexStreamResolver,
     PlexStreamResolverConfig,
     StreamResolverError,
     StreamResolverEventMap,
-} from './interfaces';
+} from '../contracts/interfaces';
 import type {
     PlexStreamMediaItem,
     StreamRequest,
     StreamDecision,
     HlsOptions,
-} from './types';
+} from '../contracts/types';
 import { generatePlexSessionId } from './plexSessionId';
-import { summarizeErrorForLog } from '../../../utils/errors';
+import { summarizeErrorForLog } from '../../../../utils/errors';
 import {
     getDirectPlayDecision,
-} from './playbackCompatibilityPolicy';
-import { fetchWithTimeout } from '../shared/fetchWithTimeout';
-import { detectHdrLabel } from './hdr';
-import type { PlatformIdentityService } from '../../../platform';
-import { createPlatformIdentityService } from '../../../platform';
-import { resolveStreamPipeline } from './resolveStreamPipeline';
+} from '../policy/playbackCompatibilityPolicy';
+import { fetchWithTimeout } from '../../shared/fetchWithTimeout';
+import { detectHdrLabel } from '../policy/hdr';
+import type { PlatformIdentityService } from '../../../../platform';
+import { createPlatformIdentityService } from '../../../../platform';
+import { resolveStreamPipeline } from '../pipeline/resolveStreamPipeline';
 import {
     applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParam,
     buildPlexUrlFromKey,
-} from '../shared/plexUrl';
+} from '../../shared/plexUrl';
 import {
     buildPlexClientCapabilities,
     buildPlexMetadataPath,
     buildPlexTranscodeStartUrl,
-} from './plexStreamUrlPolicy';
-import { logPlexWarning } from '../shared/plexLogging';
-import { SubtitleStreamDebugProbeCoordinator } from './SubtitleStreamDebugProbeCoordinator';
-import { UniversalTranscodeDecisionClient } from './UniversalTranscodeDecisionClient';
+} from '../url/plexStreamUrlPolicy';
+import { logPlexWarning } from '../../shared/plexLogging';
+import { SubtitleStreamDebugProbeCoordinator } from '../diagnostics/SubtitleStreamDebugProbeCoordinator';
+import { UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
 
 // Re-export types for consumers
-export { PlexStreamErrorCode } from './types';
+export { PlexStreamErrorCode } from '../contracts/types';
 
 /**
  * Plex Stream Resolver implementation.

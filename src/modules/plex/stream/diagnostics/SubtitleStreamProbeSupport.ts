@@ -1,9 +1,9 @@
 import {
     detectSubtitleTextContentFormat,
     type SubtitleTextContentFormat,
-} from '../../../shared/subtitleTextFormatDetection';
-import { redactUrlForLog } from '../../../utils/redact';
-import { applyXPlexTokenQueryParam, tryBuildPlexServerUrlFromKey } from '../shared/plexUrl';
+} from '../../../../shared/subtitleTextFormatDetection';
+import { redactUrlForLog } from '../../../../utils/redact';
+import { applyXPlexTokenQueryParam, tryBuildPlexServerUrlFromKey } from '../../shared/plexUrl';
 
 export type SubtitleTextFormat = SubtitleTextContentFormat;
 export type SubtitleProbeUrlSource = 'key' | 'id_fallback';

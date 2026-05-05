@@ -2,18 +2,18 @@
  * @fileoverview Unit tests for playback compatibility policy.
  */
 
-import type { PlexMediaFile, PlexStream } from '../types';
+import type { PlexMediaFile, PlexStream } from '../contracts/types';
 import {
     detectHdrLabel,
     extractHdrLabelFromPlexMedia,
-} from '../hdr';
+} from '../policy/hdr';
 import {
     getDirectPlayDecision,
     getHdrCompatibilityDecision,
     isTrueHdCodec,
     selectCompatibleAudioTrack,
     shouldForceTranscodeAudioStreamId,
-} from '../playbackCompatibilityPolicy';
+} from '../policy/playbackCompatibilityPolicy';
 
 function createPolicyMedia(overrides: {
     container?: string;

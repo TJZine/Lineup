@@ -1,9 +1,9 @@
-import type { TranscodeQualityOption } from '../../../config/transcodeQuality';
-import { DEFAULT_HLS_OPTIONS } from './constants';
-import type { HlsOptions } from './types';
+import type { TranscodeQualityOption } from '../../../../config/transcodeQuality';
+import { DEFAULT_HLS_OPTIONS } from '../policy/constants';
+import type { HlsOptions } from '../contracts/types';
 import {
     applyXPlexQueryParamsFromHeaders,
-} from '../shared/plexUrl';
+} from '../../shared/plexUrl';
 
 interface PlexSelectedConnectionSnapshot {
     uri: string;

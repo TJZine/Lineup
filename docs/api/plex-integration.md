@@ -12,7 +12,7 @@ Lineup does not have a single unified Plex API class. Each Plex concern is owned
 | `IPlexAuth` | `src/modules/plex/auth/interfaces.ts` | OAuth PIN flow, token management |
 | `IPlexServerDiscovery` | `src/modules/plex/discovery/interfaces.ts` | Server discovery, connection testing, selection |
 | `IPlexLibrary` | `src/modules/plex/library/interfaces.ts` | Library browsing, metadata, search |
-| `IPlexStreamResolver` | `src/modules/plex/stream/interfaces.ts` | Stream URL resolution, transcode sessions |
+| `IPlexStreamResolver` | `src/modules/plex/stream/contracts/interfaces.ts` | Stream URL resolution, transcode sessions |
 
 These are composed at the application composition root, not through interface inheritance.
 

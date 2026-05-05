@@ -2,8 +2,8 @@
  * @fileoverview Unit tests for media selection policy.
  */
 
-import type { PlexMediaFile, PlexStream } from '../types';
-import { selectBestMedia, selectBestMediaWithSubtitleStream } from '../mediaSelectionPolicy';
+import type { PlexMediaFile, PlexStream } from '../contracts/types';
+import { selectBestMedia, selectBestMediaWithSubtitleStream } from '../policy/mediaSelectionPolicy';
 
 function requireValue<T>(value: T | null | undefined): NonNullable<T> {
     expect(value).not.toBeNull();

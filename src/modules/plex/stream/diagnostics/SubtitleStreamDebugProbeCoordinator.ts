@@ -1,8 +1,8 @@
-import { redactSensitiveTokens } from '../../../utils/redact';
-import { isTextSubtitleFormat } from './constants';
-import type { PlexStreamSubtitleDebugLogPort } from './interfaces';
+import { redactSensitiveTokens } from '../../../../utils/redact';
+import { isTextSubtitleFormat } from '../policy/constants';
+import type { PlexStreamSubtitleDebugLogPort } from '../contracts/interfaces';
 import { probeSubtitleStreamDelivery } from './SubtitleStreamProbe';
-import type { PlexStream } from './types';
+import type { PlexStream } from '../contracts/types';
 
 export interface SubtitleStreamDebugProbeCoordinatorDeps {
     getServerUri: () => string | null;

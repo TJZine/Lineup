@@ -1,5 +1,5 @@
-import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
-import { fetchWithTimeout } from '../shared/fetchWithTimeout';
+import { redactSensitiveTokens, redactUrlForLog } from '../../../../utils/redact';
+import { fetchWithTimeout } from '../../shared/fetchWithTimeout';
 import {
     buildSubtitleStreamProbeRequestContext,
     readSubtitleProbeSample,

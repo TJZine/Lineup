@@ -5,7 +5,7 @@
 import {
     probeSubtitleStreamDelivery,
     SUBTITLE_STREAM_PROBE_TIMEOUT_MS,
-} from '../SubtitleStreamProbe';
+} from '../diagnostics/SubtitleStreamProbe';
 
 describe('SubtitleStreamProbe', () => {
     let mockFetch: jest.Mock;

@@ -1,4 +1,4 @@
-import type { PlexStream } from './types';
+import type { PlexStream } from '../contracts/types';
 import { BURN_IN_SUBTITLE_FORMATS, isTextSubtitleFormat } from './constants';
 
 export type SubtitleDelivery = 'embed' | 'sidecar' | 'burn' | 'none';

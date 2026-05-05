@@ -1,23 +1,23 @@
-import { AppErrorCode } from '../../../types/app-errors';
-import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
-import type { StreamResolverError } from './interfaces';
+import { AppErrorCode } from '../../../../types/app-errors';
+import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
+import type { StreamResolverError } from '../contracts/interfaces';
 import {
     getDirectPlayDecision,
     getHdrCompatibilityDecision,
     isTrueHdCodec,
     selectCompatibleAudioTrack,
     shouldForceTranscodeAudioStreamId,
-} from './playbackCompatibilityPolicy';
-import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from './subtitleDeliveryPolicy';
-import { selectBestMedia, selectBestMediaWithSubtitleStream } from './mediaSelectionPolicy';
+} from '../policy/playbackCompatibilityPolicy';
+import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from '../policy/subtitleDeliveryPolicy';
+import { selectBestMedia, selectBestMediaWithSubtitleStream } from '../policy/mediaSelectionPolicy';
 import type {
     HlsOptions,
     PlexStreamMediaItem,
     PlexStream,
     StreamDecision,
     StreamRequest,
-} from './types';
-import { PlexStreamErrorCode } from './types';
+} from '../contracts/types';
+import { PlexStreamErrorCode } from '../contracts/types';
 
 type CreateResolverError = (
     code: PlexStreamErrorCode,

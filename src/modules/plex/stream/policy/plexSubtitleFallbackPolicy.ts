@@ -1,12 +1,12 @@
 import {
     applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParam,
-} from '../shared/plexUrl';
+} from '../../shared/plexUrl';
 import {
     applyPlexSessionQueryParams,
     buildPlexMetadataPath,
     ensurePlexClientProfileName,
-} from './plexStreamUrlPolicy';
+} from '../url/plexStreamUrlPolicy';
 
 export interface PlexSubtitleFallbackContext {
     serverUri: string | null;

@@ -5,10 +5,10 @@ import type {
     StreamDecision,
     HlsOptions,
 } from './types';
-import type { TranscodeQualityOption } from '../../../config/transcodeQuality';
-import type { PlatformIdentityService } from '../../../platform';
-import type { IDisposable } from '../../../utils/interfaces';
-import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
+import type { TranscodeQualityOption } from '../../../../config/transcodeQuality';
+import type { PlatformIdentityService } from '../../../../platform';
+import type { IDisposable } from '../../../../utils/interfaces';
+import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
 
 export type StreamResolverErrorStage =
     | 'media_selection'

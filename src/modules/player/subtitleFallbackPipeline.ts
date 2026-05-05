@@ -10,7 +10,7 @@ import {
     buildPlexSubtitleFetchAttempts,
     buildPlexSubtitleTranscodeUrl,
     type PlexSubtitleFallbackContext,
-} from '../plex/stream/plexSubtitleFallbackPolicy';
+} from '../plex/stream/policy/plexSubtitleFallbackPolicy';
 import { redactSensitiveTokens } from '../../utils/redact';
 
 export type SubtitleFallbackPipelineContext = PlexSubtitleFallbackContext;

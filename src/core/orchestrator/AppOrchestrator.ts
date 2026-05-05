@@ -40,7 +40,7 @@ import {
     type StreamResolverError,
     mapPlexStreamErrorCodeToAppErrorCode,
 } from '../../modules/plex/stream';
-import { MIME_TYPES } from '../../modules/plex/stream/constants'; // Fix Direct Play MIME types
+import { MIME_TYPES } from '../../modules/plex/stream/policy/constants'; // Fix Direct Play MIME types
 import {
     type IChannelManager,
     type ChannelConfig,

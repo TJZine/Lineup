@@ -1,5 +1,5 @@
-import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
-import type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType } from '../shared/types';
+import { AppErrorCode, getAppErrorCode } from '../../../../types/app-errors';
+import type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType } from '../../shared/types';
 
 export type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType };
 

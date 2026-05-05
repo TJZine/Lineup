@@ -1,4 +1,4 @@
-import type { PlexMediaFile } from './types';
+import type { PlexMediaFile } from '../contracts/types';
 
 export type SelectedMedia = {
     media: PlexMediaFile;

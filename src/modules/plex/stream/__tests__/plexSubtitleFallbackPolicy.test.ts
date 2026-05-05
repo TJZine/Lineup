@@ -1,7 +1,7 @@
 import {
     buildPlexSubtitleFetchAttempts,
     buildPlexSubtitleTranscodeUrl,
-} from '../plexSubtitleFallbackPolicy';
+} from '../policy/plexSubtitleFallbackPolicy';
 
 describe('plexSubtitleFallbackPolicy', () => {
     it('builds query/header/download subtitle fetch attempts from Plex auth headers', () => {

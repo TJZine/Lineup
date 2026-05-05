@@ -1,5 +1,5 @@
-import { fetchWithTimeout } from '../shared/fetchWithTimeout';
-import type { StreamDecision, HlsOptions } from './types';
+import { fetchWithTimeout } from '../../shared/fetchWithTimeout';
+import type { StreamDecision, HlsOptions } from '../contracts/types';
 
 interface UniversalTranscodeDecisionClientConfig {
     getAuthHeaders: () => Record<string, string>;

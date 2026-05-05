@@ -1,10 +1,10 @@
-import { SubtitleDebugLogger } from '../../debug/SubtitleDebugLogger';
-import { logPlexWarning } from '../shared/plexLogging';
+import { SubtitleDebugLogger } from '../../../debug/SubtitleDebugLogger';
+import { logPlexWarning } from '../../shared/plexLogging';
 import type {
     PlexStreamSubtitleDebugLogContext,
     PlexStreamSubtitleDebugLogPort,
     PlexStreamSubtitleDebugPolicyReader,
-} from './interfaces';
+} from '../contracts/interfaces';
 
 export function createPlexStreamSubtitleDebugLogPort(
     subtitleDebugPolicyReader: PlexStreamSubtitleDebugPolicyReader

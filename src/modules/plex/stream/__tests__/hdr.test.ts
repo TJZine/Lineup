@@ -1,4 +1,4 @@
-import { detectHdrLabel, extractHdrLabelFromPlexMedia } from '../hdr';
+import { detectHdrLabel, extractHdrLabelFromPlexMedia } from '../policy/hdr';
 
 describe('hdr helpers', () => {
     it('prefers Dolby Vision when DOVI flags are present', () => {

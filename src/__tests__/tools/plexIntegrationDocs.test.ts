@@ -84,8 +84,8 @@ describe('Plex integration API docs', () => {
     const discoveryInterfaces = readRepoFile('src/modules/plex/discovery/interfaces.ts');
     const libraryInterfaces = readRepoFile('src/modules/plex/library/interfaces.ts');
     const libraryTypes = readRepoFile('src/modules/plex/library/types.ts');
-    const streamInterfaces = readRepoFile('src/modules/plex/stream/interfaces.ts');
-    const streamTypes = readRepoFile('src/modules/plex/stream/types.ts');
+    const streamInterfaces = readRepoFile('src/modules/plex/stream/contracts/interfaces.ts');
+    const streamTypes = readRepoFile('src/modules/plex/stream/contracts/types.ts');
 
     it('documents IPlexAuth from the exported source contract', () => {
         expectDocsToMatchSourceType(docs, extractInterface(authInterfaces, 'IPlexAuth'));

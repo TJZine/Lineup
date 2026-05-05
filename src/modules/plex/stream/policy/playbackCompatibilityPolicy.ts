@@ -1,5 +1,5 @@
-import type { PlexMediaFile, PlexStream } from './types';
-import type { Hdr10FallbackMode } from '../../settings/PlaybackSettingsStore';
+import type { PlexMediaFile, PlexStream } from '../contracts/types';
+import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
 import { SUPPORTED_AUDIO_CODECS, SUPPORTED_CONTAINERS, SUPPORTED_VIDEO_CODECS, MAX_RESOLUTION } from './constants';
 import { detectHdrLabel } from './hdr';
 import { inferHdr10BaseLayer, shouldApplyHdr10Fallback } from './dvHdr10Fallback';

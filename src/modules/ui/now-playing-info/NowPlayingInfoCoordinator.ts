@@ -8,7 +8,7 @@ import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from '.
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import { formatAudioCodec } from '../../../utils/mediaFormat';
-import { extractHdrLabelFromPlexMedia } from '../../plex/stream/hdr';
+import { extractHdrLabelFromPlexMedia } from '../../plex/stream/policy/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
 import { summarizeErrorForLog } from '../../../utils/errors';
 

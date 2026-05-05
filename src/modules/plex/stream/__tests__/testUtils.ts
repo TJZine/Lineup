@@ -1,10 +1,10 @@
-import type { PlexStreamResolverConfig } from '../interfaces';
-import type { PlexStreamMediaItem, PlexMediaFile, PlexStream } from '../types';
+import type { PlexStreamResolverConfig } from '../contracts/interfaces';
+import type { PlexStreamMediaItem, PlexMediaFile, PlexStream } from '../contracts/types';
 import type { PlatformIdentityService } from '../../../../platform';
 import { AudioSettingsStore } from '../../../settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../../settings/PlaybackSettingsStore';
 import { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
-import { createPlexStreamSubtitleDebugLogPort } from '../PlexStreamSubtitleDebugLogPort';
+import { createPlexStreamSubtitleDebugLogPort } from '../diagnostics/PlexStreamSubtitleDebugLogPort';
 import {
     createPlexIdentityHeaders,
     createPlexIdentityMetadata,

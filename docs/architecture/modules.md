@@ -327,7 +327,7 @@ The primary structural hotspots still treated as current by
 
 `src/Orchestrator.ts`, `src/modules/ui/settings/SettingsScreen.ts`,
 `src/modules/ui/epg/component/EPGComponent.ts`,
-`src/modules/plex/stream/PlexStreamResolver.ts`, and
+`src/modules/plex/stream/resolver/PlexStreamResolver.ts`, and
 `src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
 backlog or ownership surfaces where listed below, but current source
 size/delegation evidence no longer supports listing them as primary active
@@ -341,7 +341,7 @@ rendering behavior.
 - `src/Orchestrator.ts` → `P1` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/App.ts` → `P2` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/modules/ui/epg/component/EPGComponent.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/channel-setup/ChannelSetupScreen.ts` → `P4` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-- `src/modules/plex/stream/PlexStreamResolver.ts` → `P5` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+- `src/modules/plex/stream/resolver/PlexStreamResolver.ts` → `P5` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` → `P6` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 
 The backlog-direction entries above are planned outcomes and are not current completed fact.

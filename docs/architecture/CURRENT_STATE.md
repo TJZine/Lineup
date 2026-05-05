@@ -194,15 +194,15 @@ after this extraction.
 - `src/modules/plex/library/`
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
-- `src/modules/plex/stream/PlexStreamResolver.ts` remains the public
+- `src/modules/plex/stream/resolver/PlexStreamResolver.ts` remains the public
   `IPlexStreamResolver` implementation and delegates focused stream
   responsibilities instead of constructing settings/debug storage owners
   directly. It receives typed policy readers and a subtitle-debug logging port
   from composition wiring.
-- `src/modules/plex/stream/SubtitleStreamDebugProbeCoordinator.ts` owns debug
+- `src/modules/plex/stream/diagnostics/SubtitleStreamDebugProbeCoordinator.ts` owns debug
   subtitle discovery summaries, text-candidate selection, key-backed/keyless
   probe selection, and fire-and-forget subtitle probe scheduling.
-- `src/modules/plex/stream/UniversalTranscodeDecisionClient.ts` owns universal
+- `src/modules/plex/stream/diagnostics/UniversalTranscodeDecisionClient.ts` owns universal
   transcode decision request conversion, decision URL derivation, fetch timeout,
   non-ok handling, and XML/regex decision parsing while
   `PlexStreamResolver.fetchUniversalTranscodeDecision()` remains the public
@@ -327,7 +327,7 @@ The main structural hotspots still treated as current by this architecture sourc
 
 `src/modules/ui/settings/SettingsScreen.ts`,
 `src/modules/ui/epg/component/EPGComponent.ts`,
-`src/modules/plex/stream/PlexStreamResolver.ts`, and
+`src/modules/plex/stream/resolver/PlexStreamResolver.ts`, and
 `src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
 ownership surfaces, but they are no longer treated as current primary file-size
 hotspots after their latest split/delegation passes. `EPGComponent.ts` now

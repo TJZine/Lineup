@@ -63,7 +63,7 @@ export {
     BURN_IN_SUBTITLE_FORMATS,
     isTextSubtitleFormat,
     TEXT_SUBTITLE_FORMATS,
-} from '../../../shared/subtitle-formats';
+} from '../../../../shared/subtitle-formats';
 
 // Client Profile
 
