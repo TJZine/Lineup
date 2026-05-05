@@ -256,6 +256,13 @@ oops:not valid
             `),
         /Invalid skill mirror manifest entry: legacy:skill/
     );
+    assert.throws(
+        () =>
+            parseSkillMirrorManifest(`
+superpowers:whatever
+            `),
+        /Invalid skill mirror manifest entry: superpowers:whatever/
+    );
 });
 
 test('required repo-local skill inventory includes the canonical planner and verification skills', () => {
