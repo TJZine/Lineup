@@ -1,5 +1,5 @@
 import { syncFocusableRegistry } from '../focus/syncFocusableRegistry';
-import type { FocusableElement } from '../../../navigation/interfaces';
+import type { FocusableElement } from '../../../navigation/contracts/interfaces';
 
 const makeFocusable = (id: string): FocusableElement => ({
     id,

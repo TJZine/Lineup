@@ -1,4 +1,4 @@
-import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 
 export type NavigationPlaybackOptionsSectionId = 'subtitles' | 'audio';
 export type NavigationChannelSwitchOutcome = ChannelSwitchOutcome;

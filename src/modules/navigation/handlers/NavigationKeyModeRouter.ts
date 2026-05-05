@@ -1,13 +1,13 @@
-import type { INavigationManager, KeyEvent, Screen } from './interfaces';
+import type { INavigationManager, KeyEvent, Screen } from '../contracts/interfaces';
 import type {
     NavigationFireAndReport,
     NavigationLogInputNotHandled,
     NavigationObserveNonBlockingPromise,
-} from './NavigationCoordinatorRuntimeServices';
+} from '../coordinator/NavigationCoordinatorRuntimeServices';
 import type {
     NavigationKeyModeRouterRuntime,
     NavigationRepeatRuntime,
-} from './NavigationHandlerContracts';
+} from '../contracts/NavigationHandlerContracts';
 import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
@@ -16,7 +16,7 @@ import type {
     NavigationModalsPort,
     NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
-} from './NavigationFeaturePorts';
+} from '../contracts/NavigationFeaturePorts';
 
 export interface NavigationKeyModeRouterPort {
     navigation: INavigationManager;

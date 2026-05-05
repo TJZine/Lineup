@@ -1,11 +1,11 @@
 import {
     NavigationCoordinator,
     type NavigationCoordinatorDeps,
-} from '../NavigationCoordinator';
+} from '../coordinator/NavigationCoordinator';
 import {
     NavigationChannelNumberHandler,
     type NavigationChannelNumberPort,
-} from '../NavigationChannelNumberHandler';
+} from '../handlers/NavigationChannelNumberHandler';
 import type {
     NavigationAuthPort,
     NavigationEpgPort,
@@ -14,30 +14,30 @@ import type {
     NavigationPlayerOsdIntent,
     NavigationPlaybackPort,
     NavigationVideoPlayerPort,
-} from '../NavigationFeaturePorts';
-import { createNavigationCoordinatorRuntimeServices } from '../NavigationCoordinatorRuntimeServices';
+} from '../contracts/NavigationFeaturePorts';
+import { createNavigationCoordinatorRuntimeServices } from '../coordinator/NavigationCoordinatorRuntimeServices';
 import {
     NavigationKeyModeRouter,
     type NavigationKeyModeRouterPort,
-} from '../NavigationKeyModeRouter';
+} from '../handlers/NavigationKeyModeRouter';
 import {
     NavigationModalEffectsHandler,
     type NavigationModalEffectsPort,
-} from '../NavigationModalEffectsHandler';
+} from '../handlers/NavigationModalEffectsHandler';
 import {
     NavigationRepeatHandler,
     type NavigationRepeatHandlerPort,
-} from '../NavigationRepeatHandler';
+} from '../handlers/NavigationRepeatHandler';
 import {
     NavigationScreenEffectsHandler,
     type NavigationScreenEffectsPort,
-} from '../NavigationScreenEffectsHandler';
-import type { INavigationManager, KeyEvent, NavigationEventMap, Screen } from '../interfaces';
+} from '../handlers/NavigationScreenEffectsHandler';
+import type { INavigationManager, KeyEvent, NavigationEventMap, Screen } from '../contracts/interfaces';
 import {
     computeAcceleratedRepeatIntervalMs,
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
-} from '../constants';
+} from '../config/constants';
 import { advanceTimersUntil } from '../../../__tests__/helpers';
 import { EXIT_CONFIRM_MODAL_ID } from '../../ui/exit-confirm';
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../ui/now-playing-info';

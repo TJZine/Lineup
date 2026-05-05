@@ -1,20 +1,20 @@
-import type { INavigationManager, KeyEvent } from './interfaces';
+import type { INavigationManager, KeyEvent } from '../contracts/interfaces';
 import type {
     EpgStopReason,
     MiniGuideStopReason,
     NavigationRepeatRuntime,
-} from './NavigationHandlerContracts';
+} from '../contracts/NavigationHandlerContracts';
 import {
     computeAcceleratedRepeatIntervalMs,
     EPG_REPEAT_TIMING,
     MINI_GUIDE_REPEAT_TIMING,
-} from './constants';
+} from '../config/constants';
 import type {
     NavigationEpgPort,
     NavigationFourWayDirection,
     NavigationMiniGuidePort,
     NavigationVerticalDirection,
-} from './NavigationFeaturePorts';
+} from '../contracts/NavigationFeaturePorts';
 
 export interface NavigationRepeatHandlerPort {
     navigation: INavigationManager;

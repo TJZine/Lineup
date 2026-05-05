@@ -1,4 +1,4 @@
-import { NavigationDirectionalRepeatController } from '../NavigationDirectionalRepeatController';
+import { NavigationDirectionalRepeatController } from '../input/NavigationDirectionalRepeatController';
 
 describe('NavigationDirectionalRepeatController', () => {
     let tryMoveFocus: jest.Mock<boolean, ['up' | 'down' | 'left' | 'right']>;

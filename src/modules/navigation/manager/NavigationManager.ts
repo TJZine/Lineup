@@ -1,5 +1,5 @@
-import { EventEmitter } from '../../utils/EventEmitter';
-import { IDisposable } from '../../utils/interfaces';
+import { EventEmitter } from '../../../utils/EventEmitter';
+import { IDisposable } from '../../../utils/interfaces';
 import {
     INavigationManager,
     NavigationConfig,
@@ -10,21 +10,21 @@ import {
     FocusableElement,
     FocusGroup,
     RemoteButton,
-} from './interfaces';
+} from '../contracts/interfaces';
 import { FocusManager } from './FocusManager';
-import { RemoteHandler } from './RemoteHandler';
+import { RemoteHandler } from '../input/RemoteHandler';
 import { NavigationFocusPolicy } from './NavigationFocusPolicy';
-import { NavigationRemoteInputRouter } from './NavigationRemoteInputRouter';
-import { NavigationDirectionalRepeatController } from './NavigationDirectionalRepeatController';
-import { NavigationChannelNumberInputController } from './NavigationChannelNumberInputController';
+import { NavigationRemoteInputRouter } from '../input/NavigationRemoteInputRouter';
+import { NavigationDirectionalRepeatController } from '../input/NavigationDirectionalRepeatController';
+import { NavigationChannelNumberInputController } from '../input/NavigationChannelNumberInputController';
 import {
     DEFAULT_NAVIGATION_CONFIG,
     INITIAL_SCREEN,
     FOCUS_CLASSES,
     CURSOR_HIDE_DELAY_MS,
     CHANNEL_INPUT_CONFIG,
-} from './constants';
-import type { PlatformInputService } from '../../platform';
+} from '../config/constants';
+import type { PlatformInputService } from '../../../platform';
 
 /**
  * Internal state for NavigationManager.

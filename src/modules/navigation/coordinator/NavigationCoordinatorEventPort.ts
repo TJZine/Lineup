@@ -1,12 +1,12 @@
 import type {
     INavigationManager,
     NavigationAsyncFailureReporter,
-} from './interfaces';
-import type { ToastInput } from '../../shared/toast';
+} from '../contracts/interfaces';
+import type { ToastInput } from '../../../shared/toast';
 import type {
     NavigationChannelSwitchingPort,
     NavigationMiniGuidePort,
-} from './NavigationFeaturePorts';
+} from '../contracts/NavigationFeaturePorts';
 
 export interface NavigationCoordinatorEventPort {
     navigation: INavigationManager;

@@ -1,5 +1,5 @@
-import type { PlatformRemoteButton } from '../../platform/services';
-import type { IDisposable } from '../../utils/interfaces';
+import type { PlatformRemoteButton } from '../../../platform/services';
+import type { IDisposable } from '../../../utils/interfaces';
 
 export interface INavigationManager {
     initialize(config: NavigationConfig): void;

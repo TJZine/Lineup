@@ -4,7 +4,7 @@
 
 import { ChannelSetupFocusCoordinator } from '../ChannelSetupFocusCoordinator';
 import type { FocusCoordinatorDeps } from '../types';
-import type { INavigationManager } from '../../../../navigation/interfaces';
+import type { INavigationManager } from '../../../../navigation/contracts/interfaces';
 import { createNavigationMock } from '../../__tests__/channel-setup-test-helpers';
 
 describe('ChannelSetupFocusCoordinator', () => {

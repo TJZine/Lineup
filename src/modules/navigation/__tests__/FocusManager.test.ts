@@ -7,8 +7,8 @@
  * @module modules/navigation/__tests__/FocusManager.test
  */
 
-import { FocusManager } from '../FocusManager';
-import { FocusGroup } from '../interfaces';
+import { FocusManager } from '../manager/FocusManager';
+import { FocusGroup } from '../contracts/interfaces';
 
 type LayoutOptions = {
     display?: string;

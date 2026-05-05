@@ -1,9 +1,9 @@
-import { isAbortLikeError } from '../../utils/errors';
+import { isAbortLikeError } from '../../../utils/errors';
 import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
-} from './NavigationFeaturePorts';
-import type { NavigationChannelNumberHandlerRuntime } from './NavigationHandlerContracts';
+} from '../contracts/NavigationFeaturePorts';
+import type { NavigationChannelNumberHandlerRuntime } from '../contracts/NavigationHandlerContracts';
 
 export interface NavigationChannelNumberPort {
     epg: NavigationEpgPort | null;

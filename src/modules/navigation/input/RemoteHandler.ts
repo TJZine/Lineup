@@ -1,8 +1,8 @@
-import { EventEmitter } from '../../utils/EventEmitter';
-import { RemoteButton, KeyEvent } from './interfaces';
-import { LONG_PRESS_THRESHOLD_MS, mapKeyCode as mapPlatformKeyCode } from './constants';
-import type { PlatformInputService } from '../../platform';
-import { createWebOsPlatformServices } from '../../platform';
+import { EventEmitter } from '../../../utils/EventEmitter';
+import { RemoteButton, KeyEvent } from '../contracts/interfaces';
+import { LONG_PRESS_THRESHOLD_MS, mapKeyCode as mapPlatformKeyCode } from '../config/constants';
+import type { PlatformInputService } from '../../../platform';
+import { createWebOsPlatformServices } from '../../../platform';
 
 interface RemoteHandlerEventMap {
     keyDown: KeyEvent;

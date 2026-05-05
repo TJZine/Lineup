@@ -1,16 +1,16 @@
 import type {
     NavigationRepeatRuntime,
     NavigationScreenEffectsRuntime,
-} from './NavigationHandlerContracts';
+} from '../contracts/NavigationHandlerContracts';
 import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
     NavigationMiniGuidePort,
     NavigationNowPlayingInfoPort,
     NavigationPlaybackPort,
-} from './NavigationFeaturePorts';
-import type { INavigationManager, Screen } from './interfaces';
-import type { NavigationFireAndReport } from './NavigationCoordinatorRuntimeServices';
+} from '../contracts/NavigationFeaturePorts';
+import type { INavigationManager, Screen } from '../contracts/interfaces';
+import type { NavigationFireAndReport } from '../coordinator/NavigationCoordinatorRuntimeServices';
 
 export interface NavigationUiGuardsPort {
     shouldRunChannelSetup: () => boolean;

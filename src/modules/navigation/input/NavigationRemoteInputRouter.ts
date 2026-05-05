@@ -1,4 +1,4 @@
-import type { Direction, KeyEvent, RemoteButton } from './interfaces';
+import type { Direction, KeyEvent, RemoteButton } from '../contracts/interfaces';
 
 interface NavigationRemoteInputRouterDeps {
     isInputBlocked: () => boolean;

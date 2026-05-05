@@ -1,6 +1,6 @@
 import { createDropdownPopover } from '../common/CreateDropdownPopover';
 import type { SettingsSelectOption } from './types';
-import type { INavigationManager } from '../../navigation/interfaces';
+import type { INavigationManager } from '../../navigation/contracts/interfaces';
 
 export interface SettingsDropdownConfig {
     anchor: HTMLElement;

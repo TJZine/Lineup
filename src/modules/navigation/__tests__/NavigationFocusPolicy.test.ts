@@ -1,4 +1,4 @@
-import { NavigationFocusPolicy } from '../NavigationFocusPolicy';
+import { NavigationFocusPolicy } from '../manager/NavigationFocusPolicy';
 
 describe('NavigationFocusPolicy', () => {
     let policy: NavigationFocusPolicy;

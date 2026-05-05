@@ -133,6 +133,13 @@ This document is directory-oriented and lists file-level owners where the canoni
 - remote handling
 - focus movement
 - navigation coordination
+- package organization:
+  - `src/modules/navigation/contracts/` owns navigation contracts and ports
+  - `src/modules/navigation/manager/` owns navigation state, focus operations, and focus policy
+  - `src/modules/navigation/input/` owns remote handling, key routing, directional repeat, and channel-number input buffering
+  - `src/modules/navigation/coordinator/` owns navigation event coordination and runtime services
+  - `src/modules/navigation/handlers/` owns coordinator handlers and effects
+  - `src/modules/navigation/config/` owns constants and key-map configuration
 
 ### `src/modules/player/`
 

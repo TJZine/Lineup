@@ -1,4 +1,4 @@
-import type { FocusableElement, INavigationManager } from '../../../navigation/interfaces';
+import type { FocusableElement, INavigationManager } from '../../../navigation/contracts/interfaces';
 
 export function syncFocusableRegistry(
     nav: Pick<INavigationManager, 'registerFocusable' | 'unregisterFocusable'>,

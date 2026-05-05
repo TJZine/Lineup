@@ -21,7 +21,7 @@ import {
     type Screen,
 } from '../../modules/navigation';
 import type { GuideSettingChange } from '../../modules/ui/settings/types';
-import { NavigationCoordinator } from '../../modules/navigation/NavigationCoordinator';
+import { NavigationCoordinator } from '../../modules/navigation/coordinator/NavigationCoordinator';
 import {
     type IPlexAuth,
     type PlexPinRequest,

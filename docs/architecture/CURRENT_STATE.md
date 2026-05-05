@@ -176,9 +176,16 @@ after this extraction.
 
 - `src/modules/navigation/`
 - owns remote handling, focus/navigation flow, and navigation coordination
-- `src/modules/navigation/NavigationManager.ts` owns navigation state, screen stack, modal stack, and focus operations
-- `src/modules/navigation/NavigationManager.ts` delegates low-level key routing and timing behavior to `NavigationRemoteInputRouter`, `NavigationDirectionalRepeatController`, and `NavigationChannelNumberInputController`
-- `src/modules/navigation/NavigationFeaturePorts.ts` consumes the shared `ChannelSwitchOutcome` owner from `src/types/channelSwitch.ts`; navigation must not duplicate the outcome literal union.
+- navigation package files are grouped by owner:
+  - `contracts/`: public navigation contracts, screen ports, feature ports, handler contracts, and coordinator contracts
+  - `manager/`: navigation state, screen/modal stack, focus manager, and focus policy
+  - `input/`: remote handling, key routing, directional repeat, and channel-number input buffering
+  - `coordinator/`: navigation event coordination, runtime services, event ports, and non-blocking failure timestamp policy
+  - `handlers/`: coordinator handlers for key mode, repeat, channel-number entry, modal effects, and screen effects
+  - `config/`: constants and key-map configuration
+- `src/modules/navigation/manager/NavigationManager.ts` owns navigation state, screen stack, modal stack, and focus operations
+- `src/modules/navigation/manager/NavigationManager.ts` delegates low-level key routing and timing behavior to `NavigationRemoteInputRouter`, `NavigationDirectionalRepeatController`, and `NavigationChannelNumberInputController`
+- `src/modules/navigation/contracts/NavigationFeaturePorts.ts` consumes the shared `ChannelSwitchOutcome` owner from `src/types/channelSwitch.ts`; navigation must not duplicate the outcome literal union.
 
 ### Plex
 

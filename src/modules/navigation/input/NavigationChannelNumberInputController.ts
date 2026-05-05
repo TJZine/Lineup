@@ -1,4 +1,4 @@
-import type { RemoteButton } from './interfaces';
+import type { RemoteButton } from '../contracts/interfaces';
 
 interface NavigationChannelNumberInputControllerDeps {
     getChannelInputConfig: () => { timeoutMs: number; maxDigits: number };

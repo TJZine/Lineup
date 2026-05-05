@@ -1,12 +1,12 @@
 import type {
     NavigationModalEffectsRuntime,
     NavigationRepeatRuntime,
-} from './NavigationHandlerContracts';
+} from '../contracts/NavigationHandlerContracts';
 import type {
     NavigationMiniGuidePort,
     NavigationModalsPort,
     NavigationNowPlayingInfoPort,
-} from './NavigationFeaturePorts';
+} from '../contracts/NavigationFeaturePorts';
 
 export interface NavigationModalEffectsPort {
     miniGuide: NavigationMiniGuidePort;

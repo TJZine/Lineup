@@ -1,6 +1,6 @@
-import { RemoteButton, NavigationConfig } from './interfaces';
-import type { PlatformInputService } from '../../platform';
-import { createWebOsPlatformServices } from '../../platform';
+import { RemoteButton, NavigationConfig } from '../contracts/interfaces';
+import type { PlatformInputService } from '../../../platform';
+import { createWebOsPlatformServices } from '../../../platform';
 
 /**
  * webOS remote control key code mappings.

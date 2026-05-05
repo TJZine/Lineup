@@ -1,5 +1,5 @@
 import { recordNonBlockingFailureTimestamp } from './nonBlockingFailureTimestamps';
-import type { KeyEvent } from './interfaces';
+import type { KeyEvent } from '../contracts/interfaces';
 import type { NavigationCoordinatorEventPort } from './NavigationCoordinatorEventPort';
 
 export type NavigationFireAndReport = (

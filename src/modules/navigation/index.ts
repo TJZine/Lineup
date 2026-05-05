@@ -1,8 +1,8 @@
 
 // Main classes
-export { NavigationManager } from './NavigationManager';
-export { FocusManager } from './FocusManager';
-export { RemoteHandler } from './RemoteHandler';
+export { NavigationManager } from './manager/NavigationManager';
+export { FocusManager } from './manager/FocusManager';
+export { RemoteHandler } from './input/RemoteHandler';
 
 // Interfaces
 export type {
@@ -18,11 +18,11 @@ export type {
     NavigationAsyncFailureReporter,
     Screen,
     ServerSelectNavigationParams,
-} from './interfaces';
+} from './contracts/interfaces';
 export type {
     AuthScreenNavigationPort,
     ServerSelectScreenNavigationPort,
-} from './ScreenNavigationPorts';
+} from './contracts/ScreenNavigationPorts';
 
 // Constants
 export {
@@ -35,4 +35,4 @@ export {
     FOCUS_CLASSES,
     DEFAULT_NAVIGATION_CONFIG,
     INITIAL_SCREEN,
-} from './constants';
+} from './config/constants';

@@ -5,7 +5,7 @@
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { StrategyStepMutableState } from '../ChannelSetupSessionContracts';
 import type { PlexLibrarySection } from '../../../plex/library/types';
-import type { INavigationManager } from '../../../navigation/interfaces';
+import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../steps/constants';
 

@@ -1,7 +1,7 @@
 import type {
     KeyEvent,
     NavigationEventMap,
-} from './interfaces';
+} from '../contracts/interfaces';
 import type { NavigationCoordinatorEventPort } from './NavigationCoordinatorEventPort';
 import type { NavigationCoordinatorRuntimeServices } from './NavigationCoordinatorRuntimeServices';
 import type {
@@ -10,7 +10,7 @@ import type {
     NavigationModalEffectsRuntime,
     NavigationRepeatRuntime,
     NavigationScreenEffectsRuntime,
-} from './NavigationHandlerContracts';
+} from '../contracts/NavigationHandlerContracts';
 
 export interface NavigationCoordinatorHandlers {
     repeats: NavigationRepeatRuntime;

@@ -1,4 +1,4 @@
-import type { Direction, RemoteButton } from './interfaces';
+import type { Direction, RemoteButton } from '../contracts/interfaces';
 
 interface NavigationDirectionalRepeatControllerDeps {
     getRepeatConfig: () => { delayMs: number; intervalMs: number };

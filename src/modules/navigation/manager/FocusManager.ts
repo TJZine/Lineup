@@ -1,5 +1,5 @@
-import { IFocusManager, FocusableElement, FocusGroup } from './interfaces';
-import { FOCUS_CLASSES } from './constants';
+import { IFocusManager, FocusableElement, FocusGroup } from '../contracts/interfaces';
+import { FOCUS_CLASSES } from '../config/constants';
 
 interface FocusManagerState {
     currentFocusId: string | null;
