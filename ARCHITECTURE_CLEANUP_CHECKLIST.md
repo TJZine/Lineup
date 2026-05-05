@@ -980,10 +980,11 @@ future source-backed replan explicitly reopens one.
   `FCP-15` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
   until `FCP-14` has clean closeout evidence.
 
-### [ ] `FCP-14` Priority-One Forwarding And Assembly Seam
+### [x] `FCP-14` Priority-One Forwarding And Assembly Seam
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan:
+  `docs/plans/2026-05-05-fcp-14-priority-one-forwarding-assembly-seam-plan.md`
 - Dimensions/rubric tags: cross-module architecture, abstraction fitness,
   contract coherence, orchestrator runtime seams
 - Scope owner: priority-one orchestrator assembly owner
@@ -1014,7 +1015,7 @@ future source-backed replan explicitly reopens one.
   symbols, targeted priority-one/orchestrator tests, source audit for removed
   forwarding and preserved owner-value seams, `npm run typecheck`,
   `git diff --check`, then `npm run verify`.
-- Ready-now execution unit: none until plan is written.
+- Ready-now execution unit: none; package complete.
 - Suggested slice table / wave candidates:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -1025,11 +1026,37 @@ future source-backed replan explicitly reopens one.
   cross-module seam; a runtime public contract must change; the work needs
   Plex, scheduler, UI, persistence, or Windows behavior changes; tests require
   private probing instead of public seam proof.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: start only after `FCP-13` closeout. Do not absorb PlexAuth,
-  scheduler/current-channel, or ContentResolver work into this package.
+- Last touched: 2026-05-05
+- Verification: pre/post source audits for `FCP-14-SF1`; `npm test --
+  PriorityOneAssemblyBuilder PriorityOneControllerCollaborators
+  PriorityOneControllerFactory`; `npm test -- PlaybackRuntimeController
+  ProfileSwitchCleanupController OrchestratorRuntimeSeams`; `npm test --
+  lifecycle-resume-race`; `npm run typecheck`; `npm run plans:check`;
+  `npm run verify:docs`; `git diff --check`; and final `npm run verify`.
+- Follow-ups: none
+- Proof matrix:
+  - `FCP-14-SF1`: resolved. `PriorityOneControllerCollaborators` no longer
+    rebuilds method-by-method dependency interfaces for playback runtime and
+    profile-switch cleanup when the grouped priority-one runtime ports already
+    carry the same contract. `PlaybackRuntimeController` now consumes grouped
+    playback, scheduler, player-event, and UI runtime ports directly, while
+    `ProfileSwitchCleanupController` consumes the grouped scheduler/playback
+    ports it needs. Preserved priority-one seams still carry owner value:
+    `PriorityOneAssemblyBuilder` keeps null-safe optional surface adaptation,
+    delayed channel-badge synchronization, recoverable transcode-stop error
+    reporting, UI side-effect aggregation, event cleanup reporting, and
+    lifecycle/event wiring; event-binder shaping and controller construction
+    order remain in the priority-one owner.
+- Closeout commits before checklist closeout: `f9d16061` (plan), `ddc49e95`
+  (`FCP-14-S1` implementation), and `fd74c705` (plan conformance).
+- Review evidence:
+  - Plan review: fresh tracked reviewer reported no material findings and
+    approved `ready_now_execution_unit` / `ready_now_slice` as `FCP-14-S1`.
+  - `FCP-14-S1`: fresh implementation reviewer reported no material findings
+    and approved the execution unit for package closeout.
+- Handoff: `FCP-14` is closed. The next safe package is `FCP-15`; do not start
+  `FCP-16` or later, `FCP-EXIT`, Windows port work, or other post-FCP cleanup
+  until `FCP-15` has clean closeout evidence.
 
 ### [ ] `FCP-15` PlexAuth Home, Profile, And Status Helper Boundary
 
