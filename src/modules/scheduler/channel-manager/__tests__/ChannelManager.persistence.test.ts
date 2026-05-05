@@ -200,6 +200,33 @@ describe('ChannelManager persistence and storage keys', () => {
             );
         });
 
+        it('keeps the public channel switch best-effort when current-channel storage fails', async () => {
+            expectPersistCurrentChannelWarning();
+            const ch1 = await manager.createChannel({ name: 'Ch1', contentSource: createMockContentSource() });
+            const switchHandler = jest.fn();
+            const warningHandler = jest.fn();
+            manager.on('channelSwitch', switchHandler);
+            manager.on('persistenceWarning', warningHandler);
+            jest
+                .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
+                .mockReturnValue({ ok: false, reason: 'quota-exceeded' });
+
+            expect(() => manager.setCurrentChannel(ch1.id)).not.toThrow();
+
+            expect(manager.getCurrentChannel()?.id).toBe(ch1.id);
+            expect(switchHandler).toHaveBeenCalledWith({
+                channel: ch1,
+                index: 0,
+            });
+            expect(warningHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                    isQuotaError: true,
+                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                })
+            );
+        });
+
         it('emits typed persistence fallback warning when current-channel write is unavailable', async () => {
             expectConsoleWarn([
                 'Failed to persist current channel',
