@@ -53,7 +53,7 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 - resolve any open architecture seam or adjacent contract decision before freezing the execution steps
 - optimize for the intended long-term owner shape and repo-preferred practice, not the smallest patch that can close the named finding
 - if current-source audit shows the right cleanup shape requires a larger rewrite inside the approved owner boundary, plan that rewrite as the execution unit or wave instead of narrowing the work to minimize diff size
-- do not source-disprove, no-code, defer, or split follow-up cleanup work because the fix would be large; those dispositions require positive current-source proof that the intended shape already exists, the finding no longer applies, or an explicit unapproved boundary forces stop/replan with one final owner
+- avoid assigning a source-disproved, no-code, deferred, or split follow-up disposition because the fix would be large; those dispositions require positive current-source proof that the intended shape already exists, the finding no longer applies, or an explicit unapproved boundary forces stop/replan with one final owner
 - record explicit stop-and-replan conditions under the seam gate or an adjacent replan block whenever discovery, boundary, or verification failure would invalidate the current plan
 - include exact files in scope and exact files out of scope
 - freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk
