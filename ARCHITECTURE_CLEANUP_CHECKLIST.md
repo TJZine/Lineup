@@ -674,10 +674,10 @@ Baseline carry-forward into `FCP-24` through `FCP-25`:
   Windows work, or other post-FCP cleanup until `FCP-24` has clean closeout
   evidence.
 
-### [ ] `FCP-24` Behavior-Neutral Package Organization
+### [x] `FCP-24` Behavior-Neutral Package Organization
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-06-fcp-24-behavior-neutral-package-organization-plan.md`
 - Dimensions/rubric tags: package organization, structure navigation,
   cross-module architecture, dependency health, convention drift, portability
   readiness
@@ -726,7 +726,16 @@ Baseline carry-forward into `FCP-24` through `FCP-25`:
   imports; public export surface audit; `npm run typecheck`; `git diff
   --check`; `npm run verify`; `npm run plans:check` and `npm run verify:docs`
   when a tracked plan or docs change.
-- Ready-now execution unit: none until plan is written.
+- Completed execution unit: `FCP-24-W1` (`FCP-24-S1` through `FCP-24-S4`).
+- Source-finding closeout:
+
+  | Source finding | Disposition | Evidence |
+  | --- | --- | --- |
+  | `FCP-24-SF1` | source-disproved | Navigation already matches the completed `FCP-18` owner-folder shape; old flat-path import audit returned no hits and no navigation implementation was admitted. |
+  | `FCP-24-SF2` | source-disproved | Plex stream already matches the completed `FCP-19` owner-folder shape; old flat-path import audit returned no hits and no Plex stream implementation was admitted. |
+  | `FCP-24-SF3` | accepted no-code package-surface exception | Channel-manager remains flat with no source-proven foldering value after `FCP-22`; direct imports remain limited to stable `constants.ts` / `types.ts` domain reads with final owners and revisit triggers in the completed plan. |
+  | `FCP-24-SF4` | resolved | Commit `f782afec` replaced EPG package-local `../view` and `../runtime` subfolder-barrel imports with direct leaf imports and deleted the unconsumed `view/index.ts` and `runtime/index.ts` barrels plus their index-only tests. |
+- Ready-now execution unit: completed.
 - Suggested slice/wave table:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -741,13 +750,18 @@ Baseline carry-forward into `FCP-24` through `FCP-25`:
   export widening appears necessary; imports moves change behavior; path-truth
   docs require broader architecture decisions; package organization overlaps an
   unresolved runtime, scheduler, or UI workflow owner seam.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: next safe start after completed `FCP-23`. A planner must write and
-  review an execution-grade plan before implementation; ready-now remains none
-  until that plan selects a coherent wave or records a source-backed no-code
-  disposition.
+- Last touched: 2026-05-06
+- Verification: `npm run plans:check` passed; `npm run verify:docs` passed;
+  navigation, Plex stream, channel-manager, and EPG import/path audits passed;
+  targeted EPG tests passed (`npm test -- EPGComponent EPGFocusNavigator
+  EPGGridRuntimeController EPGRefreshController EPGVirtualizer`; `npm test --
+  --runInBand src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts`);
+  `npm run typecheck` passed; `git diff --check` passed; full verification
+  passed (`npm run verify`); implementation review for commit `f782afec`
+  reported no blocking findings.
+- Follow-ups: none for FCP-24.
+- Handoff: `FCP-25` is the next safe start. Do not start Windows work or other
+  post-FCP cleanup until `FCP-25` has clean final-gate evidence.
 
 ### [ ] `FCP-25` Final Port Gate
 
