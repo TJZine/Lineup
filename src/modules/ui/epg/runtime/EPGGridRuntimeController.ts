@@ -1,8 +1,10 @@
 import { AppErrorCode } from '../../../../types/app-errors';
 import { EPG_CONSTANTS, EPG_CLASSES } from '../constants';
 import { rafThrottle } from '../utils';
-import { EPGVisibleRangeEmitter } from '../view';
-import type { EPGErrorBoundary, EPGTimeHeader, EPGVirtualizer } from '../view';
+import type { EPGErrorBoundary } from '../view/EPGErrorBoundary';
+import type { EPGTimeHeader } from '../view/EPGTimeHeader';
+import { EPGVisibleRangeEmitter } from '../view/EPGVisibleRangeEmitter';
+import type { EPGVirtualizer } from '../view/EPGVirtualizer';
 import type { EPGConfig, EPGFocusPosition, EPGInternalState, EpgVisibleRange } from '../types';
 
 export type EPGGridRuntimeControllerContext = {
