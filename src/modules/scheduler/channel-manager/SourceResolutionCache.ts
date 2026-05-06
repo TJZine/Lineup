@@ -104,7 +104,7 @@ export class SourceResolutionCache {
     }
 
     cloneItems(items: ReadonlyArray<ResolvedContentItem>): ResolvedContentItem[] {
-        return items.map((item, index) => this.cloneItem(item, index));
+        return items.map((item, index) => this.cloneItem(item, item.scheduledIndex ?? index));
     }
 
     cloneItem(item: ResolvedContentItem, scheduledIndex = item.scheduledIndex): ResolvedContentItem {

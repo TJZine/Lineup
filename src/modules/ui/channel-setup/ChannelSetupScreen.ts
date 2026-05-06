@@ -13,6 +13,7 @@ import { scrollToNearest } from './focus/scrollToNearest';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
 import { ChannelSetupWorkflowPresenter } from './ChannelSetupWorkflowPresenter';
+import type { StepRenderContext } from './steps/types';
 
 const MOVIE_SVG = `
 <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
@@ -351,23 +352,21 @@ export class ChannelSetupScreen {
     }
 
     private _renderStrategyStep(): void {
-        this._workflowPresenter.renderStrategyStep({
-            contentEl: this._contentEl,
-            stepEl: this._stepEl,
-            statusEl: this._statusEl,
-            detailEl: this._detailEl,
-            errorEl: this._errorEl,
-        });
+        this._workflowPresenter.renderStrategyStep(this._buildStepRenderContext());
     }
 
     private _renderBuildStep(): void {
-        this._workflowPresenter.renderBuildStep({
+        this._workflowPresenter.renderBuildStep(this._buildStepRenderContext());
+    }
+
+    private _buildStepRenderContext(): StepRenderContext {
+        return {
             contentEl: this._contentEl,
             stepEl: this._stepEl,
             statusEl: this._statusEl,
             detailEl: this._detailEl,
             errorEl: this._errorEl,
-        });
+        };
     }
 
     private _getSelectedServerId(): string | null {

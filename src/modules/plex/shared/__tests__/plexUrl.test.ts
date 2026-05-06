@@ -183,6 +183,17 @@ describe('shared plexUrl helpers', () => {
 
             expect(params.get('X-Plex-Token')).toBe('token-1');
         });
+
+        it('does not apply a token query param when the canonical token header is absent or empty', () => {
+            const absentParams = new URLSearchParams();
+            const emptyParams = new URLSearchParams();
+
+            applyXPlexTokenQueryParamFromHeaders(absentParams, {});
+            applyXPlexTokenQueryParamFromHeaders(emptyParams, { 'X-Plex-Token': '' });
+
+            expect(absentParams.has('X-Plex-Token')).toBe(false);
+            expect(emptyParams.has('X-Plex-Token')).toBe(false);
+        });
     });
 
     describe('buildPlexResourceUrlWithAuth', () => {

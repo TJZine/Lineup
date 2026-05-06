@@ -1475,6 +1475,13 @@ describe('ContentResolver', () => {
             expect(result[1]!.episodeNumber).toBe(2);
             expect(result[2]!.seasonNumber).toBe(2);
         });
+
+        it('throws for unknown sort orders', () => {
+            expect(() => resolver.applySort(
+                items,
+                'unknown_sort' as Parameters<ContentResolver['applySort']>[1]
+            )).toThrow('Unknown content sort order: unknown_sort');
+        });
     });
 
     describe('applyPlaybackMode', () => {

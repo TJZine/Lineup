@@ -76,13 +76,18 @@ describe('UniversalTranscodeDecisionClient', () => {
             subtitleMode: 'burn',
             hideDolbyVision: true,
         });
-        expect(mockFetch).toHaveBeenCalledWith(
-            'http://plex.local/video/:/transcode/universal/decision?path=%2Flibrary%2Fmetadata%2F123&session=sess-1&existingParam=preserved',
-            expect.objectContaining({
-                method: 'GET',
-                headers: { 'X-Plex-Token': 'token-1', Accept: 'application/json' },
-            })
-        );
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        const [fetchedUrl, requestOptions] = mockFetch.mock.calls[0]!;
+        const parsedUrl = new URL(String(fetchedUrl));
+        expect(parsedUrl.origin).toBe('http://plex.local');
+        expect(parsedUrl.pathname).toBe('/video/:/transcode/universal/decision');
+        expect(parsedUrl.searchParams.get('path')).toBe('/library/metadata/123');
+        expect(parsedUrl.searchParams.get('session')).toBe('sess-1');
+        expect(parsedUrl.searchParams.get('existingParam')).toBe('preserved');
+        expect(requestOptions).toEqual(expect.objectContaining({
+            method: 'GET',
+            headers: { 'X-Plex-Token': 'token-1', Accept: 'application/json' },
+        }));
         expect(throwIfAuthFailure).toHaveBeenCalledWith(expect.any(Object));
         expect(result).toMatchObject({
             fetchedAt: Date.parse('2026-05-05T12:00:00Z'),

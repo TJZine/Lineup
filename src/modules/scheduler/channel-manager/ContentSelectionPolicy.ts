@@ -55,7 +55,7 @@ export class ContentSelectionPolicy {
                 result.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
                 break;
             default:
-                break;
+                throw new Error(`Unknown content sort order: ${String(order)}`);
         }
 
         return result;

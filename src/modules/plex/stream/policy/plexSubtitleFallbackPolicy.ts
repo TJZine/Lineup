@@ -1,6 +1,5 @@
 import {
     applyXPlexQueryParamsFromHeaders,
-    applyXPlexTokenQueryParamFromHeaders,
     readXPlexTokenFromHeaders,
 } from '../../shared/plexUrl';
 import {
@@ -87,7 +86,6 @@ export function buildPlexSubtitleTranscodeUrl(
         url.searchParams.set('download', '1');
 
         applyPlexSessionQueryParams(url.searchParams, context.sessionId);
-        applyXPlexTokenQueryParamFromHeaders(url.searchParams, context.authHeaders);
         applyXPlexQueryParamsFromHeaders(url.searchParams, context.authHeaders);
         ensurePlexClientProfileName(url.searchParams);
 

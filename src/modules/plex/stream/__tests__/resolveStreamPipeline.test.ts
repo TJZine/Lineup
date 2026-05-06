@@ -157,6 +157,63 @@ describe('resolveStreamPipeline', () => {
         }
     });
 
+    it('throws burn_in_selected_part when the selected media part drops the burn-in subtitle stream', () => {
+        const selectedSubtitle = {
+            id: 'sub-1',
+            streamType: 3,
+            codec: 'pgs',
+            format: 'pgs',
+            language: 'English',
+            languageCode: 'en',
+        } as const;
+        const item = createMockMediaItem(
+            {
+                container: 'mkv',
+                videoCodec: 'hevc',
+                audioCodec: 'aac',
+            },
+            {
+                extraStreams: [selectedSubtitle],
+            }
+        );
+        const selectedPart = item.media[0]!.parts[0]!;
+        const streamsWithSubtitle = selectedPart.streams;
+        const streamsWithoutSubtitle = selectedPart.streams.filter((stream) => stream.id !== 'sub-1');
+        let streamsReadCount = 0;
+        Object.defineProperty(selectedPart, 'streams', {
+            configurable: true,
+            get: () => {
+                streamsReadCount += 1;
+                return streamsReadCount <= 6 ? streamsWithSubtitle : streamsWithoutSubtitle;
+            },
+        });
+
+        try {
+            resolveStreamPipeline({
+                item,
+                request: {
+                    itemKey: '12345',
+                    subtitleStreamId: 'sub-1',
+                    subtitleMode: 'burn',
+                },
+                sessionId: 'session-1',
+                allowDirectPlayAudioFallback: true,
+                dtsPassthroughEnabled: false,
+                userAgent: null,
+                hdr10FallbackMode: 'off',
+                createError,
+                buildDirectPlayUrl: () => 'http://example.com/direct',
+                getTranscodeUrl: () => 'http://example.com/transcode',
+            });
+            throw new Error('Expected resolveStreamPipeline to throw');
+        } catch (error) {
+            expect(error).toMatchObject({
+                code: 'SUBTITLE_STREAM_NOT_FOUND',
+                stage: 'burn_in_selected_part',
+            });
+        }
+    });
+
     it('uses the resolved default transcode bitrate in the final decision', () => {
         const item = createMockMediaItem({
             container: 'avi',

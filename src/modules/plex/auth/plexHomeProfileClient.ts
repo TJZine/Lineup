@@ -107,12 +107,12 @@ export class PlexHomeProfileClient {
             return [];
         }
 
-        if (sawSuccessfulResponse) {
-            return [];
-        }
-
         if (lastError) {
             throw lastError;
+        }
+
+        if (sawSuccessfulResponse) {
+            return [];
         }
 
         return [];

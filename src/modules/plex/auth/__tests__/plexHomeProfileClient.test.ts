@@ -51,6 +51,36 @@ describe('PlexHomeProfileClient', () => {
         expect(String(fetchMock.mock.calls[1]![0])).toBe('https://plex.tv/api/home/users');
     });
 
+    it('throws the later Plex failure after empty successful v2 Home users', async () => {
+        const client = new PlexHomeProfileClient({
+            config: mockConfig,
+            validateAccountToken: jest.fn(),
+        });
+        const fetchMock = jest.spyOn(globalThis, 'fetch')
+            .mockResolvedValueOnce(createJsonResponse(200, { MediaContainer: {} }))
+            .mockResolvedValueOnce(createJsonResponse(500, { error: 'server error' }));
+
+        await expect(client.getHomeUsers('account-token')).rejects.toMatchObject({
+            code: AppErrorCode.SERVER_UNREACHABLE,
+            httpStatus: 500,
+            retryable: true,
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns empty users only after all supported endpoints are empty successes', async () => {
+        const client = new PlexHomeProfileClient({
+            config: mockConfig,
+            validateAccountToken: jest.fn(),
+        });
+        const fetchMock = jest.spyOn(globalThis, 'fetch')
+            .mockResolvedValueOnce(createJsonResponse(200, { MediaContainer: {} }))
+            .mockResolvedValueOnce(createJsonResponse(200, { MediaContainer: { User: [] } }));
+
+        await expect(client.getHomeUsers('account-token')).resolves.toEqual([]);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('classifies Home users 401 as AUTH_REQUIRED and 403 as AUTH_INVALID', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,
@@ -137,7 +167,12 @@ describe('PlexHomeProfileClient', () => {
         await expect(client.requestHomeUserSwitch({
             userId: 'kid',
             accountToken: 'account-token',
-        })).rejects.toBe(lastError);
+        })).rejects.toMatchObject({
+            code: lastError.code,
+            message: lastError.message,
+            httpStatus: lastError.httpStatus,
+            retryable: lastError.retryable,
+        });
 
         expect(fetchSpy).toHaveBeenCalledTimes(2);
     });

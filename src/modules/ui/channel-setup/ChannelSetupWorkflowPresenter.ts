@@ -1,6 +1,5 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
-import type { KeyEvent } from '../../navigation';
-import type { INavigationManager } from '../../navigation/contracts/interfaces';
+import type { INavigationManager, KeyEvent } from '../../navigation/contracts/interfaces';
 import { ChannelSetupDropdownController } from './ChannelSetupDropdownController';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import {

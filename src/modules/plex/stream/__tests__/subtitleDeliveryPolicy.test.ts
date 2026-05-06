@@ -46,6 +46,11 @@ describe('getSubtitleDelivery', () => {
         expect(getSubtitleDelivery(streamFor(undefined, 'srt'), false)).toBe('sidecar');
         expect(getSubtitleDelivery(streamFor(undefined, 'srt'), true)).toBe('sidecar');
     });
+
+    it('treats codec-only burn-in subtitles as burn regardless of transcoding state', () => {
+        expect(getSubtitleDelivery(streamFor(undefined, 'pgs'), false)).toBe('burn');
+        expect(getSubtitleDelivery(streamFor(undefined, 'pgs'), true)).toBe('burn');
+    });
 });
 
 describe('shouldRequestBurnInSubtitles', () => {
