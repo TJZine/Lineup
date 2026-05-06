@@ -79,7 +79,7 @@ export class ContentSelectionPolicy {
                     shuffleItems: shuffleWithSeed,
                 });
             case 'random':
-                return shuffleWithSeed(items, Date.now()).map((item, index) => ({
+                return shuffleWithSeed(items, seed).map((item, index) => ({
                     ...item,
                     scheduledIndex: index,
                 }));
@@ -116,7 +116,7 @@ export class ContentSelectionPolicy {
                 } else if (filter.operator === 'neq') {
                     return !genres.some((g) => g.toLowerCase() === String(filter.value).toLowerCase());
                 }
-                return true;
+                return false;
             }
             case 'director': {
                 const directors = item.directors || [];
@@ -129,7 +129,7 @@ export class ContentSelectionPolicy {
                 } else if (filter.operator === 'neq') {
                     return !directors.some((d) => d.toLowerCase() === String(filter.value).toLowerCase());
                 }
-                return true;
+                return false;
             }
             case 'watched':
                 value = item.watched;
@@ -140,7 +140,7 @@ export class ContentSelectionPolicy {
                 if (value === undefined) return false;
                 break;
             default:
-                return true;
+                return false;
         }
 
         switch (filter.operator) {
@@ -155,7 +155,7 @@ export class ContentSelectionPolicy {
                 const numVal = Number(value);
                 const numFilter = Number(filter.value);
                 if (!Number.isFinite(numVal) || !Number.isFinite(numFilter)) {
-                    return true;
+                    return false;
                 }
                 if (filter.operator === 'gt') return numVal > numFilter;
                 if (filter.operator === 'gte') return numVal >= numFilter;
@@ -167,7 +167,7 @@ export class ContentSelectionPolicy {
             case 'notContains':
                 return !String(value).toLowerCase().includes(String(filter.value).toLowerCase());
             default:
-                return true;
+                return false;
         }
     }
 }

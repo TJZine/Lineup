@@ -75,6 +75,10 @@ export class SourceResolutionCache {
             return this._awaitInFlight(cacheKey, inFlight, options?.signal ?? null);
         }
 
+        if (options?.signal?.aborted) {
+            return Promise.reject(this._createAbortError());
+        }
+
         const controller = new AbortController();
         const resolvePromise = resolveUncached(source, { signal: controller.signal })
             .then((items) => {
