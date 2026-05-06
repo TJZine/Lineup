@@ -31,7 +31,7 @@ export function buildPlexSubtitleFetchAttempts(
     const tokenFromHeaders = readXPlexTokenFromHeaders(authHeaders);
     const baseAcceptHeader = { Accept: 'text/vtt, text/plain, */*' };
     const attempts: PlexSubtitleFetchAttempt[] = [
-        { name: 'query', url: initialUrl, headers: baseAcceptHeader },
+        { name: 'query', url: new URL(initialUrl.toString()), headers: baseAcceptHeader },
     ];
 
     if (!tokenFromHeaders) {

@@ -101,7 +101,9 @@ describe('UniversalTranscodeDecisionClient', () => {
 
     it('uses the lightweight attribute parser when DOMParser reports malformed XML', async () => {
         mockFetch.mockResolvedValue(createResponse({
-            bodyText: '<MediaContainer decisionCode="2000" decisionText="Fallback"><parsererror /></MediaContainer>',
+            bodyText:
+                '<MediaContainer decisionCode="2000" decisionText="Fallback">' +
+                '<TranscodeSession></MediaContainer>',
         }));
 
         const result = await createClient().fetchDecision('/library/metadata/123', {

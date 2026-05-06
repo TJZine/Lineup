@@ -73,7 +73,7 @@ export class UniversalTranscodeDecisionClient {
         try {
             if (typeof DOMParser !== 'undefined') {
                 const doc = new DOMParser().parseFromString(raw, 'text/xml');
-                if (doc.querySelector('parsererror')) {
+                if (this._hasParserError(doc)) {
                     throw new Error('Invalid universal transcode decision XML');
                 }
                 const container = doc.querySelector('MediaContainer');
@@ -151,5 +151,14 @@ export class UniversalTranscodeDecisionClient {
         if (audioDecision) result.audioDecision = audioDecision;
         if (subtitleDecision) result.subtitleDecision = subtitleDecision;
         return result as Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'>;
+    }
+
+    private _hasParserError(doc: Document): boolean {
+        const parserErrorNamespace = 'http://www.mozilla.org/newlayout/xml/parsererror.xml';
+        return (
+            doc.documentElement?.localName === 'parsererror' ||
+            doc.documentElement?.namespaceURI === parserErrorNamespace ||
+            doc.getElementsByTagNameNS(parserErrorNamespace, 'parsererror').length > 0
+        );
     }
 }
