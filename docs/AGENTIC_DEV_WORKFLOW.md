@@ -115,6 +115,8 @@ When tracked docs conflict, use this order:
    - for checklist-linked package plans, keep `slice_table` as the atomic ownership map inside each approved `execution_unit`; slice-level accounting remains required inside that unit even when review is wave-scoped
    - for checklist-linked package plans, `coverage_ledger` is execution-only and must not redefine package membership, which remains owned by the checklist companion map
    - for checklist-linked package plans, absorb now only when newly discovered residue stays within the same approved execution unit goal, same owner, same seam/files, same verification envelope, and same final-owner accounting; otherwise replan before execution continues
+   - cleanup/refactor planning must optimize for the intended long-term owner shape and repo-preferred practice, not the smallest patch that can close the named issue; if the source-backed right shape requires a larger rewrite inside the approved owner boundary, plan that rewrite as the execution unit or wave
+   - do not defer, no-code, or split-follow-up cleanup/refactor work because the fix is large; those dispositions require current-source proof that the issue no longer applies, the intended shape already exists, or an explicit unapproved boundary requires stop/replan with one final owner
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - use repo-local `execution-plan-authoring` as the authoritative planner skill for Lineup serious plans
    - use repo-local `verification-strategy` to choose the proof mode before freezing verification commands or deciding whether new tests are needed

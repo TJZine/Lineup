@@ -51,6 +51,9 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 - use repo-local `verification-strategy` to select the verification mode before deciding whether new automated coverage is required
 - declare `**Task family:** cleanup/refactor` and the exact `**Cleanup subtype:**` before freezing the plan
 - resolve any open architecture seam or adjacent contract decision before freezing the execution steps
+- optimize for the intended long-term owner shape and repo-preferred practice, not the smallest patch that can close the named finding
+- if current-source audit shows the right cleanup shape requires a larger rewrite inside the approved owner boundary, plan that rewrite as the execution unit or wave instead of narrowing the work to minimize diff size
+- do not source-disprove, no-code, defer, or split-follow-up cleanup work because the fix would be large; those dispositions require positive current-source proof that the intended shape already exists, the finding no longer applies, or an explicit unapproved boundary forces stop/replan with one final owner
 - record explicit stop-and-replan conditions under the seam gate or an adjacent replan block whenever discovery, boundary, or verification failure would invalidate the current plan
 - include exact files in scope and exact files out of scope
 - freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk
@@ -113,11 +116,12 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 Stop and revise the plan instead of continuing when:
 
 - current docs or code contradict the intended plan
-- the task is larger than one bounded cleanup unit and needs to be split
+- the task is larger than one approved owner-bound cleanup unit and needs a reviewed wave, explicit sequencing, or user-approved boundary widening before implementation
 - an architecture seam or adjacent contract change is still undecided
 - the plan would require fallback paths or compatibility shims that the repo policy forbids
 - the plan needs “mechanical wiring” in files that are simultaneously declared out of scope
 - the plan depends on stale ownership assumptions or stale file references
+- a no-code, source-disproved, deferred, or split-follow-up disposition is being used because the cleanup is large rather than because current source proves the issue gone or an unapproved boundary blocks the rewrite
 - the final `P#-W#` plan still leaves a mapped imported issue without one single final owner or leaves `P0` security disposition implicit
 - the same imported issue would need to be split forward again even though no new live owner or seam has been shown on current code
 

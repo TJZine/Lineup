@@ -51,6 +51,8 @@ If reviewing a plan, focus on:
 - missing preservation contracts for risky UI/runtime behavior
 - wrong repo-preferred owner or likely hotspot growth
 - temporary adapters that may not survive, dual ownership, or responsibility bleed implied by the plan
+- source-disproved, no-code, deferred, or split-follow-up dispositions that appear to avoid a larger cleanup rewrite rather than proving the intended owner shape already exists, the issue no longer applies, or an explicit unapproved boundary blocks the rewrite
+- minimum-diff issue closure when the source-backed correct shape would require a larger approved-boundary rewrite or wave
 - code-feasibility issues that would force the implementer to invent API/contract changes mid-task
 - hidden design decisions disguised as implementation steps
 - stale paths, stale repo names, or local-only dependencies
