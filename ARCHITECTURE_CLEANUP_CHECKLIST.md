@@ -10,22 +10,25 @@ should not drive the next cleanup task by default.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P13, FCP-1 through FCP-22, DCR-1 through DCR-16,
-  and DCR-EXIT are complete baseline evidence. The old P14 wave ledger is
-  superseded for current decision-making because repeated residual waves did
-  not create meaningful score progress and kept expanding the active control
-  plane. Fresh post-FCP verification and the retrospective subjective review
-  are rubric context only, not active package intake or closeout proof.
-- Next safe start: `FCP-23` is the next final port-foundation cleanup package.
-  `FCP-24` through `FCP-25`, Windows port work, or other post-FCP cleanup may
-  start only after the preceding FCP package has clean closeout evidence. No
+- Current execution state: P0-P13, FCP-1 through FCP-23, DCR-1 through DCR-16,
+  and DCR-EXIT are complete baseline evidence. `FCP-22` has broadened
+  owner-shape closeout evidence after its reopened replan. The old P14 wave
+  ledger is superseded for current decision-making because repeated residual
+  waves did not create meaningful score progress and kept expanding the active
+  control plane. Fresh post-FCP verification and the retrospective subjective
+  review are rubric context only, not active package intake or closeout proof.
+- Next safe start: `FCP-24` planning is the next final port-foundation cleanup
+  package after completed `FCP-23`; no implementation starts until an
+  execution-grade plan passes review and selects a ready-now unit. `FCP-25`,
+  Windows port work, or other post-FCP cleanup may start only after the
+  preceding FCP package has clean closeout evidence. No
   separate `FCP-EXIT` is part of the normal future queue; legacy `FCP-EXIT`
   remains retired unless a maintainer explicitly reopens it.
 - Preferred launcher: `cleanup-loop` for approved checklist-linked Tier 3
   cleanup packages. `FCP-25` is a final review gate intended for a
   `lineup-cleanup-review` agent.
-- Active program: `Final Cleanup Pass` (`FCP-23` through `FCP-25`) below. The
-  completed `FCP-7` through `FCP-22`, DCR, and historical FCP records are
+- Active program: `Final Cleanup Pass` (`FCP-24` through `FCP-25`) below. The
+  completed `FCP-7` through `FCP-23`, DCR, and historical FCP records are
   retained baseline evidence, not the next task queue.
 - Desloppify role: rubric input and retrospective final-gate refresh only. The
   active FCP packages below are admitted by maintainer judgment from
@@ -208,7 +211,8 @@ The final port-foundation pass starts at `FCP-21`. It replaces no completed
 evidence; it reshapes the active queue into larger runtime, scheduler, UI,
 package-organization, and final-review packages. The goal is not score chasing;
 it is to retire remaining maintainability risks that would make future platform
-work harder to reason about.
+work harder to reason about. Reopened `FCP-22` must apply that goal to the full
+scheduler/channel/content owner shape before `FCP-23` resumes.
 
 First completed baseline summary:
 
@@ -235,6 +239,11 @@ source-backed replan explicitly reopens one.
   or raw tool output into FCP package membership, proof, or closeout.
 - A package plan may source-audit and reclassify listed findings, but it may not
   close by fixing only one symptom while same-package findings remain unowned.
+- FCP source audits must ask whether the touched owner has the correct shape for
+  the package goal, not only whether a narrow historical symptom is still live.
+  `source-disproved` or no-code disposition is valid only when the original
+  source concern is false and the same owner area is not still structurally
+  wrong in a way that would recreate recurring cleanup work.
 - Large-package execution and review should retire coherent batches or waves,
   not one tiny fix at a time. Reviewers should ask whether the approved batch
   closes the named owner seam rather than approving isolated micro-fixes while
@@ -243,11 +252,20 @@ source-backed replan explicitly reopens one.
   tests over broad rewrites. If a listed large refactor becomes speculative
   after source review, reclassify it with one final owner and revisit trigger
   rather than forcing churn.
+- Do not defer an FCP correction solely because the required improvement is
+  larger than the first slice. If the correction stays inside one package owner
+  boundary and has a stable proof surface, plan it as a coherent wave or serial
+  execution unit. If it crosses owners, behavior, or verification envelopes,
+  stop/replan with maintainer approval, one final owner, and a revisit trigger.
 - Hotspot packages must close the original source concern, not just reduce line
   count or extract one helper. Before closeout, the package audit must state
   whether the original mixed-responsibility finding still describes current
   source. If yes, continue the package or record an accepted owner/revisit
   trigger; if no, close with source proof.
+- Recurring debt signals in files touched by an FCP package are audit prompts to
+  verify the owner shape, not raw Desloppify intake. The package must translate
+  any admitted work into current-source findings, owner seams, and closure
+  conditions before implementation.
 - Broad refactors are allowed when they stay inside one owner boundary and have
   a stable proof surface. Broad changes that cross UI, persistence, Plex,
   scheduler, navigation, and platform policy at the same time must split into
@@ -301,7 +319,7 @@ Important `FCP-7` through `FCP-12` baseline facts retained for future audits:
 The previous active queue is complete and compacted here because several of its
 late packages were too small for cleanup-loop planning overhead. These records
 remain closeout evidence and port-readiness baseline context; they are not live
-checklist membership for remaining `FCP-23` through `FCP-25` work unless the
+checklist membership for remaining `FCP-22` through `FCP-25` work unless the
 new package source audit proves a current residual. Local `source_finding_id`
 coverage remains the only accepted package-membership language.
 
@@ -316,14 +334,15 @@ coverage remains the only accepted package-membership language.
 | `FCP-19` | Plex stream package behavior-neutral organization into focused current-owner folders with public seam preserved and no playback, token/redaction, auth, subtitle, diagnostic, URL-policy, shim, barrel, or export widening changes. | Plan `docs/plans/2026-05-05-fcp-19-behavior-neutral-plex-stream-package-organization-plan.md`; commit `9504a3bd`; old/replacement path audits, Plex stream/policy/HDR/session/error/fetch/docs tests, API/architecture/subtitle path-truth updates, `npm run plans:check`, `npm run verify:docs`, `git diff --check`, and `npm run verify` passed; review follow-ups closed. |
 | `FCP-20` | Pre-Windows cleanup exit reconciled `FCP-13` through `FCP-19`, reran source/`rg` audits, recorded no active residuals, and kept the ChannelSetupScreen candidate deferred outside `FCP-20` coverage. | Plan `docs/plans/2026-05-05-fcp-20-pre-windows-cleanup-exit-source-reconciliation-plan.md`; source-finding proof matrix and residual owner ledger recorded; `npm run plans:check`, `npm run verify:docs`, `git diff --check -- ARCHITECTURE_CLEANUP_CHECKLIST.md`, and `npm run verify` passed; final review approved closeout. |
 
-Baseline carry-forward into `FCP-23` through `FCP-25`:
+Baseline carry-forward into `FCP-24` through `FCP-25`:
 
-- `FCP-13` through `FCP-22` are complete. New active packages may only reopen
+- `FCP-13` through `FCP-23` are complete. New active packages may only reopen
   current-source residuals, source-disproved baseline gaps, or port-readiness
   contract gaps that fit their owner seam.
-- The old deferred ChannelSetupScreen candidate is absorbed into active
-  `FCP-23` because channel setup and live-TV workflows are likely to be ported
-  or partially ported to Windows/Plex-HTPC-style app behavior.
+- The old deferred ChannelSetupScreen candidate was absorbed into completed
+  `FCP-23`; `ChannelSetupScreen` now stays the screen shell/step-router while
+  `ChannelSetupWorkflowPresenter` owns Step 2 workflow/presenter glue, preset
+  stepping, dropdown handoff, and build presenter wiring.
 - Priority-one, PlexAuth, current-channel persistence, ContentResolver,
   navigation organization, and Plex stream organization closeout evidence is
   baseline proof. New work in those areas must start with a current-source
@@ -438,7 +457,14 @@ Baseline carry-forward into `FCP-23` through `FCP-25`:
 ### [x] `FCP-22` Port Scheduler, Channel, And Content Readiness
 
 - Status: completed
-- Plan: `docs/plans/2026-05-05-fcp-22-port-scheduler-channel-content-readiness-plan.md`
+- Reopen note: maintainer direction reopened this package for broadened
+  owner-shape source audit and replan. The reopened pass closed as a
+  no-production-change owner-shape evidence unit after clean plan and evidence
+  reviews.
+- Plan: `docs/plans/2026-05-05-fcp-22-port-scheduler-channel-content-owner-shape-replan.md`
+  is the completed broadened closeout plan. The older
+  `docs/plans/2026-05-05-fcp-22-port-scheduler-channel-content-readiness-plan.md`
+  remains completed partial evidence only.
 - Dimensions/rubric tags: scheduler design, persistence ownership, content
   resolution, API surface coherence, package organization, test strategy,
   portability readiness
@@ -448,7 +474,9 @@ Baseline carry-forward into `FCP-23` through `FCP-25`:
   facade ownership, cache/coalescing, and mapping boundaries understandable.
   `FCP-16` and `FCP-17` are completed baseline evidence; this package activates
   only current-source residuals or port-readiness gaps that remain after that
-  evidence.
+  evidence. The reopened pass must judge whether the whole touched owner shape
+  is correct for port-foundation maintenance, not only whether the first narrow
+  symptom or helper extraction was completed.
 - Files in scope:
   - `src/modules/scheduler/channel-manager/**`
   - scheduler/channel-manager tests affected by persistence, facade,
@@ -486,6 +514,9 @@ Baseline carry-forward into `FCP-23` through `FCP-25`:
   the public ChannelManager facade remains stable; any owner extraction stays
   facade-local or package-local; no storage schema/key drift occurs; package
   organization happens only when tied to the source-proven port-readiness seam.
+  No-code/source-disproved dispositions are allowed only if the current-source
+  audit proves the same scheduler/channel-manager/content owner is not still
+  structurally wrong in a way that would cause recurring cleanup passes.
 - Verification routing: Codanna impact snapshots for `ChannelManager`, current
   channel persistence, `ContentResolver`, and touched collaborators;
   package-local `rg` audits for persistence method names, old/residual content
@@ -494,17 +525,18 @@ Baseline carry-forward into `FCP-23` through `FCP-25`:
   tests; `npm run typecheck`; `git diff --check`; `npm run verify`; `npm run
   plans:check` and `npm run verify:docs` when a tracked plan or docs change.
 - Completed execution unit: `FCP-22-W1` (`FCP-22-S1`, `FCP-22-S2`,
-  `FCP-22-S3`, `FCP-22-S4`), with `FCP-22-S1`, `FCP-22-S2`, and
-  `FCP-22-S4` closed as no-code/source-disproved dispositions and
-  `FCP-22-S3` implemented through the shared playback-ordering owner.
+  `FCP-22-S3`, `FCP-22-S4`) closed as a no-production-change owner-shape
+  evidence unit. The prior narrow pass is retained as partial source evidence;
+  the reopened pass re-audited the whole scheduler/channel/content owner shape
+  and found no source/test implementation wave required.
 - Closeout proof matrix:
 
   | Source finding | Disposition | Proof |
   | --- | --- | --- |
-  | `FCP-22-SF1` | source-disproved | Current-channel persistence remains explicit best-effort pointer persistence through `ChannelPersistenceCoordinator`, `ChannelPersistenceStore`, and `ChannelRepository`; storage keys/schema and warning semantics are unchanged and targeted persistence tests passed. |
-  | `FCP-22-SF2` | source-disproved | `ChannelManager` remains the public facade and the FCP-22-relevant responsibilities are delegated to package-local owners; no standalone facade extraction or public API change was source-proven. |
-  | `FCP-22-SF3` | resolved | Cache/coalescing, mapping, normalization, filtering, and sorting residue remains source-disproved after `FCP-17`; common sequential/shuffle/block ordering and scheduled-index normalization now live in `src/modules/scheduler/shared/playbackOrdering.ts`, while `ContentSelectionPolicy` keeps random playback mode and `ScheduleCalculator` keeps scheduler-specific injected shuffler wiring. |
-  | `FCP-22-SF4` | source-disproved | No standalone channel-manager package organization was source-proven; only the S3-required shared helper placement was added, with no shims, barrels, old-path wrappers, or public export widening. Later behavior-neutral channel-manager organization, if source-proven, remains owned by `FCP-24-SF3`. |
+  | `FCP-22-SF1` | source-disproved | Current-channel persistence remains explicit best-effort pointer persistence through `ChannelPersistenceCoordinator.persistCurrentChannelIdBestEffort`, with storage mechanics in `ChannelPersistenceStore`, normalized load semantics in `ChannelRepository`, unchanged server/user key scoping through `OrchestratorStorageContext`, unchanged key/schema values, warning behavior preserved, and targeted persistence tests passed. |
+  | `FCP-22-SF2` | source-disproved | `ChannelManager` remains the public facade and its retained FCP-22 responsibilities are source-justified as public state transition, event emission, duration filtering, empty-content taxonomy, cache fallback, access-denied invalidation, and retry/cache coordination. Persistence, content resolution, retry timer, mapping, selection, shared ordering, and resolved-content cache owners remain package-local or scheduler-shared; no public facade removal or API widening was source-proven. |
+  | `FCP-22-SF3` | source-disproved | `SourceResolutionCache`, `ContentItemMapper`, `ContentSelectionPolicy`, `ContentResolver`, `ChannelResolutionCache`, `ScheduleCalculator`, and `src/modules/scheduler/shared/playbackOrdering.ts` retain the owner split required for port reasoning. The prior playback-ordering residue remains resolved by `playbackOrdering.ts`; random mode remains content-selection-local; scheduler injected shuffler wiring remains in `ScheduleCalculator`; `ContentResolver`'s TV show-list cache fallback and `ChannelManager`'s cache/error/retry responsibilities are explicitly retained with final owners and revisit triggers. |
+  | `FCP-22-SF4` | source-disproved | No standalone channel-manager package organization was source-proven in the broadened pass. Source/path/export audits found no need for shims, root barrels, old-path wrappers, or public export widening. Later behavior-neutral channel-manager organization, if source-proven, remains owned by `FCP-24-SF3`. |
 - Ready-now execution unit: completed.
 - Suggested slice/wave table:
 
@@ -522,22 +554,30 @@ Baseline carry-forward into `FCP-23` through `FCP-25`:
   contract approval; organization work creates shims, root barrels, or public
   export widening.
 - Last touched: 2026-05-05
-- Verification: `npm run plans:check` passed; `npm run verify:docs` passed;
-  package source audits for current-channel persistence, ChannelManager facade
-  ownership, content owner boundaries, playback ordering, and public
-  export/import surfaces passed; targeted persistence and content/scheduler
-  tests passed; `npm run typecheck` passed; `git diff --check` passed; full
-  verification passed (`npm run verify`); fresh implementation review for
-  `FCP-22-W1` reported no material findings.
-- Follow-ups: none.
-- Handoff: `FCP-23` is the next safe start. Do not start `FCP-24`,
-  `FCP-25`, Windows work, or other post-FCP cleanup until `FCP-23` has its own
-  clean closeout evidence.
+- Verification: broadened replan `npm run plans:check` passed;
+  `npm run verify:docs` passed; package source audits for current-channel
+  persistence, content owner split, playback-ordering ownership, public
+  export/import surface, and storage key/schema passed; targeted persistence
+  tests passed (`npm test -- ChannelPersistenceStore ChannelRepository
+  ChannelManager.persistence ChannelManager.transactional
+  ChannelPersistenceSaveQueue`); targeted content/scheduler tests passed
+  (`npm test -- ContentResolver ScheduleCalculator
+  ChannelManager.content-resolution`); targeted error/cache tests passed
+  (`npm test -- ChannelManager.error-semantics ChannelResolutionCache`);
+  `npm run typecheck` passed; `git diff --check` passed; full verification
+  passed (`npm run verify`); clean final plan review and clean FCP-22-W1
+  evidence review reported no blocking findings.
+- Follow-ups: none for FCP-22.
+- Handoff: `FCP-23` is the next safe start after refreshed plan review. Do not
+  start `FCP-24`, `FCP-25`, Windows work, or other post-FCP cleanup until
+  `FCP-23` has clean closeout evidence.
 
-### [ ] `FCP-23` Port UI Workflow Readiness
+### [x] `FCP-23` Port UI Workflow Readiness
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Blocked by: none
+- Plan: `docs/plans/2026-05-05-fcp-23-port-ui-workflow-readiness-plan.md`
+  completed after `FCP-23-W1` implementation and clean review.
 - Dimensions/rubric tags: UI workflow portability, focus behavior, design
   coherence, channel setup ownership, EPG presentation, interaction lifecycle,
   test strategy
@@ -596,7 +636,16 @@ Baseline carry-forward into `FCP-23` through `FCP-25`:
   focus and lifecycle source audits; `npm run typecheck`; `git diff --check`;
   `npm run verify`; `npm run plans:check` and `npm run verify:docs` when a
   tracked plan or docs change.
-- Ready-now execution unit: none until plan is written.
+- Completed execution unit: `FCP-23-W1` (`FCP-23-S1` through `FCP-23-S4`).
+- Source-finding closeout:
+
+  | Source finding | Disposition | Evidence |
+  | --- | --- | --- |
+  | `FCP-23-SF1` | resolved | `ChannelSetupScreen` remains the screen shell, visibility lifecycle owner, library renderer, and step router. `ChannelSetupWorkflowPresenter` now owns Step 2 workflow/presenter glue, preset stepping, dropdown handoff, and build presenter wiring without public API widening, selected-server storage access, or TV-visible behavior changes. |
+  | `FCP-23-SF2` | source-disproved | Current Step 2 descriptors and keyboard/dropdown interaction ownership remain in `StrategyStepInteractionController`; `StrategyStepController` remains render-focused after `FCP-13`, and targeted Step 2 tests passed. |
+  | `FCP-23-SF3` | source-disproved | `EPGCellPresentation.ts` remains the pure presentation helper owner; `EPGCellRenderer.ts` remains the DOM/ticker lifecycle adapter; EPG virtualizer behavior and renderer tests stayed unchanged. |
+  | `FCP-23-SF4` | source-disproved for FCP-23 | No EPG organization change was naturally required by the FCP-23 presentation audit. Later behavior-neutral EPG organization remains owned by `FCP-24-SF4` only if source-proven. |
+- Ready-now execution unit: completed.
 - Suggested slice/wave table:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -614,12 +663,16 @@ Baseline carry-forward into `FCP-23` through `FCP-25`:
   instead of isolated from portable workflow concepts; EPG DOM shape, ticker,
   reduced-motion, virtualizer, or layout behavior changes; tests require private
   probing instead of public seam proof.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: next safe start after completed `FCP-22`. A planner must write and
-  review an execution-grade plan before implementation; ready-now remains none
-  until that plan selects a coherent wave.
+- Last touched: 2026-05-05
+- Verification: targeted channel setup, workflow presenter, app-shell
+  port-factory, Strategy Step, and EPG renderer/view tests passed; selected
+  server, workflow-port, Strategy Step, EPG presentation, and EPG package seam
+  audits passed; `npm run typecheck`, `git diff --check`, `npm run verify`,
+  `npm run plans:check`, and `npm run verify:docs` passed.
+- Follow-ups: none for FCP-23.
+- Handoff: `FCP-24` planning is the next safe start. Do not start `FCP-25`,
+  Windows work, or other post-FCP cleanup until `FCP-24` has clean closeout
+  evidence.
 
 ### [ ] `FCP-24` Behavior-Neutral Package Organization
 
@@ -691,7 +744,7 @@ Baseline carry-forward into `FCP-23` through `FCP-25`:
 - Last touched: not started
 - Verification: not run
 - Follow-ups: none yet
-- Handoff: blocked on `FCP-23` closeout by sequencing. A planner must write and
+- Handoff: next safe start after completed `FCP-23`. A planner must write and
   review an execution-grade plan before implementation; ready-now remains none
   until that plan selects a coherent wave or records a source-backed no-code
   disposition.

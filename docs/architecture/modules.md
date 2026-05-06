@@ -322,7 +322,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/ui/settings/` consumes theme metadata plus app-composed runtime callbacks and should not act as a second public owner for those definitions
 - `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` are the staged EPG package owners.
 - `src/modules/ui/server-select/ServerSelectScreen.ts` is the server-select screen adapter; `ServerSelectRuntimeCoordinator.ts`, `ServerSelectFocusCoordinator.ts`, `ServerSelectStatusPolicy.ts`, and `ServerSelectListView.ts` own runtime workflow, focus, status/display policy, and DOM-list rendering respectively.
-- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the channel-setup screen adapter and step router; dropdown lifecycle lives in `ChannelSetupDropdownController.ts`, build review/progress/success presentation lives in `steps/ChannelSetupBuildStepPresenter.ts`, and session/runtime, focus, strategy interaction, and step rendering stay in their package-local collaborators.
+- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the channel-setup screen adapter and step router; `ChannelSetupWorkflowPresenter.ts` owns Step 2 workflow/presenter glue, preset stepping, dropdown handoff, and build presenter wiring; dropdown lifecycle lives in `ChannelSetupDropdownController.ts`, build review/progress/success presentation lives in `steps/ChannelSetupBuildStepPresenter.ts`, and session/runtime, focus, strategy interaction, and step rendering stay in their package-local collaborators.
 
 ## Current Hotspot Reference
 
