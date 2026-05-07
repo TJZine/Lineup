@@ -263,6 +263,20 @@ export class ChannelSetupPlanningService {
             warnings: snapshot.warnings,
             seedFor: (value: string): number => this._hashSeed(value),
         });
+        if (plan.pendingChannels.length === 0 && !snapshot.hasTransientLoadFailure) {
+            return {
+                plan: null,
+                warnings: [...snapshot.warnings],
+                canceled: false,
+                blockedMessage: 'Channel setup could not build any channels from the selected libraries and enabled channel types. Try another channel type, another library, or a lower minimum item count.',
+                previewStatus: 'blocked',
+                failureReason: 'empty',
+                errorsTotal: snapshot.errorsTotal,
+                playlistMs: snapshot.playlistMs,
+                collectionsMs: snapshot.collectionsMs,
+                libraryQueryMs: snapshot.libraryQueryMs,
+            };
+        }
 
         return {
             plan,

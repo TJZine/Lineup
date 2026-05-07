@@ -22,22 +22,6 @@ import {
 export type ChannelSetupRequiredTagDirectoryLabel = 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios';
 export type ChannelSetupNativeFacetFamily = 'genres' | 'directors' | 'decades' | 'actors' | 'studios';
 
-type DeferredEmptyTagDirectoryFailure = {
-    family: ChannelSetupNativeFacetFamily;
-    label: ChannelSetupRequiredTagDirectoryLabel;
-    libraryTitle: string;
-    type: number;
-};
-
-type FacetEntriesKey = `${ChannelSetupNativeFacetFamily}:${number}`;
-
-function createFacetEntriesKey(
-    family: ChannelSetupNativeFacetFamily,
-    mediaType: number
-): FacetEntriesKey {
-    return `${family}:${mediaType}`;
-}
-
 function createReadonlyFacetMap<T>(source: Map<string, T[]>): ChannelSetupFacetMap<T> {
     const snapshot = new Map<string, readonly T[]>();
     for (const [libraryId, values] of source.entries()) {
@@ -74,8 +58,6 @@ export class ChannelSetupFacetSnapshotLoadState {
     readonly actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
     readonly studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
     private readonly _warnings = new Set<string>();
-    private readonly _facetKeysWithEntries = new Set<FacetEntriesKey>();
-    private readonly _deferredEmptyTagDirectoryFailures: DeferredEmptyTagDirectoryFailure[] = [];
     errorsTotal = 0;
     playlistMs = 0;
     collectionsMs = 0;
@@ -90,35 +72,15 @@ export class ChannelSetupFacetSnapshotLoadState {
         this._warnings.add(message);
     }
 
-    markFacetEntries(
-        family: ChannelSetupNativeFacetFamily,
-        mediaType: number,
-        tags: PlexTagDirectoryItem[]
-    ): void {
-        if (tags.length > 0) {
-            this._facetKeysWithEntries.add(createFacetEntriesKey(family, mediaType));
-        }
-    }
-
-    deferEmptyTagDirectoryFailure(
-        family: ChannelSetupNativeFacetFamily,
+    addEmptyTagDirectoryWarning(
+        _family: ChannelSetupNativeFacetFamily,
         label: ChannelSetupRequiredTagDirectoryLabel,
         libraryTitle: string,
         type: number
     ): void {
-        this._deferredEmptyTagDirectoryFailures.push({ family, label, libraryTitle, type });
-    }
-
-    resolveDeferredEmptyTagDirectoryFailure(): DeferredEmptyTagDirectoryFailure | null {
-        const orderedFailures = [...this._deferredEmptyTagDirectoryFailures]
-            .sort(compareDeferredEmptyTagDirectoryFailures);
-
-        for (const failure of orderedFailures) {
-            if (!this._facetKeysWithEntries.has(createFacetEntriesKey(failure.family, failure.type))) {
-                return failure;
-            }
-        }
-        return null;
+        this._warnings.add(
+            `Skipped ${label.toLowerCase()} for ${libraryTitle}: Plex returned no tag entries (type=${type}).`
+        );
     }
 
     snapshotData(
@@ -225,20 +187,4 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
             'error'
         );
     }
-}
-
-function compareDeferredEmptyTagDirectoryFailures(
-    left: DeferredEmptyTagDirectoryFailure,
-    right: DeferredEmptyTagDirectoryFailure
-): number {
-    const familyDiff = left.family.localeCompare(right.family);
-    if (familyDiff !== 0) return familyDiff;
-
-    const labelDiff = left.label.localeCompare(right.label);
-    if (labelDiff !== 0) return labelDiff;
-
-    const titleDiff = left.libraryTitle.localeCompare(right.libraryTitle);
-    if (titleDiff !== 0) return titleDiff;
-
-    return left.type - right.type;
 }

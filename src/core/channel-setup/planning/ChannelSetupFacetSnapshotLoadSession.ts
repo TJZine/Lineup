@@ -1,7 +1,6 @@
 import type {
     IPlexLibrary,
     PlexLibrarySection,
-    PlexTagDirectoryItem,
     PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
 import { summarizeErrorForLog } from '../../../utils/errors';
@@ -97,10 +96,6 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 ?? workerResults.find((value): value is ChannelSetupFacetSnapshot => value !== null);
             if (libraryFailure) {
                 return libraryFailure;
-            }
-            const deferredEmptyFailure = this._resolveDeferredEmptyTagDirectoryFailure();
-            if (deferredEmptyFailure) {
-                return deferredEmptyFailure;
             }
 
             return {
@@ -222,10 +217,8 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 yearsByLibraryId: this._loadState.yearsByLibraryId,
                 actorsByLibraryId: this._loadState.actorsByLibraryId,
                 studiosByLibraryId: this._loadState.studiosByLibraryId,
-                markFacetEntries: (family, mediaType, tags): void =>
-                    this._markFacetEntries(family, mediaType, tags),
-                deferEmptyTagDirectoryFailure: (family, label, libraryTitle, type): void =>
-                    this._deferEmptyTagDirectoryFailure(family, label, libraryTitle, type),
+                addEmptyTagDirectoryWarning: (family, label, libraryTitle, type): void =>
+                    this._addEmptyTagDirectoryWarning(family, label, libraryTitle, type),
             },
             failures: {
                 buildRequiredTagDirectoryFailure: (label, libraryTitle, type, reason, error): ChannelSetupFacetSnapshot =>
@@ -273,34 +266,13 @@ export class ChannelSetupFacetSnapshotLoadSession {
         return this._failureBuilder.buildRequiredTagCountRecoveryFailure(label, libraryTitle, type, error);
     }
 
-    private _markFacetEntries(
-        family: ChannelSetupNativeFacetFamily,
-        mediaType: number,
-        tags: PlexTagDirectoryItem[]
-    ): void {
-        this._loadState.markFacetEntries(family, mediaType, tags);
-    }
-
-    private _deferEmptyTagDirectoryFailure(
+    private _addEmptyTagDirectoryWarning(
         family: ChannelSetupNativeFacetFamily,
         label: ChannelSetupRequiredTagDirectoryLabel,
         libraryTitle: string,
         type: number
     ): void {
-        this._loadState.deferEmptyTagDirectoryFailure(family, label, libraryTitle, type);
-    }
-
-    private _resolveDeferredEmptyTagDirectoryFailure(): ChannelSetupFacetSnapshot | null {
-        const failure = this._loadState.resolveDeferredEmptyTagDirectoryFailure();
-        if (failure) {
-            return this._buildRequiredTagDirectoryFailure(
-                failure.label,
-                failure.libraryTitle,
-                failure.type,
-                'empty'
-            );
-        }
-        return null;
+        this._loadState.addEmptyTagDirectoryWarning(family, label, libraryTitle, type);
     }
 
     private _callerCanceled(): boolean {
