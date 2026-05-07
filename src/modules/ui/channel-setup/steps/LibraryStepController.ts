@@ -144,7 +144,7 @@ export class LibraryStepController {
         nextButton.textContent = 'Next';
         nextButton.disabled = deps.libraries.length === 0 || deps.selectedLibraryIds.size === 0;
         nextButton.addEventListener('click', () => {
-            if (deps.selectedLibraryIds.size === 0) {
+            if (nextButton.disabled) {
                 return;
             }
             deps.onNext();

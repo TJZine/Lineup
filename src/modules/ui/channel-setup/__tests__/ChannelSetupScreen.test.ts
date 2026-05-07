@@ -181,6 +181,32 @@ describe('ChannelSetupScreen', () => {
         expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
     });
 
+    it('advances after clear-all and selecting a single library', async () => {
+        const container = createBodyAppendedTestContainer();
+
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies' }),
+                makeLibrary({ id: 'shows', type: 'show' }),
+            ]),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+
+        clickButton(container, '#setup-clear-all');
+        clickButton(container, '#setup-lib-movies');
+        expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('Step 2 of 3');
+        expect(container.textContent ?? '').toContain('Choose channel types to build.');
+        expect(container.querySelector('#setup-next')?.textContent).toMatch(/Review|Build Channels/);
+    });
+
     it('updates library toggle in place without replacing the button node', async () => {
         const container = createBodyAppendedTestContainer();
 
