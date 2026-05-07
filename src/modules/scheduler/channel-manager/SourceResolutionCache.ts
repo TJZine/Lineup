@@ -28,11 +28,15 @@ export class SourceResolutionCache {
     private readonly _sourceCacheGenerationByKey = new Map<string, number>();
     private readonly _sourceCache = new Map<string, SourceCacheEntry>();
     private readonly _sourceInFlight = new Map<string, SourceInFlightEntry>();
+    private readonly _parentKeysByChildKey = new Map<string, Set<string>>();
+    private readonly _childKeysByParentKey = new Map<string, Set<string>>();
 
     clear(): void {
         this._cacheEpoch += 1;
         this._sourceCache.clear();
         this._sourceCacheGenerationByKey.clear();
+        this._parentKeysByChildKey.clear();
+        this._childKeysByParentKey.clear();
         for (const entry of this._sourceInFlight.values()) {
             entry.controller.abort();
         }
@@ -40,21 +44,8 @@ export class SourceResolutionCache {
     }
 
     invalidate(source: ChannelContentSource): void {
-        const key = this.buildKey(source);
-        this._bumpSourceCacheGeneration(key);
-        this._sourceCache.delete(key);
-
-        const inFlight = this._sourceInFlight.get(key);
-        if (inFlight) {
-            inFlight.controller.abort();
-            this._sourceInFlight.delete(key);
-        }
-
-        if (source.type === 'mixed') {
-            for (const subSource of source.sources) {
-                this.invalidate(subSource);
-            }
-        }
+        const invalidatedKeys = new Set<string>();
+        this._invalidateSource(source, invalidatedKeys);
     }
 
     async resolve(
@@ -71,8 +62,12 @@ export class SourceResolutionCache {
         }
 
         const inFlight = this._sourceInFlight.get(cacheKey);
-        if (inFlight && inFlight.epoch === epoch && inFlight.generation === generation) {
-            return this._awaitInFlight(cacheKey, inFlight, options?.signal ?? null);
+        if (inFlight) {
+            if (inFlight.epoch === epoch && inFlight.generation === generation) {
+                return this._awaitInFlight(cacheKey, inFlight, options?.signal ?? null);
+            }
+            inFlight.controller.abort();
+            this._sourceInFlight.delete(cacheKey);
         }
 
         if (options?.signal?.aborted) {
@@ -82,7 +77,7 @@ export class SourceResolutionCache {
         const controller = new AbortController();
         const resolvePromise = resolveUncached(source, { signal: controller.signal })
             .then((items) => {
-                this._setCachedSourceItems(cacheKey, items, { epoch, generation });
+                this._setCachedSourceItems(cacheKey, source, items, { epoch, generation });
                 return items;
             })
             .finally(() => {
@@ -138,6 +133,75 @@ export class SourceResolutionCache {
         return next;
     }
 
+    private _invalidateSourceKey(key: string, invalidatedKeys: Set<string>): void {
+        if (invalidatedKeys.has(key)) {
+            return;
+        }
+        invalidatedKeys.add(key);
+
+        const parentKeys = [...(this._parentKeysByChildKey.get(key) ?? [])];
+        this._bumpSourceCacheGeneration(key);
+        this._sourceCache.delete(key);
+        this._unregisterParentDependencies(key);
+
+        const inFlight = this._sourceInFlight.get(key);
+        if (inFlight) {
+            inFlight.controller.abort();
+            this._sourceInFlight.delete(key);
+        }
+
+        for (const parentKey of parentKeys) {
+            this._invalidateSourceKey(parentKey, invalidatedKeys);
+        }
+    }
+
+    private _invalidateSource(source: ChannelContentSource, invalidatedKeys: Set<string>): void {
+        this._invalidateSourceKey(this.buildKey(source), invalidatedKeys);
+
+        if (source.type !== 'mixed') {
+            return;
+        }
+
+        for (const subSource of source.sources) {
+            this._invalidateSource(subSource, invalidatedKeys);
+        }
+    }
+
+    private _registerParentDependencies(parentKey: string, childKeys: string[]): void {
+        this._unregisterParentDependencies(parentKey);
+
+        if (childKeys.length === 0) {
+            return;
+        }
+
+        this._childKeysByParentKey.set(parentKey, new Set(childKeys));
+        for (const childKey of childKeys) {
+            const parentKeys = this._parentKeysByChildKey.get(childKey) ?? new Set<string>();
+            parentKeys.add(parentKey);
+            this._parentKeysByChildKey.set(childKey, parentKeys);
+        }
+    }
+
+    private _unregisterParentDependencies(parentKey: string): void {
+        const childKeys = this._childKeysByParentKey.get(parentKey);
+        if (!childKeys) {
+            return;
+        }
+
+        for (const childKey of childKeys) {
+            const parentKeys = this._parentKeysByChildKey.get(childKey);
+            if (!parentKeys) {
+                continue;
+            }
+            parentKeys.delete(parentKey);
+            if (parentKeys.size === 0) {
+                this._parentKeysByChildKey.delete(childKey);
+            }
+        }
+
+        this._childKeysByParentKey.delete(parentKey);
+    }
+
     private _createAbortError(): unknown {
         try {
             return new DOMException('Aborted', 'AbortError');
@@ -153,7 +217,7 @@ export class SourceResolutionCache {
         entry: SourceInFlightEntry,
         signal: AbortSignal | null
     ): Promise<ResolvedContentItem[]> {
-        if (signal?.aborted) {
+        if (signal?.aborted || entry.controller.signal.aborted) {
             return Promise.reject(this._createAbortError());
         }
 
@@ -174,22 +238,25 @@ export class SourceResolutionCache {
             this._sourceInFlight.delete(key);
         };
 
-        if (!signal) {
-            return entry.promise.then((items) => this.cloneItems(items)).finally(release);
-        }
-
-        let onAbort: (() => void) | null = null;
+        let onCallerAbort: (() => void) | null = null;
+        let onEntryAbort: (() => void) | null = null;
         const abortPromise = new Promise<ResolvedContentItem[]>((_, reject) => {
-            onAbort = (): void => reject(this._createAbortError());
-            signal.addEventListener('abort', onAbort, { once: true });
+            const rejectAborted = (): void => reject(this._createAbortError());
+            onCallerAbort = rejectAborted;
+            onEntryAbort = rejectAborted;
+            signal?.addEventListener('abort', onCallerAbort, { once: true });
+            entry.controller.signal.addEventListener('abort', onEntryAbort, { once: true });
         });
 
         return Promise.race([
             entry.promise.then((items) => this.cloneItems(items)),
             abortPromise,
         ]).finally(() => {
-            if (onAbort) {
-                signal.removeEventListener('abort', onAbort);
+            if (onCallerAbort) {
+                signal?.removeEventListener('abort', onCallerAbort);
+            }
+            if (onEntryAbort) {
+                entry.controller.signal.removeEventListener('abort', onEntryAbort);
             }
             release();
         });
@@ -221,11 +288,13 @@ export class SourceResolutionCache {
 
         if (cached.epoch !== this._cacheEpoch || cached.generation !== this._getSourceCacheGeneration(key)) {
             this._sourceCache.delete(key);
+            this._unregisterParentDependencies(key);
             return null;
         }
 
         if (Date.now() - cached.cachedAt > SOURCE_CACHE_TTL_MS) {
             this._sourceCache.delete(key);
+            this._unregisterParentDependencies(key);
             return null;
         }
 
@@ -236,6 +305,7 @@ export class SourceResolutionCache {
 
     private _setCachedSourceItems(
         key: string,
+        source: ChannelContentSource,
         items: ResolvedContentItem[],
         scope: { epoch: number; generation: number }
     ): void {
@@ -247,12 +317,16 @@ export class SourceResolutionCache {
         }
 
         this._sourceCache.delete(key);
+        this._unregisterParentDependencies(key);
         this._sourceCache.set(key, {
             items: this.cloneItems(items),
             cachedAt: Date.now(),
             epoch: scope.epoch,
             generation: scope.generation,
         });
+        if (source.type === 'mixed') {
+            this._registerParentDependencies(key, source.sources.map((subSource) => this.buildKey(subSource)));
+        }
 
         while (this._sourceCache.size > SOURCE_CACHE_MAX_ENTRIES) {
             const oldest = this._sourceCache.keys().next().value;
@@ -260,6 +334,7 @@ export class SourceResolutionCache {
                 break;
             }
             this._sourceCache.delete(oldest);
+            this._unregisterParentDependencies(oldest);
         }
     }
 }

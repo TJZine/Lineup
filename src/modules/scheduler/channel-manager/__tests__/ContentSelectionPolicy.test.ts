@@ -66,4 +66,15 @@ describe('ContentSelectionPolicy', () => {
             expect(policy.applyFilters(items, [filter as ContentFilter])).toHaveLength(0);
         }
     });
+
+    it('fails closed when optional metadata fields are missing from runtime items', () => {
+        const optionalMetadataFilters: ContentFilter[] = [
+            { field: 'rating', operator: 'gte', value: 4 },
+            { field: 'watched', operator: 'eq', value: true },
+        ];
+
+        for (const filter of optionalMetadataFilters) {
+            expect(policy.applyFilters(items, [filter])).toHaveLength(0);
+        }
+    });
 });
