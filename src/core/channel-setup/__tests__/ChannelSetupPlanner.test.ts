@@ -1088,13 +1088,16 @@ describe('ChannelSetupPlanner', () => {
             total: 5,
             genres: 1,
             studios: 1,
-            actors: 3,
-            directors: 0,
+            actors: 2,
+            directors: 1,
         }));
+        expect(withoutAlternate.allocationMode).toBe('priority-balanced-round-robin');
+        expect(withoutAlternate.allocationBudgetByStrategy).toEqual(withoutAlternate.afterMaxChannels);
+        expect(withoutAlternate.lostToAllocationByStrategy).toEqual(withoutAlternate.lostToMaxChannels);
         expect(withoutAlternate.lostToMaxChannels).toEqual(expect.objectContaining({
             total: 3,
-            actors: 1,
-            directors: 2,
+            actors: 2,
+            directors: 1,
         }));
 
         expect(withAlternate.afterAlternateLineups).toEqual(expect.objectContaining({
@@ -1107,14 +1110,73 @@ describe('ChannelSetupPlanner', () => {
         expect(withAlternate.afterMaxChannels).toEqual(expect.objectContaining({
             total: 5,
             genres: 2,
-            studios: 2,
+            studios: 1,
             actors: 1,
-            directors: 0,
+            directors: 1,
         }));
+        expect(withAlternate.allocationBudgetByStrategy).toEqual(withAlternate.afterMaxChannels);
+        expect(withAlternate.lostToAllocationByStrategy).toEqual(withAlternate.lostToMaxChannels);
         expect(withAlternate.lostToMaxChannels).toEqual(expect.objectContaining({
             total: 11,
             actors: 7,
-            directors: 4,
+            studios: 1,
+            directors: 3,
         }));
+    });
+
+    it('balances max-channel allocation across enabled strategies instead of letting one large strategy starve the rest', () => {
+        const libraries = [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 100 }] as PlexLibrarySection[];
+        const actors = Array.from({ length: 12 }, (_, index) => ({
+            key: `actor-${index + 1}`,
+            title: `Actor ${index + 1}`,
+            count: 20,
+        }));
+
+        const plan = buildChannelSetupPlan({
+            config: createConfig({
+                selectedLibraryIds: ['m1'],
+                maxChannels: 6,
+                minItemsPerChannel: 1,
+                strategyConfig: createStrategyConfig({
+                    genres: { enabled: true, priority: 4 },
+                    studios: { enabled: true, priority: 5 },
+                    actors: { enabled: true, priority: 6 },
+                    directors: { enabled: true, priority: 8 },
+                }),
+            }),
+            libraries,
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['m1', [
+                { key: 'genre-a', title: 'Action', count: 20 },
+                { key: 'genre-b', title: 'Comedy', count: 20 },
+            ]]]),
+            directorsByLibraryId: new Map([['m1', [{ key: 'dir-a', title: 'Director One', count: 20 }]]]),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([['m1', actors]]),
+            studiosByLibraryId: new Map([['m1', [
+                { key: 'studio-a', title: 'Studio A', count: 20 },
+                { key: 'studio-b', title: 'Studio B', count: 20 },
+            ]]]),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(plan.reachedMaxChannels).toBe(true);
+        expect(plan.estimates).toEqual(expect.objectContaining({
+            total: 6,
+            genres: 2,
+            studios: 2,
+            actors: 1,
+            directors: 1,
+        }));
+        expect(plan.pendingChannels.map((channel) => channel.buildStrategy)).toEqual([
+            'genres',
+            'studios',
+            'actors',
+            'directors',
+            'genres',
+            'studios',
+        ]);
     });
 });

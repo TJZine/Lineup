@@ -75,6 +75,7 @@ export interface ChannelSetupPlannerFacetCountDiagnostics {
 export interface ChannelSetupPlannerDiagnostics {
     effectiveMaxChannels: number;
     minItems: number;
+    allocationMode: 'priority-balanced-round-robin';
     fetchedTagsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerLibraryCount[]>;
     tagCountDiagnosticsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerFacetCountDiagnostics[]>;
     candidatesBeforeMinItems: ChannelSetupEstimates;
@@ -82,6 +83,9 @@ export interface ChannelSetupPlannerDiagnostics {
     strategyBucketSizes: ChannelSetupEstimates;
     afterAlternateLineups: ChannelSetupEstimates;
     afterVariants: ChannelSetupEstimates;
+    allocationBudgetByStrategy: ChannelSetupEstimates;
+    selectedBeforeGlobalCapByStrategy: ChannelSetupEstimates;
+    lostToAllocationByStrategy: ChannelSetupEstimates;
     afterMaxChannels: ChannelSetupEstimates;
     lostToMaxChannels: ChannelSetupEstimates;
 }

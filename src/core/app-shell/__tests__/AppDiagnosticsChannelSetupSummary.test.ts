@@ -9,6 +9,7 @@ describe('summarizeChannelSetupPlannerDiagnostics', () => {
             diagnostics: {
                 effectiveMaxChannels: 500,
                 minItems: 5,
+                allocationMode: 'priority-balanced-round-robin',
                 fetchedTagsByFamily: {
                     genres: [
                         { libraryId: 'lib-1', libraryName: 'Shows', count: 4 },
@@ -145,6 +146,39 @@ describe('summarizeChannelSetupPlannerDiagnostics', () => {
                     recentlyAdded: 0,
                     studios: 0,
                     actors: 9,
+                },
+                allocationBudgetByStrategy: {
+                    total: 10,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 3,
+                    directors: 0,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 0,
+                    actors: 7,
+                },
+                selectedBeforeGlobalCapByStrategy: {
+                    total: 10,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 3,
+                    directors: 0,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 0,
+                    actors: 7,
+                },
+                lostToAllocationByStrategy: {
+                    total: 2,
+                    collections: 0,
+                    playlists: 0,
+                    genres: 0,
+                    directors: 0,
+                    decades: 0,
+                    recentlyAdded: 0,
+                    studios: 0,
+                    actors: 2,
                 },
                 afterMaxChannels: {
                     total: 10,
