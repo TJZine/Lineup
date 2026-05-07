@@ -57,7 +57,41 @@ When tracked docs conflict, use this order:
 - use Codanna-first discovery for code understanding
 - prevent hotspot files from absorbing more responsibility
 - catch debt early through verification, review, and evals
+- preserve cleanup-era lessons as steady-state feature/refactor gates, not only
+  cleanup-loop ceremony
 - keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `worker` for general implementation, one cleanup-loop-specific `cleanup_worker` exception for approved Tier 3 cleanup-loop implementation passes, and `reviewer` for read-only review
+
+## Steady-State Debt Guardrails
+
+Detectors, review output, archived cleanup lessons, and checklist history are
+prompts to inspect current source, not task authority by themselves. Admit work
+and exceptions only through source-backed findings, owner seams, closure
+conditions, and risk-matched proof.
+
+For every non-trivial code change, feature work included, check the diff against
+these regression categories before closeout:
+
+- hotspot growth: composition roots and large owner files must not absorb new
+  feature policy when a focused owner exists or can be introduced inside the
+  approved seam
+- compatibility residue: no new migration barrels, old-path wrappers,
+  compatibility re-exports, fallback API variants, or temporary adapters
+- boundary leakage: raw storage, auth/token policy, Plex transport details,
+  platform assumptions, UI focus policy, and persistence semantics stay with
+  their documented owners
+- contract drift: keep one public shape per operation, one owner for shared
+  literal unions, public interface and concrete signatures aligned, and error
+  wrapping/redaction behavior explicit
+- test debt: prefer public-seam behavior proof over private probes, no broad
+  catch-all suites, no timer/DOM helpers that hide real lifecycle behavior
+- source signal: avoid restating comments, generated-looking scaffolding,
+  no-value forwarding, broad helper names, and unrelated cleanup mixed into the
+  task
+
+Intentional exceptions are allowed only when the approved plan or closeout record
+names one owner, the reason, verification, and a removal or revisit trigger.
+Reviewers should treat newly introduced guardrail violations as regressions
+unless that exception record exists.
 
 ## Default Workflow
 
@@ -78,6 +112,10 @@ When tracked docs conflict, use this order:
    - Fall back to `rg` only when Codanna is missing or insufficient.
    - For any task that uses `desloppify` outputs as acceptance or checklist evidence, run those authoritative `desloppify` commands on the integration branch that will receive the updates.
    - Do not run authoritative `desloppify` evidence passes in worktrees. If a worktree run is unavoidable, synchronize the full `.desloppify` state first, treat output as provisional, and rerun on the integration branch before recording dispositions.
+   - For steady-state work, treat fresh detector or review output as a quality
+     smoke signal unless the approved task explicitly makes it authoritative;
+     translate any admitted concern into current-source proof instead of copying
+     raw ids into scope or closeout.
 3. Load the right source-of-truth docs.
    - architecture truth: [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md)
    - active cleanup backlog: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md)
@@ -143,6 +181,8 @@ When tracked docs conflict, use this order:
 7. Implement narrowly.
    - one work unit at a time
    - prefer extraction over expansion in hotspot files
+   - run the steady-state debt guardrails against the intended edit before
+     touching files, then again against the final diff
    - avoid compatibility shims unless explicitly approved
    - avoid circular source dependencies, including type-only cycles; move
      shared shapes into sibling owner modules such as `types.ts`,
@@ -181,6 +221,8 @@ When tracked docs conflict, use this order:
    - AI review is the baseline pass
    - use repo-local `review-request` to send bounded plan, diff, workflow, skill, launcher, or closeout artifacts to a read-only reviewer
    - use repo-local `review-adjudication` before implementing reviewer feedback, especially when findings conflict, widen scope, or touch Lineup owner boundaries
+   - require reviewers to call out any new steady-state debt guardrail violation
+     as a regression or record the approved exception that permits it
    - humans still own architecture, product intent, and merge decisions
    - if the work claims to finish a cleanup priority, run a [`priority-exit review`](./agentic/session-prompts/cleanup-review.md) before starting or planning the next priority
    - a priority-exit review must enforce the blocking review checks in [`docs/agentic/session-prompts/cleanup-review.md`](./agentic/session-prompts/cleanup-review.md) together with the closeout requirements owned by [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](./agentic/plan-authoring-standard.md#cleanup-overlay) before any `P(n+1)` checklist item, plan, or implementation work is opened

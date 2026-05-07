@@ -147,6 +147,10 @@ The goal is not to maximize tool usage for its own sake. The goal is to leave a 
   - no fallback or compatibility paths unless explicitly approved
   - no temporary adapters that the next work unit must immediately replace
   - no unrelated side quests
+- For non-trivial code changes, add a debt-regression gate when any steady-state
+  guardrail from the workflow is implicated. Name the guardrail category, the
+  owner that must not grow, the forbidden shortcut, and the verification or
+  source audit that will prove the diff did not reintroduce it.
 - For cleanup/refactor work, optimize the plan around the correct long-term owner shape and repo-preferred practice, not the smallest patch that can close the named finding. If source audit shows the right shape requires a larger rewrite inside the approved owner boundary, plan that rewrite as the execution unit or wave instead of narrowing the work just to minimize diff size.
 - Size alone is not a valid reason to defer, no-code, or split-follow-up cleanup/refactor work. Defer or stop/replan only when the rewrite crosses an unapproved ownership, behavior, persistence, auth, UI, public API, verification, or sequencing boundary, and record the exact boundary plus final owner.
 - For UI/runtime refactors, add preservation contracts when they matter:
@@ -216,6 +220,9 @@ The packet may live in a `NEXT_SESSION_HANDOFF` block or a local run-bundle arti
 - plans that require raw local-only source material when a tracked curated reference should exist instead
 - plans that try to pre-write full implementation details for future steps instead of freezing the seam and execution constraints
 - treating tracked plans as mandatory TDD scripts instead of classifying the real verification need
+- plans that use tool or detector ids as a substitute for current-source owner
+  proof, or that optimize for score movement while leaving the owner shape
+  likely to recreate the same debt
 
 Keep the universal anti-pattern list short and always-on. Longer cleanup-era examples belong in optional historical references rather than in the core authoring surface.
 
