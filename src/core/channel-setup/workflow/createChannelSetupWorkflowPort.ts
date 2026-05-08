@@ -3,9 +3,8 @@ import type {
 } from './ChannelSetupWorkflowPort';
 import { ChannelSetupWorkflowUnavailableError } from './ChannelSetupWorkflowPort';
 import type { ChannelSetupContext } from '../types';
-import type { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
-import type { ChannelSetupCompletionTracker } from '../persistence/ChannelSetupCompletionTracker';
 import type { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
+import type { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
 import type { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
 
 export interface CreateChannelSetupWorkflowPortDeps {
@@ -13,10 +12,17 @@ export interface CreateChannelSetupWorkflowPortDeps {
 }
 
 export interface ChannelSetupWorkflowPortOwners {
-    planningService: ChannelSetupPlanningService;
-    buildExecutor: ChannelSetupBuildExecutor;
+    planningService: Pick<
+        ChannelSetupPlanningService,
+        | 'invalidateFacetSnapshot'
+        | 'getLibrariesForSetup'
+        | 'getSetupPreview'
+        | 'getSetupReview'
+        | 'getSetupPlanDiagnostics'
+    >;
+    buildExecutor: Pick<ChannelSetupBuildExecutor, 'createChannelsFromSetup'>;
     recordStore: Pick<ChannelSetupRecordStore, 'getRecord'>;
-    completionTracker: Pick<ChannelSetupCompletionTracker, 'markSetupComplete'>;
+    completionTracker: Pick<ChannelSetupRecordStore, 'markSetupComplete'>;
     getSelectedServerId: () => string | null;
     getExistingChannelCount: () => number;
 }

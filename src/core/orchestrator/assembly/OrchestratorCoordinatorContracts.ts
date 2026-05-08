@@ -27,10 +27,8 @@ import type {
 import type {
     IVideoPlayer,
 } from '../../../modules/player';
-import type {
-    IEPGComponent,
-    IEPGDebugRuntime,
-} from '../../../modules/ui/epg';
+import type { IEPGComponent } from '../../../modules/ui/epg/interfaces';
+import type { IEPGDebugRuntime } from '../../../modules/ui/epg/debug/EPGDebugRuntime';
 import type {
     INowPlayingInfoOverlay,
 } from '../../../modules/ui/now-playing-info';
@@ -70,7 +68,7 @@ import type {
 } from '../contracts/OverlayPorts';
 import type { ChannelSetupCoordinator } from '../../channel-setup/ChannelSetupCoordinator';
 import type { ChannelSetupWorkflowPortOwners } from '../../channel-setup/workflow/createChannelSetupWorkflowPort';
-import type { EPGCoordinator } from '../../../modules/ui/epg';
+import type { EPGCoordinator } from '../../../modules/ui/epg/coordinator/EPGCoordinator';
 import type { NowPlayingInfoCoordinator } from '../../../modules/ui/now-playing-info';
 import type { PlayerOsdCoordinator } from '../../../modules/ui/player-osd';
 import type { MiniGuideCoordinator } from '../../../modules/ui/mini-guide';

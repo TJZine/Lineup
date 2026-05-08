@@ -14,7 +14,7 @@ import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
 import type { IEPGComponent } from '../interfaces';
 import type { EpgVisibleRange } from '../types';
-import { EPGScheduleRefreshRuntime } from '../runtime/EPGScheduleRefreshRuntime';
+import type { EPGScheduleRefreshRuntime } from '../runtime/EPGScheduleRefreshRuntime';
 import { EPGVisibleRangeRefreshQueue } from '../runtime/EPGVisibleRangeRefreshQueue';
 import {
     computeNormalizedLibraryFilterState,
@@ -52,12 +52,23 @@ export interface EPGRefreshControllerDeps {
     primeEpgChannels: () => void;
 }
 
+type EPGScheduleRefreshRuntimeModule = typeof import('../runtime/EPGScheduleRefreshRuntime');
+
 export class EPGRefreshController {
-    private readonly _scheduleRefreshRuntime: EPGScheduleRefreshRuntime;
     private readonly _visibleRangeRefreshQueue: EPGVisibleRangeRefreshQueue;
+    private _scheduleRefreshRuntime: EPGScheduleRefreshRuntime | null = null;
+    private _scheduleRefreshRuntimeLoad: Promise<EPGScheduleRefreshRuntime> | null = null;
+    private _scheduleRefreshRuntimeInvalidation = 0;
+    private _lastScheduleRefreshRuntimeInvalidationReason = 'cancel-before-runtime-ready';
 
     constructor(private readonly _deps: EPGRefreshControllerDeps) {
-        this._scheduleRefreshRuntime = new EPGScheduleRefreshRuntime({
+        this._visibleRangeRefreshQueue = new EPGVisibleRangeRefreshQueue(
+            (range: EpgVisibleRange, reason: string) => this._refreshEpgSchedulesForRange(range, reason)
+        );
+    }
+
+    private _createScheduleRefreshRuntime(module: EPGScheduleRefreshRuntimeModule): EPGScheduleRefreshRuntime {
+        return new module.EPGScheduleRefreshRuntime({
             getEpg: (): IEPGComponent | null => this._deps.getEpg(),
             getChannelManager: (): IChannelManager | null => this._deps.getChannelManager(),
             getScheduler: (): IChannelScheduler | null => this._deps.getScheduler(),
@@ -92,9 +103,21 @@ export class EPGRefreshController {
             appendIssueDiagnostic: (issue: string, event: string, data: unknown): void =>
                 this._deps.appendIssueDiagnostic(issue, event, data),
         });
-        this._visibleRangeRefreshQueue = new EPGVisibleRangeRefreshQueue(
-            (range: EpgVisibleRange, reason: string) => this._refreshEpgSchedulesForRange(range, reason)
-        );
+    }
+
+    private async _getScheduleRefreshRuntime(): Promise<EPGScheduleRefreshRuntime> {
+        if (this._scheduleRefreshRuntime) {
+            return this._scheduleRefreshRuntime;
+        }
+        this._scheduleRefreshRuntimeLoad ??= import('../runtime/EPGScheduleRefreshRuntime')
+            .then((module) => {
+                this._scheduleRefreshRuntime = this._createScheduleRefreshRuntime(module);
+                return this._scheduleRefreshRuntime;
+            })
+            .finally(() => {
+                this._scheduleRefreshRuntimeLoad = null;
+            });
+        return this._scheduleRefreshRuntimeLoad;
     }
 
     private _getEpgScheduleRangeMs(): { startTime: number; endTime: number } | null {
@@ -173,25 +196,30 @@ export class EPGRefreshController {
     }
 
     clearScheduleCaches(): void {
-        this._scheduleRefreshRuntime.clearScheduleCaches();
+        this._scheduleRefreshRuntime?.clearScheduleCaches();
     }
 
     clearSelectedChannelScheduleSnapshot(): void {
-        this._scheduleRefreshRuntime.clearSelectedChannelScheduleSnapshot();
+        this._scheduleRefreshRuntime?.clearSelectedChannelScheduleSnapshot();
     }
 
     clearLoadedScheduleMarkers(): void {
-        this._scheduleRefreshRuntime.clearLoadedScheduleMarkers();
+        this._scheduleRefreshRuntime?.clearLoadedScheduleMarkers();
+    }
+
+    private _invalidateScheduleRefreshRuntime(reason: string): void {
+        this._scheduleRefreshRuntimeInvalidation += 1;
+        this._lastScheduleRefreshRuntimeInvalidationReason = reason;
+        this._visibleRangeRefreshQueue.cancelPendingRefresh();
+        this._scheduleRefreshRuntime?.dispose(reason);
     }
 
     cancelScheduledRefreshWork(reason: string): void {
-        this._visibleRangeRefreshQueue.cancelPendingRefresh();
-        this._scheduleRefreshRuntime.dispose(reason);
+        this._invalidateScheduleRefreshRuntime(reason);
     }
 
     dispose(reason = 'shutdown'): void {
-        this._visibleRangeRefreshQueue.cancelPendingRefresh();
-        this._scheduleRefreshRuntime.dispose(reason);
+        this._invalidateScheduleRefreshRuntime(reason);
     }
 
     async refreshEpgSchedules(options?: { reason?: string; debounceMs?: number }): Promise<void> {
@@ -334,7 +362,7 @@ export class EPGRefreshController {
         },
         signal?: AbortSignal | null
     ): Promise<EpgGuideSelectionSnapshot | null> {
-        return this._scheduleRefreshRuntime.buildGuideSelectionSnapshot(request, signal);
+        return (await this._getScheduleRefreshRuntime()).buildGuideSelectionSnapshot(request, signal);
     }
 
     handleGuideSettingRefreshChange(change: GuideSettingChange): void {
@@ -392,6 +420,12 @@ export class EPGRefreshController {
         range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
         reason: string
     ): Promise<void> {
-        await this._scheduleRefreshRuntime.refreshForRange(range, reason);
+        const invalidation = this._scheduleRefreshRuntimeInvalidation;
+        const runtime = await this._getScheduleRefreshRuntime();
+        if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
+            runtime.dispose(this._lastScheduleRefreshRuntimeInvalidationReason);
+            return;
+        }
+        await runtime.refreshForRange(range, reason);
     }
 }

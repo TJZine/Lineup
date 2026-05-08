@@ -1,17 +1,22 @@
-import type { EPGConfig } from '../../../modules/ui/epg';
+import type { EPGConfig } from '../../../modules/ui/epg/types';
 import type { EpgVisibleRange } from '../../../modules/ui/epg/types';
 import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorNavigationCoordinatorBuilderInput,
 } from '../assembly/OrchestratorCoordinatorContracts';
 
-const recordStoreInstance = { kind: 'record-store' };
+const recordStoreInstance = { kind: 'record-store', markSetupComplete: jest.fn() };
 const scratchStoreInstance = { kind: 'scratch-store' };
-const planningServiceInstance = { kind: 'planning-service' };
+const planningServiceInstance = {
+    kind: 'planning-service',
+    invalidateFacetSnapshot: jest.fn(),
+};
 const buildCommitterInstance = { kind: 'build-committer' };
-const buildExecutorInstance = { kind: 'build-executor' };
+const buildExecutorInstance = {
+    kind: 'build-executor',
+    createChannelsFromSetup: jest.fn().mockResolvedValue({ created: 0 }),
+};
 const coordinatorInstance = { clearRerunRequest: jest.fn(), kind: 'coordinator' };
-const completionTrackerInstance = { kind: 'completion-tracker' };
 const mockNavigationCoordinatorInstance = { kind: 'navigation-coordinator' };
 const mockNavigationCoordinator = jest.fn((_: unknown) => mockNavigationCoordinatorInstance);
 const mockNavigationKeyModeRouterInstance = { handleKeyPress: jest.fn(), handleLongPressBack: jest.fn() };
@@ -47,9 +52,6 @@ jest.mock('../../channel-setup/build/ChannelSetupBuildExecutor', () => ({
 jest.mock('../../channel-setup/ChannelSetupCoordinator', () => ({
     ChannelSetupCoordinator: jest.fn(() => coordinatorInstance),
 }));
-jest.mock('../../channel-setup/persistence/ChannelSetupCompletionTracker', () => ({
-    ChannelSetupCompletionTracker: jest.fn(() => completionTrackerInstance),
-}));
 jest.mock('../../../modules/navigation/coordinator/NavigationCoordinator', () => ({
     NavigationCoordinator: mockNavigationCoordinator,
 }));
@@ -63,7 +65,6 @@ jest.mock('../../../modules/navigation/handlers/NavigationScreenEffectsHandler',
 import { ChannelSetupBuildCommitter } from '../../channel-setup/build/ChannelSetupBuildCommitter';
 import { ChannelSetupBuildExecutor } from '../../channel-setup/build/ChannelSetupBuildExecutor';
 import { ChannelSetupBuildScratchStore } from '../../channel-setup/build/ChannelSetupBuildScratchStore';
-import { ChannelSetupCompletionTracker } from '../../channel-setup/persistence/ChannelSetupCompletionTracker';
 import { ChannelSetupCoordinator } from '../../channel-setup/ChannelSetupCoordinator';
 import { ChannelSetupPlanningService } from '../../channel-setup/planning/ChannelSetupPlanningService';
 import { ChannelSetupRecordStore } from '../../channel-setup/persistence/ChannelSetupRecordStore';
@@ -75,6 +76,11 @@ import {
     buildNavigationCoordinator,
     buildPlayerOsdCoordinator,
 } from '../assembly/OrchestratorCoordinatorBuilders';
+
+const flushPromises = async (): Promise<void> => {
+    await Promise.resolve();
+    await Promise.resolve();
+};
 
 const createInput = (): OrchestratorCoordinatorAssemblyInput => {
     const channelManager = {
@@ -229,6 +235,32 @@ describe('OrchestratorCoordinatorBuilders', () => {
 
         expect(ChannelSetupRecordStore).toHaveBeenCalledTimes(1);
         expect(ChannelSetupBuildScratchStore).toHaveBeenCalledTimes(1);
+        expect(ChannelSetupPlanningService).not.toHaveBeenCalled();
+        expect(ChannelSetupBuildExecutor).not.toHaveBeenCalled();
+        expect(owners).toEqual({
+            coordinator: coordinatorInstance,
+            portOwners: {
+                planningService: {
+                    invalidateFacetSnapshot: expect.any(Function),
+                    getLibrariesForSetup: expect.any(Function),
+                    getSetupPreview: expect.any(Function),
+                    getSetupReview: expect.any(Function),
+                    getSetupPlanDiagnostics: expect.any(Function),
+                },
+                buildExecutor: {
+                    createChannelsFromSetup: expect.any(Function),
+                },
+                recordStore: recordStoreInstance,
+                completionTracker: {
+                    markSetupComplete: expect.any(Function),
+                },
+                getSelectedServerId: expect.any(Function),
+                getExistingChannelCount: expect.any(Function),
+            },
+        });
+
+        await owners.portOwners.buildExecutor.createChannelsFromSetup({} as never);
+
         expect(ChannelSetupPlanningService).toHaveBeenCalledWith({
             plexLibrary: input.modules.plexLibrary,
             channelManager: input.modules.channelManager,
@@ -237,17 +269,6 @@ describe('OrchestratorCoordinatorBuilders', () => {
             channelManager: input.modules.channelManager,
             planningService: planningServiceInstance,
             buildCommitter: buildCommitterInstance,
-        });
-        expect(owners).toEqual({
-            coordinator: coordinatorInstance,
-            portOwners: {
-                planningService: planningServiceInstance,
-                buildExecutor: buildExecutorInstance,
-                recordStore: recordStoreInstance,
-                completionTracker: completionTrackerInstance,
-                getSelectedServerId: expect.any(Function),
-                getExistingChannelCount: expect.any(Function),
-            },
         });
 
         const buildCommitterArgs = (ChannelSetupBuildCommitter as jest.Mock).mock.calls[0]?.[0];
@@ -262,7 +283,6 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'rerun' });
 
         const coordinatorArgs = (ChannelSetupCoordinator as jest.Mock).mock.calls[0]?.[0];
-        const completionTrackerArgs = (ChannelSetupCompletionTracker as jest.Mock).mock.calls[0]?.[0];
 
         expect(coordinatorArgs.getSelectedServerId()).toBe('server-1');
         expect(coordinatorArgs.getExistingChannelCount()).toBe(2);
@@ -270,10 +290,13 @@ describe('OrchestratorCoordinatorBuilders', () => {
         expect(coordinatorArgs.getExistingChannelCount).toBe(owners.portOwners.getExistingChannelCount);
         expect(owners.portOwners.getSelectedServerId()).toBe('server-1');
         expect(owners.portOwners.getExistingChannelCount()).toBe(2);
-        completionTrackerArgs.clearRerunRequest();
+        owners.portOwners.completionTracker.markSetupComplete('server-1', {} as never);
         expect(coordinatorInstance.clearRerunRequest).toHaveBeenCalledTimes(1);
         expect(owners.portOwners.recordStore).toBe(recordStoreInstance);
-        expect(owners.portOwners.completionTracker).toBe(completionTrackerInstance);
+        owners.portOwners.planningService.invalidateFacetSnapshot();
+        await flushPromises();
+        expect((planningServiceInstance as { invalidateFacetSnapshot?: jest.Mock }).invalidateFacetSnapshot)
+            .toHaveBeenCalledTimes(1);
     });
 
     it('buildNavigationCoordinator preserves navigation-facing reporting semantics with the narrowed input seam', () => {

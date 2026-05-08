@@ -305,6 +305,38 @@ describe('EPGRefreshController', () => {
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });
 
+    it('cancels range refresh work while the schedule runtime import is still pending', async () => {
+        const resolveChannelContent = jest.fn(async (id: string) => ({
+            channelId: id,
+            resolvedAt: Date.now(),
+            items: makeResolvedItems(id),
+            totalDurationMs: 60_000,
+            orderedItems: makeResolvedItems(id),
+        } as ResolvedChannelContent));
+        const { deps, epg } = makeDeps({
+            channelManager: {
+                resolveChannelContent,
+            },
+        });
+        const controller = new EPGRefreshController(deps);
+
+        const refresh = controller.refreshEpgSchedulesForRangeNow(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        controller.cancelScheduledRefreshWork('close-epg');
+        await refresh;
+        await flushPromises();
+
+        expect(resolveChannelContent).not.toHaveBeenCalled();
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.anything()
+        );
+    });
+
     it('does not persist a preseeded live row as loaded state for the next non-live range refresh', async () => {
         const liveState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: 'c1' };
         const resolveChannelContent = jest.fn(async (id: string) => ({

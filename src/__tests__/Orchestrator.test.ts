@@ -560,6 +560,10 @@ jest.mock('../modules/ui/epg', () => {
     };
 });
 
+jest.mock('../modules/ui/epg/component/DeferredEPGComponent', () => ({
+    DeferredEPGComponent: jest.fn(() => mockEpg),
+}));
+
 // ============================================
 // Tests
 // ============================================
@@ -793,7 +797,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(require('../modules/scheduler/channel-manager').ChannelManager).toHaveBeenCalled();
             expect(require('../modules/scheduler/scheduler').ChannelScheduler).toHaveBeenCalled();
             expect(require('../modules/player').VideoPlayer).toHaveBeenCalled();
-            expect(require('../modules/ui/epg').DeferredEPGComponent).toHaveBeenCalled();
+            expect(require('../modules/ui/epg/component/DeferredEPGComponent').DeferredEPGComponent).toHaveBeenCalled();
         });
 
         it('wires injected platform services into lifecycle/navigation/stream/player seams', async () => {
