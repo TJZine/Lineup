@@ -213,6 +213,7 @@ function createChannelDiffEntry(
 export type ChannelSetupPlanningIntent = 'preview' | 'build';
 export type ChannelSetupPlexRequestIntent = ReturnType<typeof getPlexRequestIntentForChannelSetup>;
 export type ChannelSetupFacetMap<T> = ReadonlyMap<string, readonly T[]>;
+export type ChannelSetupFacetSnapshotFailureReason = Exclude<ChannelSetupPreviewFailureReason, 'transient'>;
 
 export type ChannelSetupFacetSnapshotData = {
     playlists: readonly PlexPlaylist[];
@@ -236,7 +237,7 @@ export type ChannelSetupFacetSnapshot =
     | ({
         status: 'blocked' | 'slow';
         message: string;
-        failureReason: ChannelSetupPreviewFailureReason;
+        failureReason: ChannelSetupFacetSnapshotFailureReason;
     } & ChannelSetupFacetSnapshotData);
 
 function normalizeFilters(filters?: ContentFilter[]): Array<ContentFilter> | null {

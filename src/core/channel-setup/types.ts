@@ -74,7 +74,12 @@ export interface ChannelSetupEstimates {
 
 export type ChannelSetupPreviewStatus = 'ready' | 'blocked' | 'slow';
 
-export type ChannelSetupPreviewFailureReason = 'unsupported' | 'empty' | 'timeout' | 'error';
+export type ChannelSetupPreviewFailureReason =
+    | 'unsupported'
+    | 'empty'
+    | 'timeout'
+    | 'error'
+    | 'transient';
 
 export interface ChannelSetupPreview {
     estimates: ChannelSetupEstimates;

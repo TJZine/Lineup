@@ -1,7 +1,6 @@
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import type {
     ChannelBuildProgress,
-    ChannelSetupPreviewFailureReason,
 } from '../types';
 import type {
     PlexCollection,
@@ -12,6 +11,7 @@ import type {
     ChannelSetupFacetMap,
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,
+    ChannelSetupFacetSnapshotFailureReason,
 } from './ChannelSetupPlanningTypes';
 import type { PlexTagDirectoryUnsupportedReason } from '../../../modules/plex/library';
 import {
@@ -120,7 +120,7 @@ export class ChannelSetupFacetSnapshotFailureBuilder {
     buildFailureSnapshot(
         status: 'blocked' | 'slow',
         message: string,
-        failureReason: ChannelSetupPreviewFailureReason,
+        failureReason: ChannelSetupFacetSnapshotFailureReason,
         hasTransientLoadFailure = false
     ): ChannelSetupFacetSnapshot {
         this.options.addWarning(message);

@@ -264,13 +264,16 @@ export class ChannelSetupPlanningService {
             seedFor: (value: string): number => this._hashSeed(value),
         });
         if (plan.pendingChannels.length === 0 && snapshot.errorsTotal === 0) {
+            const hasTransientLoadFailure = snapshot.hasTransientLoadFailure;
             return {
                 plan: null,
                 warnings: [...snapshot.warnings],
                 canceled: false,
-                blockedMessage: 'Channel setup could not build any channels from the selected libraries and enabled channel types. Try another channel type, another library, or a lower minimum item count.',
+                blockedMessage: hasTransientLoadFailure
+                    ? 'Channel setup could not build channels because Plex returned incomplete setup data. Try again later, or retry after Plex finishes refreshing metadata.'
+                    : 'Channel setup could not build any channels from the selected libraries and enabled channel types. Try another channel type, another library, or a lower minimum item count.',
                 previewStatus: 'blocked',
-                failureReason: 'empty',
+                failureReason: hasTransientLoadFailure ? 'transient' : 'empty',
                 errorsTotal: snapshot.errorsTotal,
                 playlistMs: snapshot.playlistMs,
                 collectionsMs: snapshot.collectionsMs,

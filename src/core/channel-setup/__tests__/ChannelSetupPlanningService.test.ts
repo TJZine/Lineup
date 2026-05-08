@@ -778,7 +778,7 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Genre A'))).toBe(true);
     });
 
-    it('reports empty-tag skip warnings in deterministic sorted order instead of task completion order', async () => {
+    it('reports transient empty-tag skip warnings in deterministic sorted order instead of permanent empty remediation', async () => {
         const genresDeferred = createDeferred<PlexTagDirectoryItem[]>();
         const directorsDeferred = createDeferred<PlexTagDirectoryItem[]>();
 
@@ -840,8 +840,9 @@ describe('ChannelSetupPlanningService', () => {
 
         expect(result.canceled).toBe(false);
         expect(result.plan).toBeNull();
-        expect(result.failureReason).toBe('empty');
-        expect(result.blockedMessage).toContain('could not build any channels');
+        expect(result.failureReason).toBe('transient');
+        expect(result.blockedMessage).toContain('Plex returned incomplete setup data');
+        expect(result.blockedMessage).toContain('Try again later');
         expect(result.warnings).toEqual([
             'Skipped directors for Shows: Plex returned no tag entries (type=4).',
             'Skipped genres for Shows: Plex returned no tag entries (type=2).',
@@ -889,13 +890,51 @@ describe('ChannelSetupPlanningService', () => {
 
         expect(result.canceled).toBe(false);
         expect(result.plan).toBeNull();
-        expect(result.failureReason).toBe('empty');
+        expect(result.failureReason).toBe('transient');
         expect(result.previewStatus).toBe('blocked');
-        expect(result.blockedMessage).toContain('could not build any channels');
+        expect(result.blockedMessage).toContain('Plex returned incomplete setup data');
+        expect(result.blockedMessage).toContain('Try again later');
         expect(result.warnings).toEqual([
             'Skipped studios for Anime Home: Plex returned no tag entries (type=4).',
             'Skipped studios for TV Home: Plex returned no tag entries (type=4).',
         ]);
+    });
+
+    it('keeps permanent empty remediation when no transient snapshot load failure occurred', async () => {
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {},
+        }));
+
+        const result = await service.buildSetupPlan(
+            config,
+            [makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 1200 })],
+            null,
+            'preview'
+        );
+
+        expect(result.canceled).toBe(false);
+        expect(result.plan).toBeNull();
+        expect(result.failureReason).toBe('empty');
+        expect(result.previewStatus).toBe('blocked');
+        expect(result.blockedMessage).toContain('could not build any channels');
+        expect(result.warnings).toEqual([]);
     });
 
     it('separates preview and build facet snapshots by intent', async () => {
