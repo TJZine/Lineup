@@ -8,9 +8,9 @@ import {
     EXPECTED_CONTAINER_IDS,
     EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS,
 } from '../../../__tests__/fixtures/appShellContainerIds';
-import { EXIT_CONFIRM_CONTAINER_ID } from '../../../modules/ui/exit-confirm';
-import { MINI_GUIDE_CONTAINER_ID } from '../../../modules/ui/mini-guide';
-import { PLAYER_OSD_CONTAINER_ID } from '../../../modules/ui/player-osd';
+import { EXIT_CONFIRM_CONTAINER_ID } from '../../../modules/ui/exit-confirm/constants';
+import { MINI_GUIDE_CONTAINER_ID } from '../../../modules/ui/mini-guide/constants';
+import { PLAYER_OSD_CONTAINER_ID } from '../../../modules/ui/player-osd/constants';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
 const SCREEN_CONTAINER_IDS = [
