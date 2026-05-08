@@ -5,7 +5,7 @@
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
 import type { StrategyStepMutableState } from '../ChannelSetupSessionContracts';
 import type { PlexLibrarySection } from '../../../plex/library/types';
-import type { INavigationManager } from '../../../navigation/interfaces';
+import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../steps/constants';
 
@@ -179,6 +179,33 @@ describe('ChannelSetupScreen', () => {
         clickButton(container, '#setup-select-all');
         expect(container.querySelectorAll('.setup-toggle.library-toggle.selected')).toHaveLength(2);
         expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
+    });
+
+    it('advances after clear-all and selecting a single library', async () => {
+        const container = createBodyAppendedTestContainer();
+
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies' }),
+                makeLibrary({ id: 'shows', type: 'show' }),
+            ]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+
+        clickButton(container, '#setup-clear-all');
+        clickButton(container, '#setup-lib-movies');
+        expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+
+        expect(container.textContent ?? '').toContain('Step 2 of 3');
+        expect(container.textContent ?? '').toContain('Choose channel types to build.');
+        expect(container.querySelector('#setup-next')?.textContent).toBe('Review');
     });
 
     it('updates library toggle in place without replacing the button node', async () => {

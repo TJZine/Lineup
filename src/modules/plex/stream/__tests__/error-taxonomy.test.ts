@@ -1,5 +1,5 @@
 import { AppErrorCode } from '../../../../types/app-errors';
-import { PlexStreamErrorCode, mapPlexStreamErrorCodeToAppErrorCode } from '../types';
+import { PlexStreamErrorCode, mapPlexStreamErrorCodeToAppErrorCode } from '../contracts/types';
 
 describe('plex stream error taxonomy exports', () => {
     it('accepts shared AppErrorCode values directly', () => {

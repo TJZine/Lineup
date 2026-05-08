@@ -2,9 +2,9 @@
  * @fileoverview Unit tests for Plex subtitle delivery policy helpers.
  */
 
-import type { PlexStream } from '../types';
-import { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS } from '../constants';
-import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from '../subtitleDeliveryPolicy';
+import type { PlexStream } from '../contracts/types';
+import { BURN_IN_SUBTITLE_FORMATS, TEXT_SUBTITLE_FORMATS } from '../policy/constants';
+import { getSubtitleDelivery, shouldRequestBurnInSubtitles } from '../policy/subtitleDeliveryPolicy';
 
 function streamFor(format?: string, codec?: string): PlexStream {
     return {
@@ -45,6 +45,11 @@ describe('getSubtitleDelivery', () => {
     it('treats codec-only text subtitles as sidecar', () => {
         expect(getSubtitleDelivery(streamFor(undefined, 'srt'), false)).toBe('sidecar');
         expect(getSubtitleDelivery(streamFor(undefined, 'srt'), true)).toBe('sidecar');
+    });
+
+    it('treats codec-only burn-in subtitles as burn regardless of transcoding state', () => {
+        expect(getSubtitleDelivery(streamFor(undefined, 'pgs'), false)).toBe('burn');
+        expect(getSubtitleDelivery(streamFor(undefined, 'pgs'), true)).toBe('burn');
     });
 });
 

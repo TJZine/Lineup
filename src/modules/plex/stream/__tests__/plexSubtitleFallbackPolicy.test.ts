@@ -1,7 +1,7 @@
 import {
     buildPlexSubtitleFetchAttempts,
     buildPlexSubtitleTranscodeUrl,
-} from '../plexSubtitleFallbackPolicy';
+} from '../policy/plexSubtitleFallbackPolicy';
 
 describe('plexSubtitleFallbackPolicy', () => {
     it('builds query/header/download subtitle fetch attempts from Plex auth headers', () => {
@@ -23,6 +23,9 @@ describe('plexSubtitleFallbackPolicy', () => {
         expect(attempts[0]?.headers).toEqual({
             Accept: 'text/vtt, text/plain, */*',
         });
+        expect(attempts[0]?.url).not.toBe(initialUrl);
+        attempts[0]!.url.searchParams.set('mutated', '1');
+        expect(initialUrl.searchParams.get('mutated')).toBeNull();
         expect(attempts[1]?.headers).toEqual({
             Accept: 'text/vtt, text/plain, */*',
             'X-Plex-Token': 'token',

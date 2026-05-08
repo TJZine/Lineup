@@ -5,30 +5,15 @@ import {
 } from '../../../core/channel-setup/types';
 import type { FocusableElement, KeyEvent } from '../../navigation';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
-import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
-import {
-    SETUP_STRATEGY_KEYS,
-} from './steps/constants';
 import { createScreenShell } from '../common/ScreenShell';
 import { ChannelSetupFocusCoordinator } from './focus/ChannelSetupFocusCoordinator';
 import { ChannelSetupDropdownController } from './ChannelSetupDropdownController';
 import { LibraryStepController } from './steps/LibraryStepController';
-import { StrategyStepController } from './steps/StrategyStepController';
-import { StrategyStepInteractionController } from './steps/StrategyStepInteractionController';
-import { ChannelSetupBuildStepPresenter } from './steps/ChannelSetupBuildStepPresenter';
-import type { StrategyStepDropdownConfig } from './steps/types';
-import type { SetupStrategyKey } from './steps/constants';
-import type { RegisterStep2FocusOptions } from './focus/types';
 import { scrollToNearest } from './focus/scrollToNearest';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
-import { strategySupportsMixedScope } from './ChannelSetupSessionState';
-import type {
-    ChannelSetupSessionSnapshot,
-    StrategyStepMutableState,
-} from './ChannelSetupSessionContracts';
 import type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
-
-const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
+import { ChannelSetupWorkflowPresenter } from './ChannelSetupWorkflowPresenter';
+import type { StepRenderContext } from './steps/types';
 
 const MOVIE_SVG = `
 <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
@@ -55,8 +40,6 @@ export class ChannelSetupScreen {
     private readonly _focus: ChannelSetupFocusCoordinator;
     private _destroyScreenShell: (() => void) | null = null;
     private readonly _libraryStep = new LibraryStepController();
-    private readonly _strategyStep = new StrategyStepController();
-    private readonly _buildStep = new ChannelSetupBuildStepPresenter();
     private readonly _dropdown = new ChannelSetupDropdownController();
     private _stepEl: HTMLElement;
     private _statusEl: HTMLElement;
@@ -64,72 +47,19 @@ export class ChannelSetupScreen {
     private _errorEl: HTMLElement;
     private _contentEl: HTMLElement;
     private readonly _session: ChannelSetupSessionController;
-    private readonly _strategyInteraction: StrategyStepInteractionController;
-    private _channelLimitOptions: number[] = CHANNEL_LIMIT_PRESETS.filter((value) => value <= MAX_CHANNELS);
-    private _minItemsOptions: number[] = [1, 5, 10, 20, 50];
+    private readonly _workflowPresenter: ChannelSetupWorkflowPresenter;
     private _preferredFocusId: string | null = null;
     private _visibilityToken = 0;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _previewPanelId = 'setup-preview-panel';
 
-    private _getNearestOptionIndex(options: number[], current: number): number {
-        const first = options[0];
-        if (first === undefined) return -1;
-        let nearestIndex = 0;
-        let smallestDiff = Math.abs(first - current);
-        for (let i = 1; i < options.length; i++) {
-            const option = options[i];
-            if (option === undefined) continue;
-            const diff = Math.abs(option - current);
-            if (diff < smallestDiff) {
-                smallestDiff = diff;
-                nearestIndex = i;
-            }
-        }
-        return nearestIndex;
-    }
-
-    private _stepPreset(
-        options: number[],
-        current: number,
-        dir: 'left' | 'right',
-        mode: 'clamp' | 'wrap'
-    ): number {
-        if (options.length === 0) return current;
-        const currentIndex = options.indexOf(current);
-        const baseIndex = currentIndex >= 0 ? currentIndex : this._getNearestOptionIndex(options, current);
-        if (baseIndex < 0) return current;
-        const lastIndex = options.length - 1;
-        const nextIndex = mode === 'wrap'
-            ? dir === 'left'
-                ? (baseIndex - 1 + options.length) % options.length
-                : (baseIndex + 1) % options.length
-            : dir === 'left'
-                ? Math.max(0, baseIndex - 1)
-                : Math.min(lastIndex, baseIndex + 1);
-        return options[nextIndex] ?? current;
-    }
-
     private _toDomId(raw: string): string {
         return raw.replace(/[^a-zA-Z0-9_-]/g, '_');
     }
 
-    private _setPriorityRowGrabbedVisual(strategy: SetupStrategyKey | null, grabbed: boolean): void {
-        if (!strategy) return;
-        const el = document.getElementById(this._strategyInteraction.priorityRowId(strategy));
-        el?.classList.toggle('setup-priority-row--grabbed', grabbed);
-        el?.setAttribute('aria-grabbed', grabbed ? 'true' : 'false');
-    }
-
-    private _clearStrategyStepTransientState(): void {
-        this._strategyInteraction.clearTransientState((strategy, grabbed) => {
-            this._setPriorityRowGrabbedVisual(strategy, grabbed);
-        });
-    }
-
     private _resetStepUi(statusText: string): void {
         this._dropdown.reset();
-        this._clearStrategyStepTransientState();
+        this._workflowPresenter.clearStrategyStepTransientState();
         this._preferredFocusId = null;
         this._contentEl.replaceChildren();
         this._stepEl.textContent = '';
@@ -159,15 +89,6 @@ export class ChannelSetupScreen {
             workflowPort: deps.workflowPort,
             getSelectedServerId: (): string | null => this._getSelectedServerId(),
         });
-        this._strategyInteraction = new StrategyStepInteractionController({
-            strategySupportsMixedScope,
-            toDomId: (raw): string => this._toDomId(raw),
-        });
-
-        if (!this._channelLimitOptions.includes(DEFAULT_CHANNEL_SETUP_MAX)) {
-            this._channelLimitOptions.push(DEFAULT_CHANNEL_SETUP_MAX);
-            this._channelLimitOptions.sort((a, b) => a - b);
-        }
 
         this._container.classList.add('screen');
 
@@ -197,6 +118,24 @@ export class ChannelSetupScreen {
         content.className = 'setup-body';
         shell.contentEl.appendChild(content);
         this._contentEl = content;
+
+        this._workflowPresenter = new ChannelSetupWorkflowPresenter({
+            session: this._session,
+            focus: this._focus,
+            dropdown: this._dropdown,
+            screenPorts: this._screenPorts,
+            contentEl: this._contentEl,
+            previewPanelId: this._previewPanelId,
+            getPreferredFocusId: (): string | null => this._preferredFocusId,
+            setPreferredFocusId: (focusId): void => {
+                this._preferredFocusId = focusId;
+            },
+            getVisibilityToken: (): number => this._visibilityToken,
+            renderStep: (): void => {
+                this._renderStep();
+            },
+            toDomId: (raw): string => this._toDomId(raw),
+        });
     }
 
     destroy(): void {
@@ -216,12 +155,12 @@ export class ChannelSetupScreen {
             this._navKeyHandler = (event: KeyEvent): void => {
                 const session = this._session.getSnapshot();
                 if (event.handled || session.step !== 2) return;
-                this._strategyInteraction.handleKeyPress(event, nav, this._createStrategyInteractionAdapters());
+                this._workflowPresenter.handleStrategyKeyPress(event, nav);
             };
             nav.on('keyPress', this._navKeyHandler);
         }
         this._session.beginSession();
-        this._strategyInteraction.reset();
+        this._workflowPresenter.resetStrategyInteraction();
         this._session.loadLibraries().then(() => {
             if (token !== this._visibilityToken) {
                 return;
@@ -412,159 +351,22 @@ export class ChannelSetupScreen {
         }
     }
 
-    private _createStrategyInteractionAdapters(): Parameters<StrategyStepInteractionController['handleKeyPress']>[2] {
-        return {
-            channelLimitOptions: this._channelLimitOptions,
-            deferDropdownRender: (): void => {
-                this._dropdown.deferRender();
-            },
-            dismissDropdown: (): void => {
-                this._dropdown.dismiss(() => this._renderStep());
-            },
-            getPreferredFocusId: (): string | null => this._preferredFocusId,
-            getSessionSnapshot: (): ChannelSetupSessionSnapshot => this._session.getSnapshot(),
-            hasActiveDropdown: (): boolean => this._dropdown.hasActiveDropdown(),
-            minItemsOptions: this._minItemsOptions,
-            openDropdown: (config: StrategyStepDropdownConfig): void => {
-                this._openStep2Dropdown(config);
-            },
-            registerStep2: (options: RegisterStep2FocusOptions): boolean => this._focus.registerStep2(options),
-            renderStep: (): void => {
-                this._renderStep();
-            },
-            schedulePreview: (): void => {
-                this._session.schedulePreview(() => this._renderStep());
-            },
-            setPreferredFocusId: (focusId: string | null): void => {
-                this._preferredFocusId = focusId;
-            },
-            setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean): void => {
-                this._setPriorityRowGrabbedVisual(strategy, grabbed);
-            },
-            stepPreset: (
-                options: number[],
-                current: number,
-                dir: 'left' | 'right',
-                mode: 'clamp' | 'wrap'
-            ): number => this._stepPreset(options, current, dir, mode),
-            updatePriorityRowState: (rowId: string, enabled: boolean): boolean =>
-                this._strategyStep.updatePriorityRowState(this._contentEl, rowId, enabled) !== null,
-            updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void): void => {
-                this._session.updateStrategyState(mutate);
-            },
-        };
-    }
-
     private _renderStrategyStep(): void {
-        this._session.syncSetupContext();
-        const session = this._session.getSnapshot();
-        const strategyInteraction = this._createStrategyInteractionAdapters();
-        this._strategyStep.render({
-            contentEl: this._contentEl,
-            stepEl: this._stepEl,
-            statusEl: this._statusEl,
-            detailEl: this._detailEl,
-            errorEl: this._errorEl,
-        }, {
-            state: {
-                activeStrategyCategory: this._strategyInteraction.getActiveStrategyCategory(),
-                strategies: session.strategies,
-                strategyOrder: session.strategyOrder,
-                channelExpansion: session.channelExpansion,
-                seriesOrdering: session.seriesOrdering,
-                buildMode: session.buildMode,
-                actorStudioCombineMode: session.actorStudioCombineMode,
-                maxChannels: session.maxChannels,
-                minItems: session.minItems,
-                setupContext: session.setupContext,
-                previewPanelId: this._previewPanelId,
-                preview: session.preview,
-                previewError: session.previewError,
-                previewStatus: session.previewStatus,
-                isPreviewLoading: session.isPreviewLoading,
-            },
-            strategyKeys: SETUP_STRATEGY_KEYS,
-            categoryButtonId: (category) => this._strategyInteraction.categoryButtonId(category),
-            strategyButtonId: (strategy) => this._strategyInteraction.strategyButtonId(strategy),
-            priorityRowId: (strategy) => this._strategyInteraction.priorityRowId(strategy),
-            lastReorder: this._strategyInteraction.getLastReorder(),
-            scopeButtonId: (strategy) => this._strategyInteraction.scopeButtonId(strategy),
-            strategySupportsMixedScope,
-            buildPreviewRow: (label, value, key) =>
-                this._buildStep.buildPreviewRow(this._session.getSnapshot(), label, value, key),
-            renderCappedWarnings: (warnings, container) => {
-                this._buildStep.renderCappedPreviewWarnings(warnings, container);
-            },
-            applyCategoryChange: (category, focusId) => {
-                this._strategyInteraction.applyCategoryChange(category, focusId, strategyInteraction);
-            },
-            applySettingChange: (focusId, mutate) => {
-                this._strategyInteraction.applySettingChange(focusId, mutate, strategyInteraction);
-            },
-            openAdjustableControl: (controlId) => {
-                this._strategyInteraction.openAdjustableControl(controlId, strategyInteraction);
-            },
-            onBack: () => {
-                this._clearStrategyStepTransientState();
-                this._session.setStep(1);
-                this._renderStep();
-            },
-            onNext: () => {
-                this._clearStrategyStepTransientState();
-                this._session.setStep(3);
-                this._renderStep();
-            },
-            registerStep2Focusables: (categoryButtons, detailButtons, backButton, nextButton) => {
-                this._strategyInteraction.registerStep2Focusables(
-                    categoryButtons,
-                    detailButtons,
-                    backButton,
-                    nextButton,
-                    strategyInteraction
-                );
-            },
-            detailText: session.strategies.genres.enabled || session.strategies.directors.enabled
-                ? 'Performance warning: may be slow on large libraries.'
-                : '',
-            schedulePreview: () => strategyInteraction.schedulePreview(),
-        });
-        this._setPriorityRowGrabbedVisual(this._strategyInteraction.getGrabbedPriorityKey(), true);
-    }
-
-    private _openStep2Dropdown(config: StrategyStepDropdownConfig): void {
-        const nav = this._screenPorts.getNavigation();
-        this._dropdown.open(config, {
-            container: this._contentEl,
-            nav,
-            setPreferredFocusId: (focusId) => {
-                this._preferredFocusId = focusId;
-            },
-            renderStep: () => {
-                this._renderStep();
-            },
-        });
+        this._workflowPresenter.renderStrategyStep(this._buildStepRenderContext());
     }
 
     private _renderBuildStep(): void {
-        this._buildStep.render({
+        this._workflowPresenter.renderBuildStep(this._buildStepRenderContext());
+    }
+
+    private _buildStepRenderContext(): StepRenderContext {
+        return {
             contentEl: this._contentEl,
             stepEl: this._stepEl,
             statusEl: this._statusEl,
             detailEl: this._detailEl,
             errorEl: this._errorEl,
-        }, {
-            session: this._session,
-            focus: this._focus,
-            screenPorts: this._screenPorts,
-            getPreferredFocusId: () => this._preferredFocusId,
-            setPreferredFocusId: (focusId) => {
-                this._preferredFocusId = focusId;
-            },
-            getVisibilityToken: () => this._visibilityToken,
-            renderStep: () => {
-                this._renderStep();
-            },
-        });
+        };
     }
 
     private _getSelectedServerId(): string | null {

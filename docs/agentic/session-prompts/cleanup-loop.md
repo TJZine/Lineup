@@ -58,6 +58,8 @@ Run the loop as an explicit state machine:
   - the main thread must not author the execution-grade `checklist-linked` package plan itself just because it now has enough local context; reclaim planning only when delegated planning explicitly blocks, fails, the user explicitly asks the main thread to plan locally, a controller-only seam decision must be resolved before planning can continue, or the narrow long-wait/direct-status-check/follow-up-wait abandonment test is met
   - for `standalone remediation`, the controller may keep the planning pass local when the bounded execution target is already clear, but should still delegate when the same Tier 3 scale/risk factors that justified `cleanup-loop` materially benefit from a separate planning writer
   - have the planning pass write or refresh the implementation plan using the tracked cleanup planning standards
+  - require the planning pass to optimize for the intended long-term owner shape and repo-preferred practice, not the smallest issue-closing patch; larger rewrites are valid execution units or waves when they stay inside the approved owner boundary and verification envelope
+  - reject source-disproved, no-code, deferred, or split-follow-up dispositions when the only reason is fix size; those dispositions need current-source proof that the intended shape already exists, the finding no longer applies, or an explicit unapproved boundary forces stop/replan with one final owner
   - for `checklist-linked` package work, require approved package decomposition, one explicit `ready_now_execution_unit`, and a clear next-slice recommendation inside that unit before implementation starts
   - do not enter `implement` for `checklist-linked` work until the active approved plan exposes inline scalar `ready_now_execution_unit` and `ready_now_slice`; `ready_now_slice` remains the first slice inside that approved unit
   - for `standalone remediation`, require one explicit bounded execution target in the approved plan and do not invent package slices or checklist linkage
@@ -128,6 +130,7 @@ Run the loop as an explicit state machine:
 - keep the controller's task family, cleanup subtype, and checklist linkage explicit
 - ensure the planner follows [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md)
 - ensure cleanup planning and review use both [`Universal Plan Core`](../plan-authoring-standard.md#universal-plan-core) and [`Cleanup Overlay`](../plan-authoring-standard.md#cleanup-overlay)
+- ensure cleanup planning targets the correct long-term owner shape rather than minimum-diff issue closure, and require replan instead of deferral when the intended rewrite crosses an unapproved boundary
 - keep orchestration package-scoped for planning and closeout only when the task is `checklist-linked`; otherwise keep `standalone remediation` bounded to its approved execution target
 - for checklist-linked package work, treat `slice_table` as the atomic ownership map and `execution_unit` as the execution/review surface
 - keep delegation inside the tracked role catalog from `.codex/config.toml`; use `planner` for bounded planning artifacts, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, and `reviewer` for adversarial review passes

@@ -56,7 +56,7 @@ import { DebugOverridesStore } from '../../../modules/debug/DebugOverridesStore'
 import { AudioSettingsStore } from '../../../modules/settings/AudioSettingsStore';
 import { PlaybackSettingsStore } from '../../../modules/settings/PlaybackSettingsStore';
 import type { DeveloperSettingsStore } from '../../../modules/settings/DeveloperSettingsStore';
-import { createPlexStreamSubtitleDebugLogPort } from '../../../modules/plex/stream/PlexStreamSubtitleDebugLogPort';
+import { createPlexStreamSubtitleDebugLogPort } from '../../../modules/plex/stream/diagnostics/PlexStreamSubtitleDebugLogPort';
 
 export interface OrchestratorModuleFactoryDeps {
     config: OrchestratorConfig;

@@ -78,7 +78,7 @@ import type { ChannelTransitionCoordinator } from '../../../modules/ui/channel-t
 import type { PlaybackOptionsCoordinator } from '../../../modules/ui/playback-options';
 import type { PlaybackRecoveryManager } from '../../../modules/player/PlaybackRecoveryManager';
 import type { ChannelTuningCoordinator } from '../../channel-tuning';
-import type { NavigationCoordinator } from '../../../modules/navigation/NavigationCoordinator';
+import type { NavigationCoordinator } from '../../../modules/navigation/coordinator/NavigationCoordinator';
 export interface OrchestratorCoordinatorAssemblyInput {
     epgDebugRuntime: IEPGDebugRuntime | null;
     config: OrchestratorConfig | null;

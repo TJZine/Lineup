@@ -210,6 +210,252 @@ describe('ContentResolver', () => {
             expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
         });
 
+        it('releases aborted waiters and aborts shared work only after the last waiter leaves', async () => {
+            const abortEvents: string[] = [];
+            mockLibrary.getLibraryItems.mockImplementation((libraryId: string, options?: { signal?: AbortSignal | null }) => {
+                const signal = options?.signal;
+                return new Promise<PlexMediaItemMinimal[]>((resolve, reject) => {
+                    const onAbort = (): void => {
+                        abortEvents.push(libraryId);
+                        reject({ name: 'AbortError' });
+                    };
+                    signal?.addEventListener('abort', onAbort, { once: true });
+                    void resolve;
+                });
+            });
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-waiter-release',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+            const controllerA = new AbortController();
+            const controllerB = new AbortController();
+
+            const promiseA = resolver.resolveSource(source, { signal: controllerA.signal });
+            const promiseB = resolver.resolveSource(source, { signal: controllerB.signal });
+
+            controllerA.abort();
+            await expect(promiseA).rejects.toMatchObject({ name: 'AbortError' });
+            expect(abortEvents).toEqual([]);
+
+            controllerB.abort();
+            await expect(promiseB).rejects.toMatchObject({ name: 'AbortError' });
+            expect(abortEvents).toEqual(['lib-waiter-release']);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        });
+
+        it('evicts the least recently used source cache entry when max entries are exceeded', async () => {
+            mockLibrary.getLibraryItems.mockImplementation(async (libraryId: string) => [
+                createMockItem({ ratingKey: `item-${libraryId}` }),
+            ]);
+
+            const sources = Array.from({ length: 25 }, (_, index): LibraryContentSource => ({
+                type: 'library',
+                libraryId: `lib-lru-${index}`,
+                libraryType: 'movie',
+                includeWatched: true,
+            }));
+
+            for (const source of sources.slice(0, 24)) {
+                await resolver.resolveSource(source);
+            }
+            await resolver.resolveSource(sources[0]!);
+            await resolver.resolveSource(sources[24]!);
+            await resolver.resolveSource(sources[1]!);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(26);
+            expect(mockLibrary.getLibraryItems.mock.calls.map(([libraryId]) => libraryId)).toEqual([
+                ...sources.slice(0, 24).map((source) => source.libraryId),
+                'lib-lru-24',
+                'lib-lru-1',
+            ]);
+        });
+
+        it('clearCaches invalidates cached source results and aborts in-flight work', async () => {
+            const deferred = createDeferredPromise<PlexMediaItemMinimal[]>();
+            mockLibrary.getLibraryItems
+                .mockImplementationOnce((_libraryId: string, options?: { signal?: AbortSignal | null }) => {
+                    const signal = options?.signal;
+                    return new Promise<PlexMediaItemMinimal[]>((resolve, reject) => {
+                        const onAbort = (): void => reject({ name: 'AbortError' });
+                        signal?.addEventListener('abort', onAbort, { once: true });
+                        deferred.promise.then(resolve, reject);
+                    });
+                })
+                .mockResolvedValueOnce([createMockItem({ ratingKey: 'after-clear' })]);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-clear',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            const inFlight = resolver.resolveSource(source);
+            resolver.clearCaches();
+
+            await expect(inFlight).rejects.toMatchObject({ name: 'AbortError' });
+            const afterClear = await resolver.resolveSource(source);
+
+            expect(afterClear.map((item) => item.ratingKey)).toEqual(['after-clear']);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(2);
+        });
+
+        it('invalidateSource invalidates only the exact source cache entry', async () => {
+            mockLibrary.getLibraryItems.mockImplementation(async (libraryId: string) => [
+                createMockItem({ ratingKey: `item-${libraryId}-${mockLibrary.getLibraryItems.mock.calls.length}` }),
+            ]);
+
+            const sourceA: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-invalidate-a',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+            const sourceB: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-invalidate-b',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            await resolver.resolveSource(sourceA);
+            await resolver.resolveSource(sourceB);
+            resolver.invalidateSource(sourceA);
+            await resolver.resolveSource(sourceA);
+            await resolver.resolveSource(sourceB);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(3);
+            expect(mockLibrary.getLibraryItems.mock.calls.map(([libraryId]) => libraryId)).toEqual([
+                'lib-invalidate-a',
+                'lib-invalidate-b',
+                'lib-invalidate-a',
+            ]);
+        });
+
+        it('invalidateSource recursively invalidates cached mixed and sub-source results', async () => {
+            const callCountByLibraryId = new Map<string, number>();
+            mockLibrary.getLibraryItems.mockImplementation(async (libraryId: string) => {
+                const callCount = (callCountByLibraryId.get(libraryId) ?? 0) + 1;
+                callCountByLibraryId.set(libraryId, callCount);
+                return [createMockItem({ ratingKey: `item-${libraryId}-${callCount}` })];
+            });
+
+            const sourceA: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-mixed-cache-a',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+            const sourceB: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-mixed-cache-b',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+            const mixed: MixedContentSource = {
+                type: 'mixed',
+                sources: [sourceA, sourceB],
+                mixMode: 'sequential',
+            };
+
+            const first = await resolver.resolveSource(mixed);
+            resolver.invalidateSource(mixed);
+            const second = await resolver.resolveSource(mixed);
+
+            expect(first.map((item) => item.ratingKey)).toEqual([
+                'item-lib-mixed-cache-a-1',
+                'item-lib-mixed-cache-b-1',
+            ]);
+            expect(second.map((item) => item.ratingKey)).toEqual([
+                'item-lib-mixed-cache-a-2',
+                'item-lib-mixed-cache-b-2',
+            ]);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(4);
+        });
+
+        it('invalidateSource recursively invalidates mixed sub-sources and aborts their in-flight work', async () => {
+            const abortEvents: string[] = [];
+            mockLibrary.getLibraryItems.mockImplementation((libraryId: string, options?: { signal?: AbortSignal | null }) => {
+                const signal = options?.signal;
+                return new Promise<PlexMediaItemMinimal[]>((_resolve, reject) => {
+                    const onAbort = (): void => {
+                        abortEvents.push(libraryId);
+                        reject({ name: 'AbortError' });
+                    };
+                    signal?.addEventListener('abort', onAbort, { once: true });
+                });
+            });
+
+            const sourceA: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-mixed-a',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+            const sourceB: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-mixed-b',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+            const mixed: MixedContentSource = {
+                type: 'mixed',
+                sources: [sourceA, sourceB],
+                mixMode: 'sequential',
+            };
+
+            const inFlight = resolver.resolveSource(mixed);
+            resolver.invalidateSource(mixed);
+
+            await expect(inFlight).rejects.toMatchObject({ name: 'AbortError' });
+            expect(abortEvents.sort()).toEqual(['lib-mixed-a', 'lib-mixed-b']);
+        });
+
+        it('returns cloned cached source items so caller mutations cannot leak back into cache', async () => {
+            mockLibrary.getLibraryItems.mockResolvedValue([
+                {
+                    ...createMockItem({
+                        ratingKey: 'clone-1',
+                        title: 'Original Title',
+                        durationMs: 6000,
+                    }),
+                    genres: ['Drama'],
+                    directors: ['Director A'],
+                    media: [createMockMedia({ hdr: 'HDR10' })],
+                } as unknown as PlexMediaItemMinimal,
+            ]);
+
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'lib-clone',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+
+            const first = await resolver.resolveSource(source);
+            first[0]!.title = 'Mutated Title';
+            first[0]!.genres?.push('Mutated Genre');
+            first[0]!.directors?.push('Mutated Director');
+            first[0]!.mediaInfo!.resolution = '240p';
+
+            const second = await resolver.resolveSource(source);
+
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+            expect(second[0]).not.toBe(first[0]);
+            expect(second[0]!.title).toBe('Original Title');
+            expect(second[0]!.genres).toEqual(['Drama']);
+            expect(second[0]!.directors).toEqual(['Director A']);
+            expect(second[0]!.mediaInfo).toEqual({
+                resolution: '1080p',
+                hdr: 'HDR10',
+                audioCodec: 'aac',
+                audioChannels: 2,
+            });
+        });
+
         it('respects cache TTL expiry and refetches after expiration', async () => {
             const nowSpy = jest.spyOn(Date, 'now');
             let nowMs = 0;
@@ -1228,6 +1474,13 @@ describe('ContentResolver', () => {
             expect(result[0]!.episodeNumber).toBe(1);
             expect(result[1]!.episodeNumber).toBe(2);
             expect(result[2]!.seasonNumber).toBe(2);
+        });
+
+        it('throws for unknown sort orders', () => {
+            expect(() => resolver.applySort(
+                items,
+                'unknown_sort' as Parameters<ContentResolver['applySort']>[1]
+            )).toThrow('Unknown content sort order: unknown_sort');
         });
     });
 

@@ -7,12 +7,12 @@
  * @module modules/navigation/__tests__/RemoteHandler.test
  */
 
-import { RemoteHandler } from '../RemoteHandler';
+import { RemoteHandler } from '../input/RemoteHandler';
 import {
     LONG_PRESS_THRESHOLD_MS,
     mapKeyCode as mapPlatformKeyCode,
     resolveKeyMap,
-} from '../constants';
+} from '../config/constants';
 import type { PlatformInputService } from '../../../platform';
 import { createWebOsPlatformServices } from '../../../platform';
 

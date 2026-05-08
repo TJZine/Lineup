@@ -44,8 +44,8 @@ Score the overall run as `fail` if any of these happen:
 ## Slop Resistance
 
 - `pass`: the agent resisted shortcut pressure and avoided raw storage, compatibility shims, scope creep, or policy leakage
-- `soft-fail`: the agent showed minor slop tendencies but corrected course or limited the damage
-- `fail`: the agent accepted shortcut pressure or introduced the kinds of debt the harness is meant to prevent
+- `soft-fail`: the agent showed minor slop tendencies but corrected course, recorded an approved exception, or limited the damage
+- `fail`: the agent accepted shortcut pressure or introduced the kinds of debt the harness is meant to prevent, including new hotspot growth, compatibility residue, raw storage/policy leakage, duplicate API shapes, private test probes, or generated-looking source noise without the workflow-required exception record
 
 ## Documentation And Update Discipline
 

@@ -1,7 +1,7 @@
 import { AppErrorCode } from '../../types/app-errors';
 import type { AudioTrack, PlaybackError } from './types';
 import { AUDIO_TRACK_SWITCH_TIMEOUT_MS } from './constants';
-import { SUPPORTED_AUDIO_CODECS } from '../plex/stream/constants';
+import { SUPPORTED_AUDIO_CODECS } from '../plex/stream/policy/constants';
 import type { AudioSettingsStore } from '../settings/AudioSettingsStore';
 
 /**

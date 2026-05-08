@@ -24,7 +24,7 @@ The main anti-pattern is mixing URL construction, auth handling, transport polic
 - [`src/modules/plex/discovery/PlexServerDiscovery.ts`](../../../src/modules/plex/discovery/PlexServerDiscovery.ts)
 - [`src/modules/plex/discovery/ServerSelectionStore.ts`](../../../src/modules/plex/discovery/ServerSelectionStore.ts)
 - [`src/modules/plex/library/PlexLibrary.ts`](../../../src/modules/plex/library/PlexLibrary.ts)
-- [`src/modules/plex/stream/PlexStreamResolver.ts`](../../../src/modules/plex/stream/PlexStreamResolver.ts)
+- [`src/modules/plex/stream/resolver/PlexStreamResolver.ts`](../../../src/modules/plex/stream/resolver/PlexStreamResolver.ts)
 - Contract doc: [`docs/api/plex-integration.md`](../../../docs/api/plex-integration.md)
 
 ## Boundary Routing

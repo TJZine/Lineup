@@ -4,7 +4,7 @@ import {
     isLetterboxAspectRatio,
     parseDolbyVisionProfileString,
     shouldApplyHdr10Fallback,
-} from '../dvHdr10Fallback';
+} from '../policy/dvHdr10Fallback';
 
 describe('dvHdr10Fallback', () => {
     describe('hasHdr10BaseLayer', () => {

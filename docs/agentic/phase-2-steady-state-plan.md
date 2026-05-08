@@ -8,6 +8,17 @@ The current workflow and skills are intentionally tuned for a repo that is still
 
 Phase 2 is the transition from cleanup-era guardrails to steady-state invariants.
 
+## Guardrail Status
+
+The steady-state guardrails are the default baseline for new non-trivial work.
+Future feature, port, and refactor tasks should preserve the cleanup baseline by
+using the guardrails in
+[`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md#steady-state-debt-guardrails).
+Phase 2 defines further pruning and tightening tasks performed during cleanup
+passes. The broader Phase 2 pruning/tightening pass still follows the readiness
+and work items below; do not reopen cleanup-era package queues just to run the
+old process.
+
 ## When To Execute Phase 2
 
 Run this phase when most of the following are true:
@@ -98,4 +109,6 @@ That checkpoint must decide:
 
 ## Trigger To Revisit This Plan
 
-Revisit this document after a major cleanup milestone lands or when the team agrees the repo is in “steady-state feature mode” rather than “active structural remediation mode.”
+Revisit this document after a major cleanup milestone lands, when planning the
+broader Phase 2 pruning/tightening pass, or when the team agrees the repo is in
+steady-state feature mode rather than active structural remediation mode.

@@ -1,4 +1,4 @@
-import type { INavigationManager } from '../../../navigation/interfaces';
+import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 
 export interface FocusCoordinatorDeps {
     getNavigation: () => INavigationManager | null;

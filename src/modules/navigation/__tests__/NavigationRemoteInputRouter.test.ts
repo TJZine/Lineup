@@ -1,5 +1,5 @@
-import { NavigationRemoteInputRouter } from '../NavigationRemoteInputRouter';
-import type { KeyEvent, RemoteButton } from '../interfaces';
+import { NavigationRemoteInputRouter } from '../input/NavigationRemoteInputRouter';
+import type { KeyEvent, RemoteButton } from '../contracts/interfaces';
 
 function createKeyEvent(button: RemoteButton, overrides: Partial<KeyEvent> = {}): KeyEvent {
     return {

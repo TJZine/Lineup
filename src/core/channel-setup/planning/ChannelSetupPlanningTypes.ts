@@ -75,6 +75,7 @@ export interface ChannelSetupPlannerFacetCountDiagnostics {
 export interface ChannelSetupPlannerDiagnostics {
     effectiveMaxChannels: number;
     minItems: number;
+    allocationMode: 'priority-balanced-round-robin';
     fetchedTagsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerLibraryCount[]>;
     tagCountDiagnosticsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerFacetCountDiagnostics[]>;
     candidatesBeforeMinItems: ChannelSetupEstimates;
@@ -82,6 +83,9 @@ export interface ChannelSetupPlannerDiagnostics {
     strategyBucketSizes: ChannelSetupEstimates;
     afterAlternateLineups: ChannelSetupEstimates;
     afterVariants: ChannelSetupEstimates;
+    allocationBudgetByStrategy: ChannelSetupEstimates;
+    selectedBeforeGlobalCapByStrategy: ChannelSetupEstimates;
+    lostToAllocationByStrategy: ChannelSetupEstimates;
     afterMaxChannels: ChannelSetupEstimates;
     lostToMaxChannels: ChannelSetupEstimates;
 }
@@ -209,6 +213,7 @@ function createChannelDiffEntry(
 export type ChannelSetupPlanningIntent = 'preview' | 'build';
 export type ChannelSetupPlexRequestIntent = ReturnType<typeof getPlexRequestIntentForChannelSetup>;
 export type ChannelSetupFacetMap<T> = ReadonlyMap<string, readonly T[]>;
+export type ChannelSetupFacetSnapshotFailureReason = Exclude<ChannelSetupPreviewFailureReason, 'transient'>;
 
 export type ChannelSetupFacetSnapshotData = {
     playlists: readonly PlexPlaylist[];
@@ -232,7 +237,7 @@ export type ChannelSetupFacetSnapshot =
     | ({
         status: 'blocked' | 'slow';
         message: string;
-        failureReason: ChannelSetupPreviewFailureReason;
+        failureReason: ChannelSetupFacetSnapshotFailureReason;
     } & ChannelSetupFacetSnapshotData);
 
 function normalizeFilters(filters?: ContentFilter[]): Array<ContentFilter> | null {

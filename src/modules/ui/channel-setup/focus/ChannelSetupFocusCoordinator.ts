@@ -1,4 +1,4 @@
-import type { FocusableElement } from '../../../navigation/interfaces';
+import type { FocusableElement } from '../../../navigation/contracts/interfaces';
 import { syncFocusableRegistry } from '../../common/focus/syncFocusableRegistry';
 import { scrollToNearest } from './scrollToNearest';
 import type { FocusCoordinatorDeps, RegisterStep2FocusOptions } from './types';

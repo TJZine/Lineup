@@ -3,9 +3,9 @@
  * @module modules/plex/stream/__tests__/PlexStreamResolver.test
  */
 
-import { PlexStreamResolver } from '../PlexStreamResolver';
-import { generatePlexSessionId } from '../plexSessionId';
-import type { PlexMediaFile, PlexStreamMediaItem, PlexMediaPart, PlexStream } from '../types';
+import { PlexStreamResolver } from '../resolver/PlexStreamResolver';
+import { generatePlexSessionId } from '../resolver/plexSessionId';
+import type { PlexMediaFile, PlexStreamMediaItem, PlexMediaPart, PlexStream } from '../contracts/types';
 import { AppErrorCode } from '../../../../types/app-errors';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { PlatformIdentityService } from '../../../../platform';

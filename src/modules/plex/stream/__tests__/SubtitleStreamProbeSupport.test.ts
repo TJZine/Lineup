@@ -1,7 +1,7 @@
 import {
     buildSubtitleStreamProbeRequestContext,
     readSubtitleProbeSample,
-} from '../SubtitleStreamProbeSupport';
+} from '../diagnostics/SubtitleStreamProbeSupport';
 
 describe('SubtitleStreamProbeSupport', () => {
     it('builds a redacted request context for direct subtitle stream keys', () => {

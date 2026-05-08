@@ -667,10 +667,11 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.failureReason).toBeUndefined();
         expect(result.previewStatus).toBeUndefined();
         expect(result.blockedMessage).toBeUndefined();
+        expect(result.warnings).toContain('Skipped studios for Anime Home: Plex returned no tag entries (type=4).');
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Studio A'))).toBe(true);
     });
 
-    it('does not let movie facet entries suppress empty show facet failures for the same family', async () => {
+    it('warns and skips one selected library facet when another selected media type can still build channels', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
@@ -718,14 +719,16 @@ describe('ChannelSetupPlanningService', () => {
         const result = await service.buildSetupPlan(config, libraries, null, 'preview');
 
         expect(result.canceled).toBe(false);
-        expect(result.plan).toBeNull();
-        expect(result.failureReason).toBe('empty');
-        expect(result.previewStatus).toBe('blocked');
-        expect(result.blockedMessage).toContain('Required genres tag directory (type=2) returned no entries for Show Home');
-        expect(plexLibrary.getLibraryItems).not.toHaveBeenCalled();
+        expect(result.plan).not.toBeNull();
+        expect(result.failureReason).toBeUndefined();
+        expect(result.previewStatus).toBeUndefined();
+        expect(result.blockedMessage).toBeUndefined();
+        expect(result.warnings).toContain('Skipped genres for Show Home: Plex returned no tag entries (type=2).');
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Movie Comedy'))).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Show Home'))).toBe(false);
     });
 
-    it('records returned facet tags before resolving deferred empty tag failures', async () => {
+    it('records returned facet tags without warning when Plex reports empty but still returns entries', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
@@ -771,10 +774,11 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.failureReason).toBeUndefined();
         expect(result.previewStatus).toBeUndefined();
         expect(result.blockedMessage).toBeUndefined();
+        expect(result.warnings).toEqual([]);
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Genre A'))).toBe(true);
     });
 
-    it('chooses deferred empty-tag failures in deterministic sorted order instead of task completion order', async () => {
+    it('reports transient empty-tag skip warnings in deterministic sorted order instead of permanent empty remediation', async () => {
         const genresDeferred = createDeferred<PlexTagDirectoryItem[]>();
         const directorsDeferred = createDeferred<PlexTagDirectoryItem[]>();
 
@@ -836,11 +840,16 @@ describe('ChannelSetupPlanningService', () => {
 
         expect(result.canceled).toBe(false);
         expect(result.plan).toBeNull();
-        expect(result.failureReason).toBe('empty');
-        expect(result.blockedMessage).toContain('directors');
+        expect(result.failureReason).toBe('transient');
+        expect(result.blockedMessage).toContain('Plex returned incomplete setup data');
+        expect(result.blockedMessage).toContain('Try again later');
+        expect(result.warnings).toEqual([
+            'Skipped directors for Shows: Plex returned no tag entries (type=4).',
+            'Skipped genres for Shows: Plex returned no tag entries (type=2).',
+        ]);
     });
 
-    it('stops planning when a requested facet family returns empty across all selected libraries', async () => {
+    it('stops planning with skip warnings when enabled strategies produce no channels', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
@@ -881,9 +890,51 @@ describe('ChannelSetupPlanningService', () => {
 
         expect(result.canceled).toBe(false);
         expect(result.plan).toBeNull();
+        expect(result.failureReason).toBe('transient');
+        expect(result.previewStatus).toBe('blocked');
+        expect(result.blockedMessage).toContain('Plex returned incomplete setup data');
+        expect(result.blockedMessage).toContain('Try again later');
+        expect(result.warnings).toEqual([
+            'Skipped studios for Anime Home: Plex returned no tag entries (type=4).',
+            'Skipped studios for TV Home: Plex returned no tag entries (type=4).',
+        ]);
+    });
+
+    it('keeps permanent empty remediation when no transient snapshot load failure occurred', async () => {
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn(),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn(),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {},
+        }));
+
+        const result = await service.buildSetupPlan(
+            config,
+            [makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 1200 })],
+            null,
+            'preview'
+        );
+
+        expect(result.canceled).toBe(false);
+        expect(result.plan).toBeNull();
         expect(result.failureReason).toBe('empty');
         expect(result.previewStatus).toBe('blocked');
-        expect(result.blockedMessage).toContain('returned no entries');
+        expect(result.blockedMessage).toContain('could not build any channels');
+        expect(result.warnings).toEqual([]);
     });
 
     it('separates preview and build facet snapshots by intent', async () => {

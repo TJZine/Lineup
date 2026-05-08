@@ -2,9 +2,9 @@
  * @jest-environment jsdom
  */
 
-import { createNavigationCoordinatorRuntimeServices } from '../NavigationCoordinatorRuntimeServices';
-import type { KeyEvent, NavigationState } from '../interfaces';
-import type { NavigationCoordinatorEventPort } from '../NavigationCoordinatorEventPort';
+import { createNavigationCoordinatorRuntimeServices } from '../coordinator/NavigationCoordinatorRuntimeServices';
+import type { KeyEvent, NavigationState } from '../contracts/interfaces';
+import type { NavigationCoordinatorEventPort } from '../coordinator/NavigationCoordinatorEventPort';
 
 const createKeyEvent = (): KeyEvent => ({
     button: 'ok',

@@ -50,13 +50,13 @@ jest.mock('../../channel-setup/ChannelSetupCoordinator', () => ({
 jest.mock('../../channel-setup/persistence/ChannelSetupCompletionTracker', () => ({
     ChannelSetupCompletionTracker: jest.fn(() => completionTrackerInstance),
 }));
-jest.mock('../../../modules/navigation/NavigationCoordinator', () => ({
+jest.mock('../../../modules/navigation/coordinator/NavigationCoordinator', () => ({
     NavigationCoordinator: mockNavigationCoordinator,
 }));
-jest.mock('../../../modules/navigation/NavigationKeyModeRouter', () => ({
+jest.mock('../../../modules/navigation/handlers/NavigationKeyModeRouter', () => ({
     NavigationKeyModeRouter: mockNavigationKeyModeRouter,
 }));
-jest.mock('../../../modules/navigation/NavigationScreenEffectsHandler', () => ({
+jest.mock('../../../modules/navigation/handlers/NavigationScreenEffectsHandler', () => ({
     NavigationScreenEffectsHandler: mockNavigationScreenEffectsHandler,
 }));
 
@@ -376,7 +376,7 @@ describe('OrchestratorCoordinatorBuilders', () => {
         const coordinator = buildNavigationCoordinator(input, deps as never);
         expect(coordinator).toBe(mockNavigationCoordinatorInstance);
         const navigationDeps = mockNavigationCoordinator.mock.calls[0]?.[0] as
-            import('../../../modules/navigation/NavigationCoordinator').NavigationCoordinatorDeps;
+            import('../../../modules/navigation/coordinator/NavigationCoordinator').NavigationCoordinatorDeps;
 
         expect(navigationDeps.events.reportRecoverableAsyncFailure).toBe(reportRecoverableAsyncFailure);
         expect(navigationDeps.events.reportToast).toBeDefined();

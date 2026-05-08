@@ -1,4 +1,4 @@
-import { NavigationChannelNumberInputController } from '../NavigationChannelNumberInputController';
+import { NavigationChannelNumberInputController } from '../input/NavigationChannelNumberInputController';
 
 describe('NavigationChannelNumberInputController', () => {
     let emitChannelInputUpdate: jest.Mock<void, [{ digits: string; isComplete: boolean }]>;

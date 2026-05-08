@@ -133,6 +133,13 @@ This document is directory-oriented and lists file-level owners where the canoni
 - remote handling
 - focus movement
 - navigation coordination
+- package organization:
+  - `src/modules/navigation/contracts/` owns navigation contracts and ports
+  - `src/modules/navigation/manager/` owns navigation state, focus operations, and focus policy
+  - `src/modules/navigation/input/` owns remote handling, key routing, directional repeat, and channel-number input buffering
+  - `src/modules/navigation/coordinator/` owns navigation event coordination and runtime services
+  - `src/modules/navigation/handlers/` owns coordinator handlers and effects
+  - `src/modules/navigation/config/` owns constants and key-map configuration
 
 ### `src/modules/player/`
 
@@ -148,6 +155,17 @@ This document is directory-oriented and lists file-level owners where the canoni
   - `src/modules/scheduler/channel-manager/`
   - `src/modules/scheduler/scheduler/`
   - `src/modules/scheduler/shared/`
+- `src/modules/scheduler/shared/prng.ts` owns seeded shuffle,
+  `src/modules/scheduler/shared/blockPlayback.ts` owns block grouping, and
+  `src/modules/scheduler/shared/playbackOrdering.ts` owns common
+  sequential/shuffle/block ordering plus scheduled-index normalization.
+  `ScheduleCalculator.ts` keeps scheduler-specific injected shuffler wiring,
+  and `ContentSelectionPolicy.ts` keeps content-level random playback mode.
+- `src/modules/scheduler/channel-manager/ContentResolver.ts` remains the
+  source-resolution orchestration entrypoint; package-local collaborators own
+  source-result cache/coalescing (`SourceResolutionCache.ts`), item
+  mapping/media normalization (`ContentItemMapper.ts`), and selection policy
+  (`ContentSelectionPolicy.ts`)
 
 ### `src/modules/settings/`
 
@@ -304,7 +322,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/ui/settings/` consumes theme metadata plus app-composed runtime callbacks and should not act as a second public owner for those definitions
 - `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/` are the staged EPG package owners.
 - `src/modules/ui/server-select/ServerSelectScreen.ts` is the server-select screen adapter; `ServerSelectRuntimeCoordinator.ts`, `ServerSelectFocusCoordinator.ts`, `ServerSelectStatusPolicy.ts`, and `ServerSelectListView.ts` own runtime workflow, focus, status/display policy, and DOM-list rendering respectively.
-- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the channel-setup screen adapter and step router; dropdown lifecycle lives in `ChannelSetupDropdownController.ts`, build review/progress/success presentation lives in `steps/ChannelSetupBuildStepPresenter.ts`, and session/runtime, focus, strategy interaction, and step rendering stay in their package-local collaborators.
+- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the channel-setup screen adapter and step router; `ChannelSetupWorkflowPresenter.ts` owns Step 2 workflow/presenter glue, preset stepping, dropdown handoff, and build presenter wiring; dropdown lifecycle lives in `ChannelSetupDropdownController.ts`, build review/progress/success presentation lives in `steps/ChannelSetupBuildStepPresenter.ts`, and session/runtime, focus, strategy interaction, and step rendering stay in their package-local collaborators.
 
 ## Current Hotspot Reference
 
@@ -315,7 +333,7 @@ The primary structural hotspots still treated as current by
 
 `src/Orchestrator.ts`, `src/modules/ui/settings/SettingsScreen.ts`,
 `src/modules/ui/epg/component/EPGComponent.ts`,
-`src/modules/plex/stream/PlexStreamResolver.ts`, and
+`src/modules/plex/stream/resolver/PlexStreamResolver.ts`, and
 `src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
 backlog or ownership surfaces where listed below, but current source
 size/delegation evidence no longer supports listing them as primary active
@@ -329,7 +347,7 @@ rendering behavior.
 - `src/Orchestrator.ts` → `P1` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/App.ts` → `P2` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/modules/ui/epg/component/EPGComponent.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/channel-setup/ChannelSetupScreen.ts` → `P4` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-- `src/modules/plex/stream/PlexStreamResolver.ts` → `P5` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+- `src/modules/plex/stream/resolver/PlexStreamResolver.ts` → `P5` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` → `P6` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 
 The backlog-direction entries above are planned outcomes and are not current completed fact.

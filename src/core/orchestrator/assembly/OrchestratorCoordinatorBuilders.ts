@@ -5,8 +5,8 @@ import {
 import {
     NavigationCoordinator,
     type NavigationCoordinatorHandlers,
-} from '../../../modules/navigation/NavigationCoordinator';
-import { createNavigationCoordinatorRuntimeServices } from '../../../modules/navigation/NavigationCoordinatorRuntimeServices';
+} from '../../../modules/navigation/coordinator/NavigationCoordinator';
+import { createNavigationCoordinatorRuntimeServices } from '../../../modules/navigation/coordinator/NavigationCoordinatorRuntimeServices';
 import type {
     NavigationChannelSwitchOutcome,
     NavigationChannelSwitchingPort,
@@ -17,16 +17,16 @@ import type {
     NavigationPlayerOsdIntent,
     NavigationPlaybackOptionsSectionId,
     NavigationPlaybackPort,
-} from '../../../modules/navigation/NavigationFeaturePorts';
+} from '../../../modules/navigation/contracts/NavigationFeaturePorts';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
-import { NavigationChannelNumberHandler } from '../../../modules/navigation/NavigationChannelNumberHandler';
-import { NavigationKeyModeRouter } from '../../../modules/navigation/NavigationKeyModeRouter';
-import { NavigationModalEffectsHandler } from '../../../modules/navigation/NavigationModalEffectsHandler';
-import { NavigationRepeatHandler } from '../../../modules/navigation/NavigationRepeatHandler';
+import { NavigationChannelNumberHandler } from '../../../modules/navigation/handlers/NavigationChannelNumberHandler';
+import { NavigationKeyModeRouter } from '../../../modules/navigation/handlers/NavigationKeyModeRouter';
+import { NavigationModalEffectsHandler } from '../../../modules/navigation/handlers/NavigationModalEffectsHandler';
+import { NavigationRepeatHandler } from '../../../modules/navigation/handlers/NavigationRepeatHandler';
 import {
     NavigationScreenEffectsHandler,
     type NavigationUiGuardsPort,
-} from '../../../modules/navigation/NavigationScreenEffectsHandler';
+} from '../../../modules/navigation/handlers/NavigationScreenEffectsHandler';
 import type { PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
 import type { AppError } from '../../../modules/lifecycle';
 import type { IPlexLibrary } from '../../../modules/plex/library';

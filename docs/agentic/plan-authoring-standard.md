@@ -147,6 +147,12 @@ The goal is not to maximize tool usage for its own sake. The goal is to leave a 
   - no fallback or compatibility paths unless explicitly approved
   - no temporary adapters that the next work unit must immediately replace
   - no unrelated side quests
+- For non-trivial code changes, add a debt-regression gate when any steady-state
+  guardrail from the workflow is implicated. Name the guardrail category, the
+  owner that must not grow, the forbidden shortcut, and the verification or
+  source audit that will prove the diff did not reintroduce it.
+- For cleanup/refactor work, optimize the plan around the correct long-term owner shape and repo-preferred practice, not the smallest patch that can close the named finding. If source audit shows the right shape requires a larger rewrite inside the approved owner boundary, plan that rewrite as the execution unit or wave instead of narrowing the work just to minimize diff size.
+- Size alone is not a valid reason to defer, no-code, or split-follow-up cleanup/refactor work. Defer or stop/replan only when the rewrite crosses an unapproved ownership, behavior, persistence, auth, UI, public API, verification, or sequencing boundary, and record the exact boundary plus final owner.
 - For UI/runtime refactors, add preservation contracts when they matter:
   - focus behavior
   - timer/listener cleanup
@@ -214,6 +220,9 @@ The packet may live in a `NEXT_SESSION_HANDOFF` block or a local run-bundle arti
 - plans that require raw local-only source material when a tracked curated reference should exist instead
 - plans that try to pre-write full implementation details for future steps instead of freezing the seam and execution constraints
 - treating tracked plans as mandatory TDD scripts instead of classifying the real verification need
+- plans that use tool or detector ids as a substitute for current-source owner
+  proof, or that optimize for score movement while leaving the owner shape
+  likely to recreate the same debt
 
 Keep the universal anti-pattern list short and always-on. Longer cleanup-era examples belong in optional historical references rather than in the core authoring surface.
 
@@ -306,6 +315,7 @@ outside the FCP override.
   - `replan_triggers`
 - for `checklist-linked` package work, decomposition is still mandatory even when the package is small enough to yield exactly one slice
 - for `checklist-linked` package work, large-package execution should review coherent retirement batches, not one tiny fix at a time
+- for cleanup/refactor work, source-disproved, no-code, deferred, or split-follow-up dispositions require positive current-source proof that the intended owner shape already exists, the finding no longer applies, or an explicit stop/replan boundary blocks the rewrite; do not use these dispositions because the fix would be large
 - add `## Priority-Exit Readiness` only when the cleanup plan is intended to close the last legacy non-FCP checklist item in a cleanup priority, is itself `P#-EXIT`, or is the final package for an `FCP-*` priority
 - for `standalone remediation`, say explicitly that no checklist update is expected unless the task is intentionally promoted later
 

@@ -1,5 +1,5 @@
 import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
-import type { FocusableElement, KeyEvent } from '../../../navigation/interfaces';
+import type { FocusableElement, KeyEvent } from '../../../navigation/contracts/interfaces';
 import type {
     ChannelBuildSummary,
 } from '../../../../core/channel-setup/types';

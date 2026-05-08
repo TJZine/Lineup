@@ -1,0 +1,246 @@
+import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
+import type { INavigationManager, KeyEvent } from '../../navigation/contracts/interfaces';
+import { ChannelSetupDropdownController } from './ChannelSetupDropdownController';
+import { ChannelSetupSessionController } from './ChannelSetupSessionController';
+import {
+    type ChannelSetupSessionSnapshot,
+    type StrategyStepMutableState,
+} from './ChannelSetupSessionContracts';
+import { strategySupportsMixedScope } from './ChannelSetupSessionState';
+import type { ChannelSetupFocusCoordinator } from './focus/ChannelSetupFocusCoordinator';
+import type { RegisterStep2FocusOptions } from './focus/types';
+import type { ChannelSetupScreenPorts } from './ChannelSetupScreenPorts';
+import { ChannelSetupBuildStepPresenter } from './steps/ChannelSetupBuildStepPresenter';
+import {
+    SETUP_STRATEGY_KEYS,
+    type SetupStrategyKey,
+} from './steps/constants';
+import { StrategyStepController } from './steps/StrategyStepController';
+import { StrategyStepInteractionController } from './steps/StrategyStepInteractionController';
+import type { StepRenderContext, StrategyStepDropdownConfig } from './steps/types';
+
+const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
+const MIN_ITEMS_PRESETS = [1, 5, 10, 20, 50];
+
+export class ChannelSetupWorkflowPresenter {
+    private readonly _strategyStep = new StrategyStepController();
+    private readonly _buildStep = new ChannelSetupBuildStepPresenter();
+    private readonly _strategyInteraction: StrategyStepInteractionController;
+    private _channelLimitOptions: number[] = CHANNEL_LIMIT_PRESETS.filter((value) => value <= MAX_CHANNELS);
+
+    constructor(
+        private readonly _deps: {
+            session: ChannelSetupSessionController;
+            focus: ChannelSetupFocusCoordinator;
+            dropdown: ChannelSetupDropdownController;
+            screenPorts: ChannelSetupScreenPorts;
+            contentEl: HTMLElement;
+            previewPanelId: string;
+            getPreferredFocusId: () => string | null;
+            setPreferredFocusId: (focusId: string | null) => void;
+            getVisibilityToken: () => number;
+            renderStep: () => void;
+            toDomId: (raw: string) => string;
+        }
+    ) {
+        this._strategyInteraction = new StrategyStepInteractionController({
+            strategySupportsMixedScope,
+            toDomId: _deps.toDomId,
+        });
+
+        if (!this._channelLimitOptions.includes(DEFAULT_CHANNEL_SETUP_MAX)) {
+            this._channelLimitOptions.push(DEFAULT_CHANNEL_SETUP_MAX);
+            this._channelLimitOptions.sort((a, b) => a - b);
+        }
+    }
+
+    resetStrategyInteraction(): void {
+        this._strategyInteraction.reset();
+    }
+
+    clearStrategyStepTransientState(): void {
+        this._strategyInteraction.clearTransientState((strategy, grabbed) => {
+            this._setPriorityRowGrabbedVisual(strategy, grabbed);
+        });
+    }
+
+    handleStrategyKeyPress(event: KeyEvent, nav: INavigationManager): void {
+        this._strategyInteraction.handleKeyPress(event, nav, this._createStrategyInteractionAdapters());
+    }
+
+    renderStrategyStep(ctx: StepRenderContext): void {
+        this._deps.session.syncSetupContext();
+        const session = this._deps.session.getSnapshot();
+        const strategyInteraction = this._createStrategyInteractionAdapters();
+        this._strategyStep.render(ctx, {
+            state: {
+                activeStrategyCategory: this._strategyInteraction.getActiveStrategyCategory(),
+                strategies: session.strategies,
+                strategyOrder: session.strategyOrder,
+                channelExpansion: session.channelExpansion,
+                seriesOrdering: session.seriesOrdering,
+                buildMode: session.buildMode,
+                actorStudioCombineMode: session.actorStudioCombineMode,
+                maxChannels: session.maxChannels,
+                minItems: session.minItems,
+                setupContext: session.setupContext,
+                previewPanelId: this._deps.previewPanelId,
+                preview: session.preview,
+                previewError: session.previewError,
+                previewStatus: session.previewStatus,
+                isPreviewLoading: session.isPreviewLoading,
+            },
+            strategyKeys: SETUP_STRATEGY_KEYS,
+            categoryButtonId: (category) => this._strategyInteraction.categoryButtonId(category),
+            strategyButtonId: (strategy) => this._strategyInteraction.strategyButtonId(strategy),
+            priorityRowId: (strategy) => this._strategyInteraction.priorityRowId(strategy),
+            lastReorder: this._strategyInteraction.getLastReorder(),
+            scopeButtonId: (strategy) => this._strategyInteraction.scopeButtonId(strategy),
+            strategySupportsMixedScope,
+            buildPreviewRow: (label, value, key) =>
+                this._buildStep.buildPreviewRow(this._deps.session.getSnapshot(), label, value, key),
+            renderCappedWarnings: (warnings, container) => {
+                this._buildStep.renderCappedPreviewWarnings(warnings, container);
+            },
+            applyCategoryChange: (category, focusId) => {
+                this._strategyInteraction.applyCategoryChange(category, focusId, strategyInteraction);
+            },
+            applySettingChange: (focusId, mutate) => {
+                this._strategyInteraction.applySettingChange(focusId, mutate, strategyInteraction);
+            },
+            openAdjustableControl: (controlId) => {
+                this._strategyInteraction.openAdjustableControl(controlId, strategyInteraction);
+            },
+            onBack: () => {
+                this.clearStrategyStepTransientState();
+                this._deps.session.setStep(1);
+                this._deps.renderStep();
+            },
+            onNext: () => {
+                this.clearStrategyStepTransientState();
+                this._deps.session.setStep(3);
+                this._deps.renderStep();
+            },
+            registerStep2Focusables: (categoryButtons, detailButtons, backButton, nextButton) => {
+                this._strategyInteraction.registerStep2Focusables(
+                    categoryButtons,
+                    detailButtons,
+                    backButton,
+                    nextButton,
+                    strategyInteraction
+                );
+            },
+            detailText: session.strategies.genres.enabled || session.strategies.directors.enabled
+                ? 'Performance warning: may be slow on large libraries.'
+                : '',
+            schedulePreview: () => strategyInteraction.schedulePreview(),
+        });
+        this._setPriorityRowGrabbedVisual(this._strategyInteraction.getGrabbedPriorityKey(), true);
+    }
+
+    renderBuildStep(ctx: StepRenderContext): void {
+        this._buildStep.render(ctx, {
+            session: this._deps.session,
+            focus: this._deps.focus,
+            screenPorts: this._deps.screenPorts,
+            getPreferredFocusId: this._deps.getPreferredFocusId,
+            setPreferredFocusId: this._deps.setPreferredFocusId,
+            getVisibilityToken: this._deps.getVisibilityToken,
+            renderStep: this._deps.renderStep,
+        });
+    }
+
+    private _createStrategyInteractionAdapters(): Parameters<StrategyStepInteractionController['handleKeyPress']>[2] {
+        return {
+            channelLimitOptions: this._channelLimitOptions,
+            deferDropdownRender: (): void => {
+                this._deps.dropdown.deferRender();
+            },
+            dismissDropdown: (): void => {
+                this._deps.dropdown.dismiss(() => this._deps.renderStep());
+            },
+            getPreferredFocusId: this._deps.getPreferredFocusId,
+            getSessionSnapshot: (): ChannelSetupSessionSnapshot => this._deps.session.getSnapshot(),
+            hasActiveDropdown: (): boolean => this._deps.dropdown.hasActiveDropdown(),
+            minItemsOptions: MIN_ITEMS_PRESETS,
+            openDropdown: (config: StrategyStepDropdownConfig): void => {
+                this._openStep2Dropdown(config);
+            },
+            registerStep2: (options: RegisterStep2FocusOptions): boolean => this._deps.focus.registerStep2(options),
+            renderStep: this._deps.renderStep,
+            schedulePreview: (): void => {
+                this._deps.session.schedulePreview(() => this._deps.renderStep());
+            },
+            setPreferredFocusId: this._deps.setPreferredFocusId,
+            setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean): void => {
+                this._setPriorityRowGrabbedVisual(strategy, grabbed);
+            },
+            stepPreset: (
+                options: number[],
+                current: number,
+                dir: 'left' | 'right',
+                mode: 'clamp' | 'wrap'
+            ): number => stepPreset(options, current, dir, mode),
+            updatePriorityRowState: (rowId: string, enabled: boolean): boolean =>
+                this._strategyStep.updatePriorityRowState(this._deps.contentEl, rowId, enabled) !== null,
+            updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void): void => {
+                this._deps.session.updateStrategyState(mutate);
+            },
+        };
+    }
+
+    private _openStep2Dropdown(config: StrategyStepDropdownConfig): void {
+        const nav = this._deps.screenPorts.getNavigation();
+        this._deps.dropdown.open(config, {
+            container: this._deps.contentEl,
+            nav,
+            setPreferredFocusId: this._deps.setPreferredFocusId,
+            renderStep: this._deps.renderStep,
+        });
+    }
+
+    private _setPriorityRowGrabbedVisual(strategy: SetupStrategyKey | null, grabbed: boolean): void {
+        if (!strategy) return;
+        const el = document.getElementById(this._strategyInteraction.priorityRowId(strategy));
+        el?.classList.toggle('setup-priority-row--grabbed', grabbed);
+        el?.setAttribute('aria-grabbed', grabbed ? 'true' : 'false');
+    }
+}
+
+const getNearestOptionIndex = (options: number[], current: number): number => {
+    const first = options[0];
+    if (first === undefined) return -1;
+    let nearestIndex = 0;
+    let smallestDiff = Math.abs(first - current);
+    for (let i = 1; i < options.length; i++) {
+        const option = options[i];
+        if (option === undefined) continue;
+        const diff = Math.abs(option - current);
+        if (diff < smallestDiff) {
+            smallestDiff = diff;
+            nearestIndex = i;
+        }
+    }
+    return nearestIndex;
+};
+
+const stepPreset = (
+    options: number[],
+    current: number,
+    dir: 'left' | 'right',
+    mode: 'clamp' | 'wrap'
+): number => {
+    if (options.length === 0) return current;
+    const currentIndex = options.indexOf(current);
+    const baseIndex = currentIndex >= 0 ? currentIndex : getNearestOptionIndex(options, current);
+    if (baseIndex < 0) return current;
+    const lastIndex = options.length - 1;
+    const nextIndex = mode === 'wrap'
+        ? dir === 'left'
+            ? (baseIndex - 1 + options.length) % options.length
+            : (baseIndex + 1) % options.length
+        : dir === 'left'
+            ? Math.max(0, baseIndex - 1)
+            : Math.min(lastIndex, baseIndex + 1);
+    return options[nextIndex] ?? current;
+};

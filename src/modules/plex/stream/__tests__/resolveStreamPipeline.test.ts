@@ -1,5 +1,5 @@
-import { resolveStreamPipeline } from '../resolveStreamPipeline';
-import type { StreamResolverError } from '../interfaces';
+import { resolveStreamPipeline } from '../pipeline/resolveStreamPipeline';
+import type { StreamResolverError } from '../contracts/interfaces';
 import { createMockMediaItem } from './testUtils';
 import { AppErrorCode } from '../../../../types/app-errors';
 
@@ -16,6 +16,11 @@ describe('resolveStreamPipeline', () => {
         recoverable,
         ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
         ...(stage !== undefined ? { stage } : {}),
+    });
+
+    afterEach(() => {
+        jest.dontMock('../policy/mediaSelectionPolicy');
+        jest.resetModules();
     });
 
     it('preserves available audio and subtitle streams for direct play decisions', () => {
@@ -155,6 +160,72 @@ describe('resolveStreamPipeline', () => {
                 stage: 'media_selection',
             });
         }
+    });
+
+    it('throws burn_in_selected_part when the selected media part drops the burn-in subtitle stream', () => {
+        jest.isolateModules(() => {
+            const selectedSubtitle = {
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'pgs',
+                format: 'pgs',
+                language: 'English',
+                languageCode: 'en',
+            } as const;
+            const item = createMockMediaItem(
+                {
+                    container: 'mkv',
+                    videoCodec: 'hevc',
+                    audioCodec: 'aac',
+                },
+                {
+                    extraStreams: [selectedSubtitle],
+                }
+            );
+            const selectedPart = item.media[0]!.parts[0]!;
+            selectedPart.streams = selectedPart.streams.filter((stream) => stream.id !== 'sub-1');
+
+            jest.doMock('../policy/mediaSelectionPolicy', () => {
+                const actual =
+                    jest.requireActual('../policy/mediaSelectionPolicy') as typeof import('../policy/mediaSelectionPolicy');
+                return {
+                    ...actual,
+                    selectBestMediaWithSubtitleStream: jest.fn(() => ({
+                        media: item.media[0]!,
+                        mediaIndex: 0,
+                        partIndex: 0,
+                    })),
+                };
+            });
+
+            const { resolveStreamPipeline } =
+                require('../pipeline/resolveStreamPipeline') as typeof import('../pipeline/resolveStreamPipeline');
+
+            try {
+                resolveStreamPipeline({
+                    item,
+                    request: {
+                        itemKey: '12345',
+                        subtitleStreamId: 'sub-1',
+                        subtitleMode: 'burn',
+                    },
+                    sessionId: 'session-1',
+                    allowDirectPlayAudioFallback: true,
+                    dtsPassthroughEnabled: false,
+                    userAgent: null,
+                    hdr10FallbackMode: 'off',
+                    createError,
+                    buildDirectPlayUrl: () => 'http://example.com/direct',
+                    getTranscodeUrl: () => 'http://example.com/transcode',
+                });
+                throw new Error('Expected resolveStreamPipeline to throw');
+            } catch (error) {
+                expect(error).toMatchObject({
+                    code: 'SUBTITLE_STREAM_NOT_FOUND',
+                    stage: 'burn_in_selected_part',
+                });
+            }
+        });
     });
 
     it('uses the resolved default transcode bitrate in the final decision', () => {

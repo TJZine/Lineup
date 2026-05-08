@@ -10,7 +10,7 @@ export type PlaybackMode =
     | 'sequential'  // Play in defined order, loop
     | 'shuffle'     // Deterministic shuffle with seed, loop
     | 'block'       // Deterministic round-robin by show in episode blocks
-    | 'random';     // True random (new order each time)
+    | 'random';     // Seeded randomized order; orchestrator refreshes seed cadence
 
 /**
  * Build strategy that created this channel during auto-setup

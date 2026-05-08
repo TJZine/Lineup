@@ -1,4 +1,4 @@
-import { generatePlexSessionId } from '../plexSessionId';
+import { generatePlexSessionId } from '../resolver/plexSessionId';
 
 describe('plexSessionId', () => {
     const originalCrypto = globalThis.crypto;

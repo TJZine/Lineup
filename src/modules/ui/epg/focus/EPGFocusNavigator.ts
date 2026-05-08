@@ -1,5 +1,8 @@
 import { EPG_CLASSES, EPG_CONSTANTS } from '../constants';
-import type { EPGChannelList, EPGLibraryTabs, EPGTimeHeader, EPGVirtualizer } from '../view';
+import type { EPGChannelList } from '../view/EPGChannelList';
+import type { EPGLibraryTabs } from '../view/EPGLibraryTabs';
+import type { EPGTimeHeader } from '../view/EPGTimeHeader';
+import type { EPGVirtualizer } from '../view/EPGVirtualizer';
 import type {
     EPGConfig,
     EPGEventMap,

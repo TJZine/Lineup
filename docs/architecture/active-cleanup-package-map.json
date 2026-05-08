@@ -672,8 +672,6 @@
       ],
       "includes_issue_ids": [
         "facade::src/modules/ui/epg/index.ts",
-        "facade::src/modules/ui/epg/runtime/index.ts",
-        "facade::src/modules/ui/epg/view/index.ts",
         "flat_dirs::src/modules/ui/epg",
         "flat_dirs::src/modules/ui/epg/__tests__",
         "review::.::holistic::contract_coherence::epg_cache_queries_hide_cleanup_side_effects",
@@ -728,8 +726,8 @@
       "recommended_scope_boundary": "Stay inside EPG runtime, EPG tests, EPG view packaging, and EPG naming/query side effects. Do not absorb general shared UI shell cleanup or channel-setup contract work except through explicit handoffs.",
       "recommended_execution_order": 7,
       "estimated_backlog_size": {
-        "total_open": 32,
-        "older_live_non_review": 23,
+        "total_open": 30,
+        "older_live_non_review": 21,
         "fresh_review": 5,
         "fresh_non_review": 4
       },
@@ -755,7 +753,7 @@
           "structural": 10,
           "smells": 10,
           "review": 5,
-          "facade": 3,
+          "facade": 1,
           "flat_dirs": 2,
           "signature": 1,
           "test_coverage": 1

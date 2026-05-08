@@ -2,7 +2,7 @@ import {
     NON_BLOCKING_FAILURE_DEDUPE_WINDOW_MS,
     NON_BLOCKING_FAILURE_MAX_ENTRIES,
     recordNonBlockingFailureTimestamp,
-} from '../nonBlockingFailureTimestamps';
+} from '../coordinator/nonBlockingFailureTimestamps';
 
 describe('recordNonBlockingFailureTimestamp', () => {
     it('throttles duplicate keys within the dedupe window', () => {

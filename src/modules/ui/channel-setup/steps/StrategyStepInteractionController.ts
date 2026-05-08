@@ -1,5 +1,5 @@
 import type { KeyEvent } from '../../../navigation';
-import type { INavigationManager } from '../../../navigation/interfaces';
+import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 import type {
     ChannelSetupSessionSnapshot,
     StrategyStepMutableState,

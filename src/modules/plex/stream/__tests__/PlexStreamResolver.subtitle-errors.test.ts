@@ -1,4 +1,4 @@
-import { PlexStreamResolver } from '../PlexStreamResolver';
+import { PlexStreamResolver } from '../resolver/PlexStreamResolver';
 import { createMockConfig, createMockMediaItem } from './testUtils';
 
 describe('PlexStreamResolver subtitle error taxonomy', () => {

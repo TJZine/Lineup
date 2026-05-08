@@ -176,9 +176,16 @@ after this extraction.
 
 - `src/modules/navigation/`
 - owns remote handling, focus/navigation flow, and navigation coordination
-- `src/modules/navigation/NavigationManager.ts` owns navigation state, screen stack, modal stack, and focus operations
-- `src/modules/navigation/NavigationManager.ts` delegates low-level key routing and timing behavior to `NavigationRemoteInputRouter`, `NavigationDirectionalRepeatController`, and `NavigationChannelNumberInputController`
-- `src/modules/navigation/NavigationFeaturePorts.ts` consumes the shared `ChannelSwitchOutcome` owner from `src/types/channelSwitch.ts`; navigation must not duplicate the outcome literal union.
+- navigation package files are grouped by owner:
+  - `contracts/`: public navigation contracts, screen ports, feature ports, handler contracts, and coordinator contracts
+  - `manager/`: navigation state, screen/modal stack, focus manager, and focus policy
+  - `input/`: remote handling, key routing, directional repeat, and channel-number input buffering
+  - `coordinator/`: navigation event coordination, runtime services, event ports, and non-blocking failure timestamp policy
+  - `handlers/`: coordinator handlers for key mode, repeat, channel-number entry, modal effects, and screen effects
+  - `config/`: constants and key-map configuration
+- `src/modules/navigation/manager/NavigationManager.ts` owns navigation state, screen stack, modal stack, and focus operations
+- `src/modules/navigation/manager/NavigationManager.ts` delegates low-level key routing and timing behavior to `NavigationRemoteInputRouter`, `NavigationDirectionalRepeatController`, and `NavigationChannelNumberInputController`
+- `src/modules/navigation/contracts/NavigationFeaturePorts.ts` consumes the shared `ChannelSwitchOutcome` owner from `src/types/channelSwitch.ts`; navigation must not duplicate the outcome literal union.
 
 ### Plex
 
@@ -187,15 +194,15 @@ after this extraction.
 - `src/modules/plex/library/`
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
-- `src/modules/plex/stream/PlexStreamResolver.ts` remains the public
+- `src/modules/plex/stream/resolver/PlexStreamResolver.ts` remains the public
   `IPlexStreamResolver` implementation and delegates focused stream
   responsibilities instead of constructing settings/debug storage owners
   directly. It receives typed policy readers and a subtitle-debug logging port
   from composition wiring.
-- `src/modules/plex/stream/SubtitleStreamDebugProbeCoordinator.ts` owns debug
+- `src/modules/plex/stream/diagnostics/SubtitleStreamDebugProbeCoordinator.ts` owns debug
   subtitle discovery summaries, text-candidate selection, key-backed/keyless
   probe selection, and fire-and-forget subtitle probe scheduling.
-- `src/modules/plex/stream/UniversalTranscodeDecisionClient.ts` owns universal
+- `src/modules/plex/stream/diagnostics/UniversalTranscodeDecisionClient.ts` owns universal
   transcode decision request conversion, decision URL derivation, fetch timeout,
   non-ok handling, and XML/regex decision parsing while
   `PlexStreamResolver.fetchUniversalTranscodeDecision()` remains the public
@@ -216,9 +223,15 @@ after this extraction.
 
 - `src/modules/scheduler/`
 - owns scheduling behavior, shuffle logic, and channel domain flows
-- scheduler shuffle order uses `src/modules/scheduler/shared/prng.ts` as the
-  shared seeded-shuffle owner; `src/modules/scheduler/scheduler/ShuffleGenerator.ts`
-  delegates to that helper instead of owning a duplicate shuffle loop
+- scheduler shuffle/order logic uses shared scheduler helpers:
+  `src/modules/scheduler/shared/prng.ts` owns seeded shuffle,
+  `src/modules/scheduler/shared/blockPlayback.ts` owns block grouping, and
+  `src/modules/scheduler/shared/playbackOrdering.ts` owns common
+  sequential/shuffle/block ordering plus scheduled-index normalization.
+  `src/modules/scheduler/scheduler/ShuffleGenerator.ts` still adapts seeded
+  shuffle for scheduler injection, `ScheduleCalculator.ts` keeps the
+  scheduler-specific injected shuffler seam, and
+  `ContentSelectionPolicy.ts` keeps content-level random playback mode.
 - channel-domain persistence ownership (including selected/current channel
   state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`;
   `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin
@@ -236,6 +249,14 @@ after this extraction.
   `src/utils/persistenceWarningBackoffPolicy.ts`. `ChannelImportNormalizer.ts`
   owns import payload validation and create-input shaping without mutating
   manager state or changing persistence schema
+- `src/modules/scheduler/channel-manager/ContentResolver.ts` remains the
+  package-local source-resolution orchestration entrypoint consumed by
+  `ChannelManager`, while `SourceResolutionCache.ts` owns source-result
+  cache/in-flight coalescing, `ContentItemMapper.ts` owns Plex item mapping and
+  media metadata normalization, and `ContentSelectionPolicy.ts` owns filtering,
+  sorting, content-level random playback mode, and delegation to the shared
+  scheduler playback-ordering owner for common sequential/shuffle/block
+  ordering
 
 ### Player
 
@@ -291,12 +312,12 @@ after this extraction.
 - `src/modules/ui/epg/startup/buildEPGStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/initialization/InitializationCoordinator.ts`
 - `src/modules/ui/epg/index.ts` is a bounded cross-module seam and no longer re-exports EPG view/util leaf symbols
 - `src/modules/ui/epg/coordinator/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through `EpgPreferencesStore`
-- `src/modules/ui/epg/view/index.ts` is package-local for view-layer exports; `src/modules/ui/epg/view/EPGVirtualizer.ts` remains the current virtualized-grid owner, and the EPG package split continues to stage leaf owners under `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`
+- `src/modules/ui/epg/` keeps one package root seam at `src/modules/ui/epg/index.ts`; view and runtime subfolder barrels were removed, so package-local consumers import view/runtime leaf owners directly. `src/modules/ui/epg/view/EPGVirtualizer.ts` remains the current virtualized-grid owner, and the EPG package split continues to stage leaf owners under `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`
 - overlay package roots (`now-playing-info`, `player-osd`, `mini-guide`, `channel-transition`, `playback-options`, `exit-confirm`) are the intended cross-module seams for coordinator/value imports used by core/app-shell wiring
 - `src/core/app-shell/chrome/AppContainerFactory.ts` materializes a bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell-owned containers plus app-materialized feature mount nodes at document scope, and reparents exactly `player-osd`, `channel-number-overlay`, `channel-badge`, `mini-guide`, and `channel-transition` into that host; the host owns shell-plane structure only, while feature packages keep their DOM markup, visibility, and local z-index ownership
 - `src/modules/ui/channel-setup/ChannelSetupSessionController.ts` is now a UI-facing composition wrapper over `ChannelSetupSessionState` (session state/config serialization/record hydration) and `ChannelSetupSessionRuntime` (workflow I/O, abort/timer lifecycle)
 - `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts` owns string-only UI runtime error summaries for load, preview/review, build, blocked, and bookkeeping outcomes; typed planning/build failure details stay in core contracts/logs rather than `ChannelSetupScreen`
-- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the screen shell and step-router owner; package-local collaborators own focused wizard behavior: `ChannelSetupDropdownController.ts` owns dropdown lifecycle, `ChannelSetupBuildStepPresenter.ts` owns build review/progress/success presentation, session/runtime ownership stays in `ChannelSetupSessionController` / `ChannelSetupSessionRuntime`, focus ownership stays in `focus/ChannelSetupFocusCoordinator.ts`, and strategy/step rendering stays in the step controllers.
+- `src/modules/ui/channel-setup/ChannelSetupScreen.ts` is the screen shell and step-router owner; package-local collaborators own focused wizard behavior: `ChannelSetupWorkflowPresenter.ts` owns Step 2 workflow/presenter glue, preset stepping, dropdown handoff, and build presenter wiring; `ChannelSetupDropdownController.ts` owns dropdown lifecycle, `ChannelSetupBuildStepPresenter.ts` owns build review/progress/success presentation, session/runtime ownership stays in `ChannelSetupSessionController` / `ChannelSetupSessionRuntime`, focus ownership stays in `focus/ChannelSetupFocusCoordinator.ts`, and strategy/step rendering stays in the step controllers.
 - `src/modules/ui/server-select/ServerSelectScreen.ts` is the public screen/DOM adapter for server select. Runtime workflow, discovery/select/clear/reconnect, visibility generation, and idle ownership live in `ServerSelectRuntimeCoordinator.ts`; focus registration/restore lives in `ServerSelectFocusCoordinator.ts`; status and server-display policy live in `ServerSelectStatusPolicy.ts`; `ServerSelectListView.ts` remains DOM-list rendering only.
 - `src/modules/ui/server-select/types.ts` owns shared server-select display state shapes consumed by both the screen and list view; list rendering must not import screen-owned state types.
 - `src/modules/debug/NowPlayingDebugManager.ts` owns the minimal debug overlay presence port it needs; orchestrator builders adapt the full now-playing-info overlay at the boundary.
@@ -314,7 +335,7 @@ The main structural hotspots still treated as current by this architecture sourc
 
 `src/modules/ui/settings/SettingsScreen.ts`,
 `src/modules/ui/epg/component/EPGComponent.ts`,
-`src/modules/plex/stream/PlexStreamResolver.ts`, and
+`src/modules/plex/stream/resolver/PlexStreamResolver.ts`, and
 `src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
 ownership surfaces, but they are no longer treated as current primary file-size
 hotspots after their latest split/delegation passes. `EPGComponent.ts` now

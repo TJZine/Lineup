@@ -14,7 +14,8 @@ import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
 import type { IEPGComponent } from '../interfaces';
 import type { EpgVisibleRange } from '../types';
-import { EPGScheduleRefreshRuntime, EPGVisibleRangeRefreshQueue } from '../runtime';
+import { EPGScheduleRefreshRuntime } from '../runtime/EPGScheduleRefreshRuntime';
+import { EPGVisibleRangeRefreshQueue } from '../runtime/EPGVisibleRangeRefreshQueue';
 import {
     computeNormalizedLibraryFilterState,
     computeEpgScheduleRangeMs,

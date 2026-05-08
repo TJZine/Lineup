@@ -5,7 +5,7 @@ import {
     buildPlexTranscodeStartUrl,
     classifyPlexTranscodeLocation,
     ensurePlexClientProfileName,
-} from '../plexStreamUrlPolicy';
+} from '../url/plexStreamUrlPolicy';
 
 const createTranscodeInput = (
     overrides: Partial<Parameters<typeof buildPlexTranscodeStartUrl>[0]> = {}

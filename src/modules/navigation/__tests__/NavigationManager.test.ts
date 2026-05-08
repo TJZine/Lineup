@@ -8,7 +8,7 @@
  */
 
 import { NavigationManager } from '../index';
-import { NavigationConfig } from '../interfaces';
+import { NavigationConfig } from '../contracts/interfaces';
 import type { PlatformInputService } from '../../../platform';
 
 // Mock elements

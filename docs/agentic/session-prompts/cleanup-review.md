@@ -31,6 +31,8 @@ Treat plan-review and implementation-review loops as iterative until the reviewe
 Use this disposition vocabulary literally:
 
 - `deferred`: the issue stays open, but the artifact names the exact issue id, current owner, reason, and revisit trigger
+- `source-disproved`: current source proves the imported finding no longer applies or was materially wrong for the reviewed code
+- `no-code`: current source already has the intended owner shape or behavior, so no code change is required for that finding
 - `split follow-up`: the artifact does not retire the issue now and instead hands the remaining gap to one exact successor owner
 - `owned follow-up`: the one exact successor owner named by a `split follow-up` record; do not accept shared implicit ownership
 - `security triage`: a fresh `desloppify status` result that either says `no open P0 security findings` or lists the exact `P0` security issue ids still open/deferred, plus reasons and revisit triggers for anything not yet cleared
@@ -51,6 +53,8 @@ If reviewing a plan, focus on:
 - missing preservation contracts for risky UI/runtime behavior
 - wrong repo-preferred owner or likely hotspot growth
 - temporary adapters that may not survive, dual ownership, or responsibility bleed implied by the plan
+- source-disproved, no-code, deferred, or split follow-up dispositions that appear to avoid a larger cleanup rewrite rather than proving the intended owner shape already exists, the issue no longer applies, or an explicit unapproved boundary blocks the rewrite
+- minimum-diff issue closure when the source-backed correct shape would require a larger approved-boundary rewrite or wave
 - code-feasibility issues that would force the implementer to invent API/contract changes mid-task
 - hidden design decisions disguised as implementation steps
 - stale paths, stale repo names, or local-only dependencies
@@ -58,8 +62,8 @@ If reviewing a plan, focus on:
 - if the plan claims to close the last `P#-W#` item in a priority:
   - missing priority-exit readiness
   - missing mapped-imported-issue disposition
-  - missing exact final owner for a deferred or split-follow-up issue
-  - missing explicit reason + revisit trigger for each deferred or split-follow-up issue
+  - missing exact final owner for a deferred or split follow-up issue
+  - missing explicit reason + revisit trigger for each deferred or split follow-up issue
   - missing evidence refresh: rerun strongest verification/evidence commands on current code before approving `P(n+1)`
   - missing `P0` security-gate disposition before `P(n+1)`
 

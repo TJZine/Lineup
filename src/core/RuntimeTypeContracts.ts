@@ -1,5 +1,5 @@
 import type { ModuleRuntimeStatus } from './module-status';
-import type { NavigationPlaybackOptionsSectionId } from '../modules/navigation/NavigationFeaturePorts';
+import type { NavigationPlaybackOptionsSectionId } from '../modules/navigation/contracts/NavigationFeaturePorts';
 import type { EpgUiStatus } from '../modules/ui/epg/coordinator/EPGCoordinatorContracts';
 import type { PlaybackOptionsSectionId } from '../modules/ui/playback-options';
 

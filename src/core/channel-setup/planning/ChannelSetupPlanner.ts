@@ -3,7 +3,7 @@ import type {
     ChannelSetupEstimates,
     SetupStrategyKey,
 } from '../types';
-import { DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_STRATEGY_PRIORITIES } from '../constants';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL, DEFAULT_STRATEGY_PRIORITIES, SETUP_STRATEGY_KEYS } from '../constants';
 import { DEFAULT_CHANNEL_SETUP_MAX } from '../../../modules/scheduler/channel-manager/constants';
 import type {
     PlexLibrarySection,
@@ -55,6 +55,12 @@ type ChannelSetupPlanningLimits = {
 type TruncatedPendingChannels = {
     pending: PendingChannel[];
     reachedMaxChannels: boolean;
+};
+
+type AllocatedPendingChannels = TruncatedPendingChannels & {
+    allocationBudgetByStrategy: ChannelSetupEstimates;
+    selectedBeforeGlobalCapByStrategy: ChannelSetupEstimates;
+    lostToAllocationByStrategy: ChannelSetupEstimates;
 };
 
 class ChannelSetupPlannerDiagnosticsRecorder {
@@ -121,6 +127,15 @@ class ChannelSetupPlannerDiagnosticsRecorder {
             return;
         }
         this._diagnostics.afterVariants = countChannelsByStrategy(channels);
+    }
+
+    recordAllocation(allocation: AllocatedPendingChannels): void {
+        if (!this._diagnostics) {
+            return;
+        }
+        this._diagnostics.allocationBudgetByStrategy = { ...allocation.allocationBudgetByStrategy };
+        this._diagnostics.selectedBeforeGlobalCapByStrategy = { ...allocation.selectedBeforeGlobalCapByStrategy };
+        this._diagnostics.lostToAllocationByStrategy = { ...allocation.lostToAllocationByStrategy };
     }
 
     recordAfterMaxChannels(estimates: ChannelSetupEstimates): void {
@@ -274,9 +289,15 @@ function buildChannelSetupPlanInternal(
 
     diagnosticsRecorder.recordAfterVariants(withVariants);
 
-    const { pending, reachedMaxChannels } = truncatePendingChannels(withVariants, effectiveMaxChannels);
+    const allocation = allocatePendingChannels(
+        withVariants,
+        effectiveMaxChannels,
+        createStrategyPriorityResolver(config)
+    );
+    const { pending, reachedMaxChannels } = allocation;
     const estimates = estimatePendingChannels(pending);
 
+    diagnosticsRecorder.recordAllocation(allocation);
     diagnosticsRecorder.recordAfterMaxChannels(estimates);
     const diagnostics = diagnosticsRecorder.diagnostics;
 
@@ -459,14 +480,80 @@ function expandPlaybackVariants(
     return withVariants;
 }
 
-function truncatePendingChannels(
+function allocatePendingChannels(
     channels: PendingChannel[],
-    effectiveMaxChannels: number
-): TruncatedPendingChannels {
+    effectiveMaxChannels: number,
+    getStrategyPriority: (strategy: SetupStrategyKey) => number
+): AllocatedPendingChannels {
+    const pending = selectBalancedStrategyChannels(channels, effectiveMaxChannels, getStrategyPriority);
+    const selectedEstimates = countChannelsByStrategy(pending);
+    const sourceEstimates = countChannelsByStrategy(channels);
+
     return {
-        pending: channels.slice(0, effectiveMaxChannels),
+        pending,
         reachedMaxChannels: channels.length > effectiveMaxChannels,
+        allocationBudgetByStrategy: selectedEstimates,
+        selectedBeforeGlobalCapByStrategy: selectedEstimates,
+        lostToAllocationByStrategy: subtractEstimates(sourceEstimates, selectedEstimates),
     };
+}
+
+function selectBalancedStrategyChannels(
+    channels: PendingChannel[],
+    effectiveMaxChannels: number,
+    getStrategyPriority: (strategy: SetupStrategyKey) => number
+): PendingChannel[] {
+    if (channels.length <= effectiveMaxChannels) {
+        return [...channels];
+    }
+
+    const channelsByStrategy = createEmptyStrategyChannelBuckets();
+    for (const channel of channels) {
+        const strategyKey = channel.buildStrategy as SetupStrategyKey | undefined;
+        if (!strategyKey || !(strategyKey in channelsByStrategy)) {
+            continue;
+        }
+        channelsByStrategy[strategyKey].push(channel);
+    }
+
+    const orderedStrategies = SETUP_STRATEGY_KEYS
+        .filter((strategy) => channelsByStrategy[strategy].length > 0)
+        .sort((a, b) => {
+            const priorityDiff = getStrategyPriority(a) - getStrategyPriority(b);
+            if (priorityDiff !== 0) return priorityDiff;
+            return a.localeCompare(b);
+        });
+    const selected: PendingChannel[] = [];
+    const cursors = new Map<SetupStrategyKey, number>();
+
+    while (selected.length < effectiveMaxChannels) {
+        let selectedThisPass = false;
+        for (const strategy of orderedStrategies) {
+            const cursor = cursors.get(strategy) ?? 0;
+            const channel = channelsByStrategy[strategy][cursor];
+            if (!channel) {
+                continue;
+            }
+            selected.push(channel);
+            cursors.set(strategy, cursor + 1);
+            selectedThisPass = true;
+            if (selected.length >= effectiveMaxChannels) {
+                break;
+            }
+        }
+        if (!selectedThisPass) {
+            break;
+        }
+    }
+
+    return selected;
+}
+
+function createEmptyStrategyChannelBuckets(): Record<SetupStrategyKey, PendingChannel[]> {
+    return SETUP_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, PendingChannel[]>>((acc, strategy) => {
+        acc[strategy] = [];
+        return acc;
+    }, {} as Record<SetupStrategyKey, PendingChannel[]>);
 }
 
 function estimatePendingChannels(pending: PendingChannel[]): ChannelSetupEstimates {
@@ -595,6 +682,7 @@ function createPlannerDiagnostics(
     return {
         effectiveMaxChannels,
         minItems,
+        allocationMode: 'priority-balanced-round-robin',
         fetchedTagsByFamily: {
             genres: toCounts(genresByLibraryId),
             directors: toCounts(directorsByLibraryId),
@@ -614,6 +702,9 @@ function createPlannerDiagnostics(
         strategyBucketSizes: createEmptyChannelSetupEstimates(),
         afterAlternateLineups: createEmptyChannelSetupEstimates(),
         afterVariants: createEmptyChannelSetupEstimates(),
+        allocationBudgetByStrategy: createEmptyChannelSetupEstimates(),
+        selectedBeforeGlobalCapByStrategy: createEmptyChannelSetupEstimates(),
+        lostToAllocationByStrategy: createEmptyChannelSetupEstimates(),
         afterMaxChannels: createEmptyChannelSetupEstimates(),
         lostToMaxChannels: createEmptyChannelSetupEstimates(),
     };

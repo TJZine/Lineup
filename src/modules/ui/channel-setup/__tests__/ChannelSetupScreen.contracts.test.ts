@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
-import type { INavigationManager } from '../../../navigation/interfaces';
+import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
 import { flushPromises, flushPromisesAndTimers } from '../../../../__tests__/helpers';
 import {
