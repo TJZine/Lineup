@@ -178,8 +178,9 @@ export class SourceResolutionCache {
             return;
         }
 
-        this._childKeysByParentKey.set(parentKey, new Set(childKeys));
-        for (const childKey of childKeys) {
+        const uniqueChildKeys = new Set(childKeys);
+        this._childKeysByParentKey.set(parentKey, uniqueChildKeys);
+        for (const childKey of uniqueChildKeys) {
             const parentKeys = this._parentKeysByChildKey.get(childKey) ?? new Set<string>();
             parentKeys.add(parentKey);
             this._parentKeysByChildKey.set(childKey, parentKeys);
@@ -310,6 +311,23 @@ export class SourceResolutionCache {
         }
     }
 
+    private _buildDescendantSourceKeys(source: ChannelContentSource): string[] {
+        if (source.type !== 'mixed') {
+            return [];
+        }
+
+        const childKeys: string[] = [];
+        const pending = [...source.sources];
+        for (let index = 0; index < pending.length; index += 1) {
+            const child = pending[index]!;
+            childKeys.push(this.buildKey(child));
+            if (child.type === 'mixed') {
+                pending.push(...child.sources);
+            }
+        }
+        return childKeys;
+    }
+
     private _getCachedSourceItems(key: string): ResolvedContentItem[] | null {
         const cached = this._sourceCache.get(key);
         if (!cached) {
@@ -355,7 +373,7 @@ export class SourceResolutionCache {
             generation: scope.generation,
         });
         if (source.type === 'mixed') {
-            this._registerParentDependencies(key, source.sources.map((subSource) => this.buildKey(subSource)));
+            this._registerParentDependencies(key, this._buildDescendantSourceKeys(source));
         }
 
         while (this._sourceCache.size > SOURCE_CACHE_MAX_ENTRIES) {

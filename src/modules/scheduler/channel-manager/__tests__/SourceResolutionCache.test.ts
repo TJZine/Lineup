@@ -204,6 +204,28 @@ describe('SourceResolutionCache', () => {
         expect(resolveUncached).toHaveBeenCalledTimes(3);
     });
 
+    it('invalidates ancestor mixed entries when the intermediate mixed entry was not primed first', async () => {
+        const cache = new SourceResolutionCache();
+        const leaf = createManualSource('leaf');
+        const nested: ChannelContentSource = { type: 'mixed', sources: [leaf], mixMode: 'sequential' };
+        const parent: ChannelContentSource = { type: 'mixed', sources: [nested], mixMode: 'sequential' };
+        let resolveCount = 0;
+        const resolveUncached: ResolveUncachedMock = jest.fn().mockImplementation(async (source) => {
+            resolveCount += 1;
+            return [createItem(`${source.type}-${resolveCount}`)];
+        });
+
+        const first = await cache.resolve(parent, resolveUncached);
+        const second = await cache.resolve(parent, resolveUncached);
+        cache.invalidate(leaf);
+        const afterLeafInvalidate = await cache.resolve(parent, resolveUncached);
+
+        expect(first.map((item) => item.ratingKey)).toEqual(['mixed-1']);
+        expect(second.map((item) => item.ratingKey)).toEqual(['mixed-1']);
+        expect(afterLeafInvalidate.map((item) => item.ratingKey)).toEqual(['mixed-2']);
+        expect(resolveUncached).toHaveBeenCalledTimes(2);
+    });
+
     it('recursively invalidates mixed sources and their child entries', async () => {
         const cache = new SourceResolutionCache();
         const leaf = createManualSource('leaf');
