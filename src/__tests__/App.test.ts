@@ -407,6 +407,67 @@ describe('App bootstrap smoke', () => {
         ).toEqual(EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS);
     });
 
+    it('records inert startup performance measures when the Performance API is available', async () => {
+        const originalMark = performance.mark;
+        const originalMeasure = performance.measure;
+        const hadMark = 'mark' in performance;
+        const hadMeasure = 'measure' in performance;
+        const markSpy = jest.fn();
+        const measureSpy = jest.fn();
+
+        Object.defineProperty(performance, 'mark', {
+            configurable: true,
+            value: markSpy,
+        });
+        Object.defineProperty(performance, 'measure', {
+            configurable: true,
+            value: measureSpy,
+        });
+
+        try {
+            await bootstrapApp();
+
+            expect(markSpy).toHaveBeenCalledWith('lineup.app_start.start');
+            expect(markSpy).toHaveBeenCalledWith('lineup.orchestrator_initialize.start');
+            expect(markSpy).toHaveBeenCalledWith('lineup.orchestrator_initialize.end');
+            expect(markSpy).toHaveBeenCalledWith('lineup.orchestrator_start.start');
+            expect(markSpy).toHaveBeenCalledWith('lineup.orchestrator_start.end');
+            expect(markSpy).toHaveBeenCalledWith('lineup.app_start.first_actionable');
+            expect(measureSpy).toHaveBeenCalledWith(
+                'lineup.orchestrator_initialize',
+                'lineup.orchestrator_initialize.start',
+                'lineup.orchestrator_initialize.end'
+            );
+            expect(measureSpy).toHaveBeenCalledWith(
+                'lineup.orchestrator_start',
+                'lineup.orchestrator_start.start',
+                'lineup.orchestrator_start.end'
+            );
+            expect(measureSpy).toHaveBeenCalledWith(
+                'lineup.app_start_to_first_actionable',
+                'lineup.app_start.start',
+                'lineup.app_start.first_actionable'
+            );
+        } finally {
+            if (hadMark) {
+                Object.defineProperty(performance, 'mark', {
+                    configurable: true,
+                    value: originalMark,
+                });
+            } else {
+                delete (performance as Partial<Performance>).mark;
+            }
+            if (hadMeasure) {
+                Object.defineProperty(performance, 'measure', {
+                    configurable: true,
+                    value: originalMeasure,
+                });
+            } else {
+                delete (performance as Partial<Performance>).measure;
+            }
+        }
+    });
+
     it('initializes shell containers and splash before awaiting the runtime engine loader', async () => {
         installStartupSpies();
         installLifecycleWiringSpies();

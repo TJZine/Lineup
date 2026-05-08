@@ -53,6 +53,39 @@ const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
 );
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
+const APP_START_START_MARK = 'lineup.app_start.start';
+const APP_START_FIRST_ACTIONABLE_MARK = 'lineup.app_start.first_actionable';
+const ORCHESTRATOR_INITIALIZE_START_MARK = 'lineup.orchestrator_initialize.start';
+const ORCHESTRATOR_INITIALIZE_END_MARK = 'lineup.orchestrator_initialize.end';
+const ORCHESTRATOR_START_START_MARK = 'lineup.orchestrator_start.start';
+const ORCHESTRATOR_START_END_MARK = 'lineup.orchestrator_start.end';
+const ORCHESTRATOR_INITIALIZE_MEASURE = 'lineup.orchestrator_initialize';
+const ORCHESTRATOR_START_MEASURE = 'lineup.orchestrator_start';
+const APP_START_TO_FIRST_ACTIONABLE_MEASURE = 'lineup.app_start_to_first_actionable';
+
+function markStartupTiming(name: string): void {
+    const performanceApi = globalThis.performance;
+    if (typeof performanceApi?.mark !== 'function') {
+        return;
+    }
+    try {
+        performanceApi.mark(name);
+    } catch {
+        return;
+    }
+}
+
+function measureStartupTiming(name: string, startMark: string, endMark: string): void {
+    const performanceApi = globalThis.performance;
+    if (typeof performanceApi?.measure !== 'function') {
+        return;
+    }
+    try {
+        performanceApi.measure(name, startMark, endMark);
+    } catch {
+        return;
+    }
+}
 
 export interface AppOptions {
     runtimeEngineLoader?: AppRuntimeEngineLoader;
@@ -96,6 +129,7 @@ export class App {
     }
 
     async start(): Promise<void> {
+        markStartupTiming(APP_START_START_MARK);
         try {
             this._themeController = new AppThemeController();
             this._themeController.initialize();
@@ -108,7 +142,14 @@ export class App {
 
             const orchestrator = await this._runtimeEngineLoader.load(platformServices);
             this._orchestrator = orchestrator;
+            markStartupTiming(ORCHESTRATOR_INITIALIZE_START_MARK);
             await orchestrator.initialize(config);
+            markStartupTiming(ORCHESTRATOR_INITIALIZE_END_MARK);
+            measureStartupTiming(
+                ORCHESTRATOR_INITIALIZE_MEASURE,
+                ORCHESTRATOR_INITIALIZE_START_MARK,
+                ORCHESTRATOR_INITIALIZE_END_MARK
+            );
 
             this._wireScreenVisibility();
 
@@ -119,7 +160,20 @@ export class App {
                 this._toastPresenter.show(toast);
             });
 
+            markStartupTiming(ORCHESTRATOR_START_START_MARK);
             await orchestrator.start();
+            markStartupTiming(ORCHESTRATOR_START_END_MARK);
+            measureStartupTiming(
+                ORCHESTRATOR_START_MEASURE,
+                ORCHESTRATOR_START_START_MARK,
+                ORCHESTRATOR_START_END_MARK
+            );
+            markStartupTiming(APP_START_FIRST_ACTIONABLE_MARK);
+            measureStartupTiming(
+                APP_START_TO_FIRST_ACTIONABLE_MEASURE,
+                APP_START_START_MARK,
+                APP_START_FIRST_ACTIONABLE_MARK
+            );
         } catch (error) {
             console.error('App startup failed:', summarizeErrorForLog(error));
             try {
