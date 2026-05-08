@@ -1,4 +1,4 @@
-**Plan Status:** active
+**Plan Status:** archived
 **Task family:** cleanup/refactor
 **Cleanup subtype:** standalone remediation
 
@@ -538,3 +538,71 @@ URL, viewport/device target, and observations.
   exception.
 - Keep active tracked plan updates out of implementation commits unless the
   controller explicitly creates a separate docs commit.
+
+## Closeout Evidence
+
+RC-S1 completed on 2026-05-08.
+
+Commits:
+
+- Plan commit: `4a0d69e6 docs: plan runtime chunk performance cleanup`
+- Implementation commit:
+  `65871c45 cleanup(runtime): measure orchestrator chunk performance`
+
+Implementation files:
+
+- `src/App.ts`
+- `src/core/app-shell/runtime/AppRuntimeEngineLoader.ts`
+- `src/__tests__/App.test.ts`
+- `tools/measure-runtime-chunk-performance.mjs`
+- `tools/__tests__/measure-runtime-chunk-performance.test.mjs`
+
+Review:
+
+- Plan review loop: clean after fresh final reviewer approval.
+- Implementation review: clean; no material findings.
+
+Controller verification after implementation:
+
+- `node --test tools/__tests__/measure-runtime-chunk-performance.test.mjs`:
+  passed.
+- `npx jest --config jest.config.js --runInBand src/__tests__/App.test.ts`:
+  passed.
+- `npm run build:analyze`: passed; Vite warning remained isolated to
+  `assets/Orchestrator-pRDMwBFw.js` at `542611` bytes minified and
+  `136567` gzip bytes.
+- `npm run verify:bundle`: passed; eager JS `81687` bytes, bootstrap entry
+  `assets/index-DhWHnitH.js` `81687` bytes, eager CSS `151743` bytes, and
+  required deferred modules remained dynamic.
+- Production preview:
+  `npm run preview -- --host 127.0.0.1` served
+  `http://127.0.0.1:5173/` for measurement.
+- RC-S1 measurement:
+  `node tools/measure-runtime-chunk-performance.mjs --dist dist --url http://127.0.0.1:5173/ --runs 7 --viewport 1280x720 --cache cold`
+  passed with `sample_count: 7`, `timing_source: performance_api_marks`,
+  median runtime import `24.9 ms`, median orchestrator initialize `2.7 ms`,
+  median orchestrator start `1.2 ms`, and median app start to first
+  actionable `31 ms`.
+- `npm run verify`: passed.
+
+Measured disposition:
+
+- Outcome: `next_plan_lazy_boundary`.
+- Candidate owner: `src/modules/plex/stream/diagnostics`.
+- Rationale: the deferred Orchestrator runtime chunk remains `542611` bytes
+  (`136567` gzip), and `modules/plex` is the largest rendered owner at
+  `214718` bytes. The measured startup/runtime cost is bounded on the local
+  production preview target: median runtime import `24.9 ms` and median app
+  start to first actionable `31 ms`.
+- Revisit trigger: draft a reviewed owner-boundary split plan only if source
+  audit confirms a Plex diagnostics/debug/recovery lazy boundary can reduce
+  the deferred Orchestrator chunk while preserving the measured timing medians
+  and bundle guards.
+
+Accepted residual:
+
+- The generic Vite chunk-size warning still appears because the deferred
+  `assets/Orchestrator-*.js` chunk remains above `500000` bytes.
+- Startup eager JS remains guarded and below the existing startup budget.
+- No source-level runtime split is approved by this plan; any future split
+  requires a new reviewed owner-boundary plan.
