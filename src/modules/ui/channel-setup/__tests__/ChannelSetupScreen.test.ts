@@ -189,6 +189,7 @@ describe('ChannelSetupScreen', () => {
                 makeLibrary({ id: 'movies' }),
                 makeLibrary({ id: 'shows', type: 'show' }),
             ]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
         });
 
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
@@ -204,7 +205,7 @@ describe('ChannelSetupScreen', () => {
 
         expect(container.textContent ?? '').toContain('Step 2 of 3');
         expect(container.textContent ?? '').toContain('Choose channel types to build.');
-        expect(container.querySelector('#setup-next')?.textContent).toMatch(/Review|Build Channels/);
+        expect(container.querySelector('#setup-next')?.textContent).toBe('Review');
     });
 
     it('updates library toggle in place without replacing the button node', async () => {

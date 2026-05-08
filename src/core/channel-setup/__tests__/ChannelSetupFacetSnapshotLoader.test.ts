@@ -151,7 +151,7 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
         expect(cachedProgress).not.toHaveBeenCalled();
     });
 
-    it('caches unsupported blocked snapshots and empty ready snapshots but not timeout or error blocked snapshots', async () => {
+    it('caches unsupported blocked snapshots but refetches empty ready, timeout, and error snapshots', async () => {
         const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         try {
             const unsupportedGenres = jest.fn().mockImplementation(async (_libraryId, options) => {
@@ -175,10 +175,12 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
             )).resolves.toMatchObject({ status: 'blocked', failureReason: 'unsupported' });
             expect(unsupportedGenres).toHaveBeenCalledTimes(1);
 
-            const emptyGenres = jest.fn().mockImplementation(async (_libraryId, options) => {
-                options.onUnsupported?.('empty');
-                return [];
-            });
+            const emptyGenres = jest.fn()
+                .mockImplementationOnce(async (_libraryId, options) => {
+                    options.onUnsupported?.('empty');
+                    return [];
+                })
+                .mockResolvedValueOnce([createFacetPlanningTag({ title: 'Comedy', count: 4 })]);
             const emptyLoader = new ChannelSetupFacetSnapshotLoader({
                 plexLibrary: createPlexLibrary({ getGenres: emptyGenres }),
             });
@@ -189,18 +191,24 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
                 createWaitOptions()
             )).resolves.toMatchObject({
                 status: 'ready',
+                hasTransientLoadFailure: true,
                 warnings: ['Skipped genres for Movies: Plex returned no tag entries (type=1).'],
             });
-            await expect(emptyLoader.loadSnapshot(
+            const recoveredEmptySnapshot = await emptyLoader.loadSnapshot(
                 createConfig(),
                 [createLibrary()],
                 'preview',
                 createWaitOptions()
-            )).resolves.toMatchObject({
+            );
+            expect(recoveredEmptySnapshot).toMatchObject({
                 status: 'ready',
-                warnings: ['Skipped genres for Movies: Plex returned no tag entries (type=1).'],
+                hasTransientLoadFailure: false,
+                warnings: [],
             });
-            expect(emptyGenres).toHaveBeenCalledTimes(1);
+            expect(recoveredEmptySnapshot.genresByLibraryId.get('lib-1')).toEqual([
+                expect.objectContaining({ title: 'Comedy' }),
+            ]);
+            expect(emptyGenres).toHaveBeenCalledTimes(2);
 
             const timeoutGenres = jest.fn()
                 .mockRejectedValueOnce({ name: 'Error', code: 'NETWORK_TIMEOUT', message: 'timed out' })

@@ -26,6 +26,12 @@ function createManualSource(ratingKey: string): ChannelContentSource {
     };
 }
 
+function createAbortError(): Error {
+    const error = new Error('Aborted');
+    error.name = 'AbortError';
+    return error;
+}
+
 function createDeferred<T>(): {
     promise: Promise<T>;
     resolve: (value: T) => void;
@@ -88,6 +94,13 @@ describe('SourceResolutionCache', () => {
         expect(second[0]!.genres).toEqual(['Drama']);
         expect(second[0]!.directors).toEqual(['Director A']);
         expect(second[0]!.mediaInfo).toEqual({ resolution: '1080p' });
+
+        const cached = await cache.resolve(source, resolveUncached);
+        expect(resolveUncached).toHaveBeenCalledTimes(1);
+        expect(cached).toHaveLength(1);
+        expect(cached[0]!.genres).toEqual(['Drama']);
+        expect(cached[0]!.directors).toEqual(['Director A']);
+        expect(cached[0]!.mediaInfo).toEqual({ resolution: '1080p' });
     });
 
     it('does not start fresh source resolution when the caller is already aborted', async () => {
@@ -109,7 +122,7 @@ describe('SourceResolutionCache', () => {
         const source: ChannelContentSource = { type: 'manual', items: [] };
         const resolveUncached: ResolveUncachedMock = jest.fn()
             .mockImplementationOnce((_source, { signal }) => new Promise((_resolve, reject) => {
-                signal.addEventListener('abort', () => reject({ name: 'AbortError' }), { once: true });
+                signal.addEventListener('abort', () => reject(createAbortError()), { once: true });
             }))
             .mockResolvedValueOnce([createItem('after-invalidate')]);
 
@@ -212,6 +225,35 @@ describe('SourceResolutionCache', () => {
         expect(leafAfterInvalidate.map((item) => item.ratingKey)).toEqual(['manual-3']);
         expect(mixedAfterInvalidate.map((item) => item.ratingKey)).toEqual(['mixed-4']);
         expect(resolveUncached).toHaveBeenCalledTimes(4);
+    });
+
+    it('fails fast for circular source cache keys', () => {
+        const cache = new SourceResolutionCache();
+        const source = {
+            type: 'mixed',
+            mixMode: 'sequential',
+            sources: [] as unknown[],
+        };
+        source.sources.push(source);
+
+        expect(() => cache.buildKey(source as unknown as ChannelContentSource)).toThrow(
+            'Cannot build content source cache key for circular source data'
+        );
+    });
+
+    it.each<[unknown, string]>([
+        [(): undefined => undefined, 'function'],
+        [Symbol('source'), 'symbol'],
+        [Number.POSITIVE_INFINITY, 'non-finite number'],
+    ])('fails fast for unsupported source cache key values: %s', (value, expectedMessage) => {
+        const cache = new SourceResolutionCache();
+        const source = {
+            type: 'manual',
+            items: [],
+            unsupported: value,
+        } as unknown as ChannelContentSource;
+
+        expect(() => cache.buildKey(source)).toThrow(expectedMessage);
     });
 
     it('expires cached entries after the source cache TTL', async () => {

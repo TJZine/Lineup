@@ -28,6 +28,10 @@ export class SourceResolutionCache {
     private readonly _sourceCacheGenerationByKey = new Map<string, number>();
     private readonly _sourceCache = new Map<string, SourceCacheEntry>();
     private readonly _sourceInFlight = new Map<string, SourceInFlightEntry>();
+    // Child -> parent links outlive child cache entries while a mixed parent is cached.
+    // _registerParentDependencies records those links for mixed parents, and
+    // _unregisterParentDependencies removes them when the parent leaves the cache.
+    // This lets a later child invalidation still bump live parent generations.
     private readonly _parentKeysByChildKey = new Map<string, Set<string>>();
     private readonly _childKeysByParentKey = new Map<string, Set<string>>();
 
@@ -262,22 +266,48 @@ export class SourceResolutionCache {
         });
     }
 
-    private _stableSerialize(value: unknown): string {
+    private _stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
         if (value === undefined) {
             return JSON.stringify(null);
         }
-        if (value === null || typeof value !== 'object') {
+        if (value === null) {
             return JSON.stringify(value);
         }
-        if (Array.isArray(value)) {
-            return `[${value.map((entry) => this._stableSerialize(entry)).join(',')}]`;
+        const valueType = typeof value;
+        if (valueType === 'string' || valueType === 'boolean') {
+            return JSON.stringify(value);
+        }
+        if (valueType === 'number') {
+            if (!Number.isFinite(value)) {
+                throw new Error('Unsupported content source cache key value: non-finite number');
+            }
+            return JSON.stringify(value);
+        }
+        if (valueType === 'function' || valueType === 'bigint' || valueType === 'symbol') {
+            throw new Error(`Unsupported content source cache key value type: ${valueType}`);
         }
 
-        const entries = Object
-            .entries(value as Record<string, unknown>)
-            .filter(([, entry]) => entry !== undefined)
-            .sort(([left], [right]) => left.localeCompare(right));
-        return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${this._stableSerialize(entry)}`).join(',')}}`;
+        const objectValue = value as object;
+        if (seen.has(objectValue)) {
+            throw new Error('Cannot build content source cache key for circular source data');
+        }
+
+        seen.add(objectValue);
+        try {
+            if (Array.isArray(value)) {
+                return `[${value.map((entry) => this._stableSerialize(entry, seen)).join(',')}]`;
+            }
+
+            const entries = Object
+                .entries(value as Record<string, unknown>)
+                .filter(([, entry]) => entry !== undefined)
+                .sort(([left], [right]) => left.localeCompare(right));
+            return `{${entries.map(([key, entry]) =>
+                `${JSON.stringify(key)}:${this._stableSerialize(entry, seen)}`
+            ).join(',')}}`;
+        } finally {
+            seen.delete(objectValue);
+        }
     }
 
     private _getCachedSourceItems(key: string): ResolvedContentItem[] | null {

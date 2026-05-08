@@ -263,7 +263,7 @@ export class ChannelSetupPlanningService {
             warnings: snapshot.warnings,
             seedFor: (value: string): number => this._hashSeed(value),
         });
-        if (plan.pendingChannels.length === 0 && !snapshot.hasTransientLoadFailure) {
+        if (plan.pendingChannels.length === 0 && snapshot.errorsTotal === 0) {
             return {
                 plan: null,
                 warnings: [...snapshot.warnings],

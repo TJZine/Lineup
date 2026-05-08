@@ -58,6 +58,7 @@ export class ChannelSetupFacetSnapshotLoadState {
     readonly actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
     readonly studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
     private readonly _warnings = new Set<string>();
+    private _hasWarningOnlyTransientLoadFailure = false;
     errorsTotal = 0;
     playlistMs = 0;
     collectionsMs = 0;
@@ -78,6 +79,7 @@ export class ChannelSetupFacetSnapshotLoadState {
         libraryTitle: string,
         type: number
     ): void {
+        this._hasWarningOnlyTransientLoadFailure = true;
         this._warnings.add(
             `Skipped ${label.toLowerCase()} for ${libraryTitle}: Plex returned no tag entries (type=${type}).`
         );
@@ -96,7 +98,7 @@ export class ChannelSetupFacetSnapshotLoadState {
             actorsByLibraryId: createReadonlyFacetMap(this.actorsByLibraryId),
             studiosByLibraryId: createReadonlyFacetMap(this.studiosByLibraryId),
             warnings: Object.freeze(Array.from(this._warnings).sort((a, b) => a.localeCompare(b))),
-            hasTransientLoadFailure,
+            hasTransientLoadFailure: hasTransientLoadFailure || this._hasWarningOnlyTransientLoadFailure,
             errorsTotal: this.errorsTotal,
             playlistMs: this.playlistMs,
             collectionsMs: this.collectionsMs,

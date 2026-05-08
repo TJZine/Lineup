@@ -4,7 +4,7 @@ import { shuffleWithSeed } from '../../shared/prng';
 
 describe('ContentSelectionPolicy', () => {
     const policy = new ContentSelectionPolicy();
-    const items: ResolvedContentItem[] = [
+    const createItems = (): ResolvedContentItem[] => [
         {
             ratingKey: '1',
             type: 'movie',
@@ -44,6 +44,7 @@ describe('ContentSelectionPolicy', () => {
     ];
 
     it('uses the supplied seed for random playback ordering', () => {
+        const items = createItems();
         const first = policy.applyPlaybackMode(items, 'random', 12_345);
         const second = policy.applyPlaybackMode(items, 'random', 12_345);
         const expected = shuffleWithSeed(items, 12_345).map((item) => item.ratingKey);
@@ -54,6 +55,7 @@ describe('ContentSelectionPolicy', () => {
     });
 
     it('fails closed for malformed runtime filters', () => {
+        const items = createItems();
         const malformedFilters = [
             { field: 'unknown', operator: 'eq', value: 2020 },
             { field: 'year', operator: 'unknown', value: 2020 },
@@ -68,6 +70,7 @@ describe('ContentSelectionPolicy', () => {
     });
 
     it('fails closed when optional metadata fields are missing from runtime items', () => {
+        const items = createItems();
         const optionalMetadataFilters: ContentFilter[] = [
             { field: 'rating', operator: 'gte', value: 4 },
             { field: 'watched', operator: 'eq', value: true },
