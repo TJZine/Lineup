@@ -1,5 +1,6 @@
 import { SourceResolutionCache } from '../SourceResolutionCache';
 import type { ChannelContentSource, ResolvedContentItem } from '../types';
+import { flushPromises } from '../../../../__tests__/helpers';
 
 type ResolveUncachedMock = jest.Mock<
     Promise<ResolvedContentItem[]>,
@@ -152,8 +153,7 @@ describe('SourceResolutionCache', () => {
 
         await expect(inFlight).rejects.toMatchObject({ name: 'AbortError' });
         deferred.resolve([createItem('late-write')]);
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushPromises();
 
         const afterClear = await cache.resolve(source, resolveUncached);
 

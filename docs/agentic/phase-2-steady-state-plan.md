@@ -10,13 +10,14 @@ Phase 2 is the transition from cleanup-era guardrails to steady-state invariants
 
 ## Guardrail Status
 
-The steady-state guardrails are active for new work after the completed final
-cleanup pass. Future feature, port, and refactor tasks should preserve the
-cleanup baseline by using the guardrails in
+The steady-state guardrails are the default baseline for new non-trivial work.
+Future feature, port, and refactor tasks should preserve the cleanup baseline by
+using the guardrails in
 [`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md#steady-state-debt-guardrails).
-The broader Phase 2 pruning/tightening pass still follows the readiness and work
-items below; do not reopen cleanup-era package queues just to run the old
-process.
+Phase 2 defines further pruning and tightening tasks performed during cleanup
+passes. The broader Phase 2 pruning/tightening pass still follows the readiness
+and work items below; do not reopen cleanup-era package queues just to run the
+old process.
 
 ## When To Execute Phase 2
 
