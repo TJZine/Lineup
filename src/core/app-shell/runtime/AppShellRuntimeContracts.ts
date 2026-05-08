@@ -1,4 +1,5 @@
-import type { INavigationManager } from '../../../modules/navigation';
+import type { INavigationManager, Screen } from '../../../modules/navigation';
+import type { AppError, LifecycleAppError, LifecycleEventMap } from '../../../modules/lifecycle/types';
 import type { PlexHomeUser, PlexPinRequest } from '../../../modules/plex/auth';
 import type {
     PlexServer,
@@ -11,6 +12,11 @@ import type { GuideSettingChange } from '../../../modules/ui/settings/types';
 import type { ThemeName } from '../../../modules/ui/theme';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
+import type { ModuleStatus, OrchestratorConfig } from '../../orchestrator/contracts/OrchestratorTypes';
+import type { BlockingErrorOverlayAction } from '../chrome/AppBlockingErrorOverlayPresenter';
+import type { ToastInput } from '../../../shared/toast';
+import type { IDisposable } from '../../../utils/interfaces';
+import type { AppErrorCode } from '../../../types/app-errors';
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;
@@ -150,4 +156,42 @@ export interface AppShellDiagnosticsRuntimePort {
     refreshPlaybackInfoSnapshot(): Promise<AppShellPlaybackInfoSnapshot>;
     getSelectedServerId(): string | null;
     getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
+}
+
+export type AppRuntimeLifecycleEvents = Pick<
+    LifecycleEventMap,
+    'networkWarning' | 'persistenceWarning' | 'phaseChange'
+>;
+
+export type AppShellChannelSetupOrchestratorRuntime = Omit<
+    AppShellChannelSetupRuntimePort,
+    'getChannelSetupScreenWorkflowPort'
+>;
+
+export interface AppShellOrchestratorRuntime
+    extends AppShellAuthRuntimePort,
+    AppShellChannelSetupOrchestratorRuntime,
+    AppShellDiagnosticsRuntimePort,
+    AppShellNavigationRuntimePort,
+    AppShellProfileRuntimePort,
+    AppShellServerSelectionRuntimePort,
+    Pick<AppShellSettingsRuntimePort, 'getActiveUsername' | 'onGuideSettingChange' | 'setSubtitleTrack'> {
+    initialize(config: OrchestratorConfig): Promise<void>;
+    start(): Promise<void>;
+    shutdown(): Promise<void>;
+    getModuleStatus(): Map<string, ModuleStatus>;
+    isReady(): boolean;
+    getCurrentScreen(): Screen | null;
+    openEPG(): void;
+    closeEPG(): void;
+    toggleEPG(): void;
+    registerErrorHandler(moduleId: string, handler: (error: AppError) => boolean): void;
+    toLifecycleAppError(error: AppError): LifecycleAppError;
+    onScreenChange(handler: (from: string, to: string) => void): IDisposable;
+    onLifecycleEvent<K extends keyof AppRuntimeLifecycleEvents>(
+        event: K,
+        handler: (payload: AppRuntimeLifecycleEvents[K]) => void
+    ): IDisposable;
+    getRecoveryActions(errorCode: AppErrorCode): BlockingErrorOverlayAction[];
+    setNowPlayingHandler(handler: ((toast: ToastInput) => void) | null): void;
 }
