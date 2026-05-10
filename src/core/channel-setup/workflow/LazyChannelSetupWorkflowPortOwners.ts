@@ -85,9 +85,17 @@ export function createLazyChannelSetupWorkflowPortOwners(
     return {
         planningService: {
             invalidateFacetSnapshot: (): void => {
-                void getPlanningService().then((planningService) => {
-                    planningService.invalidateFacetSnapshot();
-                });
+                const planningServiceLoad = planningServicePromise;
+                if (!planningServiceLoad) {
+                    return;
+                }
+                void planningServiceLoad
+                    .then((planningService) => {
+                        planningService.invalidateFacetSnapshot();
+                    })
+                    .catch(() => {
+                        // Best-effort invalidation should not surface from this void API.
+                    });
             },
             getLibrariesForSetup: async (signal) =>
                 (await getPlanningService()).getLibrariesForSetup(signal),

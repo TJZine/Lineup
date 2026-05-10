@@ -22,6 +22,12 @@ jest.mock('../build/ChannelSetupBuildExecutor', () => ({
 
 import { createLazyChannelSetupWorkflowPortOwners } from '../workflow/LazyChannelSetupWorkflowPortOwners';
 
+const flushPromises = async (rounds = 4): Promise<void> => {
+    for (let index = 0; index < rounds; index += 1) {
+        await Promise.resolve();
+    }
+};
+
 const createDeps = (): LazyChannelSetupWorkflowPortOwnersDeps => ({
     plexLibrary: {
         getLibraries: jest.fn(),
@@ -50,6 +56,31 @@ describe('createLazyChannelSetupWorkflowPortOwners', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockBuildCommitterConstructor.mockImplementation(() => ({}));
+    });
+
+    it('does not instantiate the planning service when invalidating before lazy load', async () => {
+        const owners = createLazyChannelSetupWorkflowPortOwners(createDeps());
+
+        owners.planningService.invalidateFacetSnapshot();
+        await flushPromises();
+
+        expect(mockPlanningServiceConstructor).not.toHaveBeenCalled();
+    });
+
+    it('invalidates the cached planning service after lazy load', async () => {
+        const planningService = {
+            getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+            invalidateFacetSnapshot: jest.fn(),
+        } as unknown as ChannelSetupPlanningService;
+        mockPlanningServiceConstructor.mockImplementation(() => planningService);
+        const owners = createLazyChannelSetupWorkflowPortOwners(createDeps());
+
+        await owners.planningService.getLibrariesForSetup();
+        owners.planningService.invalidateFacetSnapshot();
+        await flushPromises();
+
+        expect(planningService.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+        expect(mockPlanningServiceConstructor).toHaveBeenCalledTimes(1);
     });
 
     it('retries planning service construction after a failed lazy load attempt', async () => {

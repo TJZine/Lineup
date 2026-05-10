@@ -376,8 +376,16 @@ export class EPGRefreshController {
         },
         signal?: AbortSignal | null
     ): Promise<EpgGuideSelectionSnapshot | null> {
+        const invalidation = this._scheduleRefreshRuntimeInvalidation;
         const runtime = await this._getScheduleRefreshRuntime();
-        return runtime?.buildGuideSelectionSnapshot(request, signal) ?? null;
+        if (!runtime) {
+            return null;
+        }
+        if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
+            runtime.dispose(this._lastScheduleRefreshRuntimeInvalidationReason);
+            return null;
+        }
+        return runtime.buildGuideSelectionSnapshot(request, signal);
     }
 
     handleGuideSettingRefreshChange(change: GuideSettingChange): void {

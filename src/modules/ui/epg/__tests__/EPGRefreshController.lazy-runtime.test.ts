@@ -102,4 +102,25 @@ describe('EPGRefreshController lazy schedule runtime', () => {
         expect(runtimeInstances[0]?.refreshForRange).not.toHaveBeenCalled();
         expect(runtimeInstances[1]?.refreshForRange).toHaveBeenCalledWith(range, 'visible-range-retry');
     });
+
+    it('does not build a guide snapshot with a runtime invalidated during the await boundary', async () => {
+        const controller = new EPGRefreshController(createDeps());
+        const range = { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 };
+
+        await controller.refreshEpgSchedulesForRangeNow(range, 'visible-range');
+        expect(runtimeInstances).toHaveLength(1);
+
+        const snapshot = controller.buildGuideSelectionSnapshot({
+            channelId: 'channel-1',
+            ratingKey: 'rating-1',
+            scheduledStartTime: 0,
+            scheduledEndTime: 60_000,
+            selectedAt: 1,
+        });
+        controller.cancelScheduledRefreshWork('close-epg');
+
+        await expect(snapshot).resolves.toBeNull();
+        expect(runtimeInstances[0]?.dispose).toHaveBeenCalledWith('close-epg');
+        expect(runtimeInstances[0]?.buildGuideSelectionSnapshot).not.toHaveBeenCalled();
+    });
 });
