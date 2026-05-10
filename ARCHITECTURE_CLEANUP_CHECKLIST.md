@@ -10,25 +10,24 @@ should not drive the next cleanup task by default.
 
 ## Fresh-Session Handoff
 
-- Current execution state: P0-P13, FCP-1 through FCP-23, DCR-1 through DCR-16,
+- Current execution state: P0-P13, FCP-1 through FCP-25, DCR-1 through DCR-16,
   and DCR-EXIT are complete baseline evidence. `FCP-22` has broadened
   owner-shape closeout evidence after its reopened replan. The old P14 wave
   ledger is superseded for current decision-making because repeated residual
   waves did not create meaningful score progress and kept expanding the active
   control plane. Fresh post-FCP verification and the retrospective subjective
   review are rubric context only, not active package intake or closeout proof.
-- Next safe start: `FCP-24` planning is the next final port-foundation cleanup
-  package after completed `FCP-23`; no implementation starts until an
-  execution-grade plan passes review and selects a ready-now unit. `FCP-25`,
-  Windows port work, or other post-FCP cleanup may start only after the
-  preceding FCP package has clean closeout evidence. No
+- Next safe start: Windows port planning may start from the completed `FCP-25`
+  final-gate handoff and residual ledger. No post-FCP cleanup package,
+  `FCP-26`, or Windows implementation work is admitted by this checklist
+  without a separate maintainer-approved plan. No
   separate `FCP-EXIT` is part of the normal future queue; legacy `FCP-EXIT`
   remains retired unless a maintainer explicitly reopens it.
 - Preferred launcher: `cleanup-loop` for approved checklist-linked Tier 3
   cleanup packages. `FCP-25` is a final review gate intended for a
   `lineup-cleanup-review` agent.
-- Active program: `Final Cleanup Pass` (`FCP-24` through `FCP-25`) below. The
-  completed `FCP-7` through `FCP-23`, DCR, and historical FCP records are
+- Active program: `Final Cleanup Pass` is complete through `FCP-25`. The
+  completed `FCP-7` through `FCP-25`, DCR, and historical FCP records are
   retained baseline evidence, not the next task queue.
 - Desloppify role: rubric input and retrospective final-gate refresh only. The
   active FCP packages below are admitted by maintainer judgment from
@@ -763,10 +762,10 @@ Baseline carry-forward into `FCP-24` through `FCP-25`:
 - Handoff: `FCP-25` is the next safe start. Do not start Windows work or other
   post-FCP cleanup until `FCP-25` has clean final-gate evidence.
 
-### [ ] `FCP-25` Final Port Gate
+### [x] `FCP-25` Final Port Gate
 
-- Status: not started
-- Plan: none yet
+- Status: completed
+- Plan: `docs/plans/2026-05-06-fcp-25-final-port-gate-plan.md`
 - Dimensions/rubric tags: verified strictness, docs/source coherence, residual
   ownership, port planning readiness, review quality, test strategy
 - Scope owner: final port-gate review owner for read-only review evidence;
@@ -827,8 +826,28 @@ Baseline carry-forward into `FCP-24` through `FCP-25`:
   The Desloppify scan/review refresh, if requested by the review agent, is
   delegated to a worker subagent and recorded only as retrospective baseline
   context.
-- Ready-now execution unit: none until `FCP-21` through `FCP-24` closeout
-  evidence exists.
+- Completed execution unit: `FCP-25-W1` (`FCP-25-S1` through `FCP-25-S4`).
+- Source-finding closeout:
+
+  | Source finding | Disposition | Evidence |
+  | --- | --- | --- |
+  | `FCP-25-SF1` | resolved | Final-gate review verified the completed `FCP-21` through `FCP-24` proof matrix: every prior source finding is resolved, source-disproved, or accepted with one owner/revisit trigger. |
+  | `FCP-25-SF2` | resolved | Residual owner ledger has one accepted prior-package residual: `FCP-24-SF3`, owned by the completed `FCP-22` scheduler/channel-manager/content owner-shape baseline plus `src/modules/scheduler/channel-manager/constants.ts`, `types.ts`, and `interfaces.ts`, with the revisit trigger recorded below. No other accepted/deferred `FCP-21` through `FCP-24` residuals were found. |
+  | `FCP-25-SF3` | resolved | Source/docs audits verified runtime/playback/Plex auth/token helper, scheduler/channel/content owner split, channel setup workflow presenter, EPG direct leaf import, navigation/Plex stream package, and architecture/API doc closeout truth. |
+  | `FCP-25-SF4` | resolved | Required final-gate commands passed: `npm run verify`, `npm run verify:docs`, `npm run plans:check`, and `git diff --check`. |
+  | `FCP-25-SF5` | resolved | Windows port planning handoff is explicit: planning may start after controller-recorded FCP-25 closeout, with the assumptions and residual ledger below. |
+  | `FCP-25-SF6` | resolved | Desloppify refresh was not run; final-gate review found no reason to request it and confirmed no Desloppify output was used as FCP intake, membership, sequencing, proof, or closeout. |
+
+- Residual owner ledger:
+  - `FCP-24-SF3`: accepted no-code package-surface exception for stable
+    channel-manager direct-leaf `constants.ts`, `types.ts`, and `interfaces.ts`
+    reads. Owner: completed `FCP-22` scheduler/channel-manager/content
+    owner-shape baseline plus the stable channel-manager domain export owners
+    above. Reason: no source-proven foldering value or public export widening
+    need exists. Revisit trigger: flat layout blocks port reviewability, direct
+    leaf imports become behavior/persistence coupling, public export widening
+    is maintainer-approved, or future owner-shape changes create a
+    behavior-neutral organization need.
 - Suggested slice/wave table:
 
   | Slice | Candidate goal | Write scope | Parallel policy |
@@ -844,15 +863,22 @@ Baseline carry-forward into `FCP-24` through `FCP-25`:
   checklist intake; a source-proven blocker needs maintainer admission before it
   can become a new package; Windows port handoff cannot name safe start
   conditions.
-- Last touched: not started
-- Verification: not run
-- Follow-ups: none yet
-- Handoff: final active package after `FCP-24`. Run with a
-  `lineup-cleanup-review` agent; delegate only the retrospective Desloppify
-  scan/review refresh to a worker subagent if useful. The review agent produces
-  evidence only; the cleanup-loop controller performs any final checklist/docs
-  recording after clean review. After closeout, Windows port planning may start
-  only from the recorded handoff and residual ledger.
+- Last touched: 2026-05-06
+- Verification: clean FCP-25 plan review passed; clean final-gate review passed;
+  `npm run verify` passed; `npm run verify:docs` passed; `npm run plans:check`
+  passed; `git diff --check` passed.
+- Follow-ups: Windows port planning may start from this handoff only; no
+  post-FCP cleanup, `FCP-26`, legacy `FCP-EXIT`, Desloppify/review-id intake, or
+  Windows implementation work is admitted by this closeout.
+- Handoff: next owner is the Windows port planner/controller. Safe start
+  conditions: completed FCP-21 runtime/playback/Plex auth/token baseline holds;
+  completed FCP-22 scheduler/channel/content owner baseline holds; completed
+  FCP-23 channel setup/EPG UI workflow baseline holds; completed FCP-24 package
+  organization baseline holds; accepted residual is limited to `FCP-24-SF3`
+  above. Port assumptions: source/docs truth remains current at session start,
+  no new cleanup package is opened from retrospective score/review output, and
+  Windows implementation waits for its own approved plan. Blockers: none found
+  by FCP-25 final-gate review after controller closeout recording.
 
 ## Dimension Cleanup Refresh History
 

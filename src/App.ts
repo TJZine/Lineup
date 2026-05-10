@@ -3,14 +3,15 @@ import type {
     AppShellChannelSetupRuntimePort,
     AppShellDiagnosticsRuntimePort,
     AppShellNavigationRuntimePort,
+    AppShellOrchestratorRuntime,
     AppShellProfileRuntimePort,
     AppShellServerSelectionRuntimePort,
     AppShellSettingsRuntimePort,
 } from './core/app-shell/runtime/AppShellRuntimeContracts';
-import type { AppError, LifecycleAppError, AppPhase, LifecycleEventMap } from './modules/lifecycle/types';
+import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
 import type { INavigationManager } from './modules/navigation';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/chrome/AppContainerFactory';
-import { AppOrchestrator, type AppOrchestratorRuntime } from './Orchestrator';
+import type { AppOrchestratorRuntime } from './Orchestrator';
 import {
     AppLazyScreenRegistry,
 } from './core/app-shell/deferred-screens/AppLazyScreenRegistry';
@@ -23,6 +24,10 @@ import {
     AppBlockingErrorOverlayPresenter,
     type BlockingErrorOverlayAction,
 } from './core/app-shell/chrome/AppBlockingErrorOverlayPresenter';
+import {
+    createAppRuntimeEngineLoader,
+    type AppRuntimeEngineLoader,
+} from './core/app-shell/runtime/AppRuntimeEngineLoader';
 import { AppDiagnosticsSurface } from './core/app-shell/diagnostics/AppDiagnosticsSurface';
 import { createAppOrchestratorConfig } from './core/app-shell/config/AppOrchestratorConfigFactory';
 import { AppToastPresenter } from './core/app-shell/chrome/AppToastPresenter';
@@ -48,35 +53,46 @@ const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
 );
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
+const APP_START_START_MARK = 'lineup.app_start.start';
+const APP_START_FIRST_ACTIONABLE_MARK = 'lineup.app_start.first_actionable';
+const ORCHESTRATOR_INITIALIZE_START_MARK = 'lineup.orchestrator_initialize.start';
+const ORCHESTRATOR_INITIALIZE_END_MARK = 'lineup.orchestrator_initialize.end';
+const ORCHESTRATOR_START_START_MARK = 'lineup.orchestrator_start.start';
+const ORCHESTRATOR_START_END_MARK = 'lineup.orchestrator_start.end';
+const ORCHESTRATOR_INITIALIZE_MEASURE = 'lineup.orchestrator_initialize';
+const ORCHESTRATOR_START_MEASURE = 'lineup.orchestrator_start';
+const APP_START_TO_FIRST_ACTIONABLE_MEASURE = 'lineup.app_start_to_first_actionable';
 
-type AppRuntimeLifecycleEvents = Pick<LifecycleEventMap, 'networkWarning' | 'persistenceWarning' | 'phaseChange'>;
-type AppShellChannelSetupOrchestratorRuntime = Omit<
-    AppShellChannelSetupRuntimePort,
-    'getChannelSetupScreenWorkflowPort'
->;
+function markStartupTiming(name: string): void {
+    const performanceApi = globalThis.performance;
+    if (typeof performanceApi?.mark !== 'function') {
+        return;
+    }
+    try {
+        performanceApi.mark(name);
+    } catch {
+        return;
+    }
+}
 
-interface AppShellOrchestratorRuntime
-    extends AppOrchestratorRuntime,
-    AppShellAuthRuntimePort,
-    AppShellChannelSetupOrchestratorRuntime,
-    AppShellDiagnosticsRuntimePort,
-    AppShellNavigationRuntimePort,
-    AppShellProfileRuntimePort,
-    AppShellServerSelectionRuntimePort,
-    Pick<AppShellSettingsRuntimePort, 'getActiveUsername' | 'onGuideSettingChange' | 'setSubtitleTrack'> {
-    shutdown(): Promise<void>;
-    registerErrorHandler(moduleId: string, handler: (error: AppError) => boolean): void;
-    toLifecycleAppError(error: AppError): LifecycleAppError;
-    onScreenChange(handler: (from: string, to: string) => void): IDisposable;
-    onLifecycleEvent<K extends keyof AppRuntimeLifecycleEvents>(
-        event: K,
-        handler: (payload: AppRuntimeLifecycleEvents[K]) => void
-    ): IDisposable;
-    getRecoveryActions(errorCode: AppErrorCode): BlockingErrorOverlayAction[];
-    setNowPlayingHandler(handler: ((toast: Parameters<AppToastPresenter['show']>[0]) => void) | null): void;
+function measureStartupTiming(name: string, startMark: string, endMark: string): void {
+    const performanceApi = globalThis.performance;
+    if (typeof performanceApi?.measure !== 'function') {
+        return;
+    }
+    try {
+        performanceApi.measure(name, startMark, endMark);
+    } catch {
+        return;
+    }
+}
+
+export interface AppOptions {
+    runtimeEngineLoader?: AppRuntimeEngineLoader;
 }
 
 export class App {
+    private readonly _runtimeEngineLoader: AppRuntimeEngineLoader;
     private _orchestrator: AppShellOrchestratorRuntime | null = null;
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _profileSessionStore = new ProfileSessionStore();
@@ -108,22 +124,33 @@ export class App {
     private _phaseUnsubscribe: (() => void) | null = null;
     private _lifecycleWarningDisposables: IDisposable[] = [];
 
+    constructor(options: AppOptions = {}) {
+        this._runtimeEngineLoader = options.runtimeEngineLoader ?? createAppRuntimeEngineLoader();
+    }
+
     async start(): Promise<void> {
+        markStartupTiming(APP_START_START_MARK);
         try {
             this._themeController = new AppThemeController();
             this._themeController.initialize();
 
             const containerRefs = this._createContainers();
             const platformServices = createWebOsPlatformServices();
-
             const config = this._buildConfig(platformServices);
 
-            const orchestrator = new AppOrchestrator(platformServices);
-            this._orchestrator = orchestrator;
-            await orchestrator.initialize(config);
+            this._initializeShellSurfaces(containerRefs);
 
-            // Initialize minimal auth/server screens before startup
-            this._initializeScreens(containerRefs);
+            const orchestrator = await this._runtimeEngineLoader.load(platformServices);
+            this._orchestrator = orchestrator;
+            markStartupTiming(ORCHESTRATOR_INITIALIZE_START_MARK);
+            await orchestrator.initialize(config);
+            markStartupTiming(ORCHESTRATOR_INITIALIZE_END_MARK);
+            measureStartupTiming(
+                ORCHESTRATOR_INITIALIZE_MEASURE,
+                ORCHESTRATOR_INITIALIZE_START_MARK,
+                ORCHESTRATOR_INITIALIZE_END_MARK
+            );
+
             this._wireScreenVisibility();
 
             // Wire up lifecycle error events before starting
@@ -133,7 +160,20 @@ export class App {
                 this._toastPresenter.show(toast);
             });
 
+            markStartupTiming(ORCHESTRATOR_START_START_MARK);
             await orchestrator.start();
+            markStartupTiming(ORCHESTRATOR_START_END_MARK);
+            measureStartupTiming(
+                ORCHESTRATOR_START_MEASURE,
+                ORCHESTRATOR_START_START_MARK,
+                ORCHESTRATOR_START_END_MARK
+            );
+            markStartupTiming(APP_START_FIRST_ACTIONABLE_MARK);
+            measureStartupTiming(
+                APP_START_TO_FIRST_ACTIONABLE_MEASURE,
+                APP_START_START_MARK,
+                APP_START_FIRST_ACTIONABLE_MARK
+            );
         } catch (error) {
             console.error('App startup failed:', summarizeErrorForLog(error));
             try {
@@ -262,10 +302,7 @@ export class App {
         return refs;
     }
 
-    private _initializeScreens(containerRefs: AppContainerRefs): void {
-        if (!this._orchestrator) {
-            return;
-        }
+    private _initializeShellSurfaces(containerRefs: AppContainerRefs): void {
         const themeController = this._themeController;
         if (!themeController) {
             return;
@@ -319,6 +356,7 @@ export class App {
                 this._handleLazyScreenError(error);
             },
         });
+        this._screenVisibilityCoordinator.apply('splash');
     }
 
     private _wireScreenVisibility(): void {

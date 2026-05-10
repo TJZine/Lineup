@@ -23,7 +23,11 @@ import {
     partitionPrefetchChannels,
 } from '../coordinator/EPGCoordinatorPolicies';
 import * as EPGCoordinatorPolicies from '../coordinator/EPGCoordinatorPolicies';
-import { flushPromises } from '../../../../__tests__/helpers';
+import { flushPromises as flushPromiseRounds } from '../../../../__tests__/helpers';
+
+const flushPromises = async (rounds = 8): Promise<void> => {
+    await flushPromiseRounds(rounds);
+};
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,

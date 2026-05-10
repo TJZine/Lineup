@@ -49,13 +49,10 @@ import type {
     StreamDescriptor,
 } from '../../../modules/player';
 import { PlaybackRecoveryManager } from '../../../modules/player/PlaybackRecoveryManager';
-import {
-    EPGCoordinator,
-    IEPGComponent,
-    EPGConfig,
-    EPGUiStatus,
-    withEpgVisibleRangeChangeBinding,
-} from '../../../modules/ui/epg';
+import type { IEPGComponent } from '../../../modules/ui/epg/interfaces';
+import { EPGCoordinator } from '../../../modules/ui/epg/coordinator/EPGCoordinator';
+import { withEpgVisibleRangeChangeBinding } from '../../../modules/ui/epg/component/EPGConfigBindings';
+import type { EPGConfig, EPGUiStatus } from '../../../modules/ui/epg/types';
 import type { EpgVisibleRange } from '../../../modules/ui/epg/types';
 import {
     NowPlayingInfoCoordinator,
@@ -89,14 +86,11 @@ import {
     EXIT_CONFIRM_FOCUSABLE_IDS,
     EXIT_CONFIRM_MODAL_ID,
 } from '../../../modules/ui/exit-confirm';
-import { ChannelSetupBuildCommitter } from '../../channel-setup/build/ChannelSetupBuildCommitter';
 import { ChannelSetupBuildScratchStore } from '../../channel-setup/build/ChannelSetupBuildScratchStore';
-import { ChannelSetupBuildExecutor } from '../../channel-setup/build/ChannelSetupBuildExecutor';
-import { ChannelSetupCompletionTracker } from '../../channel-setup/persistence/ChannelSetupCompletionTracker';
 import { ChannelSetupCoordinator } from '../../channel-setup/ChannelSetupCoordinator';
-import { ChannelSetupPlanningService } from '../../channel-setup/planning/ChannelSetupPlanningService';
 import { ChannelSetupRecordStore } from '../../channel-setup/persistence/ChannelSetupRecordStore';
 import type { ChannelSetupWorkflowPortOwners } from '../../channel-setup/workflow/createChannelSetupWorkflowPort';
+import { createLazyChannelSetupWorkflowPortOwners } from '../../channel-setup/workflow/LazyChannelSetupWorkflowPortOwners';
 import { ChannelTuningCoordinator } from '../../channel-tuning';
 import type { GuideSelectionSnapshot } from '../../channel-tuning';
 import { secondsToMilliseconds } from '../../../config/timing';
@@ -263,29 +257,6 @@ export function buildChannelSetupOwners(
     const buildScratchStore = new ChannelSetupBuildScratchStore({
         storageRemove: safeLocalStorageRemove,
     });
-    const planningService = new ChannelSetupPlanningService({
-        plexLibrary: input.modules.plexLibrary,
-        channelManager: input.modules.channelManager,
-    });
-    const buildCommitter = new ChannelSetupBuildCommitter({
-        plexLibrary: input.modules.plexLibrary,
-        channelManager: input.modules.channelManager,
-        scratchStore: buildScratchStore,
-        ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
-        clearSelectedChannelScheduleSnapshot: (): void => {
-            epgCoordinator.clearSelectedChannelScheduleSnapshot();
-        },
-        primeEpgChannels: (): void => {
-            epgCoordinator.primeEpgChannels();
-        },
-        refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
-            epgCoordinator.refreshEpgSchedules(options),
-    });
-    const buildExecutor = new ChannelSetupBuildExecutor({
-        channelManager: input.modules.channelManager,
-        planningService,
-        buildCommitter,
-    });
     const getSelectedServerId = (): string | null => input.schedule.getSelectedServerId();
     const getExistingChannelCount = (): number => input.modules.channelManager.getAllChannels().length;
     const coordinator = new ChannelSetupCoordinator({
@@ -295,22 +266,28 @@ export function buildChannelSetupOwners(
         getSelectedServerId,
         getExistingChannelCount,
     });
-    const completionTracker = new ChannelSetupCompletionTracker({
-        recordStore,
-        clearRerunRequest: (): void => {
-            coordinator.clearRerunRequest();
-        },
-    });
     return {
         coordinator,
-        portOwners: {
-            planningService,
-            buildExecutor,
+        portOwners: createLazyChannelSetupWorkflowPortOwners({
+            plexLibrary: input.modules.plexLibrary,
+            channelManager: input.modules.channelManager,
+            scratchStore: buildScratchStore,
             recordStore,
-            completionTracker,
+            ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
+            clearSelectedChannelScheduleSnapshot: (): void => {
+                epgCoordinator.clearSelectedChannelScheduleSnapshot();
+            },
+            primeEpgChannels: (): void => {
+                epgCoordinator.primeEpgChannels();
+            },
+            refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
+                epgCoordinator.refreshEpgSchedules(options),
+            clearRerunRequest: (): void => {
+                coordinator.clearRerunRequest();
+            },
             getSelectedServerId,
             getExistingChannelCount,
-        },
+        }),
     };
 }
 

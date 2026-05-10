@@ -19,8 +19,8 @@ import {
 } from '../../../modules/scheduler/channel-manager';
 import { ChannelScheduler, type IChannelScheduler } from '../../../modules/scheduler/scheduler';
 import { VideoPlayer, type IVideoPlayer } from '../../../modules/player';
-import { DeferredEPGComponent } from '../../../modules/ui/epg';
-import type { IEPGComponent, IEPGReadinessPort } from '../../../modules/ui/epg';
+import { DeferredEPGComponent } from '../../../modules/ui/epg/component/DeferredEPGComponent';
+import type { IEPGComponent, IEPGReadinessPort } from '../../../modules/ui/epg/interfaces';
 import {
     NowPlayingInfoOverlay,
     type INowPlayingInfoOverlay,

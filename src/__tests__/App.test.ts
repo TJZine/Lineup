@@ -6,14 +6,17 @@ import { App } from '../App';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { createAppOrchestratorConfig } from '../core/app-shell/config/AppOrchestratorConfigFactory';
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/config/constants';
+import type { AppRuntimeEngineLoader } from '../core/app-shell/runtime/AppRuntimeEngineLoader';
+import type { AppShellOrchestratorRuntime } from '../core/app-shell/runtime/AppShellRuntimeContracts';
 import { AppThemeController } from '../core/app-shell/runtime/AppThemeController';
 import type { ChannelSetupConfig } from '../core/channel-setup/types';
 import type { ChannelSetupWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
-import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth';
+import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth/constants';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { createWebOsPlatformServices } from '../platform';
+import type { PlatformServices } from '../platform';
 
 import { flushPromises, setDevBuildForTest } from './helpers';
 import {
@@ -22,6 +25,9 @@ import {
     EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS,
 } from './fixtures/appShellContainerIds';
 
+const splashScreenShow = jest.fn();
+const splashScreenHide = jest.fn();
+
 jest.mock('../modules/ui/splash', () => ({
     SplashScreen: class SplashScreen {
         updateStatus(): void {
@@ -29,10 +35,12 @@ jest.mock('../modules/ui/splash', () => ({
         }
 
         show(): void {
+            splashScreenShow();
             return;
         }
 
         hide(): void {
+            splashScreenHide();
             return;
         }
     },
@@ -215,6 +223,8 @@ describe('App bootstrap smoke', () => {
         capturedAudioSetupComplete = null;
         serverSelectShow.mockClear();
         serverSelectHide.mockClear();
+        splashScreenShow.mockClear();
+        splashScreenHide.mockClear();
 
         appShellErrorHandler = null;
         nowPlayingHandler = null;
@@ -280,6 +290,11 @@ describe('App bootstrap smoke', () => {
         configure?.();
         app = new App();
         await app.start();
+        return app;
+    };
+
+    const createAppWithRuntimeLoader = (runtimeEngineLoader: AppRuntimeEngineLoader): App => {
+        app = new App({ runtimeEngineLoader });
         return app;
     };
 
@@ -390,6 +405,126 @@ describe('App bootstrap smoke', () => {
                 (child) => (child as HTMLElement).id
             )
         ).toEqual(EXPECTED_RUNTIME_CHROME_HOST_CHILD_IDS);
+    });
+
+    it('records inert startup performance measures when the Performance API is available', async () => {
+        const originalMark = performance.mark;
+        const originalMeasure = performance.measure;
+        const hadMark = 'mark' in performance;
+        const hadMeasure = 'measure' in performance;
+        const markSpy = jest.fn();
+        const measureSpy = jest.fn();
+
+        Object.defineProperty(performance, 'mark', {
+            configurable: true,
+            value: markSpy,
+        });
+        Object.defineProperty(performance, 'measure', {
+            configurable: true,
+            value: measureSpy,
+        });
+
+        try {
+            await bootstrapApp();
+
+            expect(markSpy).toHaveBeenCalledWith('lineup.app_start.start');
+            expect(markSpy).toHaveBeenCalledWith('lineup.orchestrator_initialize.start');
+            expect(markSpy).toHaveBeenCalledWith('lineup.orchestrator_initialize.end');
+            expect(markSpy).toHaveBeenCalledWith('lineup.orchestrator_start.start');
+            expect(markSpy).toHaveBeenCalledWith('lineup.orchestrator_start.end');
+            expect(markSpy).toHaveBeenCalledWith('lineup.app_start.first_actionable');
+            expect(measureSpy).toHaveBeenCalledWith(
+                'lineup.orchestrator_initialize',
+                'lineup.orchestrator_initialize.start',
+                'lineup.orchestrator_initialize.end'
+            );
+            expect(measureSpy).toHaveBeenCalledWith(
+                'lineup.orchestrator_start',
+                'lineup.orchestrator_start.start',
+                'lineup.orchestrator_start.end'
+            );
+            expect(measureSpy).toHaveBeenCalledWith(
+                'lineup.app_start_to_first_actionable',
+                'lineup.app_start.start',
+                'lineup.app_start.first_actionable'
+            );
+        } finally {
+            if (hadMark) {
+                Object.defineProperty(performance, 'mark', {
+                    configurable: true,
+                    value: originalMark,
+                });
+            } else {
+                delete (performance as Partial<Performance>).mark;
+            }
+            if (hadMeasure) {
+                Object.defineProperty(performance, 'measure', {
+                    configurable: true,
+                    value: originalMeasure,
+                });
+            } else {
+                delete (performance as Partial<Performance>).measure;
+            }
+        }
+    });
+
+    it('initializes shell containers and splash before awaiting the runtime engine loader', async () => {
+        installStartupSpies();
+        installLifecycleWiringSpies();
+
+        let resolveRuntime: () => void = () => {
+            throw new Error('Runtime loader resolver was not installed');
+        };
+        const runtimeEngineLoader: AppRuntimeEngineLoader = {
+            load: jest.fn((platformServices: PlatformServices) => new Promise<AppShellOrchestratorRuntime>((resolve) => {
+                resolveRuntime = (): void => resolve(new AppOrchestrator(platformServices));
+            })),
+        };
+
+        const startedApp = createAppWithRuntimeLoader(runtimeEngineLoader);
+        const startPromise = startedApp.start();
+        await flushPromises();
+
+        expect(runtimeEngineLoader.load).toHaveBeenCalledTimes(1);
+        expect(initializeSpy).not.toHaveBeenCalled();
+        for (const id of EXPECTED_CONTAINER_IDS) {
+            expect(document.getElementById(id)).not.toBeNull();
+        }
+        expect(splashScreenShow).toHaveBeenCalledTimes(1);
+
+        resolveRuntime();
+        await startPromise;
+
+        expect(initializeSpy).toHaveBeenCalledTimes(1);
+        expect(startSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('rethrows runtime loader failures after shell-visible startup surfaces are ready', async () => {
+        installStartupSpies();
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const shutdownSpy = jest.spyOn(AppOrchestrator.prototype, 'shutdown').mockResolvedValue(undefined);
+        const runtimeEngineLoader: AppRuntimeEngineLoader = {
+            load: jest.fn().mockRejectedValue(new Error('runtime chunk failed')),
+        };
+
+        const startedApp = createAppWithRuntimeLoader(runtimeEngineLoader);
+
+        await expect(startedApp.start()).rejects.toThrow('runtime chunk failed');
+
+        expect(runtimeEngineLoader.load).toHaveBeenCalledTimes(1);
+        for (const id of EXPECTED_CONTAINER_IDS) {
+            expect(document.getElementById(id)).not.toBeNull();
+        }
+        expect(splashScreenShow).toHaveBeenCalledTimes(1);
+        expect(initializeSpy).not.toHaveBeenCalled();
+        expect(errorSpy).toHaveBeenCalledWith(
+            'App startup failed:',
+            expect.objectContaining({
+                name: 'Error',
+                message: expect.stringContaining('runtime chunk failed'),
+            })
+        );
+        expect(shutdownSpy).not.toHaveBeenCalled();
     });
 
     it('defers the first platform version probe until plex auth config consumers read it', () => {
