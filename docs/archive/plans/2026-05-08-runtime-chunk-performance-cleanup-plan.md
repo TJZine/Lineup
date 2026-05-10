@@ -1,8 +1,8 @@
+# Runtime Chunk Performance Cleanup Plan
+
 **Plan Status:** archived
 **Task family:** cleanup/refactor
 **Cleanup subtype:** standalone remediation
-
-# Runtime Chunk Performance Cleanup Plan
 
 ## Goal
 
@@ -250,7 +250,7 @@ First safe lazy-boundary answer before code changes:
 
 Approved ready-now unit `RC-S1`:
 
-- `docs/plans/2026-05-08-runtime-chunk-performance-cleanup-plan.md`
+- `docs/archive/plans/2026-05-08-runtime-chunk-performance-cleanup-plan.md`
 - `tools/measure-runtime-chunk-performance.mjs` for the focused local
   measurement/attribution helper.
 - Focused tool tests adjacent to the measurement helper if the implementation

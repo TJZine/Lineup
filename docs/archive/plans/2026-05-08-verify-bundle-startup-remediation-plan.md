@@ -1,8 +1,8 @@
+# Verify Bundle Startup Remediation Plan
+
 **Plan Status:** archived
 **Task family:** cleanup/refactor
 **Cleanup subtype:** standalone remediation
-
-# Verify Bundle Startup Remediation Plan
 
 ## Goal
 
