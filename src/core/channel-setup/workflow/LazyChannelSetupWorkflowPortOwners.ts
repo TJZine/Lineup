@@ -65,14 +65,20 @@ export function createLazyChannelSetupWorkflowPortOwners(
     let buildExecutorPromise: Promise<ChannelSetupBuildExecutor> | null = null;
 
     const getPlanningService = (): Promise<ChannelSetupPlanningService> => {
-        planningServicePromise ??= createPlanningService(deps);
+        planningServicePromise ??= createPlanningService(deps).catch((error: unknown) => {
+            planningServicePromise = null;
+            throw error;
+        });
         return planningServicePromise;
     };
 
     const getBuildExecutor = (): Promise<ChannelSetupBuildExecutor> => {
         buildExecutorPromise ??= getPlanningService().then((planningService) =>
             createBuildExecutor(deps, planningService)
-        );
+        ).catch((error: unknown) => {
+            buildExecutorPromise = null;
+            throw error;
+        });
         return buildExecutorPromise;
     };
 

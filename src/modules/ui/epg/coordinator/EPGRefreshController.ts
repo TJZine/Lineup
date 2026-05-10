@@ -57,7 +57,7 @@ type EPGScheduleRefreshRuntimeModule = typeof import('../runtime/EPGScheduleRefr
 export class EPGRefreshController {
     private readonly _visibleRangeRefreshQueue: EPGVisibleRangeRefreshQueue;
     private _scheduleRefreshRuntime: EPGScheduleRefreshRuntime | null = null;
-    private _scheduleRefreshRuntimeLoad: Promise<EPGScheduleRefreshRuntime> | null = null;
+    private _scheduleRefreshRuntimeLoad: Promise<EPGScheduleRefreshRuntime | null> | null = null;
     private _scheduleRefreshRuntimeInvalidation = 0;
     private _lastScheduleRefreshRuntimeInvalidationReason = 'cancel-before-runtime-ready';
 
@@ -105,18 +105,29 @@ export class EPGRefreshController {
         });
     }
 
-    private async _getScheduleRefreshRuntime(): Promise<EPGScheduleRefreshRuntime> {
+    private async _getScheduleRefreshRuntime(): Promise<EPGScheduleRefreshRuntime | null> {
         if (this._scheduleRefreshRuntime) {
             return this._scheduleRefreshRuntime;
         }
-        this._scheduleRefreshRuntimeLoad ??= import('../runtime/EPGScheduleRefreshRuntime')
-            .then((module) => {
-                this._scheduleRefreshRuntime = this._createScheduleRefreshRuntime(module);
-                return this._scheduleRefreshRuntime;
-            })
-            .finally(() => {
-                this._scheduleRefreshRuntimeLoad = null;
-            });
+        if (!this._scheduleRefreshRuntimeLoad) {
+            const invalidation = this._scheduleRefreshRuntimeInvalidation;
+            const runtimeLoad = import('../runtime/EPGScheduleRefreshRuntime')
+                .then((module) => {
+                    const runtime = this._createScheduleRefreshRuntime(module);
+                    if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
+                        runtime.dispose(this._lastScheduleRefreshRuntimeInvalidationReason);
+                        return null;
+                    }
+                    this._scheduleRefreshRuntime = runtime;
+                    return runtime;
+                })
+                .finally(() => {
+                    if (this._scheduleRefreshRuntimeLoad === runtimeLoad) {
+                        this._scheduleRefreshRuntimeLoad = null;
+                    }
+                });
+            this._scheduleRefreshRuntimeLoad = runtimeLoad;
+        }
         return this._scheduleRefreshRuntimeLoad;
     }
 
@@ -208,10 +219,13 @@ export class EPGRefreshController {
     }
 
     private _invalidateScheduleRefreshRuntime(reason: string): void {
+        const runtime = this._scheduleRefreshRuntime;
         this._scheduleRefreshRuntimeInvalidation += 1;
         this._lastScheduleRefreshRuntimeInvalidationReason = reason;
         this._visibleRangeRefreshQueue.cancelPendingRefresh();
-        this._scheduleRefreshRuntime?.dispose(reason);
+        this._scheduleRefreshRuntime = null;
+        this._scheduleRefreshRuntimeLoad = null;
+        runtime?.dispose(reason);
     }
 
     cancelScheduledRefreshWork(reason: string): void {
@@ -362,7 +376,8 @@ export class EPGRefreshController {
         },
         signal?: AbortSignal | null
     ): Promise<EpgGuideSelectionSnapshot | null> {
-        return (await this._getScheduleRefreshRuntime()).buildGuideSelectionSnapshot(request, signal);
+        const runtime = await this._getScheduleRefreshRuntime();
+        return runtime?.buildGuideSelectionSnapshot(request, signal) ?? null;
     }
 
     handleGuideSettingRefreshChange(change: GuideSettingChange): void {
@@ -422,6 +437,9 @@ export class EPGRefreshController {
     ): Promise<void> {
         const invalidation = this._scheduleRefreshRuntimeInvalidation;
         const runtime = await this._getScheduleRefreshRuntime();
+        if (!runtime) {
+            return;
+        }
         if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
             runtime.dispose(this._lastScheduleRefreshRuntimeInvalidationReason);
             return;
