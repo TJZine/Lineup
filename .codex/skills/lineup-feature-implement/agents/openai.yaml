@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lineup Feature Implement"
+  short_description: "Launch the approved feature/design implementer session"
+  default_prompt: "Use the lineup-feature-implement skill for this task."

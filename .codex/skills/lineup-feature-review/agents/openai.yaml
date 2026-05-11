@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lineup Feature Review"
+  short_description: "Launch the feature/design review session"
+  default_prompt: "Use the lineup-feature-review skill for this task."

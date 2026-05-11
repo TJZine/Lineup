@@ -72,6 +72,7 @@ When a rule appears in multiple places, prefer moving the detailed version to th
 - `parallel-sidecars`
 - `persistence-boundaries`
 - `plex-integration-boundaries`
+- `repo-production-review`
 - `review-adjudication`
 - `review-request`
 - `ui-composition-patterns`
@@ -115,6 +116,7 @@ Local-only by default:
 - `persistence-boundaries`: keeps storage ownership centralized and typed.
 - `plex-integration-boundaries`: keeps Plex transport/policy complexity out of unrelated modules.
 - `parallel-sidecars`: keeps optional multi-agent usage shallow, role-disciplined, and off the immediate critical path.
+- `repo-production-review`: invokes the global production-review suite with Lineup's local workflow reads, read-only boundary, and role constraints.
 - `review-adjudication`: calibrates reviewer feedback against current Lineup evidence, plan scope, and boundary ownership before implementation.
 - `review-request`: standardizes bounded packets for reviewer agents and launcher reviews without passing unbounded session history.
 - `model-selection`: keeps Lineup session-to-session model advice explicit, cheap by default, and only auto-emitted for high-risk handoffs.
