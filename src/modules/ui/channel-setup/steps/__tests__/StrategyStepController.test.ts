@@ -492,6 +492,7 @@ describe('StrategyStepController', () => {
 
         const warnings = [
             'Required studios tag directory (type=4) failed for Movies (Directory must be an array); stop and re-plan.',
+            'Partial setup plan (fetch_collections): fetch_collections failed for Shows (collections endpoint failed)',
         ];
         const { ctx: previewCtx, deps: previewDeps } = renderController({
             state: {
@@ -519,6 +520,7 @@ describe('StrategyStepController', () => {
         expect(previewDeps.renderCappedWarnings).toHaveBeenCalledWith(
             [
                 'Plex could not read studios data for Movies. Try again later, disable that source, or continue with supported channel types.',
+                'Collections could not be included for Shows: collections endpoint failed. Try again later, disable that source, or continue with supported channel types.',
             ],
             expect.any(HTMLDivElement)
         );

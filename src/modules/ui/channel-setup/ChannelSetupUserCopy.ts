@@ -11,6 +11,12 @@ type ParsedNativeFacetFailure = {
     issue: 'failed' | 'unsupported' | 'empty' | 'count-failed';
 };
 
+type ParsedPartialWarning = {
+    source: 'collections' | 'playlists';
+    libraryTitle: string | null;
+    cause: string;
+};
+
 function normalizeSource(raw: string): string {
     return raw.trim().replace(/\s+/g, ' ');
 }
@@ -52,6 +58,20 @@ function parseNativeFacetFailure(message: string): ParsedNativeFacetFailure | nu
     return null;
 }
 
+function parsePartialWarning(message: string): ParsedPartialWarning | null {
+    const partialWarning = message.match(
+        /^Partial setup plan \((fetch_collections|fetch_playlists)\): \1 failed(?: for (.+?))? \((.+)\)$/i
+    );
+    if (!partialWarning?.[1] || !partialWarning[3]) {
+        return null;
+    }
+    return {
+        source: partialWarning[1] === 'fetch_collections' ? 'collections' : 'playlists',
+        libraryTitle: partialWarning[2] ? normalizeLibraryTitle(partialWarning[2]) : null,
+        cause: partialWarning[3].trim(),
+    };
+}
+
 function formatParsedNativeFacetFailure(parsed: ParsedNativeFacetFailure): string {
     const sourceLabel = parsed.source.toLowerCase();
     const library = parsed.libraryTitle;
@@ -66,6 +86,12 @@ function formatParsedNativeFacetFailure(parsed: ParsedNativeFacetFailure): strin
         return `Plex could not count ${sourceLabel} items for ${library}. ${RECOVERY_GUIDANCE}`;
     }
     return `Plex could not read ${sourceLabel} data for ${library}. ${RECOVERY_GUIDANCE}`;
+}
+
+function formatParsedPartialWarning(parsed: ParsedPartialWarning): string {
+    const sourceLabel = parsed.source === 'collections' ? 'Collections' : 'Playlists';
+    const librarySegment = parsed.libraryTitle ? ` for ${parsed.libraryTitle}` : '';
+    return `${sourceLabel} could not be included${librarySegment}: ${parsed.cause}. ${RECOVERY_GUIDANCE}`;
 }
 
 function genericBlockedCopy(surface: ChannelSetupBlockedCopySurface): string {
@@ -83,11 +109,19 @@ export function formatChannelSetupUserCopy(
     message: string,
     surface: ChannelSetupBlockedCopySurface
 ): string {
-    const parsed = parseNativeFacetFailure(message);
+    const trimmed = message.trim();
+    if (trimmed.length === 0) {
+        return genericBlockedCopy(surface);
+    }
+    const parsed = parseNativeFacetFailure(trimmed);
     if (parsed) {
         return formatParsedNativeFacetFailure(parsed);
     }
-    if (hasInternalChannelSetupCopy(message)) {
+    const partialWarning = parsePartialWarning(trimmed);
+    if (partialWarning) {
+        return formatParsedPartialWarning(partialWarning);
+    }
+    if (hasInternalChannelSetupCopy(trimmed)) {
         return genericBlockedCopy(surface);
     }
     return message;

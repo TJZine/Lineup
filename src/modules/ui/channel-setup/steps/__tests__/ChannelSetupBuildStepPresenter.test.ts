@@ -217,6 +217,31 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect((ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).disabled).toBe(true);
     });
 
+    it('renders empty blocked build messages with generic recovery copy', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'blocked',
+                message: '',
+            }),
+        });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        const visibleText = [
+            ctx.statusEl.textContent,
+            ctx.detailEl.textContent,
+            ctx.errorEl.textContent,
+            ctx.contentEl.textContent,
+        ].join('\n');
+        expect(visibleText).toContain('Some channel types could not be built for this library.');
+        expect(visibleText).toContain('Try again later, disable that source, or continue with supported channel types.');
+        expect(visibleText).not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
+    });
+
     it('opens player playback and EPG from the completed build Done action', async () => {
         const ctx = createContext();
         document.body.appendChild(ctx.contentEl);

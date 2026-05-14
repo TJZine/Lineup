@@ -78,6 +78,7 @@ describe('BuildReviewStepController', () => {
                         },
                         warnings: [
                             'Required studios tag directory (type=4) failed for Movies (Directory must be an array); stop and re-plan.',
+                            'Partial setup plan (fetch_playlists): fetch_playlists failed (playlist endpoint failed)',
                         ],
                         reachedMaxChannels: false,
                         status: 'blocked',
@@ -106,6 +107,7 @@ describe('BuildReviewStepController', () => {
         expect(deps.renderCappedWarnings).toHaveBeenCalledWith(
             [
                 'Plex could not read studios data for Movies. Try again later, disable that source, or continue with supported channel types.',
+                'Playlists could not be included: playlist endpoint failed. Try again later, disable that source, or continue with supported channel types.',
             ],
             expect.any(HTMLDivElement)
         );
