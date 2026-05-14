@@ -5,7 +5,7 @@ description: Use when the user explicitly asks for lineup-feature-plan, invokes 
 
 # Lineup Feature Plan
 
-This skill is the skill-based replacement for the legacy prompt file `/Users/tristan/.codex/prompts/lineup-feature-plan.md`.
+This skill is the skill-based replacement for the legacy `lineup-feature-plan.md` launcher.
 
 Use the prompt body below as the authoritative workflow instructions for this skill invocation.
 
@@ -13,12 +13,12 @@ Use this only from the Lineup repo.
 
 Read these files in order:
 
-1. `/Users/tristan/Software/Lineup/agents.md`
-2. `/Users/tristan/Software/Lineup/docs/agentic/document-map.md`
-3. `/Users/tristan/Software/Lineup/docs/AGENTIC_DEV_WORKFLOW.md`
-4. `/Users/tristan/Software/Lineup/docs/agentic/session-prompts/feature-plan.md`
+1. `AGENTS.md`
+2. `docs/agentic/document-map.md`
+3. `docs/AGENTIC_DEV_WORKFLOW.md`
+4. `docs/agentic/session-prompts/feature-plan.md`
 
-Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this global prompt.
+Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this repo-local skill.
 
 After invoking this launcher, accept either:
 - a pasted `NEXT_SESSION_HANDOFF` block, or

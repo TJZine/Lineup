@@ -22,7 +22,7 @@ Before running the universal review, read and honor:
 
 Also open and follow the global orchestrator at:
 
-- `/Users/tristan/.codex/skills/repo-production-review/SKILL.md`
+- `${CODEX_HOME:-$HOME/.codex}/skills/repo-production-review/SKILL.md`
 
 ## Local Role Constraints
 
