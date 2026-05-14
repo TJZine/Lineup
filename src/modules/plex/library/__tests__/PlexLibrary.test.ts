@@ -1247,6 +1247,20 @@ describe('PlexLibrary', () => {
             await expect(library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW })).rejects.toThrow(PlexLibraryError);
         });
 
+        it('should reject malformed tag directory entries inside arrays', async () => {
+            mockFetchJson({
+                MediaContainer: {
+                    Directory: [
+                        { key: 'valid', title: 'Valid', count: 1 },
+                        { key: 'broken', count: 'many' },
+                    ],
+                },
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW })).rejects.toThrow(PlexLibraryError);
+        });
+
         it('should return directors from directory entries', async () => {
             mockFetchJson(mockTagDirectoryResponse);
             const library = new PlexLibrary(mockConfig);

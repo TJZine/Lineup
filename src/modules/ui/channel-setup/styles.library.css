@@ -67,15 +67,13 @@
     display: block;
     opacity: 0.18;
     stroke: var(--onboarding-text, #f0ece8);
-    fill: none;
     stroke-width: 2.25;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 
-.setup-toggle-icon svg * {
+.setup-toggle-icon svg [stroke] {
     stroke: var(--onboarding-text, #f0ece8);
-    fill: none;
     stroke-linecap: round;
     stroke-linejoin: round;
 }

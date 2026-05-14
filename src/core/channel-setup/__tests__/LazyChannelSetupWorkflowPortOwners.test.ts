@@ -83,6 +83,36 @@ describe('createLazyChannelSetupWorkflowPortOwners', () => {
         expect(mockPlanningServiceConstructor).toHaveBeenCalledTimes(1);
     });
 
+    it('logs best-effort facet invalidation failures without surfacing them', async () => {
+        const invalidationError = new Error('facet invalidation failed with X-Plex-Token=secret');
+        const debugSpy = jest.spyOn(globalThis.console, 'debug').mockImplementation(() => undefined);
+        const planningService = {
+            getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+            invalidateFacetSnapshot: jest.fn(() => {
+                throw invalidationError;
+            }),
+        } as unknown as ChannelSetupPlanningService;
+        mockPlanningServiceConstructor.mockImplementation(() => planningService);
+        const owners = createLazyChannelSetupWorkflowPortOwners(createDeps());
+
+        try {
+            await owners.planningService.getLibrariesForSetup();
+            owners.planningService.invalidateFacetSnapshot();
+            await flushPromises();
+
+            expect(planningService.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+            expect(debugSpy).toHaveBeenCalledWith(
+                'Channel setup invalidateFacetSnapshot failed',
+                {
+                    name: 'Error',
+                    message: 'facet invalidation failed with X-Plex-Token=REDACTED',
+                }
+            );
+        } finally {
+            debugSpy.mockRestore();
+        }
+    });
+
     it('retries planning service construction after a failed lazy load attempt', async () => {
         const firstError = new Error('planning chunk failed');
         const recoveredPlanningService = {

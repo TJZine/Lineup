@@ -382,7 +382,6 @@ export class EPGRefreshController {
             return null;
         }
         if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
-            runtime.dispose(this._lastScheduleRefreshRuntimeInvalidationReason);
             return null;
         }
         return runtime.buildGuideSelectionSnapshot(request, signal);
@@ -449,7 +448,6 @@ export class EPGRefreshController {
             return;
         }
         if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
-            runtime.dispose(this._lastScheduleRefreshRuntimeInvalidationReason);
             return;
         }
         await runtime.refreshForRange(range, reason);

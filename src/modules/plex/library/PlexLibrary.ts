@@ -178,7 +178,9 @@ function extractTagDirectoryEntries(
     }
 
     if (Array.isArray(directory)) {
-        return directory as RawDirectoryTag[];
+        return directory.map((entry, index) =>
+            normalizeSingletonTagDirectoryEntry(entry, `${context} entry ${index}`)
+        );
     }
 
     return [normalizeSingletonTagDirectoryEntry(directory, context)];

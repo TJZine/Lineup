@@ -94,6 +94,7 @@ describe('EPGRefreshController lazy schedule runtime', () => {
 
         expect(runtimeInstances).toHaveLength(1);
         expect(runtimeInstances[0]?.dispose).toHaveBeenCalledWith('close-epg');
+        expect(runtimeInstances[0]?.dispose).toHaveBeenCalledTimes(1);
         expect(runtimeInstances[0]?.refreshForRange).not.toHaveBeenCalled();
 
         await controller.refreshEpgSchedulesForRangeNow(range, 'visible-range-retry');
@@ -121,6 +122,7 @@ describe('EPGRefreshController lazy schedule runtime', () => {
 
         await expect(snapshot).resolves.toBeNull();
         expect(runtimeInstances[0]?.dispose).toHaveBeenCalledWith('close-epg');
+        expect(runtimeInstances[0]?.dispose).toHaveBeenCalledTimes(1);
         expect(runtimeInstances[0]?.buildGuideSelectionSnapshot).not.toHaveBeenCalled();
     });
 });
