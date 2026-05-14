@@ -22,6 +22,9 @@ import {
     makeLibrary,
 } from './channel-setup-test-helpers';
 
+const INTERNAL_SETUP_COPY_PATTERN =
+    /\b(?:stop and re-plan|re-plan|planner|execution|cleanup|slice|blocked plan|plan blocked)\b|partial setup plan/i;
+
 const enterStep2 = async (container: HTMLElement): Promise<void> => {
     const next = container.querySelector('#setup-next');
     if (!(next instanceof HTMLButtonElement)) {
@@ -1406,10 +1409,12 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
         await flushPromises();
 
-        expect(container.textContent ?? '').toContain('Action required');
-        expect(container.textContent ?? '').toContain('Plan blocked');
+        expect(container.textContent ?? '').toContain('Setup needs attention.');
+        expect(container.textContent ?? '').toContain('Build paused');
         expect(container.textContent ?? '').toContain('No changes were applied.');
-        expect(container.textContent ?? '').toContain('Required genres tag directory');
+        expect(container.textContent ?? '').toContain('Plex does not provide usable genres data for Shows.');
+        expect(container.textContent ?? '').toContain('Try again later, disable that source, or continue with supported channel types.');
+        expect(container.textContent ?? '').not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
         expect(container.textContent ?? '').not.toContain('Canceled');
     });
 
@@ -1445,14 +1450,14 @@ describe('ChannelSetupScreen', () => {
         {
             status: 'blocked',
             message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
-            expectedPrefix: 'Action required:',
+            expectedText: 'Plex does not provide usable genres data for Shows.',
         },
         {
             status: 'slow',
             message: 'Required directors tag directory (type=4) timed out for Shows; try again after Plex responds.',
-            expectedPrefix: 'Review timed out:',
+            expectedText: 'Review timed out:',
         },
-    ] as const)('disables confirm when Step 3 review is %s', async ({ status, message, expectedPrefix }) => {
+    ] as const)('disables confirm when Step 3 review is %s', async ({ status, message, expectedText }) => {
         const container = createBodyAppendedTestContainer();
 
         const getSetupReview = jest.fn().mockResolvedValue({
@@ -1481,8 +1486,14 @@ describe('ChannelSetupScreen', () => {
 
         const confirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
         expect(confirm?.disabled).toBe(true);
-        expect(container.textContent ?? '').toContain(expectedPrefix);
-        expect(container.textContent ?? '').toContain(message);
+        expect(container.textContent ?? '').toContain(expectedText);
+        if (status === 'blocked') {
+            expect(container.textContent ?? '').toContain('Try again later, disable that source, or continue with supported channel types.');
+            expect(container.textContent ?? '').not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
+            expect(container.textContent ?? '').not.toContain(message);
+        } else {
+            expect(container.textContent ?? '').toContain(message);
+        }
     });
 
     it('shows review loading state before review payload resolves', async () => {
