@@ -13,7 +13,7 @@ Use this only from the Lineup repo.
 
 Read these files in order:
 
-1. `AGENTS.md`
+1. `agents.md`
 2. `docs/AGENTIC_DEV_WORKFLOW.md`
 3. `docs/agentic/session-prompts/cleanup-loop.md`
 

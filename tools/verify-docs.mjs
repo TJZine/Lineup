@@ -114,6 +114,17 @@ const codexRoleWorkflowMarkerFiles = [
     'docs/agentic/skill-strategy.md',
     'docs/agentic/session-prompts/workflow-harness-review.md',
 ];
+const repoLocalLauncherSkillReadOrderFiles = [
+    '.codex/skills/lineup-cleanup-plan/SKILL.md',
+    '.codex/skills/lineup-cleanup-implement/SKILL.md',
+    '.codex/skills/lineup-cleanup-review/SKILL.md',
+    '.codex/skills/lineup-cleanup-loop/SKILL.md',
+    '.codex/skills/lineup-feature-plan/SKILL.md',
+    '.codex/skills/lineup-feature-implement/SKILL.md',
+    '.codex/skills/lineup-feature-review/SKILL.md',
+    '.codex/skills/lineup-workflow-harness-review/SKILL.md',
+    '.codex/skills/repo-production-review/SKILL.md',
+];
 const requiredCodexRoleContracts = new Map([
     [
         'planner',
@@ -643,6 +654,13 @@ function checkControlPlaneAuthorityModel(errors) {
         }
     }
 
+    const skillStrategy = readRepoFile('docs/agentic/skill-strategy.md', errors);
+    if (skillStrategy !== null) {
+        if (skillStrategy.includes('`AGENTS.md`')) {
+            errors.push('Skill strategy must not name ignored AGENTS.md as the stable entrypoint doc.');
+        }
+    }
+
     const documentMap = readRepoFile('docs/agentic/document-map.md', errors);
     if (documentMap !== null) {
         const requiredDocumentMapMarkers = [
@@ -712,6 +730,39 @@ function checkControlPlaneAuthorityModel(errors) {
 
         if (hasPositiveDocumentMapAuthorityReference(content)) {
             errors.push(`${relativePath} must not require docs/agentic/document-map.md in its launcher read order.`);
+        }
+    }
+}
+
+export function checkRepoLocalLauncherSkillReadOrders(errors) {
+    for (const relativePath of repoLocalLauncherSkillReadOrderFiles) {
+        if (!existsSync(path.join(repoRoot, relativePath))) {
+            continue;
+        }
+
+        const content = readRepoFile(relativePath, errors);
+        if (content === null) {
+            continue;
+        }
+
+        if (content.includes('AGENTS.md')) {
+            errors.push(`${relativePath} must reference tracked agents.md, not ignored AGENTS.md.`);
+        }
+
+        if (hasPositiveDocumentMapAuthorityReference(content)) {
+            errors.push(`${relativePath} must not require docs/agentic/document-map.md in its launcher read order.`);
+        }
+
+        const normalizedLines = normalizeDocLines(content);
+        const hasTrackedEntrypointRead = normalizedLines.some((line) =>
+            /^(?:\d+\.|-)\s+agents\.md$/u.test(line)
+        );
+        const hasWorkflowRead = normalizedLines.some((line) =>
+            /^(?:\d+\.|-)\s+docs\/agentic dev workflow\.md$/u.test(line)
+        );
+
+        if (!hasTrackedEntrypointRead || !hasWorkflowRead) {
+            errors.push(`${relativePath} must include agents.md and docs/AGENTIC_DEV_WORKFLOW.md in its read list.`);
         }
     }
 }
@@ -1804,6 +1855,7 @@ function main() {
     checkSessionPromptReadme(errors);
     checkEvalPromptReadme(errors);
     checkControlPlaneAuthorityModel(errors);
+    checkRepoLocalLauncherSkillReadOrders(errors);
     checkWorkflowRoutingSplit(errors);
     checkFeatureRemediationPromptContracts(errors);
     checkCleanupPriorityExitContracts(errors);

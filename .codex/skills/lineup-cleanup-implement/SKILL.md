@@ -13,10 +13,9 @@ Use this only from the Lineup repo.
 
 Read these files in order:
 
-1. `AGENTS.md`
-2. `docs/agentic/document-map.md`
-3. `docs/AGENTIC_DEV_WORKFLOW.md`
-4. `docs/agentic/session-prompts/cleanup-implement.md`
+1. `agents.md`
+2. `docs/AGENTIC_DEV_WORKFLOW.md`
+3. `docs/agentic/session-prompts/cleanup-implement.md`
 
 Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this repo-local skill.
 
