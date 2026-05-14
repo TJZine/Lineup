@@ -38,22 +38,51 @@
 }
 
 .setup-toggle-icon {
+    position: relative;
     grid-column: 1;
     grid-row: 1 / span 2;
     width: 48px;
     height: 48px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--onboarding-text-secondary, rgba(240, 236, 232, 0.6));
+    color: var(--onboarding-text, #f0ece8);
+}
+
+.setup-toggle-icon::before {
+    content: attr(data-library-marker);
+    position: absolute;
+    z-index: 1;
+    font-size: var(--text-xs, 12px);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--onboarding-text, #f0ece8);
 }
 
 .setup-toggle-icon svg {
     width: 28px;
     height: 28px;
     display: block;
+    opacity: 0.18;
+    stroke: var(--onboarding-text, #f0ece8);
+    fill: none;
+    stroke-width: 2.25;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.setup-toggle-icon svg * {
+    stroke: var(--onboarding-text, #f0ece8);
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.setup-toggle.library-toggle.selected .setup-toggle-icon {
+    background: var(--onboarding-accent-alpha-20, rgba(200, 160, 100, 0.2));
+    color: var(--onboarding-text, #f0ece8);
 }
 
 .setup-toggle-state-icon {

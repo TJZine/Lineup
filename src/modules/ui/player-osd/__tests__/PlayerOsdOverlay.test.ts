@@ -52,6 +52,13 @@ describe('PlayerOsdOverlay', () => {
     it('initializes hidden', () => {
         expect(overlay.isVisible()).toBe(false);
         expect(container.classList.contains(PLAYER_OSD_CLASSES.VISIBLE)).toBe(false);
+        for (const action of ['subtitles', 'sleep', 'audio']) {
+            const button = container.querySelector(
+                `.${PLAYER_OSD_CLASSES.ACTION}[data-action="${action}"]`
+            ) as HTMLButtonElement;
+            expect(button.disabled).toBe(true);
+            expect(button.getAttribute('aria-disabled')).toBe('true');
+        }
     });
 
     it('exposes status label semantics for assistive tech', () => {
@@ -204,15 +211,28 @@ describe('PlayerOsdOverlay', () => {
         delete (withoutActionIds as Partial<PlayerOsdViewModel>).actionIds;
         overlay.setViewModel(withoutActionIds);
 
-        expect(
-            (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="subtitles"]`) as HTMLElement).id
-        ).toBe('');
-        expect(
-            (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="sleep"]`) as HTMLElement).id
-        ).toBe('');
-        expect(
-            (container.querySelector(`.${PLAYER_OSD_CLASSES.ACTION}[data-action="audio"]`) as HTMLElement).id
-        ).toBe('');
+        for (const action of ['subtitles', 'sleep', 'audio']) {
+            const button = container.querySelector(
+                `.${PLAYER_OSD_CLASSES.ACTION}[data-action="${action}"]`
+            ) as HTMLButtonElement;
+            expect(button.id).toBe('');
+            expect(button.disabled).toBe(true);
+            expect(button.getAttribute('aria-disabled')).toBe('true');
+        }
+    });
+
+    it('reenables action buttons when action IDs return', () => {
+        const withoutActionIds = { ...baseViewModel } as PlayerOsdViewModel;
+        delete (withoutActionIds as Partial<PlayerOsdViewModel>).actionIds;
+        overlay.setViewModel(withoutActionIds);
+        overlay.setViewModel(baseViewModel);
+
+        const subtitles = container.querySelector(
+            `.${PLAYER_OSD_CLASSES.ACTION}[data-action="subtitles"]`
+        ) as HTMLButtonElement;
+        expect(subtitles.id).toBe('player-osd-action-subtitles');
+        expect(subtitles.disabled).toBe(false);
+        expect(subtitles.getAttribute('aria-disabled')).toBeNull();
     });
 
     it('renders clear logo when clearLogoUrl is present and uses title for alt text', () => {

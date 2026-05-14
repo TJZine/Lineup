@@ -60,6 +60,8 @@ export class LibraryStepController {
 
             const icon = document.createElement('span');
             icon.className = 'setup-toggle-icon';
+            icon.classList.add(library.type === 'movie' ? 'setup-toggle-icon--movie' : 'setup-toggle-icon--show');
+            icon.dataset.libraryMarker = library.type === 'movie' ? 'MOV' : 'TV';
             icon.setAttribute('aria-hidden', 'true');
             setTrustedInlineSvg(icon, library.type === 'movie' ? deps.movieSvg : deps.showSvg);
 

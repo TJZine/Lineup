@@ -162,6 +162,25 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(prep.preferredFocusId).toBe('playback-audio-audio-1');
     });
 
+    it('surfaces unavailable subtitle and audio copy when no tracks exist', () => {
+        const player = createPlayer([]);
+
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+        });
+
+        const viewModel = getViewModel(coordinator);
+
+        expect(viewModel.subtitles.options.map((option) => option.id)).toEqual(['playback-subtitle-off']);
+        expect(viewModel.subtitles.emptyMessage).toBe('No subtitles available');
+        expect(viewModel.audio.options).toEqual([]);
+        expect(viewModel.audio.emptyMessage).toBe('No alternate audio tracks available');
+    });
+
     it('shows burn-in tracks only in Full mode', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 

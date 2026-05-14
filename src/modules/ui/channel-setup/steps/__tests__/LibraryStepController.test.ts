@@ -6,6 +6,7 @@ jest.mock('../../../../../utils/inlineSvg', () => ({
     setTrustedInlineSvg: jest.fn(),
 }));
 
+import { setTrustedInlineSvg } from '../../../../../utils/inlineSvg';
 import { makeLibrary } from '../../__tests__/channel-setup-test-helpers';
 import { LibraryStepController } from '../LibraryStepController';
 import type { LibraryStepDeps, StepRenderContext } from '../types';
@@ -70,6 +71,28 @@ describe('LibraryStepController', () => {
         expect(deps.onSelectAll).toHaveBeenCalledWith('setup-lib-movies');
         expect(deps.onClearAll).toHaveBeenCalledWith('setup-lib-movies');
         expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('mounts movie and show glyphs in each library icon slot', () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const deps = createDeps({
+            libraries: [makeLibrary({ id: 'movies' }), makeLibrary({ id: 'shows', type: 'show' })],
+            movieSvg: '<svg data-kind="movie"></svg>',
+            showSvg: '<svg data-kind="show"></svg>',
+        });
+        const controller = new LibraryStepController();
+
+        controller.render(ctx, deps);
+
+        const icons = ctx.contentEl.querySelectorAll('.setup-toggle-icon');
+        expect(icons).toHaveLength(2);
+        expect((icons[0] as HTMLElement).dataset.libraryMarker).toBe('MOV');
+        expect((icons[1] as HTMLElement).dataset.libraryMarker).toBe('TV');
+        expect(icons[0]?.classList.contains('setup-toggle-icon--movie')).toBe(true);
+        expect(icons[1]?.classList.contains('setup-toggle-icon--show')).toBe(true);
+        expect(setTrustedInlineSvg).toHaveBeenNthCalledWith(1, icons[0], '<svg data-kind="movie"></svg>');
+        expect(setTrustedInlineSvg).toHaveBeenNthCalledWith(2, icons[1], '<svg data-kind="show"></svg>');
     });
 
     it('updateLibraryToggle mutates aria state, classes, and text in place', () => {

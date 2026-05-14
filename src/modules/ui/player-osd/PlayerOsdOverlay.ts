@@ -223,15 +223,9 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
             this.elements.upNext.textContent = vm.upNextText ?? '';
             this.elements.upNext.style.display = vm.upNextText ? 'block' : 'none';
         }
-        if (this.elements.actionSubtitles) {
-            this.elements.actionSubtitles.id = vm.actionIds?.subtitles ?? '';
-        }
-        if (this.elements.actionSleep) {
-            this.elements.actionSleep.id = vm.actionIds?.sleep ?? '';
-        }
-        if (this.elements.actionAudio) {
-            this.elements.actionAudio.id = vm.actionIds?.audio ?? '';
-        }
+        this.updateActionButton(this.elements.actionSubtitles, vm.actionIds?.subtitles ?? '');
+        this.updateActionButton(this.elements.actionSleep, vm.actionIds?.sleep ?? '');
+        this.updateActionButton(this.elements.actionAudio, vm.actionIds?.audio ?? '');
         if (this.elements.sleepTimer) {
             this.elements.sleepTimer.textContent = vm.sleepTimerText ?? '';
             this.elements.sleepTimer.style.display = vm.sleepTimerText ? '' : 'none';
@@ -313,6 +307,20 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         }
 
         return null;
+    }
+
+    private updateActionButton(element: HTMLElement | null, id: string): void {
+        if (!element) return;
+        element.id = id;
+        const enabled = id.length > 0;
+        if (element instanceof HTMLButtonElement) {
+            element.disabled = !enabled;
+        }
+        if (enabled) {
+            element.removeAttribute('aria-disabled');
+        } else {
+            element.setAttribute('aria-disabled', 'true');
+        }
     }
 
     private cacheElements(): void {
@@ -400,6 +408,8 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         subtitlesBtn.className = PLAYER_OSD_CLASSES.ACTION;
         subtitlesBtn.dataset.action = 'subtitles';
         subtitlesBtn.textContent = 'Subtitles';
+        subtitlesBtn.disabled = true;
+        subtitlesBtn.setAttribute('aria-disabled', 'true');
         actions.appendChild(subtitlesBtn);
 
         const sleepBtn = document.createElement('button');
@@ -407,6 +417,8 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         sleepBtn.className = PLAYER_OSD_CLASSES.ACTION;
         sleepBtn.dataset.action = 'sleep';
         sleepBtn.textContent = 'Sleep';
+        sleepBtn.disabled = true;
+        sleepBtn.setAttribute('aria-disabled', 'true');
         actions.appendChild(sleepBtn);
 
         const audioBtn = document.createElement('button');
@@ -414,6 +426,8 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
         audioBtn.className = PLAYER_OSD_CLASSES.ACTION;
         audioBtn.dataset.action = 'audio';
         audioBtn.textContent = 'Audio';
+        audioBtn.disabled = true;
+        audioBtn.setAttribute('aria-disabled', 'true');
         actions.appendChild(audioBtn);
 
         const sleepTimer = document.createElement('div');

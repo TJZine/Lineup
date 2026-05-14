@@ -121,7 +121,6 @@ export class PlaybackOptionsModal implements IPlaybackOptionsModal {
             const empty = document.createElement('div');
             empty.className = PLAYBACK_OPTIONS_CLASSES.EMPTY;
             empty.textContent = section.emptyMessage;
-            empty.style.display = section.options.length === 0 ? 'block' : 'none';
             wrapper.appendChild(empty);
         }
 

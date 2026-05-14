@@ -138,6 +138,8 @@ describe('ChannelSetupScreen', () => {
         expect(showsMeta?.textContent ?? '').toContain(
             `Shows • ${formattedShowCount} series • ${formattedEpisodeCount} episodes`
         );
+        expect(container.querySelector('#setup-lib-movies .setup-toggle-icon svg')).not.toBeNull();
+        expect(container.querySelector('#setup-lib-shows .setup-toggle-icon svg')).not.toBeNull();
     });
 
     it('applies stagger class and delay to library cards', async () => {

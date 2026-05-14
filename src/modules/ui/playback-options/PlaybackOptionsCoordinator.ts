@@ -204,6 +204,7 @@ export class PlaybackOptionsCoordinator {
             audio: {
                 title: 'Audio',
                 options: audioOptions,
+                ...(audioTracks.length === 0 ? { emptyMessage: 'No alternate audio tracks available' } : {}),
             },
         };
     }

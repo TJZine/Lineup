@@ -109,7 +109,7 @@ function makeCoordinatorOptions(
     };
 }
 
-const setup = (): {
+const setup = (overrides: Partial<CoordinatorOptions> = {}): {
     coordinator: PlayerOsdCoordinator;
     overlay: IPlayerOsdOverlay;
     videoPlayer: IVideoPlayer;
@@ -125,7 +125,7 @@ const setup = (): {
     audio.id = 'player-osd-action-audio';
     document.body.appendChild(audio);
 
-    const options = makeCoordinatorOptions();
+    const options = makeCoordinatorOptions(overrides);
     const overlay = options.getOverlay() as IPlayerOsdOverlay;
     const navigation = options.getNavigation() as INavigationManager;
     const videoPlayer = options.getVideoPlayer() as IVideoPlayer;
@@ -138,6 +138,15 @@ const setup = (): {
     });
 
     return { coordinator, overlay, videoPlayer, navigation };
+};
+
+const selectRegisteredAction = (navigation: INavigationManager, id: string): void => {
+    const calls = (navigation.registerFocusable as jest.Mock).mock.calls;
+    const focusable = calls.map((call) => call[0]).find((candidate) => candidate?.id === id);
+    if (!focusable?.onSelect) {
+        throw new Error(`Focusable action not registered: ${id}`);
+    }
+    focusable.onSelect();
 };
 
 describe('PlayerOsdCoordinator', () => {
@@ -558,6 +567,71 @@ describe('PlayerOsdCoordinator', () => {
 
         expect(navigation.registerFocusable).toHaveBeenCalledTimes(3);
         expect(navigation.setFocus).not.toHaveBeenCalled();
+    });
+
+    it('registers subtitles and audio actions to open playback option panels', () => {
+        const preparePlaybackOptionsModal = jest.fn().mockReturnValue({
+            focusableIds: ['playback-subtitle-off'],
+            preferredFocusId: 'playback-subtitle-off',
+        });
+        const { coordinator, navigation } = setup({ preparePlaybackOptionsModal });
+
+        coordinator.poke('play');
+        selectRegisteredAction(navigation, 'player-osd-action-subtitles');
+
+        expect(preparePlaybackOptionsModal).toHaveBeenCalledWith('subtitles');
+        expect(navigation.openModal).toHaveBeenCalledWith('playback-options', ['playback-subtitle-off']);
+        expect(navigation.setFocus).toHaveBeenLastCalledWith('playback-subtitle-off');
+
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+        coordinator.poke('play');
+        selectRegisteredAction(navigation, 'player-osd-action-audio');
+
+        expect(preparePlaybackOptionsModal).toHaveBeenLastCalledWith('audio');
+    });
+
+    it('renders visible sleep feedback when the sleep action cycles off', () => {
+        const cycleSleepTimerPreset = jest.fn().mockReturnValue(0);
+        const { coordinator, overlay, navigation } = setup({
+            cycleSleepTimerPreset,
+            getSleepTimerRemainingMs: jest.fn().mockReturnValue(0),
+        });
+
+        coordinator.poke('play');
+        (overlay.setViewModel as jest.Mock).mockClear();
+
+        selectRegisteredAction(navigation, 'player-osd-action-sleep');
+
+        const calls = (overlay.setViewModel as jest.Mock).mock.calls;
+        const lastViewModel = calls[calls.length - 1]?.[0] as { sleepTimerText?: string | null };
+        expect(cycleSleepTimerPreset).toHaveBeenCalled();
+        expect(lastViewModel.sleepTimerText).toBe('Sleep off');
+    });
+
+    it('does not reuse positive sleep action feedback after the active timer reaches zero', () => {
+        let sleepTimerRemainingMs = 0;
+        const cycleSleepTimerPreset = jest.fn().mockReturnValue(15);
+        const { coordinator, overlay, navigation } = setup({
+            cycleSleepTimerPreset,
+            getSleepTimerRemainingMs: jest.fn(() => sleepTimerRemainingMs),
+        });
+
+        coordinator.poke('play');
+        sleepTimerRemainingMs = 15 * 60_000;
+        selectRegisteredAction(navigation, 'player-osd-action-sleep');
+
+        let calls = (overlay.setViewModel as jest.Mock).mock.calls;
+        let lastViewModel = calls[calls.length - 1]?.[0] as { sleepTimerText?: string | null };
+        expect(lastViewModel.sleepTimerText).toBe('Sleep 15:00');
+
+        sleepTimerRemainingMs = 0;
+        (overlay.setViewModel as jest.Mock).mockClear();
+        coordinator.refreshIfVisible();
+        jest.advanceTimersByTime(300);
+
+        calls = (overlay.setViewModel as jest.Mock).mock.calls;
+        lastViewModel = calls[calls.length - 1]?.[0] as { sleepTimerText?: string | null };
+        expect(lastViewModel.sleepTimerText).toBeUndefined();
     });
 
     it('omits clearLogoUrl when prefer clear logos is disabled', () => {
