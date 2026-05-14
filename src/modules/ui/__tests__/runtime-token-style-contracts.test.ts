@@ -969,6 +969,12 @@ const COLOR_CONTRACTS: DeclarationContract[] = [
     },
     {
         file: 'src/styles/shell.chrome.css',
+        selector: '.error-title',
+        property: 'color',
+        expected: 'var(--color-text-primary)',
+    },
+    {
+        file: 'src/styles/shell.chrome.css',
         selector: '.error-button',
         property: 'color',
         expected: 'var(--color-text-primary)',
