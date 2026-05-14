@@ -44,6 +44,8 @@ export class SettingsScreen {
     private _selectElements: Map<string, ReturnType<typeof createSettingsSelect>> = new Map();
     private _categoryButtons: Map<SettingsCategoryId, HTMLButtonElement> = new Map();
     private _activeCategoryItemIds: string[] = [];
+    private _categoryRail: HTMLElement | null = null;
+    private _detailPane: HTMLElement | null = null;
     private _detailTitle: HTMLHeadingElement | null = null;
     private _detailItems: HTMLElement | null = null;
     private _switchProfileButton: HTMLButtonElement | null = null;
@@ -131,12 +133,14 @@ export class SettingsScreen {
         categoryRail.className = 'settings-categories';
         categoryRail.setAttribute('aria-label', 'Settings categories');
         categoryRail.appendChild(header);
+        this._categoryRail = categoryRail;
 
         const content = document.createElement('div');
         content.className = 'settings-content';
 
         const detail = document.createElement('div');
         detail.className = 'settings-detail';
+        this._detailPane = detail;
 
         const detailTitle = document.createElement('h2');
         detailTitle.className = 'settings-detail-title';
@@ -339,6 +343,7 @@ export class SettingsScreen {
         this._container.classList.add('visible');
         this._reloadCategoriesFromState();
         this._renderActiveCategory();
+        this._resetOwnedScrollContainers();
         if (this._switchProfileButton && this._getActiveUsername) {
             const username = this._getActiveUsername() ?? 'Profile';
             const nameEl = this._switchProfileButton.querySelector('.settings-profile-name');
@@ -347,6 +352,17 @@ export class SettingsScreen {
         }
         this._focusCoordinator.attachKeyHandler();
         this._focusCoordinator.registerFocusables();
+    }
+
+    private _resetOwnedScrollContainers(): void {
+        if (this._categoryRail) {
+            this._categoryRail.scrollTop = 0;
+            this._categoryRail.scrollLeft = 0;
+        }
+        if (this._detailPane) {
+            this._detailPane.scrollTop = 0;
+            this._detailPane.scrollLeft = 0;
+        }
     }
 
     private _handleStateInvalidated(): void {
@@ -389,6 +405,8 @@ export class SettingsScreen {
         this._selectElements.clear();
         this._categoryButtons.clear();
         this._activeCategoryItemIds = [];
+        this._categoryRail = null;
+        this._detailPane = null;
         this._detailTitle = null;
         this._detailItems = null;
         this._switchProfileButton = null;

@@ -132,6 +132,32 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(container.classList.contains('screen')).toBe(false);
     });
 
+    it('resets owned rail and detail scroll containers on show', () => {
+        const { container, screen } = createScreen(jest.fn());
+
+        screen.show();
+        const rail = container.querySelector('.settings-categories') as HTMLElement | null;
+        const detail = container.querySelector('.settings-detail') as HTMLElement | null;
+        if (!rail || !detail) {
+            throw new Error('Expected settings scroll containers');
+        }
+
+        rail.scrollTop = 180;
+        rail.scrollLeft = 12;
+        detail.scrollTop = 420;
+        detail.scrollLeft = 8;
+
+        screen.hide();
+        screen.show();
+
+        expect(rail.scrollTop).toBe(0);
+        expect(rail.scrollLeft).toBe(0);
+        expect(detail.scrollTop).toBe(0);
+        expect(detail.scrollLeft).toBe(0);
+        expect(container.querySelector('.settings-detail-title')?.textContent).toContain('Audio & Subtitles');
+        expect(container.querySelector('#settings-switch-profile')).not.toBeNull();
+    });
+
     it('writes layout mode and emits change', () => {
         const onGuideSettingChange = jest.fn();
         const { container, screen } = createScreen(onGuideSettingChange);

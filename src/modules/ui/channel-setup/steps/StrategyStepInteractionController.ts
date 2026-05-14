@@ -53,6 +53,7 @@ type StrategyStepInteractionAdapters = {
     openDropdown: (config: StrategyStepDropdownConfig) => void;
     registerStep2: (options: RegisterStep2FocusOptions) => boolean;
     renderStep: () => void;
+    resetStep2Scroll: () => void;
     setPreferredFocusId: (focusId: string | null) => void;
     setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean) => void;
     stepPreset: (
@@ -205,7 +206,7 @@ export class StrategyStepInteractionController {
         focusId: string,
         adapters: Pick<
             StrategyStepInteractionAdapters,
-            'renderStep' | 'setPreferredFocusId' | 'setPriorityRowGrabbedVisual'
+            'renderStep' | 'resetStep2Scroll' | 'setPreferredFocusId' | 'setPriorityRowGrabbedVisual'
         >
     ): void {
         if (category !== 'priority-order') {
@@ -213,6 +214,7 @@ export class StrategyStepInteractionController {
         }
         this._activeStrategyCategory = category;
         adapters.setPreferredFocusId(focusId);
+        adapters.resetStep2Scroll();
         adapters.renderStep();
     }
 
@@ -432,6 +434,12 @@ export class StrategyStepInteractionController {
                     this._clearGrabbedPriority(adapters.setPriorityRowGrabbedVisual);
                 }
                 this._activeStrategyCategory = focusedCategory;
+                adapters.setPreferredFocusId(this.categoryButtonId(focusedCategory));
+                adapters.resetStep2Scroll();
+                adapters.renderStep();
+                event.handled = true;
+                event.originalEvent.preventDefault();
+                return;
             }
             const detailIds = this._getDetailControlIdsForCategory(focusedCategory, session);
             const target = this._resolveDetailFocusTarget(focusedCategory, detailIds, session);

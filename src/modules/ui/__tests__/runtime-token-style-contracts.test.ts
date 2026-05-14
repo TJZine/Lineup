@@ -1168,6 +1168,19 @@ describe('runtime token style contracts', () => {
         expect(block).not.toContain('z-index');
     });
 
+    it('anchors Settings to the viewport instead of retained guide scroll', () => {
+        const css = readCss('src/modules/ui/settings/styles.core.css');
+        const block = topLevelBlockForProperty(css, '.settings-screen', 'position');
+        const railBlock = topLevelBlockForProperty(css, '.settings-categories', 'box-sizing');
+
+        expect(declarationValue(block, 'position')).toBe('fixed');
+        expect(declarationValue(block, 'top')).toBe('0');
+        expect(declarationValue(block, 'right')).toBe('0');
+        expect(declarationValue(block, 'bottom')).toBe('0');
+        expect(declarationValue(block, 'left')).toBe('0');
+        expect(declarationValue(railBlock, 'box-sizing')).toBe('border-box');
+    });
+
     it.each(COLOR_CONTRACTS)(
         'maps $property for $selector in $file to $expected',
         ({ file, selector, property, expected, within }) => {

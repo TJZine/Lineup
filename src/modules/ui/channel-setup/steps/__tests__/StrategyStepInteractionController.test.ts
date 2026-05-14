@@ -67,6 +67,7 @@ const createAdapters = (
     openDropdown: jest.fn(),
     registerStep2: jest.fn(() => false),
     renderStep: jest.fn(),
+    resetStep2Scroll: jest.fn(),
     schedulePreview: jest.fn(),
     setPreferredFocusId: jest.fn(),
     setPriorityRowGrabbedVisual: jest.fn(),
@@ -186,6 +187,7 @@ describe('StrategyStepInteractionController', () => {
         });
         controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         });
@@ -253,6 +255,7 @@ describe('StrategyStepInteractionController', () => {
 
         controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         });
@@ -281,6 +284,7 @@ describe('StrategyStepInteractionController', () => {
         const controller = createController();
         const categoryAdapters = {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         };
@@ -296,6 +300,7 @@ describe('StrategyStepInteractionController', () => {
 
         expect(controller.getActiveStrategyCategory()).toBe('limits');
         expect(categoryAdapters.setPreferredFocusId).toHaveBeenCalledWith('setup-category-limits');
+        expect(categoryAdapters.resetStep2Scroll).toHaveBeenCalledTimes(1);
         expect(categoryAdapters.renderStep).toHaveBeenCalledTimes(1);
         expect(categoryAdapters.setPriorityRowGrabbedVisual).toHaveBeenCalledWith('playlists', false);
     });
@@ -304,6 +309,7 @@ describe('StrategyStepInteractionController', () => {
         const controller = createController();
         controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         });
@@ -464,6 +470,7 @@ describe('StrategyStepInteractionController', () => {
 
         controller.applyCategoryChange('build-options', 'setup-category-build-options', {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         });
@@ -587,6 +594,7 @@ describe('StrategyStepInteractionController', () => {
         const controller = createController();
         controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         });
@@ -628,6 +636,7 @@ describe('StrategyStepInteractionController', () => {
         const controller = createController();
         controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         });
@@ -647,9 +656,15 @@ describe('StrategyStepInteractionController', () => {
             createNav('setup-category-build-options') as never,
             buildAdapters
         );
-        expect(buildAdapters.setPreferredFocusId).toHaveBeenCalledWith(STEP2_CONTROL_IDS.buildMode);
+        expect(buildAdapters.setPreferredFocusId).toHaveBeenCalledWith('setup-category-build-options');
+        expect(buildAdapters.resetStep2Scroll).toHaveBeenCalledTimes(1);
         expect(buildAdapters.renderStep).toHaveBeenCalledTimes(1);
         expect(buildAdapters.setPriorityRowGrabbedVisual).toHaveBeenCalledWith('playlists', false);
+
+        const enterDetailEvent = createEvent('right');
+        controller.handleKeyPress(enterDetailEvent, createNav('setup-category-build-options') as never, buildAdapters);
+        expect(enterDetailEvent.handled).toBe(true);
+        expect(buildAdapters.setPreferredFocusId).toHaveBeenLastCalledWith(STEP2_CONTROL_IDS.buildMode);
 
         const leftNav = createNav(STEP2_CONTROL_IDS.buildMode);
         controller.handleKeyPress(createEvent('left'), leftNav as never, buildAdapters);
@@ -661,6 +676,7 @@ describe('StrategyStepInteractionController', () => {
         const controller = createController();
         controller.applyCategoryChange('limits', 'setup-category-limits', {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         });
@@ -678,6 +694,7 @@ describe('StrategyStepInteractionController', () => {
         const controller = createController();
         controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         });
@@ -706,6 +723,7 @@ describe('StrategyStepInteractionController', () => {
         const controller = createController();
         controller.applyCategoryChange('series-ordering', 'setup-category-series-ordering', {
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             setPreferredFocusId: jest.fn(),
             setPriorityRowGrabbedVisual: jest.fn(),
         });

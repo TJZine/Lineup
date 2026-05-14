@@ -46,6 +46,7 @@ export class ChannelSetupScreen {
     private _detailEl: HTMLElement;
     private _errorEl: HTMLElement;
     private _contentEl: HTMLElement;
+    private _panelEl: HTMLElement;
     private readonly _session: ChannelSetupSessionController;
     private readonly _workflowPresenter: ChannelSetupWorkflowPresenter;
     private _preferredFocusId: string | null = null;
@@ -104,6 +105,7 @@ export class ChannelSetupScreen {
         });
         this._destroyScreenShell = shell.destroy;
         shell.panelEl.classList.add('setup-panel');
+        this._panelEl = shell.panelEl;
 
         const stepEl = document.createElement('div');
         stepEl.className = 'setup-step';
@@ -133,6 +135,9 @@ export class ChannelSetupScreen {
             getVisibilityToken: (): number => this._visibilityToken,
             renderStep: (): void => {
                 this._renderStep();
+            },
+            resetStep2Scroll: (): void => {
+                this._resetStep2ScrollContainers();
             },
             toDomId: (raw): string => this._toDomId(raw),
         });
@@ -353,6 +358,18 @@ export class ChannelSetupScreen {
 
     private _renderStrategyStep(): void {
         this._workflowPresenter.renderStrategyStep(this._buildStepRenderContext());
+    }
+
+    private _resetStep2ScrollContainers(): void {
+        this._panelEl.scrollTop = 0;
+        this._panelEl.scrollLeft = 0;
+
+        for (const selector of ['.setup-detail-scroll', '.setup-category-rail']) {
+            const scrollContainer = this._contentEl.querySelector<HTMLElement>(selector);
+            if (!scrollContainer) continue;
+            scrollContainer.scrollTop = 0;
+            scrollContainer.scrollLeft = 0;
+        }
     }
 
     private _renderBuildStep(): void {

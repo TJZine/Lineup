@@ -7,7 +7,7 @@ import type { StrategyStepMutableState } from '../ChannelSetupSessionContracts';
 import type { PlexLibrarySection } from '../../../plex/library/types';
 import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../steps/constants';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS, STEP2_CONTROL_IDS } from '../steps/constants';
 
 import { createBodyAppendedTestContainer, flushPromises } from '../../../../__tests__/helpers';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
@@ -333,6 +333,78 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
     });
 
+    it('resets the persistent Step 2 panel scroll when sections switch by click', async () => {
+        const container = createBodyAppendedTestContainer();
+
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+
+        const panel = container.querySelector('.setup-panel') as HTMLElement | null;
+        const detailScroll = container.querySelector('.setup-detail-scroll') as HTMLElement | null;
+        const categoryRail = container.querySelector('.setup-category-rail') as HTMLElement | null;
+        if (!panel || !detailScroll || !categoryRail) {
+            throw new Error('Expected Step 2 scroll containers');
+        }
+        panel.scrollTop = 360;
+        detailScroll.scrollTop = 90;
+        categoryRail.scrollTop = 40;
+
+        clickButton(container, '#setup-category-build-options');
+
+        expect(panel.scrollTop).toBe(0);
+        expect((container.querySelector('.setup-detail-scroll') as HTMLElement | null)?.scrollTop).toBe(0);
+        expect((container.querySelector('.setup-category-rail') as HTMLElement | null)?.scrollTop).toBe(0);
+        expect(container.querySelector('.setup-detail-header')?.textContent).toBe('Build Options');
+        expect(container.querySelector('#setup-back')).not.toBeNull();
+        expect(container.querySelector('#setup-next')).not.toBeNull();
+    });
+
+    it('resets Step 2 panel scroll before right-key section switching restores detail focus', async () => {
+        const container = createBodyAppendedTestContainer();
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+        const panel = container.querySelector('.setup-panel') as HTMLElement | null;
+        if (!panel) {
+            throw new Error('Expected setup panel');
+        }
+        panel.scrollTop = 360;
+
+        nav.setMockFocus('setup-category-limits');
+        const switchEvent = nav.emitKeyPress('right');
+
+        expect(switchEvent.handled).toBe(true);
+        expect(panel.scrollTop).toBe(0);
+        expect(container.querySelector('.setup-detail-header')?.textContent).toBe('Limits');
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-limits');
+        expect(container.querySelector('#setup-back')).not.toBeNull();
+        expect(container.querySelector('#setup-next')).not.toBeNull();
+
+        const enterDetailEvent = nav.emitKeyPress('right');
+        expect(enterDetailEvent.handled).toBe(true);
+        expect(nav.setFocus).toHaveBeenLastCalledWith(STEP2_CONTROL_IDS.maxChannels);
+    });
+
     it('does not re-register focusables if library loading settles after hide', async () => {
         const container = createBodyAppendedTestContainer();
 
@@ -495,7 +567,7 @@ describe('ChannelSetupScreen', () => {
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-strategy-playlists');
     });
 
-    it('right transfer activates the focused category before moving to detail controls', async () => {
+    it('right transfer activates the focused category before a second right moves to detail controls', async () => {
         const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
@@ -516,6 +588,11 @@ describe('ChannelSetupScreen', () => {
         expect(transfer.handled).toBe(true);
         expect(transfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(container.querySelector('#setup-build-mode')).not.toBeNull();
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-build-options');
+
+        const enterDetail = nav.emitKeyPress('right');
+        expect(enterDetail.handled).toBe(true);
+        expect(enterDetail.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-build-mode');
     });
 
