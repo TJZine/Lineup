@@ -226,7 +226,7 @@ describe('advanceTimersUntil', () => {
 
         try {
             await advanceTimersUntil(() => {
-                expect('current state').toBe('ready state');
+                throw new Error('final assertion marker');
             }, {
                 stepMs: 20,
                 timeoutMs: 60,
@@ -238,7 +238,7 @@ describe('advanceTimersUntil', () => {
         expect(caughtError).toBeInstanceOf(Error);
         const message = (caughtError as Error).message;
         expect(message).toContain('advanceTimersUntil timed out after 60ms. Last assertion:');
-        expect(message).toContain('expect(received).toBe(expected)');
+        expect(message).toContain('final assertion marker');
     });
 
     it('supports timeout values that are not divisible by stepMs', async () => {
