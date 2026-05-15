@@ -365,7 +365,7 @@ describe('EPGCellRenderer', () => {
         expect(query(element, EPG_CLASSES.CELL_TIME).style.display).toBe('block');
     });
 
-    it('keeps title full-row layout off current, focused, and constrained episode cells', () => {
+    it('uses row-aware episode title layout for current wide cells while constrained cells stay compact', () => {
         const makeEpisode = (ratingKey: string): ScheduledProgram => makeProgram({
             item: {
                 ratingKey,
@@ -401,11 +401,17 @@ describe('EPGCellRenderer', () => {
             program: makeEpisode('episode-constrained'),
         }), TEST_START_MS);
 
-        expect(current.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(false);
-        expect(query(current, EPG_CLASSES.LIVE_BADGE).textContent).toBe('LIVE');
+        expect(current.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(true);
+        expect(query(current, EPG_CLASSES.LIVE_BADGE).textContent).toBe('');
+        expect(query(current, EPG_CLASSES.LIVE_BADGE).classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+        expect(query(current, EPG_CLASSES.LIVE_BADGE).getAttribute('aria-label')).toBe('Currently playing');
+        expect(query(current, EPG_CLASSES.CELL_META).style.display).toBe('flex');
+        expect(query(current, EPG_CLASSES.CELL_EPISODE).textContent).toBe('S01E08');
         expect(focused.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(false);
         expect(focused.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
         expect(constrained.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(false);
+        expect(query(constrained, EPG_CLASSES.CELL_META).style.display).toBe('none');
+        expect(query(constrained, EPG_CLASSES.CELL_EPISODE).textContent).toBe('S01E08');
         expect(query(constrained, EPG_CLASSES.CELL_TIME).style.display).toBe('none');
     });
 
@@ -424,8 +430,9 @@ describe('EPGCellRenderer', () => {
         const liveBadge = query(element, EPG_CLASSES.LIVE_BADGE);
         const progressFill = query(element, EPG_CLASSES.CELL_PROGRESS_FILL);
         expect(liveBadge.hidden).toBe(false);
-        expect(liveBadge.textContent).toBe('LIVE');
-        expect(liveBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(false);
+        expect(liveBadge.textContent).toBe('');
+        expect(liveBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+        expect(liveBadge.getAttribute('aria-label')).toBe('Currently playing');
         expect(progressFill.style.width).toBe('25%');
 
         renderer.updateTemporalPresentation(makeProgramCell(element, {
@@ -441,7 +448,7 @@ describe('EPGCellRenderer', () => {
         expect(element.classList.contains(EPG_CLASSES.CELL_PAST)).toBe(true);
     });
 
-    it('uses compact live dot when only partial visible width can fit the badge', () => {
+    it('uses compact live dot for current cells regardless of visible width', () => {
         const element = renderer.createElement();
         const startTimeMs = TEST_START_MS;
         const endTimeMs = startTimeMs + 60 * 60_000;

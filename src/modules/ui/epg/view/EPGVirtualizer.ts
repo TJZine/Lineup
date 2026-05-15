@@ -687,13 +687,6 @@ export class EPGVirtualizer {
             return true;
         }
 
-        if (
-            next.isCurrent &&
-            this.cellRenderer.usesCompactLiveBadge(previous) !== this.cellRenderer.usesCompactLiveBadge(next)
-        ) {
-            return true;
-        }
-
         if (previous.isFocused !== next.isFocused || previous.isCurrent !== next.isCurrent) {
             return true;
         }

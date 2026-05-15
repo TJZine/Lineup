@@ -286,6 +286,73 @@ describe('focused EPG overflow style contract', () => {
         expect(getComputedStyle(subtitle).maxWidth).toBe('calc(100% - 172px)');
     });
 
+    it('keeps current-cell progress contrast owned by local EPG CSS', () => {
+        const progressBlock = getBlock('\n.epg-cell-progress {');
+        expect(progressBlock).toContain('--epg-current-progress-track: rgba(13, 17, 24, 0.78)');
+        expect(progressBlock).toContain('--epg-current-progress-fill: #ffd45a');
+        expect(progressBlock).toContain('height: 5px');
+        expect(progressBlock).toContain('background: var(--epg-current-progress-track)');
+        expect(progressBlock).toContain('display: none');
+
+        const currentBlock = getBlock('.epg-cell.current .epg-cell-progress');
+        expect(currentBlock).toContain('display: block');
+
+        const fillBlock = getBlock('.epg-cell-progress-fill');
+        expect(fillBlock).toContain('background: var(--epg-current-progress-fill)');
+        expect(fillBlock).toContain('box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.36)');
+
+        const cell = document.createElement('div');
+        cell.className = 'epg-cell current';
+        const progress = document.createElement('div');
+        progress.className = 'epg-cell-progress';
+        const fill = document.createElement('div');
+        fill.className = 'epg-cell-progress-fill';
+        progress.appendChild(fill);
+        cell.appendChild(progress);
+        document.body.appendChild(cell);
+
+        const progressStyle = getComputedStyle(progress);
+        expect(progressStyle.display).toBe('block');
+        expect(progressStyle.height).toBe('5px');
+        expect(progressStyle.getPropertyValue('--epg-current-progress-track').trim())
+            .toBe('rgba(13, 17, 24, 0.78)');
+        expect(progressStyle.getPropertyValue('--epg-current-progress-fill').trim()).toBe('#ffd45a');
+    });
+
+    it('keeps classic and forced-colors progress contrast overrides explicit', () => {
+        const classicBlock = getBlock('.epg-container.layout-classic .epg-cell-progress');
+        expect(classicBlock).toContain('--epg-current-progress-track: rgba(0, 0, 0, 0.62)');
+        expect(classicBlock).toContain('--epg-current-progress-fill: var(--color-primary-light, var(--color-primary))');
+        expect(classicBlock).toContain('height: 4px');
+
+        const classicFillBlock = getBlock('.epg-container.layout-classic .epg-cell-progress-fill');
+        expect(classicFillBlock).toContain('box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.42)');
+
+        const forcedColorsBlock = getAtRuleBlocks('@media (forced-colors: active)')
+            .find((block) => block.includes('.epg-cell.current .epg-cell-progress'));
+        expect(forcedColorsBlock).toBeDefined();
+        const block = forcedColorsBlock ?? '';
+        expect(block).toContain('background: CanvasText');
+        expect(block).toContain('.epg-cell-progress-fill');
+        expect(block).toContain('background: Highlight');
+
+        const container = document.createElement('div');
+        container.className = 'epg-container layout-classic';
+        const cell = document.createElement('div');
+        cell.className = 'epg-cell current';
+        const progress = document.createElement('div');
+        progress.className = 'epg-cell-progress';
+        cell.appendChild(progress);
+        container.appendChild(cell);
+        document.body.appendChild(container);
+
+        const progressStyle = getComputedStyle(progress);
+        expect(progressStyle.display).toBe('block');
+        expect(progressStyle.height).toBe('4px');
+        expect(progressStyle.getPropertyValue('--epg-current-progress-track').trim())
+            .toBe('rgba(0, 0, 0, 0.62)');
+    });
+
     it('keeps generic focused narrow/tiny selectors from matching focused movie overlays', () => {
         expect(css).toContain(
             '.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow,\n' +
