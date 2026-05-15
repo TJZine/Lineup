@@ -194,11 +194,11 @@ describe('focused EPG overflow style contract', () => {
         }
     });
 
-    it('keeps focused movie rail anchoring stable across badge visibility in tiny and medium tiers', () => {
+    it('keeps focused movie rail anchoring stable while renderer owns time visibility', () => {
         const timeBlock = getBlock(
             '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time'
         );
-        expect(timeBlock).toContain('display: block');
+        expect(timeBlock).not.toContain('display: block');
         expect(timeBlock).toContain('align-self: flex-end');
         expect(timeBlock).toContain('margin-top: auto');
 

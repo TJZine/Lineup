@@ -679,6 +679,10 @@ export class EPGVirtualizer {
             return true;
         }
 
+        if (this.cellRenderer.getCellVisibleWidthTier(previous) !== this.cellRenderer.getCellVisibleWidthTier(next)) {
+            return true;
+        }
+
         if (this.cellRenderer.isSliverCell(previous) !== this.cellRenderer.isSliverCell(next)) {
             return true;
         }

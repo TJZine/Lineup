@@ -9,10 +9,12 @@ import {
     getEffectiveTickerClientWidth,
     getProgramCellTextLayout,
     getProgressFillWidth,
+    getRenderedVisibleWidthTier,
     getVisibleTextMetrics,
     isSliverCell,
     measureReadyStateTickerOverflow,
     shouldCompactLiveBadgeForVisibleWidth,
+    shouldShowCellTimeForWidth,
     type CellTextLayout,
     type EPGCellWidthTier,
     type EPGCellVisibleTextMetrics,
@@ -160,6 +162,10 @@ export class EPGCellRenderer {
         return getCellWidthTier(width);
     }
 
+    getCellVisibleWidthTier(cellData: EPGRenderedCellData): EPGCellWidthTier {
+        return getRenderedVisibleWidthTier(cellData);
+    }
+
     isSliverCell(cellData: EPGRenderedCellData): boolean {
         return isSliverCell(cellData);
     }
@@ -294,6 +300,7 @@ export class EPGCellRenderer {
             }),
         ].filter((target): target is TickerTarget => target !== null);
         if (targets.length === 0) return;
+        this.clearTickerStateForTargets(targets);
 
         const textShiftPx = Math.max(0, focusedCell.textShiftPx);
         const tier = this.getCellWidthTier(focusedCell.width);
@@ -452,12 +459,8 @@ export class EPGCellRenderer {
         }
 
         if (subtitle) {
-            const shouldInlineEpisodeTag = textLayout.focusedLayoutMode === 'compact';
-            const subtitleValue = shouldInlineEpisodeTag && textLayout.focusedCompactSubtitle
-                ? textLayout.focusedCompactSubtitle
-                : textLayout.subtitle;
             if (subtitleText) {
-                subtitleText.textContent = textLayout.showSubtitle ? subtitleValue : '';
+                subtitleText.textContent = textLayout.showSubtitle ? textLayout.subtitle : '';
             }
             subtitle.style.display = textLayout.showSubtitle ? 'block' : 'none';
         }
@@ -474,6 +477,14 @@ export class EPGCellRenderer {
             subtitleText.textContent = '';
         }
         subtitle.style.display = 'none';
+    }
+
+    private clearTickerStateForTargets(targets: TickerTarget[]): void {
+        for (const target of targets) {
+            target.viewport.classList.remove(target.readyClass, target.runningClass);
+            target.viewport.style.removeProperty(target.durationVarName);
+            target.viewport.style.removeProperty(target.distanceVarName);
+        }
     }
 
     private applyWidthPresentation(
@@ -494,6 +505,10 @@ export class EPGCellRenderer {
         const hasMetaContent = (meta?.textContent ?? '').trim().length > 0;
         const hasSubtitleContent = (subtitleText?.textContent ?? '').trim().length > 0;
         const isFocused = cellData.isFocused;
+        const isFocusedEpisode = isFocused &&
+            cellData.kind === 'program' &&
+            cellData.program.item.type === 'episode';
+        const showTime = shouldShowCellTimeForWidth(cellData, textLayout);
         const {
             usesFocusedCompactLayout,
             usesFocusedMovieOverlay,
@@ -519,17 +534,17 @@ export class EPGCellRenderer {
         }
 
         if (tier === 'wide') {
-            if (meta) meta.style.display = usesFocusedCompactLayout ? 'none' : hasMetaContent ? 'flex' : 'none';
+            if (meta) meta.style.display = hasMetaContent ? 'flex' : 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
-            if (time) time.style.display = usesFocusedCompactLayout ? 'none' : 'block';
+            if (time) time.style.display = showTime ? 'block' : 'none';
         } else if (tier === 'medium') {
-            if (meta) meta.style.display = 'none';
+            if (meta) meta.style.display = isFocusedEpisode && hasMetaContent ? 'flex' : 'none';
             if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
-            if (time) time.style.display = usesFocusedCompactLayout ? 'none' : 'block';
+            if (time) time.style.display = showTime ? 'block' : 'none';
         } else if (tier === 'narrow' || tier === 'tiny') {
-            if (meta) meta.style.display = 'none';
-            if (subtitle) subtitle.style.display = usesFocusedCompactLayout && hasSubtitleContent ? 'block' : 'none';
-            if (time) time.style.display = isFocused && !usesFocusedCompactLayout ? 'block' : 'none';
+            if (meta) meta.style.display = isFocusedEpisode && hasMetaContent ? 'flex' : 'none';
+            if (subtitle) subtitle.style.display = isFocusedEpisode && hasSubtitleContent ? 'block' : 'none';
+            if (time) time.style.display = isFocused && showTime ? 'block' : 'none';
         }
     }
 
