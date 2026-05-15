@@ -250,6 +250,42 @@ describe('focused EPG overflow style contract', () => {
         }
     });
 
+    it('lets row-aware episode title cells reserve time space only for the subtitle row', () => {
+        const layoutBlock = getBlock('.epg-cell.epg-cell-title-full-row');
+        expect(layoutBlock).toContain('grid-template-columns: 1fr');
+
+        const railBlock = getBlock('.epg-cell.epg-cell-title-full-row .epg-cell-rail');
+        expect(railBlock).toContain('position: absolute');
+        expect(railBlock).toContain('right: var(--space-3)');
+        expect(railBlock).toContain('bottom: var(--space-2)');
+        expect(railBlock).toContain('pointer-events: none');
+
+        const subtitleBlock = getBlock('.epg-cell.epg-cell-title-full-row .epg-cell-subtitle');
+        expect(subtitleBlock).toContain('max-width: calc(100% - 172px)');
+
+        const cell = document.createElement('div');
+        cell.className = 'epg-cell epg-cell-title-full-row epg-cell-tier-wide';
+
+        const content = document.createElement('div');
+        content.className = 'epg-cell-content';
+        const title = document.createElement('div');
+        title.className = 'epg-cell-title';
+        const subtitle = document.createElement('div');
+        subtitle.className = 'epg-cell-subtitle';
+        content.append(title, subtitle);
+
+        const rail = document.createElement('div');
+        rail.className = 'epg-cell-rail';
+
+        cell.append(content, rail);
+        document.body.appendChild(cell);
+
+        expect(getComputedStyle(cell).gridTemplateColumns).toBe('1fr');
+        expect(getComputedStyle(rail).position).toBe('absolute');
+        expect(getComputedStyle(title).maxWidth).toBe('');
+        expect(getComputedStyle(subtitle).maxWidth).toBe('calc(100% - 172px)');
+    });
+
     it('keeps generic focused narrow/tiny selectors from matching focused movie overlays', () => {
         expect(css).toContain(
             '.epg-cell.focused:not(.epg-cell-focused-compact):not(.epg-cell-focused-movie-overlay).epg-cell-tier-narrow,\n' +

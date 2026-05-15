@@ -15,6 +15,7 @@ import {
     measureReadyStateTickerOverflow,
     shouldCompactLiveBadgeForVisibleWidth,
     shouldShowCellTimeForWidth,
+    shouldUseCellTitleFullRowLayout,
     type CellTextLayout,
     type EPGCellWidthTier,
     type EPGCellVisibleTextMetrics,
@@ -148,6 +149,7 @@ export class EPGCellRenderer {
             EPG_CLASSES.CELL_PAST,
             EPG_CLASSES.CELL_LOADING,
             EPG_CLASSES.CELL_TEXT_SHIFTED,
+            EPG_CLASSES.CELL_TITLE_FULL_ROW,
             FOCUSED_MOVIE_OVERLAY_CLASS,
             EPG_CLASSES.SLIVER_CELL_CLASS,
             EPG_CLASSES.CELL_TIER_WIDE,
@@ -495,6 +497,7 @@ export class EPGCellRenderer {
         textLayout: CellTextLayout
     ): void {
         element.classList.remove(
+            EPG_CLASSES.CELL_TITLE_FULL_ROW,
             EPG_CLASSES.CELL_TIER_WIDE,
             EPG_CLASSES.CELL_TIER_MEDIUM,
             EPG_CLASSES.CELL_TIER_NARROW,
@@ -509,12 +512,14 @@ export class EPGCellRenderer {
             cellData.kind === 'program' &&
             cellData.program.item.type === 'episode';
         const showTime = shouldShowCellTimeForWidth(cellData, textLayout);
+        const usesTitleFullRowLayout = shouldUseCellTitleFullRowLayout(cellData, textLayout);
         const {
             usesFocusedCompactLayout,
             usesFocusedMovieOverlay,
             usesSliverPresentation,
         } = getCellWidthPresentation(cellData, textLayout);
         element.classList.toggle(EPG_CLASSES.CELL_FOCUSED_COMPACT, usesFocusedCompactLayout);
+        element.classList.toggle(EPG_CLASSES.CELL_TITLE_FULL_ROW, usesTitleFullRowLayout);
         element.classList.toggle(FOCUSED_MOVIE_OVERLAY_CLASS, usesFocusedMovieOverlay);
         element.classList.toggle(EPG_CLASSES.SLIVER_CELL_CLASS, usesSliverPresentation);
 

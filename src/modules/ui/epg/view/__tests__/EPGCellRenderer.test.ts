@@ -340,6 +340,75 @@ describe('EPGCellRenderer', () => {
         expect(query(element, EPG_CLASSES.CELL_TIME).style.display).toBe(time);
     });
 
+    it('lets non-current wide episode titles use the full row while subtitle preserves time space', () => {
+        const element = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(element, {
+            width: 360,
+            visibleWidthPx: 360,
+            program: makeProgram({
+                item: {
+                    ratingKey: 'episode-wide-row-aware',
+                    type: 'episode',
+                    title: 'Jerry',
+                    fullTitle: 'Adventure Time: Fionna and Cake - S01E08 - Jerry',
+                    showTitle: 'Adventure Time: Fionna and Cake',
+                    seasonNumber: 1,
+                    episodeNumber: 8,
+                },
+            }),
+        }), TEST_START_MS);
+
+        expect(element.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(true);
+        expect(query(element, EPG_CLASSES.CELL_TITLE_TEXT).textContent)
+            .toBe('Adventure Time: Fionna and Cake');
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('Jerry');
+        expect(query(element, EPG_CLASSES.CELL_TIME).style.display).toBe('block');
+    });
+
+    it('keeps title full-row layout off current, focused, and constrained episode cells', () => {
+        const makeEpisode = (ratingKey: string): ScheduledProgram => makeProgram({
+            item: {
+                ratingKey,
+                type: 'episode',
+                title: 'Jerry',
+                fullTitle: 'Adventure Time: Fionna and Cake - S01E08 - Jerry',
+                showTitle: 'Adventure Time: Fionna and Cake',
+                seasonNumber: 1,
+                episodeNumber: 8,
+            },
+        });
+
+        const current = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(current, {
+            width: 360,
+            visibleWidthPx: 360,
+            isCurrent: true,
+            program: makeEpisode('episode-current'),
+        }), TEST_START_MS);
+
+        const focused = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(focused, {
+            width: 360,
+            visibleWidthPx: 360,
+            isFocused: true,
+            program: makeEpisode('episode-focused'),
+        }), TEST_START_MS);
+
+        const constrained = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(constrained, {
+            width: 219,
+            visibleWidthPx: 219,
+            program: makeEpisode('episode-constrained'),
+        }), TEST_START_MS);
+
+        expect(current.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(false);
+        expect(query(current, EPG_CLASSES.LIVE_BADGE).textContent).toBe('LIVE');
+        expect(focused.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(false);
+        expect(focused.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+        expect(constrained.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(false);
+        expect(query(constrained, EPG_CLASSES.CELL_TIME).style.display).toBe('none');
+    });
+
     it('updates live badge and progress fill for current cells and resets them when temporal state changes', () => {
         const element = renderer.createElement();
         const startTimeMs = TEST_START_MS;

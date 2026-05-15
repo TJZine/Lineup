@@ -280,6 +280,23 @@
   margin-top: auto;
 }
 
+.epg-cell.epg-cell-title-full-row {
+  grid-template-columns: 1fr;
+}
+
+.epg-cell.epg-cell-title-full-row .epg-cell-rail {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-3);
+  bottom: var(--space-2);
+  align-self: auto;
+  pointer-events: none;
+}
+
+.epg-cell.epg-cell-title-full-row .epg-cell-subtitle {
+  max-width: calc(100% - 172px);
+}
+
 .epg-cell.epg-cell-sliver {
   padding: var(--space-1) var(--space-local-6);
   gap: 0;

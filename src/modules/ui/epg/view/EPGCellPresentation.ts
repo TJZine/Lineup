@@ -227,6 +227,22 @@ export function shouldShowCellTimeForWidth(
     return true;
 }
 
+export function shouldUseCellTitleFullRowLayout(
+    cellData: RenderedCellInput,
+    textLayout: CellTextLayout
+): boolean {
+    if (cellData.kind !== 'program') {
+        return false;
+    }
+
+    return cellData.program.item.type === 'episode' &&
+        !cellData.isFocused &&
+        !cellData.isCurrent &&
+        textLayout.showSubtitle &&
+        getRenderedVisibleWidthPx(cellData) >= TIER_WIDE_MIN_PX &&
+        shouldShowCellTimeForWidth(cellData, textLayout);
+}
+
 export function getCellWidthPresentation(
     cellData: RenderedCellInput,
     textLayout: CellTextLayout
