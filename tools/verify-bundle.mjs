@@ -122,6 +122,7 @@ function runBuildAnalyze() {
         cwd: process.cwd(),
         encoding: 'utf8',
         maxBuffer: BUILD_ANALYZE_MAX_BUFFER_BYTES,
+        shell: true,
         windowsHide: true,
     });
     const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
