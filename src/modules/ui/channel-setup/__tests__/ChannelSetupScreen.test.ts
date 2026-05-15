@@ -7,7 +7,7 @@ import type { StrategyStepMutableState } from '../ChannelSetupSessionContracts';
 import type { PlexLibrarySection } from '../../../plex/library/types';
 import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS } from '../steps/constants';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS, STEP2_CONTROL_IDS } from '../steps/constants';
 
 import { createBodyAppendedTestContainer, flushPromises } from '../../../../__tests__/helpers';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
@@ -21,6 +21,9 @@ import {
     DEFAULT_REVIEW,
     makeLibrary,
 } from './channel-setup-test-helpers';
+
+const INTERNAL_SETUP_COPY_PATTERN =
+    /\b(?:stop and re-plan|re-plan|planner|execution|cleanup|slice|blocked plan|plan blocked)\b|partial setup plan/i;
 
 const enterStep2 = async (container: HTMLElement): Promise<void> => {
     const next = container.querySelector('#setup-next');
@@ -135,6 +138,8 @@ describe('ChannelSetupScreen', () => {
         expect(showsMeta?.textContent ?? '').toContain(
             `Shows • ${formattedShowCount} series • ${formattedEpisodeCount} episodes`
         );
+        expect(container.querySelector('#setup-lib-movies .setup-toggle-icon svg')).not.toBeNull();
+        expect(container.querySelector('#setup-lib-shows .setup-toggle-icon svg')).not.toBeNull();
     });
 
     it('applies stagger class and delay to library cards', async () => {
@@ -330,6 +335,78 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
     });
 
+    it('resets the persistent Step 2 panel scroll when sections switch by click', async () => {
+        const container = createBodyAppendedTestContainer();
+
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+
+        const panel = container.querySelector('.setup-panel') as HTMLElement | null;
+        const detailScroll = container.querySelector('.setup-detail-scroll') as HTMLElement | null;
+        const categoryRail = container.querySelector('.setup-category-rail') as HTMLElement | null;
+        if (!panel || !detailScroll || !categoryRail) {
+            throw new Error('Expected Step 2 scroll containers');
+        }
+        panel.scrollTop = 360;
+        detailScroll.scrollTop = 90;
+        categoryRail.scrollTop = 40;
+
+        clickButton(container, '#setup-category-build-options');
+
+        expect(panel.scrollTop).toBe(0);
+        expect((container.querySelector('.setup-detail-scroll') as HTMLElement | null)?.scrollTop).toBe(0);
+        expect((container.querySelector('.setup-category-rail') as HTMLElement | null)?.scrollTop).toBe(0);
+        expect(container.querySelector('.setup-detail-header')?.textContent).toBe('Build Options');
+        expect(container.querySelector('#setup-back')).not.toBeNull();
+        expect(container.querySelector('#setup-next')).not.toBeNull();
+    });
+
+    it('resets Step 2 panel scroll before right-key section switching restores detail focus', async () => {
+        const container = createBodyAppendedTestContainer();
+
+        const nav = createNavigationMock();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-category-priority-order');
+        const panel = container.querySelector('.setup-panel') as HTMLElement | null;
+        if (!panel) {
+            throw new Error('Expected setup panel');
+        }
+        panel.scrollTop = 360;
+
+        nav.setMockFocus('setup-category-limits');
+        const switchEvent = nav.emitKeyPress('right');
+
+        expect(switchEvent.handled).toBe(true);
+        expect(panel.scrollTop).toBe(0);
+        expect(container.querySelector('.setup-detail-header')?.textContent).toBe('Limits');
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-limits');
+        expect(container.querySelector('#setup-back')).not.toBeNull();
+        expect(container.querySelector('#setup-next')).not.toBeNull();
+
+        const enterDetailEvent = nav.emitKeyPress('right');
+        expect(enterDetailEvent.handled).toBe(true);
+        expect(nav.setFocus).toHaveBeenLastCalledWith(STEP2_CONTROL_IDS.maxChannels);
+    });
+
     it('does not re-register focusables if library loading settles after hide', async () => {
         const container = createBodyAppendedTestContainer();
 
@@ -492,7 +569,7 @@ describe('ChannelSetupScreen', () => {
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-strategy-playlists');
     });
 
-    it('right transfer activates the focused category before moving to detail controls', async () => {
+    it('right transfer activates the focused category before a second right moves to detail controls', async () => {
         const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
@@ -513,6 +590,11 @@ describe('ChannelSetupScreen', () => {
         expect(transfer.handled).toBe(true);
         expect(transfer.originalEvent.preventDefault).toHaveBeenCalled();
         expect(container.querySelector('#setup-build-mode')).not.toBeNull();
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-build-options');
+
+        const enterDetail = nav.emitKeyPress('right');
+        expect(enterDetail.handled).toBe(true);
+        expect(enterDetail.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-build-mode');
     });
 
@@ -1406,10 +1488,12 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
         await flushPromises();
 
-        expect(container.textContent ?? '').toContain('Action required');
-        expect(container.textContent ?? '').toContain('Plan blocked');
+        expect(container.textContent ?? '').toContain('Setup needs attention.');
+        expect(container.textContent ?? '').toContain('Build paused');
         expect(container.textContent ?? '').toContain('No changes were applied.');
-        expect(container.textContent ?? '').toContain('Required genres tag directory');
+        expect(container.textContent ?? '').toContain('Plex does not provide usable genres data for Shows.');
+        expect(container.textContent ?? '').toContain('Try again later, disable that source, or continue with supported channel types.');
+        expect(container.textContent ?? '').not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
         expect(container.textContent ?? '').not.toContain('Canceled');
     });
 
@@ -1445,14 +1529,14 @@ describe('ChannelSetupScreen', () => {
         {
             status: 'blocked',
             message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
-            expectedPrefix: 'Action required:',
+            expectedText: 'Plex does not provide usable genres data for Shows.',
         },
         {
             status: 'slow',
             message: 'Required directors tag directory (type=4) timed out for Shows; try again after Plex responds.',
-            expectedPrefix: 'Review timed out:',
+            expectedText: 'Review timed out:',
         },
-    ] as const)('disables confirm when Step 3 review is %s', async ({ status, message, expectedPrefix }) => {
+    ] as const)('disables confirm when Step 3 review is %s', async ({ status, message, expectedText }) => {
         const container = createBodyAppendedTestContainer();
 
         const getSetupReview = jest.fn().mockResolvedValue({
@@ -1481,8 +1565,14 @@ describe('ChannelSetupScreen', () => {
 
         const confirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
         expect(confirm?.disabled).toBe(true);
-        expect(container.textContent ?? '').toContain(expectedPrefix);
-        expect(container.textContent ?? '').toContain(message);
+        expect(container.textContent ?? '').toContain(expectedText);
+        if (status === 'blocked') {
+            expect(container.textContent ?? '').toContain('Try again later, disable that source, or continue with supported channel types.');
+            expect(container.textContent ?? '').not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
+            expect(container.textContent ?? '').not.toContain(message);
+        } else {
+            expect(container.textContent ?? '').toContain(message);
+        }
     });
 
     it('shows review loading state before review payload resolves', async () => {

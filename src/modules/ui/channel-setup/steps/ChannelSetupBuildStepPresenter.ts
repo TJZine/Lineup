@@ -1,6 +1,7 @@
 import type { ChannelBuildProgress } from '../../../../core/channel-setup/types';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
 import { renderCappedWarnings } from '../../common/render/renderCappedWarnings';
+import { formatChannelSetupUserCopy } from '../ChannelSetupUserCopy';
 import type { ChannelSetupFocusCoordinator } from '../focus/ChannelSetupFocusCoordinator';
 import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
 import type {
@@ -251,11 +252,12 @@ export class ChannelSetupBuildStepPresenter {
         detailLabel: HTMLElement,
         message: string
     ): void {
-        ctx.statusEl.textContent = 'Action required';
+        const userMessage = formatChannelSetupUserCopy(message, 'build');
+        ctx.statusEl.textContent = 'Setup needs attention.';
         ctx.detailEl.textContent = 'No changes were applied.';
-        ctx.errorEl.textContent = message;
-        taskLabel.textContent = 'Plan blocked';
-        detailLabel.textContent = 'Review the warning and adjust setup before retrying.';
+        ctx.errorEl.textContent = userMessage;
+        taskLabel.textContent = 'Build paused';
+        detailLabel.textContent = 'Adjust setup, then try building again.';
         barFill.style.width = '0%';
         barFill.classList.remove('indeterminate');
 

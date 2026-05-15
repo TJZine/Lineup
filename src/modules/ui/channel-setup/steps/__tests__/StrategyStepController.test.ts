@@ -12,6 +12,9 @@ import type {
     StepRenderContext,
 } from '../types';
 
+const INTERNAL_SETUP_COPY_PATTERN =
+    /\b(?:stop and re-plan|re-plan|planner|execution|cleanup|slice|blocked plan|plan blocked)\b|partial setup plan/i;
+
 const createContext = (): StepRenderContext => ({
     contentEl: document.createElement('div'),
     stepEl: document.createElement('div'),
@@ -469,11 +472,14 @@ describe('StrategyStepController', () => {
         const { ctx: blockedCtx } = renderController({
             state: {
                 ...createDeps().state,
-                previewError: 'Select at least one source',
+                previewError: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
                 previewStatus: 'blocked',
             },
         });
-        expect(blockedCtx.contentEl.querySelector('.setup-preview-warning')?.textContent).toContain('Action required');
+        const blockedCopy = blockedCtx.contentEl.querySelector('.setup-preview-warning')?.textContent ?? '';
+        expect(blockedCopy).toContain('Plex does not provide usable genres data for Shows.');
+        expect(blockedCopy).toContain('Try again later, disable that source, or continue with supported channel types.');
+        expect(blockedCopy).not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
 
         const { ctx: slowCtx } = renderController({
             state: {
@@ -484,7 +490,10 @@ describe('StrategyStepController', () => {
         });
         expect(slowCtx.contentEl.querySelector('.setup-preview-warning')?.textContent).toContain('Preview timed out');
 
-        const warnings = ['Warning one'];
+        const warnings = [
+            'Required studios tag directory (type=4) failed for Movies (Directory must be an array); stop and re-plan.',
+            'Partial setup plan (fetch_collections): fetch_collections failed for Shows (collections endpoint failed)',
+        ];
         const { ctx: previewCtx, deps: previewDeps } = renderController({
             state: {
                 ...createDeps().state,
@@ -509,7 +518,10 @@ describe('StrategyStepController', () => {
 
         expect(previewDeps.buildPreviewRow).toHaveBeenCalledTimes(9);
         expect(previewDeps.renderCappedWarnings).toHaveBeenCalledWith(
-            warnings,
+            [
+                'Plex could not read studios data for Movies. Try again later, disable that source, or continue with supported channel types.',
+                'Collections could not be included for Shows: collections endpoint failed. Try again later, disable that source, or continue with supported channel types.',
+            ],
             expect.any(HTMLDivElement)
         );
         expect(previewCtx.contentEl.querySelector('.setup-preview-updating')?.textContent).toContain('Updating');

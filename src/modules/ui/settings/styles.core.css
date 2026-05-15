@@ -3,7 +3,7 @@
   --settings-space-2: 2px;
   --settings-space-10: 10px;
   --settings-space-14: 14px;
-  position: absolute;
+  position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
@@ -31,6 +31,7 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .settings-categories {
@@ -49,6 +50,7 @@
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0 16px 16px 0;
   overflow-y: auto;
+  box-sizing: border-box;
   animation: settings-rail-enter 300ms ease-out both;
 }
 
@@ -136,6 +138,7 @@
   padding: var(--space-5) var(--space-10);
   overflow-y: auto;
   overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .settings-detail-title {

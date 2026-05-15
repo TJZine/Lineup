@@ -174,6 +174,10 @@
   color: var(--color-text-secondary);
 }
 
+.theme-ember-steel .epg-container.layout-classic .epg-time-slot.epg-time-slot-occluded {
+  color: transparent;
+}
+
 .theme-ember-steel .epg-container.layout-classic .epg-channel-list {
   background: rgb(var(--scrim-tint-rgb) / 98%);
 }
@@ -250,6 +254,10 @@
 .theme-directv .epg-container.layout-classic .epg-time-slot {
   color: var(--epg-directv-copy-secondary);
   border-left-color: rgb(var(--color-primary-rgb) / 40%);
+}
+
+.theme-directv .epg-container.layout-classic .epg-time-slot.epg-time-slot-occluded {
+  color: transparent;
 }
 
 .theme-directv .epg-container.layout-classic .epg-cell {

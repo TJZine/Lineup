@@ -7,6 +7,7 @@ const TIER_WIDE_MIN_PX = 220;
 const TIER_MEDIUM_MIN_PX = 140;
 const TIER_NARROW_MIN_PX = 88;
 const SLIVER_VISIBLE_WIDTH_MAX_PX = 56;
+const FULL_LIVE_BADGE_MIN_VISIBLE_WIDTH_PX = TIER_NARROW_MIN_PX;
 export const FOCUSED_TICKER_MIN_OVERFLOW_PX = 4;
 export const FOCUSED_MOVIE_OVERLAY_CLASS = 'epg-cell-focused-movie-overlay';
 
@@ -69,6 +70,10 @@ export function getRenderedVisibleWidthPx(cellData: RenderedCellInput): number {
 export function isSliverCell(cellData: RenderedCellInput): boolean {
     const renderedVisibleWidthPx = getRenderedVisibleWidthPx(cellData);
     return renderedVisibleWidthPx > 0 && renderedVisibleWidthPx <= SLIVER_VISIBLE_WIDTH_MAX_PX;
+}
+
+export function shouldCompactLiveBadgeForVisibleWidth(cellData: RenderedCellInput): boolean {
+    return getRenderedVisibleWidthPx(cellData) < FULL_LIVE_BADGE_MIN_VISIBLE_WIDTH_PX;
 }
 
 export function getVisibleTextMetrics(input: {

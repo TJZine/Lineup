@@ -1,3 +1,7 @@
+import {
+    formatChannelSetupUserCopy,
+    formatChannelSetupWarningCopy,
+} from '../ChannelSetupUserCopy';
 import type { BuildReviewDeps, StepRenderContext } from './types';
 
 export class BuildReviewStepController {
@@ -36,11 +40,11 @@ export class BuildReviewStepController {
                 const reviewStatusError = document.createElement('div');
                 reviewStatusError.className = 'setup-preview-error';
                 if (reviewStatus === 'blocked') {
-                    reviewStatusError.textContent = `Action required: ${reviewStatusMessage}`;
+                    reviewStatusError.textContent = formatChannelSetupUserCopy(reviewStatusMessage, 'review');
                 } else if (reviewStatus === 'slow') {
-                    reviewStatusError.textContent = `Review timed out: ${reviewStatusMessage}`;
+                    reviewStatusError.textContent = `Review timed out: ${formatChannelSetupUserCopy(reviewStatusMessage, 'review')}`;
                 } else {
-                    reviewStatusError.textContent = reviewStatusMessage;
+                    reviewStatusError.textContent = formatChannelSetupUserCopy(reviewStatusMessage, 'review');
                 }
                 reviewContainer.appendChild(reviewStatusError);
             }
@@ -65,7 +69,7 @@ export class BuildReviewStepController {
             if (state.review.preview.warnings.length > 0) {
                 const warningList = document.createElement('div');
                 warningList.className = 'setup-preview-warnings';
-                deps.renderCappedWarnings(state.review.preview.warnings, warningList);
+                deps.renderCappedWarnings(state.review.preview.warnings.map(formatChannelSetupWarningCopy), warningList);
                 reviewContainer.appendChild(warningList);
             }
 

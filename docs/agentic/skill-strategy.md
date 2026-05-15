@@ -38,7 +38,7 @@ The skill layout and workflow in this repo are based on a small set of recurring
 - Lineup's preferred subagent patterns should live in repo-local skills when the tracked workflow needs stricter delegation rules than the generic global defaults.
 - The broader document/control-plane structure is defined in [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](../AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles).
 - Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus one bounded `planner` role for planning artifacts, one general bounded `worker` role for implementation, and one cleanup-loop-specific `cleanup_worker` role for approved Tier 3 cleanup-loop implementation passes, with explicit fallback roles instead of assumed automatic failover.
-- Stable entrypoint doc: `AGENTS.md`
+- Stable entrypoint doc: `agents.md`
 - Stable workflow doc: `docs/AGENTIC_DEV_WORKFLOW.md`
 
 ## Policy Ownership Boundaries
@@ -72,6 +72,7 @@ When a rule appears in multiple places, prefer moving the detailed version to th
 - `parallel-sidecars`
 - `persistence-boundaries`
 - `plex-integration-boundaries`
+- `repo-production-review`
 - `review-adjudication`
 - `review-request`
 - `ui-composition-patterns`
@@ -115,6 +116,7 @@ Local-only by default:
 - `persistence-boundaries`: keeps storage ownership centralized and typed.
 - `plex-integration-boundaries`: keeps Plex transport/policy complexity out of unrelated modules.
 - `parallel-sidecars`: keeps optional multi-agent usage shallow, role-disciplined, and off the immediate critical path.
+- `repo-production-review`: invokes the global production-review suite with Lineup's local workflow reads, read-only boundary, and role constraints.
 - `review-adjudication`: calibrates reviewer feedback against current Lineup evidence, plan scope, and boundary ownership before implementation.
 - `review-request`: standardizes bounded packets for reviewer agents and launcher reviews without passing unbounded session history.
 - `model-selection`: keeps Lineup session-to-session model advice explicit, cheap by default, and only auto-emitted for high-risk handoffs.

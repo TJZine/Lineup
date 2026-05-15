@@ -159,6 +159,35 @@ describe('focused EPG overflow style contract', () => {
         expect(titleBlock).not.toContain('-webkit-box-orient');
     });
 
+    it('keeps occluded time-slot labels transparent after classic theme overrides', () => {
+        const classicBlock = getBlock(
+            '.epg-container.layout-classic .epg-time-slot.epg-time-slot-occluded'
+        );
+        const emberBlock = getBlock(
+            '.theme-ember-steel .epg-container.layout-classic .epg-time-slot.epg-time-slot-occluded'
+        );
+        const directvBlock = getBlock(
+            '.theme-directv .epg-container.layout-classic .epg-time-slot.epg-time-slot-occluded'
+        );
+        expect(classicBlock).toContain('color: transparent');
+        expect(emberBlock).toContain('color: transparent');
+        expect(directvBlock).toContain('color: transparent');
+
+        document.body.className = 'theme-ember-steel';
+        const container = document.createElement('div');
+        container.className = 'epg-container layout-classic';
+        const slot = document.createElement('div');
+        slot.className = 'epg-time-slot epg-time-slot-occluded';
+        slot.textContent = '4:00 PM';
+        container.appendChild(slot);
+        document.body.appendChild(container);
+
+        expect(getComputedStyle(slot).color).toBe('rgba(0, 0, 0, 0)');
+
+        container.remove();
+        document.body.className = '';
+    });
+
     it('keeps focused movie rail anchoring stable across badge visibility in tiny and medium tiers', () => {
         const timeBlock = getBlock(
             '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time'

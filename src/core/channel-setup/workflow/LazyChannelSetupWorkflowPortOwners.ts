@@ -6,6 +6,7 @@ import type { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordS
 import type { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
 import type { ChannelSetupRecord } from '../types';
 import type { ChannelSetupWorkflowPortOwners } from './createChannelSetupWorkflowPort';
+import { summarizeErrorForLog } from '../../../utils/errors';
 
 export interface LazyChannelSetupWorkflowPortOwnersDeps {
     plexLibrary: IPlexLibrary;
@@ -85,9 +86,21 @@ export function createLazyChannelSetupWorkflowPortOwners(
     return {
         planningService: {
             invalidateFacetSnapshot: (): void => {
-                void getPlanningService().then((planningService) => {
-                    planningService.invalidateFacetSnapshot();
-                });
+                const planningServiceLoad = planningServicePromise;
+                if (!planningServiceLoad) {
+                    return;
+                }
+                void planningServiceLoad
+                    .then((planningService) => {
+                        planningService.invalidateFacetSnapshot();
+                    })
+                    .catch((error: unknown) => {
+                        // Best-effort invalidation should not surface from this void API.
+                        globalThis.console?.debug?.(
+                            'Channel setup invalidateFacetSnapshot failed',
+                            summarizeErrorForLog(error)
+                        );
+                    });
             },
             getLibrariesForSetup: async (signal) =>
                 (await getPlanningService()).getLibrariesForSetup(signal),

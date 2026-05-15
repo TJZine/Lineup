@@ -175,6 +175,28 @@ describe('PlaybackOptionsModal', () => {
         expect(container.textContent ?? '').toContain('No alternate audio');
     });
 
+    it('keeps unavailable section copy visible when a default option is present', () => {
+        const modal = new PlaybackOptionsModal();
+        modal.initialize({ containerId: 'playback-options-container' });
+
+        const { viewModel } = createViewModel();
+        viewModel.subtitles.options = [
+            {
+                id: 'playback-subtitle-off',
+                label: 'Off',
+                selected: true,
+                onSelect: jest.fn(),
+            },
+        ];
+        viewModel.subtitles.emptyMessage = 'No subtitles available';
+
+        modal.show(viewModel);
+
+        const empty = container.querySelector('.playback-options-empty') as HTMLElement | null;
+        expect(empty?.textContent).toBe('No subtitles available');
+        expect(empty?.style.display).toBe('');
+    });
+
     it('update rerenders content', () => {
         const modal = new PlaybackOptionsModal();
         modal.initialize({ containerId: 'playback-options-container' });

@@ -118,6 +118,7 @@ describe('ChannelSetupWorkflowPresenter', () => {
             setPreferredFocusId: jest.fn(),
             getVisibilityToken: jest.fn(() => 1),
             renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
             toDomId: (raw): string => raw,
         });
         const nav = {

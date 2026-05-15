@@ -2557,6 +2557,65 @@ describe('EPGVirtualizer', () => {
             expect(badge.textContent).toBe('');
         });
 
+        it('reconciles an existing current wide cell to a compact LIVE dot when only partial badge space remains', () => {
+            const now = gridAnchorTime + 5 * 60 * 1000;
+            jest.spyOn(Date, 'now').mockReturnValue(now);
+
+            virtualizer.setChannelCount(1);
+            const channelId = 'ch-current-wide-partial-live';
+            const start = gridAnchorTime;
+            const end = start + (60 * 60 * 1000); // wide tier at 4px/min => 240px
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60000),
+                programs: [{
+                    item: {
+                        ratingKey: 'current-wide-partial-live-1',
+                        type: 'movie',
+                        title: 'Current Wide Partial Live',
+                        fullTitle: 'Current Wide Partial Live',
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: now - start,
+                    remainingMs: end - now,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                }],
+            };
+            const schedules = new Map<string, ScheduleWindow>([[channelId, schedule]]);
+            const key = `${channelId}-${start}`;
+
+            const fullRange = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], schedules, fullRange, undefined, now);
+
+            const firstCell = container.querySelector(`[data-key="${key}"]`) as HTMLElement;
+            const badge = firstCell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+            expect(firstCell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
+            expect(firstCell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(false);
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(false);
+            expect(badge.textContent).toBe('LIVE');
+
+            const partialRange = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 44 });
+            virtualizer.renderVisibleCells([channelId], schedules, partialRange, undefined, now);
+
+            const secondCell = container.querySelector(`[data-key="${key}"]`) as HTMLElement;
+            expect(secondCell).toBe(firstCell);
+            expect(secondCell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
+            expect(secondCell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(false);
+            expect(secondCell.style.width).toBe('240px');
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(badge.textContent).toBe('');
+        });
+
         it('keeps focused wide episode cells in compact mode with full-width title and subtitle lanes', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-wide-time-visible';

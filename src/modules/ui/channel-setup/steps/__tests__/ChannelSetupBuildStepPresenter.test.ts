@@ -8,6 +8,9 @@ import type { StepRenderContext } from '../types';
 import type { ChannelSetupSessionSnapshot } from '../../ChannelSetupSessionContracts';
 import { DEFAULT_BUILD_RESULT, DEFAULT_REVIEW } from '../../__tests__/channel-setup-test-helpers';
 
+const INTERNAL_SETUP_COPY_PATTERN =
+    /\b(?:stop and re-plan|re-plan|planner|execution|cleanup|slice|blocked plan|plan blocked)\b|partial setup plan/i;
+
 const createContext = (): StepRenderContext => ({
     contentEl: document.createElement('div'),
     stepEl: document.createElement('div'),
@@ -184,6 +187,59 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 2 channels. Skipped 1.');
         expect((ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).disabled).toBe(false);
         expect(deps.focus.unregisterAll).toHaveBeenCalled();
+    });
+
+    it('renders blocked build outcomes with user-safe recovery copy', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'blocked',
+                message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
+            }),
+        });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        const visibleText = [
+            ctx.statusEl.textContent,
+            ctx.detailEl.textContent,
+            ctx.errorEl.textContent,
+            ctx.contentEl.textContent,
+        ].join('\n');
+        expect(visibleText).toContain('Setup needs attention.');
+        expect(visibleText).toContain('Build paused');
+        expect(visibleText).toContain('Plex does not provide usable genres data for Shows.');
+        expect(visibleText).toContain('Try again later, disable that source, or continue with supported channel types.');
+        expect(visibleText).not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
+        expect((ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('renders empty blocked build messages with generic recovery copy', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'blocked',
+                message: '',
+            }),
+        });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        const visibleText = [
+            ctx.statusEl.textContent,
+            ctx.detailEl.textContent,
+            ctx.errorEl.textContent,
+            ctx.contentEl.textContent,
+        ].join('\n');
+        expect(visibleText).toContain('Some channel types could not be built for this library.');
+        expect(visibleText).toContain('Try again later, disable that source, or continue with supported channel types.');
+        expect(visibleText).not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
     });
 
     it('opens player playback and EPG from the completed build Done action', async () => {

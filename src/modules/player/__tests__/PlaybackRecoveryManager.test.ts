@@ -241,10 +241,130 @@ describe('PlaybackRecoveryManager', () => {
                     safeError: expect.any(Object),
                     itemKey: 'item-1',
                     channelId: 'ch1',
+                    streamDescriptor: expect.objectContaining({
+                        protocol: 'direct',
+                    }),
                 }),
             }),
             'playback'
         );
+    });
+
+    it('records sanitized stream classification context when the playback failure guard trips', () => {
+        const decision = makeDecision({
+            playbackUrl: 'http://plex.example/video.mkv?X-Plex-Token=secret-token',
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+            container: 'mkv',
+            videoCodec: 'hevc',
+            audioCodec: 'opus',
+            subtitleDelivery: 'none',
+            width: 1920,
+            height: 1080,
+            bitrate: 17112,
+            directPlay: {
+                allowed: true,
+                reasons: [],
+            },
+            source: {
+                container: 'mkv',
+                videoCodec: 'hevc',
+                audioCodec: 'opus',
+                width: 1920,
+                height: 1080,
+                bitrate: 17112,
+            },
+            selectedAudioStream: {
+                id: 'audio-1',
+                streamType: 2,
+                codec: 'opus',
+                channels: 2,
+                language: 'Japanese',
+                default: true,
+            } as PlexStream,
+        });
+        const descriptor = {
+            protocol: 'direct',
+            mimeType: 'video/x-matroska',
+            isLive: false,
+            durationMs: 1_416_000,
+            audioTracks: [
+                {
+                    id: 'audio-1',
+                    codec: 'opus',
+                },
+            ],
+            subtitleTracks: [],
+        } as unknown as StreamDescriptor;
+        const { manager, deps } = setup({
+            getCurrentStreamDecision: () => decision,
+            getCurrentStreamDescriptor: () => descriptor,
+        });
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+
+        manager.handlePlaybackFailure('video-player?X-Plex-Token=secret-token', {
+            code: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
+            message: 'Media format not supported: http://plex.example/video.mkv?X-Plex-Token=secret-token',
+        });
+        manager.handlePlaybackFailure('video-player?X-Plex-Token=secret-token', {
+            code: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
+            message: 'Media format not supported: http://plex.example/video.mkv?X-Plex-Token=secret-token',
+        });
+        manager.handlePlaybackFailure('video-player?X-Plex-Token=secret-token', {
+            code: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
+            message: 'Media format not supported: http://plex.example/video.mkv?X-Plex-Token=secret-token',
+        });
+
+        const context = handleGlobalError.mock.calls[0]?.[0]?.context;
+        expect(context).toMatchObject({
+            source: 'video-player?X-Plex-Token=REDACTED',
+            safeError: {
+                code: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
+                message: 'Media format not supported: http://plex.example/video.mkv?X-Plex-Token=REDACTED',
+            },
+            streamDescriptor: {
+                protocol: 'direct',
+                mimeType: 'video/x-matroska',
+                isLive: false,
+                durationMs: 1_416_000,
+                audioCodecs: ['opus'],
+                subtitleFormats: [],
+            },
+            streamDecision: {
+                protocol: 'http',
+                isDirectPlay: true,
+                isTranscoding: false,
+                container: 'mkv',
+                videoCodec: 'hevc',
+                audioCodec: 'opus',
+                subtitleDelivery: 'none',
+                width: 1920,
+                height: 1080,
+                bitrate: 17112,
+                directPlay: {
+                    allowed: true,
+                    reasons: [],
+                },
+                source: {
+                    container: 'mkv',
+                    videoCodec: 'hevc',
+                    audioCodec: 'opus',
+                    width: 1920,
+                    height: 1080,
+                    bitrate: 17112,
+                },
+                selectedAudio: {
+                    codec: 'opus',
+                    channels: 2,
+                    language: 'Japanese',
+                    default: true,
+                },
+                selectedSubtitle: null,
+            },
+        });
+        expect(JSON.stringify(context)).not.toContain('secret-token');
+        expect(JSON.stringify(context)).not.toContain('playbackUrl');
     });
 
     it('handles stream resolver auth errors', () => {

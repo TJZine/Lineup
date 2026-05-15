@@ -308,6 +308,28 @@ describe('EPGCellRenderer', () => {
         expect(element.classList.contains(EPG_CLASSES.CELL_PAST)).toBe(true);
     });
 
+    it('uses compact live dot when only partial visible width can fit the badge', () => {
+        const element = renderer.createElement();
+        const startTimeMs = TEST_START_MS;
+        const endTimeMs = startTimeMs + 60 * 60_000;
+        const currentCell = makeProgramCell(element, {
+            width: 240,
+            visibleWidthPx: 64,
+            isCurrent: true,
+            program: makeProgram({ startTimeMs, endTimeMs }),
+        });
+
+        expect(renderer.getCellWidthTier(currentCell.width)).toBe('wide');
+        expect(renderer.isSliverCell(currentCell)).toBe(false);
+
+        renderer.updateCellContent(currentCell, startTimeMs + 10 * 60_000);
+
+        const liveBadge = query(element, EPG_CLASSES.LIVE_BADGE);
+        expect(liveBadge.hidden).toBe(false);
+        expect(liveBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+        expect(liveBadge.textContent).toBe('');
+    });
+
     it('resets program state before rendering loading placeholders', () => {
         const element = renderer.createElement();
         renderer.updateCellContent(makeProgramCell(element, {

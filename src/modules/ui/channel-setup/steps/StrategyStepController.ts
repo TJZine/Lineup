@@ -1,5 +1,9 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import {
+    formatChannelSetupUserCopy,
+    formatChannelSetupWarningCopy,
+} from '../ChannelSetupUserCopy';
+import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
     STEP2_CONTROL_IDS,
@@ -565,11 +569,11 @@ export class StrategyStepController {
             const error = document.createElement('div');
             error.className = 'setup-preview-warning';
             if (state.previewStatus === 'blocked') {
-                error.textContent = `Action required: ${state.previewError}`;
+                error.textContent = formatChannelSetupUserCopy(state.previewError, 'estimate');
             } else if (state.previewStatus === 'slow') {
-                error.textContent = `Preview timed out: ${state.previewError}`;
+                error.textContent = `Preview timed out: ${formatChannelSetupUserCopy(state.previewError, 'estimate')}`;
             } else {
-                error.textContent = state.previewError;
+                error.textContent = formatChannelSetupUserCopy(state.previewError, 'estimate');
             }
             previewPanel.appendChild(error);
             return previewPanel;
@@ -604,7 +608,7 @@ export class StrategyStepController {
             if (warnings.length > 0) {
                 const warningList = document.createElement('div');
                 warningList.className = 'setup-preview-warnings';
-                deps.renderCappedWarnings(warnings, warningList);
+                deps.renderCappedWarnings(warnings.map(formatChannelSetupWarningCopy), warningList);
                 previewPanel.appendChild(warningList);
             }
 

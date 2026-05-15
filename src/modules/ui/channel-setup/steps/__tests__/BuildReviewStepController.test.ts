@@ -5,6 +5,9 @@
 import { BuildReviewStepController } from '../BuildReviewStepController';
 import type { BuildReviewDeps, StepRenderContext } from '../types';
 
+const INTERNAL_SETUP_COPY_PATTERN =
+    /\b(?:stop and re-plan|re-plan|planner|execution|cleanup|slice|blocked plan|plan blocked)\b|partial setup plan/i;
+
 const createContext = (): StepRenderContext => ({
     contentEl: document.createElement('div'),
     stepEl: document.createElement('div'),
@@ -73,10 +76,13 @@ describe('BuildReviewStepController', () => {
                             studios: 0,
                             actors: 0,
                         },
-                        warnings: [],
+                        warnings: [
+                            'Required studios tag directory (type=4) failed for Movies (Directory must be an array); stop and re-plan.',
+                            'Partial setup plan (fetch_playlists): fetch_playlists failed (playlist endpoint failed)',
+                        ],
                         reachedMaxChannels: false,
                         status: 'blocked',
-                        message: 'Select at least one library.',
+                        message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
                     },
                     diff: {
                         summary: { created: 5, removed: 0, unchanged: 0 },
@@ -94,7 +100,17 @@ describe('BuildReviewStepController', () => {
 
         controller.render(ctx, deps);
 
-        expect(ctx.contentEl.querySelector('.setup-preview-error')?.textContent).toContain('Action required');
+        const blockedCopy = ctx.contentEl.querySelector('.setup-preview-error')?.textContent ?? '';
+        expect(blockedCopy).toContain('Plex does not provide usable genres data for Shows.');
+        expect(blockedCopy).toContain('Try again later, disable that source, or continue with supported channel types.');
+        expect(blockedCopy).not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
+        expect(deps.renderCappedWarnings).toHaveBeenCalledWith(
+            [
+                'Plex could not read studios data for Movies. Try again later, disable that source, or continue with supported channel types.',
+                'Playlists could not be included: playlist endpoint failed. Try again later, disable that source, or continue with supported channel types.',
+            ],
+            expect.any(HTMLDivElement)
+        );
         expect((ctx.contentEl.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
     });
 

@@ -93,6 +93,10 @@
   border-left: 1px solid rgba(255, 255, 255, 0.14);
 }
 
+.epg-container.layout-classic .epg-time-slot.epg-time-slot-occluded {
+  color: transparent;
+}
+
 .epg-container.layout-classic .epg-channel-list {
   background: rgba(8, 11, 18, 0.98);
   border-right: 1px solid rgba(255, 255, 255, 0.14);

@@ -88,6 +88,22 @@ describe('EPGTimeHeader', () => {
         expect(slots.style.getPropertyValue('--epg-time-header-sticky-width-px')).toBe('0px');
     });
 
+    it('suppresses near-boundary slot labels inside the sticky current-time guard', () => {
+        const sticky = container.querySelector(`.${EPG_CLASSES.TIME_HEADER_STICKY}`) as HTMLElement;
+        const slots = Array.from(container.querySelectorAll(`.${EPG_CLASSES.TIME_SLOT}`)) as HTMLElement[];
+
+        expect(sticky).not.toBeNull();
+        expect(slots.length).toBeGreaterThanOrEqual(3);
+
+        Object.defineProperty(sticky, 'offsetWidth', { configurable: true, value: 84 });
+        timeHeader.updateScrollPosition(25);
+
+        expect(slots[1]?.textContent).toBe('12:30 AM');
+        expect(slots[1]?.classList.contains('epg-time-slot-occluded')).toBe(true);
+        expect(slots[2]?.textContent).toBe('1:00 AM');
+        expect(slots[2]?.classList.contains('epg-time-slot-occluded')).toBe(false);
+    });
+
     it('resyncs sticky occlusion width when grid anchor time changes', () => {
         const slots = container.querySelector(`.${EPG_CLASSES.TIME_HEADER_SLOTS}`) as HTMLElement;
         const sticky = container.querySelector(`.${EPG_CLASSES.TIME_HEADER_STICKY}`) as HTMLElement;

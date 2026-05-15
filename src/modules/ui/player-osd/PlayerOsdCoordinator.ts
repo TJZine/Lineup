@@ -55,6 +55,7 @@ export class PlayerOsdCoordinator {
     private _suppressActions = false;
     private _throttledRenderTimer: number | null = null;
     private _lastThrottledRenderAt = 0;
+    private _sleepActionStatusText: string | null = null;
 
     constructor(private readonly deps: PlayerOsdCoordinatorDeps) {}
 
@@ -96,6 +97,7 @@ export class PlayerOsdCoordinator {
         this._clearThrottledRenderTimer();
         this._unregisterActions();
         this._suppressActions = false;
+        this._sleepActionStatusText = null;
         this.deps.getOverlay()?.hide();
         this._notifyVisibilityChange(false);
     }
@@ -267,9 +269,7 @@ export class PlayerOsdCoordinator {
             ? this.deps.buildPlexResourceUrl(clearLogoPath)
             : null;
         const sleepTimerRemainingMs = this.deps.getSleepTimerRemainingMs?.() ?? 0;
-        const sleepTimerText = sleepTimerRemainingMs > 0
-            ? `Sleep ${formatTimecode(sleepTimerRemainingMs)}`
-            : null;
+        const sleepTimerText = this._buildSleepTimerText(sleepTimerRemainingMs);
 
         const timecode = isLive
             ? 'Live'
@@ -425,7 +425,8 @@ export class PlayerOsdCoordinator {
                 right: PLAYER_OSD_ACTION_IDS.audio,
             },
             onSelect: () => {
-                this.deps.cycleSleepTimerPreset?.();
+                const nextPresetMin = this.deps.cycleSleepTimerPreset?.();
+                this._sleepActionStatusText = this._buildSleepActionStatusText(nextPresetMin);
                 this._renderAndShow('status');
             },
         });
@@ -463,6 +464,27 @@ export class PlayerOsdCoordinator {
         if (prep.preferredFocusId) {
             navigation.setFocus(prep.preferredFocusId);
         }
+    }
+
+    private _buildSleepActionStatusText(nextPresetMin: number | undefined): string {
+        if (typeof nextPresetMin !== 'number' || !Number.isFinite(nextPresetMin)) {
+            return 'Sleep unavailable';
+        }
+        if (nextPresetMin <= 0) {
+            return 'Sleep off';
+        }
+        return `Sleep ${Math.floor(nextPresetMin)}m`;
+    }
+
+    private _buildSleepTimerText(sleepTimerRemainingMs: number): string | null {
+        if (sleepTimerRemainingMs > 0) {
+            this._sleepActionStatusText = null;
+            return `Sleep ${formatTimecode(sleepTimerRemainingMs)}`;
+        }
+
+        const actionStatusText = this._sleepActionStatusText;
+        this._sleepActionStatusText = null;
+        return actionStatusText;
     }
 
     private _buildAudioLabel(player: IVideoPlayer | null, activeAudioId: string | null): string | null {

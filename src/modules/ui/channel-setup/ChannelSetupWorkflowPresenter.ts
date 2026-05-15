@@ -40,6 +40,7 @@ export class ChannelSetupWorkflowPresenter {
             setPreferredFocusId: (focusId: string | null) => void;
             getVisibilityToken: () => number;
             renderStep: () => void;
+            resetStep2Scroll: () => void;
             toDomId: (raw: string) => string;
         }
     ) {
@@ -168,6 +169,7 @@ export class ChannelSetupWorkflowPresenter {
             },
             registerStep2: (options: RegisterStep2FocusOptions): boolean => this._deps.focus.registerStep2(options),
             renderStep: this._deps.renderStep,
+            resetStep2Scroll: this._deps.resetStep2Scroll,
             schedulePreview: (): void => {
                 this._deps.session.schedulePreview(() => this._deps.renderStep());
             },

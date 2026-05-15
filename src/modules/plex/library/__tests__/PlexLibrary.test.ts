@@ -1204,6 +1204,63 @@ describe('PlexLibrary', () => {
             );
         });
 
+        it('should accept a singleton tag directory entry object', async () => {
+            mockFetchJson({
+                MediaContainer: {
+                    Directory: {
+                        key: 42,
+                        title: 'Action',
+                        count: '7',
+                        fastKey: '/library/sections/1/genre?type=2&genre=Action',
+                        thumb: '/genres/action/thumb',
+                    },
+                },
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            const genres = await library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW });
+
+            expect(genres).toEqual([
+                {
+                    key: '42',
+                    title: 'Action',
+                    count: 7,
+                    fastKey: '/library/sections/1/genre?type=2&genre=Action',
+                    thumb: '/genres/action/thumb',
+                },
+            ]);
+        });
+
+        it.each([
+            ['empty object', {}],
+            ['missing title', { key: 'x' }],
+            ['missing key', { title: 'Action' }],
+            ['non-string title', { key: 'x', title: 7 }],
+            ['non-finite numeric key', { key: Number.NaN, title: 'Action' }],
+            ['invalid count', { key: 'x', title: 'Action', count: 'many' }],
+            ['non-string fastKey', { key: 'x', title: 'Action', fastKey: 7 }],
+            ['non-string thumb', { key: 'x', title: 'Action', thumb: 7 }],
+        ])('should reject malformed singleton tag directory entry: %s', async (_label, directory) => {
+            mockFetchJson({ MediaContainer: { Directory: directory } });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW })).rejects.toThrow(PlexLibraryError);
+        });
+
+        it('should reject malformed tag directory entries inside arrays', async () => {
+            mockFetchJson({
+                MediaContainer: {
+                    Directory: [
+                        { key: 'valid', title: 'Valid', count: 1 },
+                        { key: 'broken', count: 'many' },
+                    ],
+                },
+            });
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getGenres('1', { type: PLEX_MEDIA_TYPES.SHOW })).rejects.toThrow(PlexLibraryError);
+        });
+
         it('should return directors from directory entries', async () => {
             mockFetchJson(mockTagDirectoryResponse);
             const library = new PlexLibrary(mockConfig);
@@ -1315,6 +1372,22 @@ describe('PlexLibrary', () => {
             });
 
             expect(genres).toEqual([]);
+            expect(onUnsupported).toHaveBeenCalledWith('empty');
+        });
+
+        it('should invoke callback when required tag endpoint omits directory entries', async () => {
+            mockFetchJson({ MediaContainer: {} });
+            const onUnsupported = jest.fn();
+            expectPlexLibraryWarn('[PlexLibrary] Studios returned no directory entries for library 4');
+            const library = new PlexLibrary(mockConfig);
+
+            const studios = await library.getStudios('4', {
+                type: PLEX_MEDIA_TYPES.EPISODE,
+                onUnsupported,
+                requireEntries: true,
+            });
+
+            expect(studios).toEqual([]);
             expect(onUnsupported).toHaveBeenCalledWith('empty');
         });
     });

@@ -12,6 +12,7 @@ import {
     getVisibleTextMetrics,
     isSliverCell,
     measureReadyStateTickerOverflow,
+    shouldCompactLiveBadgeForVisibleWidth,
     type CellTextLayout,
     type EPGCellWidthTier,
     type EPGCellVisibleTextMetrics,
@@ -163,6 +164,14 @@ export class EPGCellRenderer {
         return isSliverCell(cellData);
     }
 
+    usesCompactLiveBadge(cellData: EPGRenderedCellData): boolean {
+        const tier = this.getCellWidthTier(cellData.width);
+        return tier === 'narrow' ||
+            tier === 'tiny' ||
+            isSliverCell(cellData) ||
+            shouldCompactLiveBadgeForVisibleWidth(cellData);
+    }
+
     computeVisibleTextMetrics(input: {
         rawLeftPx: number;
         clippedLeftPx: number;
@@ -206,7 +215,7 @@ export class EPGCellRenderer {
         }
         this.applyTextPresentation(children, cellData, textLayout);
         this.applyWidthPresentation(element, children, tier, cellData, textLayout);
-        this.updateLiveBadge(element, cellData.isCurrent);
+        this.updateLiveBadge(element, cellData);
         this.applyProgressPresentation(children, cellData, nowMs);
     }
 
@@ -225,7 +234,7 @@ export class EPGCellRenderer {
         element.classList.toggle(EPG_CLASSES.CELL_FOCUSED, cellData.isFocused);
         element.classList.toggle(EPG_CLASSES.CELL_CURRENT, cellData.isCurrent);
         element.classList.toggle(EPG_CLASSES.CELL_PAST, cellData.isPast);
-        this.updateLiveBadge(element, cellData.isCurrent);
+        this.updateLiveBadge(element, cellData);
     }
 
     updateTemporalPresentation(cellData: EPGRenderedCellData, nowMs: number): void {
@@ -235,7 +244,7 @@ export class EPGCellRenderer {
         element.classList.toggle(EPG_CLASSES.CELL_CURRENT, cellData.isCurrent);
         element.classList.toggle(EPG_CLASSES.CELL_PAST, cellData.isPast);
         this.updateCellTimeLabelForCell(cellData);
-        this.updateLiveBadge(element, cellData.isCurrent);
+        this.updateLiveBadge(element, cellData);
         this.applyProgressPresentation(this.getCellChildren(element), cellData, nowMs);
     }
 
@@ -524,11 +533,11 @@ export class EPGCellRenderer {
         }
     }
 
-    private updateLiveBadge(element: HTMLElement, isCurrent: boolean): void {
+    private updateLiveBadge(element: HTMLElement, cellData: EPGRenderedCellData): void {
         const badge = this.getCellChildren(element).liveBadge;
         if (!badge) return;
 
-        if (!isCurrent) {
+        if (!cellData.isCurrent) {
             badge.hidden = true;
             badge.textContent = '';
             badge.classList.remove(EPG_CLASSES.CELL_LIVE_COMPACT);
@@ -536,14 +545,10 @@ export class EPGCellRenderer {
         }
 
         badge.hidden = false;
-        const isNarrowOrTiny =
-            element.classList.contains(EPG_CLASSES.CELL_TIER_NARROW) ||
-            element.classList.contains(EPG_CLASSES.CELL_TIER_TINY);
         const shouldCompact =
-            isNarrowOrTiny ||
+            this.usesCompactLiveBadge(cellData) ||
             element.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT) ||
-            element.classList.contains(FOCUSED_MOVIE_OVERLAY_CLASS) ||
-            element.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS);
+            element.classList.contains(FOCUSED_MOVIE_OVERLAY_CLASS);
 
         badge.classList.toggle(EPG_CLASSES.CELL_LIVE_COMPACT, shouldCompact);
         badge.textContent = shouldCompact ? '' : 'LIVE';
