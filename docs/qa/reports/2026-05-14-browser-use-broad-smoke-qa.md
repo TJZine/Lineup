@@ -810,6 +810,77 @@ Verification lead:
 
 - Add or retain a copy contract that empty/unsupported tag directories render as user-safe skip warnings instead of blocking estimate/build.
 
+#### P2 - Video Plane Drops Slightly When OSD First Opens After Returning From Full-Screen UI
+
+Status: user-observed regression/resurfaced bug; not yet reverified in Browser Use during this report update.
+
+Observed behavior:
+
+- While watching a channel, opening a separate full-screen UI surface and then returning to playback can leave the next OSD open animation in a bad state.
+- Pressing Down to open the OSD after returning makes the video appear to drop downward slightly as the OSD panel rises from the bottom.
+- The drop only happens on the first OSD open after returning from a different UI surface.
+- Reopening the OSD again from the same player state does not reproduce the drop.
+
+Concrete repro outline:
+
+1. Start playback on any channel.
+2. Open a completely different UI surface, such as Server Select.
+3. Return to the current channel/player with Back or Backspace.
+4. Press Down to open the player OSD.
+5. Observe the video plane during the first OSD reveal. Expected failure: video appears to shift/drop downward slightly as the OSD appears.
+
+Additional repro surfaces reported by user:
+
+- Server Select reproduces the issue.
+- Subtitle settings or OSD-launched settings/menu UIs reproduce the issue.
+- Settings menus opened from the OSD reproduce the issue.
+
+Non-repro / boundary notes:
+
+- Starting from the player and opening the guide or mini guide, then returning and pressing Down for OSD, does not reproduce the drop.
+- The issue appears tied to leaving the player for a separate screen or menu surface, not merely opening an overlay while still in the player context.
+- This has reportedly been attempted before and may be a resurfaced or incompletely fixed transition/compositor bug.
+
+Impact:
+
+- The playback surface visibly shifts at the exact moment a user returns from a menu and invokes the primary playback controls.
+- Because it only happens on the first OSD open after certain UI returns, it is easy to miss in normal OSD-only testing.
+- The behavior makes the video plane feel loosely coupled to the HTML overlay stack.
+
+Current-source leads:
+
+- `src/modules/navigation/handlers/NavigationScreenEffectsHandler.ts` hides the OSD and mini guide when leaving the player, then calls `videoPlayer.play()` when returning to the player from another screen.
+- `src/modules/navigation/handlers/NavigationKeyModeRouter.ts` routes Down/OK on the player to `requestPlayerOsdIntent({ type: 'toggle' })` when no modal, guide, OSD, or mini guide is active.
+- `src/modules/ui/player-osd/styles.surface.css` animates the OSD panel with `transform: translateY(100%)` to `translateY(0)` while the root OSD overlay fades in.
+- `src/styles/video.css` owns special video geometry for EPG PiP mode; any stale class or inline geometry after screen returns should be ruled out.
+- `src/styles/shell.player-runtime-chrome.css` keeps runtime chrome as an absolute overlay plane with `pointer-events: none`.
+
+Investigation leads:
+
+- Reproduce with Browser Use at `1920x1080`, ideally capturing before/during/after screenshots or video frames for the first OSD open after returning from Server Select and from playback-options/settings menus.
+- Compare DOM classes and computed geometry for `#lineup-video-player`, `.video-container`, runtime chrome, and `.player-osd-panel` before leaving player, immediately after returning, during first OSD open, and during second OSD open.
+- Confirm whether stale PiP/guide classes, screen visibility classes, focus restoration, or playback resume timing changes the video element's inline top/left/width/height/transform.
+- Check whether opening playback options from the OSD leaves the OSD panel in a transformed/hidden-but-still-layout-affecting state before the next player return.
+- Add a targeted regression if the root cause is a deterministic class/state cleanup issue; otherwise keep Browser Use visual proof as the primary verification surface.
+
+Likely owners:
+
+- `src/modules/ui/player-osd/PlayerOsdOverlay.ts`
+- `src/modules/ui/player-osd/PlayerOsdCoordinator.ts`
+- `src/modules/ui/player-osd/styles.surface.css`
+- `src/modules/navigation/handlers/NavigationScreenEffectsHandler.ts`
+- `src/modules/navigation/handlers/NavigationKeyModeRouter.ts`
+- `src/styles/video.css`
+- `src/styles/shell.player-runtime-chrome.css`
+
+Verification needs:
+
+- Browser Use proof at `1920x1080` while real channel playback is active.
+- Repro through Server Select return.
+- Repro or disproof through subtitle/playback-options/settings menu return.
+- Negative proof that player -> guide or player -> mini guide -> player still does not produce the drop.
+- Confirmation that the first and second OSD opens after return have identical video geometry.
+
 ### Updated Remediation Slice Recommendation
 
 1. `EPG focused-cell readability and ticker remediation`
@@ -817,11 +888,15 @@ Verification lead:
    - Preserve focused series episode tag lane where width allows.
    - Relax movie truncation separately from series.
    - Add adaptive time hiding for constrained series cells only after explicit threshold tests.
-2. `Channel Setup actor/director candidate limiting`
+2. `Playback return OSD/video-plane stability`
+   - Reproduce the first-OSD-open video drop after returning from Server Select and playback-options/settings menus.
+   - Audit player return, OSD hidden/showing state, and video geometry/class cleanup.
+   - Add deterministic cleanup tests if the root cause is state/class-based; otherwise close with Browser Use visual proof.
+3. `Channel Setup actor/director candidate limiting`
    - Investigate actor tag count payloads and count recovery.
    - Decide unknown-count policy and/or per-strategy cap.
    - Update estimate/build warnings so users understand skipped high-cardinality sources.
-3. Keep the already-fixed EPG time-header/live-badge remediation closed unless final Browser Use proof finds a regression.
+4. Keep the already-fixed EPG time-header/live-badge remediation closed unless final Browser Use proof finds a regression.
 
 ### Fresh-Session Handoff Candidate
 
@@ -857,6 +932,40 @@ VERIFICATION:
 STOP_AND_REPLAN_IF:
 - The fix requires changing scheduler/channel data contracts, public virtualizer contracts, navigation routing, persistence, Plex metadata fetching, or channel setup behavior.
 - The truncation behavior cannot be made deterministic without a broader design decision.
+```
+
+```text
+NEXT_SESSION_LAUNCHER: lineup-cleanup-plan
+TASK: Produce a focused remediation plan for the resurfaced playback OSD/video-plane stability bug: after leaving active channel playback for Server Select or an OSD-launched menu/settings surface, returning to the player and opening the OSD with Down can make the video plane appear to drop slightly during the first OSD reveal.
+TASK_FAMILY: cleanup/refactor
+CLEANUP_SUBTYPE: standalone remediation
+TIER: Tier 2 unless discovery shows a broader navigation/screen-visibility or player geometry contract rewrite is required.
+READ_FIRST:
+- AGENTS.md
+- docs/AGENTIC_DEV_WORKFLOW.md
+- docs/agentic/session-prompts/cleanup-plan.md
+- docs/agentic/codanna-playbook.md
+- docs/architecture/CURRENT_STATE.md
+- docs/design/ui-design-language.md
+- docs/qa/reports/2026-05-14-browser-use-broad-smoke-qa.md
+LIKELY_FILES_IN_SCOPE:
+- src/modules/ui/player-osd/PlayerOsdOverlay.ts
+- src/modules/ui/player-osd/PlayerOsdCoordinator.ts
+- src/modules/ui/player-osd/styles.surface.css
+- src/modules/navigation/handlers/NavigationScreenEffectsHandler.ts
+- src/modules/navigation/handlers/NavigationKeyModeRouter.ts
+- src/styles/video.css
+- src/styles/shell.player-runtime-chrome.css
+- relevant player OSD, navigation, and style contract tests
+VERIFICATION:
+- npm run verify
+- Browser Use at 1920x1080 with real channel playback active.
+- Confirm first OSD open after Server Select return does not move video geometry.
+- Confirm first OSD open after subtitle/playback-options/settings menu return does not move video geometry.
+- Confirm player -> guide and player -> mini guide paths remain stable.
+STOP_AND_REPLAN_IF:
+- The fix requires changing player stream/playback contracts, persisted settings, public navigation contracts, or broad screen-shell ownership.
+- Browser Use cannot reproduce the issue and no computed-geometry proof can substitute for the visual failure.
 ```
 
 ```text
