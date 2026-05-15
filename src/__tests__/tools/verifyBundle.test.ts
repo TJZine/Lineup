@@ -139,6 +139,17 @@ function runVerifier(distDir: string): ReturnType<typeof spawnSync> {
     );
 }
 
+function runVerifierWithBuild(cwd: string): ReturnType<typeof spawnSync> {
+    return spawnSync(
+        process.execPath,
+        [verifierPath],
+        {
+            cwd,
+            encoding: 'utf8',
+        }
+    );
+}
+
 describe('verify-bundle', () => {
     const tempRoots: string[] = [];
 
@@ -733,5 +744,56 @@ describe('verify-bundle', () => {
         expect(result.stdout).toContain('eager JS bytes: 100');
         expect(result.stdout).toContain('- assets/lazy-feature.js: 70 bytes');
         expect(result.stdout).toContain('- assets/nested-lazy-feature.js: 80 bytes');
+    });
+
+    it('does not kill noisy build analysis output at the default spawnSync buffer limit', () => {
+        const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-bundle-'));
+        tempRoots.push(tempRoot);
+
+        writeBundleFixture(
+            tempRoot,
+            [
+                {
+                    ...htmlEntryFixture(),
+                },
+                {
+                    uid: 'index',
+                    id: moduleId('src/index'),
+                    chunk: 'assets/main.js',
+                    imported: [{ uid: 'bootstrap' }],
+                },
+                {
+                    uid: 'bootstrap',
+                    id: moduleId('src/bootstrap'),
+                    chunk: 'assets/main.js',
+                },
+                ...requiredDeferredModuleFixtures(),
+            ],
+            {
+                'assets/main.js': 100,
+                'assets/main.css': 20,
+                ...Object.fromEntries(requiredDeferredModules.map((_modulePath, index) => [`assets/deferred-${index}.js`, 10])),
+            }
+        );
+        writeFileSync(
+            path.join(tempRoot, 'package.json'),
+            JSON.stringify({
+                type: 'module',
+                scripts: {
+                    'build:analyze': 'node noisy-build.mjs',
+                },
+            }),
+            'utf8'
+        );
+        writeFileSync(
+            path.join(tempRoot, 'noisy-build.mjs'),
+            "process.stdout.write('x'.repeat(2 * 1024 * 1024));\n",
+            'utf8'
+        );
+
+        const result = runVerifierWithBuild(tempRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('verify:bundle PASS');
     });
 });

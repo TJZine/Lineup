@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const STARTUP_MAX_BYTES = 500000;
+const BUILD_ANALYZE_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 const STARTUP_ENTRY_MODULE = normalizeModulePath('src/bootstrap.ts');
 const REQUIRED_DEFERRED_MODULES = [
     '../../modules/ui/auth/AuthScreen',
@@ -120,11 +121,26 @@ function runBuildAnalyze() {
     const result = spawnSync(npmCommand, ['run', 'build:analyze'], {
         cwd: process.cwd(),
         encoding: 'utf8',
+        maxBuffer: BUILD_ANALYZE_MAX_BUFFER_BYTES,
+        windowsHide: true,
     });
     const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
 
     if (result.status !== 0) {
-        fail(`build:analyze failed with exit code ${result.status}\n${output}`);
+        const details = [];
+        if (result.error !== undefined) {
+            const code = typeof result.error === 'object' &&
+                result.error !== null &&
+                'code' in result.error
+                ? ` (${result.error.code})`
+                : '';
+            details.push(`spawn error${code}: ${result.error.message}`);
+        }
+        if (result.signal !== null) {
+            details.push(`signal: ${result.signal}`);
+        }
+        const detailText = details.length > 0 ? `\n${details.join('\n')}` : '';
+        fail(`build:analyze failed with exit code ${result.status}${detailText}\n${output}`);
     }
     if (output.includes('Circular chunk:')) {
         fail(`Detected circular chunk warning in build output.\n${output}`);
