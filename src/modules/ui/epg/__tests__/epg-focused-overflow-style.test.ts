@@ -86,6 +86,7 @@ describe('focused EPG overflow style contract', () => {
 
     afterEach(() => {
         document.body.innerHTML = '';
+        document.body.className = '';
     });
 
     it('keeps tiny focused ticker titles unclamped', () => {
@@ -173,19 +174,24 @@ describe('focused EPG overflow style contract', () => {
         expect(emberBlock).toContain('color: transparent');
         expect(directvBlock).toContain('color: transparent');
 
-        document.body.className = 'theme-ember-steel';
+        const previousBodyClassName = document.body.className;
         const container = document.createElement('div');
-        container.className = 'epg-container layout-classic';
-        const slot = document.createElement('div');
-        slot.className = 'epg-time-slot epg-time-slot-occluded';
-        slot.textContent = '4:00 PM';
-        container.appendChild(slot);
-        document.body.appendChild(container);
 
-        expect(getComputedStyle(slot).color).toBe('rgba(0, 0, 0, 0)');
+        try {
+            document.body.className = 'theme-ember-steel';
+            container.className = 'epg-container layout-classic';
 
-        container.remove();
-        document.body.className = '';
+            const slot = document.createElement('div');
+            slot.className = 'epg-time-slot epg-time-slot-occluded';
+            slot.textContent = '4:00 PM';
+            container.appendChild(slot);
+            document.body.appendChild(container);
+
+            expect(getComputedStyle(slot).color).toBe('rgba(0, 0, 0, 0)');
+        } finally {
+            container.remove();
+            document.body.className = previousBodyClassName;
+        }
     });
 
     it('keeps focused movie rail anchoring stable across badge visibility in tiny and medium tiers', () => {
