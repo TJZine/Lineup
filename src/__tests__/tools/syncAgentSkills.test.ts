@@ -4,13 +4,15 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
 const sourceScriptPath = path.resolve(process.cwd(), 'scripts/sync_agent_skills.sh');
+const hasPosixShell = existsSync('/bin/sh') && existsSync('/bin/bash');
+const describeIfPosixShell = hasPosixShell ? describe : describe.skip;
 
 function writeFile(filePath: string, content: string): void {
     mkdirSync(path.dirname(filePath), { recursive: true });
     writeFileSync(filePath, content, 'utf8');
 }
 
-describe('sync_agent_skills.sh', () => {
+describeIfPosixShell('sync_agent_skills.sh', () => {
     const tempRoots: string[] = [];
 
     afterEach(() => {

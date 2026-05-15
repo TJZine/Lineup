@@ -242,6 +242,10 @@ function toRepoRelativePath(absolutePath) {
     return path.relative(repoRoot, absolutePath).split(path.sep).join('/');
 }
 
+function normalizeRepoPath(relativePath) {
+    return relativePath.split(/[\\/]+/u).join('/');
+}
+
 function readRepoFile(relativePath, errors) {
     try {
         return readFileSync(path.join(repoRoot, relativePath), 'utf8');
@@ -289,7 +293,7 @@ function isForbiddenLocalOnlyTarget(relativePath) {
 
 function collectMarkdownFiles(entry, errors) {
     if (localOnlyMarkdownDirs.includes(entry)) {
-        const readmeEntry = path.join(entry, 'README.md');
+        const readmeEntry = normalizeRepoPath(path.join(entry, 'README.md'));
         return existsSync(path.join(repoRoot, readmeEntry)) ? [readmeEntry] : [];
     }
 
@@ -307,14 +311,14 @@ function collectMarkdownFiles(entry, errors) {
     }
 
     if (stats.isFile()) {
-        return entry.endsWith('.md') ? [entry] : [];
+        return entry.endsWith('.md') ? [normalizeRepoPath(entry)] : [];
     }
 
     const results = [];
     const children = safeReadDir(entry, errors);
 
     for (const child of children) {
-        results.push(...collectMarkdownFiles(path.join(entry, child), errors));
+        results.push(...collectMarkdownFiles(normalizeRepoPath(path.join(entry, child)), errors));
     }
 
     return results;
