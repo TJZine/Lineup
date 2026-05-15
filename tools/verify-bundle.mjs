@@ -118,7 +118,8 @@ function parseOptions(argv) {
 }
 
 function runBuildAnalyze() {
-    const result = spawnSync(npmCommand, ['run', 'build:analyze'], {
+    const buildCommand = `${npmCommand} run build:analyze`;
+    const result = spawnSync(buildCommand, {
         cwd: process.cwd(),
         encoding: 'utf8',
         maxBuffer: BUILD_ANALYZE_MAX_BUFFER_BYTES,
