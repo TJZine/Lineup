@@ -10,14 +10,14 @@
 
 ## Environment
 
-- Workspace: `/Users/tristan/Software/Lineup`
+- Workspace: `<REDACTED_WORKSPACE>`
 - Date: `2026-05-14`
 - Dev server command: `npm run dev -- --host 127.0.0.1`
 - Dev server URL: `http://127.0.0.1:5173/`
 - Browser surface: Codex in-app Browser Use
 - Manual auth handoff: user linked the Plex PIN at `plex.tv/link`
-- Plex profile observed in Settings: `FatherGarbage`
-- Server selected during QA: `Tristan's PC`
+- Plex profile observed in Settings: `<REDACTED_PROFILE>`
+- Server selected during QA: `<REDACTED_SERVER>`
 
 ## Verification Classification
 
@@ -35,7 +35,7 @@
 4. Requested a Plex PIN.
 5. User linked the PIN externally at `plex.tv/link`.
 6. Observed post-auth server selection.
-7. Selected `Tristan's PC`.
+7. Selected `<REDACTED_SERVER>`.
 8. Continued through Audio Setup using current/default settings.
 9. Entered Channel Setup with all six libraries selected.
 10. Sampled Channel Setup sections:
@@ -104,7 +104,7 @@ Observed behavior:
 Repro outline:
 
 1. Sign in.
-2. Select `Tristan's PC`.
+2. Select `<REDACTED_SERVER>`.
 3. Enter Channel Setup.
 4. Keep all libraries selected.
 5. Keep default source options enabled.
