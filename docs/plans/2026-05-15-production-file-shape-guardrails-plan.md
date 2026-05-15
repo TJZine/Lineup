@@ -120,27 +120,20 @@ Debt-regression gate: this plan directly addresses hotspot growth. The diff must
 
 ## Verification Commands
 
-Verification strategy classification: `broader integration/manual proof required`.
+- Verification classification: `broader integration/manual proof required`
 
 Why: this is a tooling/control-plane change. The verifier requires targeted contract tests, while the script wiring and docs updates need integration proof through existing docs and architecture verification.
 
-Run:
-
-```bash
-npm run test:harness-docs
-npm run verify:docs
-npm run verify:maintainability
-npm run verify:architecture
-npm run verify
-```
-
-Expected results:
-
-- `npm run test:harness-docs` passes, including `tools/__tests__/verify-maintainability.test.mjs`.
-- `npm run verify:docs` passes for the new architecture/control-plane docs.
-- `npm run verify:maintainability` passes against the generated current allowlist.
-- `npm run verify:architecture` runs ESLint and the maintainability verifier.
-- `npm run verify` enforces the maintainability guard transitively.
+- Run: `npm run test:harness-docs`
+- Expected: passes, including `tools/__tests__/verify-maintainability.test.mjs`.
+- Run: `npm run verify:docs`
+- Expected: passes for the new architecture/control-plane docs.
+- Run: `npm run verify:maintainability`
+- Expected: passes against the generated current allowlist.
+- Run: `npm run verify:architecture`
+- Expected: runs ESLint and the maintainability verifier.
+- Run: `npm run verify`
+- Expected: enforces the maintainability guard transitively.
 
 New tests are required because the guard's behavior is a new repo contract. Cover missing rows, malformed rows, baseline growth, stale/deleted paths, stale rows after shrink, test exclusion, hard-overage triggers, and `src/**/build/*.ts` being counted.
 
