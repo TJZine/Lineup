@@ -147,6 +147,12 @@ The goal is not to maximize tool usage for its own sake. The goal is to leave a 
   - no fallback or compatibility paths unless explicitly approved
   - no temporary adapters that the next work unit must immediately replace
   - no unrelated side quests
+- For production-source work, check the file-shape guardrail in
+  [`docs/architecture/file-shape-guardrails.md`](../architecture/file-shape-guardrails.md).
+  If the task adds a new production file over 500 lines or grows an allowlisted
+  production file beyond its baseline, the plan must name the same-change
+  rationale plus the decomposition or revisit trigger instead of treating the
+  baseline update as routine bookkeeping.
 - For non-trivial code changes, add a debt-regression gate when any steady-state
   guardrail from the workflow is implicated. Name the guardrail category, the
   owner that must not grow, the forbidden shortcut, and the verification or

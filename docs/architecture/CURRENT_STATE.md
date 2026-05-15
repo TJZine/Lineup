@@ -8,6 +8,12 @@ Use this document for the repo’s present-day architecture truth.
 
 If another architecture doc disagrees with this one, update the other doc or archive it.
 
+## Steady-State Guardrails
+
+- Production file-shape exceptions and baselines live in [`file-shape-guardrails.md`](./file-shape-guardrails.md).
+- `npm run verify:maintainability` blocks unreviewed growth in production files over 500 lines and requires explicit decomposition or revisit triggers for production files over 800 lines.
+- Current oversized production files are accepted baselines, not automatic cleanup obligations. Any baseline increase requires same-change rationale and a decomposition or revisit trigger.
+
 ## Product Invariants
 
 - Lineup is a client-side TypeScript application for LG webOS.
