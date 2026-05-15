@@ -742,6 +742,125 @@ Investigation leads:
 - Confirm ticker clears on focus movement, cell recycle, reduced-motion, no visible width, and real overflow.
 - Add a regression for a wide focused movie title that fits and remains non-tickered across repeated render/focus sync.
 
+### Additional EPG Cell Readability Notes (2026-05-15)
+
+Status: user-observed during the focused-cell readability remediation follow-up; these notes should inform the next EPG visual bug/remediation plan rather than being folded into the completed focused-tag/ticker pass without review.
+
+#### P2 - Unfocused Episode Title Width Can Still Be Over-Constrained by Lower-Row Time
+
+Observed examples:
+
+- Unfocused `Adventure Time: Fionna and Cake` episode cell with tag `S01E08`, subtitle `Jerry`, and visible time range: the title displayed as `Advent...` even though the subtitle was short and the lower row had unused visual space.
+- Focused version of the same cell showed the tag lane and much more of the title, confirming the content itself was not the limiting factor.
+
+Interpretation:
+
+- The issue is not primarily subtitle string length.
+- The base two-column cell layout can reserve the rail/time column across the full cell height, which narrows the title row even though the time label visually sits on the lower row.
+- Title and subtitle/time should be treated as separate rows: the title row should not always pay for lower-row time width.
+
+Small-pass implementation direction captured during the session:
+
+- Add a renderer-owned row-aware presentation class for safe episode cases instead of adding per-string measurement to every virtualized cell.
+- Let the title row span the full cell width.
+- Keep the subtitle row constrained so it does not collide with the in-cell time range.
+- Keep this local to `EPGCellPresentation`, `EPGCellRenderer`, and `styles.cells.css`; no scheduler/channel data, Plex metadata, persistence, navigation, or public virtualizer redesign is implicated.
+
+Verification leads:
+
+- Renderer test: non-current wide episode with long show title, short subtitle, visible time gets the row-aware class and retains visible time.
+- CSS contract: row-aware title cells use one grid column, absolute rail positioning, and subtitle-only time reservation.
+- Browser Use: at `1920x1080`, inspect row-aware episode cells and confirm title uses the wider row while subtitle/time lower-row geometry has a positive gap.
+
+#### P3 - Unfocused Constrained Episode Tags Might Fit, But Tag Visibility Needs Separate Policy
+
+Observed examples:
+
+- A constrained unfocused `Aqua...` episode cell had room where `S03E08` appeared on focus.
+- A constrained unfocused `That '70...` episode cell had room where `S01E08` appeared on focus.
+
+Decision note:
+
+- Do not automatically restore unfocused episode tags in constrained cells as part of the focused-cell/tag-lane fix.
+- Focused cells should preserve the tag lane because focus is the expanded/contextual state.
+- Unfocused constrained cells prioritize quick title scanning; showing tags there risks making unfocused cells look like focused cells and introduces new collision rules with live/current badges.
+
+Future option:
+
+- Consider a conservative unfocused tag rule only for medium/wide non-current episode cells where the tag lane can fit without hiding title or subtitle.
+- Avoid showing unfocused tags in current/live compact-dot or full-live cells unless the top-row live/tag/title relationship is intentionally redesigned.
+
+#### P2 - Current/Live Text Competes With Episode Titles
+
+Observed example:
+
+- A current unfocused `That '70s Show` cell displayed `That '70...` with subtitle `Drive-In` and full `LIVE` text.
+- The focused version used the compact live dot, preserved the episode tag lane, and displayed much more of `That '70s Show`.
+
+Interpretation:
+
+- This is the current/live variant of the title-row width problem.
+- Full `LIVE` text is a real top-row element, so it competes with title readability more directly than lower-row time does.
+- This is more complex than the non-current row-aware title pass because the live badge belongs near the title row, not only the subtitle/time row.
+
+Future remediation direction:
+
+- Either make current/live episode cells row-aware while reserving only the actual live-badge width on the title row, or change the live badge policy so cells always use the compact dot.
+- Preserve accessibility with `aria-label="Currently playing"` regardless of visible badge text.
+- Keep partial `LIVE` text prohibited.
+
+#### P2 - Consider Compact Live Dot for All Cell Live Badges
+
+Product direction under consideration:
+
+- Always render the in-cell current/live indicator as the pulsing compact dot and remove visible `LIVE` text from all EPG cells.
+
+Pros:
+
+- Reduces title-row width pressure in current/live cells.
+- Makes current cells visually more consistent across focused and unfocused states.
+- Avoids the `LIVE` text appearing/disappearing during focus changes.
+- Keeps in-grid cells calmer while the detail panel can carry explicit currently-playing context.
+- Keeps accessibility intact if the badge retains `aria-label="Currently playing"`.
+
+Cons / decision risks:
+
+- Reduces discoverability because a red dot is less explicit than visible `LIVE` text.
+- Some themes may rely on the written `LIVE` affordance if current-progress styling is low contrast.
+- This intentionally changes the earlier contract that allowed either full `LIVE` or compact dot depending on geometry, so it should be planned as a new UX decision rather than a hidden bug fix.
+
+Recommended framing:
+
+- Plan as `Use compact live dot for all EPG cell live badges`.
+- Keep it smaller and safer than broad tag visibility changes.
+- Pair it with a current-progress contrast check so the loss of visible `LIVE` does not make current-airing state too subtle.
+
+#### P2 - Current Progress Bar Contrast May Be Too Low
+
+Observed concern:
+
+- If visible `LIVE` text is removed, discoverability may depend more on the current-progress indicator.
+- In the sampled theme, the filled progress portion was difficult to distinguish from the unfilled/current-cell orange treatment. The contrast between current progress and the remaining progress track appeared too low.
+
+Impact:
+
+- Users may not easily read how far through the current program they are.
+- Always using compact live dots could make this worse if the progress fill does not provide enough visual reinforcement.
+- Theme differences may make the issue inconsistent, so the check should cover at least the active/default theme and any high-contrast/currently preferred guide theme.
+
+Investigation leads:
+
+- Audit `.epg-cell-progress`, `.epg-cell-progress-fill`, current-cell border/background, and theme overrides in `styles.cells.css` and related theme CSS.
+- Confirm whether the unfilled current-progress track uses a color too close to the filled progress segment or row accent.
+- Consider a stronger semantic progress fill token, darker unfilled track, or clearer progress height/edge treatment for current cells.
+- Preserve reduced-motion and forced-colors behavior.
+
+Verification leads:
+
+- Browser Use at `1920x1080` with current cells visible in at least the active theme.
+- CSS contract or theme-token test if progress colors are intended to map to stable semantic tokens.
+- Visual check that current state remains discoverable if visible `LIVE` text is replaced by the compact dot.
+
 #### P2 - Actor Channel Estimates Can Explode Despite Minimum Item Count
 
 Status: confirmed by user observation; source audit suggests likely cause but runtime payload needs capture.
@@ -888,6 +1007,8 @@ Verification needs:
    - Preserve focused series episode tag lane where width allows.
    - Relax movie truncation separately from series.
    - Add adaptive time hiding for constrained series cells only after explicit threshold tests.
+   - Follow-up after the focused-cell pass: decide whether all in-cell live badges should become compact dots, then verify current-progress contrast so currently-airing state remains discoverable without visible `LIVE` text.
+   - Follow-up after the row-aware episode title pass: decide whether unfocused episode tags should ever render in constrained cells; keep this separate from focused tag-lane preservation and avoid current/live tag rules until the live-badge policy is settled.
 2. `Playback return OSD/video-plane stability`
    - Reproduce the first-OSD-open video drop after returning from Server Select and playback-options/settings menus.
    - Audit player return, OSD hidden/showing state, and video geometry/class cleanup.
