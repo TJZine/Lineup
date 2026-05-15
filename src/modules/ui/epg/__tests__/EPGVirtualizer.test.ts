@@ -3368,6 +3368,60 @@ describe('EPGVirtualizer', () => {
             expect(fill.style.width).toBe('50%');
         });
 
+        it('removes row-aware title layout when an episode becomes current via temporal refresh', () => {
+            const channelId = 'ch-row-aware-current-transition';
+            const start = gridAnchorTime + 10 * 60 * 1000;
+            const end = start + 80 * 60 * 1000;
+            const beforeCurrent = start - 5 * 60 * 1000;
+            jest.spyOn(Date, 'now').mockReturnValue(beforeCurrent);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60 * 1000),
+                programs: [{
+                    item: {
+                        ratingKey: 'row-aware-current-transition-1',
+                        type: 'episode',
+                        title: 'Drive-In',
+                        fullTitle: 'That 70s Show - S01E08 - Drive-In',
+                        showTitle: 'That 70s Show',
+                        seasonNumber: 1,
+                        episodeNumber: 8,
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: 0,
+                    remainingMs: end - beforeCurrent,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                }],
+            };
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const badge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(true);
+            expect(badge.hidden).toBe(true);
+
+            virtualizer.updateTemporalClasses(start + 10 * 60_000);
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(false);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(true);
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(false);
+            expect(badge.textContent).toBe('LIVE');
+        });
+
         it('resets progress width when a current program becomes past', () => {
             const channelId = 'ch-progress-reset';
             const start = gridAnchorTime + 10 * 60 * 1000;

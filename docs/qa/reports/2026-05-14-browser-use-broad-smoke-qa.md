@@ -722,7 +722,7 @@ Current-source evidence:
 
 - `src/modules/ui/epg/view/EPGCellRenderer.ts` clears ticker state and recomputes ticker targets on every `syncFocusedTicker()` call.
 - `src/modules/ui/epg/view/EPGVirtualizer.ts` calls focused ticker sync during visible-focus synchronization and again from `setFocusedCell()`.
-- The current implementation has extensive ticker tests, but it lacks a regression proving repeated no-op focus/render sync does not arm or re-arm the ticker for a fitting title.
+- At the time of this finding, the implementation had extensive ticker tests but lacked a regression proving repeated no-op focus/render sync did not arm or re-arm the ticker for fitting title/subtitle text. The follow-up remediation branch adds these regressions.
 
 Impact:
 

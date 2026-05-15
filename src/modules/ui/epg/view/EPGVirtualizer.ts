@@ -785,12 +785,17 @@ export class EPGVirtualizer {
         for (const cellData of this.visibleCells.values()) {
             const element = cellData.cellElement;
             if (cellData.kind === 'program') {
+                const wasCurrent = cellData.isCurrent;
+                const wasPast = cellData.isPast;
                 const isCurrent = nowMs >= cellData.program.scheduledStartTime &&
                     nowMs < cellData.program.scheduledEndTime;
                 const isPast = nowMs >= cellData.program.scheduledEndTime;
                 cellData.isCurrent = isCurrent;
                 cellData.isPast = isPast;
                 if (element) {
+                    if (wasCurrent !== isCurrent || wasPast !== isPast) {
+                        this.cellRenderer.updateCellContent(cellData, nowMs);
+                    }
                     this.cellRenderer.updateTemporalPresentation(cellData, nowMs);
                 }
             } else if (element) {
