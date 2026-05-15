@@ -13,6 +13,7 @@ import type { ScheduledProgram, ScheduleWindow, ChannelConfig, EPGConfig } from 
 import { DebugOverridesStore } from '../../../debug/DebugOverridesStore';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { readFileSync } from 'node:fs';
+import { normalizeLineEndings } from '../../../../styles/__tests__/helpers/css-test-utils';
 
 describe('EPGComponent', () => {
     const expectPresent = <T,>(value: T | null | undefined): T => {
@@ -861,7 +862,7 @@ describe('EPGComponent', () => {
         });
 
         it('keeps epg styles.css as an import-only stylesheet seam', () => {
-            const css = readFileSync('src/modules/ui/epg/styles.css', 'utf8').trim();
+            const css = normalizeLineEndings(readFileSync('src/modules/ui/epg/styles.css', 'utf8')).trim();
 
             expect(css).toBe([
                 "@import url('./styles.shell.css');",

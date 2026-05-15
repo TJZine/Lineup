@@ -1,14 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+export const normalizeLineEndings = (value: string): string => value.replace(/\r\n?/g, '\n');
+
 export const read = (relativePath: string): string =>
-    fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+    normalizeLineEndings(fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8'));
 
 const CSS_IMPORT_PATTERN =
     /^\s*@import\s+(?:url\(\s*)?['"]?([^'")\s;]+)['"]?\s*\)?[^;]*;\s*$/gm;
 
 const readComposedCssFile = (filePath: string, stack: string[]): string => {
-    const css = fs.readFileSync(filePath, 'utf8');
+    const css = normalizeLineEndings(fs.readFileSync(filePath, 'utf8'));
 
     return css.replace(CSS_IMPORT_PATTERN, (_statement, specifier: string) => {
         const importPath = path.resolve(path.dirname(filePath), specifier);

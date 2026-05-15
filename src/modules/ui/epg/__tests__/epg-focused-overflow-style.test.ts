@@ -3,11 +3,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { readComposedCss } from '../../../../styles/__tests__/helpers/css-test-utils';
+import { normalizeLineEndings, readComposedCss } from '../../../../styles/__tests__/helpers/css-test-utils';
 
 describe('focused EPG overflow style contract', () => {
     const cssPath = path.resolve(__dirname, '..', 'styles.css');
-    const rawCss = fs.readFileSync(cssPath, 'utf8');
+    const rawCss = normalizeLineEndings(fs.readFileSync(cssPath, 'utf8'));
     let css = '';
     let injectedStyle: HTMLStyleElement | null = null;
     const getBlockFromIndex = (start: number): string => {

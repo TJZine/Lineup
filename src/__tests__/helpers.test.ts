@@ -230,7 +230,7 @@ describe('advanceTimersUntil', () => {
                 timeoutMs: 60,
             })
         ).rejects.toThrow(
-            'advanceTimersUntil timed out after 60ms. Last assertion: expect(received).toBe(expected)'
+            /advanceTimersUntil timed out after 60ms\. Last assertion: expect\(received\)\.toBe\(expected\)/
         );
     });
 
