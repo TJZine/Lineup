@@ -569,6 +569,31 @@ describe('PlayerOsdCoordinator', () => {
         expect(navigation.setFocus).not.toHaveBeenCalled();
     });
 
+    it('registers OSD actions with scroll-neutral native focus', () => {
+        const { coordinator, navigation } = setup();
+
+        coordinator.poke('play');
+
+        const focusables = (navigation.registerFocusable as jest.Mock).mock.calls.map(
+            (call) => call[0]
+        );
+        expect(focusables).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                id: 'player-osd-action-subtitles',
+                preventScrollOnFocus: true,
+            }),
+            expect.objectContaining({
+                id: 'player-osd-action-sleep',
+                preventScrollOnFocus: true,
+            }),
+            expect.objectContaining({
+                id: 'player-osd-action-audio',
+                preventScrollOnFocus: true,
+            }),
+        ]));
+        expect(navigation.setFocus).toHaveBeenCalledWith('player-osd-action-subtitles', { persist: false });
+    });
+
     it('registers subtitles and audio actions to open playback option panels', () => {
         const preparePlaybackOptionsModal = jest.fn().mockReturnValue({
             focusableIds: ['playback-subtitle-off'],

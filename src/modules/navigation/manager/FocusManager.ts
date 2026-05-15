@@ -207,6 +207,10 @@ export class FocusManager implements IFocusManager {
     public updateFocusRing(elementId: string): void {
         const element = this._state.focusableElements.get(elementId);
         if (element) {
+            if (element.preventScrollOnFocus === true) {
+                element.element.focus({ preventScroll: true });
+                return;
+            }
             element.element.focus();
         }
     }

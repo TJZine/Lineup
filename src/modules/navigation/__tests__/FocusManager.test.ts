@@ -153,6 +153,34 @@ describe('FocusManager', () => {
 
             expect(onBlur).toHaveBeenCalled();
         });
+
+        it('passes preventScroll to native focus for opted-in focusables', () => {
+            const el = createMockElement('btn1');
+            elements.push(el);
+            el.focus = jest.fn();
+
+            focusManager.registerFocusable({
+                id: 'btn1',
+                element: el,
+                preventScrollOnFocus: true,
+                neighbors: {},
+            });
+            const result = focusManager.focus('btn1');
+
+            expect(result).toBe(true);
+            expect(el.focus).toHaveBeenCalledWith({ preventScroll: true });
+        });
+
+        it('uses native focus defaults unless preventScroll is opted in', () => {
+            const el = createMockElement('btn1');
+            elements.push(el);
+            el.focus = jest.fn();
+
+            focusManager.registerFocusable({ id: 'btn1', element: el, neighbors: {} });
+            focusManager.focus('btn1');
+
+            expect(el.focus).toHaveBeenCalledWith();
+        });
     });
 
     describe('explicit neighbor navigation', () => {

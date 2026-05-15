@@ -413,13 +413,13 @@ export class PlayerOsdCoordinator {
 
         navigation.registerFocusable({
             id: PLAYER_OSD_ACTION_IDS.subtitles,
-            element: subtitlesEl,
+            element: subtitlesEl, preventScrollOnFocus: true,
             neighbors: { right: PLAYER_OSD_ACTION_IDS.sleep },
             onSelect: () => this._openPlaybackOptions('subtitles'),
         });
         navigation.registerFocusable({
             id: PLAYER_OSD_ACTION_IDS.sleep,
-            element: sleepEl,
+            element: sleepEl, preventScrollOnFocus: true,
             neighbors: {
                 left: PLAYER_OSD_ACTION_IDS.subtitles,
                 right: PLAYER_OSD_ACTION_IDS.audio,
@@ -432,7 +432,7 @@ export class PlayerOsdCoordinator {
         });
         navigation.registerFocusable({
             id: PLAYER_OSD_ACTION_IDS.audio,
-            element: audioEl,
+            element: audioEl, preventScrollOnFocus: true,
             neighbors: { left: PLAYER_OSD_ACTION_IDS.sleep },
             onSelect: () => this._openPlaybackOptions('audio'),
         });
