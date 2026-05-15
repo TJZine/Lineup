@@ -92,7 +92,7 @@ Recommended optional local launcher skill names:
 Each launcher should:
 
 1. confirm the current repo is Lineup
-2. load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. load [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) and [`agents.md`](../../../agents.md)
 3. load the matching file in this directory
 4. use the tracked role that matches the launcher intent (`planner` for planning, `worker` for implementation, `reviewer` for review)
    cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker
