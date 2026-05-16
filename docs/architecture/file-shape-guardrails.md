@@ -29,7 +29,6 @@ Do not update this table as routine bookkeeping. A baseline increase is an archi
 <!-- file-shape-guardrails:start -->
 | Path | Baseline lines | Rationale | Growth/decomposition trigger |
 | --- | ---: | --- | --- |
-| `src/core/channel-setup/planning/ChannelSetupFacetLibraryExecutor.ts` | 516 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
 | `src/core/channel-setup/planning/ChannelSetupPlanner.ts` | 741 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
 | `src/core/channel-setup/planning/ChannelSetupStrategyBuilders.ts` | 705 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
 | `src/core/channel-tuning/ChannelTuningCoordinator.ts` | 670 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |

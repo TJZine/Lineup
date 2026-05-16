@@ -14,6 +14,10 @@ import type {
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import { buildChannelSetupStrategyBuckets } from './ChannelSetupStrategyBuilders';
 import {
+    createChannelSetupFacetFamilyRecord,
+    type ChannelSetupNativeFacetFamily,
+} from './ChannelSetupFacetFamilies';
+import {
     createEmptyChannelSetupEstimates,
     createChannelIdentityKey,
     toChannelSetupDecadeValue,
@@ -69,24 +73,14 @@ class ChannelSetupPlannerDiagnosticsRecorder {
     constructor(
         collectDiagnostics: boolean,
         selectedLibraries: PlexLibrarySection[],
-        tagsByFamily: {
-            genres: ChannelSetupFacetMap<PlexTagDirectoryItem>;
-            directors: ChannelSetupFacetMap<PlexTagDirectoryItem>;
-            decades: ChannelSetupFacetMap<PlexTagDirectoryItem>;
-            studios: ChannelSetupFacetMap<PlexTagDirectoryItem>;
-            actors: ChannelSetupFacetMap<PlexTagDirectoryItem>;
-        },
+        tagsByFamily: Record<ChannelSetupNativeFacetFamily, ChannelSetupFacetMap<PlexTagDirectoryItem>>,
         effectiveMaxChannels: number,
         minItems: number
     ) {
         this._diagnostics = collectDiagnostics
             ? createPlannerDiagnostics(
                 selectedLibraries,
-                tagsByFamily.genres,
-                tagsByFamily.directors,
-                tagsByFamily.decades,
-                tagsByFamily.actors,
-                tagsByFamily.studios,
+                tagsByFamily,
                 effectiveMaxChannels,
                 minItems
             )
@@ -235,17 +229,18 @@ function buildChannelSetupPlanInternal(
 
     const { effectiveMaxChannels, minItems } = resolvePlanningLimits(config);
     const selectedLibraries = selectConfiguredLibraries(libraries, config);
+    const tagsByStateKey = {
+        genresByLibraryId,
+        directorsByLibraryId,
+        yearsByLibraryId,
+        actorsByLibraryId,
+        studiosByLibraryId,
+    };
 
     const diagnosticsRecorder = new ChannelSetupPlannerDiagnosticsRecorder(
         collectDiagnostics,
         selectedLibraries,
-        {
-            genres: genresByLibraryId,
-            directors: directorsByLibraryId,
-            decades: yearsByLibraryId,
-            studios: studiosByLibraryId,
-            actors: actorsByLibraryId,
-        },
+        createChannelSetupFacetFamilyRecord((descriptor) => tagsByStateKey[descriptor.stateKey]),
         effectiveMaxChannels,
         minItems
     );
@@ -655,11 +650,7 @@ function buildDecadeFacetCountDiagnostics(
 
 function createPlannerDiagnostics(
     selectedLibraries: PlexLibrarySection[],
-    genresByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
-    directorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
-    yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
-    actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
-    studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    tagsByFamily: Record<ChannelSetupNativeFacetFamily, ChannelSetupFacetMap<PlexTagDirectoryItem>>,
     effectiveMaxChannels: number,
     minItems: number
 ): ChannelSetupPlannerDiagnostics {
@@ -676,27 +667,21 @@ function createPlannerDiagnostics(
         buildFacetCountDiagnostics(library, valuesByLibraryId.get(library.id) ?? [], minItems)
     );
     const toDecadeFacetCountDiagnostics = (): ChannelSetupPlannerFacetCountDiagnostics[] => selectedLibraries.map((library) =>
-        buildDecadeFacetCountDiagnostics(library, yearsByLibraryId.get(library.id) ?? [], minItems)
+        buildDecadeFacetCountDiagnostics(library, tagsByFamily.decades.get(library.id) ?? [], minItems)
     );
 
     return {
         effectiveMaxChannels,
         minItems,
         allocationMode: 'priority-balanced-round-robin',
-        fetchedTagsByFamily: {
-            genres: toCounts(genresByLibraryId),
-            directors: toCounts(directorsByLibraryId),
-            decades: toCounts(yearsByLibraryId),
-            studios: toCounts(studiosByLibraryId),
-            actors: toCounts(actorsByLibraryId),
-        },
-        tagCountDiagnosticsByFamily: {
-            genres: toFacetCountDiagnostics(genresByLibraryId),
-            directors: toFacetCountDiagnostics(directorsByLibraryId),
-            decades: toDecadeFacetCountDiagnostics(),
-            studios: toFacetCountDiagnostics(studiosByLibraryId),
-            actors: toFacetCountDiagnostics(actorsByLibraryId),
-        },
+        fetchedTagsByFamily: createChannelSetupFacetFamilyRecord((descriptor) =>
+            toCounts(tagsByFamily[descriptor.family])
+        ),
+        tagCountDiagnosticsByFamily: createChannelSetupFacetFamilyRecord((descriptor) =>
+            descriptor.family === 'decades'
+                ? toDecadeFacetCountDiagnostics()
+                : toFacetCountDiagnostics(tagsByFamily[descriptor.family])
+        ),
         candidatesBeforeMinItems: createEmptyChannelSetupEstimates(),
         candidatesAfterMinItems: createEmptyChannelSetupEstimates(),
         strategyBucketSizes: createEmptyChannelSetupEstimates(),

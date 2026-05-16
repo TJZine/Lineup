@@ -11,13 +11,17 @@ import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
 import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
 import {
     ChannelSetupFacetCountRecoveryWorker,
-    type ChannelSetupFacetCountRecoveryFamily,
     type FacetCountRecoveryLimiter,
 } from './ChannelSetupFacetCountRecoveryWorker';
 import type {
+    ChannelSetupFacetCountRecoveryFamily,
     ChannelSetupNativeFacetFamily,
     ChannelSetupRequiredTagDirectoryLabel,
-} from './ChannelSetupFacetSnapshotFailures';
+    ChannelSetupNativeFacetFamilyDescriptor,
+} from './ChannelSetupFacetFamilies';
+import {
+    CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS,
+} from './ChannelSetupFacetFamilies';
 import type {
     ChannelSetupFacetSnapshot,
     ChannelSetupPlexRequestIntent,
@@ -292,71 +296,42 @@ export class ChannelSetupFacetLibraryExecutor {
 
     private _createNativeFacetDefinitions(library: PlexLibrarySection): NativeFacetTaskDefinition[] {
         const { genreType, detailType } = getTagDirectoryMediaTypesForLibraryType(library.type);
-        const definitions: Array<NativeFacetTaskDefinition & { enabled: boolean }> = [
-            {
-                enabled: this._options.config.strategyConfig.genres.enabled,
-                family: 'genres',
-                label: 'Genres',
-                mediaType: genreType,
-                countRecoveryFamily: 'genre',
-                tagsByLibraryId: this._options.state.genresByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getGenres(library.id, {
-                    type: genreType,
-                    ...options,
-                }),
-            },
-            {
-                enabled: this._options.config.strategyConfig.directors.enabled,
-                family: 'directors',
-                label: 'Directors',
-                mediaType: detailType,
-                countRecoveryFamily: 'director',
-                tagsByLibraryId: this._options.state.directorsByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getDirectors(library.id, {
-                    type: detailType,
-                    ...options,
-                }),
-            },
-            {
-                enabled: this._options.config.strategyConfig.decades.enabled,
-                family: 'decades',
-                label: 'Years',
-                mediaType: detailType,
-                countRecoveryFamily: 'year',
-                tagsByLibraryId: this._options.state.yearsByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getYears(library.id, {
-                    type: detailType,
-                    ...options,
-                }),
-            },
-            {
-                enabled: this._options.config.strategyConfig.studios.enabled,
-                family: 'studios',
-                label: 'Studios',
-                mediaType: detailType,
-                countRecoveryFamily: 'studio',
-                tagsByLibraryId: this._options.state.studiosByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getStudios(library.id, {
-                    type: detailType,
-                    ...options,
-                }),
-            },
-            {
-                enabled: this._options.config.strategyConfig.actors.enabled,
-                family: 'actors',
-                label: 'Actors',
-                mediaType: detailType,
-                countRecoveryFamily: 'actor',
-                tagsByLibraryId: this._options.state.actorsByLibraryId,
-                fetchTags: (options) => this._options.plexLibrary.getActors(library.id, {
-                    type: detailType,
-                    ...options,
-                }),
-            },
-        ];
-        return definitions
-            .filter(({ enabled }) => enabled)
-            .map(({ enabled: _enabled, ...definition }) => definition);
+        return CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS
+            .filter((descriptor) => this._options.config.strategyConfig[descriptor.strategyKey].enabled)
+            .map((descriptor) => {
+                const mediaType = descriptor.mediaTypeSource === 'genre' ? genreType : detailType;
+                return {
+                    family: descriptor.family,
+                    label: descriptor.label,
+                    mediaType,
+                    countRecoveryFamily: descriptor.countRecoveryFamily,
+                    tagsByLibraryId: this._options.state[descriptor.stateKey],
+                    fetchTags: (options) => this._fetchNativeFacetTags(
+                        descriptor,
+                        library.id,
+                        mediaType,
+                        options
+                    ),
+                };
+            });
+    }
+
+    private _fetchNativeFacetTags(
+        descriptor: ChannelSetupNativeFacetFamilyDescriptor,
+        libraryId: string,
+        mediaType: number,
+        options: {
+            signal: AbortSignal;
+            requireEntries: boolean;
+            requestIntent: ChannelSetupPlexRequestIntent;
+            onUnsupported: (reason: PlexTagDirectoryUnsupportedReason) => void;
+        }
+    ): Promise<PlexTagDirectoryItem[]> {
+        const fetchTags = this._options.plexLibrary[descriptor.directoryMethod];
+        return fetchTags.call(this._options.plexLibrary, libraryId, {
+            type: mediaType,
+            ...options,
+        });
     }
 
     private async _createNativeFacetTask(

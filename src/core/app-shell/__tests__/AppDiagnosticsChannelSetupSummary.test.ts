@@ -1,4 +1,8 @@
 import { summarizeChannelSetupPlannerDiagnostics } from '../diagnostics/AppDiagnosticsChannelSetupSummary';
+import {
+    CHANNEL_SETUP_NATIVE_FACET_FAMILIES,
+    createChannelSetupFacetFamilyRecord,
+} from '../../channel-setup/planning/ChannelSetupFacetFamilies';
 
 describe('summarizeChannelSetupPlannerDiagnostics', () => {
     it('returns bounded overview and capped family samples', () => {
@@ -272,5 +276,50 @@ describe('summarizeChannelSetupPlannerDiagnostics', () => {
         expect(summary.warnings).toEqual([]);
         expect(summary.familySummaries).toEqual([]);
         expect(summary.notes).toEqual(['Still loading diagnostics']);
+    });
+
+    it('summarizes every canonical native facet family from planner diagnostics', () => {
+        const emptyEstimates = {
+            total: 0,
+            collections: 0,
+            playlists: 0,
+            genres: 0,
+            directors: 0,
+            decades: 0,
+            recentlyAdded: 0,
+            studios: 0,
+            actors: 0,
+        };
+
+        const summary = summarizeChannelSetupPlannerDiagnostics({
+            status: 'ready',
+            warnings: [],
+            reachedMaxChannels: false,
+            diagnostics: {
+                effectiveMaxChannels: 100,
+                minItems: 5,
+                allocationMode: 'priority-balanced-round-robin',
+                fetchedTagsByFamily: createChannelSetupFacetFamilyRecord((descriptor) => [{
+                    libraryId: 'lib-1',
+                    libraryName: 'Shows',
+                    count: descriptor.family === 'decades' ? 2 : 1,
+                }]),
+                tagCountDiagnosticsByFamily: createChannelSetupFacetFamilyRecord(() => []),
+                candidatesBeforeMinItems: emptyEstimates,
+                candidatesAfterMinItems: emptyEstimates,
+                strategyBucketSizes: emptyEstimates,
+                afterAlternateLineups: emptyEstimates,
+                afterVariants: emptyEstimates,
+                allocationBudgetByStrategy: emptyEstimates,
+                selectedBeforeGlobalCapByStrategy: emptyEstimates,
+                lostToAllocationByStrategy: emptyEstimates,
+                afterMaxChannels: emptyEstimates,
+                lostToMaxChannels: emptyEstimates,
+            },
+        });
+
+        expect(summary.familySummaries.map((entry) => entry.family).sort()).toEqual(
+            [...CHANNEL_SETUP_NATIVE_FACET_FAMILIES].sort()
+        );
     });
 });

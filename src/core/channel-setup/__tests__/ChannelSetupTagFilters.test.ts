@@ -3,9 +3,11 @@
  */
 
 import {
+    buildChannelSetupFacetCountFilter,
     buildChannelSetupTagFilter,
     parseChannelSetupTagFastKeyFilters,
 } from '../planning/ChannelSetupTagFilters';
+import { CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS } from '../planning/ChannelSetupFacetFamilies';
 import type { PlexTagDirectoryItem } from '../../../modules/plex/library';
 
 const makeTag = (overrides: Partial<PlexTagDirectoryItem>): PlexTagDirectoryItem => ({
@@ -16,6 +18,61 @@ const makeTag = (overrides: Partial<PlexTagDirectoryItem>): PlexTagDirectoryItem
 });
 
 describe('ChannelSetupTagFilters', () => {
+    it('pins the canonical native facet descriptor contract', () => {
+        expect(CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS).toEqual([
+            {
+                family: 'genres',
+                label: 'Genres',
+                strategyKey: 'genres',
+                countRecoveryFamily: 'genre',
+                stateKey: 'genresByLibraryId',
+                mediaTypeSource: 'genre',
+                directoryMethod: 'getGenres',
+                supportsFastKeyFilter: false,
+            },
+            {
+                family: 'directors',
+                label: 'Directors',
+                strategyKey: 'directors',
+                countRecoveryFamily: 'director',
+                stateKey: 'directorsByLibraryId',
+                mediaTypeSource: 'detail',
+                directoryMethod: 'getDirectors',
+                supportsFastKeyFilter: false,
+            },
+            {
+                family: 'decades',
+                label: 'Years',
+                strategyKey: 'decades',
+                countRecoveryFamily: 'year',
+                stateKey: 'yearsByLibraryId',
+                mediaTypeSource: 'detail',
+                directoryMethod: 'getYears',
+                supportsFastKeyFilter: false,
+            },
+            {
+                family: 'studios',
+                label: 'Studios',
+                strategyKey: 'studios',
+                countRecoveryFamily: 'studio',
+                stateKey: 'studiosByLibraryId',
+                mediaTypeSource: 'detail',
+                directoryMethod: 'getStudios',
+                supportsFastKeyFilter: true,
+            },
+            {
+                family: 'actors',
+                label: 'Actors',
+                strategyKey: 'actors',
+                countRecoveryFamily: 'actor',
+                stateKey: 'actorsByLibraryId',
+                mediaTypeSource: 'detail',
+                directoryMethod: 'getActors',
+                supportsFastKeyFilter: true,
+            },
+        ]);
+    });
+
     it('parses actor/studio/type from fastKey and strips Plex token params', () => {
         expect(
             parseChannelSetupTagFastKeyFilters(
@@ -69,5 +126,27 @@ describe('ChannelSetupTagFilters', () => {
         expect(
             parseChannelSetupTagFastKeyFilters('/library/sections/1/actor?type=4abc&actor=Alex%20Star')
         ).toEqual({ actor: 'Alex Star' });
+    });
+
+    it('builds count filters for every canonical native facet count family', () => {
+        const tag = makeTag({
+            key: 'tag-key',
+            title: 'Facet Title',
+        });
+
+        const filters = Object.fromEntries(
+            CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS.map((descriptor) => [
+                descriptor.family,
+                buildChannelSetupFacetCountFilter(tag, descriptor.countRecoveryFamily, 4),
+            ])
+        );
+
+        expect(filters).toEqual({
+            genres: { type: 4, genre: 'Facet Title' },
+            directors: { type: 4, director: 'Facet Title' },
+            decades: { type: 4, year: 'Facet Title' },
+            studios: { studio: 'tag-key', type: 4 },
+            actors: { actor: 'tag-key', type: 4 },
+        });
     });
 });

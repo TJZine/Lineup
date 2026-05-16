@@ -18,9 +18,10 @@ import {
     getChannelSetupErrorSummaryObject,
     getChannelSetupFailureDetail,
 } from './ChannelSetupErrorSummary';
-
-export type ChannelSetupRequiredTagDirectoryLabel = 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios';
-export type ChannelSetupNativeFacetFamily = 'genres' | 'directors' | 'decades' | 'actors' | 'studios';
+import type {
+    ChannelSetupNativeFacetFamily,
+    ChannelSetupRequiredTagDirectoryLabel,
+} from './ChannelSetupFacetFamilies';
 
 function createReadonlyFacetMap<T>(source: Map<string, T[]>): ChannelSetupFacetMap<T> {
     const snapshot = new Map<string, readonly T[]>();

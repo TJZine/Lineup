@@ -15,6 +15,7 @@ import type {
     ContentFilter,
     SortOrder,
 } from '../../../modules/scheduler/channel-manager';
+import type { ChannelSetupPlannerFacetFamily } from './ChannelSetupFacetFamilies';
 
 export type PendingChannel =
     ChannelCreateInput
@@ -43,8 +44,6 @@ export const toChannelSetupDecadeValue = (title: string): number | null => {
     }
     return Math.floor(year / 10) * 10;
 };
-
-export type ChannelSetupPlannerFacetFamily = 'genres' | 'directors' | 'decades' | 'studios' | 'actors';
 
 export interface ChannelSetupPlannerLibraryCount {
     libraryId: string;

@@ -5,10 +5,22 @@
 import type { IPlexLibrary } from '../../../modules/plex/library';
 import {
     ChannelSetupFacetCountRecoveryWorker,
+    assertRecoveredTagCount,
     type FacetCountRecoveryLimiter,
 } from '../planning/ChannelSetupFacetCountRecoveryWorker';
+import { CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS } from '../planning/ChannelSetupFacetFamilies';
 
 describe('ChannelSetupFacetCountRecoveryWorker', () => {
+    it('uses the canonical native facet count-recovery families in unavailable-count errors', () => {
+        for (const descriptor of CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS) {
+            expect(() => assertRecoveredTagCount(
+                null,
+                descriptor.countRecoveryFamily,
+                'Missing Count'
+            )).toThrow(`${descriptor.countRecoveryFamily} count unavailable for Missing Count`);
+        }
+    });
+
     it('records only Plex count query duration and excludes limiter queue time', async () => {
         const performanceNowSpy = jest.spyOn(performance, 'now')
             .mockReturnValueOnce(100)

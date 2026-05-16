@@ -12,9 +12,11 @@ import {
 import {
     ChannelSetupFacetSnapshotLoadState,
     ChannelSetupFacetSnapshotFailureBuilder,
-    type ChannelSetupNativeFacetFamily,
-    type ChannelSetupRequiredTagDirectoryLabel,
 } from './ChannelSetupFacetSnapshotFailures';
+import type {
+    ChannelSetupNativeFacetFamily,
+    ChannelSetupRequiredTagDirectoryLabel,
+} from './ChannelSetupFacetFamilies';
 import type {
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,

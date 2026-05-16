@@ -6,6 +6,7 @@ import {
     createChannelIdentityKey,
     diffChannelPlans,
 } from '../planning/ChannelSetupPlanningTypes';
+import { CHANNEL_SETUP_NATIVE_FACET_FAMILIES } from '../planning/ChannelSetupFacetFamilies';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import type { PlexLibrarySection, PlexPlaylist } from '../../../modules/plex/library';
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
@@ -892,6 +893,8 @@ describe('ChannelSetupPlanner', () => {
 
         expect(diagnostics.minItems).toBe(5);
         expect(diagnostics.effectiveMaxChannels).toBeGreaterThan(0);
+        expect(Object.keys(diagnostics.fetchedTagsByFamily)).toEqual(CHANNEL_SETUP_NATIVE_FACET_FAMILIES);
+        expect(Object.keys(diagnostics.tagCountDiagnosticsByFamily)).toEqual(CHANNEL_SETUP_NATIVE_FACET_FAMILIES);
         expect(diagnostics.fetchedTagsByFamily.genres).toEqual([
             { libraryId: 'm1', libraryName: 'Movies', count: 3 },
         ]);

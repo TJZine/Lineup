@@ -4,12 +4,13 @@ import type {
     ChannelSetupPlannerFacetCountDiagnostics,
     ChannelSetupPlannerLibraryCount,
 } from '../../channel-setup/planning/ChannelSetupPlanningTypes';
-
-type ChannelSetupPlannerFacetFamily = 'genres' | 'directors' | 'decades' | 'studios' | 'actors';
+import {
+    CHANNEL_SETUP_NATIVE_FACET_FAMILIES,
+    type ChannelSetupPlannerFacetFamily,
+} from '../../channel-setup/planning/ChannelSetupFacetFamilies';
 
 const WARNING_SAMPLE_LIMIT = 3;
 const FACET_SAMPLE_LIMIT = 3;
-const FACET_FAMILIES: ChannelSetupPlannerFacetFamily[] = ['genres', 'directors', 'decades', 'studios', 'actors'];
 
 export interface AppDiagnosticsChannelSetupFamilySummary {
     family: ChannelSetupPlannerFacetFamily;
@@ -71,7 +72,7 @@ export function summarizeChannelSetupPlannerDiagnostics(
         };
     }
 
-    const familySummaries = FACET_FAMILIES
+    const familySummaries = CHANNEL_SETUP_NATIVE_FACET_FAMILIES
         .map((family) => summarizeFamily(
             family,
             diagnostics.fetchedTagsByFamily[family],
