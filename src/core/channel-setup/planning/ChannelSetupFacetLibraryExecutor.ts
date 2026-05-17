@@ -22,6 +22,7 @@ import type {
 import {
     CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS,
 } from './ChannelSetupFacetFamilies';
+import { buildChannelSetupPeopleSeriesIndexForLibrary } from './ChannelSetupPeopleSeriesIndex';
 import type {
     ChannelSetupFacetSnapshot,
     ChannelSetupPlexRequestIntent,
@@ -68,12 +69,9 @@ type ChannelSetupFacetLibraryExecutorOptions = {
         yearsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
         actorsByLibraryId: Map<string, PlexTagDirectoryItem[]>;
         studiosByLibraryId: Map<string, PlexTagDirectoryItem[]>;
-        addEmptyTagDirectoryWarning: (
-            family: ChannelSetupNativeFacetFamily,
-            label: ChannelSetupRequiredTagDirectoryLabel,
-            libraryTitle: string,
-            type: number
-        ) => void;
+        peopleSeriesIndexByLibraryId: ChannelSetupPeopleSeriesLibraryIndexMap;
+        markWarningOnlyTransientLoadFailure: () => void;
+        addEmptyTagDirectoryWarning: (family: ChannelSetupNativeFacetFamily, label: ChannelSetupRequiredTagDirectoryLabel, libraryTitle: string, type: number) => void;
     };
     failures: {
         buildRequiredTagDirectoryFailure: (
@@ -91,12 +89,10 @@ type ChannelSetupFacetLibraryExecutorOptions = {
         ) => ChannelSetupFacetSnapshot;
     };
 };
-
 const MAX_FACET_COUNT_RECOVERY_CONCURRENCY = 8;
-
+type ChannelSetupPeopleSeriesLibraryIndexMap = Map<string, Awaited<ReturnType<typeof buildChannelSetupPeopleSeriesIndexForLibrary>>>;
 export class ChannelSetupFacetLibraryExecutor {
     constructor(private readonly _options: ChannelSetupFacetLibraryExecutorOptions) {}
-
     async loadLibraryFacets(
         library: PlexLibrarySection,
         libIndex: number
@@ -107,12 +103,10 @@ export class ChannelSetupFacetLibraryExecutor {
                 return null;
             }
         }
-
         const nativeFacetDefinitions = this._createNativeFacetDefinitions(library);
         if (nativeFacetDefinitions.length === 0) {
             return null;
         }
-
         const libraryAbortController = new AbortController();
         const librarySignal = libraryAbortController.signal;
         let libraryFailureActive = false;
@@ -128,7 +122,6 @@ export class ChannelSetupFacetLibraryExecutor {
                 libraryAbortController.abort();
             }
         };
-
         try {
             const requireEntries = library.contentCount !== 0;
             const nativeFacetTasks = nativeFacetDefinitions.map((definition) =>
@@ -141,7 +134,6 @@ export class ChannelSetupFacetLibraryExecutor {
                     libraryFailureStopRequested
                 )
             );
-
             this._options.control.reportSnapshotProgress({
                 task: 'scan_library_items',
                 label: 'Resolving filters...',
@@ -157,7 +149,6 @@ export class ChannelSetupFacetLibraryExecutor {
                 this._options.control.abortSiblingRequests();
                 return libraryFailure;
             }
-
             const countRecoveryFailure = await this._recoverLibraryFacetCounts(
                 nativeFacetDefinitions,
                 library,
@@ -169,12 +160,12 @@ export class ChannelSetupFacetLibraryExecutor {
                 this._options.control.abortSiblingRequests();
                 return countRecoveryFailure;
             }
+            await this._loadPeopleSeriesIndex(library, librarySignal, libraryFailureStopRequested);
             return null;
         } finally {
             removeLibrarySignalForwarder?.();
         }
     }
-
     private async _loadCollections(library: PlexLibrarySection, libIndex: number): Promise<boolean> {
         this._options.control.reportSnapshotProgress({
             task: 'fetch_collections',
@@ -207,7 +198,6 @@ export class ChannelSetupFacetLibraryExecutor {
             this._options.state.addCollectionsMs(performance.now() - collectionsStart);
         }
     }
-
     private _forwardRequestAbortToLibrary(libraryAbortController: AbortController): (() => void) | null {
         if (this._options.requestSignal.aborted) {
             libraryAbortController.abort();
@@ -221,7 +211,6 @@ export class ChannelSetupFacetLibraryExecutor {
             this._options.requestSignal.removeEventListener('abort', onRequestAbort);
         };
     }
-
     private async _awaitFirstLibraryFacetFailure(
         nativeFacetTasks: Array<Promise<ChannelSetupFacetSnapshot | null>>,
         abortLibraryFacetRequests: () => void
@@ -258,7 +247,6 @@ export class ChannelSetupFacetLibraryExecutor {
         }
         return libraryFailure;
     }
-
     private async _recoverLibraryFacetCounts(
         nativeFacetDefinitions: NativeFacetTaskDefinition[],
         library: PlexLibrarySection,
@@ -271,7 +259,6 @@ export class ChannelSetupFacetLibraryExecutor {
             if (!failure || firstFailure) {
                 return;
             }
-
             firstFailure = failure;
             abortLibraryFacetRequests();
         };
@@ -293,7 +280,6 @@ export class ChannelSetupFacetLibraryExecutor {
         await Promise.all(recoveryTasks);
         return firstFailure;
     }
-
     private _createNativeFacetDefinitions(library: PlexLibrarySection): NativeFacetTaskDefinition[] {
         const { genreType, detailType } = getTagDirectoryMediaTypesForLibraryType(library.type);
         return CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS
@@ -315,7 +301,31 @@ export class ChannelSetupFacetLibraryExecutor {
                 };
             });
     }
-
+    private async _loadPeopleSeriesIndex(library: PlexLibrarySection, librarySignal: AbortSignal, libraryFailureStopRequested: () => boolean): Promise<void> {
+        if (library.type !== 'show' || !this._requiresPeopleSeriesIndex() || libraryFailureStopRequested() || this._options.control.failureStopRequested()) {
+            return;
+        }
+        const startedAt = performance.now();
+        try {
+            const index = await buildChannelSetupPeopleSeriesIndexForLibrary({ plexLibrary: this._options.plexLibrary, library, signal: librarySignal });
+            this._options.state.peopleSeriesIndexByLibraryId.set(library.id, index);
+        } catch (error) {
+            if (this._options.control.callerCanceled()) {
+                throw createAbortError(this._options.control.getLastTask());
+            }
+            if (this._options.control.failureStopRequested() || libraryFailureStopRequested()) {
+                return;
+            }
+            console.warn(`Failed to build TV people breadth index for ${library.title}:`, summarizeErrorForLog(error));
+            this._options.state.markWarningOnlyTransientLoadFailure();
+            this._options.control.addPartialWarning('scan_library_items', `TV people breadth index failed for ${library.title}; actor/director TV channels from this library were skipped`, error);
+        } finally {
+            this._options.state.addLibraryQueryMs(performance.now() - startedAt);
+        }
+    }
+    private _requiresPeopleSeriesIndex(): boolean {
+        return this._options.config.strategyConfig.actors.enabled || this._options.config.strategyConfig.directors.enabled;
+    }
     private _fetchNativeFacetTags(
         descriptor: ChannelSetupNativeFacetFamilyDescriptor,
         libraryId: string,
@@ -333,7 +343,6 @@ export class ChannelSetupFacetLibraryExecutor {
             ...options,
         });
     }
-
     private async _createNativeFacetTask(
         definition: NativeFacetTaskDefinition,
         libraryId: string,
@@ -400,7 +409,6 @@ export class ChannelSetupFacetLibraryExecutor {
             );
         }
     }
-
     private async _recoverAndStoreFacetCounts(
         definition: NativeFacetTaskDefinition,
         library: PlexLibrarySection,
@@ -442,7 +450,6 @@ export class ChannelSetupFacetLibraryExecutor {
             );
         }
     }
-
     private async _recoverUnknownTagCounts(
         libraryId: string,
         mediaType: number,
@@ -465,7 +472,6 @@ export class ChannelSetupFacetLibraryExecutor {
         }).recover();
     }
 }
-
 function createFacetCountRecoveryLimiter(maxConcurrency: number): FacetCountRecoveryLimiter {
     const pending: Array<() => void> = [];
     let active = 0;
@@ -481,7 +487,6 @@ function createFacetCountRecoveryLimiter(maxConcurrency: number): FacetCountReco
             active++;
             void Promise.resolve().then(task).then(resolve, reject).finally(release);
         };
-
         if (active < maxConcurrency) {
             run();
             return;

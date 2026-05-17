@@ -16,6 +16,10 @@ import type {
     SortOrder,
 } from '../../../modules/scheduler/channel-manager';
 import type { ChannelSetupPlannerFacetFamily } from './ChannelSetupFacetFamilies';
+import type {
+    ChannelSetupPeopleBreadthDiagnostic,
+    ChannelSetupPeopleSeriesIndexByLibraryId,
+} from './ChannelSetupPeopleSeriesIndex';
 
 export type PendingChannel =
     ChannelCreateInput
@@ -77,6 +81,7 @@ export interface ChannelSetupPlannerDiagnostics {
     allocationMode: 'priority-balanced-round-robin';
     fetchedTagsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerLibraryCount[]>;
     tagCountDiagnosticsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerFacetCountDiagnostics[]>;
+    peopleBreadthDiagnostics: ChannelSetupPeopleBreadthDiagnostic[];
     candidatesBeforeMinItems: ChannelSetupEstimates;
     candidatesAfterMinItems: ChannelSetupEstimates;
     strategyBucketSizes: ChannelSetupEstimates;
@@ -222,6 +227,7 @@ export type ChannelSetupFacetSnapshotData = {
     yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
     actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
     studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    peopleSeriesIndexByLibraryId: ChannelSetupPeopleSeriesIndexByLibraryId;
     warnings: readonly string[];
     hasTransientLoadFailure: boolean;
     errorsTotal: number;

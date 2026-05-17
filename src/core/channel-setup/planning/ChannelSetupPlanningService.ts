@@ -177,6 +177,7 @@ export class ChannelSetupPlanningService {
             yearsByLibraryId: snapshot.yearsByLibraryId,
             actorsByLibraryId: snapshot.actorsByLibraryId,
             studiosByLibraryId: snapshot.studiosByLibraryId,
+            peopleSeriesIndexByLibraryId: snapshot.peopleSeriesIndexByLibraryId,
             warnings: snapshot.warnings,
             seedFor: (value: string): number => this._hashSeed(value),
         });
@@ -260,6 +261,7 @@ export class ChannelSetupPlanningService {
             yearsByLibraryId: snapshot.yearsByLibraryId,
             actorsByLibraryId: snapshot.actorsByLibraryId,
             studiosByLibraryId: snapshot.studiosByLibraryId,
+            peopleSeriesIndexByLibraryId: snapshot.peopleSeriesIndexByLibraryId,
             warnings: snapshot.warnings,
             seedFor: (value: string): number => this._hashSeed(value),
         });

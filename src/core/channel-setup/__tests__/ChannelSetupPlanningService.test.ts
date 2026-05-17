@@ -42,7 +42,59 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([
+                {
+                    ratingKey: 'ep-1',
+                    key: '/library/metadata/ep-1',
+                    type: 'episode',
+                    title: 'Episode 1',
+                    sortTitle: 'Episode 1',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-1',
+                    directors: ['Jane Doe'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-2',
+                    key: '/library/metadata/ep-2',
+                    type: 'episode',
+                    title: 'Episode 2',
+                    sortTitle: 'Episode 2',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-2',
+                    directors: ['Jane Doe'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-3',
+                    key: '/library/metadata/ep-3',
+                    type: 'episode',
+                    title: 'Episode 3',
+                    sortTitle: 'Episode 3',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['Jane Doe'],
+                    media: [],
+                },
+            ]),
             getGenres: jest.fn().mockResolvedValue([
                 makeTag({ title: 'Comedy', count: 10 }),
             ]),
@@ -85,7 +137,10 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan).not.toBeNull();
         expect(result.warnings.join('\n')).not.toContain('truncated at 500');
         expect(result.warnings.join('\n')).not.toContain('scan_library_items');
-        expect(plexLibrary.getLibraryItems).not.toHaveBeenCalled();
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledWith(
+            'shows',
+            expect.objectContaining({ filter: { type: PLEX_MEDIA_TYPES.EPISODE } })
+        );
         expect(plexLibrary.getGenres).toHaveBeenCalledWith(
             'shows',
             expect.objectContaining({ type: PLEX_MEDIA_TYPES.SHOW })
@@ -101,6 +156,183 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Comedy'))).toBe(true);
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - Jane Doe'))).toBe(true);
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1980s'))).toBe(true);
+    });
+
+    it('blocks people-only TV setup when the people series index fails and no movie people can qualify', async () => {
+        expectConsoleWarn([
+            'Failed to build TV people breadth index for Shows:',
+            expect.objectContaining({ message: 'episode scan failed' }),
+        ]);
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn().mockRejectedValue(new Error('episode scan failed')),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Alex Actor', count: 5 }),
+            ]),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            minItemsPerChannel: 5,
+            strategyConfig: {
+                actors: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        }));
+
+        const result = await service.buildSetupPlan(config, [
+            makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 50 }),
+        ], null, 'preview');
+
+        expect(result.plan).toBeNull();
+        expect(result.previewStatus).toBe('blocked');
+        expect(result.failureReason).toBe('transient');
+        expect(result.warnings.join('\n')).toContain('TV people breadth index failed for Shows');
+    });
+
+    it('does not cache a ready snapshot degraded by TV people index failure', async () => {
+        expectConsoleWarn([
+            'Failed to build TV people breadth index for Shows:',
+            expect.objectContaining({ message: 'episode scan failed' }),
+        ]);
+        const getLibraryItems = jest.fn()
+            .mockRejectedValueOnce(new Error('episode scan failed'))
+            .mockResolvedValueOnce([
+                { ratingKey: 'ep-1', key: '/library/metadata/ep-1', type: 'episode', title: 'Episode 1', sortTitle: 'Episode 1', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-1', actors: ['Alex Actor'], media: [] },
+                { ratingKey: 'ep-2', key: '/library/metadata/ep-2', type: 'episode', title: 'Episode 2', sortTitle: 'Episode 2', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-2', actors: ['Alex Actor'], media: [] },
+                { ratingKey: 'ep-3', key: '/library/metadata/ep-3', type: 'episode', title: 'Episode 3', sortTitle: 'Episode 3', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-3', actors: ['Alex Actor'], media: [] },
+                { ratingKey: 'ep-4', key: '/library/metadata/ep-4', type: 'episode', title: 'Episode 4', sortTitle: 'Episode 4', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-3', actors: ['Alex Actor'], media: [] },
+                { ratingKey: 'ep-5', key: '/library/metadata/ep-5', type: 'episode', title: 'Episode 5', sortTitle: 'Episode 5', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-3', actors: ['Alex Actor'], media: [] },
+            ]);
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems,
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Alex Actor', count: 5 }),
+            ]),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['shows'],
+            minItemsPerChannel: 5,
+            strategyConfig: { actors: { enabled: true, priority: 1, scope: 'per-library' } },
+        }));
+        const libraries = [makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 50 })];
+
+        const first = await service.buildSetupPlan(config, libraries, null, 'preview');
+        const second = await service.buildSetupPlan(config, libraries, null, 'preview');
+
+        expect(first.plan).toBeNull();
+        expect(first.failureReason).toBe('transient');
+        expect(second.plan?.pendingChannels.some((channel) => channel.name === 'Alex Actor - Shows')).toBe(true);
+        expect(second.warnings.join('\n')).not.toContain('TV people breadth index failed for Shows');
+        expect(getLibraryItems).toHaveBeenCalledTimes(2);
+        expect(plexLibrary.getActors).toHaveBeenCalledTimes(2);
+    });
+
+    it('reuses cached TV people index data when only min-items filtering changes', async () => {
+        const plexLibrary = {
+            getPlaylists: jest.fn(),
+            getCollections: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([
+                {
+                    ratingKey: 'ep-1',
+                    key: '/library/metadata/ep-1',
+                    type: 'episode',
+                    title: 'Episode 1',
+                    sortTitle: 'Episode 1',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-1',
+                    actors: ['Alex Actor'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-2',
+                    key: '/library/metadata/ep-2',
+                    type: 'episode',
+                    title: 'Episode 2',
+                    sortTitle: 'Episode 2',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-2',
+                    actors: ['Alex Actor'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-3',
+                    key: '/library/metadata/ep-3',
+                    type: 'episode',
+                    title: 'Episode 3',
+                    sortTitle: 'Episode 3',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    actors: ['Alex Actor'],
+                    media: [],
+                },
+            ]),
+            getGenres: jest.fn(),
+            getDirectors: jest.fn(),
+            getYears: jest.fn(),
+            getActors: jest.fn().mockResolvedValue([
+                makeTag({ title: 'Alex Actor', count: 3 }),
+            ]),
+            getStudios: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const libraries = [makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 50 })];
+        const baseConfig = createConfig({
+            selectedLibraryIds: ['shows'],
+            strategyConfig: {
+                actors: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        });
+
+        const first = await service.buildSetupPlan(service.normalizeConfig({
+            ...baseConfig,
+            minItemsPerChannel: 3,
+        }), libraries, null, 'preview');
+        const second = await service.buildSetupPlan(service.normalizeConfig({
+            ...baseConfig,
+            minItemsPerChannel: 4,
+        }), libraries, null, 'preview');
+
+        expect(first.plan?.pendingChannels).toHaveLength(1);
+        expect(second.plan).toBeNull();
+        expect(plexLibrary.getActors).toHaveBeenCalledTimes(1);
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
     });
 
     it('sorts concurrent partial warnings deterministically before returning them', async () => {
@@ -125,7 +357,98 @@ describe('ChannelSetupPlanningService', () => {
                 }
                 return Promise.resolve([]);
             }),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([
+                {
+                    ratingKey: 'ep-1',
+                    key: '/library/metadata/ep-1',
+                    type: 'episode',
+                    title: 'Episode 1',
+                    sortTitle: 'Episode 1',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-1',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-2',
+                    key: '/library/metadata/ep-2',
+                    type: 'episode',
+                    title: 'Episode 2',
+                    sortTitle: 'Episode 2',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-2',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-3',
+                    key: '/library/metadata/ep-3',
+                    type: 'episode',
+                    title: 'Episode 3',
+                    sortTitle: 'Episode 3',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-4',
+                    key: '/library/metadata/ep-4',
+                    type: 'episode',
+                    title: 'Episode 4',
+                    sortTitle: 'Episode 4',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-5',
+                    key: '/library/metadata/ep-5',
+                    type: 'episode',
+                    title: 'Episode 5',
+                    sortTitle: 'Episode 5',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+            ]),
             getGenres: jest.fn(),
             getDirectors: jest.fn(),
             getYears: jest.fn(),
@@ -173,7 +496,98 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn().mockRejectedValue('collections endpoint failed'),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([
+                {
+                    ratingKey: 'ep-1',
+                    key: '/library/metadata/ep-1',
+                    type: 'episode',
+                    title: 'Episode 1',
+                    sortTitle: 'Episode 1',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-1',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-2',
+                    key: '/library/metadata/ep-2',
+                    type: 'episode',
+                    title: 'Episode 2',
+                    sortTitle: 'Episode 2',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-2',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-3',
+                    key: '/library/metadata/ep-3',
+                    type: 'episode',
+                    title: 'Episode 3',
+                    sortTitle: 'Episode 3',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-4',
+                    key: '/library/metadata/ep-4',
+                    type: 'episode',
+                    title: 'Episode 4',
+                    sortTitle: 'Episode 4',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-5',
+                    key: '/library/metadata/ep-5',
+                    type: 'episode',
+                    title: 'Episode 5',
+                    sortTitle: 'Episode 5',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+            ]),
             getGenres: jest.fn(),
             getDirectors: jest.fn(),
             getYears: jest.fn(),
@@ -227,7 +641,98 @@ describe('ChannelSetupPlanningService', () => {
                 code: 'SERVER_ERROR',
                 message: 'collections endpoint failed',
             }),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([
+                {
+                    ratingKey: 'ep-1',
+                    key: '/library/metadata/ep-1',
+                    type: 'episode',
+                    title: 'Episode 1',
+                    sortTitle: 'Episode 1',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-1',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-2',
+                    key: '/library/metadata/ep-2',
+                    type: 'episode',
+                    title: 'Episode 2',
+                    sortTitle: 'Episode 2',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-2',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-3',
+                    key: '/library/metadata/ep-3',
+                    type: 'episode',
+                    title: 'Episode 3',
+                    sortTitle: 'Episode 3',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-4',
+                    key: '/library/metadata/ep-4',
+                    type: 'episode',
+                    title: 'Episode 4',
+                    sortTitle: 'Episode 4',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+                {
+                    ratingKey: 'ep-5',
+                    key: '/library/metadata/ep-5',
+                    type: 'episode',
+                    title: 'Episode 5',
+                    sortTitle: 'Episode 5',
+                    summary: '',
+                    year: 2024,
+                    durationMs: 1000,
+                    addedAt: new Date(0),
+                    updatedAt: new Date(0),
+                    thumb: null,
+                    art: null,
+                    grandparentRatingKey: 'show-3',
+                    directors: ['John Roe'],
+                    actors: ['Alex Star'],
+                    media: [],
+                },
+            ]),
             getGenres: jest.fn()
                 .mockResolvedValueOnce([])
                 .mockRejectedValueOnce({
@@ -276,7 +781,7 @@ describe('ChannelSetupPlanningService', () => {
         const nativePlexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockRejectedValue({
                 name: 'Error',
                 code: 'SERVER_ERROR',
@@ -334,7 +839,13 @@ describe('ChannelSetupPlanningService', () => {
                     return 0;
                 }
             ),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([
+                { ratingKey: 'ep-1', key: '/library/metadata/ep-1', type: 'episode', title: 'Episode 1', sortTitle: 'Episode 1', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-1', directors: ['John Roe'], actors: ['Alex Star'], media: [] },
+                { ratingKey: 'ep-2', key: '/library/metadata/ep-2', type: 'episode', title: 'Episode 2', sortTitle: 'Episode 2', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-2', directors: ['John Roe'], actors: ['Alex Star'], media: [] },
+                { ratingKey: 'ep-3', key: '/library/metadata/ep-3', type: 'episode', title: 'Episode 3', sortTitle: 'Episode 3', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-3', directors: ['John Roe'], actors: ['Alex Star'], media: [] },
+                { ratingKey: 'ep-4', key: '/library/metadata/ep-4', type: 'episode', title: 'Episode 4', sortTitle: 'Episode 4', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-3', directors: ['John Roe'], actors: ['Alex Star'], media: [] },
+                { ratingKey: 'ep-5', key: '/library/metadata/ep-5', type: 'episode', title: 'Episode 5', sortTitle: 'Episode 5', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-3', directors: ['John Roe'], actors: ['Alex Star'], media: [] },
+            ]),
             getGenres: jest.fn().mockResolvedValue([
                 makeTag({ title: 'Comedy', count: null }),
                 makeTag({ title: 'Drama', count: null }),
@@ -477,7 +988,7 @@ describe('ChannelSetupPlanningService', () => {
                 code: 'SERVER_ERROR',
                 message: 'count endpoint failed',
             }),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockResolvedValue([
                 makeTag({ title: 'Drama', count: null }),
             ]),
@@ -520,7 +1031,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(
                 async (
                     _libraryId: string,
@@ -578,7 +1089,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn(),
             getDirectors: jest.fn().mockRejectedValue({
                 name: 'Error',
@@ -624,7 +1135,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn(),
             getDirectors: jest.fn(),
             getYears: jest.fn(),
@@ -675,7 +1186,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(
                 async (
                     libraryId: string,
@@ -732,7 +1243,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(
                 async (
                     _libraryId: string,
@@ -785,7 +1296,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(
                 async (
                     _libraryId: string,
@@ -853,7 +1364,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn(),
             getDirectors: jest.fn(),
             getYears: jest.fn(),
@@ -904,7 +1415,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn(),
             getDirectors: jest.fn(),
             getYears: jest.fn(),
@@ -950,7 +1461,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue(libraries),
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockResolvedValue([
                 makeTag({ title: 'Comedy', count: 10 }),
             ]),
@@ -1006,7 +1517,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue(libraries),
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockResolvedValue([makeTag({ title: 'Comedy', count: 10 })]),
             getDirectors: jest.fn().mockResolvedValue([]),
             getYears: jest.fn().mockResolvedValue([]),
@@ -1052,7 +1563,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue(libraries),
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockResolvedValue([makeTag({ title: 'Comedy', count: 10 })]),
             getDirectors: jest.fn().mockResolvedValue([makeTag({ title: 'Jane Doe', count: 6 })]),
             getYears: jest.fn().mockResolvedValue([]),
@@ -1123,7 +1634,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue(libraries),
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres,
             getDirectors: jest.fn().mockResolvedValue([]),
             getYears: jest.fn().mockResolvedValue([]),
@@ -1172,7 +1683,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue(libraries),
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockRejectedValue(timeoutError),
             getDirectors: jest.fn().mockResolvedValue([]),
             getYears: jest.fn().mockResolvedValue([]),
@@ -1210,7 +1721,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue(libraries),
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation((libraryId: string, options?: { signal?: AbortSignal | null }) => {
                 signalByLibraryId.set(libraryId, options?.signal ?? undefined);
                 const deferred = deferredByLibraryId.get(libraryId);
@@ -1273,7 +1784,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue(libraries),
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres,
             getDirectors: jest.fn().mockResolvedValue([]),
             getYears: jest.fn().mockResolvedValue([]),
@@ -1322,7 +1833,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue([]),
             getPlaylists,
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn(),
             getDirectors: jest.fn(),
             getYears: jest.fn(),
@@ -1365,7 +1876,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue([]),
             getPlaylists,
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn(),
             getDirectors: jest.fn(),
             getYears: jest.fn(),
@@ -1403,7 +1914,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists,
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn(),
             getDirectors: jest.fn(),
             getYears: jest.fn(),
@@ -1445,7 +1956,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists,
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn(),
             getDirectors: jest.fn(),
             getYears: jest.fn(),
@@ -1484,7 +1995,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue(libraries),
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(() => genres.promise),
             getDirectors: jest.fn().mockResolvedValue([]),
             getYears: jest.fn().mockResolvedValue([]),
@@ -1540,7 +2051,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(
                 async (
                     _libraryId: string,
@@ -1591,7 +2102,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation((libraryId: string) => {
                 const deferred = deferredByLibraryId.get(libraryId);
                 if (!deferred) {
@@ -1649,7 +2160,7 @@ describe('ChannelSetupPlanningService', () => {
             getLibraries: jest.fn().mockResolvedValue(libraries),
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation((libraryId: string) => {
                 const deferred = deferredByLibraryId.get(libraryId);
                 if (!deferred) {
@@ -1731,7 +2242,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(
                 async (
                     libraryId: string,
@@ -1795,7 +2306,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(
                 async (
                     libraryId: string,
@@ -1885,7 +2396,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(
                 async (
                     libraryId: string,
@@ -1947,7 +2458,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(async (
                 _libraryId: string,
                 options: {
@@ -2004,7 +2515,7 @@ describe('ChannelSetupPlanningService', () => {
         const plexLibrary = {
             getPlaylists: jest.fn().mockResolvedValue([]),
             getCollections: jest.fn().mockResolvedValue([]),
-            getLibraryItems: jest.fn(),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
             getGenres: jest.fn().mockImplementation(async (
                 _libraryId: string,
                 options: {
@@ -2068,6 +2579,7 @@ describe('ChannelSetupPlanningService', () => {
                 yearsByLibraryId: new Map(),
                 actorsByLibraryId: new Map(),
                 studiosByLibraryId: new Map(),
+                peopleSeriesIndexByLibraryId: new Map(),
                 warnings: ['timed out during genre scan'],
                 hasTransientLoadFailure: false,
                 message: '',

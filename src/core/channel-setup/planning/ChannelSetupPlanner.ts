@@ -28,7 +28,10 @@ import {
     type ChannelSetupPlannerLibraryCount,
     type PendingChannel,
 } from './ChannelSetupPlanningTypes';
-
+import {
+    buildPeopleBreadthDiagnostics,
+    type ChannelSetupPeopleSeriesIndexByLibraryId,
+} from './ChannelSetupPeopleSeriesIndex';
 interface ChannelSetupPlanInput {
     config: ChannelSetupConfig;
     libraries: PlexLibrarySection[];
@@ -39,10 +42,10 @@ interface ChannelSetupPlanInput {
     yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
     actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
     studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    peopleSeriesIndexByLibraryId?: ChannelSetupPeopleSeriesIndexByLibraryId;
     warnings: readonly string[];
     seedFor: (value: string) => number;
 }
-
 interface ChannelSetupPlan {
     pendingChannels: PendingChannel[];
     estimates: ChannelSetupEstimates;
@@ -66,7 +69,6 @@ type AllocatedPendingChannels = TruncatedPendingChannels & {
     selectedBeforeGlobalCapByStrategy: ChannelSetupEstimates;
     lostToAllocationByStrategy: ChannelSetupEstimates;
 };
-
 class ChannelSetupPlannerDiagnosticsRecorder {
     private readonly _diagnostics: ChannelSetupPlannerDiagnostics | undefined;
 
@@ -74,6 +76,7 @@ class ChannelSetupPlannerDiagnosticsRecorder {
         collectDiagnostics: boolean,
         selectedLibraries: PlexLibrarySection[],
         tagsByFamily: Record<ChannelSetupNativeFacetFamily, ChannelSetupFacetMap<PlexTagDirectoryItem>>,
+        peopleSeriesIndexByLibraryId: ChannelSetupPeopleSeriesIndexByLibraryId,
         effectiveMaxChannels: number,
         minItems: number
     ) {
@@ -81,6 +84,7 @@ class ChannelSetupPlannerDiagnosticsRecorder {
             ? createPlannerDiagnostics(
                 selectedLibraries,
                 tagsByFamily,
+                peopleSeriesIndexByLibraryId,
                 effectiveMaxChannels,
                 minItems
             )
@@ -143,7 +147,6 @@ class ChannelSetupPlannerDiagnosticsRecorder {
         );
     }
 }
-
 const sortTagValuesByCountThenTitle = <T extends { title: string; count: number }>(values: readonly T[]): T[] => (
     [...values].sort((a, b) => {
         const countDiff = b.count - a.count;
@@ -151,17 +154,13 @@ const sortTagValuesByCountThenTitle = <T extends { title: string; count: number 
         return a.title.localeCompare(b.title);
     })
 );
-
 const sortTagTitles = (titles: string[]): string[] => [...titles].sort((a, b) => a.localeCompare(b));
-
 const toCountSamples = (values: ReadonlyArray<{ title: string; count: number }>, limit: number = 5): ChannelSetupPlannerCountSample[] =>
     sortTagValuesByCountThenTitle(values).slice(0, limit).map((value) => ({
         title: value.title,
         count: value.count,
     }));
-
 const formatDecadeLabel = (decade: number): string => `${decade}s`;
-
 const sortLibrariesByTitle = (libraries: PlexLibrarySection[]): PlexLibrarySection[] => (
     [...libraries].sort((a, b) => {
         const titleDiff = a.title.localeCompare(b.title);
@@ -169,7 +168,6 @@ const sortLibrariesByTitle = (libraries: PlexLibrarySection[]): PlexLibrarySecti
         return a.id.localeCompare(b.id);
     })
 );
-
 const sanitizeBlockSize = (raw: unknown, fallback: number): number => {
     const numeric = typeof raw === 'number' ? raw : Number(raw);
     if (!Number.isFinite(numeric)) return fallback;
@@ -177,7 +175,6 @@ const sanitizeBlockSize = (raw: unknown, fallback: number): number => {
     if (value < 1) return fallback;
     return value;
 };
-
 const isTvOnlySource = (source: ChannelConfig['contentSource']): boolean => {
     switch (source.type) {
         case 'library':
@@ -190,7 +187,6 @@ const isTvOnlySource = (source: ChannelConfig['contentSource']): boolean => {
             return false;
     }
 };
-
 const isSeriesDerivedChannel = (
     channel: PendingChannel,
     showLibraryIds: Set<string>
@@ -200,15 +196,12 @@ const isSeriesDerivedChannel = (
     }
     return isTvOnlySource(channel.contentSource);
 };
-
 export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetupPlan {
     return buildChannelSetupPlanInternal(input).plan;
 }
-
 export function buildChannelSetupPlanDiagnostics(input: ChannelSetupPlanInput): ChannelSetupPlannerDiagnostics {
     return buildChannelSetupPlanInternal(input, true).diagnostics!;
 }
-
 function buildChannelSetupPlanInternal(
     input: ChannelSetupPlanInput,
     collectDiagnostics: boolean = false
@@ -223,6 +216,7 @@ function buildChannelSetupPlanInternal(
         yearsByLibraryId,
         actorsByLibraryId,
         studiosByLibraryId,
+        peopleSeriesIndexByLibraryId = new Map(),
         warnings,
         seedFor,
     } = input;
@@ -241,6 +235,7 @@ function buildChannelSetupPlanInternal(
         collectDiagnostics,
         selectedLibraries,
         createChannelSetupFacetFamilyRecord((descriptor) => tagsByStateKey[descriptor.stateKey]),
+        peopleSeriesIndexByLibraryId,
         effectiveMaxChannels,
         minItems
     );
@@ -255,6 +250,7 @@ function buildChannelSetupPlanInternal(
         yearsByLibraryId,
         actorsByLibraryId,
         studiosByLibraryId,
+        peopleSeriesIndexByLibraryId,
         minItems,
         seedFor,
     });
@@ -307,7 +303,6 @@ function buildChannelSetupPlanInternal(
         ...(diagnostics ? { diagnostics } : {}),
     };
 }
-
 function resolvePlanningLimits(config: ChannelSetupConfig): ChannelSetupPlanningLimits {
     const requestedMax = Number.isFinite(config.maxChannels) ? config.maxChannels : DEFAULT_CHANNEL_SETUP_MAX;
     const requestedMinItems = Number.isFinite(config.minItemsPerChannel)
@@ -318,7 +313,6 @@ function resolvePlanningLimits(config: ChannelSetupConfig): ChannelSetupPlanning
         minItems: Math.max(1, Math.floor(requestedMinItems)),
     };
 }
-
 function selectConfiguredLibraries(
     libraries: PlexLibrarySection[],
     config: ChannelSetupConfig
@@ -327,7 +321,6 @@ function selectConfiguredLibraries(
         libraries.filter((lib) => config.selectedLibraryIds.includes(lib.id))
     );
 }
-
 function createStrategyPriorityResolver(
     config: ChannelSetupConfig
 ): (strategy: SetupStrategyKey) => number {
@@ -339,7 +332,6 @@ function createStrategyPriorityResolver(
         return DEFAULT_STRATEGY_PRIORITIES[strategy];
     };
 }
-
 function orderStrategyChannels(
     strategyBuckets: Record<SetupStrategyKey, PendingChannel[]>,
     getStrategyPriority: (strategy: SetupStrategyKey) => number
@@ -352,7 +344,6 @@ function orderStrategyChannels(
 
     return orderedStrategies.flatMap((strategy) => strategyBuckets[strategy]);
 }
-
 function normalizeSeriesPlayback(
     channels: PendingChannel[],
     showLibraryIds: Set<string>,
@@ -382,7 +373,6 @@ function normalizeSeriesPlayback(
         return updated;
     });
 }
-
 function resolveAlternateLineupCopies(config: ChannelSetupConfig): number {
     if (!config.channelExpansion?.addAlternateLineups) {
         return 0;
@@ -391,7 +381,6 @@ function resolveAlternateLineupCopies(config: ChannelSetupConfig): number {
     const copies = Number.isFinite(raw) ? Math.floor(Number(raw)) : 1;
     return Math.min(3, Math.max(1, copies));
 }
-
 function expandAlternateLineups(
     channels: PendingChannel[],
     config: ChannelSetupConfig,
@@ -407,7 +396,12 @@ function expandAlternateLineups(
         };
         withAlternateLineups.push(baseChannel);
 
-        if (alternateCopies <= 0 || baseChannel.playbackMode === 'sequential') {
+        if (
+            alternateCopies <= 0
+            || baseChannel.playbackMode === 'sequential'
+            || baseChannel.buildStrategy === 'actors'
+            || baseChannel.buildStrategy === 'directors'
+        ) {
             continue;
         }
         for (let replicaIndex = 1; replicaIndex <= alternateCopies; replicaIndex++) {
@@ -422,7 +416,6 @@ function expandAlternateLineups(
     }
     return withAlternateLineups;
 }
-
 function expandPlaybackVariants(
     channels: PendingChannel[],
     showLibraryIds: Set<string>,
@@ -474,7 +467,6 @@ function expandPlaybackVariants(
     }
     return withVariants;
 }
-
 function allocatePendingChannels(
     channels: PendingChannel[],
     effectiveMaxChannels: number,
@@ -492,7 +484,6 @@ function allocatePendingChannels(
         lostToAllocationByStrategy: subtractEstimates(sourceEstimates, selectedEstimates),
     };
 }
-
 function selectBalancedStrategyChannels(
     channels: PendingChannel[],
     effectiveMaxChannels: number,
@@ -543,14 +534,12 @@ function selectBalancedStrategyChannels(
 
     return selected;
 }
-
 function createEmptyStrategyChannelBuckets(): Record<SetupStrategyKey, PendingChannel[]> {
     return SETUP_STRATEGY_KEYS.reduce<Record<SetupStrategyKey, PendingChannel[]>>((acc, strategy) => {
         acc[strategy] = [];
         return acc;
     }, {} as Record<SetupStrategyKey, PendingChannel[]>);
 }
-
 function estimatePendingChannels(pending: PendingChannel[]): ChannelSetupEstimates {
     const estimates = createEmptyChannelSetupEstimates();
     for (const channel of pending) {
@@ -565,7 +554,6 @@ function estimatePendingChannels(pending: PendingChannel[]): ChannelSetupEstimat
     }
     return estimates;
 }
-
 function buildFacetCountDiagnostics(
     library: PlexLibrarySection,
     tags: readonly PlexTagDirectoryItem[],
@@ -598,7 +586,6 @@ function buildFacetCountDiagnostics(
         sampleBelowMinItems: toCountSamples(belowMinItems),
     };
 }
-
 function buildDecadeFacetCountDiagnostics(
     library: PlexLibrarySection,
     yearTags: readonly PlexTagDirectoryItem[],
@@ -647,10 +634,10 @@ function buildDecadeFacetCountDiagnostics(
         sampleBelowMinItems: toCountSamples(belowMinItems),
     };
 }
-
 function createPlannerDiagnostics(
     selectedLibraries: PlexLibrarySection[],
     tagsByFamily: Record<ChannelSetupNativeFacetFamily, ChannelSetupFacetMap<PlexTagDirectoryItem>>,
+    peopleSeriesIndexByLibraryId: ChannelSetupPeopleSeriesIndexByLibraryId,
     effectiveMaxChannels: number,
     minItems: number
 ): ChannelSetupPlannerDiagnostics {
@@ -682,6 +669,13 @@ function createPlannerDiagnostics(
                 ? toDecadeFacetCountDiagnostics()
                 : toFacetCountDiagnostics(tagsByFamily[descriptor.family])
         ),
+        peopleBreadthDiagnostics: buildPeopleBreadthDiagnostics({
+            libraries: selectedLibraries,
+            actorsByLibraryId: tagsByFamily.actors,
+            directorsByLibraryId: tagsByFamily.directors,
+            peopleSeriesIndexByLibraryId,
+            minItems,
+        }),
         candidatesBeforeMinItems: createEmptyChannelSetupEstimates(),
         candidatesAfterMinItems: createEmptyChannelSetupEstimates(),
         strategyBucketSizes: createEmptyChannelSetupEstimates(),
@@ -694,7 +688,6 @@ function createPlannerDiagnostics(
         lostToMaxChannels: createEmptyChannelSetupEstimates(),
     };
 }
-
 function countChannelsByStrategy(channels: PendingChannel[]): ChannelSetupEstimates {
     const estimates = createEmptyChannelSetupEstimates();
     for (const channel of channels) {
@@ -707,7 +700,6 @@ function countChannelsByStrategy(channels: PendingChannel[]): ChannelSetupEstima
     }
     return estimates;
 }
-
 function subtractEstimates(
     source: ChannelSetupEstimates,
     removed: ChannelSetupEstimates

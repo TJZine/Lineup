@@ -10,6 +10,7 @@ const createSnapshotData = (hasTransientLoadFailure: boolean): ChannelSetupFacet
     yearsByLibraryId: new Map(),
     actorsByLibraryId: new Map(),
     studiosByLibraryId: new Map(),
+    peopleSeriesIndexByLibraryId: new Map(),
     warnings: [],
     hasTransientLoadFailure,
     errorsTotal: 0,
