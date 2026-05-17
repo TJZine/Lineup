@@ -646,7 +646,7 @@ describe('EPGVirtualizer', () => {
             expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(true);
         });
 
-        it('keeps focused episodes out of sliver suppression so compact subtitle and ticker behavior remain active', () => {
+        it('keeps focused episodes out of sliver suppression so tag-lane subtitle and ticker behavior remain active', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-sliver';
             const start = gridAnchorTime;
@@ -688,6 +688,8 @@ describe('EPGVirtualizer', () => {
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const meta = cell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement;
+            const episode = cell.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement;
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
 
@@ -700,8 +702,10 @@ describe('EPGVirtualizer', () => {
 
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
             expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(false);
+            expect(meta.style.display).toBe('flex');
+            expect(episode.textContent).toBe('S01E07');
             expect(subtitle.style.display).toBe('block');
-            expect(subtitle.textContent).toBe('S01E07 - Episode With A Very Long Focused Subtitle');
+            expect(subtitle.textContent).toBe('Episode With A Very Long Focused Subtitle');
             expect(time.style.display).toBe('none');
             expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
         });
@@ -1175,7 +1179,7 @@ describe('EPGVirtualizer', () => {
             expect(mediumCell.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
             expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement).style.display).toBe('none');
             expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement).style.display).toBe('block');
-            expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('block');
+            expect((mediumCell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement).style.display).toBe('none');
 
             const narrowStart = gridAnchorTime + (90 * 60000);
             const narrowCell = container.querySelector(`[data-key="${channelId}-${narrowStart}"]`) as HTMLElement;
@@ -1930,7 +1934,11 @@ describe('EPGVirtualizer', () => {
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
             expect(title.textContent).toBe('Great Show');
-            expect(subtitle.textContent).toBe('S01E09 - The Edge Of Recovery');
+            const episode = cell.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement;
+            const meta = cell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement;
+            expect(episode.textContent).toBe('S01E09');
+            expect(meta.style.display).toBe('flex');
+            expect(subtitle.textContent).toBe('The Edge Of Recovery');
             expect(subtitle.style.display).toBe('block');
             expect(time.style.display).toBe('none');
         });
@@ -1986,8 +1994,12 @@ describe('EPGVirtualizer', () => {
             virtualizer.setFocusedCell(channelId, start);
 
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
-            expect(subtitle.textContent).toBe('S01E02 - Episode Without Split Lanes');
-            expect(subtitle.style.display).toBe('block');
+            const meta = cell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement;
+            const episode = cell.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement;
+            expect(meta.style.display).toBe('flex');
+            expect(episode.textContent).toBe('S01E02');
+            expect(subtitle.textContent).toBe('');
+            expect(subtitle.style.display).toBe('none');
             expect(time.style.display).toBe('none');
             expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
         });
@@ -2138,6 +2150,147 @@ describe('EPGVirtualizer', () => {
                 expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(false);
                 jest.advanceTimersByTime(900);
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('keeps fitting focused movie title ticker state idempotent across repeated render and focus sync', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-fitting-movie-ticker';
+                const start = gridAnchorTime;
+                const end = start + 60 * 60 * 1000;
+                const focusedKey = `${channelId}-${start}`;
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'fitting-movie-ticker-1',
+                            type: 'movie',
+                            title: 'Fitting Movie',
+                            fullTitle: 'Fitting Movie',
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                const schedules = new Map([[channelId, schedule]]);
+                virtualizer.renderVisibleCells([channelId], schedules, range);
+
+                const cell = container.querySelector(`[data-key="${focusedKey}"]`) as HTMLElement;
+                const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+                const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 120 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 200 });
+                Object.defineProperty(title, 'scrollHeight', { configurable: true, value: 24 });
+                Object.defineProperty(title, 'clientHeight', { configurable: true, value: 24 });
+                Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 120 });
+
+                virtualizer.setFocusedCell(channelId, start);
+                title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY, EPG_CLASSES.CELL_TITLE_TICKER_RUNNING);
+                title.style.setProperty('--epg-title-ticker-distance-px', '80px');
+                title.style.setProperty('--epg-title-ticker-duration-ms', '2400ms');
+
+                virtualizer.renderVisibleCells([channelId], schedules, range, focusedKey);
+                virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(900);
+
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(false);
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING)).toBe(false);
+                expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('');
+                expect(title.style.getPropertyValue('--epg-title-ticker-duration-ms')).toBe('');
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('keeps fitting focused episode title and subtitle ticker state idempotent across repeated render and focus sync', () => {
+            jest.useFakeTimers();
+            try {
+                const channelId = 'ch-fitting-episode-ticker';
+                const start = gridAnchorTime;
+                const end = start + 60 * 60 * 1000;
+                const focusedKey = `${channelId}-${start}`;
+                const schedule: ScheduleWindow = {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [{
+                        item: {
+                            ratingKey: 'fitting-episode-ticker-1',
+                            type: 'episode',
+                            title: 'Readable Episode',
+                            fullTitle: 'Readable Show - S01E04 - Readable Episode',
+                            showTitle: 'Readable Show',
+                            seasonNumber: 1,
+                            episodeNumber: 4,
+                            durationMs: end - start,
+                            thumb: null,
+                            year: 2026,
+                            scheduledIndex: 0,
+                        },
+                        scheduledStartTime: start,
+                        scheduledEndTime: end,
+                        elapsedMs: 0,
+                        remainingMs: end - start,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        streamDescriptor: null,
+                        isCurrent: false,
+                    }],
+                };
+
+                virtualizer.setChannelCount(1);
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                const schedules = new Map([[channelId, schedule]]);
+                virtualizer.renderVisibleCells([channelId], schedules, range);
+
+                const cell = container.querySelector(`[data-key="${focusedKey}"]`) as HTMLElement;
+                const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+                const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
+                const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+                const subtitleText = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE_TEXT}`) as HTMLElement;
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 130 });
+                Object.defineProperty(title, 'clientWidth', { configurable: true, value: 200 });
+                Object.defineProperty(title, 'scrollHeight', { configurable: true, value: 24 });
+                Object.defineProperty(title, 'clientHeight', { configurable: true, value: 24 });
+                Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 130 });
+                Object.defineProperty(subtitle, 'scrollWidth', { configurable: true, value: 150 });
+                Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 200 });
+                Object.defineProperty(subtitleText, 'scrollWidth', { configurable: true, value: 150 });
+
+                virtualizer.setFocusedCell(channelId, start);
+                expect(subtitle.textContent).toBe('Readable Episode');
+                expect(subtitle.textContent).not.toContain('S01E04');
+                title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY, EPG_CLASSES.CELL_TITLE_TICKER_RUNNING);
+                subtitle.classList.add(EPG_CLASSES.CELL_SUBTITLE_TICKER_READY, EPG_CLASSES.CELL_SUBTITLE_TICKER_RUNNING);
+                title.style.setProperty('--epg-title-ticker-distance-px', '80px');
+                subtitle.style.setProperty('--epg-subtitle-ticker-distance-px', '90px');
+
+                virtualizer.renderVisibleCells([channelId], schedules, range, focusedKey);
+                virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(900);
+
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(false);
+                expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING)).toBe(false);
+                expect(subtitle.classList.contains(EPG_CLASSES.CELL_SUBTITLE_TICKER_READY)).toBe(false);
+                expect(subtitle.classList.contains(EPG_CLASSES.CELL_SUBTITLE_TICKER_RUNNING)).toBe(false);
+                expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('');
+                expect(subtitle.style.getPropertyValue('--epg-subtitle-ticker-distance-px')).toBe('');
             } finally {
                 jest.useRealTimers();
             }
@@ -2388,7 +2541,7 @@ describe('EPGVirtualizer', () => {
                 virtualizer.setFocusedCell(channelId, start);
 
                 expect(title.textContent).toBe(showTitle);
-                expect(subtitle.textContent).toBe(`S01E09 - ${episodeTitle}`);
+                expect(subtitle.textContent).toBe(episodeTitle);
                 expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
                 expect(subtitle.classList.contains('epg-cell-subtitle-ticker-ready')).toBe(true);
                 expect(subtitle.style.getPropertyValue('--epg-subtitle-ticker-distance-px')).toBe('280px');
@@ -2409,7 +2562,7 @@ describe('EPGVirtualizer', () => {
             }
         });
 
-        it('keeps the in-cell time on focused medium-width movie cells', () => {
+        it('hides the in-cell time on focused medium-width movie cells', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-movie-medium-time-hidden';
             const start = gridAnchorTime;
@@ -2451,10 +2604,10 @@ describe('EPGVirtualizer', () => {
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
 
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
-            expect(time.style.display).toBe('block');
+            expect(time.style.display).toBe('none');
         });
 
-        it('uses compact LIVE dot for focused current medium movie overlay cells', () => {
+        it('uses compact current dot for focused current medium movie overlay cells', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-movie-medium-live-dot';
             const start = gridAnchorTime + (10 * 60000);
@@ -2506,7 +2659,7 @@ describe('EPGVirtualizer', () => {
             expect(liveBadge.textContent).toBe('');
         });
 
-        it('uses compact LIVE badge for current sliver cells even when they are not narrow or focused-compact', () => {
+        it('uses compact current badge for current sliver cells even when they are not narrow or focused-compact', () => {
             const now = gridAnchorTime + 227 * 60 * 1000;
             jest.spyOn(Date, 'now').mockReturnValue(now);
 
@@ -2557,7 +2710,7 @@ describe('EPGVirtualizer', () => {
             expect(badge.textContent).toBe('');
         });
 
-        it('reconciles an existing current wide cell to a compact LIVE dot when only partial badge space remains', () => {
+        it('keeps current wide cells on the compact live dot across visible-width changes', () => {
             const now = gridAnchorTime + 5 * 60 * 1000;
             jest.spyOn(Date, 'now').mockReturnValue(now);
 
@@ -2600,8 +2753,9 @@ describe('EPGVirtualizer', () => {
             expect(firstCell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
             expect(firstCell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(false);
             expect(badge.hidden).toBe(false);
-            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(false);
-            expect(badge.textContent).toBe('LIVE');
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(badge.textContent).toBe('');
+            expect(badge.getAttribute('aria-label')).toBe('Currently playing');
 
             const partialRange = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 44 });
             virtualizer.renderVisibleCells([channelId], schedules, partialRange, undefined, now);
@@ -2664,9 +2818,11 @@ describe('EPGVirtualizer', () => {
 
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            const episode = cell.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement;
             expect(title.textContent).toBe('Great Show');
-            expect(subtitle.textContent).toBe('S01E03 - A Day At The Shore');
-            expect(meta.style.display).toBe('none');
+            expect(episode.textContent).toBe('S01E03');
+            expect(subtitle.textContent).toBe('A Day At The Shore');
+            expect(meta.style.display).toBe('flex');
             expect(subtitle.style.display).toBe('block');
             expect(time.style.display).toBe('none');
         });
@@ -3041,7 +3197,7 @@ describe('EPGVirtualizer', () => {
             }
         });
 
-        it('compacts LIVE badge to dot for current narrow/tiny cells when not focused', () => {
+        it('compacts current badge to dot for current narrow/tiny cells when not focused', () => {
             const now = gridAnchorTime + 5 * 60 * 1000;
             jest.spyOn(Date, 'now').mockReturnValue(now);
             const channelId = 'ch-live-dot';
@@ -3213,6 +3369,135 @@ describe('EPGVirtualizer', () => {
             expect(fill.style.width).toBe('50%');
         });
 
+        it('keeps row-aware title layout when a wide episode becomes current via temporal refresh', () => {
+            const channelId = 'ch-row-aware-current-transition';
+            const start = gridAnchorTime + 10 * 60 * 1000;
+            const end = start + 80 * 60 * 1000;
+            const beforeCurrent = start - 5 * 60 * 1000;
+            jest.spyOn(Date, 'now').mockReturnValue(beforeCurrent);
+
+            const schedule: ScheduleWindow = {
+                startTime: gridAnchorTime,
+                endTime: gridAnchorTime + (24 * 60 * 60 * 1000),
+                programs: [{
+                    item: {
+                        ratingKey: 'row-aware-current-transition-1',
+                        type: 'episode',
+                        title: 'Drive-In',
+                        fullTitle: 'That 70s Show - S01E08 - Drive-In',
+                        showTitle: 'That 70s Show',
+                        seasonNumber: 1,
+                        episodeNumber: 8,
+                        durationMs: end - start,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: start,
+                    scheduledEndTime: end,
+                    elapsedMs: 0,
+                    remainingMs: end - beforeCurrent,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    streamDescriptor: null,
+                    isCurrent: false,
+                }],
+            };
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
+
+            const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+            const badge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(true);
+            expect(badge.hidden).toBe(true);
+
+            virtualizer.updateTemporalClasses(start + 10 * 60_000);
+
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(true);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(true);
+            expect(badge.hidden).toBe(false);
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(badge.textContent).toBe('');
+        });
+
+        it('shows current wide episode tags while constrained current tags stay hidden', () => {
+            const now = gridAnchorTime + 10 * 60 * 1000;
+            jest.spyOn(Date, 'now').mockReturnValue(now);
+            virtualizer.setChannelCount(2);
+
+            const wideChannelId = 'ch-current-wide-episode-tag';
+            const mediumChannelId = 'ch-current-medium-episode-tag';
+            const makeEpisodeProgram = (
+                ratingKey: string,
+                start: number,
+                end: number
+            ): ScheduledProgram => ({
+                item: {
+                    ratingKey,
+                    type: 'episode',
+                    title: 'Drive-In',
+                    fullTitle: 'That 70s Show - S01E08 - Drive-In',
+                    showTitle: 'That 70s Show',
+                    seasonNumber: 1,
+                    episodeNumber: 8,
+                    durationMs: end - start,
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: start,
+                scheduledEndTime: end,
+                elapsedMs: now - start,
+                remainingMs: end - now,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                streamDescriptor: null,
+                isCurrent: false,
+            });
+
+            const wideEnd = gridAnchorTime + 80 * 60 * 1000;
+            const mediumEnd = gridAnchorTime + 40 * 60 * 1000;
+            const schedules = new Map<string, ScheduleWindow>([
+                [wideChannelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [makeEpisodeProgram('current-wide-episode-tag-1', gridAnchorTime, wideEnd)],
+                }],
+                [mediumChannelId, {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
+                    programs: [makeEpisodeProgram('current-medium-episode-tag-1', gridAnchorTime, mediumEnd)],
+                }],
+            ]);
+
+            const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+            virtualizer.renderVisibleCells([wideChannelId, mediumChannelId], schedules, range, undefined, now);
+
+            const wideCell = container.querySelector(`[data-key="${wideChannelId}-${gridAnchorTime}"]`) as HTMLElement;
+            const wideBadge = wideCell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+            const wideMeta = wideCell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement;
+            const wideEpisode = wideCell.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement;
+            expect(wideCell.classList.contains(EPG_CLASSES.CELL_TIER_WIDE)).toBe(true);
+            expect(wideCell.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(true);
+            expect(wideBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(wideBadge.textContent).toBe('');
+            expect(wideMeta.style.display).toBe('flex');
+            expect(wideEpisode.textContent).toBe('S01E08');
+
+            const mediumCell = container.querySelector(`[data-key="${mediumChannelId}-${gridAnchorTime}"]`) as HTMLElement;
+            const mediumBadge = mediumCell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
+            const mediumMeta = mediumCell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement;
+            const mediumEpisode = mediumCell.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement;
+            expect(mediumCell.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
+            expect(mediumBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(mediumBadge.textContent).toBe('');
+            expect(mediumMeta.style.display).toBe('none');
+            expect(mediumEpisode.textContent).toBe('S01E08');
+        });
+
         it('resets progress width when a current program becomes past', () => {
             const channelId = 'ch-progress-reset';
             const start = gridAnchorTime + 10 * 60 * 1000;
@@ -3259,7 +3544,7 @@ describe('EPGVirtualizer', () => {
             expect(fill.style.width).toBe('0%');
         });
 
-        it('keeps compact LIVE dot when narrow/tiny cell is focused', () => {
+        it('keeps compact current dot when narrow/tiny cell is focused', () => {
             const now = gridAnchorTime + 5 * 60 * 1000;
             jest.spyOn(Date, 'now').mockReturnValue(now);
             const channelId = 'ch-live-focused';
@@ -3300,7 +3585,7 @@ describe('EPGVirtualizer', () => {
             expect(badge.textContent).toBe('');
         });
 
-        it('keeps time visible when a tiny movie cell is focused', () => {
+        it('keeps time hidden when a tiny movie cell is focused', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-time-focused';
             const schedule: ScheduleWindow = {
@@ -3338,10 +3623,10 @@ describe('EPGVirtualizer', () => {
 
             expect(cell.classList.contains('epg-cell-tier-tiny')).toBe(true);
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
-            expect(timeLine.style.display).toBe('block');
+            expect(timeLine.style.display).toBe('none');
         });
 
-        it('keeps compact time styling but restores the time line for focused tiny movie cells', () => {
+        it('keeps compact time styling and hides the time line for focused tiny movie cells', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focus-update';
             const start = gridAnchorTime;
@@ -3384,7 +3669,7 @@ describe('EPGVirtualizer', () => {
             const focused = virtualizer.setFocusedCell(channelId, start, start + 5 * 60000);
             expect(focused).not.toBeNull();
             expect(timeLine.classList.contains(EPG_CLASSES.CELL_TIME_COMPACT)).toBe(true);
-            expect(timeLine.style.display).toBe('block');
+            expect(timeLine.style.display).toBe('none');
         });
 
         it('keeps time hidden and compact when tiny cell becomes current via temporal refresh', () => {
@@ -3508,7 +3793,7 @@ describe('EPGVirtualizer', () => {
             expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('60px');
         });
 
-        it('keeps focused tiny movie time bottom-right while live dot overlays top-right', () => {
+        it('keeps focused tiny movie time hidden while live dot overlays top-right', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-tiny-movie-overlay';
             const start = gridAnchorTime + (10 * 60000);
@@ -3553,17 +3838,17 @@ describe('EPGVirtualizer', () => {
 
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
             expect(cell.classList.contains('epg-cell-focused-movie-overlay')).toBe(true);
-            expect(timeLine.style.display).toBe('block');
+            expect(timeLine.style.display).toBe('none');
 
             virtualizer.updateTemporalClasses(start + (2 * 60000));
 
-            expect(timeLine.style.display).toBe('block');
+            expect(timeLine.style.display).toBe('none');
             expect(badge.hidden).toBe(false);
             expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
             expect(badge.textContent).toBe('');
         });
 
-        it('uses compact LIVE dot for current medium episodes in focused compact mode', () => {
+        it('uses compact current dot for current medium episodes in focused compact mode', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-medium-live-dot';
             const start = gridAnchorTime;
@@ -3619,7 +3904,7 @@ describe('EPGVirtualizer', () => {
             expect(badge.textContent).toBe('');
         });
 
-        it('recomputes LIVE badge immediately when focus switches a current medium movie into overlay mode', () => {
+        it('recomputes current badge immediately when focus switches a current medium movie into overlay mode', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-movie-immediate-live-refresh';
             const start = gridAnchorTime;
@@ -3663,8 +3948,8 @@ describe('EPGVirtualizer', () => {
             expect(cell.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
             expect(cell.classList.contains('epg-cell-focused-movie-overlay')).toBe(false);
             expect(badge.hidden).toBe(false);
-            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(false);
-            expect(badge.textContent).toBe('LIVE');
+            expect(badge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+            expect(badge.textContent).toBe('');
 
             virtualizer.setFocusedCell(channelId, start);
 

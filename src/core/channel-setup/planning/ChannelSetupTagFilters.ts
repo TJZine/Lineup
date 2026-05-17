@@ -1,7 +1,9 @@
 import type { PlexTagDirectoryItem } from '../../../modules/plex/library';
+import type {
+    ChannelSetupFacetCountRecoveryFamily,
+    ChannelSetupTagFilterType,
+} from './ChannelSetupFacetFamilies';
 
-type ChannelSetupTagFilterType = 'actor' | 'studio';
-type ChannelSetupFacetCountFamily = 'genre' | 'director' | 'year' | ChannelSetupTagFilterType;
 type ChannelSetupFastKeyParam = ChannelSetupTagFilterType | 'type';
 
 const CHANNEL_SETUP_FAST_KEY_ALLOW_LIST = new Set<ChannelSetupFastKeyParam>(['actor', 'studio', 'type']);
@@ -21,7 +23,7 @@ export function buildChannelSetupTagFilter(
 
 export function buildChannelSetupFacetCountFilter(
     tag: PlexTagDirectoryItem,
-    family: ChannelSetupFacetCountFamily,
+    family: ChannelSetupFacetCountRecoveryFamily,
     mediaType: number
 ): Record<string, string | number> {
     if (family === 'actor' || family === 'studio') {

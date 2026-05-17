@@ -60,6 +60,7 @@ When tracked docs conflict, use this order:
 - preserve cleanup-era lessons as steady-state feature/refactor gates, not only
   cleanup-loop ceremony
 - keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `worker` for general implementation, one cleanup-loop-specific `cleanup_worker` exception for approved Tier 3 cleanup-loop implementation passes, and `reviewer` for read-only review
+- enforce production file-shape baselines with `npm run verify:maintainability` so oversized production files do not grow without reviewed rationale and a decomposition or revisit trigger
 
 ## Steady-State Debt Guardrails
 
@@ -87,6 +88,10 @@ these regression categories before closeout:
 - source signal: avoid restating comments, generated-looking scaffolding,
   no-value forwarding, broad helper names, and unrelated cleanup mixed into the
   task
+- file shape: production files over 500 lines must have a current row in
+  [`docs/architecture/file-shape-guardrails.md`](./architecture/file-shape-guardrails.md);
+  any net growth beyond the recorded baseline is a guardrail violation unless
+  the same change updates the rationale and decomposition or revisit trigger
 
 Intentional exceptions are allowed only when the approved plan or closeout record
 names one owner, the reason, verification, and a removal or revisit trigger.
@@ -210,6 +215,7 @@ unless that exception record exists.
      should not quietly accumulate in one class
 8. Verify based on risk.
    - use repo-local `closeout-verification` before claiming work is complete, staged, committed, pushed, PR-ready, or handed off
+   - run `npm run verify:maintainability` when production source files are added, removed, renamed, or changed in a way that could affect file-shape baselines
    - `npm run verify` for UI, navigation, Orchestrator, or Plex work
    - `npm run verify:docs` for workflow/control-plane/reference doc changes
    - `npm run verify:docs` warns for checklist plan paths that are untracked (including when the path is missing from the workspace and not tracked), and still fails for missing tracked plan references or other docs regressions

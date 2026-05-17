@@ -4,12 +4,14 @@ import type {
     ChannelSetupPlannerFacetCountDiagnostics,
     ChannelSetupPlannerLibraryCount,
 } from '../../channel-setup/planning/ChannelSetupPlanningTypes';
-
-type ChannelSetupPlannerFacetFamily = 'genres' | 'directors' | 'decades' | 'studios' | 'actors';
+import type { ChannelSetupPeopleBreadthDiagnostic } from '../../channel-setup/planning/ChannelSetupPeopleSeriesIndex';
+import {
+    CHANNEL_SETUP_NATIVE_FACET_FAMILIES,
+    type ChannelSetupPlannerFacetFamily,
+} from '../../channel-setup/planning/ChannelSetupFacetFamilies';
 
 const WARNING_SAMPLE_LIMIT = 3;
 const FACET_SAMPLE_LIMIT = 3;
-const FACET_FAMILIES: ChannelSetupPlannerFacetFamily[] = ['genres', 'directors', 'decades', 'studios', 'actors'];
 
 export interface AppDiagnosticsChannelSetupFamilySummary {
     family: ChannelSetupPlannerFacetFamily;
@@ -24,6 +26,21 @@ export interface AppDiagnosticsChannelSetupFamilySummary {
     sampleKnownCounts: string[];
     sampleUnknownCountTitles: string[];
     sampleBelowMinItems: string[];
+}
+
+export interface AppDiagnosticsChannelSetupPeopleBreadthSummary {
+    family: ChannelSetupPeopleBreadthDiagnostic['family'];
+    libraryId: string;
+    libraryName: string;
+    countBasis: ChannelSetupPeopleBreadthDiagnostic['countBasis'];
+    rawTagCount: number;
+    episodeIndexedPeopleCount: number;
+    episodeCountQualified: number;
+    distinctSeriesQualified: number;
+    rejectedBelowDistinctSeries: number;
+    missingEpisodeIndexCount: number;
+    sampleQualified: string[];
+    sampleRejectedBelowDistinctSeries: string[];
 }
 
 export interface AppDiagnosticsChannelSetupSummary {
@@ -41,6 +58,7 @@ export interface AppDiagnosticsChannelSetupSummary {
     warnings: string[];
     notes: string[];
     familySummaries: AppDiagnosticsChannelSetupFamilySummary[];
+    peopleBreadthSummaries: AppDiagnosticsChannelSetupPeopleBreadthSummary[];
 }
 
 export function summarizeChannelSetupPlannerDiagnostics(
@@ -68,10 +86,11 @@ export function summarizeChannelSetupPlannerDiagnostics(
             warnings: capStrings(result.warnings, WARNING_SAMPLE_LIMIT, 'warning'),
             notes,
             familySummaries: [],
+            peopleBreadthSummaries: [],
         };
     }
 
-    const familySummaries = FACET_FAMILIES
+    const familySummaries = CHANNEL_SETUP_NATIVE_FACET_FAMILIES
         .map((family) => summarizeFamily(
             family,
             diagnostics.fetchedTagsByFamily[family],
@@ -103,6 +122,47 @@ export function summarizeChannelSetupPlannerDiagnostics(
         warnings: capStrings(result.warnings, WARNING_SAMPLE_LIMIT, 'warning'),
         notes,
         familySummaries,
+        peopleBreadthSummaries: (diagnostics.peopleBreadthDiagnostics ?? [])
+            .filter((entry) => entry.rawTagCount > 0 || entry.episodeIndexedPeopleCount > 0)
+            .map(summarizePeopleBreadth)
+            .sort((left, right) => {
+                const rejectedDiff = right.rejectedBelowDistinctSeries - left.rejectedBelowDistinctSeries;
+                if (rejectedDiff !== 0) {
+                    return rejectedDiff;
+                }
+                const familyDiff = left.family.localeCompare(right.family);
+                if (familyDiff !== 0) {
+                    return familyDiff;
+                }
+                return left.libraryName.localeCompare(right.libraryName);
+            }),
+    };
+}
+
+function summarizePeopleBreadth(
+    diagnostic: ChannelSetupPeopleBreadthDiagnostic
+): AppDiagnosticsChannelSetupPeopleBreadthSummary {
+    return {
+        family: diagnostic.family,
+        libraryId: diagnostic.libraryId,
+        libraryName: diagnostic.libraryName,
+        countBasis: diagnostic.countBasis,
+        rawTagCount: diagnostic.rawTagCount,
+        episodeIndexedPeopleCount: diagnostic.episodeIndexedPeopleCount,
+        episodeCountQualified: diagnostic.episodeCountQualified,
+        distinctSeriesQualified: diagnostic.distinctSeriesQualified,
+        rejectedBelowDistinctSeries: diagnostic.rejectedBelowDistinctSeries,
+        missingEpisodeIndexCount: diagnostic.missingEpisodeIndexCount,
+        sampleQualified: capStrings(
+            diagnostic.sampleQualified.map(formatPeopleSample),
+            FACET_SAMPLE_LIMIT,
+            'qualified person'
+        ),
+        sampleRejectedBelowDistinctSeries: capStrings(
+            diagnostic.sampleRejectedBelowDistinctSeries.map(formatPeopleSample),
+            FACET_SAMPLE_LIMIT,
+            'below-breadth person'
+        ),
     };
 }
 
@@ -166,6 +226,10 @@ function sortCountSamples(samples: ChannelSetupPlannerCountSample[]): ChannelSet
 
 function formatCountSample(sample: ChannelSetupPlannerCountSample): string {
     return `${sample.title} (${sample.count})`;
+}
+
+function formatPeopleSample(sample: { title: string; episodeCount: number; distinctSeriesCount: number }): string {
+    return `${sample.title} (${sample.episodeCount} episodes, ${sample.distinctSeriesCount} series)`;
 }
 
 function capStrings(values: string[], limit: number, label: string): string[] {

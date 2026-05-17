@@ -6,8 +6,10 @@ import {
     createChannelIdentityKey,
     diffChannelPlans,
 } from '../planning/ChannelSetupPlanningTypes';
+import { createPeopleSeriesIndexFromEpisodes } from '../planning/ChannelSetupPeopleSeriesIndex';
+import { CHANNEL_SETUP_NATIVE_FACET_FAMILIES } from '../planning/ChannelSetupFacetFamilies';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
-import type { PlexLibrarySection, PlexPlaylist } from '../../../modules/plex/library';
+import type { PlexLibrarySection, PlexMediaItem, PlexPlaylist } from '../../../modules/plex/library';
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
 import type { PendingChannel } from '../planning/ChannelSetupPlanningTypes';
 import { DEFAULT_STRATEGY_PRIORITIES, MIXED_SCOPE_STRATEGY_KEYS, SETUP_STRATEGY_KEYS } from '../constants';
@@ -45,6 +47,28 @@ const createConfig = (overrides?: Partial<ChannelSetupConfig>): ChannelSetupConf
     minItemsPerChannel: 1,
     ...overrides,
 });
+
+const createEpisode = (
+    title: string,
+    seriesKey: string,
+    people: { actors?: string[]; directors?: string[] }
+): PlexMediaItem => ({
+    ratingKey: title,
+    key: `/library/metadata/${title}`,
+    type: 'episode',
+    title,
+    sortTitle: title,
+    summary: '',
+    year: 2024,
+    durationMs: 1000,
+    addedAt: new Date(0),
+    updatedAt: new Date(0),
+    thumb: null,
+    art: null,
+    grandparentRatingKey: seriesKey,
+    media: [],
+    ...people,
+} as PlexMediaItem);
 
 const makeExistingChannel = (planned: PendingChannel, index: number): ChannelConfig => {
     const existing: ChannelConfig = {
@@ -119,6 +143,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -157,6 +182,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -191,6 +217,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -292,6 +319,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -329,6 +357,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -380,6 +409,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -430,6 +460,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -481,6 +512,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -491,6 +523,10 @@ describe('ChannelSetupPlanner', () => {
     });
 
     it('treats mixed TV-only channels as series-derived for base series ordering and variants', () => {
+        const libraries = [
+            { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
+            { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
+        ] as PlexLibrarySection[];
         const plan = buildChannelSetupPlan({
             config: createConfig({
                 selectedLibraryIds: ['s1', 's2'],
@@ -506,10 +542,7 @@ describe('ChannelSetupPlanner', () => {
                     variantBlockSize: 3,
                 },
             }),
-            libraries: [
-                { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
-                { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
-            ] as PlexLibrarySection[],
+            libraries,
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map(),
@@ -520,6 +553,18 @@ describe('ChannelSetupPlanner', () => {
                 ['s2', [{ key: 'actor-1', title: 'Jane Doe', count: 10 }]],
             ]),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map([
+                ['s1', createPeopleSeriesIndexFromEpisodes(libraries[0]!, [
+                    createEpisode('s1-1', 'show-a', { actors: ['Jane Doe'] }),
+                    createEpisode('s1-2', 'show-b', { actors: ['Jane Doe'] }),
+                    createEpisode('s1-3', 'show-c', { actors: ['Jane Doe'] }),
+                ])],
+                ['s2', createPeopleSeriesIndexFromEpisodes(libraries[1]!, [
+                    createEpisode('s2-1', 'show-d', { actors: ['Jane Doe'] }),
+                    createEpisode('s2-2', 'show-e', { actors: ['Jane Doe'] }),
+                    createEpisode('s2-3', 'show-f', { actors: ['Jane Doe'] }),
+                ])],
+            ]),
             warnings: [],
             seedFor,
         });
@@ -552,8 +597,8 @@ describe('ChannelSetupPlanner', () => {
                 },
             }),
             libraries: [
-                { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
-                { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
+                { id: 's1', title: 'Movies A', type: 'movie', contentCount: 10 },
+                { id: 's2', title: 'Movies B', type: 'movie', contentCount: 10 },
             ] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
@@ -568,6 +613,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -591,8 +637,8 @@ describe('ChannelSetupPlanner', () => {
                 },
             }),
             libraries: [
-                { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
-                { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
+                { id: 's1', title: 'Movies A', type: 'movie', contentCount: 10 },
+                { id: 's2', title: 'Movies B', type: 'movie', contentCount: 10 },
             ] as PlexLibrarySection[],
             playlists: [],
             collectionsByLibraryId: new Map(),
@@ -607,6 +653,7 @@ describe('ChannelSetupPlanner', () => {
                 ]],
             ]),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -634,6 +681,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -666,6 +714,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -702,6 +751,7 @@ describe('ChannelSetupPlanner', () => {
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -732,6 +782,7 @@ describe('ChannelSetupPlanner', () => {
             ]),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -760,6 +811,7 @@ describe('ChannelSetupPlanner', () => {
             ]),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -844,6 +896,7 @@ describe('ChannelSetupPlanner', () => {
             ]]]),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -892,6 +945,8 @@ describe('ChannelSetupPlanner', () => {
 
         expect(diagnostics.minItems).toBe(5);
         expect(diagnostics.effectiveMaxChannels).toBeGreaterThan(0);
+        expect(Object.keys(diagnostics.fetchedTagsByFamily)).toEqual(CHANNEL_SETUP_NATIVE_FACET_FAMILIES);
+        expect(Object.keys(diagnostics.tagCountDiagnosticsByFamily)).toEqual(CHANNEL_SETUP_NATIVE_FACET_FAMILIES);
         expect(diagnostics.fetchedTagsByFamily.genres).toEqual([
             { libraryId: 'm1', libraryName: 'Movies', count: 3 },
         ]);
@@ -1002,6 +1057,7 @@ describe('ChannelSetupPlanner', () => {
             ]]]),
             actorsByLibraryId: new Map(),
             studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
             warnings: [],
             seedFor,
         });
@@ -1101,11 +1157,11 @@ describe('ChannelSetupPlanner', () => {
         }));
 
         expect(withAlternate.afterAlternateLineups).toEqual(expect.objectContaining({
-            total: 16,
+            total: 10,
             genres: 2,
             studios: 2,
-            actors: 8,
-            directors: 4,
+            actors: 4,
+            directors: 2,
         }));
         expect(withAlternate.afterMaxChannels).toEqual(expect.objectContaining({
             total: 5,
@@ -1117,11 +1173,80 @@ describe('ChannelSetupPlanner', () => {
         expect(withAlternate.allocationBudgetByStrategy).toEqual(withAlternate.afterMaxChannels);
         expect(withAlternate.lostToAllocationByStrategy).toEqual(withAlternate.lostToMaxChannels);
         expect(withAlternate.lostToMaxChannels).toEqual(expect.objectContaining({
-            total: 11,
-            actors: 7,
+            total: 5,
+            actors: 3,
             studios: 1,
-            directors: 3,
+            directors: 1,
         }));
+    });
+
+    it('reports TV people breadth diagnostics with episode and distinct-series count basis', () => {
+        const tvLibrary = { id: 'tv-1', title: 'TV', type: 'show', contentCount: 25 } as PlexLibrarySection;
+        const peopleIndex = createPeopleSeriesIndexFromEpisodes(tvLibrary, [
+            createEpisode('qualified-1', 'show-a', { actors: ['Qualified Actor'], directors: ['Qualified Director'] }),
+            createEpisode('qualified-2', 'show-b', { actors: ['Qualified Actor'], directors: ['Qualified Director'] }),
+            createEpisode('qualified-3', 'show-c', { actors: ['Qualified Actor'], directors: ['Qualified Director'] }),
+            createEpisode('qualified-4', 'show-c', { actors: ['Qualified Actor'], directors: ['Qualified Director'] }),
+            createEpisode('rejected-1', 'show-a', { actors: ['One Series Actor'], directors: ['One Series Director'] }),
+            createEpisode('rejected-2', 'show-a', { actors: ['One Series Actor'], directors: ['One Series Director'] }),
+            createEpisode('rejected-3', 'show-a', { actors: ['One Series Actor'], directors: ['One Series Director'] }),
+            createEpisode('rejected-4', 'show-a', { actors: ['One Series Actor'], directors: ['One Series Director'] }),
+        ]);
+
+        const diagnostics = buildChannelSetupPlanDiagnostics({
+            config: createConfig({
+                selectedLibraryIds: ['tv-1'],
+                minItemsPerChannel: 4,
+                strategyConfig: createStrategyConfig({
+                    actors: { enabled: true },
+                    directors: { enabled: true },
+                }),
+            }),
+            libraries: [tvLibrary],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map([['tv-1', [
+                { key: 'director-qualified', title: 'Qualified Director', count: 4 },
+                { key: 'director-rejected', title: 'One Series Director', count: 4 },
+                { key: 'director-missing', title: 'Missing Director', count: 4 },
+            ]]]),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([['tv-1', [
+                { key: 'actor-qualified', title: 'Qualified Actor', count: 4 },
+                { key: 'actor-rejected', title: 'One Series Actor', count: 4 },
+                { key: 'actor-missing', title: 'Missing Actor', count: 4 },
+            ]]]),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map([['tv-1', peopleIndex]]),
+            warnings: [],
+            seedFor,
+        });
+
+        expect(diagnostics.peopleBreadthDiagnostics).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                libraryId: 'tv-1',
+                family: 'actors',
+                countBasis: 'tv-episode-count-plus-distinct-series',
+                distinctSeriesThreshold: 3,
+                rawTagCount: 3,
+                episodeIndexedPeopleCount: 2,
+                episodeCountQualified: 2,
+                distinctSeriesQualified: 1,
+                rejectedBelowDistinctSeries: 1,
+                missingEpisodeIndexCount: 1,
+                sampleQualified: [{ title: 'Qualified Actor', episodeCount: 4, distinctSeriesCount: 3 }],
+                sampleRejectedBelowDistinctSeries: [{ title: 'One Series Actor', episodeCount: 4, distinctSeriesCount: 1 }],
+            }),
+            expect.objectContaining({
+                libraryId: 'tv-1',
+                family: 'directors',
+                countBasis: 'tv-episode-count-plus-distinct-series',
+                distinctSeriesQualified: 1,
+                rejectedBelowDistinctSeries: 1,
+                missingEpisodeIndexCount: 1,
+            }),
+        ]));
     });
 
     it('balances max-channel allocation across enabled strategies instead of letting one large strategy starve the rest', () => {

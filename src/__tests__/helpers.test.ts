@@ -222,16 +222,23 @@ describe('advanceTimersUntil', () => {
     });
 
     it('uses the final assertion message in the timeout error', async () => {
-        await expect(
-            advanceTimersUntil(() => {
-                expect('current state').toBe('ready state');
+        let caughtError: unknown;
+
+        try {
+            await advanceTimersUntil(() => {
+                throw new Error('final assertion marker');
             }, {
                 stepMs: 20,
                 timeoutMs: 60,
-            })
-        ).rejects.toThrow(
-            'advanceTimersUntil timed out after 60ms. Last assertion: expect(received).toBe(expected)'
-        );
+            });
+        } catch (error) {
+            caughtError = error;
+        }
+
+        expect(caughtError).toBeInstanceOf(Error);
+        const message = (caughtError as Error).message;
+        expect(message).toContain('advanceTimersUntil timed out after 60ms. Last assertion:');
+        expect(message).toContain('final assertion marker');
     });
 
     it('supports timeout values that are not divisible by stepMs', async () => {

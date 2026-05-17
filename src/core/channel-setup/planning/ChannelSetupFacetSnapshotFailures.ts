@@ -13,14 +13,19 @@ import type {
     ChannelSetupFacetSnapshotData,
     ChannelSetupFacetSnapshotFailureReason,
 } from './ChannelSetupPlanningTypes';
+import type {
+    ChannelSetupPeopleSeriesIndexByLibraryId,
+    ChannelSetupPeopleSeriesLibraryIndex,
+} from './ChannelSetupPeopleSeriesIndex';
 import type { PlexTagDirectoryUnsupportedReason } from '../../../modules/plex/library';
 import {
     getChannelSetupErrorSummaryObject,
     getChannelSetupFailureDetail,
 } from './ChannelSetupErrorSummary';
-
-export type ChannelSetupRequiredTagDirectoryLabel = 'Genres' | 'Directors' | 'Years' | 'Actors' | 'Studios';
-export type ChannelSetupNativeFacetFamily = 'genres' | 'directors' | 'decades' | 'actors' | 'studios';
+import type {
+    ChannelSetupNativeFacetFamily,
+    ChannelSetupRequiredTagDirectoryLabel,
+} from './ChannelSetupFacetFamilies';
 
 function createReadonlyFacetMap<T>(source: Map<string, T[]>): ChannelSetupFacetMap<T> {
     const snapshot = new Map<string, readonly T[]>();
@@ -49,6 +54,30 @@ function createReadonlyFacetMap<T>(source: Map<string, T[]>): ChannelSetupFacetM
     return Object.freeze(readonlyMap);
 }
 
+function createReadonlyMap<T>(source: Map<string, T>): ReadonlyMap<string, T> {
+    const snapshot = new Map(source);
+    const readonlyMap: ReadonlyMap<string, T> = {
+        get size() {
+            return snapshot.size;
+        },
+        get: (key: string): T | undefined => snapshot.get(key),
+        has: (key: string): boolean => snapshot.has(key),
+        entries: (): MapIterator<[string, T]> => snapshot.entries(),
+        keys: (): MapIterator<string> => snapshot.keys(),
+        values: (): MapIterator<T> => snapshot.values(),
+        forEach: (
+            callbackfn: (value: T, key: string, map: ReadonlyMap<string, T>) => void,
+            thisArg?: unknown
+        ): void => {
+            snapshot.forEach((value, key) => {
+                callbackfn.call(thisArg, value, key, readonlyMap);
+            });
+        },
+        [Symbol.iterator]: (): MapIterator<[string, T]> => snapshot[Symbol.iterator](),
+    };
+    return Object.freeze(readonlyMap);
+}
+
 export class ChannelSetupFacetSnapshotLoadState {
     readonly playlists: PlexPlaylist[] = [];
     readonly collectionsByLibraryId = new Map<string, PlexCollection[]>();
@@ -57,6 +86,7 @@ export class ChannelSetupFacetSnapshotLoadState {
     readonly yearsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
     readonly actorsByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
     readonly studiosByLibraryId = new Map<string, PlexTagDirectoryItem[]>();
+    readonly peopleSeriesIndexByLibraryId = new Map<string, ChannelSetupPeopleSeriesLibraryIndex>();
     private readonly _warnings = new Set<string>();
     private _hasWarningOnlyTransientLoadFailure = false;
     errorsTotal = 0;
@@ -73,13 +103,17 @@ export class ChannelSetupFacetSnapshotLoadState {
         this._warnings.add(message);
     }
 
+    markWarningOnlyTransientLoadFailure(): void {
+        this._hasWarningOnlyTransientLoadFailure = true;
+    }
+
     addEmptyTagDirectoryWarning(
         _family: ChannelSetupNativeFacetFamily,
         label: ChannelSetupRequiredTagDirectoryLabel,
         libraryTitle: string,
         type: number
     ): void {
-        this._hasWarningOnlyTransientLoadFailure = true;
+        this.markWarningOnlyTransientLoadFailure();
         this._warnings.add(
             `Skipped ${label.toLowerCase()} for ${libraryTitle}: Plex returned no tag entries (type=${type}).`
         );
@@ -97,6 +131,9 @@ export class ChannelSetupFacetSnapshotLoadState {
             yearsByLibraryId: createReadonlyFacetMap(this.yearsByLibraryId),
             actorsByLibraryId: createReadonlyFacetMap(this.actorsByLibraryId),
             studiosByLibraryId: createReadonlyFacetMap(this.studiosByLibraryId),
+            peopleSeriesIndexByLibraryId: createReadonlyMap(
+                this.peopleSeriesIndexByLibraryId
+            ) as ChannelSetupPeopleSeriesIndexByLibraryId,
             warnings: Object.freeze(Array.from(this._warnings).sort((a, b) => a.localeCompare(b))),
             hasTransientLoadFailure: hasTransientLoadFailure || this._hasWarningOnlyTransientLoadFailure,
             errorsTotal: this.errorsTotal,

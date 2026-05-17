@@ -12,9 +12,11 @@ import {
 import {
     ChannelSetupFacetSnapshotLoadState,
     ChannelSetupFacetSnapshotFailureBuilder,
-    type ChannelSetupNativeFacetFamily,
-    type ChannelSetupRequiredTagDirectoryLabel,
 } from './ChannelSetupFacetSnapshotFailures';
+import type {
+    ChannelSetupNativeFacetFamily,
+    ChannelSetupRequiredTagDirectoryLabel,
+} from './ChannelSetupFacetFamilies';
 import type {
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,
@@ -217,6 +219,9 @@ export class ChannelSetupFacetSnapshotLoadSession {
                 yearsByLibraryId: this._loadState.yearsByLibraryId,
                 actorsByLibraryId: this._loadState.actorsByLibraryId,
                 studiosByLibraryId: this._loadState.studiosByLibraryId,
+                peopleSeriesIndexByLibraryId: this._loadState.peopleSeriesIndexByLibraryId,
+                markWarningOnlyTransientLoadFailure: (): void =>
+                    this._loadState.markWarningOnlyTransientLoadFailure(),
                 addEmptyTagDirectoryWarning: (family, label, libraryTitle, type): void =>
                     this._addEmptyTagDirectoryWarning(family, label, libraryTitle, type),
             },

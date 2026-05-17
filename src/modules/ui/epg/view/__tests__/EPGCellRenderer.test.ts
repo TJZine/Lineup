@@ -219,7 +219,7 @@ describe('EPGCellRenderer', () => {
         expect(element.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(false);
     });
 
-    it('uses focused compact split-lane layout for episodes even when visible width is sliver-sized', () => {
+    it('uses focused compact tag-lane layout for episodes even when visible width is sliver-sized', () => {
         const element = renderer.createElement();
         const cellData = makeProgramCell(element, {
             width: 80,
@@ -244,9 +244,10 @@ describe('EPGCellRenderer', () => {
         expect(element.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(false);
         expect(element.classList.contains(FOCUSED_MOVIE_OVERLAY_CLASS)).toBe(false);
         expect(query(element, EPG_CLASSES.CELL_TITLE_TEXT).textContent).toBe('Prestige Show');
-        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('S01E07 - The Reveal');
+        expect(query(element, EPG_CLASSES.CELL_EPISODE).textContent).toBe('S01E07');
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('The Reveal');
         expect(query(element, EPG_CLASSES.CELL_SUBTITLE).style.display).toBe('block');
-        expect(query(element, EPG_CLASSES.CELL_META).style.display).toBe('none');
+        expect(query(element, EPG_CLASSES.CELL_META).style.display).toBe('flex');
         expect(query(element, EPG_CLASSES.CELL_TIME).style.display).toBe('none');
     });
 
@@ -272,8 +273,146 @@ describe('EPGCellRenderer', () => {
         expect(element.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(false);
         expect(element.classList.contains(EPG_CLASSES.CELL_TIER_MEDIUM)).toBe(true);
         expect(query(element, EPG_CLASSES.CELL_TITLE_TEXT).textContent).toBe('Movie Title With More Detail');
-        expect(query(element, EPG_CLASSES.CELL_TIME).style.display).toBe('block');
+        expect(query(element, EPG_CLASSES.CELL_TIME).style.display).toBe('none');
         expect(query(element, EPG_CLASSES.CELL_SUBTITLE).style.display).toBe('none');
+    });
+
+    it.each([
+        { width: 220, tierClass: EPG_CLASSES.CELL_TIER_WIDE, focusedMovieTime: 'block', unfocusedMovieTime: 'block' },
+        { width: 219, tierClass: EPG_CLASSES.CELL_TIER_MEDIUM, focusedMovieTime: 'none', unfocusedMovieTime: 'none' },
+        { width: 140, tierClass: EPG_CLASSES.CELL_TIER_MEDIUM, focusedMovieTime: 'none', unfocusedMovieTime: 'none' },
+        { width: 139, tierClass: EPG_CLASSES.CELL_TIER_NARROW, focusedMovieTime: 'none', unfocusedMovieTime: 'none' },
+        { width: 88, tierClass: EPG_CLASSES.CELL_TIER_NARROW, focusedMovieTime: 'none', unfocusedMovieTime: 'none' },
+        { width: 87, tierClass: EPG_CLASSES.CELL_TIER_TINY, focusedMovieTime: 'none', unfocusedMovieTime: 'none' },
+    ])('applies movie time readability policy at $width px', ({ width, tierClass, focusedMovieTime, unfocusedMovieTime }) => {
+        const focused = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(focused, {
+            width,
+            visibleWidthPx: width,
+            isFocused: true,
+        }), TEST_START_MS);
+
+        expect(focused.classList.contains(tierClass)).toBe(true);
+        expect(query(focused, EPG_CLASSES.CELL_TIME).style.display).toBe(focusedMovieTime);
+
+        const unfocused = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(unfocused, {
+            width,
+            visibleWidthPx: width,
+        }), TEST_START_MS);
+
+        expect(unfocused.classList.contains(tierClass)).toBe(true);
+        expect(query(unfocused, EPG_CLASSES.CELL_TIME).style.display).toBe(unfocusedMovieTime);
+    });
+
+    it.each([
+        { width: 220, tierClass: EPG_CLASSES.CELL_TIER_WIDE, meta: 'flex', subtitle: 'block', time: 'none' },
+        { width: 219, tierClass: EPG_CLASSES.CELL_TIER_MEDIUM, meta: 'flex', subtitle: 'block', time: 'none' },
+        { width: 140, tierClass: EPG_CLASSES.CELL_TIER_MEDIUM, meta: 'flex', subtitle: 'block', time: 'none' },
+        { width: 139, tierClass: EPG_CLASSES.CELL_TIER_NARROW, meta: 'flex', subtitle: 'block', time: 'none' },
+        { width: 88, tierClass: EPG_CLASSES.CELL_TIER_NARROW, meta: 'flex', subtitle: 'block', time: 'none' },
+        { width: 87, tierClass: EPG_CLASSES.CELL_TIER_TINY, meta: 'flex', subtitle: 'block', time: 'none' },
+    ])('preserves focused episode tag lane at $width px', ({ width, tierClass, meta, subtitle, time }) => {
+        const element = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(element, {
+            width,
+            visibleWidthPx: width,
+            isFocused: true,
+            program: makeProgram({
+                item: {
+                    ratingKey: `episode-${width}`,
+                    type: 'episode',
+                    title: 'Readable Episode',
+                    fullTitle: 'Boundary Show - S01E08 - Readable Episode',
+                    showTitle: 'Boundary Show',
+                    seasonNumber: 1,
+                    episodeNumber: 8,
+                },
+            }),
+        }), TEST_START_MS);
+
+        expect(element.classList.contains(tierClass)).toBe(true);
+        expect(query(element, EPG_CLASSES.CELL_EPISODE).textContent).toBe('S01E08');
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('Readable Episode');
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).not.toContain('S01E08');
+        expect(query(element, EPG_CLASSES.CELL_META).style.display).toBe(meta);
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE).style.display).toBe(subtitle);
+        expect(query(element, EPG_CLASSES.CELL_TIME).style.display).toBe(time);
+    });
+
+    it('lets non-current wide episode titles use the full row while subtitle preserves time space', () => {
+        const element = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(element, {
+            width: 360,
+            visibleWidthPx: 360,
+            program: makeProgram({
+                item: {
+                    ratingKey: 'episode-wide-row-aware',
+                    type: 'episode',
+                    title: 'Jerry',
+                    fullTitle: 'Adventure Time: Fionna and Cake - S01E08 - Jerry',
+                    showTitle: 'Adventure Time: Fionna and Cake',
+                    seasonNumber: 1,
+                    episodeNumber: 8,
+                },
+            }),
+        }), TEST_START_MS);
+
+        expect(element.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(true);
+        expect(query(element, EPG_CLASSES.CELL_TITLE_TEXT).textContent)
+            .toBe('Adventure Time: Fionna and Cake');
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('Jerry');
+        expect(query(element, EPG_CLASSES.CELL_TIME).style.display).toBe('block');
+    });
+
+    it('uses row-aware episode title layout for current wide cells while constrained cells stay compact', () => {
+        const makeEpisode = (ratingKey: string): ScheduledProgram => makeProgram({
+            item: {
+                ratingKey,
+                type: 'episode',
+                title: 'Jerry',
+                fullTitle: 'Adventure Time: Fionna and Cake - S01E08 - Jerry',
+                showTitle: 'Adventure Time: Fionna and Cake',
+                seasonNumber: 1,
+                episodeNumber: 8,
+            },
+        });
+
+        const current = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(current, {
+            width: 360,
+            visibleWidthPx: 360,
+            isCurrent: true,
+            program: makeEpisode('episode-current'),
+        }), TEST_START_MS);
+
+        const focused = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(focused, {
+            width: 360,
+            visibleWidthPx: 360,
+            isFocused: true,
+            program: makeEpisode('episode-focused'),
+        }), TEST_START_MS);
+
+        const constrained = renderer.createElement();
+        renderer.updateCellContent(makeProgramCell(constrained, {
+            width: 219,
+            visibleWidthPx: 219,
+            program: makeEpisode('episode-constrained'),
+        }), TEST_START_MS);
+
+        expect(current.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(true);
+        expect(query(current, EPG_CLASSES.LIVE_BADGE).textContent).toBe('');
+        expect(query(current, EPG_CLASSES.LIVE_BADGE).classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+        expect(query(current, EPG_CLASSES.LIVE_BADGE).getAttribute('aria-label')).toBe('Currently playing');
+        expect(query(current, EPG_CLASSES.CELL_META).style.display).toBe('flex');
+        expect(query(current, EPG_CLASSES.CELL_EPISODE).textContent).toBe('S01E08');
+        expect(focused.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(false);
+        expect(focused.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
+        expect(constrained.classList.contains(EPG_CLASSES.CELL_TITLE_FULL_ROW)).toBe(false);
+        expect(query(constrained, EPG_CLASSES.CELL_META).style.display).toBe('none');
+        expect(query(constrained, EPG_CLASSES.CELL_EPISODE).textContent).toBe('S01E08');
+        expect(query(constrained, EPG_CLASSES.CELL_TIME).style.display).toBe('none');
     });
 
     it('updates live badge and progress fill for current cells and resets them when temporal state changes', () => {
@@ -291,8 +430,9 @@ describe('EPGCellRenderer', () => {
         const liveBadge = query(element, EPG_CLASSES.LIVE_BADGE);
         const progressFill = query(element, EPG_CLASSES.CELL_PROGRESS_FILL);
         expect(liveBadge.hidden).toBe(false);
-        expect(liveBadge.textContent).toBe('LIVE');
-        expect(liveBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(false);
+        expect(liveBadge.textContent).toBe('');
+        expect(liveBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+        expect(liveBadge.getAttribute('aria-label')).toBe('Currently playing');
         expect(progressFill.style.width).toBe('25%');
 
         renderer.updateTemporalPresentation(makeProgramCell(element, {
@@ -308,7 +448,7 @@ describe('EPGCellRenderer', () => {
         expect(element.classList.contains(EPG_CLASSES.CELL_PAST)).toBe(true);
     });
 
-    it('uses compact live dot when only partial visible width can fit the badge', () => {
+    it('uses compact live dot for current cells regardless of visible width', () => {
         const element = renderer.createElement();
         const startTimeMs = TEST_START_MS;
         const endTimeMs = startTimeMs + 60 * 60_000;

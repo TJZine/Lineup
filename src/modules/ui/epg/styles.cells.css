@@ -72,20 +72,29 @@
 }
 
 .epg-cell-progress {
+  --epg-current-progress-track: rgba(13, 17, 24, 0.78);
+  --epg-current-progress-fill: #ffd45a;
+  --epg-current-progress-edge: rgba(0, 0, 0, 0.42);
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.2);
+  height: 5px;
+  background: var(--epg-current-progress-track);
+  box-shadow: inset 0 1px 0 var(--epg-current-progress-edge);
   pointer-events: none;
   display: none;
+}
+
+.epg-cell.current .epg-cell-progress {
+  display: block;
 }
 
 .epg-cell-progress-fill {
   width: 0%;
   height: 100%;
-  background: var(--epg-build-strategy-playlists);
+  background: var(--epg-current-progress-fill);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.36);
 }
 
 /* Windows High Contrast Mode support */
@@ -95,6 +104,18 @@
     background: Canvas;
     outline: 3px solid CanvasText;
     outline-offset: 2px;
+  }
+
+  .epg-cell.current .epg-cell-progress {
+    display: block;
+    height: 5px;
+    background: CanvasText;
+    box-shadow: none;
+  }
+
+  .epg-cell-progress-fill {
+    background: Highlight;
+    box-shadow: none;
   }
 }
 
@@ -276,9 +297,25 @@
 }
 
 .epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time {
-  display: block;
   align-self: flex-end;
   margin-top: auto;
+}
+
+.epg-cell.epg-cell-title-full-row {
+  grid-template-columns: 1fr;
+}
+
+.epg-cell.epg-cell-title-full-row .epg-cell-rail {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-3);
+  bottom: var(--space-2);
+  align-self: auto;
+  pointer-events: none;
+}
+
+.epg-cell.epg-cell-title-full-row .epg-cell-subtitle {
+  max-width: calc(100% - 172px);
 }
 
 .epg-cell.epg-cell-sliver {

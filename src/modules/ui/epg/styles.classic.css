@@ -3,10 +3,6 @@
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.epg-container.layout-classic .epg-cell.current .epg-cell-progress {
-  display: block;
-}
-
 /* Classic guide fidelity phase 2: broadcast-specific overrides */
 .epg-container.layout-classic .epg-now-watching-banner {
   border-bottom: none;
@@ -171,12 +167,14 @@
 }
 
 .epg-container.layout-classic .epg-cell-progress {
-  height: 3px;
-  background: rgba(255, 255, 255, 0.16);
+  --epg-current-progress-track: rgba(0, 0, 0, 0.62);
+  --epg-current-progress-fill: var(--color-primary-light, var(--color-primary));
+  --epg-current-progress-edge: rgba(255, 255, 255, 0.18);
+  height: 4px;
 }
 
 .epg-container.layout-classic .epg-cell-progress-fill {
-  background: var(--color-primary);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.42);
 }
 
 @media (forced-colors: active) {

@@ -10,6 +10,8 @@ import {
     type FacetPlanningConfigOverrides,
 } from './ChannelSetupFacetPlanningTestHelpers';
 import type { ChannelSetupConfig } from '../types';
+import { PLEX_MEDIA_TYPES, type PlexMediaItem } from '../../../modules/plex/library';
+import { flushPromisesAndMacrotask } from '../../../__tests__/helpers';
 
 const createConfig = (overrides: FacetPlanningConfigOverrides = {}): ChannelSetupConfig => createFacetPlanningConfig({
     selectedLibraryIds: ['lib-1'],
@@ -20,6 +22,28 @@ const createConfig = (overrides: FacetPlanningConfigOverrides = {}): ChannelSetu
 
 const createLibrary = createFacetPlanningLibrary;
 const createPlexLibrary = createMockPlexLibrary;
+
+const createEpisode = (
+    title: string,
+    seriesKey: string,
+    actors: string[]
+): PlexMediaItem => ({
+    ratingKey: title,
+    key: `/library/metadata/${title}`,
+    type: 'episode',
+    title,
+    sortTitle: title,
+    summary: '',
+    year: 2024,
+    durationMs: 1000,
+    addedAt: new Date(0),
+    updatedAt: new Date(0),
+    thumb: null,
+    art: null,
+    grandparentRatingKey: seriesKey,
+    actors,
+    media: [],
+} as PlexMediaItem);
 
 describe('ChannelSetupFacetSnapshotLoadSession', () => {
     it('returns an empty ready snapshot when no facet strategies are enabled', async () => {
@@ -147,5 +171,89 @@ describe('ChannelSetupFacetSnapshotLoadSession', () => {
             nowSpy.mockRestore();
             warnSpy.mockRestore();
         }
+    });
+
+    it('builds a compact TV people series index once when actor or director strategies are enabled', async () => {
+        const plexLibrary = createPlexLibrary();
+        plexLibrary.getActors.mockResolvedValue([
+            { key: 'actor-1', title: 'Alex Actor', count: 3 },
+        ]);
+        plexLibrary.getLibraryItems.mockResolvedValue([
+            createEpisode('ep-1', 'show-a', ['Alex Actor']),
+            createEpisode('ep-2', 'show-b', ['Alex Actor']),
+            createEpisode('ep-3', 'show-c', ['Alex Actor']),
+        ]);
+
+        const session = new ChannelSetupFacetSnapshotLoadSession({
+            plexLibrary,
+            config: createConfig({
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    actors: { enabled: true, priority: 8, scope: 'per-library' },
+                },
+            }),
+            libraries: [createLibrary({ type: 'show', contentCount: 3 })],
+            signal: null,
+            requestIntent: 'preview',
+            snapshotAbortController: new AbortController(),
+            reportProgress: undefined,
+        });
+
+        const snapshot = await session.load();
+
+        expect(snapshot.status).toBe('ready');
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledWith(
+            'lib-1',
+            expect.objectContaining({ filter: { type: PLEX_MEDIA_TYPES.EPISODE } })
+        );
+        expect(snapshot.peopleSeriesIndexByLibraryId.get('lib-1')?.actorsByName.get('alex actor')).toEqual({
+            title: 'Alex Actor',
+            episodeCount: 3,
+            distinctSeriesCount: 3,
+        });
+    });
+
+    it('keeps TV people index episode fetches abortable through the snapshot signal', async () => {
+        const callerAbortController = new AbortController();
+        const plexLibrary = createPlexLibrary();
+        plexLibrary.getActors.mockResolvedValue([
+            { key: 'actor-1', title: 'Alex Actor', count: 3 },
+        ]);
+        plexLibrary.getLibraryItems.mockImplementation((_libraryId, options) => new Promise<PlexMediaItem[]>((_resolve, reject) => {
+            if (options?.signal?.aborted) {
+                reject({ name: 'AbortError' });
+                return;
+            }
+            options?.signal?.addEventListener('abort', () => reject({ name: 'AbortError' }), { once: true });
+        }));
+
+        const session = new ChannelSetupFacetSnapshotLoadSession({
+            plexLibrary,
+            config: createConfig({
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    actors: { enabled: true, priority: 8, scope: 'per-library' },
+                },
+            }),
+            libraries: [createLibrary({ type: 'show', contentCount: 3 })],
+            signal: callerAbortController.signal,
+            requestIntent: 'preview',
+            snapshotAbortController: new AbortController(),
+            reportProgress: undefined,
+        });
+        const loadPromise = session.load();
+
+        for (let attempts = 0; attempts < 25 && plexLibrary.getLibraryItems.mock.calls.length === 0; attempts += 1) {
+            await flushPromisesAndMacrotask();
+        }
+        if (plexLibrary.getLibraryItems.mock.calls.length === 0) {
+            throw new Error('Timed out waiting for plexLibrary.getLibraryItems to be called.');
+        }
+        const options = plexLibrary.getLibraryItems.mock.calls[0]?.[1];
+        callerAbortController.abort();
+
+        await expect(loadPromise).rejects.toMatchObject({ name: 'AbortError' });
+        expect(options?.signal?.aborted).toBe(true);
     });
 });

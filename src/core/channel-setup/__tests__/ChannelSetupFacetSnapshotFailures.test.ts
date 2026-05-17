@@ -1,4 +1,5 @@
 import { ChannelSetupFacetSnapshotFailureBuilder } from '../planning/ChannelSetupFacetSnapshotFailures';
+import { CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS } from '../planning/ChannelSetupFacetFamilies';
 import type { ChannelSetupFacetSnapshotData } from '../planning/ChannelSetupPlanningTypes';
 
 const createSnapshotData = (hasTransientLoadFailure: boolean): ChannelSetupFacetSnapshotData => ({
@@ -9,6 +10,7 @@ const createSnapshotData = (hasTransientLoadFailure: boolean): ChannelSetupFacet
     yearsByLibraryId: new Map(),
     actorsByLibraryId: new Map(),
     studiosByLibraryId: new Map(),
+    peopleSeriesIndexByLibraryId: new Map(),
     warnings: [],
     hasTransientLoadFailure,
     errorsTotal: 0,
@@ -18,6 +20,27 @@ const createSnapshotData = (hasTransientLoadFailure: boolean): ChannelSetupFacet
 });
 
 describe('ChannelSetupFacetSnapshotFailureBuilder', () => {
+    it('accepts required tag-directory labels from the canonical native facet descriptor set', () => {
+        const builder = new ChannelSetupFacetSnapshotFailureBuilder({
+            addWarning: jest.fn(),
+            incrementErrors: jest.fn(),
+            snapshotData: createSnapshotData,
+        });
+
+        for (const descriptor of CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS) {
+            const snapshot = builder.buildRequiredTagDirectoryFailure(
+                descriptor.label,
+                'Shows',
+                4,
+                'empty'
+            );
+
+            expect(snapshot).toEqual(expect.objectContaining({
+                message: expect.stringContaining(`Required ${descriptor.label.toLowerCase()} tag directory`),
+            }));
+        }
+    });
+
     it('marks timeout tag directory failures as transient snapshot failures', () => {
         const snapshotData = jest.fn(createSnapshotData);
         const builder = new ChannelSetupFacetSnapshotFailureBuilder({

@@ -41,6 +41,8 @@ npm run test:timings:tools
 | `npm run test:contracts` | Governance | Separate contract, policy, and type test surface. |
 | `npm run test:all` | Comprehensive Jest | Unit + tools + contracts. |
 | `npm run verify` | Full verification | Broader than `test:all`: typecheck, architecture lint, CSS lint, product/runtime coverage, tooling/docs suites, contracts, docs verification, and the production build. |
+| `npm run verify:maintainability` | Production file-shape guard | Runs `tools/verify-maintainability.mjs` against `src/**` production `.ts`, `.tsx`, `.css`, and `.html` files and the architecture allowlist. |
+| `npm run verify:architecture` | Architecture/static guard | Runs ESLint over `src` and then `verify:maintainability`, so production file-shape growth is part of the architecture gate. |
 | `npm run verify:bundle` | Release bundle guard | Runs `tools/verify-bundle.mjs`, which builds the lean analyzed bundle and verifies startup chunk size/deferred-module expectations. |
 | `npm run verify:docs` | Docs-specific verification | Intentionally overlaps with `npm run test:tools`: it still runs the targeted `src/__tests__/tools/verifyDocs.test.ts` proof through `jest.tools.config.js`, even though `verify` also executes the broader tools surface. |
 

@@ -23,7 +23,7 @@ The EPG uses a familiar cable TV-style grid:
 When you highlight a program in the grid, the focused cell expands to show:
 
 - **Program title**
-- **Time range** (start – end)
+- **Time range** (start – end), either in the cell or in the detail panel when the cell is constrained
 - **Currently airing indicator** (for live programs)
 
 ### Channel Column

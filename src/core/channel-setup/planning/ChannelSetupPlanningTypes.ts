@@ -15,6 +15,11 @@ import type {
     ContentFilter,
     SortOrder,
 } from '../../../modules/scheduler/channel-manager';
+import type { ChannelSetupPlannerFacetFamily } from './ChannelSetupFacetFamilies';
+import type {
+    ChannelSetupPeopleBreadthDiagnostic,
+    ChannelSetupPeopleSeriesIndexByLibraryId,
+} from './ChannelSetupPeopleSeriesIndex';
 
 export type PendingChannel =
     ChannelCreateInput
@@ -43,8 +48,6 @@ export const toChannelSetupDecadeValue = (title: string): number | null => {
     }
     return Math.floor(year / 10) * 10;
 };
-
-export type ChannelSetupPlannerFacetFamily = 'genres' | 'directors' | 'decades' | 'studios' | 'actors';
 
 export interface ChannelSetupPlannerLibraryCount {
     libraryId: string;
@@ -78,6 +81,7 @@ export interface ChannelSetupPlannerDiagnostics {
     allocationMode: 'priority-balanced-round-robin';
     fetchedTagsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerLibraryCount[]>;
     tagCountDiagnosticsByFamily: Record<ChannelSetupPlannerFacetFamily, ChannelSetupPlannerFacetCountDiagnostics[]>;
+    peopleBreadthDiagnostics: ChannelSetupPeopleBreadthDiagnostic[];
     candidatesBeforeMinItems: ChannelSetupEstimates;
     candidatesAfterMinItems: ChannelSetupEstimates;
     strategyBucketSizes: ChannelSetupEstimates;
@@ -223,6 +227,7 @@ export type ChannelSetupFacetSnapshotData = {
     yearsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
     actorsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
     studiosByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>;
+    peopleSeriesIndexByLibraryId: ChannelSetupPeopleSeriesIndexByLibraryId;
     warnings: readonly string[];
     hasTransientLoadFailure: boolean;
     errorsTotal: number;

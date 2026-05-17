@@ -183,6 +183,9 @@ export class AppDiagnosticsSurface {
         if (summary.familySummaries.length > 0) {
             console.info('Planner facet families:', summary.familySummaries);
         }
+        if (summary.peopleBreadthSummaries.length > 0) {
+            console.info('Planner people breadth:', summary.peopleBreadthSummaries);
+        }
         if (summary.warnings.length > 0) {
             console.info('Planner warnings:', summary.warnings);
         }

@@ -37,7 +37,7 @@ Do not use this as the only proof when:
 ## Session Setup
 
 1. Confirm current workspace:
-   - `/Users/tristan/Software/Lineup`
+   - `<WORKSPACE_PATH>`
 2. Check dirty state:
    - `git status --short`
 3. Start the dev server:

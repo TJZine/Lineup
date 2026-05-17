@@ -10,14 +10,14 @@
 
 ## Environment
 
-- Workspace: `/Users/tristan/Software/Lineup`
+- Workspace: `<REDACTED_WORKSPACE>`
 - Date: `2026-05-14`
 - Dev server command: `npm run dev -- --host 127.0.0.1`
 - Dev server URL: `http://127.0.0.1:5173/`
 - Browser surface: Codex in-app Browser Use
 - Manual auth handoff: user linked the Plex PIN at `plex.tv/link`
-- Plex profile observed in Settings: `FatherGarbage`
-- Server selected during QA: `Tristan's PC`
+- Plex profile observed in Settings: `<REDACTED_PROFILE>`
+- Server selected during QA: `<REDACTED_SERVER>`
 
 ## Verification Classification
 
@@ -35,7 +35,7 @@
 4. Requested a Plex PIN.
 5. User linked the PIN externally at `plex.tv/link`.
 6. Observed post-auth server selection.
-7. Selected `Tristan's PC`.
+7. Selected `<REDACTED_SERVER>`.
 8. Continued through Audio Setup using current/default settings.
 9. Entered Channel Setup with all six libraries selected.
 10. Sampled Channel Setup sections:
@@ -104,7 +104,7 @@ Observed behavior:
 Repro outline:
 
 1. Sign in.
-2. Select `Tristan's PC`.
+2. Select `<REDACTED_SERVER>`.
 3. Enter Channel Setup.
 4. Keep all libraries selected.
 5. Keep default source options enabled.
@@ -722,7 +722,7 @@ Current-source evidence:
 
 - `src/modules/ui/epg/view/EPGCellRenderer.ts` clears ticker state and recomputes ticker targets on every `syncFocusedTicker()` call.
 - `src/modules/ui/epg/view/EPGVirtualizer.ts` calls focused ticker sync during visible-focus synchronization and again from `setFocusedCell()`.
-- The current implementation has extensive ticker tests, but it lacks a regression proving repeated no-op focus/render sync does not arm or re-arm the ticker for a fitting title.
+- At the time of this finding, the implementation had extensive ticker tests but lacked a regression proving repeated no-op focus/render sync did not arm or re-arm the ticker for fitting title/subtitle text. The follow-up remediation branch adds these regressions.
 
 Impact:
 
@@ -741,6 +741,125 @@ Investigation leads:
 - Add an idempotent focused-ticker sync guard keyed by focused cell key plus geometry/text metrics.
 - Confirm ticker clears on focus movement, cell recycle, reduced-motion, no visible width, and real overflow.
 - Add a regression for a wide focused movie title that fits and remains non-tickered across repeated render/focus sync.
+
+### Additional EPG Cell Readability Notes (2026-05-15)
+
+Status: user-observed during the focused-cell readability remediation follow-up; these notes should inform the next EPG visual bug/remediation plan rather than being folded into the completed focused-tag/ticker pass without review.
+
+#### P2 - Unfocused Episode Title Width Can Still Be Over-Constrained by Lower-Row Time
+
+Observed examples:
+
+- Unfocused `Adventure Time: Fionna and Cake` episode cell with tag `S01E08`, subtitle `Jerry`, and visible time range: the title displayed as `Advent...` even though the subtitle was short and the lower row had unused visual space.
+- Focused version of the same cell showed the tag lane and much more of the title, confirming the content itself was not the limiting factor.
+
+Interpretation:
+
+- The issue is not primarily subtitle string length.
+- The base two-column cell layout can reserve the rail/time column across the full cell height, which narrows the title row even though the time label visually sits on the lower row.
+- Title and subtitle/time should be treated as separate rows: the title row should not always pay for lower-row time width.
+
+Small-pass implementation direction captured during the session:
+
+- Add a renderer-owned row-aware presentation class for safe episode cases instead of adding per-string measurement to every virtualized cell.
+- Let the title row span the full cell width.
+- Keep the subtitle row constrained so it does not collide with the in-cell time range.
+- Keep this local to `EPGCellPresentation`, `EPGCellRenderer`, and `styles.cells.css`; no scheduler/channel data, Plex metadata, persistence, navigation, or public virtualizer redesign is implicated.
+
+Verification leads:
+
+- Renderer test: non-current wide episode with long show title, short subtitle, visible time gets the row-aware class and retains visible time.
+- CSS contract: row-aware title cells use one grid column, absolute rail positioning, and subtitle-only time reservation.
+- Browser Use: at `1920x1080`, inspect row-aware episode cells and confirm title uses the wider row while subtitle/time lower-row geometry has a positive gap.
+
+#### P3 - Unfocused Constrained Episode Tags Might Fit, But Tag Visibility Needs Separate Policy
+
+Observed examples:
+
+- A constrained unfocused `Aqua...` episode cell had room where `S03E08` appeared on focus.
+- A constrained unfocused `That '70...` episode cell had room where `S01E08` appeared on focus.
+
+Decision note:
+
+- Do not automatically restore unfocused episode tags in constrained cells as part of the focused-cell/tag-lane fix.
+- Focused cells should preserve the tag lane because focus is the expanded/contextual state.
+- Unfocused constrained cells prioritize quick title scanning; showing tags there risks making unfocused cells look like focused cells and introduces new collision rules with live/current badges.
+
+Future option:
+
+- Consider a conservative unfocused tag rule only for medium/wide non-current episode cells where the tag lane can fit without hiding title or subtitle.
+- Avoid showing unfocused tags in current/live compact-dot or full-live cells unless the top-row live/tag/title relationship is intentionally redesigned.
+
+#### P2 - Current/Live Text Competes With Episode Titles
+
+Observed example:
+
+- A current unfocused `That '70s Show` cell displayed `That '70...` with subtitle `Drive-In` and full `LIVE` text.
+- The focused version used the compact live dot, preserved the episode tag lane, and displayed much more of `That '70s Show`.
+
+Interpretation:
+
+- This is the current/live variant of the title-row width problem.
+- Full `LIVE` text is a real top-row element, so it competes with title readability more directly than lower-row time does.
+- This is more complex than the non-current row-aware title pass because the live badge belongs near the title row, not only the subtitle/time row.
+
+Future remediation direction:
+
+- Either make current/live episode cells row-aware while reserving only the actual live-badge width on the title row, or change the live badge policy so cells always use the compact dot.
+- Preserve accessibility with `aria-label="Currently playing"` regardless of visible badge text.
+- Keep partial `LIVE` text prohibited.
+
+#### P2 - Consider Compact Live Dot for All Cell Live Badges
+
+Product direction under consideration:
+
+- Always render the in-cell current/live indicator as the pulsing compact dot and remove visible `LIVE` text from all EPG cells.
+
+Pros:
+
+- Reduces title-row width pressure in current/live cells.
+- Makes current cells visually more consistent across focused and unfocused states.
+- Avoids the `LIVE` text appearing/disappearing during focus changes.
+- Keeps in-grid cells calmer while the detail panel can carry explicit currently-playing context.
+- Keeps accessibility intact if the badge retains `aria-label="Currently playing"`.
+
+Cons / decision risks:
+
+- Reduces discoverability because a red dot is less explicit than visible `LIVE` text.
+- Some themes may rely on the written `LIVE` affordance if current-progress styling is low contrast.
+- This intentionally changes the earlier contract that allowed either full `LIVE` or compact dot depending on geometry, so it should be planned as a new UX decision rather than a hidden bug fix.
+
+Recommended framing:
+
+- Plan as `Use compact live dot for all EPG cell live badges`.
+- Keep it smaller and safer than broad tag visibility changes.
+- Pair it with a current-progress contrast check so the loss of visible `LIVE` does not make current-airing state too subtle.
+
+#### P2 - Current Progress Bar Contrast May Be Too Low
+
+Observed concern:
+
+- If visible `LIVE` text is removed, discoverability may depend more on the current-progress indicator.
+- In the sampled theme, the filled progress portion was difficult to distinguish from the unfilled/current-cell orange treatment. The contrast between current progress and the remaining progress track appeared too low.
+
+Impact:
+
+- Users may not easily read how far through the current program they are.
+- Always using compact live dots could make this worse if the progress fill does not provide enough visual reinforcement.
+- Theme differences may make the issue inconsistent, so the check should cover at least the active/default theme and any high-contrast/currently preferred guide theme.
+
+Investigation leads:
+
+- Audit `.epg-cell-progress`, `.epg-cell-progress-fill`, current-cell border/background, and theme overrides in `styles.cells.css` and related theme CSS.
+- Confirm whether the unfilled current-progress track uses a color too close to the filled progress segment or row accent.
+- Consider a stronger semantic progress fill token, darker unfilled track, or clearer progress height/edge treatment for current cells.
+- Preserve reduced-motion and forced-colors behavior.
+
+Verification leads:
+
+- Browser Use at `1920x1080` with current cells visible in at least the active theme.
+- CSS contract or theme-token test if progress colors are intended to map to stable semantic tokens.
+- Visual check that current state remains discoverable if visible `LIVE` text is replaced by the compact dot.
 
 #### P2 - Actor Channel Estimates Can Explode Despite Minimum Item Count
 
@@ -810,6 +929,77 @@ Verification lead:
 
 - Add or retain a copy contract that empty/unsupported tag directories render as user-safe skip warnings instead of blocking estimate/build.
 
+#### P2 - Video Plane Drops Slightly When OSD First Opens After Returning From Full-Screen UI
+
+Status: user-observed regression/resurfaced bug; not yet reverified in Browser Use during this report update.
+
+Observed behavior:
+
+- While watching a channel, opening a separate full-screen UI surface and then returning to playback can leave the next OSD open animation in a bad state.
+- Pressing Down to open the OSD after returning makes the video appear to drop downward slightly as the OSD panel rises from the bottom.
+- The drop only happens on the first OSD open after returning from a different UI surface.
+- Reopening the OSD again from the same player state does not reproduce the drop.
+
+Concrete repro outline:
+
+1. Start playback on any channel.
+2. Open a completely different UI surface, such as Server Select.
+3. Return to the current channel/player with Back or Backspace.
+4. Press Down to open the player OSD.
+5. Observe the video plane during the first OSD reveal. Expected failure: video appears to shift/drop downward slightly as the OSD appears.
+
+Additional repro surfaces reported by user:
+
+- Server Select reproduces the issue.
+- Subtitle settings or OSD-launched settings/menu UIs reproduce the issue.
+- Settings menus opened from the OSD reproduce the issue.
+
+Non-repro / boundary notes:
+
+- Starting from the player and opening the guide or mini guide, then returning and pressing Down for OSD, does not reproduce the drop.
+- The issue appears tied to leaving the player for a separate screen or menu surface, not merely opening an overlay while still in the player context.
+- This has reportedly been attempted before and may be a resurfaced or incompletely fixed transition/compositor bug.
+
+Impact:
+
+- The playback surface visibly shifts at the exact moment a user returns from a menu and invokes the primary playback controls.
+- Because it only happens on the first OSD open after certain UI returns, it is easy to miss in normal OSD-only testing.
+- The behavior makes the video plane feel loosely coupled to the HTML overlay stack.
+
+Current-source leads:
+
+- `src/modules/navigation/handlers/NavigationScreenEffectsHandler.ts` hides the OSD and mini guide when leaving the player, then calls `videoPlayer.play()` when returning to the player from another screen.
+- `src/modules/navigation/handlers/NavigationKeyModeRouter.ts` routes Down/OK on the player to `requestPlayerOsdIntent({ type: 'toggle' })` when no modal, guide, OSD, or mini guide is active.
+- `src/modules/ui/player-osd/styles.surface.css` animates the OSD panel with `transform: translateY(100%)` to `translateY(0)` while the root OSD overlay fades in.
+- `src/styles/video.css` owns special video geometry for EPG PiP mode; any stale class or inline geometry after screen returns should be ruled out.
+- `src/styles/shell.player-runtime-chrome.css` keeps runtime chrome as an absolute overlay plane with `pointer-events: none`.
+
+Investigation leads:
+
+- Reproduce with Browser Use at `1920x1080`, ideally capturing before/during/after screenshots or video frames for the first OSD open after returning from Server Select and from playback-options/settings menus.
+- Compare DOM classes and computed geometry for `#lineup-video-player`, `.video-container`, runtime chrome, and `.player-osd-panel` before leaving player, immediately after returning, during first OSD open, and during second OSD open.
+- Confirm whether stale PiP/guide classes, screen visibility classes, focus restoration, or playback resume timing changes the video element's inline top/left/width/height/transform.
+- Check whether opening playback options from the OSD leaves the OSD panel in a transformed/hidden-but-still-layout-affecting state before the next player return.
+- Add a targeted regression if the root cause is a deterministic class/state cleanup issue; otherwise keep Browser Use visual proof as the primary verification surface.
+
+Likely owners:
+
+- `src/modules/ui/player-osd/PlayerOsdOverlay.ts`
+- `src/modules/ui/player-osd/PlayerOsdCoordinator.ts`
+- `src/modules/ui/player-osd/styles.surface.css`
+- `src/modules/navigation/handlers/NavigationScreenEffectsHandler.ts`
+- `src/modules/navigation/handlers/NavigationKeyModeRouter.ts`
+- `src/styles/video.css`
+- `src/styles/shell.player-runtime-chrome.css`
+
+Verification needs:
+
+- Browser Use proof at `1920x1080` while real channel playback is active.
+- Repro through Server Select return.
+- Repro or disproof through subtitle/playback-options/settings menu return.
+- Negative proof that player -> guide or player -> mini guide -> player still does not produce the drop.
+- Confirmation that the first and second OSD opens after return have identical video geometry.
+
 ### Updated Remediation Slice Recommendation
 
 1. `EPG focused-cell readability and ticker remediation`
@@ -817,11 +1007,17 @@ Verification lead:
    - Preserve focused series episode tag lane where width allows.
    - Relax movie truncation separately from series.
    - Add adaptive time hiding for constrained series cells only after explicit threshold tests.
-2. `Channel Setup actor/director candidate limiting`
+   - Follow-up after the focused-cell pass: decide whether all in-cell live badges should become compact dots, then verify current-progress contrast so currently-airing state remains discoverable without visible `LIVE` text.
+   - Follow-up after the row-aware episode title pass: decide whether unfocused episode tags should ever render in constrained cells; keep this separate from focused tag-lane preservation and avoid current/live tag rules until the live-badge policy is settled.
+2. `Playback return OSD/video-plane stability`
+   - Reproduce the first-OSD-open video drop after returning from Server Select and playback-options/settings menus.
+   - Audit player return, OSD hidden/showing state, and video geometry/class cleanup.
+   - Add deterministic cleanup tests if the root cause is state/class-based; otherwise close with Browser Use visual proof.
+3. `Channel Setup actor/director candidate limiting`
    - Investigate actor tag count payloads and count recovery.
    - Decide unknown-count policy and/or per-strategy cap.
    - Update estimate/build warnings so users understand skipped high-cardinality sources.
-3. Keep the already-fixed EPG time-header/live-badge remediation closed unless final Browser Use proof finds a regression.
+4. Keep the already-fixed EPG time-header/live-badge remediation closed unless final Browser Use proof finds a regression.
 
 ### Fresh-Session Handoff Candidate
 
@@ -857,6 +1053,40 @@ VERIFICATION:
 STOP_AND_REPLAN_IF:
 - The fix requires changing scheduler/channel data contracts, public virtualizer contracts, navigation routing, persistence, Plex metadata fetching, or channel setup behavior.
 - The truncation behavior cannot be made deterministic without a broader design decision.
+```
+
+```text
+NEXT_SESSION_LAUNCHER: lineup-cleanup-plan
+TASK: Produce a focused remediation plan for the resurfaced playback OSD/video-plane stability bug: after leaving active channel playback for Server Select or an OSD-launched menu/settings surface, returning to the player and opening the OSD with Down can make the video plane appear to drop slightly during the first OSD reveal.
+TASK_FAMILY: cleanup/refactor
+CLEANUP_SUBTYPE: standalone remediation
+TIER: Tier 2 unless discovery shows a broader navigation/screen-visibility or player geometry contract rewrite is required.
+READ_FIRST:
+- AGENTS.md
+- docs/AGENTIC_DEV_WORKFLOW.md
+- docs/agentic/session-prompts/cleanup-plan.md
+- docs/agentic/codanna-playbook.md
+- docs/architecture/CURRENT_STATE.md
+- docs/design/ui-design-language.md
+- docs/qa/reports/2026-05-14-browser-use-broad-smoke-qa.md
+LIKELY_FILES_IN_SCOPE:
+- src/modules/ui/player-osd/PlayerOsdOverlay.ts
+- src/modules/ui/player-osd/PlayerOsdCoordinator.ts
+- src/modules/ui/player-osd/styles.surface.css
+- src/modules/navigation/handlers/NavigationScreenEffectsHandler.ts
+- src/modules/navigation/handlers/NavigationKeyModeRouter.ts
+- src/styles/video.css
+- src/styles/shell.player-runtime-chrome.css
+- relevant player OSD, navigation, and style contract tests
+VERIFICATION:
+- npm run verify
+- Browser Use at 1920x1080 with real channel playback active.
+- Confirm first OSD open after Server Select return does not move video geometry.
+- Confirm first OSD open after subtitle/playback-options/settings menu return does not move video geometry.
+- Confirm player -> guide and player -> mini guide paths remain stable.
+STOP_AND_REPLAN_IF:
+- The fix requires changing player stream/playback contracts, persisted settings, public navigation contracts, or broad screen-shell ownership.
+- Browser Use cannot reproduce the issue and no computed-geometry proof can substitute for the visual failure.
 ```
 
 ```text

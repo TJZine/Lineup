@@ -130,6 +130,8 @@ export interface FocusableElement {
     id: string;
     element: HTMLElement;
     group?: string;
+    /** Keep native focus without allowing the browser to scroll this element into view. */
+    preventScrollOnFocus?: boolean;
     /** Relative precedence for restore fallback within a restore group (higher values are restored first). */
     restorePriority?: number;
     /** Restore group identifier used when saved focus id no longer exists */

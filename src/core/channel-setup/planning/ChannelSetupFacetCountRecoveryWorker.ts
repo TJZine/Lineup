@@ -2,8 +2,8 @@ import type { IPlexLibrary, PlexTagDirectoryItem } from '../../../modules/plex/l
 import { buildChannelSetupFacetCountFilter } from './ChannelSetupTagFilters';
 import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
 import type { ChannelBuildProgress } from '../types';
+import type { ChannelSetupFacetCountRecoveryFamily } from './ChannelSetupFacetFamilies';
 
-export type ChannelSetupFacetCountRecoveryFamily = 'genre' | 'director' | 'year' | 'actor' | 'studio';
 export type FacetCountRecoveryLimiter = <T>(task: () => Promise<T>) => Promise<T>;
 
 export class ChannelSetupPlanningError extends Error {

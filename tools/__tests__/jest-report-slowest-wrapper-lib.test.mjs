@@ -66,14 +66,17 @@ test('runJestReportSlowestWrapper resolves the config path from cwd and passes c
     });
 
     assert.equal(spawnCalls.length, 2);
+    const expectedJestBin = path.resolve(fakeCwd, 'node_modules/jest/bin/jest.js');
+    const expectedConfigPath = path.resolve(fakeCwd, 'configs/jest.config.js');
+    const expectedReportScript = path.resolve(fakeCwd, 'scripts/jest-report-slowest.mjs');
     assert.deepEqual(
         spawnCalls[0],
         [
             process.execPath,
             [
-                path.join(fakeCwd, 'node_modules/jest/bin/jest.js'),
+                expectedJestBin,
                 '--config',
-                path.join(fakeCwd, 'configs/jest.config.js'),
+                expectedConfigPath,
                 '--runInBand',
                 '--json',
                 '--outputFile',
@@ -90,7 +93,7 @@ test('runJestReportSlowestWrapper resolves the config path from cwd and passes c
         [
             process.execPath,
             [
-                path.join(fakeCwd, 'scripts/jest-report-slowest.mjs'),
+                expectedReportScript,
                 path.join(tempDir, 'unit.json'),
                 'unit',
             ],
