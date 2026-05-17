@@ -221,31 +221,32 @@ export function buildCrossLibraryPeopleSourceGroups(options: {
     const grouped = new Map<string, ChannelSetupPeopleTagSourceGroup>();
 
     for (const library of options.libraries) {
-        for (const entry of collectPeopleTagEligibility({
-            indexByLibraryId: options.indexByLibraryId,
-            library,
-            family: options.family,
-            tags: options.tagsByLibraryId.get(library.id) ?? [],
-            minItems: options.minItems,
-        })) {
-            const key = normalizePeopleSeriesIndexName(entry.tag.title);
-            if (!key || !entry.passesEligibility) {
+        for (const tag of sortTagsByCountThenTitle(options.tagsByLibraryId.get(library.id) ?? [])) {
+            const key = normalizePeopleSeriesIndexName(tag.title);
+            const thinTvSource = library.type === 'show' && !tvPeopleTagMeetsBreadth(
+                options.indexByLibraryId,
+                library.id,
+                options.family,
+                tag,
+                options.minItems
+            );
+            if (!key || thinTvSource) {
                 continue;
             }
             const group = grouped.get(key) ?? {
                 key,
-                title: entry.tag.title,
+                title: tag.title,
                 totalCount: 0,
                 hasUnknownCount: false,
                 sources: [],
             };
-            applyPeopleGroupCount(group, entry.itemCount);
-            group.sources.push(options.createSource(library, entry.tag));
+            applyPeopleGroupCount(group, getPeopleTagItemCount({ ...options, library, tag }));
+            group.sources.push(options.createSource(library, tag));
             grouped.set(key, group);
         }
     }
 
-    return sortPeopleTagSourceGroups([...grouped.values()]);
+    return sortPeopleTagSourceGroups([...grouped.values()].filter((group) => group.hasUnknownCount || group.totalCount >= options.minItems));
 }
 
 export function buildPerLibraryPeopleCandidates(options: {

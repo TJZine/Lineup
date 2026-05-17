@@ -546,4 +546,67 @@ describe('ChannelSetupStrategyBuilders', () => {
         expect(JSON.stringify(actorSource)).not.toContain('tv-2');
         expect(JSON.stringify(directorSource)).not.toContain('tv-2');
     });
+
+    it('aggregates cross-library movie people counts before applying the item floor', () => {
+        const movieLibraryA = createLibrary({ id: 'movie-1', title: 'Movies A', type: 'movie' });
+        const movieLibraryB = createLibrary({ id: 'movie-2', title: 'Movies B', type: 'movie' });
+
+        const result = buildChannelSetupStrategyBuckets({
+            config: createConfig({
+                selectedLibraryIds: ['movie-1', 'movie-2'],
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                    actors: { enabled: true, priority: 8, scope: 'cross-library' },
+                    directors: { enabled: true, priority: 4, scope: 'cross-library' },
+                },
+            }),
+            selectedLibraries: [movieLibraryA, movieLibraryB],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map([
+                ['movie-1', [
+                    createTag('Shared Director', 3, 'director-shared-a'),
+                    createTag('Thin Director', 2, 'director-thin-a'),
+                ]],
+                ['movie-2', [
+                    createTag('Shared Director', 3, 'director-shared-b'),
+                    createTag('Thin Director', 2, 'director-thin-b'),
+                ]],
+            ]),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([
+                ['movie-1', [
+                    createTag('Shared Actor', 3, 'actor-shared-a'),
+                    createTag('Thin Actor', 2, 'actor-thin-a'),
+                ]],
+                ['movie-2', [
+                    createTag('Shared Actor', 3, 'actor-shared-b'),
+                    createTag('Thin Actor', 2, 'actor-thin-b'),
+                ]],
+            ]),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
+            minItems: 5,
+            seedFor: (value) => value.length,
+        });
+
+        expect(result.strategyBuckets.actors.map((channel) => channel.name)).toEqual(['Shared Actor']);
+        expect(result.strategyBuckets.directors.map((channel) => channel.name)).toEqual(['Shared Director']);
+        expect(result.strategyBuckets.actors[0]?.contentSource).toMatchObject({
+            type: 'mixed',
+            sources: [
+                expect.objectContaining({ libraryId: 'movie-1' }),
+                expect.objectContaining({ libraryId: 'movie-2' }),
+            ],
+        });
+        expect(result.strategyBuckets.directors[0]?.contentSource).toMatchObject({
+            type: 'mixed',
+            sources: [
+                expect.objectContaining({ libraryId: 'movie-1' }),
+                expect.objectContaining({ libraryId: 'movie-2' }),
+            ],
+        });
+    });
 });

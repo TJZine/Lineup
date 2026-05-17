@@ -244,8 +244,11 @@ describe('ChannelSetupFacetSnapshotLoadSession', () => {
         });
         const loadPromise = session.load();
 
-        while (plexLibrary.getLibraryItems.mock.calls.length === 0) {
+        for (let attempts = 0; attempts < 25 && plexLibrary.getLibraryItems.mock.calls.length === 0; attempts += 1) {
             await flushPromisesAndMacrotask();
+        }
+        if (plexLibrary.getLibraryItems.mock.calls.length === 0) {
+            throw new Error('Timed out waiting for plexLibrary.getLibraryItems to be called.');
         }
         const options = plexLibrary.getLibraryItems.mock.calls[0]?.[1];
         callerAbortController.abort();
