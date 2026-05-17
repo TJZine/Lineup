@@ -292,12 +292,13 @@ export function formatAllowlistMarkdown(files) {
     ].join('\n');
 }
 
-function parseCliArgs(argv) {
+export function parseCliArgs(argv) {
     const options = {
         repoRoot: process.cwd(),
         allowlistPath: null,
         printAllowlist: false,
     };
+    let allowlistRaw = null;
 
     for (let index = 0; index < argv.length; index += 1) {
         const arg = argv[index];
@@ -313,7 +314,7 @@ function parseCliArgs(argv) {
             if (value === undefined) {
                 throw new Error('Missing value for --allowlist.');
             }
-            options.allowlistPath = path.resolve(options.repoRoot, value);
+            allowlistRaw = value;
             index += 1;
         } else if (arg === '--print-allowlist') {
             options.printAllowlist = true;
@@ -322,7 +323,9 @@ function parseCliArgs(argv) {
         }
     }
 
-    options.allowlistPath ??= path.join(options.repoRoot, 'docs/architecture/file-shape-guardrails.md');
+    options.allowlistPath = allowlistRaw === null
+        ? path.join(options.repoRoot, 'docs/architecture/file-shape-guardrails.md')
+        : path.resolve(options.repoRoot, allowlistRaw);
     return options;
 }
 

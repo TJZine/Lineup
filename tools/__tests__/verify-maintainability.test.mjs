@@ -8,6 +8,7 @@ import {
     FILE_SHAPE_ALLOWLIST_END,
     FILE_SHAPE_ALLOWLIST_START,
     formatAllowlistMarkdown,
+    parseCliArgs,
     verifyMaintainability,
 } from '../verify-maintainability.mjs';
 
@@ -166,4 +167,18 @@ test('formats allowlist rows from the verifier file count shape', () => {
 
     assert.match(markdown, /\| `src\/large\.ts` \| 501 \|/u);
     assert.match(markdown, /Revisit\/decomposition trigger/u);
+});
+
+test('resolves relative allowlist paths against the final root regardless of argument order', () => {
+    const repoRoot = path.join(os.tmpdir(), 'lineup-maintainability-root');
+    const allowlistPath = path.join(repoRoot, 'docs/architecture/custom-guardrails.md');
+
+    assert.equal(
+        parseCliArgs(['--allowlist', 'docs/architecture/custom-guardrails.md', '--root', repoRoot]).allowlistPath,
+        allowlistPath
+    );
+    assert.equal(
+        parseCliArgs(['--root', repoRoot, '--allowlist', 'docs/architecture/custom-guardrails.md']).allowlistPath,
+        allowlistPath
+    );
 });
