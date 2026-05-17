@@ -40,12 +40,19 @@ The guided setup wizard can generate many channels in one pass.
   - Names use neutral numbering:
     - `Action` (base)
     - `Action (2)`, `Action (3)`, ...
+  - Actor and director channels are excluded from alternate lineup copies so high-cardinality people categories do not multiply the generated lineup.
 - **Alternate Lineup Copies**:
   - Number of extra copies per generated channel (`1` to `3`).
 - **Add Sequential Channels**:
   - Adds one sequential companion channel for each generated non-sequential, series-derived base channel; alternate lineup copies do not get sequential companions.
   - Naming format:
     - `Action • Sequential`
+
+### People Channel Eligibility
+
+- Movie actor and director channels use the movie-item count for **Min items per channel**.
+- TV actor and director channels use **Min items per channel** as the playable episode floor and also require enough distinct parent-series breadth.
+- If TV people metadata cannot be indexed for a selected library, setup omits those TV actor/director channels and surfaces a warning instead of falling back to episode-only counts.
 
 ### High-Volume Defaults and Quick Action
 
