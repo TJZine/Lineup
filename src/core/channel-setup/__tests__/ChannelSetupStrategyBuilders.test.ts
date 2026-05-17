@@ -594,6 +594,9 @@ describe('ChannelSetupStrategyBuilders', () => {
 
         expect(result.strategyBuckets.actors.map((channel) => channel.name)).toEqual(['Shared Actor']);
         expect(result.strategyBuckets.directors.map((channel) => channel.name)).toEqual(['Shared Director']);
+        expect(result.candidatesBeforeMinItems).toMatchObject({ actors: 2, directors: 2 });
+        expect(result.candidatesAfterMinItems).toMatchObject({ actors: 1, directors: 1 });
+        expect(result.skipped).toBe(2);
         expect(result.strategyBuckets.actors[0]?.contentSource).toMatchObject({
             type: 'mixed',
             sources: [

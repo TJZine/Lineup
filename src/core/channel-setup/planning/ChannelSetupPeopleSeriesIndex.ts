@@ -246,7 +246,7 @@ export function buildCrossLibraryPeopleSourceGroups(options: {
         }
     }
 
-    return sortPeopleTagSourceGroups([...grouped.values()].filter((group) => group.hasUnknownCount || group.totalCount >= options.minItems));
+    return sortPeopleTagSourceGroups([...grouped.values()]);
 }
 
 export function buildPerLibraryPeopleCandidates(options: {
@@ -286,14 +286,14 @@ export function buildCrossLibraryPeopleCandidates(options: {
     minItems: number;
     createSource: (library: PlexLibrarySection, tag: PlexTagDirectoryItem) => ChannelConfig['contentSource'];
 }): ChannelSetupPeopleCategoryCandidate[] {
-    return buildCrossLibraryPeopleSourceGroups(options).map((entry) => withOptionalPeopleItemCount({
-        strategy: options.family,
-        categoryKey: entry.key,
-        categoryLabel: entry.title,
-        baseSource: entry.sources.length > 1
-            ? { type: 'mixed', mixMode: 'interleave', sources: entry.sources }
-            : entry.sources[0] ?? { type: 'manual', items: [] },
-    }, entry.totalCount > 0 ? entry.totalCount : undefined));
+    return buildCrossLibraryPeopleSourceGroups(options).filter((entry) => entry.hasUnknownCount || entry.totalCount >= options.minItems).map((entry) => withOptionalPeopleItemCount({
+            strategy: options.family,
+            categoryKey: entry.key,
+            categoryLabel: entry.title,
+            baseSource: entry.sources.length > 1
+                ? { type: 'mixed', mixMode: 'interleave', sources: entry.sources }
+                : entry.sources[0] ?? { type: 'manual', items: [] },
+        }, entry.totalCount > 0 ? entry.totalCount : undefined));
 }
 
 export function buildPeopleBreadthDiagnostics(options: {
