@@ -193,6 +193,28 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
         );
     });
 
+    it('keeps replaceAllChannels strict for channel data and best-effort for the current-channel pointer', async () => {
+        expectPersistCurrentChannelWarning();
+        const warningHandler = jest.fn();
+        manager.on('persistenceWarning', warningHandler);
+        jest
+            .spyOn(ChannelRepository.prototype, 'saveCurrentChannelId')
+            .mockReturnValue({ ok: false, reason: 'quota-exceeded' });
+
+        await expect(manager.replaceAllChannels([createBaseChannel({ id: 'replace-1', number: 10 })], {
+            currentChannelId: 'replace-1',
+        })).resolves.toBeUndefined();
+
+        expect(manager.getAllChannels().map((channel) => channel.id)).toEqual(['replace-1']);
+        expect(manager.getCurrentChannel()?.id).toBe('replace-1');
+        expect(warningHandler).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
+                isQuotaError: true,
+            })
+        );
+    });
+
     it('skips duplicate channel ids without duplicating persisted order', async () => {
         const warn = jest.fn();
         manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });

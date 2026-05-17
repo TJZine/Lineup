@@ -149,6 +149,58 @@ describe('ChannelRepository', () => {
         expect(normalized.didMutate).toBe(true);
     });
 
+    it('default-constructs persisted channel records before returning runtime channel data', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                {
+                    id: 'minimal-persisted',
+                    number: 12,
+                    contentSource: {
+                        type: 'library',
+                        libraryId: 'library-1',
+                        libraryType: 'movie',
+                        includeWatched: true,
+                    },
+                    playbackMode: 'unsupported-mode',
+                    createdAt: 'bad',
+                    updatedAt: 4,
+                    lastContentRefresh: null,
+                    itemCount: undefined,
+                    totalDurationMs: 0,
+                    skipIntros: 'bad',
+                    skipCredits: undefined,
+                    strayField: 'removed',
+                },
+            ],
+            channelOrder: ['minimal-persisted'],
+            currentChannelId: 'minimal-persisted',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+        const channel = normalized.data.channels[0] as unknown as Record<string, unknown>;
+
+        expect(channel).toEqual(expect.objectContaining({
+            id: 'minimal-persisted',
+            number: 12,
+            name: 'Channel 12',
+            playbackMode: 'sequential',
+            skipIntros: false,
+            skipCredits: false,
+            createdAt: 0,
+            updatedAt: 4,
+            lastContentRefresh: 0,
+            itemCount: 0,
+            totalDurationMs: 0,
+            shuffleSeed: fnv1a32Uint('minimal-persisted:shuffle'),
+            phaseSeed: fnv1a32Uint('minimal-persisted:phase'),
+        }));
+        expect(channel.strayField).toBeUndefined();
+        expect(normalized.didMutate).toBe(true);
+    });
+
     it('normalizes invalid and duplicate persisted channel numbers', () => {
         const repo = new ChannelRepository();
         const payload = {
