@@ -15,26 +15,33 @@ should not drive the next cleanup task by default.
   owner-shape closeout evidence after its reopened replan. The old P14 wave
   ledger is superseded for current decision-making because repeated residual
   waves did not create meaningful score progress and kept expanding the active
-  control plane. Fresh post-FCP verification and the retrospective subjective
-  review are rubric context only, not active package intake or closeout proof.
-- Next safe start: Windows port planning may start from the completed `FCP-25`
-  final-gate handoff and residual ledger. No post-FCP cleanup package,
-  `FCP-26`, or Windows implementation work is admitted by this checklist
-  without a separate maintainer-approved plan. No
-  separate `FCP-EXIT` is part of the normal future queue; legacy `FCP-EXIT`
-  remains retired unless a maintainer explicitly reopens it.
+  control plane. The 2026-05-17 Desloppify v1.0 subjective refresh is
+  maintainer-admitted rubric input for the `PQR-*` source-audit packages below;
+  it is not raw issue membership, closeout proof, or permission to skip
+  current-source discovery.
+- Next safe start: `PQR-1` is the next cleanup start if the maintainer chooses
+  to pursue the production-quality refresh before port work. Windows port
+  planning may still start from the completed `FCP-25` final-gate handoff only
+  if the maintainer explicitly defers the `PQR-*` refresh. No `FCP-26` or
+  Windows implementation work is admitted by this checklist without a separate
+  maintainer-approved plan. No separate `FCP-EXIT` is part of the normal future
+  queue; legacy `FCP-EXIT` remains retired unless a maintainer explicitly
+  reopens it.
 - Preferred launcher: `cleanup-loop` for approved checklist-linked Tier 3
-  cleanup packages. `FCP-25` is a final review gate intended for a
-  `lineup-cleanup-review` agent.
+  cleanup packages. `PQR-*` packages are cleanup-loop candidates once a tracked
+  package plan is approved. `FCP-25` remains the completed final review gate.
 - Active program: `Final Cleanup Pass` is complete through `FCP-25`. The
   completed `FCP-7` through `FCP-25`, DCR, and historical FCP records are
-  retained baseline evidence, not the next task queue.
-- Desloppify role: rubric input and retrospective final-gate refresh only. The
-  active FCP packages below are admitted by maintainer judgment from
-  current-source review themes; do not use fresh Desloppify output as concrete
-  issue intake, task admission, execution-unit membership, proof of closure, or
-  wave sequencing. In `FCP-25`, any Desloppify scan/review refresh is delegated
-  to a worker subagent as retrospective baseline input only.
+  retained baseline evidence, not the next task queue. The active optional
+  cleanup program is `Post-FCP Production Quality Refresh` (`PQR-*`), admitted
+  to target production owner shape and subjective dimensions without behavior
+  churn.
+- Desloppify role: rubric input and retrospective refresh only. `PQR-*`
+  package themes were admitted by maintainer judgment after the 2026-05-17
+  v1.0 refresh, but every accepted task must be restated as current-source
+  proof with a local `PQR-*-SF*` finding, one owner seam, and source/test
+  closure criteria. Do not use fresh Desloppify output as concrete issue
+  intake, execution-unit membership, proof of closure, or wave sequencing.
 
 ## Rubric Basis
 
@@ -53,7 +60,13 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
 - Current risk interpretation: mechanical health is already strong; the
   remaining risk is subjective and production-facing: boundary coherence,
   runtime contracts, focused design clarity, code signal, portability, and port
-  test confidence.
+  test confidence. The 2026-05-17 v1.0 refresh lowered abstraction fitness and
+  type safety because reviewers found current-source evidence of a one-use
+  channel setup facet executor with a broad callback/options bag, persisted
+  channel data being cast after shallow validation, and duplicated literal
+  union owners in EPG/navigation contracts. Treat those as source-audit prompts
+  for `PQR-1`, `PQR-3`, and `PQR-6`, not as proof that a narrow mechanical
+  patch will raise the score.
 
 ## Operating Contract
 
@@ -879,6 +892,400 @@ Baseline carry-forward into `FCP-24` through `FCP-25`:
   no new cleanup package is opened from retrospective score/review output, and
   Windows implementation waits for its own approved plan. Blockers: none found
   by FCP-25 final-gate review after controller closeout recording.
+
+## Post-FCP Production Quality Refresh
+
+The `PQR-*` packages are a maintainer-admitted post-FCP refresh created after
+the 2026-05-17 Desloppify v1.0 subjective rerun. The target is production
+practice, not score chasing: push every subjective dimension into the 90s where
+current source supports it, while preserving runtime behavior, public contracts,
+test signal, and port-readiness baselines.
+
+### PQR Operating Rules
+
+- Treat the 2026-05-17 review as rubric input only. Every implementation unit
+  must start from current-source audit, local `PQR-*-SF*` findings, one owner
+  seam, explicit files in/out, and a stop/replan gate.
+- Do not reopen completed `FCP-*` or `DCR-*` work by name. If current source
+  still has a production issue in the same area, admit it under the matching
+  `PQR-*` source finding and reconcile the old baseline as context.
+- The goal is 90+ subjective dimensions where the current architecture justifies
+  it. Do not introduce churn, compatibility shims, wrapper barrels, public API
+  widening, speculative abstractions, or behavior changes solely to satisfy a
+  reviewer phrase or score target.
+- Each package must be closed as a coherent owner-shape improvement. Do not
+  close a package after one micro-fix while same-owner source findings remain
+  unowned.
+- Prefer behavior-preserving extraction, canonical type ownership, runtime
+  schema validation, and direct public-seam tests. Private probes, snapshots of
+  internal structure, and test-only accessors are regressions unless a reviewed
+  plan proves otherwise.
+- A package may resolve a finding by source-disproving it only after the audit
+  proves both the narrow symptom and same-owner recurrence risk are absent.
+- A full subjective refresh belongs at `PQR-EXIT`, after the queue is drained or
+  each residual has one owner and revisit trigger. Mid-cycle score refreshes are
+  diagnostic only and must not reorder package membership.
+
+Unless a package says otherwise, scope includes the listed owner files, their
+tests, and docs only when public ownership/path truth changes. Out of scope for
+all `PQR-*` work: Windows implementation, product behavior changes, persistence
+schema/key migrations, public API widening, shims/barrels/wrappers, and private
+test probes unless a reviewed replan admits them. Verification defaults:
+Codanna impact snapshots for shared symbols, package-local `rg` audits,
+targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
+`npm run verify:docs` when docs/control-plane/path truth changes.
+
+### [x] `PQR-1` Scheduler, Channel, Content, And Persisted Data Owner Shape
+
+- Status: completed
+- Plan: `docs/plans/2026-05-17-pqr-1-scheduler-channel-content-persisted-owner-shape-plan.md`
+- Last touched: 2026-05-17; implementation commit `50ce45b7`
+- Verification: planning and verifier support: direct plan conformance,
+  `npm run plans:check`, `npm run verify:docs`,
+  `npm run verify:docs:workspace`, and `git diff --check` passed. Runtime
+  closeout: `npm test -- StoredChannelDataCodec ChannelRepository
+  ChannelPersistenceStore ChannelManager.persistence ChannelManager.transactional
+  ChannelPersistenceSaveQueue`, storage-key/current-channel `rg` audits,
+  `npm test -- ContentResolver ContentSelectionPolicy SourceResolutionCache
+  ChannelManager.content-resolution ChannelManager.error-semantics
+  ChannelManager.stale-fallback ChannelResolutionCache ChannelRetryScheduler`,
+  `npm test -- ChannelManager.stale-fallback`, `npm run typecheck`,
+  `git diff --check`, and `npm run verify` passed.
+- Dimensions/rubric tags: design coherence, structure navigation, package
+  organization, type safety, error consistency, abstraction fitness, test
+  strategy
+- Owner/scope: `src/modules/scheduler/channel-manager/**` plus affected tests.
+  Plex/runtime work belongs to `PQR-5`; UI/EPG work belongs to `PQR-2`.
+- Production risk: `channel-manager` still reads as a broad facade/package
+  surface, while persisted channel data can become `ChannelConfig` after shallow
+  validation. This threatens scheduler state, persistence, cache/retry,
+  content-resolution, and port reviewability.
+- Final source finding dispositions:
+  - `PQR-1-SF1`: source-disproved for code change. `ChannelManager` remains the
+    public facade and state/event sequencing owner; replacement/current-channel,
+    storage-key, cache, and retry mechanics stay with `ChannelAuthoringService`,
+    `ChannelPersistenceCoordinator`, `ChannelPersistenceStore`,
+    `ChannelRepository`, `ChannelResolutionCache`, and `ChannelRetryScheduler`.
+    Revisit only if future state-transition growth creates a focused
+    package-local extraction that preserves public API, ordering, cache/retry,
+    persistence, import/export, and error behavior.
+  - `PQR-1-SF2`: source-disproved for code change. `ContentResolver` remains the
+    source-resolution orchestration entrypoint; `SourceResolutionCache` owns
+    source cache/coalescing, `ContentItemMapper` owns Plex item mapping and
+    parent decoration transforms, `ContentSelectionPolicy` owns filtering,
+    sorting, and content-level playback ordering, and shared scheduler ordering
+    remains in `src/modules/scheduler/shared/playbackOrdering.ts`. Revisit only
+    if source-resolution orchestration starts owning reusable selection/mapping
+    policy or requires private test probes.
+  - `PQR-1-SF3`: source-disproved for code change. The package remains flat
+    with explicit owner files and the existing public seam; foldering would
+    create import churn without a current owner benefit and could pressure
+    shims/barrels. Revisit only when a future behavior-preserving owner move
+    improves reviewability without public export churn, shims, wrappers, or
+    barrels.
+  - `PQR-1-SF4`: resolved. Commit `50ce45b7` routes persisted channel records
+    through `StoredChannelDataCodec` validated/defaulted runtime construction
+    before `ChannelRepository.loadNormalized()` returns `ChannelConfig`, removing
+    the raw persisted-record cast path without storage schema/key changes.
+  - `PQR-1-SF5`: resolved as explicit best-effort. Current-channel pointer
+    persistence remains owned by `ChannelPersistenceCoordinator` with
+    `ChannelPersistenceStore`/`ChannelRepository` mechanics; channel blob
+    replacement stays strict while separate pointer writes remain best-effort
+    with warning behavior and public-seam tests. Revisit only if a future
+    transactional product requirement requires strict pointer persistence.
+- Completion means: clear facade, validated persisted decode, explicit
+  persistence semantics, package-local owner clusters where justified, and no
+  mixed content-selection/source-resolution ownership without final owners.
+- Verification routing: impact snapshots for `ChannelManager`,
+  `ContentResolver`, `ChannelRepository`, `StoredChannelDataCodec`, and moved
+  exports; targeted persistence, transactional, content-resolution, codec,
+  cache/retry, and error-semantics tests.
+- Stop/replan triggers: storage schema/key migration; public facade removal;
+  public API widening; changed channel ordering, retry, cache, persistence,
+  import/export, or content-resolution behavior; package moves require
+  compatibility shims; tests require private probes instead of public seam
+  proof.
+- Follow-ups: none for `PQR-1`; remaining refresh work continues with `PQR-2`
+  or another maintainer-selected `PQR-*` package.
+- Handoff: `PQR-1` is closed. Do not run a PQR score refresh here; final score
+  rebaseline belongs to `PQR-EXIT`.
+
+### [ ] `PQR-2` UI Workflow, EPG View, And Presentation Owner Shape
+
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Dimensions/rubric tags: design coherence, structure navigation, high-level
+  elegance, low-level elegance, type safety, UI workflow, test strategy
+- Owner/scope: `src/modules/ui/channel-setup/**`,
+  `src/modules/ui/epg/view/**`, and `src/modules/ui/epg/component/**` only for
+  import/path fallout. Scheduler/Plex behavior is out of scope.
+- Production risk: `ChannelSetupScreen` still owns Step 1 adapters/focus policy
+  alongside lifecycle/routing, and `epg/view` mixes unrelated UI subdomains.
+  That slows safe UI changes and risks focus/layout regressions.
+- Source findings to audit/retire:
+  - `PQR-2-SF1`: add/source-disprove a `LibraryStepPresenter`-style owner for
+    Step 1 render adapters, bulk focus-neighbor policy, formatting, SVG/DOM-id
+    plumbing, and session mutation callbacks.
+  - `PQR-2-SF2`: make Step 2 rendering descriptor-driven where controls already
+    have interaction descriptors; preserve keyboard/dropdown behavior.
+  - `PQR-2-SF3`: split `epg/view` into owner folders such as `cells/`,
+    `info-panel/`, `grid/`, and `shell/` if the flat folder still blocks
+    navigation; no shims/barrels/export widening.
+  - `PQR-2-SF4`: centralize the complete EPG secondary-text clear state without
+    changing DOM shape, slivers, ticker, or focused/live presentation.
+- Completion means: channel setup lifecycle/routing remains clear, Step 1/2
+  presenter concerns are locally owned, EPG view exposes real owner clusters,
+  and duplicate EPG presentation clearing is gone.
+- Verification routing: impact snapshots for `ChannelSetupScreen`,
+  `StrategyStepController`, `EPGCellRenderer`, `EPGComponent`, and moved EPG
+  view symbols; targeted workflow/focus/dropdown and EPG renderer/virtualizer/
+  component/coordinator tests; old-import audits if files move.
+- Stop/replan triggers: focus behavior changes; build/progress/review
+  semantics change; dropdown/session ownership becomes ambiguous; EPG DOM
+  shape, virtualizer, ticker, or layout behavior changes; folder moves require
+  shims/barrels; private test probes become necessary.
+- Follow-ups: none yet
+- Handoff: start only after `PQR-1` is planned or explicitly deferred, because
+  this package has separate UI ownership and should not be coupled to scheduler
+  cleanup.
+
+### [ ] `PQR-3` Channel Setup Facet Loading Abstraction Fit
+
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Dimensions/rubric tags: abstraction fitness, design coherence, type safety,
+  logic clarity, channel setup planning, test strategy
+- Owner/scope: core channel setup facet snapshot loading:
+  `ChannelSetupFacetSnapshotLoadSession`, `ChannelSetupFacetLibraryExecutor`,
+  failure/count recovery owners, and focused facet tests. UI workflow, planner
+  strategy behavior, Plex public API, people aggregation behavior, and new
+  facet semantics are out of scope.
+- Production risk: abstraction fitness dropped because the one-use facet
+  executor is driven by a broad callback/options bag, obscuring cancellation,
+  progress, failures, timing, sibling aborts, and load-state mutation.
+- Source findings to audit/retire:
+  - `PQR-3-SF1`: collapse the one-use executor back into the load session or
+    make it accept concrete load state/failure-builder owners instead of a
+    broad callback bag.
+  - `PQR-3-SF2`: preserve cancellation, request-abort, sibling-abort, progress,
+    partial-warning, and failure-stop semantics with direct tests.
+  - `PQR-3-SF3`: preserve the canonical facet family descriptor; do not
+    recreate duplicated family/type unions while reshaping the seam.
+- Completion means: facet loading has one clear concrete owner for mutable load
+  state and failure construction, no broad pass-through options bag, preserved
+  cancellation/progress/warning semantics, and no regression to facet family
+  duplication.
+- Verification routing: impact snapshots for the load session, executor,
+  failure builder, count recovery worker, and public snapshot loader; targeted
+  facet snapshot loader/session/failures/count-recovery/tag-filter tests.
+- Stop/replan triggers: product channel generation changes; Plex request
+  behavior changes; callback collapse requires moving public snapshot-loader
+  contracts; people aggregation behavior changes; cancellation or warning tests
+  become ambiguous.
+- Follow-ups: none yet
+- Handoff: this is the direct abstraction-fitness repair package. It should be
+  planned independently from UI workflow cleanup.
+
+### [ ] `PQR-4` App-Shell And Orchestrator Assembly Boundaries
+
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Dimensions/rubric tags: design coherence, cross-module architecture,
+  initialization coupling, abstraction fitness, test strategy
+- Owner/scope: `src/core/orchestrator/**`, `src/core/app-shell/chrome/**`, and
+  `src/core/initialization/**` only for the startup-UI port seam.
+- Production risk: `AppOrchestrator` constructs app-shell chrome, and
+  `OrchestratorCoordinatorBuilders.ts` spans unrelated coordinator domains,
+  making startup UI, playback/OSD, EPG/channel setup, navigation, and modal
+  wiring harder to port and review.
+- Source findings to audit/retire:
+  - `PQR-4-SF1`: move `AppStartupUiInitializer` construction to app-shell, or
+    source-disprove; `AppOrchestrator` should receive only an
+    `InitializationStartupUiPort`-shaped value.
+  - `PQR-4-SF2`: split coordinator builders by feature family if current source
+    still mixes EPG/channel setup, playback/OSD, navigation/modal, and
+    now-playing/debug assembly.
+  - `PQR-4-SF3`: preserve coordinator contracts and startup order; no generic
+    assembly dumping ground.
+- Completion means: app-shell chrome construction is owned by app-shell, the
+  orchestrator assembly surface is split into reviewable feature-family owners,
+  initialization port contracts remain narrow, and startup/coordinator behavior
+  is unchanged and tested.
+- Verification routing: impact snapshots for `AppOrchestrator`,
+  `AppStartupUiInitializer`, `InitializationCoordinator`, and moved builders;
+  targeted orchestrator, app-shell startup, initialization, and coordinator
+  assembly tests; import/path audits.
+- Stop/replan triggers: startup order changes; app-shell UI behavior changes;
+  coordinator public contracts widen; split creates circular dependencies or
+  generic helper dumping grounds; tests require private probes instead of public
+  startup/coordinator seams.
+- Follow-ups: none yet
+- Handoff: plan after `PQR-1` or in parallel only if write scopes and
+  verification surfaces are explicitly disjoint.
+
+### [ ] `PQR-5` Runtime API, Auth Token, And Abort/Error Contract Coherence
+
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Dimensions/rubric tags: error consistency, API surface coherence,
+  authorization consistency, convention drift, type safety, test strategy
+- Owner/scope: player runtime API contracts and Plex auth/shared abort/token
+  contracts across player, Plex auth/shared, token literal callers, and library
+  abort semantics. Scheduler persistence belongs to `PQR-1`.
+- Production risk: mixed player async rejection shapes, repeated Plex token key
+  ownership, and overloaded abort helper naming weaken port-critical contracts,
+  redaction/token handling, and failure semantics.
+- Source findings to audit/retire:
+  - `PQR-5-SF1`: normalize/document `IVideoPlayer` async rejections so
+    player-owned failures use one structured family; raw native `play()`
+    rejection may remain the named exception.
+  - `PQR-5-SF2`: centralize Plex token header/query key ownership without
+    changing token flow, request order, redaction, or URL semantics.
+  - `PQR-5-SF3`: rename/tighten Plex library abort helpers so auth predicates
+    and count-enrichment stop conditions cannot be confused.
+- Completion means: player async contracts are coherent and tested, Plex token
+  literals have one owner, abort helper names match semantics, and no user
+  visible playback/auth/discovery/stream behavior changes occur.
+- Verification routing: impact snapshots for `IVideoPlayer`, `VideoPlayer`,
+  Plex token helpers, auth transport, discovery variants, stream token callers,
+  and library count enrichment; targeted player/Plex tests; token/redaction
+  `rg` audits.
+- Stop/replan triggers: native playback behavior changes; auth token
+  persistence/redaction/request order changes; stream URL shape changes; abort
+  handling starts swallowing non-abort failures; public API widening is needed.
+- Follow-ups: none yet
+- Handoff: this package should not be mixed with scheduler persistence or UI
+  workflow cleanup.
+
+### [ ] `PQR-6` Shared Type Owner And Literal Union Hygiene
+
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Dimensions/rubric tags: type safety, contract coherence, logic clarity,
+  structure navigation, test strategy
+- Owner/scope: shared literal union and contract type ownership in runtime
+  status and navigation contracts. Persisted channel validation belongs to
+  `PQR-1`; channel setup facet families are already closed.
+- Production risk: duplicated literal unions let adjacent contracts drift
+  silently and weaken compile-time proof.
+- Source findings to audit/retire:
+  - `PQR-6-SF1`: derive `EpgUiStatus` from `ModuleRuntimeStatus` plus the
+    existing `undefined` contract instead of repeating the same status literals.
+  - `PQR-6-SF2`: make `NavigationFourWayDirection` alias the canonical
+    navigation `Direction` type while preserving the narrower vertical
+    direction alias where it is genuinely different.
+  - `PQR-6-SF3`: audit touched contracts for adjacent duplicate literal unions
+    introduced by the same pattern; admit only current-source duplicates with
+    one clear owner.
+- Completion means: duplicated EPG/navigation literal unions are gone or
+  source-disproved, exactness assertions still prove intended relationships,
+  and no runtime behavior changes occur.
+- Verification routing: impact snapshots for `ModuleRuntimeStatus`,
+  `EpgUiStatus`, `Direction`, and `NavigationFourWayDirection`; targeted
+  runtime type contract and navigation tests.
+- Stop/replan triggers: type aliasing requires public contract widening;
+  downstream callers rely on a meaningfully different union; runtime status or
+  navigation behavior changes; a proposed shared type owner would become a
+  generic dumping ground.
+- Follow-ups: none yet
+- Handoff: this can be a small package, but it should still use source-backed
+  owner decisions because it changes public contracts.
+
+### [ ] `PQR-7` Source Signal, Migration Context, Coverage Gate, And Logic Clarity
+
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Dimensions/rubric tags: AI-generated debt, stale migration, test strategy,
+  logic clarity, contract coherence, developer experience
+- Owner/scope: listed source-signal files, `GEMINI.md`, Jest coverage config,
+  and affected tests/docs. Broad comment sweeps and test restructuring are out
+  of scope unless source audit admits same-pattern residue.
+- Production risk: restating comments, formulaic JSDoc, legacy context loading,
+  ungated coverage, and small redundant flow reduce review signal and let
+  regressions pass unnoticed.
+- Source findings to audit/retire:
+  - `PQR-7-SF1`: delete comments that restate the next branch/statement while
+    preserving comments that explain policy, platform constraints, recovery,
+    lifecycle, security, or external behavior.
+  - `PQR-7-SF2`: prune contract/type JSDoc that only repeats field or method
+    names; keep semantics about absence/nullability, persistence ownership,
+    auth/token behavior, ordering, side effects, and error behavior.
+  - `PQR-7-SF3`: remove legacy document-map loading from active Gemini context
+    if current docs still declare `docs/AGENTIC_DEV_WORKFLOW.md` and
+    `AGENTS.md` as the authority surfaces.
+  - `PQR-7-SF4`: add a pragmatic Jest coverage threshold just below the
+    current baseline, with explicit exclusions for type-only, generated,
+    contract-only, or intentionally untested files.
+  - `PQR-7-SF5`: simplify `discoveryProbe` redundant flow only if source audit
+    proves behavior-equivalence and targeted discovery tests cover the path.
+- Completion means: source comments carry intent rather than narration, active
+  context no longer loads obsolete authority stubs, coverage regressions are
+  gated pragmatically, and any logic simplification is behavior-preserving.
+- Verification routing: source/comment audits; targeted discovery tests if
+  `discoveryProbe` changes; coverage proof for the chosen threshold;
+  `npm run verify:docs` for `GEMINI.md` or checklist/workflow changes.
+- Stop/replan triggers: threshold policy makes local verification flaky or
+  blocks known intentional exclusions; comment pruning removes important
+  operational rationale; Gemini context cleanup conflicts with current runbook
+  authority; logic simplification changes discovery behavior.
+- Follow-ups: none yet
+- Handoff: this package is lower architecture risk than `PQR-1` through
+  `PQR-5`, but should still run after the higher-risk owner-shape packages are
+  planned or explicitly deferred.
+
+### [ ] `PQR-EXIT` Production Quality Refresh Exit And Score Rebaseline
+
+- Status: not started
+- Plan: none yet
+- Last touched: not started
+- Verification: not run
+- Dimensions/rubric tags: verified strictness, subjective review quality,
+  production readiness, residual ownership, docs/source coherence
+- Owner/scope: final `PQR-*` proof matrix, residual ledger, affected docs, and
+  authoritative integration-branch Desloppify refresh. No source implementation
+  or raw review-id intake belongs here.
+- Production risk: without an exit gate, score improvements could hide
+  unresolved owners or behavior drift.
+- Source findings to audit/retire:
+  - `PQR-EXIT-SF1`: every `PQR-*` source finding must be resolved,
+    source-disproved, accepted with one owner/revisit trigger, or explicitly
+    deferred by maintainer approval.
+  - `PQR-EXIT-SF2`: final source audits must confirm no package introduced
+    behavior drift, compatibility shims, public API widening, or new ownership
+    ambiguity.
+  - `PQR-EXIT-SF3`: final verification must record exact commands and results,
+    including `npm run verify`, `npm run verify:docs`, `npm run plans:check`,
+    and `git diff --check`.
+  - `PQR-EXIT-SF4`: final Desloppify scan/review refresh must be run only after
+    the queue is clear or all accepted residuals have owners; record all scores
+    and explain any dimension still below 90 with source-backed rationale.
+- Completion means: every PQR package has a proof matrix and residual ledger,
+  verification is fresh, a final score refresh is recorded as retrospective
+  evidence, and the next owner can safely resume Windows port planning or an
+  explicitly approved follow-up.
+- Verification routing: package-level source audits; exact final commands
+  listed above; final `desloppify scan` and subjective review refresh when the
+  queue state allows it; clean adversarial review of `PQR-EXIT` evidence before
+  closeout.
+- Stop/replan triggers: any `PQR-*` source finding lacks a final owner;
+  verification fails; final review finds behavior drift; Desloppify state is
+  mid-cycle and cannot be refreshed without forcing a scan; a new source-proven
+  blocker needs maintainer admission.
+- Follow-ups: none yet
+- Handoff: after completion, Windows port planning may resume from `FCP-25`
+  plus the `PQR-EXIT` residual ledger.
 
 ## Dimension Cleanup Refresh History
 

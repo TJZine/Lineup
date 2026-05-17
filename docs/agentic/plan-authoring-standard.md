@@ -239,19 +239,20 @@ The cleanup overlay applies only when `**Task family:** cleanup/refactor`.
 Cleanup plans must satisfy `Universal Plan Core + Cleanup Overlay`.
 Feature/design plans satisfy `Universal Plan Core` only and must not rely on cleanup-overlay-only sections.
 
-### FCP Source-Backed Checklist Override
+### Source-Backed Checklist Override
 
-The final production cleanup program in `ARCHITECTURE_CLEANUP_CHECKLIST.md`
-uses source-backed package briefs instead of detector/imported issue ids.
+Source-backed cleanup programs in `ARCHITECTURE_CLEANUP_CHECKLIST.md` use
+source-backed package briefs instead of detector/imported issue ids.
 
-For checklist-linked `FCP-*` plans only:
+For checklist-linked source-backed plans such as `FCP-*` and `PQR-*` plans:
 
 - package coverage is defined by `source_finding_id` entries from the approved
   audit/package brief, not by Desloppify ids, imported review ids, or companion
   package-map membership
 - `source_finding_id` values must match the checklist token, for example
-  `FCP-1-SF1` for `FCP-1` and `FCP-EXIT-SF1` for `FCP-EXIT`; detector-shaped
-  ids such as `review::...` or `smells::...` are invalid in FCP plans
+  `FCP-1-SF1` for `FCP-1`, `FCP-EXIT-SF1` for `FCP-EXIT`, and `PQR-1-SF1`
+  for `PQR-1` or `PQR-EXIT-SF1` for `PQR-EXIT`; detector-shaped ids such as
+  `review::...` or `smells::...` are invalid in source-backed plans
 - use `source_finding_ids` wherever this overlay would otherwise require
   `package_issue_ids` or `exact_issue_ids`
 - `coverage_check` must map every approved `source_finding_id` to exactly one
@@ -259,22 +260,24 @@ For checklist-linked `FCP-*` plans only:
 - `slice_table` must include `source_finding_ids` instead of
   `exact_issue_ids`; the rest of the slice-table ownership, verification,
   dependency, stop-condition, and handoff requirements still apply
-- no checklist companion map or detector package map is required for FCP
-  membership; if maintainers later create a companion artifact for FCP, it must
-  use `source_finding_id` coverage only
+- no checklist companion map or detector package map is required for source-backed
+  membership; if maintainers later create a companion artifact for a source-backed
+  package, it must use `source_finding_id` coverage only
 - detector, imported-issue, package-map, and Desloppify evidence must not be
-  used for FCP intake, membership, proof, or closeout
+  used for source-backed intake, membership, proof, or closeout
 - priority closeout does not require Desloppify commands, issue-id reruns, or
   package-map reconciliation; the only Desloppify use allowed by default is an
-  optional end-of-program external score refresh after `FCP-EXIT`
+  optional end-of-program external score refresh after the source-backed exit
+  package, such as `FCP-EXIT` or `PQR-EXIT`
 - `## Priority-Exit Readiness` applies to the final package for an `FCP-*`
-  priority and must record source findings, owned residuals, verification, clean
-  review, and the rule that `FCP-(n+1)` cannot start until `FCP-n` is completed
+  or `PQR-*` priority and must record source findings, owned residuals,
+  verification, clean review, and the rule that the next source-backed package
+  cannot start until the current package is completed
 
 The legacy detector-backed rules below continue to apply to legacy non-FCP
 checklist-linked work, including older `P#-W#` / `P#-EXIT` work and `S#-W#`
 style-cleanup plans. Any future detector-backed cleanup exception must live
-outside the FCP override.
+outside the source-backed override.
 
 ### Cleanup-Only Required Content
 
@@ -322,7 +325,7 @@ outside the FCP override.
 - for `checklist-linked` package work, decomposition is still mandatory even when the package is small enough to yield exactly one slice
 - for `checklist-linked` package work, large-package execution should review coherent retirement batches, not one tiny fix at a time
 - for cleanup/refactor work, source-disproved, no-code, deferred, or split-follow-up dispositions require positive current-source proof that the intended owner shape already exists, the finding no longer applies, or an explicit stop/replan boundary blocks the rewrite; do not use these dispositions because the fix would be large
-- add `## Priority-Exit Readiness` only when the cleanup plan is intended to close the last legacy non-FCP checklist item in a cleanup priority, is itself `P#-EXIT`, or is the final package for an `FCP-*` priority
+- add `## Priority-Exit Readiness` only when the cleanup plan is intended to close the last legacy non-FCP checklist item in a cleanup priority, is itself `P#-EXIT`, or is the final package for a source-backed priority such as `FCP-*` or `PQR-*`
 - for `standalone remediation`, say explicitly that no checklist update is expected unless the task is intentionally promoted later
 
 ### Execution-Unit Absorption Rules
@@ -344,14 +347,15 @@ For a final legacy non-FCP detector-backed checklist-linked plan in a cleanup pr
   P#-EXIT checklist update for `P#-W#` work or the matching style-cleanup exit
   gate for `S#-W#` work
 
-For a final `FCP-*` package, the verification section must instead name:
+For a final source-backed package such as `FCP-*` or `PQR-*`, the verification
+section must instead name:
 
 - the source-backed audit rerun or source review that proves each
   `source_finding_id` disposition
 - the package-local static/source audits for old and replacement patterns
 - targeted tests and the strongest applicable `npm` verification command
 - the priority mini-record update and clean closeout review required before any
-  `FCP-(n+1)` work starts
+  next source-backed package starts
 
 ### Priority-Exit Readiness
 
@@ -362,9 +366,10 @@ When present, the section must explicitly record:
 - for legacy detector-backed priorities, every imported review issue mapped to
   the priority, with its exact issue id, and whether this plan retires it,
   defers it, or splits it into a follow-up owner
-- for FCP priorities, every approved `source_finding_id` mapped to the priority,
-  and whether this plan retires it, defers it, or splits it into a follow-up
-  owner; do not include detector/imported issue ids
+- for source-backed priorities such as `FCP-*` and `PQR-*`, every approved
+  `source_finding_id` mapped to the priority, and whether this plan retires it,
+  defers it, or splits it into a follow-up owner; do not include
+  detector/imported issue ids
 - for every deferred or split item, the exact current or follow-up owner, the reason it remains open, and the revisit trigger; if one issue spans multiple legacy non-FCP checklist items, nominate one single final owner
 - for legacy detector-backed priorities only, if an issue resolves on
   current-code proof while the detector id still carries stale or broader

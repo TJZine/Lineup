@@ -1725,6 +1725,36 @@ test('checkPlanConformance accepts FCP checklist-linked plans with source_findin
     assert.deepEqual(result.errors, []);
 });
 
+test('checkPlanConformance accepts PQR checklist-linked plans with source_finding_ids', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-05-17-pqr-1-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition()
+                .replaceAll('FCP-1-SF1', 'PQR-1-SF1')
+                .replaceAll('FCP-1-S1', 'PQR-1-S1')
+                .replace('`checklist_token`: `FCP-1`', '`checklist_token`: `PQR-1`')
+        ),
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance accepts PQR-EXIT checklist-linked plans with source_finding_ids', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-05-17-pqr-exit-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition()
+                .replaceAll('FCP-1-SF1', 'PQR-EXIT-SF1')
+                .replaceAll('FCP-1-S1', 'PQR-EXIT-S1')
+                .replace('`checklist_token`: `FCP-1`', '`checklist_token`: `PQR-EXIT`')
+        ),
+    });
+
+    assert.equal(result.isSerious, true);
+    assert.deepEqual(result.errors, []);
+});
+
 test('checkPlanConformance accepts legacy non-FCP checklist tokens such as S9-W1', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-19-s9-inline-style-bootstrap-cleanup.md',
@@ -1781,8 +1811,8 @@ test('checkPlanConformance rejects legacy issue fields in FCP checklist-linked p
         ),
     });
 
-    assert.ok(result.errors.includes('checklist-linked FCP plans must use `source_finding_ids`, not `package_issue_ids`'));
-    assert.ok(result.errors.includes('checklist-linked FCP plans must use `source_finding_ids`, not `exact_issue_ids`'));
+    assert.ok(result.errors.includes('source-backed checklist plans must use `source_finding_ids`, not `package_issue_ids`'));
+    assert.ok(result.errors.includes('source-backed checklist plans must use `source_finding_ids`, not `exact_issue_ids`'));
     assert.ok(result.errors.includes('checklist-linked plans must include `source_finding_ids` in `## Package Decomposition`'));
     assert.ok(result.errors.includes('FCP-1-S1 in `slice_table` must include `source_finding_ids`'));
 });
@@ -1798,7 +1828,7 @@ test('checkPlanConformance rejects imported ids in FCP coverage_check text', () 
         ),
     });
 
-    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
+    assert.ok(result.errors.includes('source-backed checklist plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
 });
 
 test('checkPlanConformance rejects Desloppify commands in FCP package decomposition', () => {
@@ -1812,7 +1842,7 @@ test('checkPlanConformance rejects Desloppify commands in FCP package decomposit
         ),
     });
 
-    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
+    assert.ok(result.errors.includes('source-backed checklist plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
 });
 
 test('checkPlanConformance rejects package-map evidence in FCP package decomposition', () => {
@@ -1826,7 +1856,7 @@ test('checkPlanConformance rejects package-map evidence in FCP package decomposi
         ),
     });
 
-    assert.ok(result.errors.includes('checklist-linked FCP plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
+    assert.ok(result.errors.includes('source-backed checklist plans must not include detector/imported issue ids, package-map evidence, or Desloppify evidence in `## Package Decomposition`'));
 });
 
 test('checkPlanConformance rejects detector-shaped source_finding_ids in FCP plans', () => {
@@ -1838,7 +1868,7 @@ test('checkPlanConformance rejects detector-shaped source_finding_ids in FCP pla
         ),
     });
 
-    assert.ok(result.errors.includes('checklist-linked FCP plans must use source_finding_ids matching `FCP-1-SF#`'));
+    assert.ok(result.errors.includes('source-backed checklist plans must use source_finding_ids matching `FCP-1-SF#`'));
     assert.ok(result.errors.includes('FCP-1-S1 in `slice_table` must use source_finding_ids matching `FCP-1-SF#`'));
 });
 
@@ -1851,7 +1881,7 @@ test('checkPlanConformance rejects source_finding_ids from a different FCP check
         ),
     });
 
-    assert.ok(result.errors.includes('checklist-linked FCP plans must use source_finding_ids matching `FCP-1-SF#`'));
+    assert.ok(result.errors.includes('source-backed checklist plans must use source_finding_ids matching `FCP-1-SF#`'));
     assert.ok(result.errors.includes('FCP-1-S1 in `slice_table` must use source_finding_ids matching `FCP-1-SF#`'));
 });
 
@@ -1894,7 +1924,7 @@ test('checkPlanConformance rejects imported issue ids in FCP priority-exit readi
         ),
     });
 
-    assert.ok(result.errors.includes('FCP priority-exit readiness must use declared source_finding_id headers, not imported issue ids'));
+    assert.ok(result.errors.includes('source-backed priority-exit readiness must use declared source_finding_id headers, not imported issue ids'));
 });
 
 test('checkPlanConformance rejects imported ids in nested FCP priority-exit proof text', () => {
@@ -1916,7 +1946,7 @@ test('checkPlanConformance rejects imported ids in nested FCP priority-exit proo
         ),
     });
 
-    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
+    assert.ok(result.errors.includes('source-backed priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
 });
 
 test('checkPlanConformance rejects Desloppify paths in nested FCP priority-exit proof text', () => {
@@ -1938,7 +1968,7 @@ test('checkPlanConformance rejects Desloppify paths in nested FCP priority-exit 
         ),
     });
 
-    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
+    assert.ok(result.errors.includes('source-backed priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
 });
 
 test('checkPlanConformance rejects package-map proof in FCP priority-exit readiness', () => {
@@ -1960,7 +1990,7 @@ test('checkPlanConformance rejects package-map proof in FCP priority-exit readin
         ),
     });
 
-    assert.ok(result.errors.includes('FCP priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
+    assert.ok(result.errors.includes('source-backed priority-exit readiness must not include detector/imported issue ids, package-map evidence, or Desloppify evidence'));
 });
 
 test('checkPlanConformance rejects undeclared FCP source_finding_id closeout headers', () => {
@@ -1981,7 +2011,7 @@ test('checkPlanConformance rejects undeclared FCP source_finding_id closeout hea
         ),
     });
 
-    assert.ok(result.errors.includes('FCP priority-exit readiness must use declared source_finding_id headers, not imported issue ids'));
+    assert.ok(result.errors.includes('source-backed priority-exit readiness must use declared source_finding_id headers, not imported issue ids'));
 });
 
 test('checkPlanConformance requires ready_now_execution_unit for checklist-linked package plans', () => {

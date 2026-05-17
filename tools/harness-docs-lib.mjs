@@ -194,13 +194,13 @@ const VERIFICATION_CLASSIFICATION_LINE_RE =
 const PLAN_LIST_ENTRY_RE = /^\s*(?:[-*]|\d+\.)\s+\S+/mu;
 const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
 const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
-const FCP_CHECKLIST_TOKEN_RE = /^FCP-(?:\d+|EXIT)$/u;
+const SOURCE_BACKED_CHECKLIST_TOKEN_RE = /^(?:FCP-(?:\d+|EXIT)|PQR-(?:\d+|EXIT))$/u;
 const LEGACY_CHECKLIST_SLICE_ID_PATTERN = '[PS]\\d+-W\\d+-S\\d+';
 const DCR_CHECKLIST_SLICE_ID_PATTERN = 'DCR-(?:\\d+|EXIT)-S\\d+';
-const FCP_CHECKLIST_SLICE_ID_PATTERN = 'FCP-(?:\\d+|EXIT)-S\\d+';
+const SOURCE_BACKED_CHECKLIST_SLICE_ID_PATTERN = '(?:FCP-(?:\\d+|EXIT)|PQR-(?:\\d+|EXIT))-S\\d+';
 const CHECKLIST_SLICE_ID_PATTERN = `(?:${LEGACY_CHECKLIST_SLICE_ID_PATTERN}|${DCR_CHECKLIST_SLICE_ID_PATTERN})`;
 const CHECKLIST_SLICE_ID_RE = new RegExp(`^${CHECKLIST_SLICE_ID_PATTERN}$`, 'u');
-const FCP_CHECKLIST_SLICE_ID_RE = new RegExp(`^${FCP_CHECKLIST_SLICE_ID_PATTERN}$`, 'u');
+const SOURCE_BACKED_CHECKLIST_SLICE_ID_RE = new RegExp(`^${SOURCE_BACKED_CHECKLIST_SLICE_ID_PATTERN}$`, 'u');
 const FCP_FORBIDDEN_IMPORTED_ID_RE = /\b[A-Za-z][A-Za-z0-9_-]*::/u;
 const FCP_FORBIDDEN_DESLOPPIFY_RE = /\b(?:desloppify|\.desloppify)\b/iu;
 const FCP_FORBIDDEN_PACKAGE_MAP_RE = /\bpackage[-_\s]?map\b/iu;
@@ -524,27 +524,27 @@ function getChecklistLinkedPackagePlanErrors(content) {
     }
 
     const checklistToken = parseInlineField(packageDecomposition, '`checklist_token`');
-    const isFcpPackage = checklistToken !== null && FCP_CHECKLIST_TOKEN_RE.test(checklistToken);
-    const packageIssueField = isFcpPackage ? '`source_finding_ids`' : '`package_issue_ids`';
-    const sliceIssueField = isFcpPackage ? '`source_finding_ids`' : '`exact_issue_ids`';
-    const fcpSliceIdPattern = checklistToken === null ? FCP_CHECKLIST_SLICE_ID_PATTERN : `${escapeRegExp(checklistToken)}-S\\d+`;
-    const fcpSliceIdRe = new RegExp(`^${fcpSliceIdPattern}$`, 'u');
-    const sliceIdRe = isFcpPackage ? fcpSliceIdRe : CHECKLIST_SLICE_ID_RE;
-    const sliceIdPattern = isFcpPackage ? fcpSliceIdPattern : CHECKLIST_SLICE_ID_PATTERN;
-    const fcpSourceFindingIdRe = checklistToken === null ? null : new RegExp(`^${escapeRegExp(checklistToken)}-SF\\d+$`, 'u');
-    const sliceIdError = isFcpPackage
-        ? 'checklist-linked FCP plans must keep `ready_now_slice` on an FCP package-scoped slice id'
+    const isSourceBackedPackage = checklistToken !== null && SOURCE_BACKED_CHECKLIST_TOKEN_RE.test(checklistToken);
+    const packageIssueField = isSourceBackedPackage ? '`source_finding_ids`' : '`package_issue_ids`';
+    const sliceIssueField = isSourceBackedPackage ? '`source_finding_ids`' : '`exact_issue_ids`';
+    const sourceBackedSliceIdPattern = checklistToken === null ? SOURCE_BACKED_CHECKLIST_SLICE_ID_PATTERN : `${escapeRegExp(checklistToken)}-S\\d+`;
+    const sourceBackedSliceIdRe = new RegExp(`^${sourceBackedSliceIdPattern}$`, 'u');
+    const sliceIdRe = isSourceBackedPackage ? sourceBackedSliceIdRe : CHECKLIST_SLICE_ID_RE;
+    const sliceIdPattern = isSourceBackedPackage ? sourceBackedSliceIdPattern : CHECKLIST_SLICE_ID_PATTERN;
+    const sourceBackedSourceFindingIdRe = checklistToken === null ? null : new RegExp(`^${escapeRegExp(checklistToken)}-SF\\d+$`, 'u');
+    const sliceIdError = isSourceBackedPackage
+        ? 'source-backed checklist plans must keep `ready_now_slice` on a source-backed package-scoped slice id'
         : 'checklist-linked plans must keep `ready_now_slice` on a package-scoped slice id';
 
-    if (isFcpPackage) {
+    if (isSourceBackedPackage) {
         if (hasFcpForbiddenImportedEvidence(packageDecomposition)) {
-            errors.push(`checklist-linked FCP plans must not include ${FCP_FORBIDDEN_EVIDENCE_MESSAGE} in \`## Package Decomposition\``);
+            errors.push(`source-backed checklist plans must not include ${FCP_FORBIDDEN_EVIDENCE_MESSAGE} in \`## Package Decomposition\``);
         }
         if (extractChecklistPackageFieldBlock(packageDecomposition, '`package_issue_ids`') !== null) {
-            errors.push('checklist-linked FCP plans must use `source_finding_ids`, not `package_issue_ids`');
+            errors.push('source-backed checklist plans must use `source_finding_ids`, not `package_issue_ids`');
         }
         if (extractChecklistPackageFieldBlock(packageDecomposition, '`exact_issue_ids`') !== null) {
-            errors.push('checklist-linked FCP plans must use `source_finding_ids`, not `exact_issue_ids`');
+            errors.push('source-backed checklist plans must use `source_finding_ids`, not `exact_issue_ids`');
         }
     }
 
@@ -567,16 +567,16 @@ function getChecklistLinkedPackagePlanErrors(content) {
     }
 
     let packageSourceFindingIds = [];
-    if (isFcpPackage) {
+    if (isSourceBackedPackage) {
         const packageSourceFindingBlock = extractChecklistPackageFieldBlock(packageDecomposition, '`source_finding_ids`');
         packageSourceFindingIds = extractChecklistFieldValues(packageSourceFindingBlock);
         if (packageSourceFindingIds.length === 0) {
-            errors.push('checklist-linked FCP plans must list at least one `source_finding_ids` value');
+            errors.push('source-backed checklist plans must list at least one `source_finding_ids` value');
         }
-        if (fcpSourceFindingIdRe !== null) {
-            const invalidPackageSourceFinding = packageSourceFindingIds.some((id) => !fcpSourceFindingIdRe.test(id));
+        if (sourceBackedSourceFindingIdRe !== null) {
+            const invalidPackageSourceFinding = packageSourceFindingIds.some((id) => !sourceBackedSourceFindingIdRe.test(id));
             if (invalidPackageSourceFinding) {
-                errors.push(`checklist-linked FCP plans must use source_finding_ids matching \`${checklistToken}-SF#\``);
+                errors.push(`source-backed checklist plans must use source_finding_ids matching \`${checklistToken}-SF#\``);
             }
         }
     }
@@ -643,14 +643,14 @@ function getChecklistLinkedPackagePlanErrors(content) {
                 }
             }
 
-            if (isFcpPackage) {
+            if (isSourceBackedPackage) {
                 const sliceSourceFindingBlock = extractChecklistPackageFieldBlock(sliceSection.content, '`source_finding_ids`');
                 const sliceSourceFindingIds = extractChecklistFieldValues(sliceSourceFindingBlock);
                 if (sliceSourceFindingIds.length === 0) {
                     errors.push(`${sliceSection.sliceId} in \`slice_table\` must list at least one \`source_finding_ids\` value`);
                 }
-                if (fcpSourceFindingIdRe !== null) {
-                    const invalidSliceSourceFinding = sliceSourceFindingIds.some((id) => !fcpSourceFindingIdRe.test(id));
+                if (sourceBackedSourceFindingIdRe !== null) {
+                    const invalidSliceSourceFinding = sliceSourceFindingIds.some((id) => !sourceBackedSourceFindingIdRe.test(id));
                     if (invalidSliceSourceFinding) {
                         errors.push(`${sliceSection.sliceId} in \`slice_table\` must use source_finding_ids matching \`${checklistToken}-SF#\``);
                     }
@@ -787,20 +787,20 @@ function getChecklistLinkedPackageContext(content) {
     const packageDecomposition = extractFirstMatchingMarkdownSection(content, ['Package Decomposition']);
     if (packageDecomposition === null) {
         return {
-            isFcpPackage: false,
+            isSourceBackedPackage: false,
             checklistToken: null,
             sourceFindingIds: [],
         };
     }
 
     const checklistToken = parseInlineField(packageDecomposition, '`checklist_token`');
-    const isFcpPackage = checklistToken !== null && FCP_CHECKLIST_TOKEN_RE.test(checklistToken);
-    const sourceFindingIds = isFcpPackage
+    const isSourceBackedPackage = checklistToken !== null && SOURCE_BACKED_CHECKLIST_TOKEN_RE.test(checklistToken);
+    const sourceFindingIds = isSourceBackedPackage
         ? extractChecklistFieldValues(extractChecklistPackageFieldBlock(packageDecomposition, '`source_finding_ids`'))
         : [];
 
     return {
-        isFcpPackage,
+        isSourceBackedPackage,
         checklistToken,
         sourceFindingIds,
     };
@@ -845,22 +845,22 @@ function getPriorityExitIssueBlockHeader(block) {
     return block.split(/\r?\n/u)[0]?.match(PRIORITY_EXIT_ISSUE_HEADER_RE)?.[1] ?? null;
 }
 
-function getPriorityExitErrors(section, { isFcpPackage = false, checklistToken = null, sourceFindingIds = [] } = {}) {
+function getPriorityExitErrors(section, { isSourceBackedPackage = false, checklistToken = null, sourceFindingIds = [] } = {}) {
     const errors = [];
     const issueBlocks = getPriorityExitIssueBlocks(section);
 
-    if (isFcpPackage && hasFcpForbiddenImportedEvidence(section)) {
-        errors.push(`FCP priority-exit readiness must not include ${FCP_FORBIDDEN_EVIDENCE_MESSAGE}`);
+    if (isSourceBackedPackage && hasFcpForbiddenImportedEvidence(section)) {
+        errors.push(`source-backed priority-exit readiness must not include ${FCP_FORBIDDEN_EVIDENCE_MESSAGE}`);
     }
 
     if (issueBlocks.length === 0) {
         errors.push(
-            isFcpPackage
+            isSourceBackedPackage
                 ? 'priority-exit readiness section must name each mapped FCP source_finding_id'
                 : 'priority-exit readiness section must name each mapped imported issue by exact issue id'
         );
     } else {
-        if (isFcpPackage) {
+        if (isSourceBackedPackage) {
             const declaredSourceFindingIds = new Set(sourceFindingIds);
             const sourceFindingIdRe = checklistToken === null
                 ? /^FCP-(?:\d+|EXIT)-SF\d+$/u
@@ -874,7 +874,7 @@ function getPriorityExitErrors(section, { isFcpPackage = false, checklistToken =
                 return declaredSourceFindingIds.size > 0 && !declaredSourceFindingIds.has(header);
             });
             if (hasInvalidSourceFindingHeader) {
-                errors.push('FCP priority-exit readiness must use declared source_finding_id headers, not imported issue ids');
+                errors.push('source-backed priority-exit readiness must use declared source_finding_id headers, not imported issue ids');
             }
         }
 
