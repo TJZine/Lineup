@@ -141,8 +141,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ### DCR-12-S1 AppOrchestrator Source Audit
 
-Current source audit on 2026-04-30 records `src/core/orchestrator/AppOrchestrator.ts`
-at 1904 lines after extracting the frozen `DCR-12-A1` closure set. The remaining
+Current source audit on 2026-05-17 records `src/core/orchestrator/AppOrchestrator.ts`
+at 1884 lines, matching the production file-shape guardrail baseline after
+extracting the frozen `DCR-12-A1` closure set. The remaining
 large-file shape is the public runtime facade, module field ownership, lifecycle
 composition, coordinator/controller assembly, and cross-module wiring. The file no
 longer owns the three DCR-12-S1 hotspot responsibility groups: channel-switch
