@@ -22,6 +22,7 @@ import type {
 import {
     CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS,
 } from './ChannelSetupFacetFamilies';
+import { shouldLoadNativeFacetForLibrary } from './ChannelSetupNativeFacetEligibility';
 import { buildChannelSetupPeopleSeriesIndexForLibrary } from './ChannelSetupPeopleSeriesIndex';
 import type {
     ChannelSetupFacetSnapshot,
@@ -284,6 +285,7 @@ export class ChannelSetupFacetLibraryExecutor {
         const { genreType, detailType } = getTagDirectoryMediaTypesForLibraryType(library.type);
         return CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS
             .filter((descriptor) => this._options.config.strategyConfig[descriptor.strategyKey].enabled)
+            .filter((descriptor) => shouldLoadNativeFacetForLibrary(descriptor, library))
             .map((descriptor) => {
                 const mediaType = descriptor.mediaTypeSource === 'genre' ? genreType : detailType;
                 return {

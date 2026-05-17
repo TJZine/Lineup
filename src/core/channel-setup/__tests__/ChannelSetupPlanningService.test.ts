@@ -846,20 +846,20 @@ describe('ChannelSetupPlanningService', () => {
                 { ratingKey: 'ep-4', key: '/library/metadata/ep-4', type: 'episode', title: 'Episode 4', sortTitle: 'Episode 4', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-3', directors: ['John Roe'], actors: ['Alex Star'], media: [] },
                 { ratingKey: 'ep-5', key: '/library/metadata/ep-5', type: 'episode', title: 'Episode 5', sortTitle: 'Episode 5', summary: '', year: 2024, durationMs: 1000, addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, grandparentRatingKey: 'show-3', directors: ['John Roe'], actors: ['Alex Star'], media: [] },
             ]),
-            getGenres: jest.fn().mockResolvedValue([
+            getGenres: jest.fn().mockImplementation(async (libraryId: string) => libraryId === 'shows' ? [
                 makeTag({ title: 'Comedy', count: null }),
                 makeTag({ title: 'Drama', count: null }),
-            ]),
-            getDirectors: jest.fn().mockResolvedValue([
+            ] : []),
+            getDirectors: jest.fn().mockImplementation(async (libraryId: string) => libraryId === 'shows' ? [
                 makeTag({ title: 'Jane Doe', count: null }),
                 makeTag({ title: 'John Roe', count: null }),
-            ]),
-            getYears: jest.fn().mockResolvedValue([
+            ] : []),
+            getYears: jest.fn().mockImplementation(async (libraryId: string) => libraryId === 'shows' ? [
                 makeTag({ title: '1981', count: null }),
                 makeTag({ title: '1988', count: null }),
                 makeTag({ title: '1991', count: null }),
-            ]),
-            getActors: jest.fn().mockResolvedValue([
+            ] : []),
+            getActors: jest.fn().mockImplementation(async (libraryId: string) => libraryId === 'shows' ? [
                 makeTag({
                     key: 'actor-1',
                     title: 'Alex Star',
@@ -867,16 +867,16 @@ describe('ChannelSetupPlanningService', () => {
                     fastKey: '/library/sections/shows/actor?type=4&actor=Alex%20Star',
                 }),
                 makeTag({ key: 'actor-2', title: 'Taylor Guest', count: null }),
-            ]),
-            getStudios: jest.fn().mockResolvedValue([
+            ] : []),
+            getStudios: jest.fn().mockImplementation(async (libraryId: string) => libraryId === 'movies' ? [
                 makeTag({
                     key: 'studio-1',
                     title: 'Studio A',
                     count: null,
-                    fastKey: '/library/sections/shows/studio?type=4&studio=Studio%20A',
+                    fastKey: '/library/sections/movies/studio?type=1&studio=Studio%20A',
                 }),
                 makeTag({ key: 'studio-2', title: 'Studio B', count: null }),
-            ]),
+            ] : []),
         } as unknown as jest.Mocked<IPlexLibrary>;
 
         const channelManager = {
@@ -885,7 +885,7 @@ describe('ChannelSetupPlanningService', () => {
 
         const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
         const config = service.normalizeConfig(createConfig({
-            selectedLibraryIds: ['shows'],
+            selectedLibraryIds: ['shows', 'movies'],
             minItemsPerChannel: 5,
             strategyConfig: {
                 genres: { enabled: true, priority: 1, scope: 'per-library' },
@@ -900,6 +900,11 @@ describe('ChannelSetupPlanningService', () => {
             id: 'shows',
             title: 'Shows',
             type: 'show',
+            contentCount: 1200,
+        }), makeLibrary({
+            id: 'movies',
+            title: 'Movies',
+            type: 'movie',
             contentCount: 1200,
         })];
         const result = await service.buildSetupPlan(config, libraries, null, 'preview');
@@ -923,8 +928,13 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Shows - 1990s'))).toBe(false);
         expect(result.plan?.pendingChannels.some((c) => c.name === 'Alex Star - Shows')).toBe(true);
         expect(result.plan?.pendingChannels.some((c) => c.name === 'Taylor Guest - Shows')).toBe(false);
-        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio A - Shows')).toBe(true);
-        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio B - Shows')).toBe(false);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio A - Movies')).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name === 'Studio B - Movies')).toBe(false);
+        expect(plexLibrary.getStudios).toHaveBeenCalledTimes(1);
+        expect(plexLibrary.getStudios).toHaveBeenCalledWith(
+            'movies',
+            expect.objectContaining({ type: PLEX_MEDIA_TYPES.MOVIE })
+        );
         expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
             filter: { type: PLEX_MEDIA_TYPES.SHOW, genre: 'Comedy' },
             signal: expect.any(Object),
@@ -957,12 +967,12 @@ describe('ChannelSetupPlanningService', () => {
             filter: { type: PLEX_MEDIA_TYPES.EPISODE, actor: 'actor-2' },
             signal: expect.any(Object),
         }));
-        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
-            filter: { type: PLEX_MEDIA_TYPES.EPISODE, studio: 'Studio A' },
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('movies', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.MOVIE, studio: 'Studio A' },
             signal: expect.any(Object),
         }));
-        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
-            filter: { type: PLEX_MEDIA_TYPES.EPISODE, studio: 'studio-2' },
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('movies', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.MOVIE, studio: 'studio-2' },
             signal: expect.any(Object),
         }));
     });
@@ -1131,7 +1141,7 @@ describe('ChannelSetupPlanningService', () => {
         expect(plexLibrary.getLibraryItems).not.toHaveBeenCalled();
     });
 
-    it('does not stop planning when one selected library returns empty studios but another selected library has studio tags', async () => {
+    it('skips TV studios before Plex calls while movie studios still build', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
@@ -1143,12 +1153,10 @@ describe('ChannelSetupPlanningService', () => {
             getStudios: jest.fn().mockImplementation(
                 async (
                     libraryId: string,
-                    options: { onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void }
+                    options: { type?: number }
                 ) => {
-                    if (libraryId === 'anime') {
-                        options.onUnsupported?.('empty');
-                        return [];
-                    }
+                    expect(libraryId).toBe('movies');
+                    expect(options.type).toBe(PLEX_MEDIA_TYPES.MOVIE);
                     return [makeTag({ key: 'studio-a', title: 'Studio A', count: 12 })];
                 }
             ),
@@ -1160,7 +1168,7 @@ describe('ChannelSetupPlanningService', () => {
 
         const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
         const config = service.normalizeConfig(createConfig({
-            selectedLibraryIds: ['anime', 'tv'],
+            selectedLibraryIds: ['anime', 'movies'],
             strategyConfig: {
                 studios: { enabled: true, priority: 1, scope: 'per-library' },
             },
@@ -1168,7 +1176,7 @@ describe('ChannelSetupPlanningService', () => {
 
         const libraries = [
             makeLibrary({ id: 'anime', title: 'Anime Home', type: 'show', contentCount: 1200 }),
-            makeLibrary({ id: 'tv', title: 'TV Home', type: 'show', contentCount: 1200 }),
+            makeLibrary({ id: 'movies', title: 'Movies Home', type: 'movie', contentCount: 1200 }),
         ];
 
         const result = await service.buildSetupPlan(config, libraries, null, 'preview');
@@ -1178,8 +1186,10 @@ describe('ChannelSetupPlanningService', () => {
         expect(result.failureReason).toBeUndefined();
         expect(result.previewStatus).toBeUndefined();
         expect(result.blockedMessage).toBeUndefined();
-        expect(result.warnings).toContain('Skipped studios for Anime Home: Plex returned no tag entries (type=4).');
+        expect(result.warnings).toEqual([]);
+        expect(plexLibrary.getStudios).toHaveBeenCalledTimes(1);
         expect(result.plan?.pendingChannels.some((c) => c.name.includes('Studio A'))).toBe(true);
+        expect(result.plan?.pendingChannels.some((c) => c.name.includes('Anime Home'))).toBe(false);
     });
 
     it('warns and skips one selected library facet when another selected media type can still build channels', async () => {
@@ -1360,7 +1370,7 @@ describe('ChannelSetupPlanningService', () => {
         ]);
     });
 
-    it('stops planning with skip warnings when enabled strategies produce no channels', async () => {
+    it('blocks as empty without Plex warnings when only TV studios are enabled', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
@@ -1369,15 +1379,7 @@ describe('ChannelSetupPlanningService', () => {
             getDirectors: jest.fn(),
             getYears: jest.fn(),
             getActors: jest.fn(),
-            getStudios: jest.fn().mockImplementation(
-                async (
-                    _libraryId: string,
-                    options: { onUnsupported?: (reason: PlexTagDirectoryUnsupportedReason) => void }
-                ) => {
-                    options.onUnsupported?.('empty');
-                    return [];
-                }
-            ),
+            getStudios: jest.fn(),
         } as unknown as jest.Mocked<IPlexLibrary>;
 
         const channelManager = {
@@ -1401,14 +1403,11 @@ describe('ChannelSetupPlanningService', () => {
 
         expect(result.canceled).toBe(false);
         expect(result.plan).toBeNull();
-        expect(result.failureReason).toBe('transient');
+        expect(result.failureReason).toBe('empty');
         expect(result.previewStatus).toBe('blocked');
-        expect(result.blockedMessage).toContain('Plex returned incomplete setup data');
-        expect(result.blockedMessage).toContain('Try again later');
-        expect(result.warnings).toEqual([
-            'Skipped studios for Anime Home: Plex returned no tag entries (type=4).',
-            'Skipped studios for TV Home: Plex returned no tag entries (type=4).',
-        ]);
+        expect(result.blockedMessage).toContain('could not build any channels');
+        expect(result.warnings).toEqual([]);
+        expect(plexLibrary.getStudios).not.toHaveBeenCalled();
     });
 
     it('keeps permanent empty remediation when no transient snapshot load failure occurred', async () => {
@@ -1593,14 +1592,14 @@ describe('ChannelSetupPlanningService', () => {
                 fetchedTagsByFamily: expect.objectContaining({
                     genres: [{ libraryId: 'shows', libraryName: 'Shows', count: 1 }],
                     directors: [{ libraryId: 'shows', libraryName: 'Shows', count: 1 }],
-                    studios: [{ libraryId: 'shows', libraryName: 'Shows', count: 1 }],
+                    studios: [{ libraryId: 'shows', libraryName: 'Shows', count: 0 }],
                     actors: [{ libraryId: 'shows', libraryName: 'Shows', count: 1 }],
                 }),
                 candidatesBeforeMinItems: expect.objectContaining({
-                    total: 4,
+                    total: 3,
                     genres: 1,
                     directors: 1,
-                    studios: 1,
+                    studios: 0,
                     actors: 1,
                 }),
             }),
@@ -1609,6 +1608,7 @@ describe('ChannelSetupPlanningService', () => {
             'shows',
             expect.objectContaining({ requestIntent: 'background' })
         );
+        expect(plexLibrary.getStudios).not.toHaveBeenCalled();
     });
 
     it('does not cache timeout snapshots', async () => {

@@ -31,7 +31,7 @@ The guided setup wizard can generate many channels in one pass.
 
 - Default scope is **Per Library** for all strategies.
 - Per-library output example: `Movies - Action` and `Shows - Action`.
-- You can opt into **Mixed** scope (experimental) for category strategies that support it (Genres/Directors/Studios/Actors) to combine sources across libraries for the same category (example: `Action`).
+- You can opt into **Mixed** scope (experimental) for category strategies that support it (Genres/Directors/Studios/Actors) to combine eligible sources across libraries for the same category (example: `Action`).
 
 ### Expansion Options (Both Off by Default)
 
@@ -53,6 +53,10 @@ The guided setup wizard can generate many channels in one pass.
 - Movie actor and director channels use the movie-item count for **Min items per channel**.
 - TV actor and director channels use **Min items per channel** as the playable episode floor and also require enough distinct parent-series breadth.
 - If TV people metadata cannot be indexed for a selected library, setup omits those TV actor/director channels and surfaces a warning instead of falling back to episode-only counts.
+
+### Studio Channel Eligibility
+
+- Studio channels are movie-oriented. TV libraries do not query Plex episode-level studio tags because Plex does not expose a reliable playable studio directory there.
 
 ### High-Volume Defaults and Quick Action
 
