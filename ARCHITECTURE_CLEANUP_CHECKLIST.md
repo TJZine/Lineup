@@ -1060,12 +1060,18 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Handoff: `PQR-2` is closed. Do not run a PQR score refresh here because final
   score rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-3` Channel Setup Facet Loading Abstraction Fit
+### [x] `PQR-3` Channel Setup Facet Loading Abstraction Fit
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: closed
+- Plan: [`docs/plans/2026-05-17-pqr-3-channel-setup-facet-loading-abstraction-fit-plan.md`](docs/plans/2026-05-17-pqr-3-channel-setup-facet-loading-abstraction-fit-plan.md)
+- Last touched: 2026-05-18; `PQR-3-S1` reviewed clean and implementation
+  checkpoint committed as `08d34a8f`.
+- Verification: `npm run plans:check`; `npm test --
+  ChannelSetupFacetSnapshotLoadSession --runInBand`; `npm test --
+  ChannelSetupFacetSnapshotLoadSession ChannelSetupFacetSnapshotLoader
+  ChannelSetupFacetSnapshotFailures ChannelSetupFacetCountRecoveryWorker
+  ChannelSetupTagFilters`; `npm test -- ChannelSetupPlanningService`;
+  `npm run typecheck`; `git diff --check`; `npm run verify`.
 - Dimensions/rubric tags: abstraction fitness, design coherence, type safety,
   logic clarity, channel setup planning, test strategy
 - Owner/scope: core channel setup facet snapshot loading:
@@ -1073,17 +1079,22 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   failure/count recovery owners, and focused facet tests. UI workflow, planner
   strategy behavior, Plex public API, people aggregation behavior, and new
   facet semantics are out of scope.
-- Production risk: abstraction fitness dropped because the one-use facet
-  executor is driven by a broad callback/options bag, obscuring cancellation,
-  progress, failures, timing, sibling aborts, and load-state mutation.
-- Source findings to audit/retire:
-  - `PQR-3-SF1`: collapse the one-use executor back into the load session or
-    make it accept concrete load state/failure-builder owners instead of a
-    broad callback bag.
-  - `PQR-3-SF2`: preserve cancellation, request-abort, sibling-abort, progress,
-    partial-warning, and failure-stop semantics with direct tests.
-  - `PQR-3-SF3`: preserve the canonical facet family descriptor; do not
-    recreate duplicated family/type unions while reshaping the seam.
+- Production risk retired: `ChannelSetupFacetLibraryExecutor` no longer
+  receives broad nested `control` / `state` / `failures` callback groups.
+  `ChannelSetupFacetSnapshotLoadSession` keeps lifecycle/progress/abort
+  ownership and passes concrete `ChannelSetupFacetSnapshotLoadState` and
+  `ChannelSetupFacetSnapshotFailureBuilder` owners into the package-local
+  executor.
+- Source findings retired:
+  - `PQR-3-SF1`: resolved in `PQR-3-S1`. The broad executor callback/options
+    bag was replaced with concrete load-state and failure-builder owners plus
+    explicit lifecycle callbacks.
+  - `PQR-3-SF2`: resolved in `PQR-3-S1`. Focused tests and review covered
+    cancellation, request-abort, sibling-abort/original-failure preservation,
+    progress, partial-warning, failure-stop, and timing behavior.
+  - `PQR-3-SF3`: resolved in `PQR-3-S1`. The canonical
+    `CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS` owner remained unchanged,
+    and source audits found no duplicated facet-family/type union.
 - Completion means: facet loading has one clear concrete owner for mutable load
   state and failure construction, no broad pass-through options bag, preserved
   cancellation/progress/warning semantics, and no regression to facet family
@@ -1095,9 +1106,10 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   behavior changes; callback collapse requires moving public snapshot-loader
   contracts; people aggregation behavior changes; cancellation or warning tests
   become ambiguous.
-- Follow-ups: none yet
-- Handoff: this is the direct abstraction-fitness repair package. It should be
-  planned independently from UI workflow cleanup.
+- Follow-ups: none for `PQR-3`; remaining refresh work continues with
+  maintainer-selected `PQR-*` packages.
+- Handoff: `PQR-3` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
 ### [ ] `PQR-4` App-Shell And Orchestrator Assembly Boundaries
 
