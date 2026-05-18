@@ -224,15 +224,17 @@ Do not absorb Package A server-select work or Package C EPG work into this execu
 
 ## Verification Commands
 
+- Verification classification: `new regression/contract test required`
+
 Planning artifact verification:
 
-- Classification: `broader integration/manual proof required`
+- Docs proof mode: `broader integration/manual proof required`
 - Run: `npm run verify:docs`
 - Expected: passes with this active plan self-contained and no tracked-plan dependency on local-only run artifacts.
 
 Selected `DME-B1` verification:
 
-- Classification: `new regression/contract test required`
+- Proof surface: direct helper and executor contract tests plus existing channel-setup planning tests.
 - Run: `npm test -- --runTestsByPath src/core/channel-setup/__tests__/ChannelSetupFacetCountRecoveryLimiter.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetLibraryExecutor.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoadSession.test.ts src/core/channel-setup/__tests__/ChannelSetupFacetCountRecoveryWorker.test.ts`
 - Run: `npm run typecheck`
 - Run: `npm run verify:maintainability`
@@ -241,12 +243,12 @@ Selected `DME-B1` verification:
 
 Deferred Package A verification, if separately planned later:
 
-- Classification: `new regression/contract test required`
+- Proof surface: direct runtime contract tests.
 - Requires a new or revised plan selecting server-select runtime as its own execution unit.
 
 Deferred Package C verification, only if reopened later:
 
-- Classification: `new regression/contract test required`
+- Proof surface: focused EPG renderer/presentation/virtualizer tests selected by a future plan.
 - Run focused EPG cell/virtualizer tests selected by a separate approved EPG plan plus `npm run verify`.
 - Expected: DOM shape, recycled-cell clearing, ticker classes/timers, sliver behavior, focused/current/live presentation, reduced-motion behavior, and virtualizer integration remain unchanged unless explicitly approved.
 
