@@ -85,7 +85,6 @@ export class AudioTrackManager {
         const audioTracks = videoWithTracks.audioTracks;
 
         if (!audioTracks || audioTracks.length === 0) {
-            // No native audio tracks - just update state
             this._activeTrackId = trackId;
             return;
         }

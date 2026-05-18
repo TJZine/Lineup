@@ -222,15 +222,9 @@ export interface ChannelCreateInput
  */
 export type ChannelUpdateInput = Partial<Pick<ChannelConfig, ChannelWritableField>>;
 
-/**
- * A resolved content item with cached metadata
- */
 export interface ResolvedContentItem {
-    /** Plex ratingKey */
     ratingKey: string;
-    /** Item type */
     type: PlexMediaType;
-    /** Display title */
     title: string;
     /** Full title (e.g., "Show - S01E05 - Episode Name") */
     fullTitle: string;
@@ -238,9 +232,7 @@ export interface ResolvedContentItem {
     showTitle?: string;
     /** Show poster thumb for episodes (EPG/Now Playing fallback) */
     showThumb?: string | null;
-    /** Duration in ms */
     durationMs: number;
-    /** Poster thumbnail URL (with token) */
     thumb: string | null;
     /** Backdrop image path (Plex art) */
     art?: string | null;

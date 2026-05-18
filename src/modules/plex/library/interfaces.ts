@@ -117,16 +117,8 @@ export interface IPlexLibrary {
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]>;
 
-    /**
-     * Generate authenticated URL for Plex images.
-     * @returns Full URL with authentication token, or null when no image URL can be built
-     */
     getImageUrl(imagePath: string, width?: number, height?: number): string | null;
 
-    /**
-     * Refresh cached library data.
-     * Invalidates cache and emits libraryRefreshed event.
-     */
     refreshLibrary(libraryId: string): Promise<void>;
 
     on<K extends keyof PlexLibraryEvents>(

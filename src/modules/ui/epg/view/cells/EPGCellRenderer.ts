@@ -421,21 +421,15 @@ export class EPGCellRenderer {
         const { meta, episode, titleText } = children;
         if (!meta || !episode) return;
 
-        if (titleText) {
-            titleText.textContent = textLayout.title;
-        }
+        if (titleText) titleText.textContent = textLayout.title;
 
         if (cellData.kind !== 'program') {
-            episode.textContent = '';
-            meta.style.display = 'none';
-            this.clearSubtitlePresentation(children);
+            this.clearSecondaryTextPresentation(children);
             return;
         }
 
         if (cellData.program.item.type !== 'episode') {
-            episode.textContent = '';
-            meta.style.display = 'none';
-            this.clearSubtitlePresentation(children);
+            this.clearSecondaryTextPresentation(children);
             return;
         }
 
@@ -451,6 +445,12 @@ export class EPGCellRenderer {
             text: textLayout.subtitle,
             show: textLayout.showSubtitle,
         });
+    }
+
+    private clearSecondaryTextPresentation({ episode, meta, subtitle, subtitleText }: CellChildren): void {
+        if (episode) episode.textContent = '';
+        if (meta) meta.style.display = 'none';
+        this.clearSubtitlePresentation({ subtitle, subtitleText });
     }
 
     private applySubtitlePresentation(

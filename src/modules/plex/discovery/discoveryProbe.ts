@@ -29,7 +29,7 @@ export async function findFastestConnectionProbe(options: {
     const probeTiers = buildProbeTiers(server, mixedContentConfig);
 
     for (const tier of probeTiers) {
-        const tierProbes = await Promise.all(tier.connections.map(async (connection) => probeConnection(connection)));
+        const tierProbes = await Promise.all(tier.connections.map((connection) => probeConnection(connection)));
         const selectedProbe = pickFastestReachableProbe(tierProbes);
 
         tierProbes.forEach((probe) => noteAuthOutcome(summary, probe.outcome));

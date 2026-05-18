@@ -110,7 +110,6 @@ export interface ServerSelectNavigationParams {
 }
 
 export interface NavigationConfig {
-    /** Enable Magic Remote pointer mode */
     enablePointerMode: boolean;
     keyRepeatDelayMs: number;
     keyRepeatIntervalMs: number;
