@@ -1,4 +1,5 @@
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
+import type { Direction } from './interfaces';
 
 export type NavigationPlaybackOptionsSectionId = 'subtitles' | 'audio';
 export type NavigationChannelSwitchOutcome = ChannelSwitchOutcome;
@@ -86,5 +87,5 @@ export interface NavigationChannelSwitchingPort {
     onChannelInputUpdate?: (payload: { digits: string; isComplete: boolean }) => void;
 }
 
-export type NavigationFourWayDirection = 'up' | 'down' | 'left' | 'right';
-export type NavigationVerticalDirection = 'up' | 'down';
+export type NavigationFourWayDirection = Direction;
+export type NavigationVerticalDirection = Extract<Direction, 'up' | 'down'>;
