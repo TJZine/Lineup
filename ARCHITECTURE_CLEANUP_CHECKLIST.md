@@ -1111,29 +1111,48 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Handoff: `PQR-3` is closed. Do not run a PQR score refresh here because final
   score rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-4` App-Shell And Orchestrator Assembly Boundaries
+### [x] `PQR-4` App-Shell And Orchestrator Assembly Boundaries
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: completed
+- Plan:
+  [`docs/plans/2026-05-18-pqr-4-app-shell-orchestrator-assembly-boundaries-plan.md`](docs/plans/2026-05-18-pqr-4-app-shell-orchestrator-assembly-boundaries-plan.md)
+- Last touched: 2026-05-18; implementation commits `c8bf3b4f` and
+  `4d6d8cce`
+- Verification: plan review and implementation review passed clean after
+  required closure/fresh-approval loops. Implementation verification:
+  targeted startup/coordinator suites covering 8 suites and 175 tests,
+  `npm run typecheck`, `git diff --check`, `git diff --cached --check`,
+  `npm run verify:maintainability`, `npm run verify`, `npm run plans:check`,
+  and `npm run verify:docs` passed. Revision verification: targeted
+  coordinator tests, `npm run typecheck`, `git diff --check`,
+  `git diff --cached --check`, `npm run plans:check`, `npm run verify:docs`,
+  and source audits for startup UI construction, old coordinator-builder
+  paths, public exports, required-module validation, and localized toast
+  ownership passed. `npm run verify:docs` passed with the active PQR-4 plan
+  still untracked, so the plan was not committed as implementation closeout.
 - Dimensions/rubric tags: design coherence, cross-module architecture,
   initialization coupling, abstraction fitness, test strategy
 - Owner/scope: `src/core/orchestrator/**`, `src/core/app-shell/chrome/**`, and
   `src/core/initialization/**` only for the startup-UI port seam.
-- Production risk: `AppOrchestrator` constructs app-shell chrome, and
-  `OrchestratorCoordinatorBuilders.ts` spans unrelated coordinator domains,
-  making startup UI, playback/OSD, EPG/channel setup, navigation, and modal
-  wiring harder to port and review.
-- Source findings to audit/retire:
-  - `PQR-4-SF1`: move `AppStartupUiInitializer` construction to app-shell, or
-    source-disprove; `AppOrchestrator` should receive only an
-    `InitializationStartupUiPort`-shaped value.
-  - `PQR-4-SF2`: split coordinator builders by feature family if current source
-    still mixes EPG/channel setup, playback/OSD, navigation/modal, and
-    now-playing/debug assembly.
-  - `PQR-4-SF3`: preserve coordinator contracts and startup order; no generic
-    assembly dumping ground.
+- Production risk: retired for this package. App-shell now owns concrete
+  startup UI construction, and orchestrator assembly uses direct feature-family
+  owner files instead of the old mixed coordinator-builder surface.
+- Source findings retired:
+  - `PQR-4-SF1`: resolved in `PQR-4-W1`. `AppStartupUiPortFactory` is the
+    app-shell chrome owner for concrete `AppStartupUiInitializer`
+    construction, while `AppOrchestrator` consumes the factory result as an
+    `InitializationStartupUiPort`-shaped value. `InitializationStartupUiPort`
+    remains narrow at `ensureCorePlayerUiInitialized()`.
+  - `PQR-4-SF2`: resolved in `PQR-4-W1`. The deleted
+    `OrchestratorCoordinatorBuilders.ts` mixed surface was split into direct
+    feature-family owners for EPG/channel setup, playback/OSD,
+    navigation/modal, and now-playing/debug assembly. No old-path
+    compatibility file, shim, wrapper, or barrel was kept.
+  - `PQR-4-SF3`: resolved in `PQR-4-W1`. Required-module validation still runs
+    before coordinator creation, coordinator construction order is preserved,
+    coordinator contracts stay typed/narrow, diagnostics and major wiring
+    families remain intact, and the follow-up toast-routing revision removed
+    the only reviewed cross-feature generic-helper leak.
 - Completion means: app-shell chrome construction is owned by app-shell, the
   orchestrator assembly surface is split into reviewable feature-family owners,
   initialization port contracts remain narrow, and startup/coordinator behavior
@@ -1146,9 +1165,10 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   coordinator public contracts widen; split creates circular dependencies or
   generic helper dumping grounds; tests require private probes instead of public
   startup/coordinator seams.
-- Follow-ups: none yet
-- Handoff: plan after `PQR-1` or in parallel only if write scopes and
-  verification surfaces are explicitly disjoint.
+- Follow-ups: none for `PQR-4`; remaining refresh work continues with
+  maintainer-selected `PQR-*` packages.
+- Handoff: `PQR-4` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
 ### [ ] `PQR-5` Runtime API, Auth Token, And Abort/Error Contract Coherence
 
