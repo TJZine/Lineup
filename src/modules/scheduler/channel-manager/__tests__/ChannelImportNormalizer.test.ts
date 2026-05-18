@@ -32,3 +32,30 @@ describe('ChannelImportNormalizer error formatting', () => {
         expect(message).toContain('"unserializable":true');
     });
 });
+
+describe('ChannelImportNormalizer seed handling', () => {
+    it('drops non-finite imported seeds while preserving valid finite values', () => {
+        const normalizer = new ChannelImportNormalizer();
+
+        const channel = normalizer.buildCreateInput({
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-1',
+                libraryType: 'movie',
+                includeWatched: true,
+            },
+            shuffleSeed: Number.NEGATIVE_INFINITY,
+            phaseSeed: 42,
+        });
+
+        expect(channel).toEqual({
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-1',
+                libraryType: 'movie',
+                includeWatched: true,
+            },
+            phaseSeed: 42,
+        });
+    });
+});

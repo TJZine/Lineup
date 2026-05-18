@@ -1,5 +1,6 @@
 import { formatErrorDetailForMessage } from '../../../utils/errors';
 import { isValidContentSource } from './ChannelContentSourceValidator';
+import { isValidChannelSeed } from './ChannelSeedPolicy';
 import {
     isValidBuildStrategy,
     isValidContentFilterArray,
@@ -96,7 +97,7 @@ export class ChannelImportNormalizer {
         if (playbackMode !== undefined) {
             channel.playbackMode = playbackMode;
         }
-        if (typeof record['shuffleSeed'] === 'number' && Number.isFinite(record['shuffleSeed'])) {
+        if (isValidChannelSeed(record['shuffleSeed'])) {
             channel.shuffleSeed = record['shuffleSeed'];
         }
         if (
@@ -106,7 +107,7 @@ export class ChannelImportNormalizer {
         ) {
             channel.blockSize = record['blockSize'];
         }
-        if (typeof record['phaseSeed'] === 'number' && Number.isFinite(record['phaseSeed'])) {
+        if (isValidChannelSeed(record['phaseSeed'])) {
             channel.phaseSeed = record['phaseSeed'];
         }
         if (typeof record['startTimeAnchor'] === 'number' && Number.isFinite(record['startTimeAnchor'])) {

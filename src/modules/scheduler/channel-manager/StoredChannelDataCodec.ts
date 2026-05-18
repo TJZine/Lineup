@@ -1,5 +1,5 @@
-import { fnv1a32Uint } from '../../../utils/hash';
 import { isValidContentSource } from './ChannelContentSourceValidator';
+import { applyChannelSeedDefaults, isValidChannelSeed } from './ChannelSeedPolicy';
 import { cloneContentFilters, cloneContentSource } from './ChannelDomainClone';
 import {
     isValidBuildStrategy,
@@ -112,12 +112,10 @@ export function decodeStoredChannelConfigRecord(raw: unknown): DecodedStoredChan
     };
 
     didMutate = applyOptionalPersistedChannelFields(channel, record, didMutate);
-    if (typeof channel.shuffleSeed !== 'number' || !Number.isFinite(channel.shuffleSeed)) {
-        channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
-        didMutate = true;
-    }
-    if (typeof channel.phaseSeed !== 'number' || !Number.isFinite(channel.phaseSeed)) {
-        channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
+    const previousShuffleSeed = channel.shuffleSeed;
+    const previousPhaseSeed = channel.phaseSeed;
+    applyChannelSeedDefaults(channel);
+    if (channel.shuffleSeed !== previousShuffleSeed || channel.phaseSeed !== previousPhaseSeed) {
         didMutate = true;
     }
 
@@ -209,14 +207,14 @@ function applyOptionalPersistedChannelFields(
         }
     }
     if (record['shuffleSeed'] !== undefined) {
-        if (typeof record['shuffleSeed'] === 'number' && Number.isFinite(record['shuffleSeed'])) {
+        if (isValidChannelSeed(record['shuffleSeed'])) {
             channel.shuffleSeed = record['shuffleSeed'];
         } else {
             didMutate = true;
         }
     }
     if (record['phaseSeed'] !== undefined) {
-        if (typeof record['phaseSeed'] === 'number' && Number.isFinite(record['phaseSeed'])) {
+        if (isValidChannelSeed(record['phaseSeed'])) {
             channel.phaseSeed = record['phaseSeed'];
         } else {
             didMutate = true;
