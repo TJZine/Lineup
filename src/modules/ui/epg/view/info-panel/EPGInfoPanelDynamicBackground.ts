@@ -1,6 +1,6 @@
-import { EPG_CLASSES } from '../constants';
-import type { ScheduledProgram } from '../types';
-import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
+import { EPG_CLASSES } from '../../constants';
+import type { ScheduledProgram } from '../../types';
+import { extractDominantColor } from '../../../../../utils/color/extractDominantColor';
 
 const MAX_DYNAMIC_COLOR_CACHE_ENTRIES = 128;
 const DYNAMIC_COLOR_FAILURE_COOLDOWN_MS = 60_000;

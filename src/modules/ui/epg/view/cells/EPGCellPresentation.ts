@@ -1,5 +1,5 @@
-import { formatCellTimeLabel } from '../utils';
-import type { CellRenderData, ScheduledProgram } from '../types';
+import { formatCellTimeLabel } from '../../utils';
+import type { CellRenderData, ScheduledProgram } from '../../types';
 
 const TEXT_GUTTER_PX = 12;
 const TEXT_RIGHT_GUTTER_PX = 12;

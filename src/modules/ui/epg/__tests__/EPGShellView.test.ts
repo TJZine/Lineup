@@ -3,7 +3,7 @@
  */
 
 import { EPG_CLASSES } from '../constants';
-import { EPGShellView } from '../view/EPGShellView';
+import { EPGShellView } from '../view/shell/EPGShellView';
 
 describe('EPGShellView', () => {
     let container: HTMLElement;

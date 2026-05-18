@@ -1,13 +1,13 @@
-import { EPG_CLASSES } from '../constants';
-import { formatTime, formatDuration } from '../utils';
-import type { IEPGInfoPanel } from '../interfaces';
-import type { ScheduledProgram } from '../types';
-import type { EpgItemDetails } from '../model/domainTypes';
-import { formatContentRatingBadge } from '../../../../utils/contentRating';
-import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
-import { NowPlayingDisplayStore } from '../../../settings/NowPlayingDisplayStore';
-import { EPGInfoPanelDetailsLoader } from './EPGInfoPanelDetailsLoader';
-import { EPGInfoPanelDynamicBackground } from './EPGInfoPanelDynamicBackground';
+import { EPG_CLASSES } from '../../constants';
+import { formatTime, formatDuration } from '../../utils';
+import type { IEPGInfoPanel } from '../../interfaces';
+import type { ScheduledProgram } from '../../types';
+import type { EpgItemDetails } from '../../model/domainTypes';
+import { formatContentRatingBadge } from '../../../../../utils/contentRating';
+import { EpgPreferencesStore } from '../../../../settings/EpgPreferencesStore';
+import { NowPlayingDisplayStore } from '../../../../settings/NowPlayingDisplayStore';
+import { EPGInfoPanelDetailsLoader } from '../info-panel/EPGInfoPanelDetailsLoader';
+import { EPGInfoPanelDynamicBackground } from '../info-panel/EPGInfoPanelDynamicBackground';
 
 const QUALITY_BADGE_SLOT_COUNT = 5;
 

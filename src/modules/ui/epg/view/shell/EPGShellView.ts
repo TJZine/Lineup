@@ -1,7 +1,7 @@
-import { EPG_CLASSES } from '../constants';
-import { createLineupBrandGlyph } from '../../common/brandGlyph';
-import type { EPGConfig } from '../types';
-import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
+import { EPG_CLASSES } from '../../constants';
+import { createLineupBrandGlyph } from '../../../common/brandGlyph';
+import type { EPGConfig } from '../../types';
+import type { EpgLayoutMode } from '../../../../settings/EpgPreferencesStore';
 
 export type EPGShellElements = {
     classicHeader: HTMLElement;

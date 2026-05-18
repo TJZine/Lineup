@@ -1,6 +1,6 @@
-import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
-import type { IEPGInfoPanel } from '../interfaces';
-import type { ScheduledProgram } from '../types';
+import type { EpgLayoutMode } from '../../../../settings/EpgPreferencesStore';
+import type { IEPGInfoPanel } from '../../interfaces';
+import type { ScheduledProgram } from '../../types';
 
 export const INFO_PANEL_FULL_UPDATE_DEBOUNCE_MS = 200;
 

@@ -2,8 +2,8 @@
 
 import { EPG_CONSTANTS, EPG_CLASSES } from '../constants';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
-import { EPGCellRenderer } from './EPGCellRenderer';
-import type { EPGRenderedCellData } from './EPGCellRenderer';
+import { EPGCellRenderer } from './cells/EPGCellRenderer';
+import type { EPGRenderedCellData } from './cells/EPGCellRenderer';
 import type {
     ScheduledProgram,
     ScheduleWindow,

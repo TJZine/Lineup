@@ -1,4 +1,4 @@
-import { EPG_CLASSES } from '../constants';
+import { EPG_CLASSES } from '../../constants';
 import {
     FOCUSED_MOVIE_OVERLAY_CLASS,
     FOCUSED_TICKER_MIN_OVERFLOW_PX,
@@ -20,10 +20,10 @@ import {
     type EPGCellWidthTier,
     type EPGCellVisibleTextMetrics,
     type TickerTarget,
-} from './EPGCellPresentation';
-import type { CellRenderData } from '../types';
+} from '../cells/EPGCellPresentation';
+import type { CellRenderData } from '../../types';
 
-export type { EPGCellWidthTier } from './EPGCellPresentation';
+export type { EPGCellWidthTier } from '../cells/EPGCellPresentation';
 
 export type EPGRenderedCellData = CellRenderData & {
     visibleWidthPx: number;
@@ -42,7 +42,7 @@ type CellChildren = {
     progressFill: HTMLElement | null;
 };
 
-export type { EPGCellVisibleTextMetrics } from './EPGCellPresentation';
+export type { EPGCellVisibleTextMetrics } from '../cells/EPGCellPresentation';
 
 export class EPGCellRenderer {
     private cellChildrenCache: WeakMap<HTMLElement, CellChildren> = new WeakMap();
@@ -116,12 +116,7 @@ export class EPGCellRenderer {
         if (episode) {
             episode.textContent = '';
         }
-        if (subtitle) {
-            if (subtitleText) {
-                subtitleText.textContent = '';
-            }
-            subtitle.style.display = 'none';
-        }
+        this.clearSubtitlePresentation({ subtitle, subtitleText });
         if (titleText) titleText.textContent = '';
         if (time) {
             time.textContent = '';
@@ -423,7 +418,7 @@ export class EPGCellRenderer {
         cellData: CellRenderData,
         textLayout: CellTextLayout
     ): void {
-        const { meta, episode, subtitle, subtitleText, titleText } = children;
+        const { meta, episode, titleText } = children;
         if (!meta || !episode) return;
 
         if (titleText) {
@@ -433,14 +428,14 @@ export class EPGCellRenderer {
         if (cellData.kind !== 'program') {
             episode.textContent = '';
             meta.style.display = 'none';
-            this.clearSubtitlePresentation(subtitle, subtitleText);
+            this.clearSubtitlePresentation(children);
             return;
         }
 
         if (cellData.program.item.type !== 'episode') {
             episode.textContent = '';
             meta.style.display = 'none';
-            this.clearSubtitlePresentation(subtitle, subtitleText);
+            this.clearSubtitlePresentation(children);
             return;
         }
 
@@ -452,25 +447,47 @@ export class EPGCellRenderer {
             meta.style.display = 'none';
         }
 
-        if (subtitle) {
-            if (subtitleText) {
-                subtitleText.textContent = textLayout.showSubtitle ? textLayout.subtitle : '';
-            }
-            subtitle.style.display = textLayout.showSubtitle ? 'block' : 'none';
-        }
+        this.applySubtitlePresentation(children, {
+            text: textLayout.subtitle,
+            show: textLayout.showSubtitle,
+        });
     }
 
-    private clearSubtitlePresentation(
-        subtitle: HTMLElement | null,
-        subtitleText: HTMLElement | null
+    private applySubtitlePresentation(
+        { subtitle, subtitleText }: Pick<CellChildren, 'subtitle' | 'subtitleText'>,
+        presentation: { text: string; show: boolean }
     ): void {
+        if (!presentation.show) {
+            this.clearSubtitlePresentation({ subtitle, subtitleText });
+            return;
+        }
         if (!subtitle) {
             return;
         }
         if (subtitleText) {
+            subtitleText.textContent = presentation.text;
+        }
+        subtitle.style.display = 'block';
+    }
+
+    private clearSubtitlePresentation(
+        { subtitle, subtitleText }: Pick<CellChildren, 'subtitle' | 'subtitleText'>
+    ): void {
+        if (subtitleText) {
             subtitleText.textContent = '';
         }
-        subtitle.style.display = 'none';
+        if (subtitle) {
+            subtitle.style.display = 'none';
+        }
+    }
+
+    private setSubtitleDisplay(
+        { subtitle }: Pick<CellChildren, 'subtitle'>,
+        show: boolean
+    ): void {
+        if (subtitle) {
+            subtitle.style.display = show ? 'block' : 'none';
+        }
     }
 
     private clearTickerStateForTargets(targets: TickerTarget[]): void {
@@ -496,7 +513,7 @@ export class EPGCellRenderer {
             EPG_CLASSES.CELL_TIER_TINY
         );
 
-        const { time, meta, subtitle, subtitleText } = children;
+        const { time, meta, subtitleText } = children;
         const hasMetaContent = (meta?.textContent ?? '').trim().length > 0;
         const hasSubtitleContent = (subtitleText?.textContent ?? '').trim().length > 0;
         const isFocused = cellData.isFocused;
@@ -526,22 +543,22 @@ export class EPGCellRenderer {
 
         if (usesSliverPresentation) {
             if (meta) meta.style.display = 'none';
-            if (subtitle) subtitle.style.display = 'none';
+            this.clearSubtitlePresentation(children);
             if (time) time.style.display = 'none';
             return;
         }
 
         if (tier === 'wide') {
             if (meta) meta.style.display = hasMetaContent && showEpisodeTag ? 'flex' : 'none';
-            if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
+            this.setSubtitleDisplay(children, hasSubtitleContent);
             if (time) time.style.display = showTime ? 'block' : 'none';
         } else if (tier === 'medium') {
             if (meta) meta.style.display = isFocusedEpisode && hasMetaContent && showEpisodeTag ? 'flex' : 'none';
-            if (subtitle) subtitle.style.display = hasSubtitleContent ? 'block' : 'none';
+            this.setSubtitleDisplay(children, hasSubtitleContent);
             if (time) time.style.display = showTime ? 'block' : 'none';
         } else if (tier === 'narrow' || tier === 'tiny') {
             if (meta) meta.style.display = isFocusedEpisode && hasMetaContent && showEpisodeTag ? 'flex' : 'none';
-            if (subtitle) subtitle.style.display = isFocusedEpisode && hasSubtitleContent ? 'block' : 'none';
+            this.setSubtitleDisplay(children, isFocusedEpisode && hasSubtitleContent);
             if (time) time.style.display = isFocused && showTime ? 'block' : 'none';
         }
     }
