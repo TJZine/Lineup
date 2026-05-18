@@ -1,5 +1,7 @@
 export const PLEX_SERVER_KEY_PREFIXES = ['/library/', '/video/', '/:/'] as const;
 export const PLEX_CLOUD_TRUSTED_ORIGINS = ['https://plex.tv', 'https://clients.plex.tv'] as const;
+export const PLEX_TOKEN_HEADER = 'X-Plex-Token';
+export const PLEX_TOKEN_QUERY_PARAM = PLEX_TOKEN_HEADER;
 
 function parseUrlLike(value: string): URL | null {
     try {
@@ -94,11 +96,11 @@ export function applyXPlexTokenQueryParam(params: URLSearchParams, token: string
     if (typeof token !== 'string' || token.length === 0) {
         return;
     }
-    params.set('X-Plex-Token', token);
+    params.set(PLEX_TOKEN_QUERY_PARAM, token);
 }
 
 export function readXPlexTokenFromHeaders(headers: Record<string, unknown>): string | null {
-    const token = headers['X-Plex-Token'];
+    const token = headers[PLEX_TOKEN_HEADER];
     return typeof token === 'string' && token.length > 0 ? token : null;
 }
 

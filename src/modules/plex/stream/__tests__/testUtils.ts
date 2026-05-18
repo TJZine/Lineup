@@ -9,6 +9,7 @@ import {
     createPlexIdentityHeaders,
     createPlexIdentityMetadata,
 } from '../../auth/config';
+import { PLEX_TOKEN_HEADER } from '../../shared/plexUrl';
 
 const mockIdentityService: PlatformIdentityService = {
     isWebOs: () => true,
@@ -31,7 +32,7 @@ export function createMockConfig(
         overrides.subtitleDebugPolicyReader ?? developerSettingsStore;
     return {
         getAuthHeaders: () => ({
-            'X-Plex-Token': 'mock-token',
+            [PLEX_TOKEN_HEADER]: 'mock-token',
             Accept: 'application/json',
         }),
         getServerUri: () => 'http://192.168.1.100:32400',

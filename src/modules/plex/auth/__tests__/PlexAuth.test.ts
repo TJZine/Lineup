@@ -8,6 +8,7 @@ import { PlexAuthConfig, PlexAuthToken } from '../interfaces';
 import { PLEX_AUTH_CONSTANTS } from '../constants';
 import { PlexApiError } from '../plexAuthTransport';
 import { AppErrorCode } from '../../../../types/app-errors';
+import { PLEX_TOKEN_HEADER } from '../../shared/plexUrl';
 
 // Mock localStorage
 const mockLocalStorage = (function (): Storage {
@@ -764,17 +765,17 @@ describe('PlexAuth', () => {
 
             const headers = auth.getAuthHeaders();
 
-            expect(headers['X-Plex-Token']).toBeUndefined();
+            expect(headers[PLEX_TOKEN_HEADER]).toBeUndefined();
         });
 
-        it('should include X-Plex-Token when authenticated', async () => {
+        it('should include the canonical Plex token header when authenticated', async () => {
             const auth = new PlexAuth(mockConfig);
             const testToken = createAuthToken('my-secret-token', 'user123');
             auth.storeCredentials(createAuthData(testToken));
 
             const headers = auth.getAuthHeaders();
 
-            expect(headers['X-Plex-Token']).toBe('my-secret-token');
+            expect(headers[PLEX_TOKEN_HEADER]).toBe('my-secret-token');
             expect((headers as Record<string, string>)['x-plex-token']).toBeUndefined();
         });
     });

@@ -32,6 +32,7 @@ import {
     applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParam,
     buildPlexUrlFromKey,
+    PLEX_TOKEN_QUERY_PARAM,
 } from '../../shared/plexUrl';
 import {
     buildPlexClientCapabilities,
@@ -354,7 +355,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             }
 
             const debugUrl = new URL(url);
-            if (debugUrl.searchParams.has('X-Plex-Token')) {
+            if (debugUrl.searchParams.has(PLEX_TOKEN_QUERY_PARAM)) {
                 applyXPlexTokenQueryParam(debugUrl.searchParams, 'REDACTED');
             }
             logPlexWarning(

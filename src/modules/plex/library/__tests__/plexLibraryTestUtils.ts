@@ -1,9 +1,10 @@
 import type { PlexLibraryConfig } from '../interfaces';
+import { PLEX_TOKEN_HEADER } from '../../shared/plexUrl';
 
 export const mockConfig: PlexLibraryConfig = {
     getAuthHeaders: () => ({
         Accept: 'application/json',
-        'X-Plex-Token': 'mock-token',
+        [PLEX_TOKEN_HEADER]: 'mock-token',
         'X-Plex-Client-Identifier': 'mock-client-id',
     }),
     getServerUri: () => 'http://192.168.1.100:32400',

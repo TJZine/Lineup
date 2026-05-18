@@ -2,12 +2,13 @@ import {
     buildSubtitleStreamProbeRequestContext,
     readSubtitleProbeSample,
 } from '../diagnostics/SubtitleStreamProbeSupport';
+import { PLEX_TOKEN_HEADER } from '../../shared/plexUrl';
 
 describe('SubtitleStreamProbeSupport', () => {
     it('builds a redacted request context for direct subtitle stream keys', () => {
         const context = buildSubtitleStreamProbeRequestContext({
             authHeaders: {
-                'X-Plex-Token': 'secret-token',
+                [PLEX_TOKEN_HEADER]: 'secret-token',
                 'X-Plex-Client-Identifier': 'test-client',
             },
             serverUri: 'http://192.168.1.100:32400',
@@ -20,7 +21,7 @@ describe('SubtitleStreamProbeSupport', () => {
         expect(context.headers).toEqual(
             expect.objectContaining({
                 Accept: 'text/vtt, text/plain, */*',
-                'X-Plex-Token': 'secret-token',
+                [PLEX_TOKEN_HEADER]: 'secret-token',
                 'X-Plex-Client-Identifier': 'test-client',
             })
         );
@@ -31,7 +32,7 @@ describe('SubtitleStreamProbeSupport', () => {
         const context = buildSubtitleStreamProbeRequestContext({
             authHeaders: {
                 Accept: 'application/json',
-                'X-Plex-Token': 'secret-token',
+                [PLEX_TOKEN_HEADER]: 'secret-token',
             },
             serverUri: 'http://192.168.1.100:32400',
             subtitleStreamId: 'sub-1',

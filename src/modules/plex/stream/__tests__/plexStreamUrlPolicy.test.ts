@@ -6,6 +6,7 @@ import {
     classifyPlexTranscodeLocation,
     ensurePlexClientProfileName,
 } from '../url/plexStreamUrlPolicy';
+import { PLEX_TOKEN_HEADER, PLEX_TOKEN_QUERY_PARAM } from '../../shared/plexUrl';
 
 const createTranscodeInput = (
     overrides: Partial<Parameters<typeof buildPlexTranscodeStartUrl>[0]> = {}
@@ -29,7 +30,7 @@ const createTranscodeInput = (
     relayConnectionUri: null,
     clientCapabilities: 'computed-capabilities',
     authHeaders: {
-        'X-Plex-Token': 'token-1',
+        [PLEX_TOKEN_HEADER]: 'token-1',
         'X-Plex-Client-Capabilities': 'header-capabilities',
     },
     forcedProfileName: 'Generic',
@@ -147,7 +148,7 @@ describe('plexStreamUrlPolicy', () => {
         expect(parsed.searchParams.get('location')).toBe('lan');
         expect(parsed.searchParams.get('subtitles')).toBe('burn');
         expect(parsed.searchParams.get('subtitleStreamID')).toBe('sub-1');
-        expect(parsed.searchParams.get('X-Plex-Token')).toBe('token-1');
+        expect(parsed.searchParams.get(PLEX_TOKEN_QUERY_PARAM)).toBe('token-1');
         expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe('computed-capabilities');
         expect(parsed.searchParams.get('X-Plex-Client-Profile-Name')).toBe('Generic');
         expect(parsed.searchParams.get('X-Plex-Client-Identifier')).toBe('client-1');

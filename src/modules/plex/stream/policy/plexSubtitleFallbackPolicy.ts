@@ -1,5 +1,7 @@
 import {
     applyXPlexQueryParamsFromHeaders,
+    PLEX_TOKEN_HEADER,
+    PLEX_TOKEN_QUERY_PARAM,
     readXPlexTokenFromHeaders,
 } from '../../shared/plexUrl';
 import {
@@ -39,11 +41,11 @@ export function buildPlexSubtitleFetchAttempts(
     }
 
     const headerUrl = new URL(initialUrl.toString());
-    headerUrl.searchParams.delete('X-Plex-Token');
+    headerUrl.searchParams.delete(PLEX_TOKEN_QUERY_PARAM);
     attempts.push({
         name: 'header',
         url: headerUrl,
-        headers: { ...baseAcceptHeader, 'X-Plex-Token': tokenFromHeaders },
+        headers: { ...baseAcceptHeader, [PLEX_TOKEN_HEADER]: tokenFromHeaders },
     });
 
     const queryDownloadUrl = new URL(initialUrl.toString());
@@ -59,7 +61,7 @@ export function buildPlexSubtitleFetchAttempts(
     attempts.push({
         name: 'header_download',
         url: headerDownloadUrl,
-        headers: { ...baseAcceptHeader, 'X-Plex-Token': tokenFromHeaders },
+        headers: { ...baseAcceptHeader, [PLEX_TOKEN_HEADER]: tokenFromHeaders },
     });
 
     return attempts;

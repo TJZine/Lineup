@@ -141,7 +141,7 @@ export interface IPlexLibrary {
 }
 
 export interface PlexLibraryConfig {
-    /** Should include X-Plex-Token when authenticated. */
+    /** Should include the canonical Plex token header when authenticated. */
     getAuthHeaders: () => Record<string, string>;
 
     /** Active Plex server connection URI. */

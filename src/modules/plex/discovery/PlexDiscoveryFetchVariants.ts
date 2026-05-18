@@ -1,6 +1,7 @@
 import {
     applyXPlexTokenQueryParamIfTrusted,
     PLEX_CLOUD_TRUSTED_ORIGINS,
+    PLEX_TOKEN_QUERY_PARAM,
     readXPlexTokenFromHeaders,
 } from '../shared/plexUrl';
 import { PLEX_DISCOVERY_CONSTANTS } from './constants';
@@ -54,7 +55,7 @@ function pushVariantWhenTokenWasApplied(
     url: URL,
     headers: Record<string, string>
 ): void {
-    if (url.searchParams.has('X-Plex-Token')) {
+    if (url.searchParams.has(PLEX_TOKEN_QUERY_PARAM)) {
         variants.push({ url: url.toString(), headers });
     }
 }
