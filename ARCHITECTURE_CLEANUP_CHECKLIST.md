@@ -1010,23 +1010,25 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Handoff: `PQR-1` is closed. Do not run a PQR score refresh here; final score
   rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-2` UI Workflow, EPG View, And Presentation Owner Shape
+### [x] `PQR-2` UI Workflow, EPG View, And Presentation Owner Shape
 
-- Status: in progress; `PQR-2-W1` is complete, `PQR-2-W2` remains.
+- Status: complete
 - Plan:
   [`docs/plans/2026-05-17-pqr-2-ui-workflow-epg-view-presentation-owner-shape-plan.md`](./docs/plans/2026-05-17-pqr-2-ui-workflow-epg-view-presentation-owner-shape-plan.md)
-- Last touched: 2026-05-18; `PQR-2-W1` reviewed clean.
-- Verification: `PQR-2-W1` targeted channel setup tests, focused presenter
-  tests, `npm run typecheck`, `git diff --check`, and `npm run verify` passed;
-  final docs verification rerun with closeout docs.
+- Last touched: 2026-05-18; `PQR-2-W1` and `PQR-2-W2` reviewed clean.
+- Verification: targeted channel setup tests, focused presenter tests, targeted
+  EPG wave tests, no-match EPG runtime/focus old-path/public-export audits,
+  `npm run plans:check`, `npm run typecheck`, `git diff --check`,
+  `npm run verify:docs`, and `npm run verify` passed.
 - Dimensions/rubric tags: design coherence, structure navigation, high-level
   elegance, low-level elegance, type safety, UI workflow, test strategy
 - Owner/scope: `src/modules/ui/channel-setup/**`,
   `src/modules/ui/epg/view/**`, and `src/modules/ui/epg/component/**` only for
   import/path fallout. Scheduler/Plex behavior is out of scope.
-- Production risk: `ChannelSetupScreen` still owns Step 1 adapters/focus policy
-  alongside lifecycle/routing, and `epg/view` mixes unrelated UI subdomains.
-  That slows safe UI changes and risks focus/layout regressions.
+- Production risk: resolved for this package. `ChannelSetupScreen` remains the
+  shell/lifecycle/step-router, Step 1/2 presenter concerns are locally owned,
+  and approved-scope EPG view leaves are grouped by owner without
+  runtime/focus fallout or export widening.
 - Source findings to audit/retire:
   - `PQR-2-SF1`: resolved in `PQR-2-W1`. `LibraryStepPresenter` now owns
     Step 1 render adapters, bulk focus-neighbor policy, formatting, SVG/DOM-id
@@ -1035,11 +1037,13 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   - `PQR-2-SF2`: resolved in `PQR-2-W1`. Step 2 adjustable controls now render
     from the shared `StrategyStepControlDescriptors` owner consumed by
     `StrategyStepInteractionController`, preserving keyboard/dropdown behavior.
-  - `PQR-2-SF3`: split `epg/view` into owner folders such as `cells/`,
-    `info-panel/`, `grid/`, and `shell/` if the flat folder still blocks
-    navigation; no shims/barrels/export widening.
-  - `PQR-2-SF4`: centralize the complete EPG secondary-text clear state without
-    changing DOM shape, slivers, ticker, or focused/live presentation.
+  - `PQR-2-SF3`: resolved in `PQR-2-W2`. Approved-scope EPG view leaves now
+    live under `view/cells/`, `view/info-panel/`, and `view/shell/` with direct
+    leaf imports only. Runtime/focus-imported grid/navigation leaves were left
+    in place by plan, with no shims, barrels, or public export widening.
+  - `PQR-2-SF4`: resolved in `PQR-2-W2`. `EPGCellRenderer` now centralizes
+    secondary-text clear/apply state while preserving DOM shape, slivers,
+    ticker behavior, and focused/live/current presentation.
 - Completion means: channel setup lifecycle/routing remains clear, Step 1/2
   presenter concerns are locally owned, EPG view exposes real owner clusters,
   and duplicate EPG presentation clearing is gone.
@@ -1051,12 +1055,10 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   semantics change; dropdown/session ownership becomes ambiguous; EPG DOM
   shape, virtualizer, ticker, or layout behavior changes; folder moves require
   shims/barrels; private test probes become necessary.
-- Follow-ups: execute `PQR-2-W2` from the active plan for approved-scope EPG
-  view organization and secondary-text clearing only; do not widen into
-  runtime/focus import fallout without replan.
-- Handoff: `PQR-1` is closed and `PQR-2-W1` is complete. Continue with
-  `PQR-2-W2`; do not run a PQR score refresh here because final score
-  rebaseline belongs to `PQR-EXIT`.
+- Follow-ups: none for `PQR-2`; remaining refresh work continues with
+  maintainer-selected `PQR-*` packages.
+- Handoff: `PQR-2` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
 ### [ ] `PQR-3` Channel Setup Facet Loading Abstraction Fit
 

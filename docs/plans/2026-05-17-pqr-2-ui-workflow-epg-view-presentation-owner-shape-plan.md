@@ -1,6 +1,6 @@
 # PQR-2 UI Workflow, EPG View, And Presentation Owner Shape Plan
 
-**Plan Status:** active
+**Plan Status:** completed
 **Task family:** cleanup/refactor
 **Cleanup subtype:** checklist-linked
 **Package id:** `PQR-2`
@@ -106,8 +106,8 @@ Current-source proof matrix:
 | --- | --- | --- | --- | --- |
 | `PQR-2-SF1` | Live; plan to retire in `PQR-2-S1`. | `ChannelSetupScreen.ts` owns `_renderLibraryStep`, `_registerBulkActionNeighbors`, `_toDomId`, `_formatCount`, inline movie/show SVG constants, library session mutation callbacks, selective DOM update, and back/next routing while `LibraryStepController.ts` only renders and exposes callback hooks. | New package-local `LibraryStepPresenter`-style owner under `src/modules/ui/channel-setup/steps/`; `ChannelSetupScreen` keeps shell/lifecycle/step-router. | Stop if presenter needs storage schema changes, core workflow contract changes, new public screen ports, or private test probes. |
 | `PQR-2-SF2` | Live; plan to retire in `PQR-2-S2`. | `StrategyStepInteractionController.ts` already owns `STRATEGY_CONTROL_DESCRIPTORS` for dropdown/current/apply/disabled behavior, while `StrategyStepController.ts` hand-builds descriptor-compatible buttons and repeats state text/disabled/can-open policy. | A shared package-local Step 2 descriptor owner consumed by both `StrategyStepController` and `StrategyStepInteractionController`; `ChannelSetupWorkflowPresenter` remains adapter glue. | Stop if descriptor sharing changes dropdown, left/right cycling, priority grab/reorder, focus memory, preview scheduling, or build/review semantics. |
-| `PQR-2-SF3` | Live; plan to retire in `PQR-2-S3` inside the approved scope only. | `src/modules/ui/epg/view/` currently mixes cells, virtual grid, channel list, time header, shell, info panel, dynamic background/details loader, tabs, error boundary, and visible-range emitter in one flat folder. Direct import audit shows `EPGVirtualizer`, `EPGChannelList`, `EPGTimeHeader`, `EPGLibraryTabs`, `EPGErrorBoundary`, and `EPGVisibleRangeEmitter` have out-of-scope runtime/focus import fallout, while cells, info-panel leaves, and shell can move with `view/**`, `component/**`, and test fallout only. | Approved owner folders are limited to `view/cells/`, `view/info-panel/`, and `view/shell/`. `view/grid/` or moving runtime/focus-imported leaves is not approved in this plan; no root `view/index.ts`, no old-path shims, no package export widening. | Stop if any caller requires an old-path shim/barrel, if public `src/modules/ui/epg/index.ts` would need view re-exports, or if a desired folder move would require edits outside `src/modules/ui/epg/view/**`, `src/modules/ui/epg/component/**`, and affected tests. |
-| `PQR-2-SF4` | Live; plan to retire in `PQR-2-S4`. | `EPGCellRenderer.ts` clears subtitle text/display in `resetElement`, placeholder/non-episode branches via `clearSubtitlePresentation`, and width/sliver branches by display-only hides; this duplicates the secondary-text clear-state contract around focused/live/sliver/ticker code. | `EPGCellRenderer` owns one complete subtitle/secondary-text presentation helper for text plus display state; pure `EPGCellPresentation` remains width/text-layout policy only. | Stop if centralization changes DOM structure, class names, ticker readiness, sliver behavior, focused/live classes, temporal updates, or virtualizer recycling semantics. |
+| `PQR-2-SF3` | Resolved in `PQR-2-W2` / `PQR-2-S3`. | `src/modules/ui/epg/view/cells/`, `view/info-panel/`, and `view/shell/` now hold approved-scope leaves with direct leaf imports. Runtime/focus-imported grid/navigation leaves stay at the view root; no `view/index.ts`, old-path shims, barrels, public export widening, or runtime/focus fallout were introduced. | Approved owner folders: `view/cells/`, `view/info-panel/`, and `view/shell/`. | Revisit only if future EPG view source proves runtime/focus-imported grid/navigation leaves can move without shims, public export widening, behavior edits, or runtime/focus import fallout. |
+| `PQR-2-SF4` | Resolved in `PQR-2-W2` / `PQR-2-S4`. | `src/modules/ui/epg/view/cells/EPGCellRenderer.ts` owns one renderer-local subtitle clear/apply helper covering recycled placeholder, non-episode, sliver, focused/current/live cases; tests preserve ticker, sliver, focused, live, and current presentation. | `EPGCellRenderer` owns subtitle/secondary-text DOM clear/apply state; pure `EPGCellPresentation` remains width/text-layout policy only. | Revisit only if future renderer work changes DOM structure, class names, ticker readiness, sliver behavior, focused/live classes, temporal updates, or virtualizer recycling semantics. |
 
 ## Files In Scope
 
@@ -200,68 +200,129 @@ Stop/replan triggers:
 
 Primary verification mode: `contract-first` for `PQR-2-S1`, `PQR-2-S2`, and `PQR-2-S4`; `refactor-invariance` for `PQR-2-S3`.
 
-Plan classification: `new regression/contract test required` for Step 1 presenter extraction, Step 2 descriptor rendering, and EPG secondary-text centralization. Behavior-neutral EPG folder moves are `refactor-invariance` and can rely on existing coverage plus import audits once moved.
+- Verification classification: `new regression/contract test required`
+
+Behavior-neutral EPG folder moves are `refactor-invariance` and can rely on existing coverage plus import audits once moved.
 
 Per-slice targeted commands:
 
 - Channel setup wave:
-  - `npm test -- --runInBand src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupWorkflowPresenter.test.ts src/modules/ui/channel-setup/steps/__tests__/LibraryStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/StrategyStepInteractionController.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts`
+  - Run: `npm test -- --runInBand src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts src/modules/ui/channel-setup/__tests__/ChannelSetupWorkflowPresenter.test.ts src/modules/ui/channel-setup/steps/__tests__/LibraryStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/StrategyStepController.test.ts src/modules/ui/channel-setup/steps/__tests__/StrategyStepInteractionController.test.ts src/modules/ui/channel-setup/focus/__tests__/ChannelSetupFocusCoordinator.test.ts`
+    - Expected: Step 1/2 channel setup rendering, focus, dropdown, preview, and build/review contracts pass.
 - EPG wave:
-  - `npm test -- --runInBand src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/ui/epg/__tests__/EPGShellView.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/__tests__/EPGInfoPanelCoordinator.test.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts src/modules/ui/epg/__tests__/EPGErrorBoundary.test.ts src/modules/ui/epg/__tests__/EPGVisibleRangeEmitter.test.ts src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/index.test.ts`
+  - Run: `npm test -- --runInBand src/modules/ui/epg/view/__tests__/EPGCellRenderer.test.ts src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts src/modules/ui/epg/__tests__/EPGComponent.test.ts src/modules/ui/epg/__tests__/EPGShellView.test.ts src/modules/ui/epg/__tests__/EPGInfoPanel.test.ts src/modules/ui/epg/__tests__/EPGInfoPanelCoordinator.test.ts src/modules/ui/epg/__tests__/EPGChannelList.test.ts src/modules/ui/epg/__tests__/EPGTimeHeader.test.ts src/modules/ui/epg/__tests__/EPGErrorBoundary.test.ts src/modules/ui/epg/__tests__/EPGVisibleRangeEmitter.test.ts src/modules/ui/epg/__tests__/EPGLibraryTabs.test.ts src/modules/ui/epg/__tests__/index.test.ts`
+    - Expected: EPG renderer, virtualizer, shell, info-panel, tabs, range, and public package contracts pass after approved view moves.
 
 Required final commands before implementation closeout:
 
 - Approved-scope import audit after `PQR-2-S3`; expected output is no matches and exit `0`:
-  - `! rg -n "from '../view/(cells|info-panel|shell)/|from './(cells|info-panel|shell)/|from '../../view/(cells|info-panel|shell)/" src/modules/ui/epg/runtime src/modules/ui/epg/focus`
+  - Run: `! rg -n "from '../view/(cells|info-panel|shell)/|from './(cells|info-panel|shell)/|from '../../view/(cells|info-panel|shell)/" src/modules/ui/epg/runtime src/modules/ui/epg/focus`
+    - Expected: no matches; runtime/focus imports do not point at moved owner folders.
 - Old flat-path audit for moved leaves after `PQR-2-S3`; replace the name list with the exact moved leaves. Expected output is no matches and exit `0`:
-  - `! rg -n "from '../view/(EPGCellRenderer|EPGCellPresentation|EPGInfoPanel|EPGInfoPanelCoordinator|EPGInfoPanelDetailsLoader|EPGInfoPanelDynamicBackground|EPGShellView)'|from './(EPGCellRenderer|EPGCellPresentation|EPGInfoPanel|EPGInfoPanelCoordinator|EPGInfoPanelDetailsLoader|EPGInfoPanelDynamicBackground|EPGShellView)'|from '../../view/(EPGCellRenderer|EPGCellPresentation|EPGInfoPanel|EPGInfoPanelCoordinator|EPGInfoPanelDetailsLoader|EPGInfoPanelDynamicBackground|EPGShellView)'" src/modules/ui/epg src/core src/modules/navigation`
+  - Run: `! rg -n "from '../view/(EPGCellRenderer|EPGCellPresentation|EPGInfoPanel|EPGInfoPanelCoordinator|EPGInfoPanelDetailsLoader|EPGInfoPanelDynamicBackground|EPGShellView)'|from './(EPGCellRenderer|EPGCellPresentation|EPGInfoPanel|EPGInfoPanelCoordinator|EPGInfoPanelDetailsLoader|EPGInfoPanelDynamicBackground|EPGShellView)'|from '../../view/(EPGCellRenderer|EPGCellPresentation|EPGInfoPanel|EPGInfoPanelCoordinator|EPGInfoPanelDetailsLoader|EPGInfoPanelDynamicBackground|EPGShellView)'" src/modules/ui/epg src/core src/modules/navigation`
+    - Expected: no matches; moved leaves are imported from their new direct leaf paths only.
 - Public export audit after `PQR-2-S3`; expected output is no matches and exit `0`:
-  - `! rg -n "EPG(CellRenderer|CellPresentation|Virtualizer|ShellView|InfoPanel|InfoPanelCoordinator|ChannelList|TimeHeader|LibraryTabs|ErrorBoundary|VisibleRangeEmitter)" src/modules/ui/epg/index.ts`
-- `npm run typecheck`
-- `git diff --check`
-- `npm run verify`
-- `npm run verify:docs` if implementation updates this plan, checklist, current-state, modules, design, API, or workflow docs
+  - Run: `! rg -n "EPG(CellRenderer|CellPresentation|Virtualizer|ShellView|InfoPanel|InfoPanelCoordinator|ChannelList|TimeHeader|LibraryTabs|ErrorBoundary|VisibleRangeEmitter)" src/modules/ui/epg/index.ts`
+    - Expected: no matches; the public EPG package seam does not widen to view leaves.
+- Run: `npm run typecheck`
+  - Expected: no TypeScript errors.
+- Run: `git diff --check`
+  - Expected: no whitespace errors.
+- Run: `npm run verify`
+  - Expected: full UI/docs/build verification passes.
+- Run: `npm run verify:docs`
+  - Expected: required when implementation updates this plan, checklist, current-state, modules, design, API, or workflow docs.
 
 Expected results: all commands exit `0`. For the negated `rg` audits, exit `0` means the forbidden matches were absent; any printed match is a failure. Targeted tests protect the named behavior invariants.
 
 ## Package Decomposition
 
-`source_finding_ids`: `PQR-2-SF1`, `PQR-2-SF2`, `PQR-2-SF3`, `PQR-2-SF4`
+- `package_id`: `PQR-2`
+- `checklist_token`: `PQR-2`
+- `source_finding_ids`:
+  - `PQR-2-SF1`
+  - `PQR-2-SF2`
+  - `PQR-2-SF3`
+  - `PQR-2-SF4`
+- `ready_now_execution_unit`: none; package complete
+- `ready_now_slice`: none; package complete
+- `recommended_slice_order`: `PQR-2-S1`, `PQR-2-S2`, `PQR-2-S3`, `PQR-2-S4`
+- `parallel_execution_policy`: serial by wave. `PQR-2-W1` and `PQR-2-W2` are independent owner areas but should not run in parallel unless a controller explicitly accepts the added review/import-audit coordination cost. Slices inside each wave are serial-only because they share test and import surfaces.
+- `coverage_check`:
+  - `PQR-2-SF1` maps only to `PQR-2-S1`.
+  - `PQR-2-SF2` maps only to `PQR-2-S2`.
+  - `PQR-2-SF3` maps only to `PQR-2-S3`.
+  - `PQR-2-SF4` maps only to `PQR-2-S4`.
+- `slice_table`:
 
-`coverage_check`:
+### `PQR-2-S1`
 
-- `PQR-2-SF1` maps only to `PQR-2-S1`.
-- `PQR-2-SF2` maps only to `PQR-2-S2`.
-- `PQR-2-SF3` maps only to `PQR-2-S3`.
-- `PQR-2-SF4` maps only to `PQR-2-S4`.
+- `goal`: Extract Step 1 library presenter so `ChannelSetupScreen` stops owning Step 1 adapter/session/focus-neighbor glue.
+- `areas/files`: `ChannelSetupScreen.ts`, `steps/LibraryStepController.ts`, `steps/LibraryStepPresenter.ts`, `steps/types.ts`, channel-setup screen/library/focus tests.
+- `source_finding_ids`:
+  - `PQR-2-SF1`
+- `verification`: new/updated contract tests for Step 1 DOM ids, selected count, next disabled state, toggle in-place update, bulk focus neighbors, back/next callbacks; targeted channel setup wave command.
+- `dependencies`: none.
+- `stop_condition`: stop if core workflow port, screen ports, storage, focus behavior, or DOM shape must change.
+- `handoff_condition`: `ChannelSetupScreen` delegates Step 1 presenter ownership and all Step 1 invariants pass.
+- `serial_only`: yes.
+- `parallel_justification`: must precede `PQR-2-S2` so screen shell/presenter handoff shape is stable before Step 2 rendering changes.
 
-`ready_now_execution_unit`: `PQR-2-W2`
-`ready_now_slice`: `PQR-2-S3`
-`recommended_slice_order`: `PQR-2-S1`, `PQR-2-S2`, `PQR-2-S3`, `PQR-2-S4`
-`parallel_execution_policy`: serial by wave. `PQR-2-W1` and `PQR-2-W2` are independent owner areas but should not run in parallel unless a controller explicitly accepts the added review/import-audit coordination cost. Slices inside each wave are serial-only because they share test and import surfaces.
+### `PQR-2-S2`
 
-`slice_table`:
+- `goal`: Make Step 2 render controls descriptor-driven from the same package-local descriptor source used by interactions.
+- `areas/files`: `steps/StrategyStepController.ts`, `steps/StrategyStepInteractionController.ts`, descriptor owner, `ChannelSetupWorkflowPresenter.ts`, Step 2 tests.
+- `source_finding_ids`:
+  - `PQR-2-SF2`
+- `verification`: new/updated contract tests for descriptor-rendered build/combine/alternate/series/limits controls, disabled dropdown targets, left/right cycling, OK dropdown open, preview scheduling, and priority focus/reorder invariants.
+- `dependencies`: `PQR-2-S1` in same wave.
+- `stop_condition`: stop if dropdown behavior, focus memory, priority reorder, preview scheduling, or build/review routing changes.
+- `handoff_condition`: rendering and interaction consume one descriptor source without broadening public exports.
+- `serial_only`: yes.
+- `parallel_justification`: shares Step 2 tests and presenter wiring with `PQR-2-S1`; no safe parallelism inside channel setup wave.
 
-| slice_id | goal | areas/files | source_finding_ids | verification | dependencies | stop_condition | handoff_condition | execution policy | parallel_justification |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `PQR-2-S1` | Extract Step 1 library presenter so `ChannelSetupScreen` stops owning Step 1 adapter/session/focus-neighbor glue. | `ChannelSetupScreen.ts`, `steps/LibraryStepController.ts`, new `steps/LibraryStepPresenter.ts`, `steps/types.ts`, channel-setup screen/library/focus tests. | `PQR-2-SF1` | New/updated contract tests for Step 1 DOM ids, selected count, next disabled state, toggle in-place update, bulk focus neighbors, back/next callbacks; targeted channel setup wave command. | None. | Stop if core workflow port, screen ports, storage, focus behavior, or DOM shape must change. | `ChannelSetupScreen` delegates Step 1 presenter ownership and all Step 1 invariants pass. | serial_only | Must precede `S2` so screen shell/presenter handoff shape is stable before Step 2 rendering changes. |
-| `PQR-2-S2` | Make Step 2 render controls descriptor-driven from the same package-local descriptor source used by interactions. | `steps/StrategyStepController.ts`, `steps/StrategyStepInteractionController.ts`, new descriptor owner, `ChannelSetupWorkflowPresenter.ts`, Step 2 tests. | `PQR-2-SF2` | New/updated contract tests for descriptor-rendered build/combine/alternate/series/limits controls, disabled dropdown targets, left/right cycling, OK dropdown open, preview scheduling, and priority focus/reorder invariants. | `PQR-2-S1` in same wave. | Stop if dropdown behavior, focus memory, priority reorder, preview scheduling, or build/review routing changes. | Rendering and interaction consume one descriptor source without broadening public exports. | serial_only | Shares Step 2 tests and presenter wiring with `S1`; no safe parallelism inside channel setup wave. |
-| `PQR-2-S3` | Move only approved flat EPG view leaves into owner folders with direct leaf imports: cells, info-panel leaves, and shell. Do not move runtime/focus-imported grid/navigation leaves in this plan. | `view/cells/*`, `view/info-panel/*`, `view/shell/*`, current `view/EPGVirtualizer.ts` only for cell import fallout, `component/EPGComponent.ts` import fallout, EPG tests import fallout. | `PQR-2-SF3` | Refactor-invariance: targeted EPG wave command, negated approved-scope/old-path/public-export audits, `npm run typecheck`. | Channel setup wave complete or controller-approved separate EPG wave. | Stop if any shim/barrel/export widening is needed, if moves require behavior edits, or if a desired move would require `runtime/**` or `focus/**` import fallout. | Approved owner folders exist, imports point at leaf files, forbidden old flat paths and public exports are absent, runtime/focus imports remain untouched, tests pass. | serial_only | Folder moves should happen before `S4` so secondary-text centralization lands at the final approved file path. |
-| `PQR-2-S4` | Centralize complete EPG secondary-text clear state without changing cell presentation behavior. | `view/cells/EPGCellRenderer.ts` after move or current `view/EPGCellRenderer.ts` if `S3` is replanned, `view/cells/EPGCellPresentation.ts` only if pure type names need import fallout, EPG cell/virtualizer/component tests. | `PQR-2-SF4` | New/updated tests for recycled placeholder/non-episode/sliver/focused-episode/live/current cells proving subtitle text and display clear together while ticker/sliver/focused/live classes remain unchanged. | `PQR-2-S3`. | Stop if DOM structure, classes, ticker, sliver, live/current/focused presentation, or virtualizer recycling behavior changes. | One renderer helper owns secondary-text clear/apply state and all EPG invariants pass. | serial_only | Depends on final file location from `S3`; do not parallelize. |
+### `PQR-2-S3`
 
-`execution_waves`:
+- `goal`: Move only approved flat EPG view leaves into owner folders with direct leaf imports: cells, info-panel leaves, and shell. Do not move runtime/focus-imported grid/navigation leaves in this plan.
+- `areas/files`: `view/cells/*`, `view/info-panel/*`, `view/shell/*`, current `view/EPGVirtualizer.ts` only for cell import fallout, `component/EPGComponent.ts` import fallout, EPG tests import fallout.
+- `source_finding_ids`:
+  - `PQR-2-SF3`
+- `verification`: refactor-invariance through targeted EPG wave command, negated approved-scope/old-path/public-export audits, and `npm run typecheck`.
+- `dependencies`: channel setup wave complete or controller-approved separate EPG wave.
+- `stop_condition`: stop if any shim/barrel/export widening is needed, if moves require behavior edits, or if a desired move would require `runtime/**` or `focus/**` import fallout.
+- `handoff_condition`: approved owner folders exist, imports point at leaf files, forbidden old flat paths and public exports are absent, runtime/focus imports remain untouched, tests pass.
+- `serial_only`: yes.
+- `parallel_justification`: folder moves should happen before `PQR-2-S4` so secondary-text centralization lands at the final approved file path.
 
-| wave_id | slice_ids | completion_condition | absorb_now_scope | replan_triggers |
-| --- | --- | --- | --- | --- |
-| `PQR-2-W1` | `PQR-2-S1`, `PQR-2-S2` | Channel setup Step 1/2 ownership findings are retired, targeted channel setup tests pass, no port/storage/public API change. | Additional Step 1/2 adapter, descriptor, focus, dropdown, or session-callback residue inside `src/modules/ui/channel-setup/**` with the same verification envelope. | Any persistence/core workflow/public port change; changed focus/dropdown/build semantics; private probe requirement. |
-| `PQR-2-W2` | `PQR-2-S3`, `PQR-2-S4` | Approved-scope EPG view folder ownership and secondary-text clearing findings are retired, targeted EPG tests pass, negated old-path/export/scope audits pass. | Additional approved-scope EPG view leaf import fallout or renderer-local subtitle clear duplication inside `view/**`, `component/**`, and tests only. | Any shim/barrel/public export need; any runtime/focus import fallout; DOM/ticker/sliver/focus/live/layout behavior churn; cross-module ownership change. |
+### `PQR-2-S4`
 
-`coverage_ledger`:
+- `goal`: Centralize complete EPG secondary-text clear state without changing cell presentation behavior.
+- `areas/files`: `view/cells/EPGCellRenderer.ts` after move or current `view/EPGCellRenderer.ts` if `PQR-2-S3` is replanned, `view/cells/EPGCellPresentation.ts` only if pure type names need import fallout, EPG cell/virtualizer/component tests.
+- `source_finding_ids`:
+  - `PQR-2-SF4`
+- `verification`: new/updated tests for recycled placeholder/non-episode/sliver/focused-episode/live/current cells proving subtitle text and display clear together while ticker/sliver/focused/live classes remain unchanged.
+- `dependencies`: `PQR-2-S3`.
+- `stop_condition`: stop if DOM structure, classes, ticker, sliver, live/current/focused presentation, or virtualizer recycling behavior changes.
+- `handoff_condition`: one renderer helper owns secondary-text clear/apply state and all EPG invariants pass.
+- `serial_only`: yes.
+- `parallel_justification`: depends on final file location from `PQR-2-S3`; do not parallelize.
 
-- `PQR-2-SF1`: resolved in `PQR-2-W1` / `PQR-2-S1`, owner `LibraryStepPresenter`.
-- `PQR-2-SF2`: resolved in `PQR-2-W1` / `PQR-2-S2`, owner Step 2 descriptor owner plus existing interaction/render controllers.
-- `PQR-2-SF3`: planned in `PQR-2-W2` / `PQR-2-S3`, owner approved-scope EPG view owner folders; runtime/focus-imported leaves stay put unless a future replan widens scope.
-- `PQR-2-SF4`: planned in `PQR-2-W2` / `PQR-2-S4`, owner `EPGCellRenderer`.
+- `execution_waves`:
+  - `wave_id`: `PQR-2-W1`
+    - `slice_ids`: `PQR-2-S1`, `PQR-2-S2`
+    - `completion_condition`: channel setup Step 1/2 ownership findings are retired, targeted channel setup tests pass, no port/storage/public API change.
+    - `absorb_now_scope`: additional Step 1/2 adapter, descriptor, focus, dropdown, or session-callback residue inside `src/modules/ui/channel-setup/**` with the same verification envelope.
+    - `replan_triggers`: any persistence/core workflow/public port change; changed focus/dropdown/build semantics; private probe requirement.
+  - `wave_id`: `PQR-2-W2`
+    - `slice_ids`: `PQR-2-S3`, `PQR-2-S4`
+    - `completion_condition`: approved-scope EPG view folder ownership and secondary-text clearing findings are retired, targeted EPG tests pass, negated old-path/export/scope audits pass.
+    - `absorb_now_scope`: additional approved-scope EPG view leaf import fallout or renderer-local subtitle clear duplication inside `view/**`, `component/**`, and tests only.
+    - `replan_triggers`: any shim/barrel/public export need; any runtime/focus import fallout; DOM/ticker/sliver/focus/live/layout behavior churn; cross-module ownership change.
+- `coverage_ledger`:
+  - `source_finding_id`: `PQR-2-SF1`; `slice_id`: `PQR-2-S1`; `execution_unit`: `PQR-2-W1`; `final owner`: `LibraryStepPresenter`.
+  - `source_finding_id`: `PQR-2-SF2`; `slice_id`: `PQR-2-S2`; `execution_unit`: `PQR-2-W1`; `final owner`: Step 2 descriptor owner plus existing interaction/render controllers.
+  - `source_finding_id`: `PQR-2-SF3`; `slice_id`: `PQR-2-S3`; `execution_unit`: `PQR-2-W2`; `final owner`: approved-scope EPG view owner folders; runtime/focus-imported leaves stay put unless a future replan widens scope.
+  - `source_finding_id`: `PQR-2-SF4`; `slice_id`: `PQR-2-S4`; `execution_unit`: `PQR-2-W2`; `final owner`: `EPGCellRenderer`.
 
 ## Execution Progress
 
@@ -285,6 +346,30 @@ Status: complete after clean implementation review.
   with `ready_now_slice` `PQR-2-S3`, without widening into
   `src/modules/ui/epg/runtime/**` or `src/modules/ui/epg/focus/**` import
   fallout.
+
+### 2026-05-18 `PQR-2-W2`
+
+Status: complete after clean implementation review.
+
+- `PQR-2-S3` resolved `PQR-2-SF3` by moving approved EPG view leaves into
+  `src/modules/ui/epg/view/cells/`,
+  `src/modules/ui/epg/view/info-panel/`, and
+  `src/modules/ui/epg/view/shell/` with direct leaf imports only.
+  Runtime/focus-imported grid/navigation leaves stayed at the view root; no
+  shims, barrels, public export widening, or runtime/focus fallout were added.
+- `PQR-2-S4` resolved `PQR-2-SF4` by centralizing subtitle/secondary-text
+  clear/apply state in `EPGCellRenderer` while preserving DOM shape, ticker,
+  sliver, focused/live/current presentation, and virtualizer recycling
+  behavior.
+- Implementation review found no material findings for `PQR-2-W2`.
+- Verification observed for the implementation pass: targeted EPG wave tests
+  passed, approved-scope runtime/focus import audit passed with no matches,
+  old flat-path audit passed with no matches, public export audit passed with
+  no matches, `npm run plans:check` passed, `npm run verify:docs` passed,
+  `npm run typecheck` passed, `git diff --check` passed, and final
+  `npm run verify` passed during package closeout.
+- Next exact action: `PQR-2` is closed. Continue with maintainer-selected
+  `PQR-*` work; do not run a PQR score refresh until `PQR-EXIT`.
 
 ## Rollback Notes
 
