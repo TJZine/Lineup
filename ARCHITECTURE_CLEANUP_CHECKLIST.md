@@ -1012,9 +1012,9 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 
 ### [x] `PQR-2` UI Workflow, EPG View, And Presentation Owner Shape
 
-- Status: complete
+- Status: completed
 - Plan:
-  [`docs/plans/2026-05-17-pqr-2-ui-workflow-epg-view-presentation-owner-shape-plan.md`](./docs/plans/2026-05-17-pqr-2-ui-workflow-epg-view-presentation-owner-shape-plan.md)
+  [`docs/archive/plans/2026-05-17-pqr-2-ui-workflow-epg-view-presentation-owner-shape-plan.md`](./docs/archive/plans/2026-05-17-pqr-2-ui-workflow-epg-view-presentation-owner-shape-plan.md)
 - Last touched: 2026-05-18; `PQR-2-W1` and `PQR-2-W2` reviewed clean.
 - Verification: targeted channel setup tests, focused presenter tests, targeted
   EPG wave tests, no-match EPG runtime/focus old-path/public-export audits,
