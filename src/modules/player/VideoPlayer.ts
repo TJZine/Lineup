@@ -68,6 +68,17 @@ type SubtitleDeactivation = {
     reason: string;
 };
 
+function isPlaybackError(error: unknown): error is PlaybackError {
+    return (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        'message' in error &&
+        'recoverable' in error &&
+        'retryCount' in error
+    );
+}
+
 export class VideoPlayer implements IVideoPlayer {
     private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
         scope: 'VideoPlayer',
@@ -105,6 +116,39 @@ export class VideoPlayer implements IVideoPlayer {
     private _subtitleSelectionInProgress: boolean = false;
     private _subtitleSelectionRequestedId: string | null = null;
     private _subtitleSelectionDeferredDeactivation: SubtitleDeactivation | null = null;
+
+    private _createPlaybackError(
+        code: AppErrorCode,
+        message: string,
+        cause?: unknown
+    ): PlaybackError {
+        const error: PlaybackError = {
+            code,
+            message,
+            recoverable: false,
+            retryCount: 0,
+        };
+
+        if (cause !== undefined) {
+            const causeMessage = cause instanceof Error ? cause.message : String(cause);
+            error.context = {
+                cause: redactSensitiveTokens(causeMessage),
+            };
+        }
+
+        return error;
+    }
+
+    private _createInitializationError(message: string): PlaybackError {
+        return this._createPlaybackError(AppErrorCode.INITIALIZATION_FAILED, message);
+    }
+
+    private _wrapPlayerOwnedFailure(message: string, cause: unknown): PlaybackError {
+        if (isPlaybackError(cause)) {
+            return cause;
+        }
+        return this._createPlaybackError(AppErrorCode.PLAYBACK_FAILED, message, cause);
+    }
 
     private _handleSubtitleDeactivated(trackId: string, reason: string): void {
         if (this._state.activeSubtitleId === null) {
@@ -188,7 +232,7 @@ export class VideoPlayer implements IVideoPlayer {
 
         const container = document.getElementById(config.containerId);
         if (!container) {
-            throw new Error(`Video container not found: ${config.containerId}`);
+            throw this._createInitializationError(`Video container not found: ${config.containerId}`);
         }
         container.appendChild(this._videoElement);
 
@@ -245,7 +289,7 @@ export class VideoPlayer implements IVideoPlayer {
 
     public async loadStream(descriptor: StreamDescriptor): Promise<void> {
         if (!this._videoElement) {
-            throw new Error('VideoPlayer not initialized');
+            throw this._createInitializationError('VideoPlayer not initialized');
         }
 
         this.unloadStream();
@@ -310,7 +354,11 @@ export class VideoPlayer implements IVideoPlayer {
 
         this._videoElement.load();
 
-        await this._eventManager.waitForCanPlay();
+        try {
+            await this._eventManager.waitForCanPlay();
+        } catch (error) {
+            throw this._wrapPlayerOwnedFailure('Media readiness failed', error);
+        }
         if (!this._isActiveLoad(loadGeneration, descriptor)) {
             return;
         }
@@ -368,7 +416,7 @@ export class VideoPlayer implements IVideoPlayer {
 
     public async play(): Promise<void> {
         if (!this._videoElement) {
-            throw new Error('VideoPlayer not initialized');
+            throw this._createInitializationError('VideoPlayer not initialized');
         }
 
         try {
@@ -395,7 +443,7 @@ export class VideoPlayer implements IVideoPlayer {
 
     public async seekTo(positionMs: number): Promise<void> {
         if (!this._videoElement) {
-            throw new Error('VideoPlayer not initialized');
+            throw this._createInitializationError('VideoPlayer not initialized');
         }
 
         // Capture reference to prevent issues if destroy() is called mid-seek
@@ -426,7 +474,10 @@ export class VideoPlayer implements IVideoPlayer {
 
             timeoutId = setTimeout(() => {
                 cleanup();
-                reject(new Error('Seek operation timed out'));
+                reject(this._createPlaybackError(
+                    AppErrorCode.PLAYBACK_FAILED,
+                    'Seek operation timed out'
+                ));
             }, SEEK_TIMEOUT_MS);
         });
     }
@@ -494,7 +545,11 @@ export class VideoPlayer implements IVideoPlayer {
             // Set state first so any synchronous deactivation callbacks can reliably clear it.
             this._state.activeSubtitleId = trackId;
 
-            this._subtitleManager.setActiveTrack(trackId);
+            try {
+                this._subtitleManager.setActiveTrack(trackId);
+            } catch (error) {
+                throw this._wrapPlayerOwnedFailure('Subtitle track activation failed', error);
+            }
             let finalActiveTrackId = this._subtitleManager.getActiveTrackId();
             this._state.activeSubtitleId = finalActiveTrackId;
 
