@@ -62,9 +62,11 @@ export function decodeStoredChannelConfigRecord(raw: unknown): DecodedStoredChan
     }
 
     const number = decodeFiniteNumber(record, 'number', Number.NaN);
-    if (number.didDefault) didMutate = true;
+    const hasFiniteNumber = Number.isFinite(number.value);
+    const finalNumber = hasFiniteNumber ? number.value : 0;
+    if (number.didDefault || !hasFiniteNumber) didMutate = true;
 
-    const name = decodeString(record, 'name', `Channel ${Number.isFinite(number.value) ? number.value : id}`);
+    const name = decodeString(record, 'name', `Channel ${hasFiniteNumber ? finalNumber : id}`);
     if (name.didDefault) didMutate = true;
 
     const rawPlaybackMode = record['playbackMode'];
@@ -95,7 +97,7 @@ export function decodeStoredChannelConfigRecord(raw: unknown): DecodedStoredChan
 
     const channel: ChannelConfig = {
         id,
-        number: number.value,
+        number: finalNumber,
         name: name.value,
         contentSource: cloneContentSource(contentSource),
         playbackMode,

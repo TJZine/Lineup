@@ -113,6 +113,34 @@ describe('StoredChannelDataCodec', () => {
         expect(decoded?.channel).not.toHaveProperty('unknownPersistedField');
     });
 
+    it.each([
+        ['missing', undefined],
+        ['NaN', Number.NaN],
+        ['infinite', Number.POSITIVE_INFINITY],
+    ])('normalizes %s persisted channel numbers before returning a runtime channel', (_label, rawNumber) => {
+        const decoded = decodeStoredChannelConfigRecord({
+            id: 'missing-number',
+            number: rawNumber,
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-1',
+                libraryType: 'movie',
+                includeWatched: true,
+            },
+            playbackMode: 'sequential',
+        });
+
+        expect(decoded).toEqual({
+            channel: expect.objectContaining({
+                id: 'missing-number',
+                number: 0,
+                name: 'Channel missing-number',
+            }),
+            didMutate: true,
+        });
+        expect(Number.isFinite(decoded?.channel.number)).toBe(true);
+    });
+
     it('returns null for persisted channel records without valid domain identity or source', () => {
         expect(decodeStoredChannelConfigRecord(null)).toBeNull();
         expect(decodeStoredChannelConfigRecord({ id: '', contentSource: { type: 'manual', items: [] } })).toBeNull();
