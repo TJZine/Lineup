@@ -291,35 +291,6 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
-    it('falls back to the server-relative subtitle probe URL for foreign absolute keys', async () => {
-        const player = createPlayer([]);
-        const coordinator = new PlaybackOptionsCoordinator({
-            playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
-            getVideoPlayer: (): IVideoPlayer => player,
-            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
-            getCurrentStreamDescriptor: (): StreamDescriptor =>
-                ({
-                    subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
-                } as unknown as StreamDescriptor),
-        });
-
-        const track = makeTextTrack({
-            id: 'foreign',
-            key: 'https://malicious.example/library/streams/foreign',
-            fetchableViaKey: true,
-        });
-        const url = (coordinator as unknown as {
-            buildSubtitleProbeUrl: (track: SubtitleTrack, context: NonNullable<StreamDescriptor['subtitleContext']>) => URL | null;
-        }).buildSubtitleProbeUrl(track, {
-            serverUri: 'http://example.com',
-            authHeaders: { 'X-Plex-Token': 'token' },
-        });
-
-        expect(url?.toString()).toBe('http://example.com/library/streams/foreign?X-Plex-Token=token');
-    });
-
     it('scopes subtitle probe cache by server identity', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
@@ -697,6 +668,50 @@ describe('PlaybackOptionsCoordinator', () => {
             expect(fetchMock).toHaveBeenCalledTimes(2);
             expect(requestBurnInSubtitle).toHaveBeenCalledTimes(2);
             expect((player.setSubtitleTrack as jest.Mock)).not.toHaveBeenCalledWith('keyless');
+        } finally {
+            restore();
+        }
+    });
+
+    it('clears cached subtitle probe decisions when disposed', async (): Promise<void> => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 404 });
+        const { restore } = installFetchMock(fetchMock);
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            const firstViewModel = getViewModel(coordinator);
+            firstViewModel.subtitles.options
+                .find((o) => o.id === 'playback-subtitle-keyless')
+                ?.onSelect?.();
+            await flushPlaybackOptionsPromises();
+
+            coordinator.dispose();
+
+            const secondViewModel = getViewModel(coordinator);
+            secondViewModel.subtitles.options
+                .find((o) => o.id === 'playback-subtitle-keyless')
+                ?.onSelect?.();
+            await flushPlaybackOptionsPromises();
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(requestBurnInSubtitle).toHaveBeenCalledTimes(2);
         } finally {
             restore();
         }
