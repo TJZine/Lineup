@@ -1,39 +1,7 @@
 import type { PlexServer } from '../../plex/discovery/types';
-import type { ServerSelectScreenNavigationPort } from '../../navigation';
-import type {
-    ServerSelectDisplayState,
-    ServerSelectEmptyStateReason,
-    ServerSelectScreenPorts,
-} from './types';
+import type { ServerSelectScreenPorts } from './types';
+import type { ServerSelectRuntimeScreenAdapter } from './ServerSelectRuntimeContracts';
 import { ServerSelectStatusPolicy } from './ServerSelectStatusPolicy';
-
-export interface ServerSelectRuntimeScreenAdapter {
-    showContainer(): void;
-    hideContainer(): void;
-    isContainerVisible(): boolean;
-    getNavigation(): ServerSelectScreenNavigationPort | null;
-    registerFocusables(): void;
-    unregisterFocusables(): void;
-    restoreFocus(generation: number, canUpdateUi: (generation: number) => boolean): void;
-    cancelRestoreFocus(): void;
-    unregisterServerListFocusables(): void;
-    replaceServerListChildren(): void;
-    renderServers(
-        servers: PlexServer[],
-        screenState: ServerSelectDisplayState,
-        options?: { savedServerUnavailable?: boolean; emptyStateReason?: ServerSelectEmptyStateReason }
-    ): void;
-    setServerConnectButtonsDisabled(disabled: boolean): void;
-    setControlsDisabled(disabled: boolean): void;
-    setClearButtonDisabled(disabled: boolean, generation: number): void;
-    setAutoConnectHintVisible(visible: boolean): void;
-    setStatus(status: string, detail: string, tone?: 'neutral' | 'loading' | 'success' | 'warning' | 'error'): void;
-    clearError(): void;
-    setError(message: string): void;
-    setDetail(text: string): void;
-    addStatusSpinner(): void;
-    removeStatusSpinner(): void;
-}
 
 export class ServerSelectRuntimeCoordinator {
     private _ports: ServerSelectScreenPorts;
@@ -250,7 +218,7 @@ export class ServerSelectRuntimeCoordinator {
             if (this._canUpdateUi(generation)) {
                 this._adapter.removeStatusSpinner();
                 this._adapter.setControlsDisabled(false);
-                this._adapter.setClearButtonDisabled(this._isClearing || this._isSelecting, generation);
+                this._adapter.setClearButtonDisabled(this._isClearing || this._isSelecting);
                 this._restoreFocus(generation);
             }
 
@@ -268,7 +236,7 @@ export class ServerSelectRuntimeCoordinator {
             this._isClearing = true;
             this._activeClearGeneration = generation;
             this._adapter.clearError();
-            this._adapter.setClearButtonDisabled(true, generation);
+            this._adapter.setClearButtonDisabled(true);
             await this._ports.clearSelectedServer();
 
             if (!this._canUpdateUi(generation)) {
@@ -303,7 +271,7 @@ export class ServerSelectRuntimeCoordinator {
                 && this._canUpdateUi(currentGeneration)
                 && !this._isLoadingCurrentGeneration(currentGeneration)
             ) {
-                this._adapter.setClearButtonDisabled(false, currentGeneration);
+                this._adapter.setClearButtonDisabled(false);
             }
             this._resolveIdleIfSettled();
         }
@@ -321,7 +289,7 @@ export class ServerSelectRuntimeCoordinator {
             this._isSelecting = true;
             this._activeSelectGeneration = generation;
             this._adapter.setServerConnectButtonsDisabled(true);
-            this._adapter.setClearButtonDisabled(true, generation);
+            this._adapter.setClearButtonDisabled(true);
             this._adapter.clearError();
             this._adapter.setStatus(`Connecting to ${server.name}…`, '', 'loading');
             this._adapter.setDetail('');
@@ -360,7 +328,7 @@ export class ServerSelectRuntimeCoordinator {
                 && !this._isLoadingCurrentGeneration(currentGeneration)
                 && !this._isClearing
             ) {
-                this._adapter.setClearButtonDisabled(false, currentGeneration);
+                this._adapter.setClearButtonDisabled(false);
                 if (currentGeneration === generation) {
                     this._adapter.setServerConnectButtonsDisabled(false);
                 } else {

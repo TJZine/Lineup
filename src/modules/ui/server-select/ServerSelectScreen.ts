@@ -11,8 +11,8 @@ import {
 } from './ServerSelectFocusCoordinator';
 import {
     ServerSelectRuntimeCoordinator,
-    type ServerSelectRuntimeScreenAdapter,
 } from './ServerSelectRuntimeCoordinator';
+import type { ServerSelectRuntimeScreenAdapter } from './ServerSelectRuntimeContracts';
 import { ServerSelectStatusPolicy } from './ServerSelectStatusPolicy';
 import type {
     ServerSelectDisplayState,
@@ -290,8 +290,7 @@ export class ServerSelectScreen implements ServerSelectRuntimeScreenAdapter {
         this._clearButton.disabled = disabled;
     }
 
-    setClearButtonDisabled(disabled: boolean, generation: number): void {
-        void generation;
+    setClearButtonDisabled(disabled: boolean): void {
         if (!this.isContainerVisible()) {
             return;
         }
