@@ -1062,8 +1062,8 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 
 ### [x] `PQR-3` Channel Setup Facet Loading Abstraction Fit
 
-- Status: closed
-- Plan: [`docs/plans/2026-05-17-pqr-3-channel-setup-facet-loading-abstraction-fit-plan.md`](docs/plans/2026-05-17-pqr-3-channel-setup-facet-loading-abstraction-fit-plan.md)
+- Status: completed
+- Plan: local-only
 - Last touched: 2026-05-18; `PQR-3-S1` reviewed clean and implementation
   checkpoint committed as `08d34a8f`.
 - Verification: `npm run plans:check`; `npm test --
