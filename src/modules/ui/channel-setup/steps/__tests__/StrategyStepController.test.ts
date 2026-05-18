@@ -7,6 +7,7 @@ import { createDefaultStrategyOrder, createDefaultStrategyState } from '../../Ch
 import type { EstimateKey, StrategyStepMutableState } from '../../ChannelSetupSessionContracts';
 import { StrategyStepController } from '../StrategyStepController';
 import { STEP2_CONTROL_IDS } from '../constants';
+import { getStrategyControlDescriptor } from '../StrategyStepControlDescriptors';
 import type {
     StrategyStepDeps,
     StepRenderContext,
@@ -138,6 +139,43 @@ describe('StrategyStepController', () => {
 
         expect((ctx.contentEl.querySelector('#setup-series-base-block-size') as HTMLButtonElement).disabled).toBe(true);
         expect((ctx.contentEl.querySelector('#setup-series-variant-block-size') as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('renders adjustable build controls from the shared descriptor contract', () => {
+        const deps = createDeps({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'build-options',
+                actorStudioCombineMode: 'combined',
+                channelExpansion: {
+                    addAlternateLineups: true,
+                    alternateLineupCopies: 3,
+                    variantType: 'none',
+                    variantBlockSize: 3,
+                },
+            },
+        });
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const controller = new StrategyStepController();
+
+        controller.render(ctx, deps);
+
+        for (const controlId of [
+            STEP2_CONTROL_IDS.buildMode,
+            STEP2_CONTROL_IDS.combineMode,
+            STEP2_CONTROL_IDS.alternateLineupCopies,
+        ]) {
+            const descriptor = getStrategyControlDescriptor(controlId);
+            const button = ctx.contentEl.querySelector(`#${controlId}`) as HTMLButtonElement | null;
+            expect(descriptor).not.toBeNull();
+            expect(button?.querySelector('.setup-toggle-label')?.textContent).toBe(descriptor?.label);
+            expect(button?.querySelector('.setup-toggle-meta')?.textContent).toBe(descriptor?.meta);
+            expect(button?.querySelector('.setup-toggle-state')?.childNodes[0]?.textContent).toBe(
+                descriptor?.stateText(deps.state)
+            );
+            expect(button?.disabled).toBe(descriptor?.isDisabled?.(deps.state) ?? false);
+        }
     });
 
     it('toggles the preview strip details in place', () => {
