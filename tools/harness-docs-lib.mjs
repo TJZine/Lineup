@@ -195,6 +195,7 @@ const PLAN_LIST_ENTRY_RE = /^\s*(?:[-*]|\d+\.)\s+\S+/mu;
 const PLAN_RUN_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Run:\s*`[^`]+`/imu;
 const PLAN_EXPECTED_LINE_RE = /^\s*(?:[-*]|\d+\.)?\s*Expected:\s*.+$/imu;
 const SOURCE_BACKED_CHECKLIST_TOKEN_RE = /^(?:FCP-(?:\d+|EXIT)|PQR-(?:\d+|EXIT))$/u;
+const SOURCE_BACKED_SOURCE_FINDING_ID_RE = /^(?:FCP-(?:\d+|EXIT)|PQR-(?:\d+|EXIT))-SF\d+$/u;
 const LEGACY_CHECKLIST_SLICE_ID_PATTERN = '[PS]\\d+-W\\d+-S\\d+';
 const DCR_CHECKLIST_SLICE_ID_PATTERN = 'DCR-(?:\\d+|EXIT)-S\\d+';
 const SOURCE_BACKED_CHECKLIST_SLICE_ID_PATTERN = '(?:FCP-(?:\\d+|EXIT)|PQR-(?:\\d+|EXIT))-S\\d+';
@@ -856,14 +857,14 @@ function getPriorityExitErrors(section, { isSourceBackedPackage = false, checkli
     if (issueBlocks.length === 0) {
         errors.push(
             isSourceBackedPackage
-                ? 'priority-exit readiness section must name each mapped FCP source_finding_id'
+                ? 'priority-exit readiness section must name each mapped source finding id (FCP-* or PQR-*)'
                 : 'priority-exit readiness section must name each mapped imported issue by exact issue id'
         );
     } else {
         if (isSourceBackedPackage) {
             const declaredSourceFindingIds = new Set(sourceFindingIds);
             const sourceFindingIdRe = checklistToken === null
-                ? /^FCP-(?:\d+|EXIT)-SF\d+$/u
+                ? SOURCE_BACKED_SOURCE_FINDING_ID_RE
                 : new RegExp(`^${escapeRegExp(checklistToken)}-SF\\d+$`, 'u');
             const hasInvalidSourceFindingHeader = issueBlocks.some((block) => {
                 const header = getPriorityExitIssueBlockHeader(block);

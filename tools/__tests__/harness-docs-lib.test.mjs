@@ -1906,6 +1906,53 @@ test('checkPlanConformance accepts FCP priority-exit readiness with source findi
     assert.deepEqual(result.errors, []);
 });
 
+test('checkPlanConformance accepts PQR priority-exit readiness with source findings and PQR gate', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-05-17-pqr-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition()
+                .replaceAll('FCP-1-SF1', 'PQR-1-SF1')
+                .replaceAll('FCP-1-S1', 'PQR-1-S1')
+                .replace('`checklist_token`: `FCP-1`', '`checklist_token`: `PQR-1`'),
+            `
+## Priority-Exit Readiness
+
+- \`PQR-1-SF1\`
+  - disposition: resolved
+  - final owner: \`PQR-1\`
+  - revisit trigger: rerun the source audit if the owner seam changes
+- security triage: no open P0 security findings
+- priority-exit review blocks PQR-(n+1) until PQR-n is completed
+`
+        ),
+    });
+
+    assert.deepEqual(result.errors, []);
+});
+
+test('checkPlanConformance uses source-backed wording for empty PQR priority-exit readiness', () => {
+    const result = checkPlanConformance({
+        filePath: 'docs/plans/2026-05-17-pqr-example.md',
+        content: buildActiveCleanupPlan(
+            buildFcpSingleSlicePackageDecomposition()
+                .replaceAll('FCP-1-SF1', 'PQR-1-SF1')
+                .replaceAll('FCP-1-S1', 'PQR-1-S1')
+                .replace('`checklist_token`: `FCP-1`', '`checklist_token`: `PQR-1`'),
+            `
+## Priority-Exit Readiness
+
+- security triage: no open P0 security findings
+- priority-exit review blocks PQR-(n+1) until PQR-n is completed
+`
+        ),
+    });
+
+    assert.ok(result.errors.includes(
+        'priority-exit readiness section must name each mapped source finding id (FCP-* or PQR-*)'
+    ));
+    assert.ok(!result.errors.some((error) => error.includes('mapped FCP source_finding_id')));
+});
+
 test('checkPlanConformance rejects imported issue ids in FCP priority-exit readiness', () => {
     const result = checkPlanConformance({
         filePath: 'docs/plans/2026-04-28-fcp-example.md',
