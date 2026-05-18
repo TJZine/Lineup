@@ -1171,28 +1171,46 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Handoff: `PQR-4` is closed. Do not run a PQR score refresh here because final
   score rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-5` Runtime API, Auth Token, And Abort/Error Contract Coherence
+### [x] `PQR-5` Runtime API, Auth Token, And Abort/Error Contract Coherence
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: completed
+- Plan: local-only untracked plan was used
+  (`docs/plans/2026-05-18-pqr-5-runtime-api-auth-token-abort-error-contract-coherence-plan.md`);
+  not committed by maintainer request
+- Last touched: 2026-05-18; implementation commits `769972c1`,
+  `3fe7adbf`, `fdac8d7e`, and `75012611`
+- Verification: plan review and implementation review passed clean after the
+  required closure/fresh-approval loops. Implementation verification:
+  targeted player contract tests, targeted Plex token/header/URL tests,
+  targeted Plex library/count-enrichment tests, token/abort source audits,
+  `npm run typecheck`, `git diff --check`, `npm run plans:check`,
+  `npm run verify:maintainability`, `npm run verify:docs`, and
+  `npm run verify` passed.
 - Dimensions/rubric tags: error consistency, API surface coherence,
   authorization consistency, convention drift, type safety, test strategy
 - Owner/scope: player runtime API contracts and Plex auth/shared abort/token
   contracts across player, Plex auth/shared, token literal callers, and library
   abort semantics. Scheduler persistence belongs to `PQR-1`.
-- Production risk: mixed player async rejection shapes, repeated Plex token key
-  ownership, and overloaded abort helper naming weaken port-critical contracts,
-  redaction/token handling, and failure semantics.
-- Source findings to audit/retire:
-  - `PQR-5-SF1`: normalize/document `IVideoPlayer` async rejections so
-    player-owned failures use one structured family; raw native `play()`
-    rejection may remain the named exception.
-  - `PQR-5-SF2`: centralize Plex token header/query key ownership without
-    changing token flow, request order, redaction, or URL semantics.
-  - `PQR-5-SF3`: rename/tighten Plex library abort helpers so auth predicates
-    and count-enrichment stop conditions cannot be confused.
+- Production risk: retired for this package. Player-owned async failures now
+  reject through the structured playback error family, Plex runtime token key
+  spelling has one owner, and the library count-enrichment abort stop helper no
+  longer reads like an auth-layer abort predicate.
+- Source findings retired:
+  - `PQR-5-SF1`: resolved in `PQR-5-S1`. `IVideoPlayer` now documents the
+    structured player-owned async rejection contract, `VideoPlayer` converts
+    player-owned initialization, precondition, readiness, seek-timeout, and
+    subtitle activation failures into structured `PlaybackError` objects, and
+    the raw native `video.play()` rejection remains the explicit unchanged
+    exception with no player `error` event.
+  - `PQR-5-SF2`: resolved in `PQR-5-S2`. `src/modules/plex/shared/plexUrl.ts`
+    owns the canonical Plex token header/query key constants consumed by auth,
+    discovery, stream, subtitle, and library token callers. Token flow, request
+    order, trusted-origin filtering, redaction, and URL shapes are preserved.
+  - `PQR-5-SF3`: resolved in `PQR-5-S3`. `LibraryCountEnrichment` now names
+    its private stop predicate `shouldStopCountEnrichment`, distinguishing
+    count-enrichment worker stop conditions from auth-layer error-only abort
+    predicates while preserving abort, timeout, first-failure, and concurrency
+    behavior.
 - Completion means: player async contracts are coherent and tested, Plex token
   literals have one owner, abort helper names match semantics, and no user
   visible playback/auth/discovery/stream behavior changes occur.
@@ -1203,9 +1221,10 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Stop/replan triggers: native playback behavior changes; auth token
   persistence/redaction/request order changes; stream URL shape changes; abort
   handling starts swallowing non-abort failures; public API widening is needed.
-- Follow-ups: none yet
-- Handoff: this package should not be mixed with scheduler persistence or UI
-  workflow cleanup.
+- Follow-ups: none for `PQR-5`; remaining refresh work continues with
+  maintainer-selected `PQR-*` packages.
+- Handoff: `PQR-5` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
 ### [ ] `PQR-6` Shared Type Owner And Literal Union Hygiene
 
