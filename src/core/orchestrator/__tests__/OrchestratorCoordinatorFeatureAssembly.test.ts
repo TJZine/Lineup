@@ -420,6 +420,115 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         );
     });
 
+    it.each([
+        ['zero', 0],
+        ['negative', -15],
+        ['NaN', Number.NaN],
+        ['positive infinity', Number.POSITIVE_INFINITY],
+        ['negative infinity', Number.NEGATIVE_INFINITY],
+    ])(
+        'buildNavigationCoordinator falls back to the default seek increment when playerConfig is %s',
+        (_label, seekIncrementSec) => {
+            const input: OrchestratorNavigationCoordinatorBuilderInput = {
+                config: {
+                    playerConfig: {
+                        seekIncrementSec,
+                    },
+                } as OrchestratorCoordinatorAssemblyInput['config'],
+                modules: {
+                    navigation: { kind: 'navigation' },
+                    epg: { kind: 'epg' },
+                    plexAuth: { kind: 'plex-auth' },
+                    videoPlayer: { kind: 'video-player' },
+                } as unknown as OrchestratorNavigationCoordinatorBuilderInput['modules'],
+                overlays: {
+                    playerOsd: { kind: 'player-osd' },
+                    miniGuide: { kind: 'mini-guide' },
+                    nowPlayingInfo: { resetAutoHideTimer: jest.fn() },
+                    channelNumberOverlay: {
+                        showDigits: jest.fn(),
+                        scheduleHide: jest.fn(),
+                    },
+                } as unknown as OrchestratorNavigationCoordinatorBuilderInput['overlays'],
+                stores: {
+                    developerSettingsStore: {
+                        readDebugLoggingEnabledAndClean: jest.fn(() => false),
+                    },
+                    profileSessionStore: {
+                        readKeepPlayingInSettingsAndClean: jest.fn(() => false),
+                    },
+                } as unknown as OrchestratorNavigationCoordinatorBuilderInput['stores'],
+                diagnostics: {
+                    reportRecoverableAsyncFailure: jest.fn(),
+                    appendIssueDiagnostic: jest.fn(),
+                },
+                playback: {
+                    stopPlayback: jest.fn(),
+                },
+                schedule: {
+                    setLastChannelChangeSource: jest.fn(),
+                },
+                actions: {
+                    switchToNextChannel: jest.fn(),
+                    switchToPreviousChannel: jest.fn(),
+                    switchToChannelByNumberWithOutcome: jest.fn(),
+                    toggleEPG: jest.fn(),
+                    toggleNowPlayingInfoOverlay: jest.fn(),
+                },
+                nowPlaying: {
+                    handler: jest.fn(() => jest.fn()),
+                },
+            };
+            const deps = {
+                epgCoordinator: {
+                    focusEpgOnCurrentChannel: jest.fn(),
+                },
+                channelSetup: {
+                    shouldRunChannelSetup: jest.fn(() => false),
+                },
+                nowPlayingInfoCoordinator: {
+                    handleModalOpen: jest.fn(),
+                    handleModalClose: jest.fn(),
+                },
+                playerOsdCoordinator: {
+                    poke: jest.fn(),
+                    toggle: jest.fn(),
+                    hide: jest.fn(),
+                },
+                miniGuideCoordinator: {
+                    show: jest.fn(),
+                    hide: jest.fn(),
+                    handleNavigation: jest.fn(() => true),
+                    handlePage: jest.fn(() => true),
+                    handleSelect: jest.fn(),
+                },
+                channelTransitionCoordinator: {
+                    hide: jest.fn(),
+                },
+                playbackOptionsCoordinator: {
+                    prepareModal: jest.fn(() => ({
+                        focusableIds: [],
+                        preferredFocusId: null,
+                    })),
+                    handleModalOpen: jest.fn(),
+                    handleModalClose: jest.fn(),
+                },
+                exitConfirmCoordinator: {
+                    handleModalOpen: jest.fn(),
+                    handleModalClose: jest.fn(),
+                },
+            };
+
+            buildNavigationCoordinator(input, deps as never);
+
+            const keyModeRouterDeps = mockNavigationKeyModeRouter.mock.calls[0]?.[0] as {
+                playback: { getSeekIncrementMs: () => number };
+            };
+
+            expect(keyModeRouterDeps.playback.getSeekIncrementMs()).toBe(10_000);
+        }
+    );
+
     it('buildChannelTransitionCoordinator routes transition activity changes through the named orchestrator callback path', () => {
         jest.useFakeTimers();
         const input = createInput();

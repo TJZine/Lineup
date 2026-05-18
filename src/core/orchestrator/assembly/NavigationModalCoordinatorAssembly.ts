@@ -41,14 +41,13 @@ import type { PlayerOsdCoordinator } from '../../../modules/ui/player-osd';
 import type { ChannelTransitionCoordinator } from '../../../modules/ui/channel-transition';
 import { secondsToMilliseconds } from '../../../config/timing';
 import type { ToastInput } from '../../../shared/toast';
+import { normalizeSeekIncrementSeconds } from '../../../modules/player/SeekIncrementPolicy';
 import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorExitConfirmCoordinatorBuilderInput,
     OrchestratorMiniGuideCoordinatorBuilderInput,
     OrchestratorNavigationCoordinatorBuilderInput,
 } from './OrchestratorCoordinatorContracts';
-
-const DEFAULT_SEEK_INCREMENT_SECONDS = 10;
 
 type NavigationCoordinatorBuilderDeps = {
     epgCoordinator: EPGCoordinator;
@@ -62,12 +61,7 @@ type NavigationCoordinatorBuilderDeps = {
 };
 
 function getNavigationSeekIncrementMs(input: OrchestratorNavigationCoordinatorBuilderInput): number {
-    const seekIncrementSeconds = input.config?.playerConfig?.seekIncrementSec;
-    const normalizedSeekIncrementSeconds =
-        typeof seekIncrementSeconds === 'number' && Number.isFinite(seekIncrementSeconds)
-            ? seekIncrementSeconds
-            : DEFAULT_SEEK_INCREMENT_SECONDS;
-    return secondsToMilliseconds(normalizedSeekIncrementSeconds);
+    return secondsToMilliseconds(normalizeSeekIncrementSeconds(input.config?.playerConfig?.seekIncrementSec));
 }
 
 function getNavigationChannelOverlayHideDelay(input: OrchestratorNavigationCoordinatorBuilderInput): number {

@@ -1357,6 +1357,70 @@ describe('VideoPlayer', () => {
                 expect(currentTimeValue).toBe(45); // 50 - 5
             });
 
+            it('falls back to the default positive seek increment when media session details and config are invalid', async () => {
+                player.destroy();
+                player = new VideoPlayer();
+                await player.initialize(createMockConfig({ seekIncrementSec: -15 }));
+                await player.loadStream(createMockDescriptor());
+                player.requestMediaSession();
+
+                const videoElement = container.querySelector('video')!;
+                let currentTimeValue = 50;
+
+                Object.defineProperty(videoElement, 'currentTime', {
+                    get: () => currentTimeValue,
+                    set: (val: number) => {
+                        currentTimeValue = val;
+                        void Promise.resolve().then(() => {
+                            videoElement.dispatchEvent(new Event('seeked'));
+                        });
+                    },
+                    configurable: true,
+                });
+
+                const seekforwardHandler = mockMediaSession.handlers.get('seekforward');
+                if (!seekforwardHandler) {
+                    throw new Error('seekforward handler not installed');
+                }
+
+                seekforwardHandler({ seekOffset: 0 });
+                await flushPromises();
+
+                expect(currentTimeValue).toBe(60);
+            });
+
+            it('ignores invalid media session seek offsets and falls back to the configured positive increment', async () => {
+                player.destroy();
+                player = new VideoPlayer();
+                await player.initialize(createMockConfig({ seekIncrementSec: 15 }));
+                await player.loadStream(createMockDescriptor());
+                player.requestMediaSession();
+
+                const videoElement = container.querySelector('video')!;
+                let currentTimeValue = 50;
+
+                Object.defineProperty(videoElement, 'currentTime', {
+                    get: () => currentTimeValue,
+                    set: (val: number) => {
+                        currentTimeValue = val;
+                        void Promise.resolve().then(() => {
+                            videoElement.dispatchEvent(new Event('seeked'));
+                        });
+                    },
+                    configurable: true,
+                });
+
+                const seekbackwardHandler = mockMediaSession.handlers.get('seekbackward');
+                if (!seekbackwardHandler) {
+                    throw new Error('seekbackward handler not installed');
+                }
+
+                seekbackwardHandler({ seekOffset: Number.NEGATIVE_INFINITY });
+                await flushPromises();
+
+                expect(currentTimeValue).toBe(35);
+            });
+
             it('logs a warning when Media Session seek handlers reject', async () => {
                 expectConsoleWarn([
                     'video_player_media_session_action_failed',

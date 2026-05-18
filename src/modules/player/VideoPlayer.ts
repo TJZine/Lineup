@@ -33,6 +33,7 @@ import type { PlatformPlaybackService, PlatformSubtitleService } from '../../pla
 import { createWebOsPlatformServices } from '../../platform';
 import { SubtitleDebugLogger } from '../debug/SubtitleDebugLogger';
 import { snapshotNativeTextTracks } from './nativeTextTrackDebugSnapshot';
+import { isValidSeekIncrementSeconds, normalizeSeekIncrementSeconds } from './SeekIncrementPolicy';
 
 type MediaSessionPlaybackStateLike = 'none' | 'paused' | 'playing';
 
@@ -844,19 +845,12 @@ export class VideoPlayer implements IVideoPlayer {
             'seekOffset' in details
         ) {
             const seekOffset = (details as { seekOffset: unknown }).seekOffset;
-            if (typeof seekOffset === 'number' && isFinite(seekOffset)) {
+            if (isValidSeekIncrementSeconds(seekOffset)) {
                 return seekOffset;
             }
         }
-        // Use config if available and finite, else default 10 seconds
-        if (
-            this._config &&
-            typeof this._config.seekIncrementSec === 'number' &&
-            isFinite(this._config.seekIncrementSec)
-        ) {
-            return this._config.seekIncrementSec;
-        }
-        return 10;
+
+        return normalizeSeekIncrementSeconds(this._config?.seekIncrementSec);
     }
 
     private _syncMediaSessionMetadata(): void {
