@@ -20,6 +20,20 @@ const startupResumeSucceeded = {
     epgRefresh: { kind: 'succeeded' },
 } as const;
 
+function createDeferred<T>(): {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+    reject: (reason: unknown) => void;
+} {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((promiseResolve, promiseReject) => {
+        resolve = promiseResolve;
+        reject = promiseReject;
+    });
+    return { promise, resolve, reject };
+}
+
 describe('ServerSelectionCoordinator', () => {
     it('returns selection_failed without persistence or runtime swap when discovery cannot select a server', async () => {
         const deps = {
@@ -176,6 +190,122 @@ describe('ServerSelectionCoordinator', () => {
         expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
         expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
         expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshot);
+    });
+
+    it('serializes overlapping selections so a failed earlier transaction rolls back before the next starts', async () => {
+        const discoverySnapshotA: DiscoverySelectedServerSnapshot = {
+            server: null,
+            connection: null,
+            storedServerId: 'server-a-previous',
+        };
+        const discoverySnapshotB: DiscoverySelectedServerSnapshot = {
+            server: null,
+            connection: null,
+            storedServerId: 'server-b-previous',
+        };
+        const persistedSnapshotA: PersistedSelectedServerSnapshot = {
+            kind: 'available',
+            selection: { serverId: 'server-a-previous', serverUri: 'http://a-previous.example' },
+        };
+        const persistedSnapshotB: PersistedSelectedServerSnapshot = {
+            kind: 'available',
+            selection: { serverId: 'server-b-previous', serverUri: 'http://b-previous.example' },
+        };
+        const resumeError = new Error('startup resume failed');
+        const startupResumeDeferred = createDeferred<typeof startupResumeSucceeded>();
+        const firstResumeStarted = createDeferred<void>();
+        const events: string[] = [];
+        let discoverySnapshotCaptureCount = 0;
+        let persistedSnapshotCaptureCount = 0;
+        let resumeCallCount = 0;
+
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => {
+                discoverySnapshotCaptureCount += 1;
+                events.push('capture-discovery');
+                return discoverySnapshotCaptureCount === 1 ? discoverySnapshotA : discoverySnapshotB;
+            }),
+            restoreDiscoverySelectionSnapshot: jest.fn(
+                (snapshot: DiscoverySelectedServerSnapshot) => {
+                    events.push(`restore-discovery:${snapshot.storedServerId ?? 'none'}`);
+                }
+            ),
+            capturePersistedSelectionSnapshot: jest.fn(async () => {
+                persistedSnapshotCaptureCount += 1;
+                events.push('capture-persisted');
+                return persistedSnapshotCaptureCount === 1 ? persistedSnapshotA : persistedSnapshotB;
+            }),
+            selectServer: jest.fn(async (serverId: string) => {
+                events.push(`select:${serverId}`);
+                return { kind: 'selected' as const };
+            }),
+            getSelectedServerUri: jest.fn(() => 'http://selected.example'),
+            persistSelection: jest.fn(async (serverId: string) => {
+                events.push(`persist:${serverId}`);
+                return 'updated' as const;
+            }),
+            restorePersistedSelectionSnapshot: jest.fn(
+                async (snapshot: PersistedSelectedServerSnapshot) => {
+                    events.push(
+                        `restore-persisted:${
+                            snapshot.kind === 'available' ? snapshot.selection.serverId : snapshot.kind
+                        }`
+                    );
+                    return 'updated' as const;
+                }
+            ),
+            resumeStartupAfterSelection: jest.fn(() => {
+                resumeCallCount += 1;
+                events.push(`resume:${resumeCallCount}`);
+                if (resumeCallCount === 1) {
+                    firstResumeStarted.resolve();
+                    return startupResumeDeferred.promise;
+                }
+                return Promise.resolve(startupResumeSucceeded);
+            }),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        const selectionA = coordinator.selectServer('server-a');
+        await firstResumeStarted.promise;
+
+        expect(deps.persistSelection).toHaveBeenCalledWith('server-a', 'http://selected.example');
+        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
+
+        const selectionB = coordinator.selectServer('server-b');
+        await Promise.resolve();
+
+        expect(deps.selectServer).toHaveBeenCalledTimes(1);
+        expect(deps.selectServer).toHaveBeenCalledWith('server-a');
+
+        startupResumeDeferred.reject(resumeError);
+        await expect(selectionA).rejects.toBe(resumeError);
+
+        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshotA);
+        expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshotA);
+
+        await expect(selectionB).resolves.toEqual({
+            kind: 'selected',
+            readiness: 'ready',
+            persistedSelection: 'updated',
+            startupResume: startupResumeSucceeded,
+        });
+        expect(deps.selectServer).toHaveBeenCalledTimes(2);
+        expect(deps.selectServer).toHaveBeenNthCalledWith(2, 'server-b');
+        expect(deps.persistSelection).toHaveBeenNthCalledWith(
+            2,
+            'server-b',
+            'http://selected.example'
+        );
+        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(2);
+
+        expect(events.indexOf('restore-discovery:server-a-previous')).toBeLessThan(
+            events.indexOf('select:server-b')
+        );
+        expect(events.indexOf('restore-persisted:server-a-previous')).toBeLessThan(
+            events.indexOf('select:server-b')
+        );
     });
 
     it('preserves startup resume failure when both rollback attempts fail', async () => {
