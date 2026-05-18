@@ -12,6 +12,7 @@ import { resolveChannelSeed } from './ChannelSeedPolicy';
 import { ChannelPersistenceCoordinator, normalizeStorageKey } from './ChannelPersistenceCoordinator';
 import { ChannelResolutionCache } from './ChannelResolutionCache';
 import { ChannelRetryScheduler } from './ChannelRetryScheduler';
+import { cloneChannelForOwnership } from './ChannelDomainClone';
 import { ChannelError } from './ChannelErrors';
 import type { IChannelManager, ChannelCreateOptions, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
@@ -411,26 +412,26 @@ export class ChannelManager implements IChannelManager {
         this._emitter.emit('channelDeleted', id);
     }
 
-
     getChannel(id: string): ChannelConfig | null {
-        return this._state.channels.get(id) || null;
+        const channel = this._state.channels.get(id);
+        return channel ? cloneChannelForOwnership(channel) : null;
     }
 
     getAllChannels(): ChannelConfig[] {
         return this._state.channelOrder
             .map((id) => this._state.channels.get(id))
-            .filter((ch): ch is ChannelConfig => ch !== undefined);
+            .filter((ch): ch is ChannelConfig => ch !== undefined)
+            .map((channel) => cloneChannelForOwnership(channel));
     }
 
     getChannelByNumber(number: number): ChannelConfig | null {
         for (const channel of this._state.channels.values()) {
             if (channel.number === number) {
-                return channel;
+                return cloneChannelForOwnership(channel);
             }
         }
         return null;
     }
-
 
     /**
      * Resolve content for a channel (uses cache if valid).
@@ -528,7 +529,8 @@ export class ChannelManager implements IChannelManager {
         if (!this._state.currentChannelId) {
             return null;
         }
-        return this._state.channels.get(this._state.currentChannelId) || null;
+        const channel = this._state.channels.get(this._state.currentChannelId);
+        return channel ? cloneChannelForOwnership(channel) : null;
     }
 
     getNextChannel(): ChannelConfig | null {
@@ -539,7 +541,8 @@ export class ChannelManager implements IChannelManager {
         const currentIndex = this._state.channelOrder.indexOf(this._state.currentChannelId);
         const nextIndex = (currentIndex + 1) % this._state.channelOrder.length;
         const nextId = this._state.channelOrder[nextIndex];
-        return nextId ? this._state.channels.get(nextId) || null : null;
+        const channel = nextId ? this._state.channels.get(nextId) : undefined;
+        return channel ? cloneChannelForOwnership(channel) : null;
     }
 
     getPreviousChannel(): ChannelConfig | null {
@@ -551,9 +554,9 @@ export class ChannelManager implements IChannelManager {
         const prevIndex =
             (currentIndex - 1 + this._state.channelOrder.length) % this._state.channelOrder.length;
         const prevId = this._state.channelOrder[prevIndex];
-        return prevId ? this._state.channels.get(prevId) || null : null;
+        const channel = prevId ? this._state.channels.get(prevId) : undefined;
+        return channel ? cloneChannelForOwnership(channel) : null;
     }
-
 
     /**
      * Export all channels as JSON string.

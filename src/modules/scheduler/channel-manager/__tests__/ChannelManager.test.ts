@@ -6,6 +6,7 @@
 import { ChannelError, ChannelManager } from '../ChannelManager';
 import type { IPlexLibraryMinimal } from '../interfaces';
 import type {
+    ChannelConfig,
     ChannelCreateInput,
     ChannelUpdateInput,
 } from '../types';
@@ -393,6 +394,105 @@ describe('ChannelManager', () => {
             expect(ch).not.toBeNull();
             expect(ch!.number).toBe(5);
             expect(ch!.name).toBe('Channel 5');
+        });
+
+        it('returns owned clones from public getter surfaces', async () => {
+            const ch1 = await manager.createChannel({
+                number: 1,
+                name: 'Protected 1',
+                contentSource: {
+                    ...createMockContentSource('lib-1'),
+                    libraryFilter: { genre: 'Drama' },
+                },
+                contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+            });
+            const ch2 = await manager.createChannel({
+                number: 2,
+                name: 'Protected 2',
+                contentSource: {
+                    ...createMockContentSource('lib-2'),
+                    libraryFilter: { genre: 'Comedy' },
+                },
+                contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+            });
+            await manager.createChannel({
+                number: 3,
+                name: 'Protected 3',
+                contentSource: {
+                    ...createMockContentSource('lib-3'),
+                    libraryFilter: { genre: 'Action' },
+                },
+                contentFilters: [{ field: 'year', operator: 'gte', value: 2020 }],
+            });
+            manager.setCurrentChannel(ch2.id);
+
+            const mutateReturnedChannel = (channel: ChannelConfig, marker: string): void => {
+                channel.name = `Mutated ${marker}`;
+                if (channel.contentSource.type !== 'library' || !channel.contentSource.libraryFilter) {
+                    throw new Error('getter clone fixture should use library filters');
+                }
+                channel.contentSource.libraryFilter.genre = `Mutated ${marker}`;
+                if (!channel.contentFilters) {
+                    throw new Error('getter clone fixture should use content filters');
+                }
+                channel.contentFilters[0]!.value = 1900;
+            };
+            const expectOriginalChannel = (
+                channel: ChannelConfig | null | undefined,
+                expected: { name: string; genre: string; filterValue: number }
+            ): void => {
+                expect(channel).toEqual(expect.objectContaining({ name: expected.name }));
+                expect(channel?.contentSource).toEqual(expect.objectContaining({
+                    libraryFilter: { genre: expected.genre },
+                }));
+                expect(channel?.contentFilters).toEqual([
+                    { field: 'year', operator: 'gte', value: expected.filterValue },
+                ]);
+            };
+
+            mutateReturnedChannel(manager.getChannel(ch1.id)!, 'by-id');
+            mutateReturnedChannel(
+                manager.getAllChannels().find((channel) => channel.id === ch1.id)!,
+                'all'
+            );
+            mutateReturnedChannel(manager.getChannelByNumber(ch1.number)!, 'by-number');
+            mutateReturnedChannel(manager.getCurrentChannel()!, 'current');
+            mutateReturnedChannel(manager.getNextChannel()!, 'next');
+            mutateReturnedChannel(manager.getPreviousChannel()!, 'previous');
+
+            expectOriginalChannel(manager.getChannel(ch1.id), {
+                name: 'Protected 1',
+                genre: 'Drama',
+                filterValue: 2020,
+            });
+            expectOriginalChannel(
+                manager.getAllChannels().find((channel) => channel.id === ch1.id),
+                {
+                    name: 'Protected 1',
+                    genre: 'Drama',
+                    filterValue: 2020,
+                }
+            );
+            expectOriginalChannel(manager.getChannelByNumber(ch1.number), {
+                name: 'Protected 1',
+                genre: 'Drama',
+                filterValue: 2020,
+            });
+            expectOriginalChannel(manager.getCurrentChannel(), {
+                name: 'Protected 2',
+                genre: 'Comedy',
+                filterValue: 2020,
+            });
+            expectOriginalChannel(manager.getNextChannel(), {
+                name: 'Protected 3',
+                genre: 'Action',
+                filterValue: 2020,
+            });
+            expectOriginalChannel(manager.getPreviousChannel(), {
+                name: 'Protected 1',
+                genre: 'Drama',
+                filterValue: 2020,
+            });
         });
     });
 
