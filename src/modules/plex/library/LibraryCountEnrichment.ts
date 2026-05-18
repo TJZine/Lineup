@@ -26,7 +26,7 @@ function normalizeItemCountConcurrency(itemCountConcurrency: number | undefined)
     return Math.max(1, Math.min(requestedConcurrency, 8));
 }
 
-function isAbortError(error: unknown, signal: AbortSignal | null): boolean {
+function shouldStopCountEnrichment(error: unknown, signal: AbortSignal | null): boolean {
     return Boolean(signal?.aborted || (error instanceof Error && error.name === 'AbortError'));
 }
 
@@ -72,7 +72,7 @@ export async function enrichLibrarySectionCounts(
                             delete library.episodeCount;
                         }
                     } catch (error) {
-                        if (isAbortError(error, signal)) {
+                        if (shouldStopCountEnrichment(error, signal)) {
                             return;
                         }
                         delete library.episodeCount;
@@ -83,7 +83,7 @@ export async function enrichLibrarySectionCounts(
                     }
                 }
             } catch (error) {
-                if (isAbortError(error, signal)) {
+                if (shouldStopCountEnrichment(error, signal)) {
                     return;
                 }
                 library.contentCount = null;
