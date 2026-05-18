@@ -1226,28 +1226,50 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Handoff: `PQR-5` is closed. Do not run a PQR score refresh here because final
   score rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-6` Shared Type Owner And Literal Union Hygiene
+### [x] `PQR-6` Shared Type Owner And Literal Union Hygiene
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: completed
+- Plan: local-only untracked plan was used
+  (`docs/plans/2026-05-18-pqr-6-shared-type-owner-literal-union-hygiene-plan.md`);
+  not committed by maintainer request
+- Last touched: 2026-05-18; implementation commits `fb3be51f` and `9e1a5ca2`
+- Verification: plan review and implementation review passed clean after the
+  optional contract-tightening revision. Implementation verification:
+  required status/direction/test-surface `rg` audits, targeted EPG/navigation
+  tests (`npm test -- EPGCoordinator EPGRefreshController
+  EPGRefreshController.lazy-runtime EPGScheduleRefreshRuntime
+  NavigationCoordinator NavigationDirectionalRepeatController
+  NavigationRemoteInputRouter --runInBand`), `npm run typecheck`,
+  `git diff --check`, `npm run verify:maintainability`, `npm run verify`, and
+  `npm run plans:check` passed. Revision verification: navigation contract
+  source audit, `npm run typecheck`, `git diff --check`, and
+  `git diff --cached --check` passed before commit.
 - Dimensions/rubric tags: type safety, contract coherence, logic clarity,
   structure navigation, test strategy
 - Owner/scope: shared literal union and contract type ownership in runtime
   status and navigation contracts. Persisted channel validation belongs to
   `PQR-1`; channel setup facet families are already closed.
-- Production risk: duplicated literal unions let adjacent contracts drift
-  silently and weaken compile-time proof.
-- Source findings to audit/retire:
-  - `PQR-6-SF1`: derive `EpgUiStatus` from `ModuleRuntimeStatus` plus the
-    existing `undefined` contract instead of repeating the same status literals.
-  - `PQR-6-SF2`: make `NavigationFourWayDirection` alias the canonical
-    navigation `Direction` type while preserving the narrower vertical
-    direction alias where it is genuinely different.
-  - `PQR-6-SF3`: audit touched contracts for adjacent duplicate literal unions
-    introduced by the same pattern; admit only current-source duplicates with
-    one clear owner.
+- Production risk: retired for this package. Runtime module status has one
+  owner, navigation four-way direction has one owner, and the remaining
+  approved exactness assertions prove the intended shared-type relationships.
+- Source findings retired:
+  - `PQR-6-SF1`: resolved in `fb3be51f`. `EpgUiStatus` now derives from
+    `ModuleRuntimeStatus | undefined`, preserving the public `EPGUiStatus`
+    alias and the `EpgUiStatusContract` exactness assertion without changing
+    EPG readiness, refresh, startup, or runtime-status behavior.
+  - `PQR-6-SF2`: resolved in `fb3be51f` and tightened in `9e1a5ca2`.
+    `NavigationFourWayDirection` now aliases canonical `Direction`, while
+    `NavigationVerticalDirection` remains the narrower
+    `Extract<Direction, 'up' | 'down'>`; the navigation contract assertions
+    now prove both exact relationships.
+  - `PQR-6-SF3`: resolved/source-disproved inside the approved scope.
+    Same-package `NavigationManager` and `FocusManager` four-way direction
+    duplicates now consume `Direction`. EPG audit-only component/focus command
+    direction literals were not changed because importing navigation contract
+    types into EPG-owned component/focus command surfaces would change
+    dependency direction; those remain EPG-local command contracts, not a
+    shared navigation owner. Revisit only with an approved EPG/navigation
+    shared input-contract owner or reviewed dependency-direction change.
 - Completion means: duplicated EPG/navigation literal unions are gone or
   source-disproved, exactness assertions still prove intended relationships,
   and no runtime behavior changes occur.
@@ -1258,9 +1280,10 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   downstream callers rely on a meaningfully different union; runtime status or
   navigation behavior changes; a proposed shared type owner would become a
   generic dumping ground.
-- Follow-ups: none yet
-- Handoff: this can be a small package, but it should still use source-backed
-  owner decisions because it changes public contracts.
+- Follow-ups: none for `PQR-6`; remaining refresh work continues with
+  maintainer-selected `PQR-*` packages.
+- Handoff: `PQR-6` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
 ### [ ] `PQR-7` Source Signal, Migration Context, Coverage Gate, And Logic Clarity
 
