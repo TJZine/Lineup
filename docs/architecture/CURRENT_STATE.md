@@ -65,6 +65,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - app-shell-owned startup UI initializer
 - owns startup-time initialization calls for now-playing-info, playback-options, and exit-confirm overlays
+- concrete construction is owned by `src/core/app-shell/chrome/AppStartupUiPortFactory.ts`, which returns the narrow initialization startup-UI port
 - keeps startup UI readiness sequencing explicit through `src/core/initialization/InitializationCoordinator.ts`'s narrow startup-UI port
 
 ### `src/core/app-shell/`
@@ -116,8 +117,11 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ### `src/core/orchestrator/assembly/OrchestratorCoordinatorAssembly.ts`
 
-- owns coordinator assembly input construction and required-module validation before coordinator creation
+- owns coordinator assembly input construction, required-module validation before coordinator creation, and explicit coordinator construction order
 - exposes the typed assembly input seam used by `AppOrchestrator` without no-op module fallbacks or scattered non-null assertions
+- delegates feature-family coordinator construction and assembly projections to sibling owners:
+  `EpgChannelSetupCoordinatorAssembly.ts`, `PlaybackOsdCoordinatorAssembly.ts`,
+  `NavigationModalCoordinatorAssembly.ts`, and `NowPlayingDebugCoordinatorAssembly.ts`
 
 ### `src/core/orchestrator/runtime/OrchestratorShutdownTeardown.ts`
 

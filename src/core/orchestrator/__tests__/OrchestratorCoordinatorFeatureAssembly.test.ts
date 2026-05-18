@@ -71,11 +71,15 @@ import { ChannelSetupRecordStore } from '../../channel-setup/persistence/Channel
 import {
     bindEpgVisibleRangeChange,
     buildChannelSetupOwners,
+} from '../assembly/EpgChannelSetupCoordinatorAssembly';
+import {
     buildChannelTransitionCoordinator,
+    buildPlayerOsdCoordinator,
+} from '../assembly/PlaybackOsdCoordinatorAssembly';
+import {
     buildMiniGuideCoordinator,
     buildNavigationCoordinator,
-    buildPlayerOsdCoordinator,
-} from '../assembly/OrchestratorCoordinatorBuilders';
+} from '../assembly/NavigationModalCoordinatorAssembly';
 
 const flushPromises = async (): Promise<void> => {
     await Promise.resolve();
@@ -166,7 +170,7 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
     };
 };
 
-describe('OrchestratorCoordinatorBuilders', () => {
+describe('OrchestratorCoordinatorFeatureAssembly', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         coordinatorInstance.clearRerunRequest.mockReset();
