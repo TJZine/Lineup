@@ -1014,6 +1014,28 @@ describe('EPGInfoPanel', () => {
             expect(poster.alt).toBe('Great Show');
         });
 
+        it('derives series title from fullTitle without a season code', () => {
+            const resolver = jest.fn((path: string | null) => (path ? 'https://server/thumb?token=xxx' : null));
+            panel.setThumbResolver(resolver);
+
+            const program = createMockProgram('/library/metadata/123/showThumb', {
+                type: 'episode',
+                showTitle: '',
+                title: 'Scavengers',
+                fullTitle: 'Scavengers Reign - Scavengers',
+                showThumb: '/library/metadata/123/showThumb',
+            });
+            panel.show(program);
+
+            const showTitle = container.querySelector('.epg-info-show') as HTMLElement;
+            expect(showTitle.textContent).toBe('Scavengers Reign');
+            expect(showTitle.style.display).toBe('block');
+
+            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+            expect(poster.style.display).toBe('block');
+            expect(poster.alt).toBe('Scavengers Reign');
+        });
+
         it('renders clear logo in place of title when enabled', () => {
             localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
             try {
