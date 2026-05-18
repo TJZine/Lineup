@@ -924,6 +924,213 @@ describe('InitializationCoordinator (Plex Home)', () => {
         ]);
     });
 
+    describe('playback runtime module status sequencing', () => {
+        const statusLabel = (id: string, status: string): string => `status:${id}:${status}`;
+        const initLabel = (id: string): string => `init:${id}`;
+        const requireOrderIndex = (order: string[], label: string): number => {
+            const index = order.indexOf(label);
+            expect(index).not.toBe(-1);
+            return index;
+        };
+
+        it('publishes initializing before and ready after wrapped runtime initializers with existing module ids', async () => {
+            const order: string[] = [];
+            const wrappedModuleIds = [
+                'channel-manager',
+                'video-player',
+                'player-osd-ui',
+                'channel-number-overlay-ui',
+                'channel-badge-ui',
+                'mini-guide-ui',
+                'channel-transition-ui',
+            ];
+            const { coordinator, callbacks } = makeCoordinator({
+                channelManager: {
+                    loadChannels: jest.fn(async () => {
+                        order.push(initLabel('channel-manager'));
+                    }),
+                    getCurrentChannel: jest.fn().mockReturnValue(null),
+                    getAllChannels: jest.fn().mockReturnValue([]),
+                } as unknown as LegacyInitializationDependencies['channelManager'],
+                scheduler: {} as unknown as LegacyInitializationDependencies['scheduler'],
+                videoPlayer: {
+                    initialize: jest.fn(async () => {
+                        order.push(initLabel('video-player'));
+                    }),
+                    requestMediaSession: jest.fn(),
+                } as unknown as LegacyInitializationDependencies['videoPlayer'],
+                playerOsd: {
+                    initialize: jest.fn(() => {
+                        order.push(initLabel('player-osd-ui'));
+                    }),
+                } as unknown as LegacyInitializationDependencies['playerOsd'],
+                channelNumberOverlay: {
+                    initialize: jest.fn(() => {
+                        order.push(initLabel('channel-number-overlay-ui'));
+                    }),
+                } as unknown as LegacyInitializationDependencies['channelNumberOverlay'],
+                channelBadgeOverlay: {
+                    initialize: jest.fn(() => {
+                        order.push(initLabel('channel-badge-ui'));
+                    }),
+                } as unknown as LegacyInitializationDependencies['channelBadgeOverlay'],
+                miniGuide: {
+                    initialize: jest.fn(() => {
+                        order.push(initLabel('mini-guide-ui'));
+                    }),
+                } as unknown as LegacyInitializationDependencies['miniGuide'],
+                channelTransition: {
+                    initialize: jest.fn(() => {
+                        order.push(initLabel('channel-transition-ui'));
+                    }),
+                } as unknown as LegacyInitializationDependencies['channelTransition'],
+            });
+            (callbacks.updateModuleStatus as jest.Mock).mockImplementation((id: string, status: string) => {
+                order.push(statusLabel(id, status));
+            });
+
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_RUNTIME_MODULES);
+
+            for (const id of wrappedModuleIds) {
+                const initializingIndex = requireOrderIndex(order, statusLabel(id, 'initializing'));
+                const initIndex = requireOrderIndex(order, initLabel(id));
+                const readyIndex = requireOrderIndex(order, statusLabel(id, 'ready'));
+                expect(initializingIndex).toBeLessThan(initIndex);
+                expect(initIndex).toBeLessThan(readyIndex);
+            }
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
+                'channel-scheduler',
+                'ready',
+                undefined,
+                expect.any(Number)
+            );
+            expect(callbacks.updateModuleStatus).not.toHaveBeenCalledWith('channel-scheduler', 'initializing');
+        });
+
+        it('reports later runtime load times from the shared playback-runtime start time', async () => {
+            let now = 1000;
+            const dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+            const { coordinator, callbacks } = makeCoordinator({
+                channelManager: {
+                    loadChannels: jest.fn().mockResolvedValue(undefined),
+                    getCurrentChannel: jest.fn().mockReturnValue(null),
+                    getAllChannels: jest.fn().mockReturnValue([]),
+                } as unknown as LegacyInitializationDependencies['channelManager'],
+                channelBadgeOverlay: {
+                    initialize: jest.fn(() => {
+                        now = 1200;
+                    }),
+                } as unknown as LegacyInitializationDependencies['channelBadgeOverlay'],
+                miniGuide: {
+                    initialize: jest.fn(() => {
+                        now = 1250;
+                    }),
+                } as unknown as LegacyInitializationDependencies['miniGuide'],
+            });
+
+            try {
+                await coordinator.runStartup(STARTUP_PHASE.RESUME_RUNTIME_MODULES);
+            } finally {
+                dateNowSpy.mockRestore();
+            }
+
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith(
+                'mini-guide-ui',
+                'ready',
+                undefined,
+                250
+            );
+        });
+
+        it('keeps channel scheduler disabled without initialization ceremony when missing', async () => {
+            const { coordinator, callbacks } = makeCoordinator();
+
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_RUNTIME_MODULES);
+
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith('channel-scheduler', 'disabled');
+            expect(callbacks.updateModuleStatus).not.toHaveBeenCalledWith('channel-scheduler', 'initializing');
+            expect(callbacks.updateModuleStatus).not.toHaveBeenCalledWith(
+                'channel-scheduler',
+                'ready',
+                undefined,
+                expect.any(Number)
+            );
+        });
+
+        it('does not publish statuses for missing optional runtime modules', async () => {
+            const { coordinator, callbacks } = makeCoordinator();
+            const missingOptionalIds = [
+                'channel-manager',
+                'video-player',
+                'player-osd-ui',
+                'channel-number-overlay-ui',
+                'channel-badge-ui',
+                'mini-guide-ui',
+                'channel-transition-ui',
+            ];
+
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_RUNTIME_MODULES);
+
+            for (const id of missingOptionalIds) {
+                expect(callbacks.updateModuleStatus).not.toHaveBeenCalledWith(id, 'initializing');
+                expect(callbacks.updateModuleStatus).not.toHaveBeenCalledWith(
+                    id,
+                    'ready',
+                    undefined,
+                    expect.any(Number)
+                );
+            }
+        });
+
+        it('does not publish ready when a wrapped runtime initializer throws', async () => {
+            const { coordinator, callbacks } = makeCoordinator({
+                playerOsd: {
+                    initialize: jest.fn(() => {
+                        throw new Error('osd failed');
+                    }),
+                } as unknown as LegacyInitializationDependencies['playerOsd'],
+            });
+
+            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_RUNTIME_MODULES)).rejects.toThrow('osd failed');
+
+            expect(callbacks.updateModuleStatus).toHaveBeenCalledWith('player-osd-ui', 'initializing');
+            expect(callbacks.updateModuleStatus).not.toHaveBeenCalledWith(
+                'player-osd-ui',
+                'ready',
+                undefined,
+                expect.any(Number)
+            );
+        });
+
+        it('requests media session after video player initialize and before video-player ready', async () => {
+            const order: string[] = [];
+            const videoPlayer = {
+                initialize: jest.fn(async () => {
+                    order.push('video-player-initialize');
+                }),
+                requestMediaSession: jest.fn(() => {
+                    order.push('request-media-session');
+                }),
+            } as unknown as LegacyInitializationDependencies['videoPlayer'];
+            const { coordinator, callbacks } = makeCoordinator({
+                videoPlayer,
+            });
+            (callbacks.updateModuleStatus as jest.Mock).mockImplementation((id: string, status: string) => {
+                if (id === 'video-player' && status === 'ready') {
+                    order.push('video-player-ready');
+                }
+            });
+
+            await coordinator.runStartup(STARTUP_PHASE.RESUME_RUNTIME_MODULES);
+
+            expect(order).toEqual([
+                'video-player-initialize',
+                'request-media-session',
+                'video-player-ready',
+            ]);
+        });
+    });
+
     it('awaits EPG initialization before marking rerun startup ready', async () => {
         const callOrder: string[] = [];
         const epg = {
