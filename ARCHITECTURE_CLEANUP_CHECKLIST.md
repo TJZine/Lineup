@@ -1114,8 +1114,9 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 ### [x] `PQR-4` App-Shell And Orchestrator Assembly Boundaries
 
 - Status: completed
-- Plan:
-  [`docs/plans/2026-05-18-pqr-4-app-shell-orchestrator-assembly-boundaries-plan.md`](docs/plans/2026-05-18-pqr-4-app-shell-orchestrator-assembly-boundaries-plan.md)
+- Plan: local-only untracked plan was used for execution
+  (`docs/plans/2026-05-18-pqr-4-app-shell-orchestrator-assembly-boundaries-plan.md`);
+  not committed by maintainer request
 - Last touched: 2026-05-18; implementation commits `c8bf3b4f` and
   `4d6d8cce`
 - Verification: plan review and implementation review passed clean after
