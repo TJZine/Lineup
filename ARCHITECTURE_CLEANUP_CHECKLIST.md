@@ -1012,10 +1012,13 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 
 ### [ ] `PQR-2` UI Workflow, EPG View, And Presentation Owner Shape
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: in progress; `PQR-2-W1` is complete, `PQR-2-W2` remains.
+- Plan:
+  [`docs/plans/2026-05-17-pqr-2-ui-workflow-epg-view-presentation-owner-shape-plan.md`](./docs/plans/2026-05-17-pqr-2-ui-workflow-epg-view-presentation-owner-shape-plan.md)
+- Last touched: 2026-05-18; `PQR-2-W1` reviewed clean.
+- Verification: `PQR-2-W1` targeted channel setup tests, focused presenter
+  tests, `npm run typecheck`, `git diff --check`, and `npm run verify` passed;
+  final docs verification rerun with closeout docs.
 - Dimensions/rubric tags: design coherence, structure navigation, high-level
   elegance, low-level elegance, type safety, UI workflow, test strategy
 - Owner/scope: `src/modules/ui/channel-setup/**`,
@@ -1025,11 +1028,13 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   alongside lifecycle/routing, and `epg/view` mixes unrelated UI subdomains.
   That slows safe UI changes and risks focus/layout regressions.
 - Source findings to audit/retire:
-  - `PQR-2-SF1`: add/source-disprove a `LibraryStepPresenter`-style owner for
+  - `PQR-2-SF1`: resolved in `PQR-2-W1`. `LibraryStepPresenter` now owns
     Step 1 render adapters, bulk focus-neighbor policy, formatting, SVG/DOM-id
-    plumbing, and session mutation callbacks.
-  - `PQR-2-SF2`: make Step 2 rendering descriptor-driven where controls already
-    have interaction descriptors; preserve keyboard/dropdown behavior.
+    plumbing, selective toggle refresh, and session mutation callbacks while
+    `ChannelSetupScreen` remains the shell/lifecycle/step-router.
+  - `PQR-2-SF2`: resolved in `PQR-2-W1`. Step 2 adjustable controls now render
+    from the shared `StrategyStepControlDescriptors` owner consumed by
+    `StrategyStepInteractionController`, preserving keyboard/dropdown behavior.
   - `PQR-2-SF3`: split `epg/view` into owner folders such as `cells/`,
     `info-panel/`, `grid/`, and `shell/` if the flat folder still blocks
     navigation; no shims/barrels/export widening.
@@ -1046,10 +1051,12 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   semantics change; dropdown/session ownership becomes ambiguous; EPG DOM
   shape, virtualizer, ticker, or layout behavior changes; folder moves require
   shims/barrels; private test probes become necessary.
-- Follow-ups: none yet
-- Handoff: start only after `PQR-1` is planned or explicitly deferred, because
-  this package has separate UI ownership and should not be coupled to scheduler
-  cleanup.
+- Follow-ups: execute `PQR-2-W2` from the active plan for approved-scope EPG
+  view organization and secondary-text clearing only; do not widen into
+  runtime/focus import fallout without replan.
+- Handoff: `PQR-1` is closed and `PQR-2-W1` is complete. Continue with
+  `PQR-2-W2`; do not run a PQR score refresh here because final score
+  rebaseline belongs to `PQR-EXIT`.
 
 ### [ ] `PQR-3` Channel Setup Facet Loading Abstraction Fit
 
