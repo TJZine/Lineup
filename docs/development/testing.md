@@ -130,7 +130,9 @@ npm run test:timings:tools
 
 ## Coverage Telemetry
 
-`npm run test:coverage` is a reporting surface, not a release gate. Use coverage numbers as telemetry to spot blind spots or compare alternative test investments, not as a reason to keep low-value tests, add threshold policing, or claim a cleanup succeeded on metrics alone.
+`npm run test:coverage` is primarily a reporting surface. Use coverage numbers as telemetry to spot blind spots or compare alternative test investments, not as a reason to keep low-value tests or claim a cleanup succeeded on metrics alone.
+
+`npm run verify` includes a low global regression floor for the product/runtime Jest surface so accidental large drops fail early. The thresholds are intentionally below the current baseline, and coverage collection excludes declaration, type-only, interface-only, or contract-only files that do not carry runtime behavior.
 
 ## Anti-Pattern Policy
 

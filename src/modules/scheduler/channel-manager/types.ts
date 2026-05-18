@@ -1,20 +1,12 @@
 import type { AppErrorCode } from '../../../types/app-errors';
 import type { PlexMediaType } from '../../plex/shared/types';
 
-// Playback & Filter Types
-
-/**
- * Playback mode for channel content
- */
 export type PlaybackMode =
     | 'sequential'  // Play in defined order, loop
     | 'shuffle'     // Deterministic shuffle with seed, loop
     | 'block'       // Deterministic round-robin by show in episode blocks
     | 'random';     // Seeded randomized order; orchestrator refreshes seed cadence
 
-/**
- * Build strategy that created this channel during auto-setup
- */
 export type BuildStrategy =
     | 'collections'
     | 'playlists'
@@ -26,18 +18,12 @@ export type BuildStrategy =
     | 'actors'
     | 'libraryFallback';
 
-/**
- * Content filter operators
- */
 export type FilterOperator =
     | 'eq' | 'neq'
     | 'gt' | 'gte'
     | 'lt' | 'lte'
     | 'contains' | 'notContains';
 
-/**
- * Filterable content fields
- */
 export type FilterField =
     | 'year'
     | 'rating'
@@ -48,9 +34,6 @@ export type FilterField =
     | 'watched'
     | 'addedAt';
 
-/**
- * Sort order options
- */
 export type SortOrder =
     | 'title_asc' | 'title_desc'
     | 'year_asc' | 'year_desc'
@@ -60,26 +43,16 @@ export type SortOrder =
 
 export type { PlexMediaType };
 
-// Content Filter
-
 export interface ContentFilter {
     field: FilterField;
     operator: FilterOperator;
     value: string | number | boolean;
 }
 
-// Content Source Types
-
-/**
- * Base interface for content sources
- */
 interface BaseContentSource {
     type: string;
 }
 
-/**
- * Content from an entire Plex library
- */
 export interface LibraryContentSource extends BaseContentSource {
     type: 'library';
     /** Library section ID */
@@ -92,9 +65,6 @@ export interface LibraryContentSource extends BaseContentSource {
     libraryFilter?: Record<string, string | number>;
 }
 
-/**
- * Content from a Plex collection
- */
 export interface CollectionContentSource extends BaseContentSource {
     type: 'collection';
     collectionKey: string;
@@ -102,9 +72,6 @@ export interface CollectionContentSource extends BaseContentSource {
     collectionName: string;
 }
 
-/**
- * Content from a TV show (all or specific seasons)
- */
 export interface ShowContentSource extends BaseContentSource {
     type: 'show';
     showKey: string;
@@ -114,9 +81,6 @@ export interface ShowContentSource extends BaseContentSource {
     seasonFilter?: number[];
 }
 
-/**
- * Content from a Plex playlist
- */
 export interface PlaylistContentSource extends BaseContentSource {
     type: 'playlist';
     playlistKey: string;
@@ -124,9 +88,6 @@ export interface PlaylistContentSource extends BaseContentSource {
     playlistName: string;
 }
 
-/**
- * A manually selected content item (minimal cached info)
- */
 export interface ManualContentItem {
     /** Item ratingKey */
     ratingKey: string;
@@ -136,17 +97,11 @@ export interface ManualContentItem {
     durationMs: number;
 }
 
-/**
- * Manually selected content items
- */
 export interface ManualContentSource extends BaseContentSource {
     type: 'manual';
     items: ManualContentItem[];
 }
 
-/**
- * Mixed content from multiple sources
- */
 export interface MixedContentSource extends BaseContentSource {
     type: 'mixed';
     /** Component sources */
@@ -155,9 +110,6 @@ export interface MixedContentSource extends BaseContentSource {
     mixMode: 'interleave' | 'sequential';
 }
 
-/**
- * Union of all content source types
- */
 export type ChannelContentSource =
     | LibraryContentSource
     | CollectionContentSource
@@ -165,8 +117,6 @@ export type ChannelContentSource =
     | PlaylistContentSource
     | ManualContentSource
     | MixedContentSource;
-
-// Channel Configuration
 
 /**
  * Complete channel configuration - persisted to storage
@@ -195,12 +145,8 @@ export interface ChannelConfig {
      */
     isPlaybackModeVariant?: boolean;
 
-    // Content source definition
-    /** Where content comes from */
     contentSource: ChannelContentSource;
 
-    // Playback behavior
-    /** How content is ordered */
     playbackMode: PlaybackMode;
     /** Seed for deterministic shuffle */
     shuffleSeed?: number;
@@ -213,12 +159,10 @@ export interface ChannelConfig {
     /** Unix timestamp (ms) - schedule reference point */
     startTimeAnchor: number;
 
-    // Filtering & ordering
     contentFilters?: ContentFilter[];
     /** Content sort order */
     sortOrder?: SortOrder;
 
-    // Playback options
     /** Skip intro markers if available */
     skipIntros: boolean;
     /** Skip credit markers if available */
@@ -228,7 +172,6 @@ export interface ChannelConfig {
     /** Minimum item duration (skip shorter items) */
     minEpisodeRunTimeMs?: number;
 
-    // Metadata (auto-updated)
     /** Channel creation timestamp */
     createdAt: number;
     /** Last modification timestamp */
@@ -279,8 +222,6 @@ export interface ChannelCreateInput
  */
 export type ChannelUpdateInput = Partial<Pick<ChannelConfig, ChannelWritableField>>;
 
-// Resolved Content
-
 /**
  * A resolved content item with cached metadata
  */
@@ -313,7 +254,6 @@ export interface ResolvedContentItem {
     episodeNumber?: number;
     /** Position in ordered list */
     scheduledIndex: number;
-    // Filterable fields (Issue 8)
     /** Rating (0-10) */
     rating?: number;
     /** Content rating (e.g., "PG-13") */
@@ -338,9 +278,6 @@ export interface ResolvedContentItem {
     addedAt?: number;
 }
 
-/**
- * Resolved content ready for scheduling
- */
 export interface ResolvedChannelContent {
     /** Channel ID this content belongs to */
     channelId: string;
@@ -351,7 +288,6 @@ export interface ResolvedChannelContent {
     totalDurationMs: number;
     /** Items after shuffle/sort applied */
     orderedItems: ResolvedContentItem[];
-    // Cache status fields (Issue 2)
     /** Whether this content came from cache */
     fromCache?: boolean;
     /** Whether cached content is stale */
@@ -360,11 +296,6 @@ export interface ResolvedChannelContent {
     cacheReason?: 'fresh' | 'network_error' | 'content_unavailable';
 }
 
-// Import/Export
-
-/**
- * Channel import result
- */
 export interface ImportResult {
     /** Overall success */
     success: boolean;
@@ -374,11 +305,6 @@ export interface ImportResult {
     errors: string[];
 }
 
-// Events
-
-/**
- * Channel manager events
- */
 export interface ChannelManagerEventMap {
     channelCreated: ChannelConfig;
     channelUpdated: ChannelConfig;
@@ -393,20 +319,12 @@ export interface ChannelManagerEventMap {
     };
 }
 
-// Internal State
-
-/**
- * Internal state for ChannelManager
- */
 export interface ChannelManagerState {
     channels: Map<string, ChannelConfig>;
     currentChannelId: string | null;
     channelOrder: string[];
 }
 
-/**
- * Stored data format for localStorage
- */
 export interface StoredChannelData {
     channels: ChannelConfig[];
     channelOrder: string[];

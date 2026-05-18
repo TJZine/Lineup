@@ -1285,12 +1285,21 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Handoff: `PQR-6` is closed. Do not run a PQR score refresh here because final
   score rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-7` Source Signal, Migration Context, Coverage Gate, And Logic Clarity
+### [x] `PQR-7` Source Signal, Migration Context, Coverage Gate, And Logic Clarity
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: completed
+- Plan: local-only cleanup-loop plan; no tracked plan artifact was created because
+  the package stayed inside one reviewed execution wave and durable tracked
+  handoff memory was not needed.
+- Last touched: 2026-05-18; `PQR-7-W1` implementation reviewed clean after the
+  coverage-threshold/exclusion and persistence-comment revisions, then received a
+  fresh final implementation approval.
+- Verification: `npm run test:coverage -- --runInBand`; `npm test --
+  discoveryProbe --runInBand`; `npm test -- PlexServerDiscovery --runInBand`;
+  `npm run typecheck`; `npm run verify:maintainability`; `npm run verify`;
+  `npm run verify:docs`; `npm run plans:check`; `git diff --check`. Ignored
+  local-only `GEMINI.md` was checked with `git check-ignore -v GEMINI.md` and
+  targeted `rg`; `npm run verify:docs` does not prove ignored local files.
 - Dimensions/rubric tags: AI-generated debt, stale migration, test strategy,
   logic clarity, contract coherence, developer experience
 - Owner/scope: listed source-signal files, `GEMINI.md`, Jest coverage config,
@@ -1299,21 +1308,31 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Production risk: restating comments, formulaic JSDoc, legacy context loading,
   ungated coverage, and small redundant flow reduce review signal and let
   regressions pass unnoticed.
-- Source findings to audit/retire:
-  - `PQR-7-SF1`: delete comments that restate the next branch/statement while
-    preserving comments that explain policy, platform constraints, recovery,
-    lifecycle, security, or external behavior.
-  - `PQR-7-SF2`: prune contract/type JSDoc that only repeats field or method
-    names; keep semantics about absence/nullability, persistence ownership,
-    auth/token behavior, ordering, side effects, and error behavior.
-  - `PQR-7-SF3`: remove legacy document-map loading from active Gemini context
-    if current docs still declare `docs/AGENTIC_DEV_WORKFLOW.md` and
-    `AGENTS.md` as the authority surfaces.
-  - `PQR-7-SF4`: add a pragmatic Jest coverage threshold just below the
-    current baseline, with explicit exclusions for type-only, generated,
-    contract-only, or intentionally untested files.
-  - `PQR-7-SF5`: simplify `discoveryProbe` redundant flow only if source audit
-    proves behavior-equivalence and targeted discovery tests cover the path.
+- Source findings retired:
+  - `PQR-7-SF1`: resolved. Plex discovery comments that restated the next
+    branch or statement were removed from the approved discovery owner files;
+    behavior, warning, storage, source-of-truth, and policy comments were kept.
+  - `PQR-7-SF2`: resolved. Scheduler channel-manager contract/type JSDoc was
+    pruned only where it repeated names or signatures; persistence-boundary,
+    circular-navigation, absence/nullability, ordering, side-effect, and error
+    semantics remain documented where they carry intent.
+  - `PQR-7-SF3`: resolved for active local context. Ignored local-only
+    `GEMINI.md` no longer loads `docs/agentic/document-map.md`; it now points at
+    the active entrypoint/runbook surfaces. No tracked workflow authority doc or
+    compatibility stub was changed.
+  - `PQR-7-SF4`: resolved. `jest.config.js` now enforces a pragmatic global
+    coverage floor below the measured baseline (`statements: 88`, `branches:
+    76`, `functions: 88`, `lines: 89`) and excludes only source-proven
+    declaration, type-only, interface-only, or contract-only files. Runtime
+    re-export/value files such as lifecycle types, UI toast types, and Plex
+    stream contract values remain coverage-eligible. `docs/development/testing.md`
+    now records that coverage remains telemetry while `npm run verify` carries a
+    low global regression floor.
+  - `PQR-7-SF5`: resolved. `discoveryProbe` redundant local-HTTP fallback flow
+    was simplified without changing probe tier ordering, HTTPS upgrade behavior,
+    HTTP warning behavior, fastest-latency selection, auth/access-denied summary
+    semantics, logging, mixed-content policy, selected-server behavior, or public
+    Plex contracts.
 - Completion means: source comments carry intent rather than narration, active
   context no longer loads obsolete authority stubs, coverage regressions are
   gated pragmatically, and any logic simplification is behavior-preserving.
@@ -1324,10 +1343,10 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   blocks known intentional exclusions; comment pruning removes important
   operational rationale; Gemini context cleanup conflicts with current runbook
   authority; logic simplification changes discovery behavior.
-- Follow-ups: none yet
-- Handoff: this package is lower architecture risk than `PQR-1` through
-  `PQR-5`, but should still run after the higher-risk owner-shape packages are
-  planned or explicitly deferred.
+- Follow-ups: none for `PQR-7`; final score rebaseline remains owned by
+  `PQR-EXIT`.
+- Handoff: `PQR-7` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
 ### [ ] `PQR-EXIT` Production Quality Refresh Exit And Score Rebaseline
 

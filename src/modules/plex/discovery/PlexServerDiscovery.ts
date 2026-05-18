@@ -26,7 +26,6 @@ import { ServerSelectionStore } from './ServerSelectionStore';
 import { logPlexError, logPlexWarning } from '../shared/plexLogging';
 import { discoverPlexResourcesWithRequestPolicy } from './PlexResourceDiscoveryRequestPolicy';
 
-// Re-export for consumers
 export { PlexApiError };
 
 export class PlexServerDiscovery implements IPlexServerDiscovery {
@@ -60,7 +59,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     }
 
     public discoverServers(): Promise<PlexServer[]> {
-        // Return cached servers if still fresh (avoid unnecessary plex.tv calls)
         if (
             this._state.lastRefreshAt !== null &&
             this._state.servers.length > 0 &&
@@ -69,7 +67,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             return Promise.resolve([...this._state.servers]);
         }
 
-        // Return pending promise if discovery already in progress
         if (this._discoveryPromise) {
             return this._discoveryPromise;
         }
@@ -274,7 +271,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
         this._serverSelectionStore.writeSelectedServerId(serverId);
 
-        // Emit events
         this._emitter.emit('serverChange', serverWithConnection);
         this._emitter.emit('connectionChange', connection.uri);
 
