@@ -18,20 +18,50 @@ const buildExitConfirmCoordinator = jest.fn();
 const buildChannelTuningCoordinator = jest.fn();
 const buildNavigationCoordinator = jest.fn();
 
-jest.mock('../assembly/OrchestratorCoordinatorBuilders', () => ({
+jest.mock('../assembly/EpgChannelSetupCoordinatorAssembly', () => ({
     buildEpgCoordinator: (...args: unknown[]): unknown => buildEpgCoordinator(...args),
     bindEpgVisibleRangeChange: (...args: unknown[]): unknown => bindEpgVisibleRangeChange(...args),
     buildChannelSetupOwners: (...args: unknown[]): unknown => buildChannelSetupOwners(...args),
+    buildEpgCoordinatorInput: jest.requireActual('../assembly/EpgChannelSetupCoordinatorAssembly')
+        .buildEpgCoordinatorInput,
+    buildChannelSetupInput: jest.requireActual('../assembly/EpgChannelSetupCoordinatorAssembly')
+        .buildChannelSetupInput,
+}));
+jest.mock('../assembly/NowPlayingDebugCoordinatorAssembly', () => ({
     buildNowPlayingDebugManager: (...args: unknown[]): unknown => buildNowPlayingDebugManager(...args),
     buildNowPlayingInfoCoordinator: (...args: unknown[]): unknown => buildNowPlayingInfoCoordinator(...args),
+    buildNowPlayingDebugManagerInput: jest.requireActual('../assembly/NowPlayingDebugCoordinatorAssembly')
+        .buildNowPlayingDebugManagerInput,
+    buildNowPlayingInfoCoordinatorInput: jest.requireActual('../assembly/NowPlayingDebugCoordinatorAssembly')
+        .buildNowPlayingInfoCoordinatorInput,
+}));
+jest.mock('../assembly/PlaybackOsdCoordinatorAssembly', () => ({
     buildPlayerOsdCoordinator: (...args: unknown[]): unknown => buildPlayerOsdCoordinator(...args),
-    buildMiniGuideCoordinator: (...args: unknown[]): unknown => buildMiniGuideCoordinator(...args),
     buildChannelTransitionCoordinator: (...args: unknown[]): unknown => buildChannelTransitionCoordinator(...args),
     buildPlaybackRecovery: (...args: unknown[]): unknown => buildPlaybackRecovery(...args),
     buildPlaybackOptionsCoordinator: (...args: unknown[]): unknown => buildPlaybackOptionsCoordinator(...args),
-    buildExitConfirmCoordinator: (...args: unknown[]): unknown => buildExitConfirmCoordinator(...args),
     buildChannelTuningCoordinator: (...args: unknown[]): unknown => buildChannelTuningCoordinator(...args),
+    buildPlayerOsdCoordinatorInput: jest.requireActual('../assembly/PlaybackOsdCoordinatorAssembly')
+        .buildPlayerOsdCoordinatorInput,
+    buildChannelTransitionCoordinatorInput: jest.requireActual('../assembly/PlaybackOsdCoordinatorAssembly')
+        .buildChannelTransitionCoordinatorInput,
+    buildPlaybackRecoveryInput: jest.requireActual('../assembly/PlaybackOsdCoordinatorAssembly')
+        .buildPlaybackRecoveryInput,
+    buildPlaybackOptionsCoordinatorInput: jest.requireActual('../assembly/PlaybackOsdCoordinatorAssembly')
+        .buildPlaybackOptionsCoordinatorInput,
+    buildChannelTuningInput: jest.requireActual('../assembly/PlaybackOsdCoordinatorAssembly')
+        .buildChannelTuningInput,
+}));
+jest.mock('../assembly/NavigationModalCoordinatorAssembly', () => ({
+    buildMiniGuideCoordinator: (...args: unknown[]): unknown => buildMiniGuideCoordinator(...args),
+    buildExitConfirmCoordinator: (...args: unknown[]): unknown => buildExitConfirmCoordinator(...args),
     buildNavigationCoordinator: (...args: unknown[]): unknown => buildNavigationCoordinator(...args),
+    buildMiniGuideCoordinatorInput: jest.requireActual('../assembly/NavigationModalCoordinatorAssembly')
+        .buildMiniGuideCoordinatorInput,
+    buildExitConfirmCoordinatorInput: jest.requireActual('../assembly/NavigationModalCoordinatorAssembly')
+        .buildExitConfirmCoordinatorInput,
+    buildNavigationCoordinatorInput: jest.requireActual('../assembly/NavigationModalCoordinatorAssembly')
+        .buildNavigationCoordinatorInput,
 }));
 
 import {

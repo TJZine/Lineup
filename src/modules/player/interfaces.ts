@@ -11,25 +11,25 @@ import type { IDisposable } from '../../utils/interfaces';
 export interface IVideoPlayer {
     /**
      * Create and attach the underlying video element.
-     * Rejects when the configured container cannot be found.
+     * Rejects with PlaybackError when the configured container cannot be found.
      */
     initialize(config: VideoPlayerConfig): Promise<void>;
     destroy(): void;
 
     /**
      * Replace the current stream and wait until media can play.
-     * Rejects when the player is not initialized, preferred subtitle activation
-     * rejects, media readiness fails, or media readiness times out. Media errors
-     * after a successful load are reported through the `error` event only when
-     * retry policy determines they are unrecoverable.
+     * Rejects with PlaybackError when the player is not initialized, preferred
+     * subtitle activation rejects, media readiness fails, or media readiness
+     * times out. Media errors after a successful load are reported through the
+     * `error` event only when retry policy determines they are unrecoverable.
      */
     loadStream(descriptor: StreamDescriptor): Promise<void>;
     unloadStream(): void;
 
     /**
      * Request native playback.
-     * Rejects when the player is not initialized or native `video.play()`
-     * rejects. Native play rejections are returned to the caller and are not
+     * Rejects with PlaybackError when the player is not initialized. Native
+     * `video.play()` rejections are returned to the caller unchanged and are not
      * converted into player `error` events.
      */
     play(): Promise<void>;
@@ -38,8 +38,8 @@ export interface IVideoPlayer {
 
     /**
      * Seek to an absolute position in milliseconds.
-     * Rejects when the player is not initialized or the native `seeked` event
-     * is not observed before the seek timeout.
+     * Rejects with PlaybackError when the player is not initialized or the
+     * native `seeked` event is not observed before the seek timeout.
      */
     seekTo(positionMs: number): Promise<void>;
 
@@ -56,9 +56,9 @@ export interface IVideoPlayer {
 
     /**
      * Set the active subtitle track, or disable subtitles with `null`.
-     * Rejects when the subtitle manager cannot activate the requested track.
-     * Successful and deferred deactivation paths report track changes through
-     * state updates and `trackChange` events.
+     * Rejects with PlaybackError when the subtitle manager cannot activate the
+     * requested track. Successful and deferred deactivation paths report track
+     * changes through state updates and `trackChange` events.
      */
     setSubtitleTrack(trackId: string | null): Promise<void>;
 

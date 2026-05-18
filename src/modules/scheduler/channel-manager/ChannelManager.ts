@@ -3,12 +3,12 @@
  */
 
 import { EventEmitter } from '../../../utils/EventEmitter';
-import { fnv1a32Uint } from '../../../utils/hash';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './ContentResolver';
 import { ChannelAuthoringService, omitUndefinedChannelUpdates } from './ChannelAuthoringService';
 import { ChannelImportExportService } from './ChannelImportExportService';
+import { resolveChannelSeed } from './ChannelSeedPolicy';
 import { ChannelPersistenceCoordinator, normalizeStorageKey } from './ChannelPersistenceCoordinator';
 import { ChannelResolutionCache } from './ChannelResolutionCache';
 import { ChannelRetryScheduler } from './ChannelRetryScheduler';
@@ -738,9 +738,7 @@ export class ChannelManager implements IChannelManager {
         const orderedItems = this._contentResolver.applyPlaybackMode(
             items,
             channel.playbackMode,
-            (typeof channel.shuffleSeed === 'number' && Number.isFinite(channel.shuffleSeed))
-                ? channel.shuffleSeed
-                : fnv1a32Uint(`${channel.id}:shuffle`),
+            resolveChannelSeed(channel.id, 'shuffleSeed', channel.shuffleSeed),
             channel.blockSize
         );
 

@@ -2,8 +2,6 @@
  * @jest-environment jsdom
  */
 
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
 import { ChannelSetupFacetSnapshotLoadSession } from '../planning/ChannelSetupFacetSnapshotLoadSession';
 import {
     createFacetPlanningConfig,
@@ -48,22 +46,40 @@ const createEpisode = (
 } as PlexMediaItem);
 
 describe('ChannelSetupFacetSnapshotLoadSession', () => {
-    it('constructs the library executor with concrete load-state and failure-builder owners', () => {
-        const loadSessionSource = readFileSync(
-            resolve(__dirname, '../planning/ChannelSetupFacetSnapshotLoadSession.ts'),
-            'utf8'
-        );
-        const executorSource = readFileSync(
-            resolve(__dirname, '../planning/ChannelSetupFacetLibraryExecutor.ts'),
-            'utf8'
-        );
+    it('builds required tag failures through the runtime snapshot state owners', async () => {
+        const expectedMessage = 'Required genres tag directory (type=1) is unsupported for Movies; stop and re-plan.';
+        const plexLibrary = createPlexLibrary();
+        plexLibrary.getGenres.mockImplementation((_libraryId, options) => {
+            options.onUnsupported?.('unavailable');
+            return Promise.resolve([]);
+        });
 
-        expect(loadSessionSource).not.toMatch(/\b(control|state|failures):\s*\{/);
-        expect(executorSource).not.toMatch(/\b(control|state|failures):\s*\{/);
-        expect(loadSessionSource).toContain('loadState: this._loadState');
-        expect(loadSessionSource).toContain('failureBuilder: this._failureBuilder');
-        expect(executorSource).toContain('loadState: ChannelSetupFacetSnapshotLoadState');
-        expect(executorSource).toContain('failureBuilder: ChannelSetupFacetSnapshotFailureBuilder');
+        const session = new ChannelSetupFacetSnapshotLoadSession({
+            plexLibrary,
+            config: createConfig({
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    genres: { enabled: true, priority: 3, scope: 'per-library' },
+                },
+            }),
+            libraries: [createLibrary()],
+            signal: null,
+            requestIntent: 'preview',
+            snapshotAbortController: new AbortController(),
+            reportProgress: undefined,
+        });
+
+        const snapshot = await session.load();
+
+        expect(snapshot).toMatchObject({
+            status: 'blocked',
+            failureReason: 'unsupported',
+            message: expectedMessage,
+            errorsTotal: 1,
+            hasTransientLoadFailure: false,
+        });
+        expect(snapshot.warnings).toEqual([expectedMessage]);
+        expect(Object.isFrozen(snapshot.warnings)).toBe(true);
     });
 
     it('returns an empty ready snapshot when no facet strategies are enabled', async () => {

@@ -82,6 +82,26 @@ describe('ChannelAuthoringService', () => {
         expect(updated.totalDurationMs).toBe(channel.totalDurationMs);
     });
 
+    it.each([
+        ['shuffleSeed', Number.NEGATIVE_INFINITY, fnv1a32Uint('authoring-channel:shuffle')],
+        ['phaseSeed', Number.NEGATIVE_INFINITY, fnv1a32Uint('authoring-channel:phase')],
+    ] as const)(
+        'replaces invalid %s values with deterministic defaults during updates',
+        (field, rawValue, expectedSeed) => {
+            const service = createService();
+            const channel = createBaseChannel({
+                id: 'authoring-channel',
+                playbackMode: 'sequential',
+                shuffleSeed: 10,
+                phaseSeed: 20,
+            });
+
+            const updated = service.updateChannel(channel, { [field]: rawValue } as ChannelUpdateInput, []);
+
+            expect(updated[field]).toBe(expectedSeed);
+        }
+    );
+
     it('throws a typed error when no valid channel numbers remain', () => {
         const service = createService();
         const channels = Array.from(

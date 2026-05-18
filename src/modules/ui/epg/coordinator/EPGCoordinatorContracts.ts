@@ -1,6 +1,7 @@
+import type { ModuleRuntimeStatus } from '../../../../core/module-status';
 import type { ResolvedContentItem } from '../../../scheduler/channel-manager';
 
-export type EpgUiStatus = 'pending' | 'initializing' | 'ready' | 'error' | 'disabled' | undefined;
+export type EpgUiStatus = ModuleRuntimeStatus | undefined;
 
 export type EpgGuideSelectionSnapshotSource =
     | 'live-scheduler'

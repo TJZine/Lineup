@@ -1062,8 +1062,8 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 
 ### [x] `PQR-3` Channel Setup Facet Loading Abstraction Fit
 
-- Status: closed
-- Plan: [`docs/plans/2026-05-17-pqr-3-channel-setup-facet-loading-abstraction-fit-plan.md`](docs/plans/2026-05-17-pqr-3-channel-setup-facet-loading-abstraction-fit-plan.md)
+- Status: completed
+- Plan: local-only
 - Last touched: 2026-05-18; `PQR-3-S1` reviewed clean and implementation
   checkpoint committed as `08d34a8f`.
 - Verification: `npm run plans:check`; `npm test --
@@ -1111,29 +1111,49 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Handoff: `PQR-3` is closed. Do not run a PQR score refresh here because final
   score rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-4` App-Shell And Orchestrator Assembly Boundaries
+### [x] `PQR-4` App-Shell And Orchestrator Assembly Boundaries
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: completed
+- Plan: local-only untracked plan was used for execution
+  (`docs/plans/2026-05-18-pqr-4-app-shell-orchestrator-assembly-boundaries-plan.md`);
+  not committed by maintainer request
+- Last touched: 2026-05-18; implementation commits `c8bf3b4f` and
+  `4d6d8cce`
+- Verification: plan review and implementation review passed clean after
+  required closure/fresh-approval loops. Implementation verification:
+  targeted startup/coordinator suites covering 8 suites and 175 tests,
+  `npm run typecheck`, `git diff --check`, `git diff --cached --check`,
+  `npm run verify:maintainability`, `npm run verify`, `npm run plans:check`,
+  and `npm run verify:docs` passed. Revision verification: targeted
+  coordinator tests, `npm run typecheck`, `git diff --check`,
+  `git diff --cached --check`, `npm run plans:check`, `npm run verify:docs`,
+  and source audits for startup UI construction, old coordinator-builder
+  paths, public exports, required-module validation, and localized toast
+  ownership passed. `npm run verify:docs` passed with the active PQR-4 plan
+  still untracked, so the plan was not committed as implementation closeout.
 - Dimensions/rubric tags: design coherence, cross-module architecture,
   initialization coupling, abstraction fitness, test strategy
 - Owner/scope: `src/core/orchestrator/**`, `src/core/app-shell/chrome/**`, and
   `src/core/initialization/**` only for the startup-UI port seam.
-- Production risk: `AppOrchestrator` constructs app-shell chrome, and
-  `OrchestratorCoordinatorBuilders.ts` spans unrelated coordinator domains,
-  making startup UI, playback/OSD, EPG/channel setup, navigation, and modal
-  wiring harder to port and review.
-- Source findings to audit/retire:
-  - `PQR-4-SF1`: move `AppStartupUiInitializer` construction to app-shell, or
-    source-disprove; `AppOrchestrator` should receive only an
-    `InitializationStartupUiPort`-shaped value.
-  - `PQR-4-SF2`: split coordinator builders by feature family if current source
-    still mixes EPG/channel setup, playback/OSD, navigation/modal, and
-    now-playing/debug assembly.
-  - `PQR-4-SF3`: preserve coordinator contracts and startup order; no generic
-    assembly dumping ground.
+- Production risk: retired for this package. App-shell now owns concrete
+  startup UI construction, and orchestrator assembly uses direct feature-family
+  owner files instead of the old mixed coordinator-builder surface.
+- Source findings retired:
+  - `PQR-4-SF1`: resolved in `PQR-4-W1`. `AppStartupUiPortFactory` is the
+    app-shell chrome owner for concrete `AppStartupUiInitializer`
+    construction, while `AppOrchestrator` consumes the factory result as an
+    `InitializationStartupUiPort`-shaped value. `InitializationStartupUiPort`
+    remains narrow at `ensureCorePlayerUiInitialized()`.
+  - `PQR-4-SF2`: resolved in `PQR-4-W1`. The deleted
+    `OrchestratorCoordinatorBuilders.ts` mixed surface was split into direct
+    feature-family owners for EPG/channel setup, playback/OSD,
+    navigation/modal, and now-playing/debug assembly. No old-path
+    compatibility file, shim, wrapper, or barrel was kept.
+  - `PQR-4-SF3`: resolved in `PQR-4-W1`. Required-module validation still runs
+    before coordinator creation, coordinator construction order is preserved,
+    coordinator contracts stay typed/narrow, diagnostics and major wiring
+    families remain intact, and the follow-up toast-routing revision removed
+    the only reviewed cross-feature generic-helper leak.
 - Completion means: app-shell chrome construction is owned by app-shell, the
   orchestrator assembly surface is split into reviewable feature-family owners,
   initialization port contracts remain narrow, and startup/coordinator behavior
@@ -1146,32 +1166,51 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   coordinator public contracts widen; split creates circular dependencies or
   generic helper dumping grounds; tests require private probes instead of public
   startup/coordinator seams.
-- Follow-ups: none yet
-- Handoff: plan after `PQR-1` or in parallel only if write scopes and
-  verification surfaces are explicitly disjoint.
+- Follow-ups: none for `PQR-4`; remaining refresh work continues with
+  maintainer-selected `PQR-*` packages.
+- Handoff: `PQR-4` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-5` Runtime API, Auth Token, And Abort/Error Contract Coherence
+### [x] `PQR-5` Runtime API, Auth Token, And Abort/Error Contract Coherence
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: completed
+- Plan: local-only untracked plan was used
+  (`docs/plans/2026-05-18-pqr-5-runtime-api-auth-token-abort-error-contract-coherence-plan.md`);
+  not committed by maintainer request
+- Last touched: 2026-05-18; implementation commits `769972c1`,
+  `3fe7adbf`, `fdac8d7e`, and `75012611`
+- Verification: plan review and implementation review passed clean after the
+  required closure/fresh-approval loops. Implementation verification:
+  targeted player contract tests, targeted Plex token/header/URL tests,
+  targeted Plex library/count-enrichment tests, token/abort source audits,
+  `npm run typecheck`, `git diff --check`, `npm run plans:check`,
+  `npm run verify:maintainability`, `npm run verify:docs`, and
+  `npm run verify` passed.
 - Dimensions/rubric tags: error consistency, API surface coherence,
   authorization consistency, convention drift, type safety, test strategy
 - Owner/scope: player runtime API contracts and Plex auth/shared abort/token
   contracts across player, Plex auth/shared, token literal callers, and library
   abort semantics. Scheduler persistence belongs to `PQR-1`.
-- Production risk: mixed player async rejection shapes, repeated Plex token key
-  ownership, and overloaded abort helper naming weaken port-critical contracts,
-  redaction/token handling, and failure semantics.
-- Source findings to audit/retire:
-  - `PQR-5-SF1`: normalize/document `IVideoPlayer` async rejections so
-    player-owned failures use one structured family; raw native `play()`
-    rejection may remain the named exception.
-  - `PQR-5-SF2`: centralize Plex token header/query key ownership without
-    changing token flow, request order, redaction, or URL semantics.
-  - `PQR-5-SF3`: rename/tighten Plex library abort helpers so auth predicates
-    and count-enrichment stop conditions cannot be confused.
+- Production risk: retired for this package. Player-owned async failures now
+  reject through the structured playback error family, Plex runtime token key
+  spelling has one owner, and the library count-enrichment abort stop helper no
+  longer reads like an auth-layer abort predicate.
+- Source findings retired:
+  - `PQR-5-SF1`: resolved in `PQR-5-S1`. `IVideoPlayer` now documents the
+    structured player-owned async rejection contract, `VideoPlayer` converts
+    player-owned initialization, precondition, readiness, seek-timeout, and
+    subtitle activation failures into structured `PlaybackError` objects, and
+    the raw native `video.play()` rejection remains the explicit unchanged
+    exception with no player `error` event.
+  - `PQR-5-SF2`: resolved in `PQR-5-S2`. `src/modules/plex/shared/plexUrl.ts`
+    owns the canonical Plex token header/query key constants consumed by auth,
+    discovery, stream, subtitle, and library token callers. Token flow, request
+    order, trusted-origin filtering, redaction, and URL shapes are preserved.
+  - `PQR-5-SF3`: resolved in `PQR-5-S3`. `LibraryCountEnrichment` now names
+    its private stop predicate `shouldStopCountEnrichment`, distinguishing
+    count-enrichment worker stop conditions from auth-layer error-only abort
+    predicates while preserving abort, timeout, first-failure, and concurrency
+    behavior.
 - Completion means: player async contracts are coherent and tested, Plex token
   literals have one owner, abort helper names match semantics, and no user
   visible playback/auth/discovery/stream behavior changes occur.
@@ -1182,32 +1221,55 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Stop/replan triggers: native playback behavior changes; auth token
   persistence/redaction/request order changes; stream URL shape changes; abort
   handling starts swallowing non-abort failures; public API widening is needed.
-- Follow-ups: none yet
-- Handoff: this package should not be mixed with scheduler persistence or UI
-  workflow cleanup.
+- Follow-ups: none for `PQR-5`; remaining refresh work continues with
+  maintainer-selected `PQR-*` packages.
+- Handoff: `PQR-5` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-6` Shared Type Owner And Literal Union Hygiene
+### [x] `PQR-6` Shared Type Owner And Literal Union Hygiene
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: completed
+- Plan: local-only untracked plan was used
+  (`docs/plans/2026-05-18-pqr-6-shared-type-owner-literal-union-hygiene-plan.md`);
+  not committed by maintainer request
+- Last touched: 2026-05-18; implementation commits `fb3be51f` and `9e1a5ca2`
+- Verification: plan review and implementation review passed clean after the
+  optional contract-tightening revision. Implementation verification:
+  required status/direction/test-surface `rg` audits, targeted EPG/navigation
+  tests (`npm test -- EPGCoordinator EPGRefreshController
+  EPGRefreshController.lazy-runtime EPGScheduleRefreshRuntime
+  NavigationCoordinator NavigationDirectionalRepeatController
+  NavigationRemoteInputRouter --runInBand`), `npm run typecheck`,
+  `git diff --check`, `npm run verify:maintainability`, `npm run verify`, and
+  `npm run plans:check` passed. Revision verification: navigation contract
+  source audit, `npm run typecheck`, `git diff --check`, and
+  `git diff --cached --check` passed before commit.
 - Dimensions/rubric tags: type safety, contract coherence, logic clarity,
   structure navigation, test strategy
 - Owner/scope: shared literal union and contract type ownership in runtime
   status and navigation contracts. Persisted channel validation belongs to
   `PQR-1`; channel setup facet families are already closed.
-- Production risk: duplicated literal unions let adjacent contracts drift
-  silently and weaken compile-time proof.
-- Source findings to audit/retire:
-  - `PQR-6-SF1`: derive `EpgUiStatus` from `ModuleRuntimeStatus` plus the
-    existing `undefined` contract instead of repeating the same status literals.
-  - `PQR-6-SF2`: make `NavigationFourWayDirection` alias the canonical
-    navigation `Direction` type while preserving the narrower vertical
-    direction alias where it is genuinely different.
-  - `PQR-6-SF3`: audit touched contracts for adjacent duplicate literal unions
-    introduced by the same pattern; admit only current-source duplicates with
-    one clear owner.
+- Production risk: retired for this package. Runtime module status has one
+  owner, navigation four-way direction has one owner, and the remaining
+  approved exactness assertions prove the intended shared-type relationships.
+- Source findings retired:
+  - `PQR-6-SF1`: resolved in `fb3be51f`. `EpgUiStatus` now derives from
+    `ModuleRuntimeStatus | undefined`, preserving the public `EPGUiStatus`
+    alias and the `EpgUiStatusContract` exactness assertion without changing
+    EPG readiness, refresh, startup, or runtime-status behavior.
+  - `PQR-6-SF2`: resolved in `fb3be51f` and tightened in `9e1a5ca2`.
+    `NavigationFourWayDirection` now aliases canonical `Direction`, while
+    `NavigationVerticalDirection` remains the narrower
+    `Extract<Direction, 'up' | 'down'>`; the navigation contract assertions
+    now prove both exact relationships.
+  - `PQR-6-SF3`: resolved/source-disproved inside the approved scope.
+    Same-package `NavigationManager` and `FocusManager` four-way direction
+    duplicates now consume `Direction`. EPG audit-only component/focus command
+    direction literals were not changed because importing navigation contract
+    types into EPG-owned component/focus command surfaces would change
+    dependency direction; those remain EPG-local command contracts, not a
+    shared navigation owner. Revisit only with an approved EPG/navigation
+    shared input-contract owner or reviewed dependency-direction change.
 - Completion means: duplicated EPG/navigation literal unions are gone or
   source-disproved, exactness assertions still prove intended relationships,
   and no runtime behavior changes occur.
@@ -1218,16 +1280,26 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   downstream callers rely on a meaningfully different union; runtime status or
   navigation behavior changes; a proposed shared type owner would become a
   generic dumping ground.
-- Follow-ups: none yet
-- Handoff: this can be a small package, but it should still use source-backed
-  owner decisions because it changes public contracts.
+- Follow-ups: none for `PQR-6`; remaining refresh work continues with
+  maintainer-selected `PQR-*` packages.
+- Handoff: `PQR-6` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
-### [ ] `PQR-7` Source Signal, Migration Context, Coverage Gate, And Logic Clarity
+### [x] `PQR-7` Source Signal, Migration Context, Coverage Gate, And Logic Clarity
 
-- Status: not started
-- Plan: none yet
-- Last touched: not started
-- Verification: not run
+- Status: completed
+- Plan: local-only cleanup-loop plan; no tracked plan artifact was created because
+  the package stayed inside one reviewed execution wave and durable tracked
+  handoff memory was not needed.
+- Last touched: 2026-05-18; `PQR-7-W1` implementation reviewed clean after the
+  coverage-threshold/exclusion and persistence-comment revisions, then received a
+  fresh final implementation approval.
+- Verification: `npm run test:coverage -- --runInBand`; `npm test --
+  discoveryProbe --runInBand`; `npm test -- PlexServerDiscovery --runInBand`;
+  `npm run typecheck`; `npm run verify:maintainability`; `npm run verify`;
+  `npm run verify:docs`; `npm run plans:check`; `git diff --check`. Ignored
+  local-only `GEMINI.md` was checked with `git check-ignore -v GEMINI.md` and
+  targeted `rg`; `npm run verify:docs` does not prove ignored local files.
 - Dimensions/rubric tags: AI-generated debt, stale migration, test strategy,
   logic clarity, contract coherence, developer experience
 - Owner/scope: listed source-signal files, `GEMINI.md`, Jest coverage config,
@@ -1236,21 +1308,31 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
 - Production risk: restating comments, formulaic JSDoc, legacy context loading,
   ungated coverage, and small redundant flow reduce review signal and let
   regressions pass unnoticed.
-- Source findings to audit/retire:
-  - `PQR-7-SF1`: delete comments that restate the next branch/statement while
-    preserving comments that explain policy, platform constraints, recovery,
-    lifecycle, security, or external behavior.
-  - `PQR-7-SF2`: prune contract/type JSDoc that only repeats field or method
-    names; keep semantics about absence/nullability, persistence ownership,
-    auth/token behavior, ordering, side effects, and error behavior.
-  - `PQR-7-SF3`: remove legacy document-map loading from active Gemini context
-    if current docs still declare `docs/AGENTIC_DEV_WORKFLOW.md` and
-    `AGENTS.md` as the authority surfaces.
-  - `PQR-7-SF4`: add a pragmatic Jest coverage threshold just below the
-    current baseline, with explicit exclusions for type-only, generated,
-    contract-only, or intentionally untested files.
-  - `PQR-7-SF5`: simplify `discoveryProbe` redundant flow only if source audit
-    proves behavior-equivalence and targeted discovery tests cover the path.
+- Source findings retired:
+  - `PQR-7-SF1`: resolved. Plex discovery comments that restated the next
+    branch or statement were removed from the approved discovery owner files;
+    behavior, warning, storage, source-of-truth, and policy comments were kept.
+  - `PQR-7-SF2`: resolved. Scheduler channel-manager contract/type JSDoc was
+    pruned only where it repeated names or signatures; persistence-boundary,
+    circular-navigation, absence/nullability, ordering, side-effect, and error
+    semantics remain documented where they carry intent.
+  - `PQR-7-SF3`: resolved for active local context. Ignored local-only
+    `GEMINI.md` no longer loads `docs/agentic/document-map.md`; it now points at
+    the active entrypoint/runbook surfaces. No tracked workflow authority doc or
+    compatibility stub was changed.
+  - `PQR-7-SF4`: resolved. `jest.config.js` now enforces a pragmatic global
+    coverage floor below the measured baseline (`statements: 88`, `branches:
+    76`, `functions: 88`, `lines: 89`) and excludes only source-proven
+    declaration, type-only, interface-only, or contract-only files. Runtime
+    re-export/value files such as lifecycle types, UI toast types, and Plex
+    stream contract values remain coverage-eligible. `docs/development/testing.md`
+    now records that coverage remains telemetry while `npm run verify` carries a
+    low global regression floor.
+  - `PQR-7-SF5`: resolved. `discoveryProbe` redundant local-HTTP fallback flow
+    was simplified without changing probe tier ordering, HTTPS upgrade behavior,
+    HTTP warning behavior, fastest-latency selection, auth/access-denied summary
+    semantics, logging, mixed-content policy, selected-server behavior, or public
+    Plex contracts.
 - Completion means: source comments carry intent rather than narration, active
   context no longer loads obsolete authority stubs, coverage regressions are
   gated pragmatically, and any logic simplification is behavior-preserving.
@@ -1261,10 +1343,10 @@ targeted tests, `npm run typecheck`, `git diff --check`, `npm run verify`, and
   blocks known intentional exclusions; comment pruning removes important
   operational rationale; Gemini context cleanup conflicts with current runbook
   authority; logic simplification changes discovery behavior.
-- Follow-ups: none yet
-- Handoff: this package is lower architecture risk than `PQR-1` through
-  `PQR-5`, but should still run after the higher-risk owner-shape packages are
-  planned or explicitly deferred.
+- Follow-ups: none for `PQR-7`; final score rebaseline remains owned by
+  `PQR-EXIT`.
+- Handoff: `PQR-7` is closed. Do not run a PQR score refresh here because final
+  score rebaseline belongs to `PQR-EXIT`.
 
 ### [ ] `PQR-EXIT` Production Quality Refresh Exit And Score Rebaseline
 

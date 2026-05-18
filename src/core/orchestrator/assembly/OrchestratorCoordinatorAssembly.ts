@@ -1,37 +1,43 @@
 import type { NowPlayingInfoCoordinator } from '../../../modules/ui/now-playing-info';
 import type { PlaybackOptionsCoordinator } from '../../../modules/ui/playback-options';
 import type {
-    OrchestratorChannelSetupBuilderInput,
-    OrchestratorChannelTuningBuilderInput,
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorCoordinatorAssemblyInputDraft,
     OrchestratorCoordinators,
-    OrchestratorEpgCoordinatorBuilderInput,
-    OrchestratorChannelTransitionCoordinatorBuilderInput,
-    OrchestratorExitConfirmCoordinatorBuilderInput,
-    OrchestratorMiniGuideCoordinatorBuilderInput,
-    OrchestratorNavigationCoordinatorBuilderInput,
-    OrchestratorNowPlayingDebugManagerBuilderInput,
-    OrchestratorNowPlayingInfoCoordinatorBuilderInput,
-    OrchestratorPlaybackOptionsCoordinatorBuilderInput,
-    OrchestratorPlaybackRecoveryBuilderInput,
-    OrchestratorPlayerOsdCoordinatorBuilderInput,
 } from './OrchestratorCoordinatorContracts';
 import {
     buildChannelSetupOwners,
-    buildChannelTransitionCoordinator,
-    buildChannelTuningCoordinator,
+    buildChannelSetupInput,
     buildEpgCoordinator,
+    buildEpgCoordinatorInput,
     bindEpgVisibleRangeChange,
+} from './EpgChannelSetupCoordinatorAssembly';
+import {
     buildExitConfirmCoordinator,
+    buildExitConfirmCoordinatorInput,
     buildMiniGuideCoordinator,
+    buildMiniGuideCoordinatorInput,
     buildNavigationCoordinator,
+    buildNavigationCoordinatorInput,
+} from './NavigationModalCoordinatorAssembly';
+import {
     buildNowPlayingDebugManager,
+    buildNowPlayingDebugManagerInput,
     buildNowPlayingInfoCoordinator,
+    buildNowPlayingInfoCoordinatorInput,
+} from './NowPlayingDebugCoordinatorAssembly';
+import {
+    buildChannelTransitionCoordinator,
+    buildChannelTransitionCoordinatorInput,
+    buildChannelTuningCoordinator,
+    buildChannelTuningInput,
     buildPlaybackOptionsCoordinator,
+    buildPlaybackOptionsCoordinatorInput,
     buildPlaybackRecovery,
+    buildPlaybackRecoveryInput,
     buildPlayerOsdCoordinator,
-} from './OrchestratorCoordinatorBuilders';
+    buildPlayerOsdCoordinatorInput,
+} from './PlaybackOsdCoordinatorAssembly';
 
 export type {
     OrchestratorCoordinatorAssemblyInput,
@@ -91,301 +97,6 @@ export function createOrchestratorCoordinatorAssemblyInput(
     };
 }
 
-function buildEpgCoordinatorInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorEpgCoordinatorBuilderInput {
-    return {
-        epgDebugRuntime: input.epgDebugRuntime,
-        config: input.config,
-        moduleStatus: input.moduleStatus,
-        init: input.init,
-        modules: {
-            epg: input.modules.epg,
-            channelManager: input.modules.channelManager,
-            scheduler: input.modules.scheduler,
-        },
-        stores: {
-            epgPreferencesStore: input.stores.epgPreferencesStore,
-        },
-        diagnostics: {
-            appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
-        },
-        schedule: {
-            lastChannelChangeSource: input.schedule.lastChannelChangeSource,
-            setLastChannelChangeSource: input.schedule.setLastChannelChangeSource,
-            getLocalMidnightMs: input.schedule.getLocalMidnightMs,
-            buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
-        },
-        actions: {
-            switchToChannel: input.actions.switchToChannel,
-            switchToChannelWithOutcome: input.actions.switchToChannelWithOutcome,
-            onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
-        },
-        nowPlaying: input.nowPlaying,
-    };
-}
-
-function buildChannelSetupInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorChannelSetupBuilderInput {
-    return {
-        init: input.init,
-        modules: {
-            navigation: input.modules.navigation,
-            plexLibrary: input.modules.plexLibrary,
-            channelManager: input.modules.channelManager,
-        },
-        schedule: {
-            getSelectedServerId: input.schedule.getSelectedServerId,
-        },
-    };
-}
-
-function buildPlaybackRecoveryInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorPlaybackRecoveryBuilderInput {
-    return {
-        modules: {
-            videoPlayer: input.modules.videoPlayer,
-            plexStreamResolver: input.modules.plexStreamResolver,
-            scheduler: input.modules.scheduler,
-            plexAuth: input.modules.plexAuth,
-            plexDiscovery: input.modules.plexDiscovery,
-        },
-        stores: {
-            subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
-        },
-        diagnostics: {
-            appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
-        },
-        playback: {
-            state: input.playback.state,
-            buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
-            getMimeType: input.playback.getMimeType,
-        },
-        errors: input.errors,
-        nowPlaying: input.nowPlaying,
-    };
-}
-
-function buildChannelTuningInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorChannelTuningBuilderInput {
-    return {
-        modules: {
-            channelManager: input.modules.channelManager,
-            scheduler: input.modules.scheduler,
-            videoPlayer: input.modules.videoPlayer,
-            lifecycle: input.modules.lifecycle,
-        },
-        diagnostics: {
-            appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
-        },
-        playback: {
-            state: input.playback.state,
-            stopActiveTranscodeSession: input.playback.stopActiveTranscodeSession,
-        },
-        schedule: {
-            buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
-            getLocalDayKey: input.schedule.getLocalDayKey,
-            setActiveScheduleDayKey: input.schedule.setActiveScheduleDayKey,
-        },
-        errors: input.errors,
-    };
-}
-
-function buildNavigationCoordinatorInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorNavigationCoordinatorBuilderInput {
-    return {
-        config: input.config,
-        modules: {
-            navigation: input.modules.navigation,
-            epg: input.modules.epg,
-            plexAuth: input.modules.plexAuth,
-            videoPlayer: input.modules.videoPlayer,
-        },
-        overlays: {
-            playerOsd: input.overlays.playerOsd,
-            miniGuide: input.overlays.miniGuide,
-            nowPlayingInfo: input.overlays.nowPlayingInfo,
-            channelNumberOverlay: input.overlays.channelNumberOverlay,
-        },
-        stores: {
-            developerSettingsStore: input.stores.developerSettingsStore,
-            profileSessionStore: input.stores.profileSessionStore,
-        },
-        diagnostics: {
-            reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
-            appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
-        },
-        playback: {
-            stopPlayback: input.playback.stopPlayback,
-        },
-        schedule: {
-            setLastChannelChangeSource: input.schedule.setLastChannelChangeSource,
-        },
-        actions: {
-            switchToNextChannel: input.actions.switchToNextChannel,
-            switchToPreviousChannel: input.actions.switchToPreviousChannel,
-            switchToChannelByNumberWithOutcome: input.actions.switchToChannelByNumberWithOutcome,
-            toggleEPG: input.actions.toggleEPG,
-            toggleNowPlayingInfoOverlay: input.actions.toggleNowPlayingInfoOverlay,
-        },
-        nowPlaying: input.nowPlaying,
-    };
-}
-
-function buildNowPlayingDebugManagerInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorNowPlayingDebugManagerBuilderInput {
-    return {
-        modules: {
-            navigation: input.modules.navigation,
-            plexStreamResolver: input.modules.plexStreamResolver,
-            scheduler: input.modules.scheduler,
-        },
-        overlays: {
-            nowPlayingInfo: input.overlays.nowPlayingInfo,
-        },
-        stores: {
-            debugOverridesStore: input.stores.debugOverridesStore,
-        },
-        playback: {
-            state: input.playback.state,
-        },
-    };
-}
-
-function buildNowPlayingInfoCoordinatorInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorNowPlayingInfoCoordinatorBuilderInput {
-    return {
-        config: input.config,
-        modules: {
-            navigation: input.modules.navigation,
-            scheduler: input.modules.scheduler,
-            plexLibrary: input.modules.plexLibrary,
-        },
-        overlays: {
-            nowPlayingInfo: input.overlays.nowPlayingInfo,
-        },
-        stores: {
-            nowPlayingDisplayStore: input.stores.nowPlayingDisplayStore,
-        },
-        playback: {
-            state: input.playback.state,
-            buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
-            getPlaybackInfoSnapshot: input.playback.getPlaybackInfoSnapshot,
-            refreshPlaybackInfoSnapshot: input.playback.refreshPlaybackInfoSnapshot,
-        },
-        actions: {
-            onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
-        },
-    };
-}
-
-function buildPlayerOsdCoordinatorInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorPlayerOsdCoordinatorBuilderInput {
-    return {
-        config: input.config,
-        modules: {
-            navigation: input.modules.navigation,
-            scheduler: input.modules.scheduler,
-            channelManager: input.modules.channelManager,
-            videoPlayer: input.modules.videoPlayer,
-        },
-        overlays: {
-            playerOsd: input.overlays.playerOsd,
-            sleepTimer: input.overlays.sleepTimer,
-        },
-        stores: {
-            nowPlayingDisplayStore: input.stores.nowPlayingDisplayStore,
-        },
-        playback: {
-            state: input.playback.state,
-            buildPlexResourceUrl: input.playback.buildPlexResourceUrl,
-        },
-        actions: {
-            onOverlayVisibilityChange: input.actions.onOverlayVisibilityChange,
-        },
-    };
-}
-
-function buildMiniGuideCoordinatorInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorMiniGuideCoordinatorBuilderInput {
-    return {
-        config: input.config,
-        modules: {
-            channelManager: input.modules.channelManager,
-            scheduler: input.modules.scheduler,
-        },
-        overlays: {
-            miniGuide: input.overlays.miniGuide,
-        },
-        schedule: {
-            buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
-        },
-        actions: {
-            switchToChannel: input.actions.switchToChannel,
-        },
-        nowPlaying: input.nowPlaying,
-    };
-}
-
-function buildChannelTransitionCoordinatorInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorChannelTransitionCoordinatorBuilderInput {
-    return {
-        modules: {
-            navigation: input.modules.navigation,
-            videoPlayer: input.modules.videoPlayer,
-        },
-        overlays: {
-            channelTransitionOverlay: input.overlays.channelTransitionOverlay,
-        },
-        actions: {
-            onChannelTransitionActivityChange: input.actions.onChannelTransitionActivityChange,
-        },
-    };
-}
-
-function buildPlaybackOptionsCoordinatorInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorPlaybackOptionsCoordinatorBuilderInput {
-    return {
-        modules: {
-            navigation: input.modules.navigation,
-            videoPlayer: input.modules.videoPlayer,
-            scheduler: input.modules.scheduler,
-        },
-        overlays: {
-            playbackOptionsModal: input.overlays.playbackOptionsModal,
-        },
-        stores: {
-            subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
-        },
-        playback: {
-            state: input.playback.state,
-        },
-        nowPlaying: input.nowPlaying,
-    };
-}
-
-function buildExitConfirmCoordinatorInput(
-    input: OrchestratorCoordinatorAssemblyInput
-): OrchestratorExitConfirmCoordinatorBuilderInput {
-    return {
-        modules: {
-            navigation: input.modules.navigation,
-        },
-        overlays: {
-            exitConfirmModal: input.overlays.exitConfirmModal,
-        },
-    };
-}
 
 export function createOrchestratorCoordinators(
     input: OrchestratorCoordinatorAssemblyInput

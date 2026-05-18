@@ -1,4 +1,4 @@
-import { IFocusManager, FocusableElement, FocusGroup } from '../contracts/interfaces';
+import { IFocusManager, FocusableElement, FocusGroup, Direction } from '../contracts/interfaces';
 import { FOCUS_CLASSES } from '../config/constants';
 
 interface FocusManagerState {
@@ -109,7 +109,7 @@ export class FocusManager implements IFocusManager {
 
     public findNeighbor(
         fromId: string,
-        direction: 'up' | 'down' | 'left' | 'right'
+        direction: Direction
     ): string | null {
         const fromElement = this._state.focusableElements.get(fromId);
         if (!fromElement) {
@@ -233,7 +233,7 @@ export class FocusManager implements IFocusManager {
 
     private _findNextInGroup(
         currentId: string,
-        direction: 'up' | 'down' | 'left' | 'right',
+        direction: Direction,
         group: FocusGroup
     ): string | null {
         const currentIndex = group.elements.indexOf(currentId);
@@ -279,7 +279,7 @@ export class FocusManager implements IFocusManager {
 
     private _navigateGrid(
         currentIndex: number,
-        direction: 'up' | 'down' | 'left' | 'right',
+        direction: Direction,
         group: FocusGroup
     ): string | null {
         if (group.columns === undefined) {
@@ -359,7 +359,7 @@ export class FocusManager implements IFocusManager {
 
     private _calculateSpatialNeighbor(
         fromId: string,
-        direction: 'up' | 'down' | 'left' | 'right'
+        direction: Direction
     ): string | null {
         const fromElement = this._state.focusableElements.get(fromId);
         if (!fromElement) {
@@ -420,7 +420,7 @@ export class FocusManager implements IFocusManager {
     private _isInDirection(
         fromRect: DOMRect,
         toRect: DOMRect,
-        direction: 'up' | 'down' | 'left' | 'right'
+        direction: Direction
     ): boolean {
         const fromCenter = {
             x: fromRect.left + fromRect.width / 2,
@@ -446,7 +446,7 @@ export class FocusManager implements IFocusManager {
     private _calculateOverlap(
         fromRect: DOMRect,
         toRect: DOMRect,
-        direction: 'up' | 'down' | 'left' | 'right'
+        direction: Direction
     ): number {
         if (direction === 'up' || direction === 'down') {
             const overlapStart = Math.max(fromRect.left, toRect.left);
@@ -466,7 +466,7 @@ export class FocusManager implements IFocusManager {
     private _calculateDistance(
         fromRect: DOMRect,
         toRect: DOMRect,
-        direction: 'up' | 'down' | 'left' | 'right'
+        direction: Direction
     ): number {
         switch (direction) {
             case 'up':

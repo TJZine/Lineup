@@ -62,6 +62,16 @@ function clearSubtitleDebugLogging(): void {
     developerSettingsStore.clearSubtitleDebugLoggingEnabled();
 }
 
+const expectPlaybackError = (
+    code: AppErrorCode,
+    message: string | RegExp = /./
+): Record<string, unknown> => ({
+    code,
+    message: expect.stringMatching(message),
+    recoverable: false,
+    retryCount: 0,
+});
+
 type FakeSubtitleManager = {
     initialize: () => void;
     loadTracks: (_tracks: unknown, ctx?: StreamDescriptor['subtitleContext']) => string[];
@@ -221,11 +231,30 @@ describe('VideoPlayer', () => {
             player.destroy();
         });
 
-        it('should throw if container not found', async () => {
+        it('rejects with INITIALIZATION_FAILED if container not found', async () => {
             const player = new VideoPlayer();
             const config = createMockConfig({ containerId: 'nonexistent' });
 
-            await expect(player.initialize(config)).rejects.toThrow('Video container not found');
+            await expect(player.initialize(config)).rejects.toMatchObject(
+                expectPlaybackError(AppErrorCode.INITIALIZATION_FAILED, /Video container not found/)
+            );
+        });
+
+        it('leaves the player uninitialized and retryable after missing-container failure', async () => {
+            const player = new VideoPlayer();
+
+            await expect(player.initialize(createMockConfig({ containerId: 'nonexistent' }))).rejects.toMatchObject(
+                expectPlaybackError(AppErrorCode.INITIALIZATION_FAILED, /Video container not found/)
+            );
+            await expect(player.loadStream(createMockDescriptor())).rejects.toMatchObject(
+                expectPlaybackError(AppErrorCode.INITIALIZATION_FAILED, /not initialized/)
+            );
+
+            await player.initialize(createMockConfig());
+
+            expect(container.querySelector('video')).not.toBeNull();
+
+            player.destroy();
         });
     });
 
@@ -243,6 +272,32 @@ describe('VideoPlayer', () => {
 
         afterEach(() => {
             player.destroy();
+        });
+
+        it('rejects with INITIALIZATION_FAILED when the player is not initialized', async () => {
+            const uninitializedPlayer = new VideoPlayer();
+
+            await expect(uninitializedPlayer.loadStream(createMockDescriptor())).rejects.toMatchObject(
+                expectPlaybackError(AppErrorCode.INITIALIZATION_FAILED, /not initialized/)
+            );
+        });
+
+        it('rejects media readiness failures with PLAYBACK_FAILED', async () => {
+            const videoElement = container.querySelector('video') as HTMLVideoElement;
+            Object.defineProperty(videoElement, 'readyState', {
+                get: (): number => 0,
+                configurable: true,
+            });
+
+            const loadPromise = player.loadStream(createMockDescriptor());
+            jest.advanceTimersByTime(30001);
+
+            await expect(loadPromise).rejects.toMatchObject({
+                ...expectPlaybackError(AppErrorCode.PLAYBACK_FAILED, /Media readiness failed/),
+                context: {
+                    cause: 'Timeout waiting for media to be ready',
+                },
+            });
         });
 
         it('should set video.src for HLS streams', async () => {
@@ -510,6 +565,26 @@ describe('VideoPlayer', () => {
     // ========================================
 
     describe('setSubtitleTrack', () => {
+        it('rejects activation failures with PLAYBACK_FAILED', async () => {
+            const player = new VideoPlayer();
+            await player.initialize(createMockConfig());
+            const setActiveTrackSpy = jest
+                .spyOn(SubtitleManager.prototype, 'setActiveTrack')
+                .mockImplementation(() => {
+                    throw new Error('subtitle activation exploded');
+                });
+
+            await expect(player.setSubtitleTrack('broken-subtitle')).rejects.toMatchObject({
+                ...expectPlaybackError(AppErrorCode.PLAYBACK_FAILED, /Subtitle track activation failed/),
+                context: {
+                    cause: 'subtitle activation exploded',
+                },
+            });
+            expect(setActiveTrackSpy).toHaveBeenCalledWith('broken-subtitle');
+
+            player.destroy();
+        });
+
         it('does not persist selection when a subtitle deactivates immediately', async () => {
             const player = new VideoPlayer();
             await player.initialize(createMockConfig());
@@ -706,6 +781,14 @@ describe('VideoPlayer', () => {
             expect(errorHandler).not.toHaveBeenCalled();
         });
 
+        it('rejects play precondition failures with INITIALIZATION_FAILED', async () => {
+            const uninitializedPlayer = new VideoPlayer();
+
+            await expect(uninitializedPlayer.play()).rejects.toMatchObject(
+                expectPlaybackError(AppErrorCode.INITIALIZATION_FAILED, /not initialized/)
+            );
+        });
+
         it('should call video.pause() on pause()', () => {
             const videoElement = container.querySelector('video');
             player.pause();
@@ -855,7 +938,17 @@ describe('VideoPlayer', () => {
             const seekPromise = player.seekTo(120000);
             jest.advanceTimersByTime(5001);
 
-            await expect(seekPromise).rejects.toThrow('Seek operation timed out');
+            await expect(seekPromise).rejects.toMatchObject(
+                expectPlaybackError(AppErrorCode.PLAYBACK_FAILED, /Seek operation timed out/)
+            );
+        });
+
+        it('rejects seek precondition failures with INITIALIZATION_FAILED', async () => {
+            const uninitializedPlayer = new VideoPlayer();
+
+            await expect(uninitializedPlayer.seekTo(120000)).rejects.toMatchObject(
+                expectPlaybackError(AppErrorCode.INITIALIZATION_FAILED, /not initialized/)
+            );
         });
     });
 
@@ -1355,6 +1448,70 @@ describe('VideoPlayer', () => {
                 }
                 await flushPromises();
                 expect(currentTimeValue).toBe(45); // 50 - 5
+            });
+
+            it('falls back to the default positive seek increment when media session details and config are invalid', async () => {
+                player.destroy();
+                player = new VideoPlayer();
+                await player.initialize(createMockConfig({ seekIncrementSec: -15 }));
+                await player.loadStream(createMockDescriptor());
+                player.requestMediaSession();
+
+                const videoElement = container.querySelector('video')!;
+                let currentTimeValue = 50;
+
+                Object.defineProperty(videoElement, 'currentTime', {
+                    get: () => currentTimeValue,
+                    set: (val: number) => {
+                        currentTimeValue = val;
+                        void Promise.resolve().then(() => {
+                            videoElement.dispatchEvent(new Event('seeked'));
+                        });
+                    },
+                    configurable: true,
+                });
+
+                const seekforwardHandler = mockMediaSession.handlers.get('seekforward');
+                if (!seekforwardHandler) {
+                    throw new Error('seekforward handler not installed');
+                }
+
+                seekforwardHandler({ seekOffset: 0 });
+                await flushPromises();
+
+                expect(currentTimeValue).toBe(60);
+            });
+
+            it('ignores invalid media session seek offsets and falls back to the configured positive increment', async () => {
+                player.destroy();
+                player = new VideoPlayer();
+                await player.initialize(createMockConfig({ seekIncrementSec: 15 }));
+                await player.loadStream(createMockDescriptor());
+                player.requestMediaSession();
+
+                const videoElement = container.querySelector('video')!;
+                let currentTimeValue = 50;
+
+                Object.defineProperty(videoElement, 'currentTime', {
+                    get: () => currentTimeValue,
+                    set: (val: number) => {
+                        currentTimeValue = val;
+                        void Promise.resolve().then(() => {
+                            videoElement.dispatchEvent(new Event('seeked'));
+                        });
+                    },
+                    configurable: true,
+                });
+
+                const seekbackwardHandler = mockMediaSession.handlers.get('seekbackward');
+                if (!seekbackwardHandler) {
+                    throw new Error('seekbackward handler not installed');
+                }
+
+                seekbackwardHandler({ seekOffset: Number.NEGATIVE_INFINITY });
+                await flushPromises();
+
+                expect(currentTimeValue).toBe(35);
             });
 
             it('logs a warning when Media Session seek handlers reject', async () => {

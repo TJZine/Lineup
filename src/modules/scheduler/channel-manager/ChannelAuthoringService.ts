@@ -1,8 +1,8 @@
-import { fnv1a32Uint } from '../../../utils/hash';
 import { AppErrorCode } from '../../../types/app-errors';
 import { CHANNEL_ERROR_MESSAGES, MAX_CHANNELS, MAX_CHANNEL_NUMBER, MIN_CHANNEL_NUMBER } from './constants';
 import { ChannelError } from './ChannelErrors';
 import { isValidContentSource } from './ChannelContentSourceValidator';
+import { applyChannelSeedDefaults, isValidChannelSeed } from './ChannelSeedPolicy';
 import {
     cloneChannelForOwnership,
     cloneContentFilters,
@@ -213,12 +213,7 @@ export class ChannelAuthoringService {
     }
 
     applySeedDefaults(channel: ChannelConfig): void {
-        if (typeof channel.shuffleSeed !== 'number' || !Number.isFinite(channel.shuffleSeed)) {
-            channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
-        }
-        if (typeof channel.phaseSeed !== 'number' || !Number.isFinite(channel.phaseSeed)) {
-            channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
-        }
+        applyChannelSeedDefaults(channel);
     }
 
     private _applyOptionalFields(channel: ChannelConfig, input: Partial<ChannelCreateInput>): void {
@@ -235,10 +230,10 @@ export class ChannelAuthoringService {
         if (typeof input.isPlaybackModeVariant === 'boolean') {
             channel.isPlaybackModeVariant = input.isPlaybackModeVariant;
         }
-        if (typeof input.shuffleSeed === 'number' && Number.isFinite(input.shuffleSeed)) {
+        if (isValidChannelSeed(input.shuffleSeed)) {
             channel.shuffleSeed = input.shuffleSeed;
         }
-        if (typeof input.phaseSeed === 'number' && Number.isFinite(input.phaseSeed)) {
+        if (isValidChannelSeed(input.phaseSeed)) {
             channel.phaseSeed = input.phaseSeed;
         }
         if (

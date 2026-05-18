@@ -3,6 +3,7 @@ import type { PlexAuthConfig } from './interfaces';
 import { createPlexIdentityHeaders } from './config';
 import { AppErrorCode } from '../../../types/app-errors';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../../utils/redact';
+import { PLEX_TOKEN_HEADER } from '../shared/plexUrl';
 
 /**
  * Error class for Plex API errors.
@@ -85,7 +86,7 @@ export function buildRequestHeaders(
         ...createPlexIdentityHeaders(config, options),
     };
     if (token) {
-        headers['X-Plex-Token'] = token;
+        headers[PLEX_TOKEN_HEADER] = token;
     }
     return headers;
 }

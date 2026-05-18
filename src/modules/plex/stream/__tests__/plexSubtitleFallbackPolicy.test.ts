@@ -2,6 +2,7 @@ import {
     buildPlexSubtitleFetchAttempts,
     buildPlexSubtitleTranscodeUrl,
 } from '../policy/plexSubtitleFallbackPolicy';
+import { PLEX_TOKEN_HEADER, PLEX_TOKEN_QUERY_PARAM } from '../../shared/plexUrl';
 
 describe('plexSubtitleFallbackPolicy', () => {
     it('builds query/header/download subtitle fetch attempts from Plex auth headers', () => {
@@ -10,7 +11,7 @@ describe('plexSubtitleFallbackPolicy', () => {
         );
 
         const attempts = buildPlexSubtitleFetchAttempts(initialUrl, {
-            'X-Plex-Token': 'token',
+            [PLEX_TOKEN_HEADER]: 'token',
             'X-Plex-Client-Identifier': 'client-1',
         });
 
@@ -28,19 +29,19 @@ describe('plexSubtitleFallbackPolicy', () => {
         expect(initialUrl.searchParams.get('mutated')).toBeNull();
         expect(attempts[1]?.headers).toEqual({
             Accept: 'text/vtt, text/plain, */*',
-            'X-Plex-Token': 'token',
+            [PLEX_TOKEN_HEADER]: 'token',
         });
-        expect(attempts[1]?.url.searchParams.get('X-Plex-Token')).toBeNull();
+        expect(attempts[1]?.url.searchParams.get(PLEX_TOKEN_QUERY_PARAM)).toBeNull();
         expect(attempts[2]?.url.searchParams.get('download')).toBe('1');
         expect(attempts[3]?.url.searchParams.get('download')).toBe('1');
-        expect(attempts[3]?.url.searchParams.get('X-Plex-Token')).toBeNull();
+        expect(attempts[3]?.url.searchParams.get(PLEX_TOKEN_QUERY_PARAM)).toBeNull();
     });
 
     it('builds a universal subtitle transcode url from a metadata path and applies Plex query params', () => {
         const url = buildPlexSubtitleTranscodeUrl('sub-1', {
             serverUri: 'http://example.com',
             authHeaders: {
-                'X-Plex-Token': 'token',
+                [PLEX_TOKEN_HEADER]: 'token',
                 'X-Plex-Client-Identifier': 'client-1',
             },
             itemKey: '/library/metadata/999',
@@ -57,7 +58,7 @@ describe('plexSubtitleFallbackPolicy', () => {
         expect(url?.searchParams.get('subtitleStreamID')).toBe('sub-1');
         expect(url?.searchParams.get('format')).toBe('srt');
         expect(url?.searchParams.get('download')).toBe('1');
-        expect(url?.searchParams.get('X-Plex-Token')).toBe('token');
+        expect(url?.searchParams.get(PLEX_TOKEN_QUERY_PARAM)).toBe('token');
         expect(url?.searchParams.get('X-Plex-Client-Identifier')).toBe('client-1');
         expect(url?.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
         expect(url?.searchParams.get('session')).toBe('sess-1');
@@ -69,7 +70,7 @@ describe('plexSubtitleFallbackPolicy', () => {
             serverUri: 'http://192.168.1.20:32400',
             resolvedBaseUrl: 'https://relay.plex.tv',
             authHeaders: {
-                'X-Plex-Token': 'token',
+                [PLEX_TOKEN_HEADER]: 'token',
                 'X-Plex-Client-Identifier': 'client-1',
             },
             itemKey: '/library/metadata/999',

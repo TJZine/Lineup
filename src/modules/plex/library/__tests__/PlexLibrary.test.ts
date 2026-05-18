@@ -4,6 +4,7 @@ import { PlexLibrary, PlexLibraryError } from '../PlexLibrary';
 import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
+import { PLEX_TOKEN_HEADER } from '../../shared/plexUrl';
 import {
     mockCollectionsResponse,
     mockConfig,
@@ -339,7 +340,7 @@ describe('PlexLibrary', () => {
             const config: PlexLibraryConfig = {
                 getAuthHeaders: () => ({
                     ...baseHeaders,
-                    'X-Plex-Token': token,
+                    [PLEX_TOKEN_HEADER]: token,
                 }),
                 getServerUri: () => serverUri,
                 getAuthToken: () => token,

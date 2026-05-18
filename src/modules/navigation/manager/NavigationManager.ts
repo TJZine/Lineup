@@ -9,7 +9,7 @@ import {
     ServerSelectNavigationParams,
     FocusableElement,
     FocusGroup,
-    RemoteButton,
+    RemoteButton, Direction,
 } from '../contracts/interfaces';
 import { FocusManager } from './FocusManager';
 import { RemoteHandler } from '../input/RemoteHandler';
@@ -342,7 +342,7 @@ export class NavigationManager
      * @param direction - The direction to move
      * @returns true if focus moved, false if at boundary
      */
-    public moveFocus(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+    public moveFocus(direction: Direction): boolean {
         if (this._state.isInputBlocked) {
             return false;
         }

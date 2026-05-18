@@ -71,24 +71,16 @@ export interface PlexStreamResolverConfig {
      * Used to classify transcode requests as LAN vs WAN when possible.
      */
     getSelectedConnection?: () => { uri: string; local: boolean; relay: boolean } | null;
-    /** Function to get an HTTPS connection (for mixed content fallback) */
     getHttpsConnection: () => { uri: string } | null;
-    /** Function to get a relay connection (for mixed content fallback) */
     getRelayConnection: () => { uri: string } | null;
     getItem: (ratingKey: string) => Promise<PlexStreamMediaItem | null>;
     /** Client identifier for Plex session tracking */
     clientIdentifier: string;
-    /** Audio playback policy reader seam */
     audioPolicyReader: PlexStreamAudioPolicyReader;
-    /** Playback/transcode policy reader seam */
     playbackPolicyReader: PlexStreamPlaybackPolicyReader;
-    /** Debug logging policy reader seam */
     debugPolicyReader: PlexStreamDebugPolicyReader;
-    /** Subtitle debug logging policy reader seam */
     subtitleDebugPolicyReader: PlexStreamSubtitleDebugPolicyReader;
-    /** Debug override reader seam for profile-name injection */
     debugOverridesReader: PlexStreamDebugOverridesReader;
-    /** Subtitle debug logging port */
     subtitleDebugLogPort: PlexStreamSubtitleDebugLogPort;
     identityService?: PlatformIdentityService;
 }

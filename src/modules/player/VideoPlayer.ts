@@ -33,6 +33,7 @@ import type { PlatformPlaybackService, PlatformSubtitleService } from '../../pla
 import { createWebOsPlatformServices } from '../../platform';
 import { SubtitleDebugLogger } from '../debug/SubtitleDebugLogger';
 import { snapshotNativeTextTracks } from './nativeTextTrackDebugSnapshot';
+import { isValidSeekIncrementSeconds, normalizeSeekIncrementSeconds } from './SeekIncrementPolicy';
 
 type MediaSessionPlaybackStateLike = 'none' | 'paused' | 'playing';
 
@@ -66,6 +67,17 @@ type SubtitleDeactivation = {
     trackId: string;
     reason: string;
 };
+
+function isPlaybackError(error: unknown): error is PlaybackError {
+    return (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        'message' in error &&
+        'recoverable' in error &&
+        'retryCount' in error
+    );
+}
 
 export class VideoPlayer implements IVideoPlayer {
     private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
@@ -104,6 +116,39 @@ export class VideoPlayer implements IVideoPlayer {
     private _subtitleSelectionInProgress: boolean = false;
     private _subtitleSelectionRequestedId: string | null = null;
     private _subtitleSelectionDeferredDeactivation: SubtitleDeactivation | null = null;
+
+    private _createPlaybackError(
+        code: AppErrorCode,
+        message: string,
+        cause?: unknown
+    ): PlaybackError {
+        const error: PlaybackError = {
+            code,
+            message,
+            recoverable: false,
+            retryCount: 0,
+        };
+
+        if (cause !== undefined) {
+            const causeMessage = cause instanceof Error ? cause.message : String(cause);
+            error.context = {
+                cause: redactSensitiveTokens(causeMessage),
+            };
+        }
+
+        return error;
+    }
+
+    private _createInitializationError(message: string): PlaybackError {
+        return this._createPlaybackError(AppErrorCode.INITIALIZATION_FAILED, message);
+    }
+
+    private _wrapPlayerOwnedFailure(message: string, cause: unknown): PlaybackError {
+        if (isPlaybackError(cause)) {
+            return cause;
+        }
+        return this._createPlaybackError(AppErrorCode.PLAYBACK_FAILED, message, cause);
+    }
 
     private _handleSubtitleDeactivated(trackId: string, reason: string): void {
         if (this._state.activeSubtitleId === null) {
@@ -177,6 +222,12 @@ export class VideoPlayer implements IVideoPlayer {
             ...config,
         };
 
+        const container = document.getElementById(config.containerId);
+        if (!container) {
+            this._config = null;
+            throw this._createInitializationError(`Video container not found: ${config.containerId}`);
+        }
+
         this._videoElement = document.createElement('video');
         this._videoElement.id = VIDEO_ELEMENT_ID;
         this._videoElement.style.cssText = VIDEO_ELEMENT_STYLES;
@@ -185,10 +236,6 @@ export class VideoPlayer implements IVideoPlayer {
         // Hide the video element until a stream is actually loaded so the UI can render.
         this._videoElement.style.display = 'none';
 
-        const container = document.getElementById(config.containerId);
-        if (!container) {
-            throw new Error(`Video container not found: ${config.containerId}`);
-        }
         container.appendChild(this._videoElement);
 
         this._state = this._createInitialState();
@@ -244,7 +291,7 @@ export class VideoPlayer implements IVideoPlayer {
 
     public async loadStream(descriptor: StreamDescriptor): Promise<void> {
         if (!this._videoElement) {
-            throw new Error('VideoPlayer not initialized');
+            throw this._createInitializationError('VideoPlayer not initialized');
         }
 
         this.unloadStream();
@@ -309,7 +356,11 @@ export class VideoPlayer implements IVideoPlayer {
 
         this._videoElement.load();
 
-        await this._eventManager.waitForCanPlay();
+        try {
+            await this._eventManager.waitForCanPlay();
+        } catch (error) {
+            throw this._wrapPlayerOwnedFailure('Media readiness failed', error);
+        }
         if (!this._isActiveLoad(loadGeneration, descriptor)) {
             return;
         }
@@ -367,7 +418,7 @@ export class VideoPlayer implements IVideoPlayer {
 
     public async play(): Promise<void> {
         if (!this._videoElement) {
-            throw new Error('VideoPlayer not initialized');
+            throw this._createInitializationError('VideoPlayer not initialized');
         }
 
         try {
@@ -394,7 +445,7 @@ export class VideoPlayer implements IVideoPlayer {
 
     public async seekTo(positionMs: number): Promise<void> {
         if (!this._videoElement) {
-            throw new Error('VideoPlayer not initialized');
+            throw this._createInitializationError('VideoPlayer not initialized');
         }
 
         // Capture reference to prevent issues if destroy() is called mid-seek
@@ -425,7 +476,10 @@ export class VideoPlayer implements IVideoPlayer {
 
             timeoutId = setTimeout(() => {
                 cleanup();
-                reject(new Error('Seek operation timed out'));
+                reject(this._createPlaybackError(
+                    AppErrorCode.PLAYBACK_FAILED,
+                    'Seek operation timed out'
+                ));
             }, SEEK_TIMEOUT_MS);
         });
     }
@@ -493,7 +547,11 @@ export class VideoPlayer implements IVideoPlayer {
             // Set state first so any synchronous deactivation callbacks can reliably clear it.
             this._state.activeSubtitleId = trackId;
 
-            this._subtitleManager.setActiveTrack(trackId);
+            try {
+                this._subtitleManager.setActiveTrack(trackId);
+            } catch (error) {
+                throw this._wrapPlayerOwnedFailure('Subtitle track activation failed', error);
+            }
             let finalActiveTrackId = this._subtitleManager.getActiveTrackId();
             this._state.activeSubtitleId = finalActiveTrackId;
 
@@ -844,19 +902,12 @@ export class VideoPlayer implements IVideoPlayer {
             'seekOffset' in details
         ) {
             const seekOffset = (details as { seekOffset: unknown }).seekOffset;
-            if (typeof seekOffset === 'number' && isFinite(seekOffset)) {
+            if (isValidSeekIncrementSeconds(seekOffset)) {
                 return seekOffset;
             }
         }
-        // Use config if available and finite, else default 10 seconds
-        if (
-            this._config &&
-            typeof this._config.seekIncrementSec === 'number' &&
-            isFinite(this._config.seekIncrementSec)
-        ) {
-            return this._config.seekIncrementSec;
-        }
-        return 10;
+
+        return normalizeSeekIncrementSeconds(this._config?.seekIncrementSec);
     }
 
     private _syncMediaSessionMetadata(): void {

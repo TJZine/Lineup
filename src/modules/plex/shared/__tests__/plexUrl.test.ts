@@ -12,6 +12,8 @@ import {
     buildPlexUrlFromKey,
     isLikelyPlexServerKeyPath,
     PLEX_CLOUD_TRUSTED_ORIGINS,
+    PLEX_TOKEN_HEADER,
+    PLEX_TOKEN_QUERY_PARAM,
     readXPlexTokenFromHeaders,
     tryBuildPlexServerUrlFromKey,
 } from '../plexUrl';
@@ -113,12 +115,12 @@ describe('shared plexUrl helpers', () => {
                 Accept: 'application/json',
                 'X-Plex-Client-Identifier': 'client-id',
                 'X-Plex-Product': '',
-                'X-Plex-Token': 'mock-token',
+                [PLEX_TOKEN_HEADER]: 'mock-token',
                 'x-plex-version': 'ignored-key',
             });
 
             expect(params.get('X-Plex-Client-Identifier')).toBe('client-id');
-            expect(params.get('X-Plex-Token')).toBe('mock-token');
+            expect(params.get(PLEX_TOKEN_QUERY_PARAM)).toBe('mock-token');
             expect(params.get('X-Plex-Product')).toBeNull();
             expect(params.get('Accept')).toBeNull();
             expect(params.get('x-plex-version')).toBeNull();
@@ -130,23 +132,23 @@ describe('shared plexUrl helpers', () => {
 
             applyXPlexQueryParamsFromHeaders(params, {
                 'X-Plex-Client-Identifier': 'new-id',
-                'X-Plex-Token': 'token-1',
+                [PLEX_TOKEN_HEADER]: 'token-1',
             });
 
             expect(params.get('X-Plex-Client-Identifier')).toBe('new-id');
-            expect(params.get('X-Plex-Token')).toBe('token-1');
+            expect(params.get(PLEX_TOKEN_QUERY_PARAM)).toBe('token-1');
         });
 
         it('ignores malformed X-Plex header values at the URL boundary', () => {
             const params = new URLSearchParams();
 
             applyXPlexQueryParamsFromHeaders(params, {
-                'X-Plex-Token': null,
+                [PLEX_TOKEN_HEADER]: null,
                 'X-Plex-Product': undefined,
                 'X-Plex-Client-Identifier': 'client-id',
             });
 
-            expect(params.get('X-Plex-Token')).toBeNull();
+            expect(params.get(PLEX_TOKEN_QUERY_PARAM)).toBeNull();
             expect(params.get('X-Plex-Product')).toBeNull();
             expect(params.get('X-Plex-Client-Identifier')).toBe('client-id');
         });
@@ -157,31 +159,31 @@ describe('shared plexUrl helpers', () => {
             for (const origin of PLEX_CLOUD_TRUSTED_ORIGINS) {
                 const url = new URL('/api/v2/resources', origin);
                 applyXPlexTokenQueryParamIfTrusted(url, 'cloud-token', PLEX_CLOUD_TRUSTED_ORIGINS);
-                expect(url.searchParams.get('X-Plex-Token')).toBe('cloud-token');
+                expect(url.searchParams.get(PLEX_TOKEN_QUERY_PARAM)).toBe('cloud-token');
             }
         });
 
         it('does not attach tokens for untrusted origins', () => {
             const url = new URL('https://cdn.example/images/poster.jpg');
             applyXPlexTokenQueryParamIfTrusted(url, 'cloud-token', PLEX_CLOUD_TRUSTED_ORIGINS);
-            expect(url.searchParams.get('X-Plex-Token')).toBeNull();
+            expect(url.searchParams.get(PLEX_TOKEN_QUERY_PARAM)).toBeNull();
         });
     });
 
     describe('X-Plex-Token header helpers', () => {
         it('reads only non-empty canonical token header values', () => {
-            expect(readXPlexTokenFromHeaders({ 'X-Plex-Token': 'token-1' })).toBe('token-1');
-            expect(readXPlexTokenFromHeaders({ 'X-Plex-Token': '' })).toBeNull();
-            expect(readXPlexTokenFromHeaders({ 'X-Plex-Token': null })).toBeNull();
+            expect(readXPlexTokenFromHeaders({ [PLEX_TOKEN_HEADER]: 'token-1' })).toBe('token-1');
+            expect(readXPlexTokenFromHeaders({ [PLEX_TOKEN_HEADER]: '' })).toBeNull();
+            expect(readXPlexTokenFromHeaders({ [PLEX_TOKEN_HEADER]: null })).toBeNull();
             expect(readXPlexTokenFromHeaders({ 'x-plex-token': 'lowercase-token' })).toBeNull();
         });
 
         it('applies the canonical token header value to URL search params', () => {
             const params = new URLSearchParams();
 
-            applyXPlexTokenQueryParamFromHeaders(params, { 'X-Plex-Token': 'token-1' });
+            applyXPlexTokenQueryParamFromHeaders(params, { [PLEX_TOKEN_HEADER]: 'token-1' });
 
-            expect(params.get('X-Plex-Token')).toBe('token-1');
+            expect(params.get(PLEX_TOKEN_QUERY_PARAM)).toBe('token-1');
         });
 
         it('does not apply a token query param when the canonical token header is absent or empty', () => {
@@ -189,17 +191,17 @@ describe('shared plexUrl helpers', () => {
             const emptyParams = new URLSearchParams();
 
             applyXPlexTokenQueryParamFromHeaders(absentParams, {});
-            applyXPlexTokenQueryParamFromHeaders(emptyParams, { 'X-Plex-Token': '' });
+            applyXPlexTokenQueryParamFromHeaders(emptyParams, { [PLEX_TOKEN_HEADER]: '' });
 
-            expect(absentParams.has('X-Plex-Token')).toBe(false);
-            expect(emptyParams.has('X-Plex-Token')).toBe(false);
+            expect(absentParams.has(PLEX_TOKEN_QUERY_PARAM)).toBe(false);
+            expect(emptyParams.has(PLEX_TOKEN_QUERY_PARAM)).toBe(false);
         });
     });
 
     describe('buildPlexResourceUrlWithAuth', () => {
         it('returns null when no base server URI is available', () => {
             const result = buildPlexResourceUrlWithAuth(null, '/library/metadata/1', {
-                'X-Plex-Token': 'token-1',
+                [PLEX_TOKEN_HEADER]: 'token-1',
             });
             expect(result).toBeNull();
         });
@@ -208,17 +210,17 @@ describe('shared plexUrl helpers', () => {
             const thumb = buildPlexResourceUrlWithAuth(
                 'http://192.168.1.100:32400',
                 '/thumb/path',
-                { 'X-Plex-Token': 'token-1' }
+                { [PLEX_TOKEN_HEADER]: 'token-1' }
             );
             const art = buildPlexResourceUrlWithAuth(
                 'http://192.168.1.100:32400',
                 '/art/1',
-                { 'X-Plex-Token': 'token-1' }
+                { [PLEX_TOKEN_HEADER]: 'token-1' }
             );
             const clearLogo = buildPlexResourceUrlWithAuth(
                 'http://192.168.1.100:32400',
                 '/clearlogo.png',
-                { 'X-Plex-Token': 'token-1' }
+                { [PLEX_TOKEN_HEADER]: 'token-1' }
             );
 
             expect(thumb).toBe('http://192.168.1.100:32400/thumb/path?X-Plex-Token=token-1');
@@ -230,7 +232,7 @@ describe('shared plexUrl helpers', () => {
             const result = buildPlexResourceUrlWithAuth(
                 'http://192.168.1.100:32400',
                 'thumb/path',
-                { 'X-Plex-Token': 'token-1' }
+                { [PLEX_TOKEN_HEADER]: 'token-1' }
             );
 
             expect(result).toBeNull();
@@ -240,7 +242,7 @@ describe('shared plexUrl helpers', () => {
             const result = buildPlexResourceUrlWithAuth(
                 'http://192.168.1.100:32400',
                 'https://cdn.example/images/poster.jpg',
-                { 'X-Plex-Token': 'token-1' }
+                { [PLEX_TOKEN_HEADER]: 'token-1' }
             );
             expect(result).toBeNull();
         });
@@ -249,12 +251,12 @@ describe('shared plexUrl helpers', () => {
             const relative = buildPlexResourceUrlWithAuth(
                 'http://192.168.1.100:32400',
                 '/library/metadata/1?includeChildren=1',
-                { 'X-Plex-Token': 'token-1' }
+                { [PLEX_TOKEN_HEADER]: 'token-1' }
             );
             const sameOriginAbsolute = buildPlexResourceUrlWithAuth(
                 'http://192.168.1.100:32400',
                 'http://192.168.1.100:32400/library/metadata/2',
-                { 'X-Plex-Token': 'token-1' }
+                { [PLEX_TOKEN_HEADER]: 'token-1' }
             );
 
             expect(relative).toBe(

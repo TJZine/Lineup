@@ -17,5 +17,5 @@ export type NavigationDirectionContractCheck = AssertTrue<
     IsExactType<Direction, NavigationFourWayDirection>
 >;
 export type NavigationVerticalDirectionContractCheck = AssertTrue<
-    IsExactType<Extract<Direction, NavigationVerticalDirection>, NavigationVerticalDirection>
+    IsExactType<NavigationVerticalDirection, Extract<Direction, 'up' | 'down'>>
 >;

@@ -30,7 +30,6 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
     button.appendChild(meta);
     button.appendChild(state);
 
-    // Click handler toggles the value
     button.addEventListener('click', () => {
         if (config.disabled) return;
         const newValue = !config.value;

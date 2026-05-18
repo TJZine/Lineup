@@ -51,19 +51,16 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
 
         switch (type) {
             case AppErrorCode.RENDER_ERROR:
-                // Show fallback row, don't crash entire grid
                 if (this.showFallbackRowFn) {
                     this.showFallbackRowFn(context);
                 }
                 break;
             case AppErrorCode.SCROLL_TIMEOUT:
-                // Reset to known good state
                 if (this.resetScrollPositionFn) {
                     this.resetScrollPositionFn();
                 }
                 break;
             case AppErrorCode.POOL_EXHAUSTED:
-                // Aggressive cleanup
                 if (this.forceRecycleAllFn) {
                     this.forceRecycleAllFn();
                 }
@@ -71,7 +68,6 @@ export class EPGErrorBoundary extends EventEmitter<EPGErrorBoundaryEvents> {
             case AppErrorCode.EMPTY_CHANNEL:
             case AppErrorCode.NAV_BOUNDARY:
             case AppErrorCode.PARSE_ERROR:
-                // These are handled silently, just logged
                 break;
         }
 

@@ -153,7 +153,7 @@ import { ScheduleDayRolloverController } from './controllers/ScheduleDayRollover
 import { SubtitleTrackRecoveryController } from './controllers/SubtitleTrackRecoveryController';
 import { createOrchestratorRuntimeControllers } from './runtime/OrchestratorRuntimeControllerBuilder';
 import { OrchestratorSchedulePolicy } from './policy/OrchestratorSchedulePolicy';
-import { AppStartupUiInitializer } from '../app-shell/chrome/AppStartupUiInitializer';
+import { createAppStartupUiInitializer } from '../app-shell/chrome/AppStartupUiPortFactory';
 import {
     createDefaultRecoverableRuntimeIssueReporter,
     type RecoverableRuntimeIssueReporter,
@@ -439,7 +439,7 @@ export class AppOrchestrator {
 
         this._configureDiscoveryStorageKeysForActiveUser();
 
-        const startupUiInitializer = new AppStartupUiInitializer(
+        const startupUiInitializer = createAppStartupUiInitializer(
             orchestratorConfig,
             {
                 nowPlayingInfo: this._nowPlayingInfo,

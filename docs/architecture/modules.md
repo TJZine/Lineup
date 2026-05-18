@@ -33,6 +33,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - app-shell startup UI initializer owner
 - initializes now-playing-info, playback-options, and exit-confirm overlays during startup
+- constructed through `src/core/app-shell/chrome/AppStartupUiPortFactory.ts` so orchestrator startup consumes only the initialization startup-UI port
 - consumed through a narrow startup-UI port by `src/core/initialization/InitializationCoordinator.ts`
 
 ### `src/core/`
@@ -64,7 +65,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/orchestrator/AppOrchestrator.ts` remains the package-root implementation facade
 - `src/core/orchestrator/contracts/OrchestratorTypes.ts` is the durable owner of `OrchestratorConfig` and `ModuleStatus`
 - `src/core/orchestrator/assembly/OrchestratorModuleFactory.ts` owns runtime module constructor/config assembly for `AppOrchestrator.initialize()`
-- `src/core/orchestrator/assembly/OrchestratorCoordinatorAssembly.ts` owns coordinator construction and dependency assembly previously in `AppOrchestrator._createCoordinators()`
+- `src/core/orchestrator/assembly/OrchestratorCoordinatorAssembly.ts` owns coordinator construction order, dependency validation, and typed assembly glue; feature-family construction/projection lives in direct sibling owners for EPG/channel setup, playback/OSD, navigation/modal, and now-playing/debug
 - `src/core/orchestrator/runtime/OrchestratorRuntimeControllerBuilder.ts` owns schedule-day rollover and subtitle-track recovery controller construction for `AppOrchestrator`
 - `src/core/orchestrator/events/` owns orchestrator event binding and cleanup reporting
 - `src/core/orchestrator/controllers/` owns runtime controller collaborators such as schedule-day rollover, subtitle-track recovery, profile-switch cleanup, and overlay runtime policy

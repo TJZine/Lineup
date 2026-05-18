@@ -32,11 +32,6 @@ export interface IChannelManager {
 
     getAllChannels(): ChannelConfig[];
 
-    /**
-     * Get a channel by its display number.
-     * @param number - Channel number (1-999)
-     * @returns Channel config or null if not found
-     */
     getChannelByNumber(number: number): ChannelConfig | null;
 
     /**
@@ -71,23 +66,15 @@ export interface IChannelManager {
 
     setCurrentChannel(channelId: string): void;
 
-    /**
-     * Get the current active channel.
-     * @returns Current channel or null if none selected
-     */
     getCurrentChannel(): ChannelConfig | null;
 
     /**
-     * Get the next channel in order.
      * Uses circular navigation when channels exist.
-     * @returns Next channel in order, or null when no current channel is selected or channel order is empty
      */
     getNextChannel(): ChannelConfig | null;
 
     /**
-     * Get the previous channel in order.
      * Uses circular navigation when channels exist.
-     * @returns Previous channel in order, or null when no current channel is selected or channel order is empty
      */
     getPreviousChannel(): ChannelConfig | null;
 
@@ -99,7 +86,7 @@ export interface IChannelManager {
     importChannels(data: string): Promise<ImportResult>;
 
     /**
-     * Persist channels to storage (via persistence boundary).
+     * Persists channel state through the persistence boundary.
      */
     saveChannels(): Promise<void>;
 
@@ -114,7 +101,7 @@ export interface IChannelManager {
     dispose(): void;
 
     /**
-     * Load channels from storage (via persistence boundary).
+     * Loads channel state through the persistence boundary.
      */
     loadChannels(): Promise<void>;
 
@@ -147,26 +134,16 @@ export interface ChannelCreateOptions {
 }
 
 export interface ChannelManagerConfig {
-    /**
-     * PlexLibrary instance for content resolution.
-     */
     plexLibrary: IPlexLibraryMinimal;
 
-    /**
-     * Optional logger for warnings and errors.
-     */
     logger?: {
         warn: (message: string, ...args: unknown[]) => void;
         error: (message: string, ...args: unknown[]) => void;
     };
 
-    /**
-     * Storage key to use for channel persistence.
-     */
     storageKey?: string;
 
     /**
-     * Storage key to use for persisting the current channel ID.
      * If omitted, a per-storage-key namespaced default is used.
      */
     currentChannelKey?: string;
