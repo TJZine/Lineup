@@ -239,6 +239,23 @@ describe('VideoPlayer', () => {
                 expectPlaybackError(AppErrorCode.INITIALIZATION_FAILED, /Video container not found/)
             );
         });
+
+        it('leaves the player uninitialized and retryable after missing-container failure', async () => {
+            const player = new VideoPlayer();
+
+            await expect(player.initialize(createMockConfig({ containerId: 'nonexistent' }))).rejects.toMatchObject(
+                expectPlaybackError(AppErrorCode.INITIALIZATION_FAILED, /Video container not found/)
+            );
+            await expect(player.loadStream(createMockDescriptor())).rejects.toMatchObject(
+                expectPlaybackError(AppErrorCode.INITIALIZATION_FAILED, /not initialized/)
+            );
+
+            await player.initialize(createMockConfig());
+
+            expect(container.querySelector('video')).not.toBeNull();
+
+            player.destroy();
+        });
     });
 
     // ========================================

@@ -222,6 +222,12 @@ export class VideoPlayer implements IVideoPlayer {
             ...config,
         };
 
+        const container = document.getElementById(config.containerId);
+        if (!container) {
+            this._config = null;
+            throw this._createInitializationError(`Video container not found: ${config.containerId}`);
+        }
+
         this._videoElement = document.createElement('video');
         this._videoElement.id = VIDEO_ELEMENT_ID;
         this._videoElement.style.cssText = VIDEO_ELEMENT_STYLES;
@@ -230,10 +236,6 @@ export class VideoPlayer implements IVideoPlayer {
         // Hide the video element until a stream is actually loaded so the UI can render.
         this._videoElement.style.display = 'none';
 
-        const container = document.getElementById(config.containerId);
-        if (!container) {
-            throw this._createInitializationError(`Video container not found: ${config.containerId}`);
-        }
         container.appendChild(this._videoElement);
 
         this._state = this._createInitialState();
