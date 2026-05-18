@@ -385,6 +385,7 @@ describe('bootstrap seam', () => {
     it('drives error and unhandledrejection handlers through installed listeners', async () => {
         const addEventListenerSpy = jest.spyOn(window, 'addEventListener');
         const preventDefault = jest.spyOn(Event.prototype, 'preventDefault');
+        expectBootstrapLifecycleSuccess();
         expectConsoleError([
             'Uncaught error:',
             expect.objectContaining({ message: 'X-Plex-Token=REDACTED' }),
@@ -483,6 +484,7 @@ describe('bootstrap seam', () => {
     });
 
     it('includes element identity and computed metadata in debug dom snapshots', async () => {
+        expectBootstrapLifecycleSuccess();
         await importBootstrapModule({ expectLifecycleSuccess: false });
 
         const target = document.createElement('div');
@@ -504,6 +506,7 @@ describe('bootstrap seam', () => {
     it('re-evaluates console noise suppression when debug logging setting changes', async () => {
         setDevBuild(false);
         localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
+        expectBootstrapLifecycleSuccess();
 
         await importBootstrapModule({ expectLifecycleSuccess: false });
         const suppressedLog = (globalThis as { console: { log: (...args: unknown[]) => void } }).console.log;
@@ -515,8 +518,62 @@ describe('bootstrap seam', () => {
         expect(suppressedLog).not.toBe(restoredLog);
     });
 
+    it('restores console noise methods when cleanup uninstalls bootstrap', async () => {
+        setDevBuild(false);
+        localStorage.removeItem(LINEUP_STORAGE_KEYS.DEBUG_LOGGING);
+
+        /* eslint-disable no-console -- bootstrap owns these global console methods */
+        const capturedConsole = {
+            debug: console.debug,
+            info: console.info,
+            log: console.log,
+            warn: console.warn,
+            error: console.error,
+        };
+        const sentinelConsole = {
+            debug: jest.fn(),
+            info: jest.fn(),
+            log: jest.fn(),
+            warn: jest.fn(),
+        };
+
+        try {
+            console.debug = sentinelConsole.debug;
+            console.info = sentinelConsole.info;
+            console.log = sentinelConsole.log;
+            console.warn = sentinelConsole.warn;
+
+            const { module } = await importBootstrapModule({ expectLifecycleSuccess: false });
+            const suppressedLog = console.log;
+
+            expect(suppressedLog).not.toBe(sentinelConsole.log);
+
+            await module.cleanupAndUninstallLineupBootstrap();
+            installedModule = null;
+
+            console.debug('debug restored');
+            console.info('info restored');
+            console.log('log restored');
+            console.warn('warn restored');
+
+            expect(sentinelConsole.debug).toHaveBeenCalledWith('debug restored');
+            expect(sentinelConsole.info).toHaveBeenCalledWith('info restored');
+            expect(sentinelConsole.log).toHaveBeenCalledWith('log restored');
+            expect(sentinelConsole.warn).toHaveBeenCalledWith('warn restored');
+            expect(console.error).toBe(capturedConsole.error);
+        } finally {
+            console.debug = capturedConsole.debug;
+            console.info = capturedConsole.info;
+            console.log = capturedConsole.log;
+            console.warn = capturedConsole.warn;
+            console.error = capturedConsole.error;
+        }
+        /* eslint-enable no-console */
+    });
+
     it('waits for DOMContentLoaded when document is loading', async () => {
         setDocumentReadyState('loading');
+        expectBootstrapLifecycleSuccess();
         const { start } = await importBootstrapModule({
             autoDispatchDomReady: false,
             expectLifecycleSuccess: false,

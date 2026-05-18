@@ -44,6 +44,13 @@ function configureLoggingPolicy(): void {
     }
 }
 
+function restoreLoggingPolicy(): void {
+    for (const method of CONSOLE_NOISE_METHODS) {
+        // eslint-disable-next-line no-console
+        console[method] = ORIGINAL_CONSOLE_METHODS[method];
+    }
+}
+
 function migrateLegacyDebugLoggingKey(): void {
     const primaryKey = LINEUP_STORAGE_KEYS.DEBUG_LOGGING;
     const legacyKey = 'lineup_debug_transcode';
@@ -424,6 +431,7 @@ function uninstallLineupBootstrap(): void {
     window.removeEventListener('pagehide', handlePageHide);
     window.removeEventListener('pageshow', handlePageShow);
     document.removeEventListener('DOMContentLoaded', handleDomContentLoaded);
+    restoreLoggingPolicy();
 }
 
 /**
