@@ -67,10 +67,10 @@ export function decodeStoredChannelConfigRecord(raw: unknown): DecodedStoredChan
     const name = decodeString(record, 'name', `Channel ${Number.isFinite(number.value) ? number.value : id}`);
     if (name.didDefault) didMutate = true;
 
-    const playbackMode = isValidPlaybackMode(record['playbackMode'])
-        ? record['playbackMode']
-        : 'sequential';
-    if (!isValidPlaybackMode(record['playbackMode'])) {
+    const rawPlaybackMode = record['playbackMode'];
+    const validPlaybackMode = isValidPlaybackMode(rawPlaybackMode);
+    const playbackMode = validPlaybackMode ? rawPlaybackMode : 'sequential';
+    if (!validPlaybackMode) {
         didMutate = true;
     }
 
