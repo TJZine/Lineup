@@ -16,6 +16,7 @@ import { PLEX_MEDIA_TYPES } from '../../plex/library/constants';
 import { ContentItemMapper } from './ContentItemMapper';
 import { ContentSelectionPolicy } from './ContentSelectionPolicy';
 import { SourceResolutionCache } from './SourceResolutionCache';
+import { isAbortLikeError } from '../../../utils/errors';
 
 
 const CONTENT_RESOLVER_CACHE_TTL_MS = 5 * 60_000;
@@ -175,7 +176,7 @@ export class ContentResolver {
                     expanded.push(this._mapper.toResolvedItem(merged, 0));
                 }
             } catch (error) {
-                if (options?.strict || isAbortLike(error, options?.signal ?? undefined)) {
+                if (options?.strict || isAbortLikeError(error, options?.signal ?? undefined)) {
                     throw error;
                 }
                 this._logger.warn('Failed to expand show item', item.ratingKey, error);
@@ -264,7 +265,7 @@ export class ContentResolver {
                 shows = await this._library.getLibraryItems(source.libraryId, options);
                 this._showCacheByLibraryId.set(source.libraryId, { items: shows, cachedAt: now });
             } catch (error) {
-                if (isAbortLike(error, options?.signal ?? undefined)) {
+                if (isAbortLikeError(error, options?.signal ?? undefined)) {
                     throw error;
                 }
                 if (cached) {
@@ -460,18 +461,4 @@ export class ContentResolver {
 
         return result;
     }
-}
-
-function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
-    if (signal?.aborted) return true;
-    if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') {
-        return true;
-    }
-    if (error && typeof error === 'object' && 'name' in error) {
-        const namedError = error as { name?: unknown };
-        if (namedError.name === 'AbortError') {
-            return true;
-        }
-    }
-    return false;
 }

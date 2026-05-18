@@ -32,18 +32,10 @@ import {
 import { AppErrorCode } from '../../../types/app-errors';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import { PlexHomeProfileClient } from './plexHomeProfileClient';
+import { isAbortLikeError } from '../../../utils/errors';
 
 // Re-export for consumers
 export { PlexApiError } from './plexAuthTransport';
-
-function isAbortError(error: unknown): error is Error {
-    return (
-        typeof error === 'object' &&
-        error !== null &&
-        'name' in error &&
-        (error as { name?: unknown }).name === 'AbortError'
-    );
-}
 
 function throwIfAborted(signal: AbortSignal | null | undefined): void {
     if (!signal?.aborted) {
@@ -278,7 +270,7 @@ export class PlexAuth implements IPlexAuth {
                 false
             );
         } catch (error) {
-            if (isAbortError(error)) {
+            if (isAbortLikeError(error)) {
                 throw new PlexApiError(
                     AppErrorCode.NETWORK_TIMEOUT,
                     'Token validation timed out',
