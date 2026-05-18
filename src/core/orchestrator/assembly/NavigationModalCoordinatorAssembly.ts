@@ -41,7 +41,6 @@ import type { PlayerOsdCoordinator } from '../../../modules/ui/player-osd';
 import type { ChannelTransitionCoordinator } from '../../../modules/ui/channel-transition';
 import { secondsToMilliseconds } from '../../../config/timing';
 import type { ToastInput } from '../../../shared/toast';
-import { notifyCoordinatorToast } from './PlaybackOsdCoordinatorAssembly';
 import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorExitConfirmCoordinatorBuilderInput,
@@ -88,6 +87,17 @@ function handleNavigationChannelInputUpdate(
     if (payload.isComplete) {
         input.overlays.channelNumberOverlay.scheduleHide(getNavigationChannelOverlayHideDelay(input));
     }
+}
+
+function notifyNavigationToast(
+    input: Pick<OrchestratorCoordinatorAssemblyInput, 'nowPlaying'>,
+    toast: ToastInput
+): void {
+    const handler = input.nowPlaying.handler();
+    if (!handler) {
+        return;
+    }
+    handler(toast);
 }
 
 export function buildNavigationCoordinatorInput(
@@ -187,7 +197,7 @@ export function buildMiniGuideCoordinator(
             }
             return 8_000;
         },
-        notifyToast: (toast: ToastInput): void => notifyCoordinatorToast(input, toast),
+        notifyToast: (toast: ToastInput): void => notifyNavigationToast(input, toast),
     });
 }
 
@@ -350,7 +360,7 @@ export function buildNavigationCoordinator(
         channelSwitching,
         reportRecoverableAsyncFailure: input.diagnostics.reportRecoverableAsyncFailure,
         reportToast: (toast: ToastInput): void => {
-            notifyCoordinatorToast(input, toast);
+            notifyNavigationToast(input, toast);
         },
         readDebugLoggingEnabled: (): boolean =>
             input.stores.developerSettingsStore.readDebugLoggingEnabledAndClean(false),

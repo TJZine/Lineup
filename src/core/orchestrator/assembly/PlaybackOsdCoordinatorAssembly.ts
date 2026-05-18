@@ -26,7 +26,7 @@ function notifyPlaybackRecoverySubtitleUnavailable(input: OrchestratorPlaybackRe
     input.nowPlaying.handler()?.({ message: 'Subtitles unavailable for this item', type: 'warning' });
 }
 
-export function notifyCoordinatorToast(
+function notifyPlaybackToast(
     input: Pick<OrchestratorCoordinatorAssemblyInput, 'nowPlaying'>,
     toast: ToastInput
 ): void {
@@ -249,7 +249,7 @@ export function buildPlaybackRecovery(
         getPlexPreferredSubtitleLanguage: (): string | null =>
             input.modules.plexAuth.getCurrentUser()?.preferredSubtitleLanguage ?? null,
         notifySubtitleUnavailable: (): void => notifyPlaybackRecoverySubtitleUnavailable(input),
-        notifyToast: (toast: ToastInput): void => notifyCoordinatorToast(input, toast),
+        notifyToast: (toast: ToastInput): void => notifyPlaybackToast(input, toast),
         subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
         appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
         handleGlobalError: (error: AppError, context: string): void =>
@@ -272,7 +272,7 @@ export function buildPlaybackOptionsCoordinator(
             input.modules.scheduler.getCurrentProgram() ?? input.playback.state.getCurrentProgramForPlayback(),
         requestBurnInSubtitle: (trackId: string, reason: string) =>
             playbackRecovery.attemptBurnInSubtitleForCurrentProgram(trackId, reason),
-        notifyToast: (toast: ToastInput): void => notifyCoordinatorToast(input, toast),
+        notifyToast: (toast: ToastInput): void => notifyPlaybackToast(input, toast),
         subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
     });
 }
