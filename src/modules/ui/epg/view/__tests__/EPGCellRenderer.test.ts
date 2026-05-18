@@ -4,7 +4,7 @@
 
 import { EPG_CLASSES } from '../../constants';
 import type { ScheduledProgram } from '../../types';
-import { EPGCellRenderer, type EPGRenderedCellData } from '../EPGCellRenderer';
+import { EPGCellRenderer, type EPGRenderedCellData } from '../cells/EPGCellRenderer';
 
 type ProgramCellData = Extract<EPGRenderedCellData, { kind: 'program' }>;
 type PlaceholderCellData = Extract<EPGRenderedCellData, { kind: 'placeholder' }>;
@@ -514,7 +514,87 @@ describe('EPGCellRenderer', () => {
         expect(query(element, EPG_CLASSES.CELL_TITLE_TEXT).textContent).toBe('Loading schedule');
         expect(query(element, EPG_CLASSES.CELL_META).style.display).toBe('none');
         expect(query(element, EPG_CLASSES.CELL_SUBTITLE).style.display).toBe('none');
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('');
         expect(query(element, EPG_CLASSES.CELL_PROGRESS_FILL).style.width).toBe('0%');
+    });
+
+    it('clears recycled secondary text for placeholder, non-episode, and sliver cells without clearing state classes', () => {
+        const element = renderer.createElement();
+        const episodeProgram = makeProgram({
+            item: {
+                ratingKey: 'episode-before-clear',
+                type: 'episode',
+                title: 'Episode Before Clear',
+                fullTitle: 'Show - S02E03 - Episode Before Clear',
+                showTitle: 'Show',
+                seasonNumber: 2,
+                episodeNumber: 3,
+            },
+        });
+
+        renderer.updateCellContent(makeProgramCell(element, {
+            width: 260,
+            visibleWidthPx: 260,
+            program: episodeProgram,
+        }), TEST_START_MS);
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('Episode Before Clear');
+
+        renderer.updateCellContent(makePlaceholderCell(element, {
+            width: 180,
+            visibleWidthPx: 180,
+        }), TEST_START_MS);
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE).style.display).toBe('none');
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('');
+
+        renderer.updateCellContent(makeProgramCell(element, {
+            width: 260,
+            visibleWidthPx: 260,
+            program: episodeProgram,
+        }), TEST_START_MS);
+        renderer.updatePositionPresentation(makeProgramCell(element, {
+            width: 160,
+            visibleWidthPx: 160,
+            isCurrent: true,
+            isFocused: true,
+        }));
+        const subtitle = query(element, EPG_CLASSES.CELL_SUBTITLE);
+        subtitle.classList.add(EPG_CLASSES.CELL_SUBTITLE_TICKER_READY);
+
+        renderer.updateCellContent(makeProgramCell(element, {
+            width: 160,
+            visibleWidthPx: 160,
+            isCurrent: true,
+            isFocused: true,
+            program: makeProgram({
+                item: {
+                    ratingKey: 'movie-after-episode',
+                    type: 'movie',
+                    title: 'Movie After Episode',
+                    fullTitle: 'Movie After Episode Full Title',
+                },
+            }),
+        }), TEST_START_MS);
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE).style.display).toBe('none');
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('');
+        expect(element.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
+        expect(element.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(true);
+        expect(query(element, EPG_CLASSES.LIVE_BADGE).hidden).toBe(false);
+        expect(query(element, EPG_CLASSES.LIVE_BADGE).classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
+        expect(subtitle.classList.contains(EPG_CLASSES.CELL_SUBTITLE_TICKER_READY)).toBe(true);
+
+        renderer.updateCellContent(makeProgramCell(element, {
+            width: 260,
+            visibleWidthPx: 260,
+            program: episodeProgram,
+        }), TEST_START_MS);
+        renderer.updateCellContent(makeProgramCell(element, {
+            width: 180,
+            visibleWidthPx: 40,
+            program: episodeProgram,
+        }), TEST_START_MS);
+        expect(element.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(true);
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE).style.display).toBe('none');
+        expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('');
     });
 
     it('arms focused ticker after the public delay and clears ticker state by element', () => {

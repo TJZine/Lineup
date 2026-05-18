@@ -1,7 +1,7 @@
 import type { FocusableElement } from '../../../navigation/contracts/interfaces';
 import { syncFocusableRegistry } from '../../common/focus/syncFocusableRegistry';
 import { scrollToNearest } from './scrollToNearest';
-import type { FocusCoordinatorDeps, RegisterStep2FocusOptions } from './types';
+import type { FocusCoordinatorDeps, RegisterLibraryStepFocusOptions, RegisterStep2FocusOptions } from './types';
 
 export class ChannelSetupFocusCoordinator {
     private readonly _deps: FocusCoordinatorDeps;
@@ -17,6 +17,60 @@ export class ChannelSetupFocusCoordinator {
 
     registerSpatial(buttons: HTMLElement[], preferredFocusId: string | null): boolean {
         return this._registerButtons(buttons, 'spatial', preferredFocusId);
+    }
+
+    registerLibraryStep(options: RegisterLibraryStepFocusOptions): boolean {
+        const nav = this._deps.getNavigation();
+        if (!nav) {
+            this._registeredIds = [];
+            return false;
+        }
+
+        const {
+            selectAllButton,
+            clearAllButton,
+            listButtons,
+            footerButtons,
+            preferredFocusId,
+        } = options;
+        const downNeighbor = listButtons[0]?.id;
+        const focusableButtons = [
+            selectAllButton,
+            clearAllButton,
+            ...listButtons,
+            ...footerButtons,
+        ].filter((button) => !button.disabled);
+
+        const entries = focusableButtons.map((button): FocusableElement => {
+            const neighbors: FocusableElement['neighbors'] = {};
+            if (button === selectAllButton) {
+                if (!clearAllButton.disabled) {
+                    neighbors.right = clearAllButton.id;
+                }
+                if (downNeighbor) {
+                    neighbors.down = downNeighbor;
+                }
+            } else if (button === clearAllButton) {
+                if (!selectAllButton.disabled) {
+                    neighbors.left = selectAllButton.id;
+                }
+                if (downNeighbor) {
+                    neighbors.down = downNeighbor;
+                }
+            }
+
+            return {
+                id: button.id,
+                element: button,
+                neighbors,
+                onFocus: (): void => {
+                    scrollToNearest(button);
+                },
+            };
+        });
+        this._registeredIds = syncFocusableRegistry(nav, this._registeredIds, entries);
+
+        return this._setPreferredOrFirst(nav, focusableButtons, preferredFocusId);
     }
 
     registerStep2(options: RegisterStep2FocusOptions): boolean {

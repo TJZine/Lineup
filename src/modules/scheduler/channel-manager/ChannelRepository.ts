@@ -1,14 +1,12 @@
-import { fnv1a32Uint } from '../../../utils/hash';
 import type { SafeLocalStorageMutationResult } from '../../../utils/storage';
-import { isValidContentSource } from './ChannelContentSourceValidator';
 import { ChannelPersistenceStore } from './ChannelPersistenceStore';
+import { decodeStoredChannelConfigRecord } from './StoredChannelDataCodec';
 import {
     CURRENT_CHANNEL_KEY,
     MAX_CHANNEL_NUMBER,
     MIN_CHANNEL_NUMBER,
     STORAGE_KEY,
 } from './constants';
-import { stripLegacySequentialVariant } from './stripLegacySequentialVariant';
 import type { ChannelConfig, StoredChannelData } from './types';
 
 export type LoadedChannelState = {
@@ -118,35 +116,15 @@ export class ChannelRepository {
         let didMutate = false;
 
         for (const raw of stored.channels) {
-            if (!raw || typeof raw !== 'object') {
+            const decoded = decodeStoredChannelConfigRecord(raw);
+            if (decoded === null) {
                 didMutate = true;
                 continue;
             }
-            const sanitized = stripLegacySequentialVariant(raw);
-            if (sanitized.didMutate) {
+            if (decoded.didMutate) {
                 didMutate = true;
             }
-            const channel = sanitized.channel as ChannelConfig;
-            if (typeof channel.id !== 'string' || channel.id.length === 0) {
-                didMutate = true;
-                continue;
-            }
-            if (
-                typeof channel.shuffleSeed !== 'number' ||
-                !Number.isFinite(channel.shuffleSeed)
-            ) {
-                channel.shuffleSeed = fnv1a32Uint(`${channel.id}:shuffle`);
-                didMutate = true;
-            }
-            if (typeof channel.phaseSeed !== 'number' || !Number.isFinite(channel.phaseSeed)) {
-                channel.phaseSeed = fnv1a32Uint(`${channel.id}:phase`);
-                didMutate = true;
-            }
-            if (!isValidContentSource(channel.contentSource)) {
-                didMutate = true;
-                continue;
-            }
-            channelCandidates.push(channel);
+            channelCandidates.push(decoded.channel);
         }
 
         const channelNumberNormalization = normalizeChannelNumbers(channelCandidates, this._logger);

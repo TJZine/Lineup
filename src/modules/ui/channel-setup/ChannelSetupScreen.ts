@@ -3,43 +3,23 @@
 import {
     type ChannelSetupConfig,
 } from '../../../core/channel-setup/types';
-import type { FocusableElement, KeyEvent } from '../../navigation';
+import type { KeyEvent } from '../../navigation';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { createScreenShell } from '../common/ScreenShell';
 import { ChannelSetupFocusCoordinator } from './focus/ChannelSetupFocusCoordinator';
 import { ChannelSetupDropdownController } from './ChannelSetupDropdownController';
-import { LibraryStepController } from './steps/LibraryStepController';
-import { scrollToNearest } from './focus/scrollToNearest';
+import { LibraryStepPresenter } from './steps/LibraryStepPresenter';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
 import { ChannelSetupWorkflowPresenter } from './ChannelSetupWorkflowPresenter';
 import type { StepRenderContext } from './steps/types';
-
-const MOVIE_SVG = `
-<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
-  <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-  <path d="M8 3v4"></path>
-  <path d="M16 3v4"></path>
-  <path d="M8 19v2"></path>
-  <path d="M16 19v2"></path>
-</svg>
-`;
-
-const SHOW_SVG = `
-<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">
-  <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-  <path d="M8 21h8"></path>
-  <path d="M12 17v4"></path>
-  <path d="M6 7h12"></path>
-</svg>
-`;
 
 export class ChannelSetupScreen {
     private _container: HTMLElement;
     private _screenPorts: ChannelSetupScreenPorts;
     private readonly _focus: ChannelSetupFocusCoordinator;
     private _destroyScreenShell: (() => void) | null = null;
-    private readonly _libraryStep = new LibraryStepController();
+    private readonly _libraryStepPresenter: LibraryStepPresenter;
     private readonly _dropdown = new ChannelSetupDropdownController();
     private _stepEl: HTMLElement;
     private _statusEl: HTMLElement;
@@ -54,10 +34,6 @@ export class ChannelSetupScreen {
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _previewPanelId = 'setup-preview-panel';
 
-    private _toDomId(raw: string): string {
-        return raw.replace(/[^a-zA-Z0-9_-]/g, '_');
-    }
-
     private _resetStepUi(statusText: string): void {
         this._dropdown.reset();
         this._workflowPresenter.clearStrategyStepTransientState();
@@ -67,14 +43,6 @@ export class ChannelSetupScreen {
         this._statusEl.textContent = statusText;
         this._detailEl.textContent = '';
         this._errorEl.textContent = '';
-    }
-
-    private _formatCount(value: number): string {
-        try {
-            return new Intl.NumberFormat().format(value);
-        } catch {
-            return String(value);
-        }
     }
 
     constructor(
@@ -139,7 +107,20 @@ export class ChannelSetupScreen {
             resetStep2Scroll: (): void => {
                 this._resetStep2ScrollContainers();
             },
-            toDomId: (raw): string => this._toDomId(raw),
+            toDomId: (raw): string => raw.replace(/[^a-zA-Z0-9_-]/g, '_'),
+        });
+        this._libraryStepPresenter = new LibraryStepPresenter({
+            session: this._session,
+            focus: this._focus,
+            screenPorts: this._screenPorts,
+            contentEl: this._contentEl,
+            getPreferredFocusId: (): string | null => this._preferredFocusId,
+            setPreferredFocusId: (focusId): void => {
+                this._preferredFocusId = focusId;
+            },
+            renderStep: (): void => {
+                this._renderStep();
+            },
         });
     }
 
@@ -239,121 +220,7 @@ export class ChannelSetupScreen {
     }
 
     private _renderLibraryStep(): void {
-        const session = this._session.getSnapshot();
-        this._libraryStep.render({
-            contentEl: this._contentEl,
-            stepEl: this._stepEl,
-            statusEl: this._statusEl,
-            detailEl: this._detailEl,
-            errorEl: this._errorEl,
-        }, {
-            libraries: session.libraries,
-            selectedLibraryIds: session.selectedLibraryIds,
-            formatCount: (value) => this._formatCount(value),
-            movieSvg: MOVIE_SVG,
-            showSvg: SHOW_SVG,
-            toDomId: (raw) => this._toDomId(raw),
-            onToggleLibrary: (libraryId, focusId) => {
-                this._preferredFocusId = focusId;
-                const nextSelected = this._session.toggleLibrary(libraryId);
-
-                // Surgical update: toggle the single button in-place.
-                const updated = this._libraryStep.updateLibraryToggle(
-                    this._contentEl,
-                    libraryId,
-                    nextSelected,
-                    (raw) => this._toDomId(raw)
-                );
-                if (updated) {
-                    const updatedSession = this._session.getSnapshot();
-                    this._preferredFocusId = null;
-                    const count = updatedSession.selectedLibraryIds.size;
-                    const total = updatedSession.libraries.length;
-                    this._detailEl.textContent = `Selected ${count} of ${total}.`;
-                    const nextButton = this._contentEl.querySelector('#setup-next') as HTMLButtonElement | null;
-                    if (nextButton) {
-                        nextButton.disabled = updatedSession.libraries.length === 0 || updatedSession.selectedLibraryIds.size === 0;
-                    }
-                } else {
-                    this._renderStep();
-                }
-            },
-            onSelectAll: (focusId) => {
-                this._session.selectAllLibraries();
-                this._preferredFocusId = focusId;
-                this._renderStep();
-            },
-            onClearAll: (focusId) => {
-                this._session.clearAllLibraries();
-                this._preferredFocusId = focusId;
-                this._renderStep();
-            },
-            onBack: () => {
-                this._screenPorts.openServerSelect();
-            },
-            onNext: () => {
-                this._session.setStep(2);
-                this._renderStep();
-            },
-            registerSpatialFocusables: (buttons) => {
-                const preferredApplied = this._focus.registerSpatial(buttons, this._preferredFocusId);
-                if (preferredApplied) {
-                    this._preferredFocusId = null;
-                }
-            },
-            registerBulkActionNeighbors: (selectAllButton, clearAllButton, listButtons) => {
-                this._registerBulkActionNeighbors(selectAllButton, clearAllButton, listButtons);
-            },
-        });
-
-    }
-
-    private _registerBulkActionNeighbors(
-        selectAllButton: HTMLButtonElement,
-        clearAllButton: HTMLButtonElement,
-        listButtons: HTMLButtonElement[]
-    ): void {
-        const nav = this._screenPorts.getNavigation();
-        if (!nav) {
-            return;
-        }
-        const downNeighbor = listButtons[0]?.id;
-
-        if (!selectAllButton.disabled) {
-            const selectAllNeighbors: FocusableElement['neighbors'] = {};
-            if (!clearAllButton.disabled) {
-                selectAllNeighbors.right = clearAllButton.id;
-            }
-            if (downNeighbor) {
-                selectAllNeighbors.down = downNeighbor;
-            }
-            nav.registerFocusable({
-                id: selectAllButton.id,
-                element: selectAllButton,
-                neighbors: selectAllNeighbors,
-                onFocus: () => {
-                    scrollToNearest(selectAllButton);
-                },
-            });
-        }
-
-        if (!clearAllButton.disabled) {
-            const clearAllNeighbors: FocusableElement['neighbors'] = {};
-            if (!selectAllButton.disabled) {
-                clearAllNeighbors.left = selectAllButton.id;
-            }
-            if (downNeighbor) {
-                clearAllNeighbors.down = downNeighbor;
-            }
-            nav.registerFocusable({
-                id: clearAllButton.id,
-                element: clearAllButton,
-                neighbors: clearAllNeighbors,
-                onFocus: () => {
-                    scrollToNearest(clearAllButton);
-                },
-            });
-        }
+        this._libraryStepPresenter.render(this._buildStepRenderContext());
     }
 
     private _renderStrategyStep(): void {

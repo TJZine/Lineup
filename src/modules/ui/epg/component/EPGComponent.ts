@@ -2,17 +2,17 @@ import { EventEmitter } from '../../../../utils/EventEmitter';
 import { EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from '../constants';
 import { EPGChannelList } from '../view/EPGChannelList';
 import { EPGErrorBoundary } from '../view/EPGErrorBoundary';
-import { EPGInfoPanel } from '../view/EPGInfoPanel';
-import { EPGInfoPanelCoordinator } from '../view/EPGInfoPanelCoordinator';
+import { EPGInfoPanel } from '../view/info-panel/EPGInfoPanel';
+import { EPGInfoPanelCoordinator } from '../view/info-panel/EPGInfoPanelCoordinator';
 import { EPGLibraryTabs } from '../view/EPGLibraryTabs';
-import { EPGShellView } from '../view/EPGShellView';
+import { EPGShellView } from '../view/shell/EPGShellView';
 import { EPGTimeHeader } from '../view/EPGTimeHeader';
 import { EPGVirtualizer } from '../view/EPGVirtualizer';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
 import { EPGFocusNavigator } from '../focus/EPGFocusNavigator';
 import { EPGGridRuntimeController } from '../runtime/EPGGridRuntimeController';
 import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
-import type { EPGShellElements } from '../view/EPGShellView';
+import type { EPGShellElements } from '../view/shell/EPGShellView';
 import type { IEPGComponent } from '../interfaces';
 import type {
     EPGConfig,

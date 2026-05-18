@@ -8,6 +8,7 @@ import type {
     PlexPlaylist,
     PlexTagDirectoryItem,
 } from '../../../modules/plex/library';
+import type { LibraryContentSource } from '../../../modules/scheduler/channel-manager';
 
 const createConfig = (overrides: Partial<ChannelSetupConfig> = {}): ChannelSetupConfig => ({
     serverId: 'server-1',
@@ -543,8 +544,18 @@ describe('ChannelSetupStrategyBuilders', () => {
                 expect.objectContaining({ libraryId: 'tv-1' }),
             ],
         });
-        expect(JSON.stringify(actorSource)).not.toContain('tv-2');
-        expect(JSON.stringify(directorSource)).not.toContain('tv-2');
+        const actorSourceLibraryIds = actorSource?.type === 'mixed'
+            ? actorSource.sources
+                .filter((source): source is LibraryContentSource => source.type === 'library')
+                .map((source) => source.libraryId)
+            : [];
+        const directorSourceLibraryIds = directorSource?.type === 'mixed'
+            ? directorSource.sources
+                .filter((source): source is LibraryContentSource => source.type === 'library')
+                .map((source) => source.libraryId)
+            : [];
+        expect(actorSourceLibraryIds).not.toContain('tv-2');
+        expect(directorSourceLibraryIds).not.toContain('tv-2');
     });
 
     it('aggregates cross-library movie people counts before applying the item floor', () => {

@@ -31,8 +31,7 @@ const createDeps = (overrides: Partial<LibraryStepDeps> = {}): LibraryStepDeps =
     onClearAll: jest.fn(),
     onBack: jest.fn(),
     onNext: jest.fn(),
-    registerSpatialFocusables: jest.fn(),
-    registerBulkActionNeighbors: jest.fn(),
+    registerStepFocusables: jest.fn(),
     ...overrides,
 });
 

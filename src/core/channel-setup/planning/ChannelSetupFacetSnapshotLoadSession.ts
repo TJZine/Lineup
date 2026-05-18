@@ -1,7 +1,6 @@
 import type {
     IPlexLibrary,
     PlexLibrarySection,
-    PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
@@ -13,10 +12,6 @@ import {
     ChannelSetupFacetSnapshotLoadState,
     ChannelSetupFacetSnapshotFailureBuilder,
 } from './ChannelSetupFacetSnapshotFailures';
-import type {
-    ChannelSetupNativeFacetFamily,
-    ChannelSetupRequiredTagDirectoryLabel,
-} from './ChannelSetupFacetFamilies';
 import type {
     ChannelSetupFacetSnapshot,
     ChannelSetupFacetSnapshotData,
@@ -60,9 +55,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
     private readonly _loadState = new ChannelSetupFacetSnapshotLoadState();
     private readonly _failureBuilder = new ChannelSetupFacetSnapshotFailureBuilder({
         addWarning: (message): void => this._loadState.addWarning(message),
-        incrementErrors: (): void => {
-            this._loadState.errorsTotal++;
-        },
+        incrementErrors: (): void => this._loadState.incrementErrors(),
         snapshotData: (hasTransientLoadFailure): ChannelSetupFacetSnapshotData =>
             this._snapshotData(hasTransientLoadFailure),
     });
@@ -194,43 +187,15 @@ export class ChannelSetupFacetSnapshotLoadSession {
             requestIntent: this._options.requestIntent,
             requestSignal: this._requestSignal,
             selectedLibraryCount: this._selectedLibraries.length,
-            control: {
-                getLastTask: (): ChannelBuildProgress['task'] | undefined => this._lastTask,
-                callerCanceled: (): boolean => this._callerCanceled(),
-                failureStopRequested: (): boolean => this._failureStopRequested(),
-                requestAbortRequiresThrow: (): boolean => this._requestSignal.aborted && !this._failureAbortActive,
-                reportSnapshotProgress: (progress): void => this._reportSnapshotProgress(progress),
-                addPartialWarning: (task, detail, error): void => this._addPartialWarning(task, detail, error),
-                abortSiblingRequests: (): void => this._abortSiblingRequests(),
-            },
-            state: {
-                incrementErrors: (): void => {
-                    this._loadState.errorsTotal++;
-                },
-                addCollectionsMs: (durationMs): void => {
-                    this._loadState.collectionsMs += durationMs;
-                },
-                addLibraryQueryMs: (durationMs): void => {
-                    this._loadState.libraryQueryMs += durationMs;
-                },
-                collectionsByLibraryId: this._loadState.collectionsByLibraryId,
-                genresByLibraryId: this._loadState.genresByLibraryId,
-                directorsByLibraryId: this._loadState.directorsByLibraryId,
-                yearsByLibraryId: this._loadState.yearsByLibraryId,
-                actorsByLibraryId: this._loadState.actorsByLibraryId,
-                studiosByLibraryId: this._loadState.studiosByLibraryId,
-                peopleSeriesIndexByLibraryId: this._loadState.peopleSeriesIndexByLibraryId,
-                markWarningOnlyTransientLoadFailure: (): void =>
-                    this._loadState.markWarningOnlyTransientLoadFailure(),
-                addEmptyTagDirectoryWarning: (family, label, libraryTitle, type): void =>
-                    this._addEmptyTagDirectoryWarning(family, label, libraryTitle, type),
-            },
-            failures: {
-                buildRequiredTagDirectoryFailure: (label, libraryTitle, type, reason, error): ChannelSetupFacetSnapshot =>
-                    this._buildRequiredTagDirectoryFailure(label, libraryTitle, type, reason, error),
-                buildRequiredTagCountRecoveryFailure: (label, libraryTitle, type, error): ChannelSetupFacetSnapshot =>
-                    this._buildRequiredTagCountRecoveryFailure(label, libraryTitle, type, error),
-            },
+            loadState: this._loadState,
+            failureBuilder: this._failureBuilder,
+            getLastTask: (): ChannelBuildProgress['task'] | undefined => this._lastTask,
+            callerCanceled: (): boolean => this._callerCanceled(),
+            failureStopRequested: (): boolean => this._failureStopRequested(),
+            requestAbortRequiresThrow: (): boolean => this._requestSignal.aborted && !this._failureAbortActive,
+            reportSnapshotProgress: (progress): void => this._reportSnapshotProgress(progress),
+            addPartialWarning: (task, detail, error): void => this._addPartialWarning(task, detail, error),
+            abortSiblingRequests: (): void => this._abortSiblingRequests(),
         }).loadLibraryFacets(library, libIndex);
         this._firstFailure = this._firstFailure ?? failure;
         return failure;
@@ -250,34 +215,6 @@ export class ChannelSetupFacetSnapshotLoadSession {
         error: unknown
     ): void {
         this._loadState.addPartialWarning(task, detail, error);
-    }
-
-    private _buildRequiredTagDirectoryFailure(
-        label: ChannelSetupRequiredTagDirectoryLabel,
-        libraryTitle: string,
-        type: number,
-        reason: PlexTagDirectoryUnsupportedReason | 'error',
-        error?: unknown
-    ): ChannelSetupFacetSnapshot {
-        return this._failureBuilder.buildRequiredTagDirectoryFailure(label, libraryTitle, type, reason, error);
-    }
-
-    private _buildRequiredTagCountRecoveryFailure(
-        label: ChannelSetupRequiredTagDirectoryLabel,
-        libraryTitle: string,
-        type: number,
-        error: unknown
-    ): ChannelSetupFacetSnapshot {
-        return this._failureBuilder.buildRequiredTagCountRecoveryFailure(label, libraryTitle, type, error);
-    }
-
-    private _addEmptyTagDirectoryWarning(
-        family: ChannelSetupNativeFacetFamily,
-        label: ChannelSetupRequiredTagDirectoryLabel,
-        libraryTitle: string,
-        type: number
-    ): void {
-        this._loadState.addEmptyTagDirectoryWarning(family, label, libraryTitle, type);
     }
 
     private _callerCanceled(): boolean {

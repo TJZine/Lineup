@@ -6,8 +6,8 @@
  * @module modules/ui/epg/__tests__/EPGInfoPanel.test
  */
 
-import { EPGInfoPanel } from '../view/EPGInfoPanel';
-import { EPGInfoPanelDynamicBackground } from '../view/EPGInfoPanelDynamicBackground';
+import { EPGInfoPanel } from '../view/info-panel/EPGInfoPanel';
+import { EPGInfoPanelDynamicBackground } from '../view/info-panel/EPGInfoPanelDynamicBackground';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { extractDominantColor } from '../../../../utils/color/extractDominantColor';
 import type { ScheduledProgram } from '../types';

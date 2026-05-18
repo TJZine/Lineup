@@ -1,7 +1,7 @@
-import type { ScheduledProgram } from '../types';
-import type { EpgItemDetails } from '../model/domainTypes';
-import { extractHdrLabelFromPlexMedia } from '../../../plex/stream/policy/hdr';
-import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import type { ScheduledProgram } from '../../types';
+import type { EpgItemDetails } from '../../model/domainTypes';
+import { extractHdrLabelFromPlexMedia } from '../../../../plex/stream/policy/hdr';
+import { isAbortLikeError, summarizeErrorForLog } from '../../../../../utils/errors';
 
 type FetchItemDetails = (
     ratingKey: string,
