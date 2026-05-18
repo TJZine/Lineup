@@ -854,7 +854,6 @@ export class ChannelManager implements IChannelManager {
             this._resolutionCache.set(result);
             this._emitter.emit('contentResolved', result);
 
-            // Issue 4: Update channel metadata after every successful resolve
             this._applyResolvedContentMetadata(channel, result);
             this._state.channels.set(channel.id, channel);
 
