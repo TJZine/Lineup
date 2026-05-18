@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { ChannelSetupFacetSnapshotLoadSession } from '../planning/ChannelSetupFacetSnapshotLoadSession';
 import {
     createFacetPlanningConfig,
@@ -46,6 +48,24 @@ const createEpisode = (
 } as PlexMediaItem);
 
 describe('ChannelSetupFacetSnapshotLoadSession', () => {
+    it('constructs the library executor with concrete load-state and failure-builder owners', () => {
+        const loadSessionSource = readFileSync(
+            resolve(__dirname, '../planning/ChannelSetupFacetSnapshotLoadSession.ts'),
+            'utf8'
+        );
+        const executorSource = readFileSync(
+            resolve(__dirname, '../planning/ChannelSetupFacetLibraryExecutor.ts'),
+            'utf8'
+        );
+
+        expect(loadSessionSource).not.toMatch(/\b(control|state|failures):\s*\{/);
+        expect(executorSource).not.toMatch(/\b(control|state|failures):\s*\{/);
+        expect(loadSessionSource).toContain('loadState: this._loadState');
+        expect(loadSessionSource).toContain('failureBuilder: this._failureBuilder');
+        expect(executorSource).toContain('loadState: ChannelSetupFacetSnapshotLoadState');
+        expect(executorSource).toContain('failureBuilder: ChannelSetupFacetSnapshotFailureBuilder');
+    });
+
     it('returns an empty ready snapshot when no facet strategies are enabled', async () => {
         const session = new ChannelSetupFacetSnapshotLoadSession({
             plexLibrary: createPlexLibrary(),
@@ -255,5 +275,69 @@ describe('ChannelSetupFacetSnapshotLoadSession', () => {
 
         await expect(loadPromise).rejects.toMatchObject({ name: 'AbortError' });
         expect(options?.signal?.aborted).toBe(true);
+    });
+
+    it('aborts sibling native facet requests while preserving the original blocking failure snapshot', async () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        let rejectGenres: (reason?: unknown) => void = () => undefined;
+        let resolveGenresStarted: (() => void) | null = null;
+        let resolveDirectorsStarted: (() => void) | null = null;
+        let directorsAborted = false;
+        const genresStarted = new Promise<void>((resolve) => {
+            resolveGenresStarted = resolve;
+        });
+        const directorsStarted = new Promise<void>((resolve) => {
+            resolveDirectorsStarted = resolve;
+        });
+        const plexLibrary = createPlexLibrary();
+        plexLibrary.getGenres.mockImplementation((_libraryId, options) => {
+            resolveGenresStarted?.();
+            return new Promise((_, reject) => {
+                rejectGenres = reject;
+                options.signal?.addEventListener('abort', () => {
+                    reject(new DOMException('Aborted', 'AbortError'));
+                }, { once: true });
+            });
+        });
+        plexLibrary.getDirectors.mockImplementation((_libraryId, options) => {
+            resolveDirectorsStarted?.();
+            return new Promise((_, reject) => {
+                options.signal?.addEventListener('abort', () => {
+                    directorsAborted = true;
+                    reject(new DOMException('Aborted', 'AbortError'));
+                }, { once: true });
+            });
+        });
+
+        try {
+            const session = new ChannelSetupFacetSnapshotLoadSession({
+                plexLibrary,
+                config: createConfig({
+                    strategyConfig: {
+                        ...createConfig().strategyConfig,
+                        genres: { enabled: true, priority: 3, scope: 'per-library' },
+                        directors: { enabled: true, priority: 4, scope: 'per-library' },
+                    },
+                }),
+                libraries: [createLibrary()],
+                signal: null,
+                requestIntent: 'preview',
+                snapshotAbortController: new AbortController(),
+                reportProgress: undefined,
+            });
+            const loadPromise = session.load();
+
+            await Promise.all([genresStarted, directorsStarted]);
+            rejectGenres(new Error('genre directory failed'));
+
+            await expect(loadPromise).resolves.toMatchObject({
+                status: 'blocked',
+                failureReason: 'error',
+                message: expect.stringContaining('genre directory failed'),
+            });
+            expect(directorsAborted).toBe(true);
+        } finally {
+            warnSpy.mockRestore();
+        }
     });
 });

@@ -107,6 +107,18 @@ export class ChannelSetupFacetSnapshotLoadState {
         this._hasWarningOnlyTransientLoadFailure = true;
     }
 
+    incrementErrors(): void {
+        this.errorsTotal++;
+    }
+
+    addCollectionsMs(durationMs: number): void {
+        this.collectionsMs += durationMs;
+    }
+
+    addLibraryQueryMs(durationMs: number): void {
+        this.libraryQueryMs += durationMs;
+    }
+
     addEmptyTagDirectoryWarning(
         _family: ChannelSetupNativeFacetFamily,
         label: ChannelSetupRequiredTagDirectoryLabel,
