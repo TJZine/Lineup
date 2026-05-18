@@ -33,11 +33,11 @@ export interface LibraryStepDeps {
     onClearAll: (focusId: string | null) => void;
     onBack: () => void;
     onNext: () => void;
-    registerSpatialFocusables: (buttons: HTMLElement[]) => void;
-    registerBulkActionNeighbors: (
+    registerStepFocusables: (
         selectAllButton: HTMLButtonElement,
         clearAllButton: HTMLButtonElement,
-        listButtons: HTMLButtonElement[]
+        listButtons: HTMLButtonElement[],
+        footerButtons: HTMLButtonElement[]
     ) => void;
 }
 

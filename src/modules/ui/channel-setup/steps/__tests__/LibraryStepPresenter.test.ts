@@ -11,7 +11,7 @@ jest.mock('../../../../../utils/inlineSvg', () => ({
 import type { INavigationManager } from '../../../../navigation/contracts/interfaces';
 import type { ChannelSetupSessionController } from '../../ChannelSetupSessionController';
 import type { ChannelSetupSessionSnapshot } from '../../ChannelSetupSessionContracts';
-import type { ChannelSetupFocusCoordinator } from '../../focus/ChannelSetupFocusCoordinator';
+import { ChannelSetupFocusCoordinator } from '../../focus/ChannelSetupFocusCoordinator';
 import { createNavigationMock, makeLibrary } from '../../__tests__/channel-setup-test-helpers';
 import { LibraryStepPresenter } from '../LibraryStepPresenter';
 import type { StepRenderContext } from '../types';
@@ -88,22 +88,16 @@ const createPresenter = (
         setStep: jest.fn(),
         toggleLibrary: jest.fn((_libraryId: string) => false),
     };
-    const focus = {
-        registerSpatial: jest.fn((buttons: HTMLElement[], preferredFocusId: string | null) => {
-            for (const button of buttons) {
-                if (!(button instanceof HTMLButtonElement) || button.disabled) continue;
-                nav.registerFocusable({ id: button.id, element: button, neighbors: {} });
-            }
-            return preferredFocusId !== null;
-        }),
-    };
+    const focus = new ChannelSetupFocusCoordinator({
+        getNavigation: (): INavigationManager => nav as unknown as INavigationManager,
+    });
     const setPreferredFocusId = overrides.setPreferredFocusId ?? jest.fn();
     const renderStep = overrides.renderStep ?? jest.fn();
 
     return {
         presenter: new LibraryStepPresenter({
             session: session as unknown as ChannelSetupSessionController,
-            focus: focus as unknown as ChannelSetupFocusCoordinator,
+            focus,
             screenPorts: {
                 getNavigation: () => nav as unknown as INavigationManager,
                 openServerSelect: jest.fn(),

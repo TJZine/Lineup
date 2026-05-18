@@ -6,6 +6,14 @@ export interface FocusCoordinatorDeps {
 
 export type FocusRegistrationMode = 'linear' | 'spatial';
 
+export interface RegisterLibraryStepFocusOptions {
+    selectAllButton: HTMLButtonElement;
+    clearAllButton: HTMLButtonElement;
+    listButtons: HTMLButtonElement[];
+    footerButtons: HTMLButtonElement[];
+    preferredFocusId: string | null;
+}
+
 export interface RegisterStep2FocusOptions {
     categoryButtons: HTMLButtonElement[];
     detailButtons: HTMLButtonElement[];

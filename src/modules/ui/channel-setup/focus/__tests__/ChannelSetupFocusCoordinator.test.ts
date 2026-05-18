@@ -100,6 +100,43 @@ describe('ChannelSetupFocusCoordinator', () => {
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('footer-1');
     });
 
+    it('registers library-step bulk neighbors through the coordinator-owned registry', () => {
+        const nav = createNavigationMock();
+        const coordinator = new ChannelSetupFocusCoordinator({
+            getNavigation: (): INavigationManager => nav as unknown as INavigationManager,
+        });
+
+        const selectAllButton = document.createElement('button');
+        selectAllButton.id = 'setup-select-all';
+        const clearAllButton = document.createElement('button');
+        clearAllButton.id = 'setup-clear-all';
+        const listButton = document.createElement('button');
+        listButton.id = 'setup-lib-movies';
+        const backButton = document.createElement('button');
+        backButton.id = 'setup-back';
+        const nextButton = document.createElement('button');
+        nextButton.id = 'setup-next';
+
+        expect(coordinator.registerLibraryStep({
+            selectAllButton,
+            clearAllButton,
+            listButtons: [listButton],
+            footerButtons: [backButton, nextButton],
+            preferredFocusId: 'setup-clear-all',
+        })).toBe(true);
+
+        expect(nav.focusables.get('setup-select-all')?.neighbors).toEqual({
+            right: 'setup-clear-all',
+            down: 'setup-lib-movies',
+        });
+        expect(nav.focusables.get('setup-clear-all')?.neighbors).toEqual({
+            left: 'setup-select-all',
+            down: 'setup-lib-movies',
+        });
+        expect(nav.focusables.get('setup-lib-movies')?.neighbors).toEqual({});
+        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-clear-all');
+    });
+
     it('unregisterAll clears registered ids and unregisters them from navigation', () => {
         const nav = createNavigationMock();
 

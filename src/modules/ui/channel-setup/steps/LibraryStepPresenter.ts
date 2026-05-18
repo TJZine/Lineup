@@ -1,5 +1,3 @@
-import type { FocusableElement } from '../../../navigation';
-import { scrollToNearest } from '../focus/scrollToNearest';
 import type { ChannelSetupFocusCoordinator } from '../focus/ChannelSetupFocusCoordinator';
 import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
 import { ChannelSetupSessionController } from '../ChannelSetupSessionController';
@@ -69,14 +67,17 @@ export class LibraryStepPresenter {
                 this._deps.session.setStep(2);
                 this._deps.renderStep();
             },
-            registerSpatialFocusables: (buttons) => {
-                const preferredApplied = this._deps.focus.registerSpatial(buttons, this._deps.getPreferredFocusId());
+            registerStepFocusables: (selectAllButton, clearAllButton, listButtons, footerButtons) => {
+                const preferredApplied = this._deps.focus.registerLibraryStep({
+                    selectAllButton,
+                    clearAllButton,
+                    listButtons,
+                    footerButtons,
+                    preferredFocusId: this._deps.getPreferredFocusId(),
+                });
                 if (preferredApplied) {
                     this._deps.setPreferredFocusId(null);
                 }
-            },
-            registerBulkActionNeighbors: (selectAllButton, clearAllButton, listButtons) => {
-                this._registerBulkActionNeighbors(selectAllButton, clearAllButton, listButtons);
             },
         });
     }
@@ -104,54 +105,6 @@ export class LibraryStepPresenter {
         const nextButton = this._deps.contentEl.querySelector('#setup-next') as HTMLButtonElement | null;
         if (nextButton) {
             nextButton.disabled = updatedSession.libraries.length === 0 || updatedSession.selectedLibraryIds.size === 0;
-        }
-    }
-
-    private _registerBulkActionNeighbors(
-        selectAllButton: HTMLButtonElement,
-        clearAllButton: HTMLButtonElement,
-        listButtons: HTMLButtonElement[]
-    ): void {
-        const nav = this._deps.screenPorts.getNavigation();
-        if (!nav) {
-            return;
-        }
-        const downNeighbor = listButtons[0]?.id;
-
-        if (!selectAllButton.disabled) {
-            const selectAllNeighbors: FocusableElement['neighbors'] = {};
-            if (!clearAllButton.disabled) {
-                selectAllNeighbors.right = clearAllButton.id;
-            }
-            if (downNeighbor) {
-                selectAllNeighbors.down = downNeighbor;
-            }
-            nav.registerFocusable({
-                id: selectAllButton.id,
-                element: selectAllButton,
-                neighbors: selectAllNeighbors,
-                onFocus: () => {
-                    scrollToNearest(selectAllButton);
-                },
-            });
-        }
-
-        if (!clearAllButton.disabled) {
-            const clearAllNeighbors: FocusableElement['neighbors'] = {};
-            if (!selectAllButton.disabled) {
-                clearAllNeighbors.left = selectAllButton.id;
-            }
-            if (downNeighbor) {
-                clearAllNeighbors.down = downNeighbor;
-            }
-            nav.registerFocusable({
-                id: clearAllButton.id,
-                element: clearAllButton,
-                neighbors: clearAllNeighbors,
-                onFocus: () => {
-                    scrollToNearest(clearAllButton);
-                },
-            });
         }
     }
 
