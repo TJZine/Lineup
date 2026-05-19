@@ -222,7 +222,7 @@ describe('ServerSelectionCoordinator', () => {
         const deps = {
             captureDiscoverySelectionSnapshot: jest.fn(() => {
                 discoverySnapshotCaptureCount += 1;
-                events.push('capture-discovery');
+                events.push(`capture-discovery:${discoverySnapshotCaptureCount}`);
                 return discoverySnapshotCaptureCount === 1 ? discoverySnapshotA : discoverySnapshotB;
             }),
             restoreDiscoverySelectionSnapshot: jest.fn(
@@ -232,7 +232,7 @@ describe('ServerSelectionCoordinator', () => {
             ),
             capturePersistedSelectionSnapshot: jest.fn(async () => {
                 persistedSnapshotCaptureCount += 1;
-                events.push('capture-persisted');
+                events.push(`capture-persisted:${persistedSnapshotCaptureCount}`);
                 return persistedSnapshotCaptureCount === 1 ? persistedSnapshotA : persistedSnapshotB;
             }),
             selectServer: jest.fn(async (serverId: string) => {
@@ -300,6 +300,12 @@ describe('ServerSelectionCoordinator', () => {
         );
         expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(2);
 
+        expect(events.indexOf('restore-discovery:server-a-previous')).toBeLessThan(
+            events.indexOf('capture-discovery:2')
+        );
+        expect(events.indexOf('restore-persisted:server-a-previous')).toBeLessThan(
+            events.indexOf('capture-persisted:2')
+        );
         expect(events.indexOf('restore-discovery:server-a-previous')).toBeLessThan(
             events.indexOf('select:server-b')
         );
