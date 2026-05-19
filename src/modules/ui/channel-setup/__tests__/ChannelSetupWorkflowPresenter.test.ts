@@ -161,6 +161,7 @@ describe('ChannelSetupWorkflowPresenter', () => {
                 onStateChange();
             }),
         };
+        let visibilityToken = 1;
         const renderStep = jest.fn();
         const presenter = new ChannelSetupWorkflowPresenter({
             session: session as never,
@@ -176,7 +177,7 @@ describe('ChannelSetupWorkflowPresenter', () => {
             previewPanelId: 'setup-preview-panel',
             getPreferredFocusId: jest.fn(() => null),
             setPreferredFocusId: jest.fn(),
-            getVisibilityToken: jest.fn(() => 1),
+            getVisibilityToken: jest.fn(() => visibilityToken),
             renderStep,
             resetStep2Scroll: jest.fn(),
             toDomId: (raw): string => raw,
@@ -195,6 +196,10 @@ describe('ChannelSetupWorkflowPresenter', () => {
             preview: DEFAULT_PREVIEW,
             previewStatus: 'ready',
         });
+        onStateChange?.();
+        expect(renderStep).toHaveBeenCalledTimes(1);
+
+        visibilityToken = 2;
         onStateChange?.();
         expect(renderStep).toHaveBeenCalledTimes(1);
     });

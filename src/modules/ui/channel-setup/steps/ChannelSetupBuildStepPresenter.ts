@@ -162,7 +162,17 @@ export class ChannelSetupBuildStepPresenter {
                 ) {
                     return;
                 }
-                return deps.session.ensureReviewLoaded(deps.renderStep);
+                return deps.session.ensureReviewLoaded(() => {
+                    const latest = deps.session.getSnapshot();
+                    if (
+                        token !== deps.getVisibilityToken() ||
+                        latest.step !== 3 ||
+                        latest.isBuilding
+                    ) {
+                        return;
+                    }
+                    deps.renderStep();
+                });
             })
             .catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;

@@ -162,9 +162,14 @@ export class ChannelSetupWorkflowPresenter {
                     return;
                 }
                 return this._deps.session.ensureReviewLoaded(() => {
-                    if (this._deps.session.getSnapshot().step === 3) {
-                        this._deps.renderStep();
+                    const latest = this._deps.session.getSnapshot();
+                    if (
+                        token !== this._deps.getVisibilityToken()
+                        || latest.step !== 3
+                    ) {
+                        return;
                     }
+                    this._deps.renderStep();
                 });
             })
             .catch((error: unknown) => {

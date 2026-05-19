@@ -159,7 +159,29 @@ describe('ChannelSetupBuildStepPresenter', () => {
         await flushPromises();
 
         expect(ctx.contentEl.querySelector('.setup-preview-loading')?.textContent).toContain('Preparing');
-        expect(deps.session.ensureReviewLoaded).toHaveBeenCalledWith(deps.renderStep);
+        expect(deps.session.ensureReviewLoaded).toHaveBeenCalledWith(expect.any(Function));
+
+        const [onStateChange] = deps.session.ensureReviewLoaded.mock.calls[0] ?? [];
+        onStateChange?.();
+        expect(deps.renderStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips stale review-load renders after the build step visibility changes', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot();
+        const deps = createDeps(snapshot);
+        let visibilityToken = 1;
+        deps.getVisibilityToken.mockImplementation(() => visibilityToken);
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        const [onStateChange] = deps.session.ensureReviewLoaded.mock.calls[0] ?? [];
+        visibilityToken = 2;
+        onStateChange?.();
+
+        expect(deps.renderStep).not.toHaveBeenCalled();
     });
 
     it('applies progress and success UI through the build presenter owner', async () => {

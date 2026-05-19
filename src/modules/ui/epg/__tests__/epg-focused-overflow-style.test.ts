@@ -30,6 +30,25 @@ describe('focused EPG overflow style contract', () => {
         expect(start).toBeGreaterThanOrEqual(0);
         return getBlockFromIndex(start);
     };
+    const getExactRuleBlock = (selector: string): string => {
+        let cursor = 0;
+        while (cursor < css.length) {
+            const start = css.indexOf(selector, cursor);
+            if (start < 0) break;
+
+            const open = css.indexOf('{', start);
+            expect(open).toBeGreaterThanOrEqual(0);
+            const previousClose = css.lastIndexOf('}', start);
+            const prefix = css.slice(previousClose + 1, start).trim();
+            const suffix = css.slice(start + selector.length, open).trim();
+            if (prefix === '' && suffix === '') {
+                return getBlockFromIndex(start);
+            }
+            cursor = start + selector.length;
+        }
+
+        throw new Error(`Expected standalone CSS rule for ${selector}`);
+    };
     const getAtRuleBlocks = (atRule: string): string[] => {
         const blocks: string[] = [];
         let cursor = 0;
@@ -204,28 +223,20 @@ describe('focused EPG overflow style contract', () => {
         expect(childBlock).toContain('overflow: hidden');
         expect(childBlock).toContain('text-overflow: ellipsis');
 
-        const provenanceRuleStart = css.indexOf('\n.epg-channel-name-provenance {\n  min-width');
-        expect(provenanceRuleStart).toBeGreaterThanOrEqual(0);
-        const provenanceBlock = getBlockFromIndex(provenanceRuleStart);
+        const provenanceBlock = getExactRuleBlock('.epg-channel-name-provenance');
         expect(provenanceBlock).toContain('display: flex');
         expect(provenanceBlock).toContain('align-items: baseline');
         expect(provenanceBlock).toContain('font-size: var(--text-xs)');
         expect(provenanceBlock).toContain('color: var(--color-text-muted)');
 
-        const sourceRuleStart = css.indexOf('\n.epg-channel-name-source {\n  flex');
-        expect(sourceRuleStart).toBeGreaterThanOrEqual(0);
-        const sourceBlock = getBlockFromIndex(sourceRuleStart);
+        const sourceBlock = getExactRuleBlock('.epg-channel-name-source');
         expect(sourceBlock).toContain('flex: 1 1 auto');
 
-        const categoryRuleStart = css.indexOf('\n.epg-channel-name-category {\n  flex');
-        expect(categoryRuleStart).toBeGreaterThanOrEqual(0);
-        const categoryBlock = getBlockFromIndex(categoryRuleStart);
+        const categoryBlock = getExactRuleBlock('.epg-channel-name-category');
         expect(categoryBlock).toContain('flex: 0 0 auto');
         expect(categoryBlock).toContain('color: var(--color-text-muted)');
 
-        const separatorRuleStart = css.indexOf('\n.epg-channel-name-separator {\n  flex');
-        expect(separatorRuleStart).toBeGreaterThanOrEqual(0);
-        const separatorBlock = getBlockFromIndex(separatorRuleStart);
+        const separatorBlock = getExactRuleBlock('.epg-channel-name-separator');
         expect(separatorBlock).toContain('flex: 0 0 auto');
         expect(separatorBlock).toContain('color: var(--color-text-muted)');
     });

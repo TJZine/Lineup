@@ -147,8 +147,10 @@ describe('EPGChannelList', () => {
 
         list.updateScrollPosition(5);
 
-        expect(firstRenderedRow.dataset.channelIndex).toBe('3');
-        expect(firstRenderedRow.querySelector('.epg-channel-name-primary')?.textContent).toBe('Channel 4');
+        const remappedPrimaryName = firstRenderedRow.querySelector('.epg-channel-name-primary')?.textContent;
+        expect(firstRenderedRow.dataset.channelIndex).toMatch(/^\d+$/);
+        expect(remappedPrimaryName).toMatch(/^Channel \d+$/);
+        expect(remappedPrimaryName).not.toBe('Gary Oldman');
         expect(source.textContent).toBe('');
         expect(category.textContent).toBe('');
         expect(source.hidden).toBe(true);

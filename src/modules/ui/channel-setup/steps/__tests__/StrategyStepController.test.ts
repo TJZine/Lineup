@@ -291,6 +291,7 @@ describe('StrategyStepController', () => {
         expect(deps.onNext).toHaveBeenCalledTimes(1);
         expect(deps.registerStep2Focusables).toHaveBeenCalledTimes(1);
         expect(deps.schedulePreview).toHaveBeenCalledTimes(1);
+        expect(deps.preloadReview).toHaveBeenCalledTimes(1);
         expect(ctx.detailEl.textContent).toBe('Detail text');
     });
 
