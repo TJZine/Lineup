@@ -1,5 +1,6 @@
 import { formatCellTimeLabel } from '../../utils';
 import type { CellRenderData, ScheduledProgram } from '../../types';
+import { resolveEpisodeTitlePresentation } from '../EPGEpisodeTitlePresentation';
 
 const TEXT_GUTTER_PX = 12;
 const TEXT_RIGHT_GUTTER_PX = 12;
@@ -162,10 +163,7 @@ export function getProgramCellTextLayout(cellData: CellRenderData, isFocused: bo
         };
     }
 
-    const episodeTitle = normalizeEpisodeTitleForSubtitle(item.title);
-    const showTitle = (item.showTitle ?? '').trim() ||
-        extractShowTitleFromFullTitle(item.fullTitle, episodeTitle) ||
-        '';
+    const { showTitle, episodeTitle } = resolveEpisodeTitlePresentation(item);
     const episodeTag = formatEpisodeTag(item);
 
     if (isFocused) {
@@ -344,25 +342,6 @@ export function buildTickerTarget(
     };
 }
 
-function extractShowTitleFromFullTitle(fullTitle: string, episodeTitle?: string): string | null {
-    const withEpisodeCode = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/i);
-    if (withEpisodeCode) {
-        const showTitle = withEpisodeCode[1]?.trim() ?? '';
-        return showTitle.length > 0 ? showTitle : null;
-    }
-
-    const trimmedEpisodeTitle = episodeTitle?.trim() ?? '';
-    if (trimmedEpisodeTitle.length > 0) {
-        const episodeSuffix = ` - ${trimmedEpisodeTitle}`;
-        if (fullTitle.endsWith(episodeSuffix)) {
-            const showTitle = fullTitle.slice(0, -episodeSuffix.length).trim();
-            return showTitle.length > 0 ? showTitle : null;
-        }
-    }
-
-    return null;
-}
-
 function formatEpisodeTag(item: ScheduledProgram['item']): string | null {
     if (item.type !== 'episode') return null;
 
@@ -381,8 +360,4 @@ function formatEpisodeTag(item: ScheduledProgram['item']): string | null {
     const s = match[1]!.padStart(2, '0');
     const e = match[2]!.padStart(2, '0');
     return `S${s}E${e}`;
-}
-
-function normalizeEpisodeTitleForSubtitle(title: string): string {
-    return title.replace(/^\s*S\d{1,2}E\d{1,2}\s*-\s*/i, '').trim();
 }

@@ -222,7 +222,7 @@ describe('ServerSelectionCoordinator', () => {
         const deps = {
             captureDiscoverySelectionSnapshot: jest.fn(() => {
                 discoverySnapshotCaptureCount += 1;
-                events.push('capture-discovery');
+                events.push(`capture-discovery:${discoverySnapshotCaptureCount}`);
                 return discoverySnapshotCaptureCount === 1 ? discoverySnapshotA : discoverySnapshotB;
             }),
             restoreDiscoverySelectionSnapshot: jest.fn(
@@ -232,7 +232,7 @@ describe('ServerSelectionCoordinator', () => {
             ),
             capturePersistedSelectionSnapshot: jest.fn(async () => {
                 persistedSnapshotCaptureCount += 1;
-                events.push('capture-persisted');
+                events.push(`capture-persisted:${persistedSnapshotCaptureCount}`);
                 return persistedSnapshotCaptureCount === 1 ? persistedSnapshotA : persistedSnapshotB;
             }),
             selectServer: jest.fn(async (serverId: string) => {
@@ -300,12 +300,21 @@ describe('ServerSelectionCoordinator', () => {
         );
         expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(2);
 
-        expect(events.indexOf('restore-discovery:server-a-previous')).toBeLessThan(
-            events.indexOf('select:server-b')
-        );
-        expect(events.indexOf('restore-persisted:server-a-previous')).toBeLessThan(
-            events.indexOf('select:server-b')
-        );
+        const expectEventIndex = (event: string): number => {
+            const index = events.indexOf(event);
+            expect(index).toBeGreaterThanOrEqual(0);
+            return index;
+        };
+        const restoreDiscoveryIndex = expectEventIndex('restore-discovery:server-a-previous');
+        const captureDiscoveryIndex = expectEventIndex('capture-discovery:2');
+        const restorePersistedIndex = expectEventIndex('restore-persisted:server-a-previous');
+        const capturePersistedIndex = expectEventIndex('capture-persisted:2');
+        const selectServerBIndex = expectEventIndex('select:server-b');
+
+        expect(restoreDiscoveryIndex).toBeLessThan(captureDiscoveryIndex);
+        expect(restorePersistedIndex).toBeLessThan(capturePersistedIndex);
+        expect(restoreDiscoveryIndex).toBeLessThan(selectServerBIndex);
+        expect(restorePersistedIndex).toBeLessThan(selectServerBIndex);
     });
 
     it('preserves startup resume failure when both rollback attempts fail', async () => {

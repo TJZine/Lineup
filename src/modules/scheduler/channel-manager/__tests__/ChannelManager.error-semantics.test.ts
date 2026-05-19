@@ -93,7 +93,7 @@ describe('ChannelManager error contracts', () => {
                 }),
                 error: expect.objectContaining({
                     code: AppErrorCode.ACCESS_DENIED,
-                    message: 'Access denied',
+                    message: 'Access denied X-Plex-Token=REDACTED',
                 }),
             }),
         ]);
@@ -101,15 +101,37 @@ describe('ChannelManager error contracts', () => {
             contentSource: createMockContentSource(),
         });
 
-        const accessDeniedError = Object.assign(new Error('Access denied'), {
+        const accessDeniedError = Object.assign(new Error('Access denied X-Plex-Token=secret-token'), {
             code: AppErrorCode.ACCESS_DENIED,
+            httpStatus: 403,
         });
         mockLibrary.getLibraryItems.mockRejectedValue(accessDeniedError);
 
-        await expect(manager.refreshChannelContent(channel.id)).rejects.toMatchObject({
+        let thrownError: unknown;
+        try {
+            await manager.refreshChannelContent(channel.id);
+        } catch (error) {
+            thrownError = error;
+        }
+
+        expect(thrownError).toMatchObject({
             code: AppErrorCode.ACCESS_DENIED,
             recoverable: false,
+            diagnostics: {
+                context: {
+                    channelId: channel.id,
+                    contentSource: { type: 'library', id: 'lib1' },
+                    httpStatus: 403,
+                },
+                causeSummary: {
+                    code: AppErrorCode.ACCESS_DENIED,
+                    message: 'Access denied X-Plex-Token=REDACTED',
+                },
+            },
         });
+        expect(JSON.stringify((thrownError as { diagnostics?: unknown }).diagnostics)).not.toContain(
+            'secret-token'
+        );
     });
 
     it('propagates non-fallback content-affecting update failures without mutating state or cache', async () => {

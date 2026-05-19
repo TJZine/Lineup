@@ -770,21 +770,20 @@ export class ChannelManager implements IChannelManager {
         channel.totalDurationMs = content.totalDurationMs;
     }
 
-    private _createAccessDeniedResolutionError(
-        channel: ChannelConfig,
-        error: unknown
-    ): ChannelError {
-        this._logger.warn('Access denied resolving channel content', {
+    private _createAccessDeniedResolutionError(channel: ChannelConfig, error: unknown): ChannelError {
+        const httpStatus = getHttpStatusForLog(error);
+        const context = {
             channelId: channel.id,
             contentSource: getContentSourceLogIdentity(channel.contentSource),
-            httpStatus: getHttpStatusForLog(error),
-            error: summarizeErrorForLog(error),
-        });
-
+            ...(httpStatus === undefined ? {} : { httpStatus }),
+        };
+        const causeSummary = summarizeErrorForLog(error);
+        this._logger.warn('Access denied resolving channel content', { ...context, error: causeSummary });
         return new ChannelError(
             AppErrorCode.ACCESS_DENIED,
             `Profile does not have access to this channel's content library`,
-            false
+            false,
+            { context, causeSummary }
         );
     }
 

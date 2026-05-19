@@ -495,16 +495,11 @@ export class InitializationCoordinator {
 
         // Channel Manager
         if (this._deps.modules.channelManager) {
-            this._callbacks.status.updateModuleStatus('channel-manager', 'initializing');
-            await this._callbacks.serverStorage.configureChannelManagerStorage();
-            await this._deps.modules.channelManager.loadChannels();
-
-            this._callbacks.status.updateModuleStatus(
-                'channel-manager',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
+            const channelManager = this._deps.modules.channelManager;
+            await this._initializeRuntimeModule('channel-manager', startTime, async () => {
+                await this._callbacks.serverStorage.configureChannelManagerStorage();
+                await channelManager.loadChannels();
+            });
         }
 
         // Channel Scheduler (no async init needed)
@@ -521,77 +516,61 @@ export class InitializationCoordinator {
 
         // Video Player
         if (this._deps.modules.videoPlayer && this._config) {
-            this._callbacks.status.updateModuleStatus('video-player', 'initializing');
-            await this._deps.modules.videoPlayer.initialize({
-                ...this._config.playerConfig,
+            const videoPlayer = this._deps.modules.videoPlayer;
+            await this._initializeRuntimeModule('video-player', startTime, async () => {
+                await videoPlayer.initialize({
+                    ...this._config.playerConfig,
+                });
+                // Request Media Session integration (once per app lifetime)
+                videoPlayer.requestMediaSession();
             });
-
-            // Request Media Session integration (once per app lifetime)
-            this._deps.modules.videoPlayer.requestMediaSession();
-
-            this._callbacks.status.updateModuleStatus(
-                'video-player',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
         }
 
         if (this._deps.overlays.playerOsd && this._config) {
-            this._callbacks.status.updateModuleStatus('player-osd-ui', 'initializing');
-            this._deps.overlays.playerOsd.initialize(this._config.playerOsdConfig);
-            this._callbacks.status.updateModuleStatus(
-                'player-osd-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
+            const playerOsd = this._deps.overlays.playerOsd;
+            await this._initializeRuntimeModule('player-osd-ui', startTime, () => {
+                playerOsd.initialize(this._config.playerOsdConfig);
+            });
         }
 
         if (this._deps.overlays.channelNumberOverlay && this._config) {
-            this._callbacks.status.updateModuleStatus('channel-number-overlay-ui', 'initializing');
-            this._deps.overlays.channelNumberOverlay.initialize(this._config.channelNumberOverlayConfig.containerId);
-            this._callbacks.status.updateModuleStatus(
-                'channel-number-overlay-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
+            const channelNumberOverlay = this._deps.overlays.channelNumberOverlay;
+            await this._initializeRuntimeModule('channel-number-overlay-ui', startTime, () => {
+                channelNumberOverlay.initialize(this._config.channelNumberOverlayConfig.containerId);
+            });
         }
 
         if (this._deps.overlays.channelBadgeOverlay && this._config) {
-            this._callbacks.status.updateModuleStatus('channel-badge-ui', 'initializing');
-            this._deps.overlays.channelBadgeOverlay.initialize(this._config.channelBadgeConfig);
-            this._callbacks.status.updateModuleStatus(
-                'channel-badge-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
+            const channelBadgeOverlay = this._deps.overlays.channelBadgeOverlay;
+            await this._initializeRuntimeModule('channel-badge-ui', startTime, () => {
+                channelBadgeOverlay.initialize(this._config.channelBadgeConfig);
+            });
         }
 
         if (this._deps.overlays.miniGuide && this._config) {
-            this._callbacks.status.updateModuleStatus('mini-guide-ui', 'initializing');
-            this._deps.overlays.miniGuide.initialize(this._config.miniGuideConfig);
-            this._callbacks.status.updateModuleStatus(
-                'mini-guide-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
+            const miniGuide = this._deps.overlays.miniGuide;
+            await this._initializeRuntimeModule('mini-guide-ui', startTime, () => {
+                miniGuide.initialize(this._config.miniGuideConfig);
+            });
         }
 
         if (this._deps.overlays.channelTransition && this._config) {
-            this._callbacks.status.updateModuleStatus('channel-transition-ui', 'initializing');
-            this._deps.overlays.channelTransition.initialize(this._config.channelTransitionConfig);
-            this._callbacks.status.updateModuleStatus(
-                'channel-transition-ui',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
+            const channelTransition = this._deps.overlays.channelTransition;
+            await this._initializeRuntimeModule('channel-transition-ui', startTime, () => {
+                channelTransition.initialize(this._config.channelTransitionConfig);
+            });
         }
 
+    }
+
+    private async _initializeRuntimeModule(
+        moduleId: string,
+        startTime: number,
+        initialize: () => void | Promise<void>
+    ): Promise<void> {
+        this._callbacks.status.updateModuleStatus(moduleId, 'initializing');
+        await initialize();
+        this._callbacks.status.updateModuleStatus(moduleId, 'ready', undefined, Date.now() - startTime);
     }
 
     private async _initializeEpg(options?: { ensureCorePlayerUi?: boolean }): Promise<void> {

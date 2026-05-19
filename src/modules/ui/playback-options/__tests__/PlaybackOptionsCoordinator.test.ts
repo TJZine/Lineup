@@ -69,6 +69,20 @@ const getViewModel = (coordinator: PlaybackOptionsCoordinator): PlaybackOptionsV
 
 const flushPlaybackOptionsPromises = (): Promise<void> => flushSharedPromises(10);
 
+const createDeferred = <T>(): {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+    reject: (reason?: unknown) => void;
+} => {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+};
+
 const installFetchMock = (fetchMock: jest.Mock): { restore: () => void } => {
     const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
     Object.defineProperty(globalThis, 'fetch', {
@@ -466,6 +480,37 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
+    it('ignores stale direct subtitle selections when the user re-selects another direct subtitle', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const player = createPlayer([
+            makeTextTrack({ id: 'first', fetchableViaKey: true, key: '/library/streams/first' }),
+            makeTextTrack({ id: 'second', fetchableViaKey: true, key: '/library/streams/second' }),
+        ]);
+        const requestBurnInSubtitle = jest.fn();
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram('item-1'),
+            requestBurnInSubtitle,
+        });
+
+        const viewModel = getViewModel(coordinator);
+        const first = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-first');
+        const second = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-second');
+
+        first?.onSelect?.();
+        second?.onSelect?.();
+
+        await flushPlaybackOptionsPromises();
+
+        expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+        expect(player.setSubtitleTrack).toHaveBeenCalledTimes(1);
+        expect(player.setSubtitleTrack).toHaveBeenCalledWith('second');
+    });
+
     it('continues with direct subtitle selection when text subtitle probe times out in Full mode', async (): Promise<void> => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
@@ -717,6 +762,84 @@ describe('PlaybackOptionsCoordinator', () => {
         }
     });
 
+    it('ignores unsupported subtitle probe results that resolve after disposal', async (): Promise<void> => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const deferredProbe = createDeferred<{ ok: boolean; status: number }>();
+        const fetchMock = jest.fn().mockReturnValue(deferredProbe.promise);
+        const { restore } = installFetchMock(fetchMock);
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            getViewModel(coordinator).subtitles.options
+                .find((option) => option.id === 'playback-subtitle-keyless')
+                ?.onSelect?.();
+            coordinator.dispose();
+
+            deferredProbe.resolve({ ok: false, status: 404 });
+            await flushPlaybackOptionsPromises();
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+            expect(player.setSubtitleTrack).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
+    it('ignores supported subtitle probe results that resolve after disposal', async (): Promise<void> => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const deferredProbe = createDeferred<{ ok: boolean; status: number }>();
+        const fetchMock = jest.fn().mockReturnValue(deferredProbe.promise);
+        const { restore } = installFetchMock(fetchMock);
+
+        try {
+            const player = createPlayer([makeTextTrack({ id: 'keyless', fetchableViaKey: false })]);
+            const requestBurnInSubtitle = jest.fn();
+            const coordinator = new PlaybackOptionsCoordinator({
+                playbackOptionsModalId: 'playback-options',
+                getNavigation: (): null => null,
+                getPlaybackOptionsModal: (): null => null,
+                getVideoPlayer: (): IVideoPlayer => player,
+                getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+                getCurrentStreamDescriptor: (): StreamDescriptor =>
+                    ({
+                        subtitleContext: { serverUri: 'http://example.com', authHeaders: { 'X-Plex-Token': 'token' } },
+                    } as unknown as StreamDescriptor),
+                requestBurnInSubtitle,
+            });
+
+            getViewModel(coordinator).subtitles.options
+                .find((option) => option.id === 'playback-subtitle-keyless')
+                ?.onSelect?.();
+            coordinator.dispose();
+
+            deferredProbe.resolve({ ok: true, status: 200 });
+            await flushPlaybackOptionsPromises();
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(requestBurnInSubtitle).not.toHaveBeenCalled();
+            expect(player.setSubtitleTrack).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
     it('shows a failure toast when burn-in subtitle request reports a failed outcome', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
@@ -742,6 +865,36 @@ describe('PlaybackOptionsCoordinator', () => {
 
         expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
         expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
+    });
+
+    it('suppresses late burn-in failure outcome toasts after disposal', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
+        const deferredRequest = createDeferred<{ outcome: 'failed' }>();
+        const requestBurnInSubtitle = jest.fn().mockReturnValue(deferredRequest.promise);
+        const notifyToast = jest.fn();
+
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+            requestBurnInSubtitle,
+            notifyToast,
+        });
+
+        getViewModel(coordinator).subtitles.options
+            .find((option) => option.id === 'playback-subtitle-burn')
+            ?.onSelect?.();
+        coordinator.dispose();
+        deferredRequest.resolve({ outcome: 'failed' });
+
+        await flushPlaybackOptionsPromises();
+
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
+        expect(notifyToast).not.toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
     it('does not show a failure toast when burn-in subtitle request is ignored', async () => {
@@ -799,6 +952,36 @@ describe('PlaybackOptionsCoordinator', () => {
 
         expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
         expect(notifyToast).toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
+    });
+
+    it('suppresses late burn-in rejection toasts after disposal', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const player = createPlayer([makeBurnInTrack({ id: 'burn' })]);
+        const deferredRequest = createDeferred<never>();
+        const requestBurnInSubtitle = jest.fn().mockReturnValue(deferredRequest.promise);
+        const notifyToast = jest.fn();
+
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+            requestBurnInSubtitle,
+            notifyToast,
+        });
+
+        getViewModel(coordinator).subtitles.options
+            .find((option) => option.id === 'playback-subtitle-burn')
+            ?.onSelect?.();
+        coordinator.dispose();
+        deferredRequest.reject(new Error('fail'));
+
+        await flushPlaybackOptionsPromises();
+
+        expect(notifyToast).toHaveBeenCalledWith({ message: 'Loading burn-in subtitles…', type: 'info' });
+        expect(notifyToast).not.toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
     it('does not persist subtitle preference (no per-item or global storage)', async (): Promise<void> => {

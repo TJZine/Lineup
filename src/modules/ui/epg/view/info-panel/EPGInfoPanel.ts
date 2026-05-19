@@ -8,6 +8,7 @@ import { EpgPreferencesStore } from '../../../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../../../settings/NowPlayingDisplayStore';
 import { EPGInfoPanelDetailsLoader } from '../info-panel/EPGInfoPanelDetailsLoader';
 import { EPGInfoPanelDynamicBackground } from '../info-panel/EPGInfoPanelDynamicBackground';
+import { resolveEpisodeTitlePresentation } from '../EPGEpisodeTitlePresentation';
 
 const QUALITY_BADGE_SLOT_COUNT = 5;
 
@@ -796,18 +797,8 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
     }
 
-    private extractShowTitleFromFullTitle(fullTitle: string): string | null {
-        const match = fullTitle.match(/^(.*?)\s-\sS\d{1,2}E\d{1,2}\s-/i);
-        if (!match) return null;
-        const showTitle = match[1]?.trim() ?? '';
-        return showTitle.length > 0 ? showTitle : null;
-    }
-
     private getEffectiveShowTitle(item: ScheduledProgram['item']): string {
-        const raw = (item.showTitle ?? '').trim();
-        if (raw.length > 0) return raw;
-        const derived = this.extractShowTitleFromFullTitle(item.fullTitle);
-        return derived ?? '';
+        return resolveEpisodeTitlePresentation(item).showTitle;
     }
 
     private applyFetchedEpisodePoster(ratingKey: string): void {
