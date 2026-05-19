@@ -158,7 +158,7 @@
 }
 
 .setup-impact-new {
-    background: var(--onboarding-accent-alpha-45, rgba(200, 160, 100, 0.45));
+    background: rgba(200, 160, 100, 0.78);
     color: #0e1017;
 }
 
