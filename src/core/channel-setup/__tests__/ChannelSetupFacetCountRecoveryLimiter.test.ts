@@ -7,6 +7,15 @@ const flushMicrotasks = async (): Promise<void> => {
 };
 
 describe('createFacetCountRecoveryLimiter', () => {
+    it('rejects invalid maxConcurrency values instead of creating a stalled limiter', () => {
+        expect(() => createFacetCountRecoveryLimiter(0)).toThrow(
+            'Channel setup facet count recovery limiter maxConcurrency must be at least 1; received 0'
+        );
+        expect(() => createFacetCountRecoveryLimiter(-2)).toThrow(
+            'Channel setup facet count recovery limiter maxConcurrency must be at least 1; received -2'
+        );
+    });
+
     it('runs tasks up to the max concurrency and starts queued work in FIFO order', async () => {
         const limiter = createFacetCountRecoveryLimiter(2);
         const first = createDeferred<string>();

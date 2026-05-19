@@ -1,6 +1,12 @@
 import type { FacetCountRecoveryLimiter } from './ChannelSetupFacetCountRecoveryWorker';
 
 export function createFacetCountRecoveryLimiter(maxConcurrency: number): FacetCountRecoveryLimiter {
+    const effectiveMaxConcurrency = Math.floor(maxConcurrency);
+    if (!Number.isFinite(effectiveMaxConcurrency) || effectiveMaxConcurrency < 1) {
+        throw new Error(
+            `Channel setup facet count recovery limiter maxConcurrency must be at least 1; received ${maxConcurrency}`
+        );
+    }
     const pending: Array<() => void> = [];
     let active = 0;
 
@@ -15,7 +21,7 @@ export function createFacetCountRecoveryLimiter(maxConcurrency: number): FacetCo
             active++;
             void Promise.resolve().then(task).then(resolve, reject).finally(release);
         };
-        if (active < maxConcurrency) {
+        if (active < effectiveMaxConcurrency) {
             run();
             return;
         }
