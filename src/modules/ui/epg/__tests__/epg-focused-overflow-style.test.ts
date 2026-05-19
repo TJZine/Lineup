@@ -241,6 +241,41 @@ describe('focused EPG overflow style contract', () => {
         expect(separatorBlock).toContain('color: var(--color-text-muted)');
     });
 
+    it('keeps expanded channel-name rows within the fixed rail and row contracts', () => {
+        const gridBlock = getBlock('.epg-grid');
+        expect(gridBlock).toContain('grid-template-columns: 260px 1fr');
+
+        const rowBlock = getBlock('\n.epg-channel-row {');
+        expect(rowBlock).toContain('height: var(--epg-row-height, 108px)');
+
+        const primaryBlock = getExactRuleBlock(
+            '.epg-channel-row[data-channel-name-expanded="true"] .epg-channel-name-primary'
+        );
+        expect(primaryBlock).toContain('display: -webkit-box');
+        expect(primaryBlock).toContain('height: calc(var(--text-sm) * 2.4)');
+        expect(primaryBlock).toContain('font-size: var(--text-sm)');
+        expect(primaryBlock).toContain('line-height: 1.2');
+        expect(primaryBlock).toContain('white-space: normal');
+        expect(primaryBlock).toContain('overflow-wrap: anywhere');
+        expect(primaryBlock).toContain('text-overflow: clip');
+        expect(primaryBlock).toContain('-webkit-line-clamp: 2');
+        expect(primaryBlock).toContain('-webkit-box-orient: vertical');
+
+        const expandedProvenanceBlock = getExactRuleBlock(
+            '.epg-channel-row[data-channel-name-expanded="true"] .epg-channel-name-provenance'
+        );
+        expect(expandedProvenanceBlock).toContain('display: none');
+
+        const hiddenBlock = getBlock(
+            '.epg-channel-name-provenance[hidden],\n' +
+            '.epg-channel-name-source[hidden],\n' +
+            '.epg-channel-name-category[hidden],\n' +
+            '.epg-channel-name-separator[hidden]'
+        );
+        expect(hiddenBlock).toContain('display: none');
+        expect(hiddenBlock).not.toContain('data-channel-name-expanded');
+    });
+
     it('keeps classic and DirectV channel-name cascade pointed at the child spans', () => {
         const classicStackBlock = getBlock('.epg-container.layout-classic .epg-channel-name');
         expect(classicStackBlock).toContain('color: var(--color-text-primary)');

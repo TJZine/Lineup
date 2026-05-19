@@ -11,6 +11,8 @@ import type { ChannelConfig, EPGConfig } from '../types';
 import type { BuildStrategy } from '../../../scheduler/channel-manager/types';
 
 describe('EPGChannelList', () => {
+    const expandedAttribute = 'data-channel-name-expanded';
+
     const createMockChannel = (index: number): ChannelConfig => ({
         id: `ch${index}`,
         number: index + 1,
@@ -41,6 +43,36 @@ describe('EPGChannelList', () => {
         autoScrollToNow: false,
         ...overrides,
     });
+
+    const mockPrimaryLabelMeasurement = ({
+        clientWidth,
+        scrollWidth,
+    }: {
+        clientWidth: number | ((element: HTMLElement) => number);
+        scrollWidth: number | ((element: HTMLElement) => number);
+    }): jest.SpyInstance[] => {
+        const resolve = (
+            value: number | ((element: HTMLElement) => number),
+            element: HTMLElement
+        ): number => typeof value === 'function' ? value(element) : value;
+
+        return [
+            jest.spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+                .mockImplementation(function (this: HTMLElement): number {
+                    if (this.classList.contains('epg-channel-name-primary')) {
+                        return resolve(clientWidth, this);
+                    }
+                    return 0;
+                }),
+            jest.spyOn(HTMLElement.prototype, 'scrollWidth', 'get')
+                .mockImplementation(function (this: HTMLElement): number {
+                    if (this.classList.contains('epg-channel-name-primary')) {
+                        return resolve(scrollWidth, this);
+                    }
+                    return 0;
+                }),
+        ];
+    };
 
     let parent: HTMLElement;
 
@@ -221,5 +253,133 @@ describe('EPGChannelList', () => {
         expect(row.querySelector('.epg-channel-name-source')?.textContent).toBe('');
         expect(row.querySelector('.epg-channel-name-category')?.textContent).toBe('Genre');
         expect((row.querySelector('.epg-channel-name-separator') as HTMLElement | null)?.hidden).toBe(true);
+    });
+
+    it('expands materially truncated generated channel names while preserving full aria labels', () => {
+        const spies = mockPrimaryLabelMeasurement({
+            clientWidth: 164,
+            scrollWidth: (element) => (element.textContent?.length ?? 0) * 8,
+        });
+        const list = new EPGChannelList();
+
+        try {
+            list.initialize(parent, createConfig({ visibleChannels: 2 }));
+            list.updateChannels([
+                {
+                    ...createMockChannel(0),
+                    name: 'Recently Added Unwatched Movies - Movies Home',
+                    sourceLibraryName: 'Movies Home',
+                    buildStrategy: 'collections' as BuildStrategy,
+                },
+                {
+                    ...createMockChannel(1),
+                    name: 'Recently Added Unwatched Movies (2) - Movies Home',
+                    sourceLibraryName: 'Movies Home',
+                    buildStrategy: 'collections' as BuildStrategy,
+                },
+            ]);
+
+            const rows = Array.from(parent.querySelectorAll('.epg-channel-row')) as HTMLElement[];
+            expect(rows).toHaveLength(2);
+
+            const [firstRow, secondRow] = rows;
+            const firstName = firstRow?.querySelector('.epg-channel-name') as HTMLElement;
+            const secondName = secondRow?.querySelector('.epg-channel-name') as HTMLElement;
+            const firstPrimary = firstRow?.querySelector('.epg-channel-name-primary') as HTMLElement;
+            const secondPrimary = secondRow?.querySelector('.epg-channel-name-primary') as HTMLElement;
+
+            expect(firstRow?.getAttribute(expandedAttribute)).toBe('true');
+            expect(secondRow?.getAttribute(expandedAttribute)).toBe('true');
+            expect(firstPrimary.textContent).toBe('Recently Added Unwatched Movies');
+            expect(secondPrimary.textContent).toBe('Recently Added Unwatched Movies (2)');
+            expect(firstPrimary.textContent).not.toBe(secondPrimary.textContent);
+            expect(firstName.getAttribute('aria-label'))
+                .toBe('Recently Added Unwatched Movies, Collection, Movies Home');
+            expect(secondName.getAttribute('aria-label'))
+                .toBe('Recently Added Unwatched Movies (2), Collection, Movies Home');
+        } finally {
+            list.destroy();
+            for (const spy of spies) {
+                spy.mockRestore();
+            }
+        }
+    });
+
+    it('clears expanded channel-name markers when a virtual row is recycled to a fitting channel', () => {
+        const spies = mockPrimaryLabelMeasurement({
+            clientWidth: 140,
+            scrollWidth: (element) => (element.textContent?.length ?? 0) * 8,
+        });
+        const list = new EPGChannelList();
+
+        try {
+            const channels = Array.from({ length: 12 }, (_, i) => createMockChannel(i));
+            channels[0] = {
+                ...channels[0]!,
+                name: 'Recently Added Unwatched Movies - Movies Home',
+                sourceLibraryName: 'Movies Home',
+                buildStrategy: 'collections' as BuildStrategy,
+            };
+
+            list.initialize(parent, createConfig({ rowHeight: 50, visibleChannels: 1 }));
+            list.updateChannels(channels);
+
+            const firstRenderedRow = parent.querySelector('.epg-channel-row') as HTMLElement;
+            expect(firstRenderedRow.getAttribute(expandedAttribute)).toBe('true');
+            expect(firstRenderedRow.querySelector('.epg-channel-name-primary')?.textContent)
+                .toBe('Recently Added Unwatched Movies');
+
+            list.updateScrollPosition(7);
+
+            expect(firstRenderedRow.dataset.channelIndex).toMatch(/^\d+$/);
+            expect(firstRenderedRow.querySelector('.epg-channel-name-primary')?.textContent)
+                .toMatch(/^Channel \d+$/);
+            expect(firstRenderedRow.hasAttribute(expandedAttribute)).toBe(false);
+        } finally {
+            list.destroy();
+            for (const spy of spies) {
+                spy.mockRestore();
+            }
+        }
+    });
+
+    it('defers channel-name expansion when the rail has zero width and refreshes after it becomes visible', () => {
+        jest.useFakeTimers();
+
+        let measuredWidth = 0;
+        const spies = mockPrimaryLabelMeasurement({
+            clientWidth: () => measuredWidth,
+            scrollWidth: 280,
+        });
+        const list = new EPGChannelList();
+
+        try {
+            list.initialize(parent, createConfig({ visibleChannels: 1 }));
+            list.updateChannels([
+                {
+                    ...createMockChannel(0),
+                    name: 'Recently Added Unwatched Movies - Movies Home',
+                    sourceLibraryName: 'Movies Home',
+                    buildStrategy: 'collections' as BuildStrategy,
+                },
+            ]);
+
+            const row = parent.querySelector('.epg-channel-row') as HTMLElement;
+            expect(row.hasAttribute(expandedAttribute)).toBe(false);
+
+            jest.runOnlyPendingTimers();
+            expect(row.hasAttribute(expandedAttribute)).toBe(false);
+
+            measuredWidth = 160;
+            list.refreshChannelNameLayouts();
+
+            expect(row.getAttribute(expandedAttribute)).toBe('true');
+        } finally {
+            list.destroy();
+            for (const spy of spies) {
+                spy.mockRestore();
+            }
+            jest.useRealTimers();
+        }
     });
 });

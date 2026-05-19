@@ -3,6 +3,9 @@ import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRunt
 import type { EPGConfig, ChannelConfig } from '../types';
 import { getChannelIdentityForDisplay } from '../../common/channelDisplay';
 
+const CHANNEL_NAME_EXPANDED_ATTRIBUTE = 'data-channel-name-expanded';
+const CHANNEL_NAME_TRUNCATION_THRESHOLD_PX = 2;
+
 /**
  * EPG Channel List class.
  * Displays channel names in a column that syncs with grid scrolling.
@@ -31,12 +34,23 @@ export class EPGChannelList {
     private channelOffset: number = 0;
     private isVirtualized: boolean = false;
     private wrapFlashTimer: ReturnType<typeof setTimeout> | null = null;
+    private nameExpansionRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+    private awaitingVisibleNameRail: boolean = false;
+    private nameExpansionResizeObserver: ResizeObserver | null = null;
 
     initialize(parentElement: HTMLElement, config: EPGConfig): void {
         this.config = config;
 
         this.containerElement = document.createElement('div');
         this.containerElement.className = EPG_CLASSES.CHANNEL_LIST;
+
+        if (typeof ResizeObserver !== 'undefined') {
+            this.nameExpansionResizeObserver = new ResizeObserver(() => {
+                this.awaitingVisibleNameRail = false;
+                this.scheduleChannelNameExpansionRefresh({ force: true });
+            });
+            this.nameExpansionResizeObserver.observe(this.containerElement);
+        }
 
         this.contentElement = document.createElement('div');
         this.containerElement.appendChild(this.contentElement);
@@ -51,6 +65,14 @@ export class EPGChannelList {
         if (this.wrapFlashTimer) {
             clearTimeout(this.wrapFlashTimer);
             this.wrapFlashTimer = null;
+        }
+        if (this.nameExpansionRefreshTimer) {
+            clearTimeout(this.nameExpansionRefreshTimer);
+            this.nameExpansionRefreshTimer = null;
+        }
+        if (this.nameExpansionResizeObserver) {
+            this.nameExpansionResizeObserver.disconnect();
+            this.nameExpansionResizeObserver = null;
         }
         if (this.containerElement) {
             this.containerElement.classList.remove(EPG_CLASSES.CHANNEL_LIST_WRAP_FLASH);
@@ -68,6 +90,7 @@ export class EPGChannelList {
         this.config = null;
         this.channelOffset = 0;
         this.isVirtualized = false;
+        this.awaitingVisibleNameRail = false;
     }
 
     flashWrapCue(): void {
@@ -87,6 +110,15 @@ export class EPGChannelList {
     updateChannels(channels: ChannelConfig[]): void {
         this.channels = channels;
         this.renderChannels();
+    }
+
+    refreshChannelNameLayouts(): void {
+        if (this.nameExpansionRefreshTimer) {
+            clearTimeout(this.nameExpansionRefreshTimer);
+            this.nameExpansionRefreshTimer = null;
+        }
+        this.awaitingVisibleNameRail = false;
+        this.refreshChannelNameExpansion();
     }
 
     private renderChannels(): void {
@@ -129,6 +161,7 @@ export class EPGChannelList {
         }
 
         this.applyFocusToRenderedRows();
+        this.refreshChannelNameExpansion();
     }
 
     private setupVirtualList(): void {
@@ -179,11 +212,13 @@ export class EPGChannelList {
                 this.updateChannelRow(row, channel, channelIndex);
             } else {
                 row.style.display = 'none';
+                row.removeAttribute(CHANNEL_NAME_EXPANDED_ATTRIBUTE);
                 row.dataset.channelIndex = '';
             }
         }
 
         this.applyFocusToRenderedRows();
+        this.refreshChannelNameExpansion();
     }
 
     private createChannelRow(): HTMLElement {
@@ -231,6 +266,7 @@ export class EPGChannelList {
         if (!cached) {
             return;
         }
+        row.removeAttribute(CHANNEL_NAME_EXPANDED_ATTRIBUTE);
         row.dataset.channelIndex = channelIndex.toString();
         const displayIdentity = getChannelIdentityForDisplay({
             name: channel.name,
@@ -291,6 +327,56 @@ export class EPGChannelList {
         } else {
             row.classList.remove('focused');
         }
+    }
+
+    private refreshChannelNameExpansion(): void {
+        if (!this.contentElement) return;
+
+        let shouldRetryWhenVisible = false;
+
+        for (const row of this.rowElements) {
+            if (row.style.display === 'none') {
+                row.removeAttribute(CHANNEL_NAME_EXPANDED_ATTRIBUTE);
+                continue;
+            }
+
+            const cached = this.rowContentCache.get(row);
+            if (!cached) {
+                row.removeAttribute(CHANNEL_NAME_EXPANDED_ATTRIBUTE);
+                continue;
+            }
+
+            row.removeAttribute(CHANNEL_NAME_EXPANDED_ATTRIBUTE);
+
+            const visibleWidth = cached.primaryName.clientWidth;
+            if (visibleWidth <= 0) {
+                shouldRetryWhenVisible = true;
+                continue;
+            }
+
+            const singleLineWidth = cached.primaryName.scrollWidth;
+            if (singleLineWidth > visibleWidth + CHANNEL_NAME_TRUNCATION_THRESHOLD_PX) {
+                row.setAttribute(CHANNEL_NAME_EXPANDED_ATTRIBUTE, 'true');
+            }
+        }
+
+        if (shouldRetryWhenVisible) {
+            this.scheduleChannelNameExpansionRefresh();
+        }
+    }
+
+    private scheduleChannelNameExpansionRefresh(options?: { force?: boolean }): void {
+        if (this.nameExpansionRefreshTimer) return;
+        if (this.awaitingVisibleNameRail && !options?.force) return;
+
+        if (!options?.force) {
+            this.awaitingVisibleNameRail = true;
+        }
+
+        this.nameExpansionRefreshTimer = setTimeout(() => {
+            this.nameExpansionRefreshTimer = null;
+            this.refreshChannelNameExpansion();
+        }, 0);
     }
 
     private ensureRowPool(count: number): void {

@@ -368,6 +368,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         // Render immediately on open to avoid a blank guide before first input.
         this.renderGridInternal();
         this.virtualizer.updateTemporalClasses(this.state.currentTime);
+        this.channelList.refreshChannelNameLayouts();
 
         // Auto-focus current program if available.
         if (this.config.autoScrollToNow && !shouldPreserveFocus) {
