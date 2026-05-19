@@ -105,32 +105,10 @@ export class ContentSelectionPolicy {
                 value = item.contentRating;
                 if (value === undefined) return false;
                 break;
-            case 'genre': {
-                const genres = item.genres || [];
-                if (filter.operator === 'contains') {
-                    return genres.some((g) => g.toLowerCase().includes(String(filter.value).toLowerCase()));
-                } else if (filter.operator === 'notContains') {
-                    return !genres.some((g) => g.toLowerCase().includes(String(filter.value).toLowerCase()));
-                } else if (filter.operator === 'eq') {
-                    return genres.some((g) => g.toLowerCase() === String(filter.value).toLowerCase());
-                } else if (filter.operator === 'neq') {
-                    return !genres.some((g) => g.toLowerCase() === String(filter.value).toLowerCase());
-                }
-                return false;
-            }
-            case 'director': {
-                const directors = item.directors || [];
-                if (filter.operator === 'contains') {
-                    return directors.some((d) => d.toLowerCase().includes(String(filter.value).toLowerCase()));
-                } else if (filter.operator === 'notContains') {
-                    return !directors.some((d) => d.toLowerCase().includes(String(filter.value).toLowerCase()));
-                } else if (filter.operator === 'eq') {
-                    return directors.some((d) => d.toLowerCase() === String(filter.value).toLowerCase());
-                } else if (filter.operator === 'neq') {
-                    return !directors.some((d) => d.toLowerCase() === String(filter.value).toLowerCase());
-                }
-                return false;
-            }
+            case 'genre':
+                return this._matchesListFilter(item.genres || [], filter);
+            case 'director':
+                return this._matchesListFilter(item.directors || [], filter);
             case 'watched':
                 value = item.watched;
                 if (value === undefined) return false;
@@ -166,6 +144,23 @@ export class ContentSelectionPolicy {
                 return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
             case 'notContains':
                 return !String(value).toLowerCase().includes(String(filter.value).toLowerCase());
+            default:
+                return false;
+        }
+    }
+
+    private _matchesListFilter(values: readonly string[], filter: ContentFilter): boolean {
+        const filterValue = String(filter.value).toLowerCase();
+
+        switch (filter.operator) {
+            case 'contains':
+                return values.some((value) => value.toLowerCase().includes(filterValue));
+            case 'notContains':
+                return !values.some((value) => value.toLowerCase().includes(filterValue));
+            case 'eq':
+                return values.some((value) => value.toLowerCase() === filterValue);
+            case 'neq':
+                return !values.some((value) => value.toLowerCase() === filterValue);
             default:
                 return false;
         }

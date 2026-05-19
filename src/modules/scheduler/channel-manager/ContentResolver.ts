@@ -16,6 +16,7 @@ import { PLEX_MEDIA_TYPES } from '../../plex/library/constants';
 import { ContentItemMapper } from './ContentItemMapper';
 import { ContentSelectionPolicy } from './ContentSelectionPolicy';
 import { SourceResolutionCache } from './SourceResolutionCache';
+import { isAbortLikeError } from '../../../utils/errors';
 
 
 const CONTENT_RESOLVER_CACHE_TTL_MS = 5 * 60_000;
@@ -175,7 +176,7 @@ export class ContentResolver {
                     expanded.push(this._mapper.toResolvedItem(merged, 0));
                 }
             } catch (error) {
-                if (options?.strict || isAbortLike(error, options?.signal ?? undefined)) {
+                if (options?.strict || isAbortLikeError(error, options?.signal ?? undefined)) {
                     throw error;
                 }
                 this._logger.warn('Failed to expand show item', item.ratingKey, error);
@@ -226,7 +227,6 @@ export class ContentResolver {
         source: LibraryContentSource,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
-        // Issue 5: Let errors propagate for cached fallback handling
         if (source.libraryType !== 'show') {
             const optionsWithFilter = source.libraryFilter
                 ? { ...options, filter: source.libraryFilter }
@@ -248,16 +248,13 @@ export class ContentResolver {
             });
         }
 
-        // --- TV Library "Fast Path" with Parent Decoration (Issue 2/3) ---
-
-        // 1. Fetch episodes directly (Plex type=4)
+        // Show libraries fetch playable episodes directly. Parent show metadata is fetched
+        // once per library for decoration, reusing the cached show list when available.
         const episodeItems = await this._library.getLibraryItems(source.libraryId, {
             ...options,
             filter: { ...(source.libraryFilter ?? {}), type: PLEX_MEDIA_TYPES.EPISODE },
         });
 
-        // 2. Fetch shows to get parent metadata (one request per library section)
-        // This avoids N+1 queries during expansion and provides filtering context.
         const now = Date.now();
         const cached = this._showCacheByLibraryId.get(source.libraryId);
         let shows: PlexMediaItemMinimal[] | null = null;
@@ -268,7 +265,7 @@ export class ContentResolver {
                 shows = await this._library.getLibraryItems(source.libraryId, options);
                 this._showCacheByLibraryId.set(source.libraryId, { items: shows, cachedAt: now });
             } catch (error) {
-                if (isAbortLike(error, options?.signal ?? undefined)) {
+                if (isAbortLikeError(error, options?.signal ?? undefined)) {
                     throw error;
                 }
                 if (cached) {
@@ -323,7 +320,6 @@ export class ContentResolver {
         source: CollectionContentSource,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
-        // Issue 5: Let errors propagate for cached fallback handling
         const items = await this._library.getCollectionItems(source.collectionKey, options);
         const expanded: PlexMediaItemMinimal[] = [];
 
@@ -366,7 +362,6 @@ export class ContentResolver {
         source: ShowContentSource,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
-        // Issue 5: Let errors propagate for cached fallback handling
         const items = await this._library.getShowEpisodes(source.showKey, options);
 
         let filtered = items;
@@ -386,12 +381,10 @@ export class ContentResolver {
         source: PlaylistContentSource,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
-        // Issue 5: Let errors propagate for cached fallback handling
         const items = await this._library.getPlaylistItems(source.playlistKey, options);
         return items.map((item, index) => this._mapper.toResolvedItem(item, index));
     }
 
-    // Issue 7: Use cached metadata from manual source instead of fetching from Plex
     private _resolveManualSource(
         source: ManualContentSource,
         _options?: { signal?: AbortSignal | null }
@@ -468,18 +461,4 @@ export class ContentResolver {
 
         return result;
     }
-}
-
-function isAbortLike(error: unknown, signal?: AbortSignal): boolean {
-    if (signal?.aborted) return true;
-    if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') {
-        return true;
-    }
-    if (error && typeof error === 'object' && 'name' in error) {
-        const namedError = error as { name?: unknown };
-        if (namedError.name === 'AbortError') {
-            return true;
-        }
-    }
-    return false;
 }

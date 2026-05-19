@@ -4,6 +4,7 @@ import { createPlexIdentityHeaders } from './config';
 import { AppErrorCode } from '../../../types/app-errors';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../../utils/redact';
 import { PLEX_TOKEN_HEADER } from '../shared/plexUrl';
+import { isAbortLikeError } from '../../../utils/errors';
 
 /**
  * Error class for Plex API errors.
@@ -154,15 +155,6 @@ function createNetworkError(cause?: unknown): PlexApiError {
     );
 }
 
-function isAbortError(error: unknown): error is Error {
-    return (
-        typeof error === 'object' &&
-        error !== null &&
-        'name' in error &&
-        (error as { name?: unknown }).name === 'AbortError'
-    );
-}
-
 /**
  * Fetch with retry logic and exponential backoff.
  * @param url - URL to fetch
@@ -215,7 +207,7 @@ export async function fetchWithRetry(
             handleResponseStatus(response);
             return response;
         } catch (error) {
-            if (externalSignal?.aborted && isAbortError(error)) {
+            if (externalSignal?.aborted && isAbortLikeError(error)) {
                 throw error;
             }
             if (error instanceof PlexApiError && !error.retryable) {

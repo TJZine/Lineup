@@ -10,7 +10,6 @@ import type { BurnInSubtitleRecoveryResult } from '../../player/PlaybackRecovery
 import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type {
     StreamDescriptor,
-    SubtitleExtractabilityProbeResult,
     SubtitleTrack,
 } from '../../player/types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
@@ -21,15 +20,12 @@ import {
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
 import type { ToastInput } from '../toast/types';
 import { formatAudioLabel } from '../../../utils/formatAudioLabel';
-import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
 import {
-    applyXPlexTokenQueryParamFromHeaders,
-    buildPlexUrlFromKey,
-    readXPlexTokenFromHeaders,
-    tryBuildPlexServerUrlFromKey,
-} from '../../plex/shared/plexUrl';
+    PlaybackSubtitleProbePolicy,
+    SUBTITLE_PROBE_TOTAL_TIMEOUT_MS,
+} from './PlaybackSubtitleProbePolicy';
 
-export const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
+export { SUBTITLE_PROBE_TOTAL_TIMEOUT_MS };
 
 interface PlaybackOptionsCoordinatorDeps {
     playbackOptionsModalId: string;
@@ -53,7 +49,7 @@ export class PlaybackOptionsCoordinator {
     private pendingPreferredFocusId: string | null = null;
     private registeredFocusableIds: string[] = [];
     private preferredSection: PlaybackOptionsSectionId = 'subtitles';
-    private readonly subtitleProbeCache: Map<string, 'supported' | 'unsupported'> = new Map();
+    private readonly subtitleProbePolicy = new PlaybackSubtitleProbePolicy();
     private subtitleSelectToken = 0;
 
     constructor(private readonly deps: PlaybackOptionsCoordinatorDeps) {
@@ -101,7 +97,7 @@ export class PlaybackOptionsCoordinator {
         this.pendingViewModel = null;
         this.pendingFocusableIds = [];
         this.pendingPreferredFocusId = null;
-        this.subtitleProbeCache.clear();
+        this.subtitleProbePolicy.clearCache();
     }
 
     refreshIfOpen(): void {
@@ -351,7 +347,11 @@ export class PlaybackOptionsCoordinator {
         }
 
         const selectedItemKey = this.getCurrentProgramItemKey();
-        const decision = await this.probeTextSubtitleExtractability(track);
+        const decision = await this.subtitleProbePolicy.probeTextSubtitleExtractability({
+            track,
+            context: this.deps.getCurrentStreamDescriptor?.()?.subtitleContext ?? null,
+            fallbackItemKey: selectedItemKey,
+        });
         if (token !== this.subtitleSelectToken) {
             this.refreshIfOpen();
             return false;
@@ -398,131 +398,6 @@ export class PlaybackOptionsCoordinator {
 
     private getCurrentProgramItemKey(): string | null {
         return this.deps.getCurrentProgram()?.item.ratingKey ?? null;
-    }
-
-    // Non-cryptographic hash used only for cache-key scoping. Avoid storing raw tokens in keys.
-    private hashForCacheKeyScope(value: string): string {
-        let hash = 0;
-        for (let index = 0; index < value.length; index += 1) {
-            hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
-        }
-        return (hash >>> 0).toString(16);
-    }
-
-    private classifySubtitleProbeStatus(
-        status: number,
-        methodFallbackExhausted = false
-    ): SubtitleExtractabilityProbeResult {
-        if (status === 401 || status === 403) {
-            return 'auth_failure';
-        }
-        if (status === 501 && methodFallbackExhausted) {
-            return 'unsupported';
-        }
-        if (status === 408 || status === 429 || status >= 500) {
-            return 'transient_failure';
-        }
-        return 'unsupported';
-    }
-
-    private getProbeCacheKey(
-        trackId: string,
-        context: NonNullable<StreamDescriptor['subtitleContext']>
-    ): string {
-        const itemKey = context.itemKey ?? this.getCurrentProgramItemKey() ?? 'global';
-        const serverKey = context.serverUri ?? 'unknown-server';
-        const token = readXPlexTokenFromHeaders(context.authHeaders);
-        const accountKey = token ? this.hashForCacheKeyScope(token) : 'anonymous';
-        return `${serverKey}::${accountKey}::${itemKey}::${trackId}`;
-    }
-
-    private buildSubtitleProbeUrl(track: SubtitleTrack, context: NonNullable<StreamDescriptor['subtitleContext']>): URL | null {
-        const baseUri = context.serverUri ?? null;
-        if (!baseUri) return null;
-        try {
-            let url: URL;
-            if (track.key) {
-                const isAbsoluteHttpUrl = /^https?:\/\//i.test(track.key);
-                if (isAbsoluteHttpUrl) {
-                    const normalized = tryBuildPlexServerUrlFromKey(baseUri, track.key);
-                    if (!normalized) {
-                        url = new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
-                    } else {
-                        url = normalized;
-                    }
-                } else {
-                    url = buildPlexUrlFromKey(baseUri, track.key);
-                }
-            } else {
-                url = new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
-            }
-            applyXPlexTokenQueryParamFromHeaders(url.searchParams, context.authHeaders);
-            return url;
-        } catch {
-            return null;
-        }
-    }
-
-    private async probeTextSubtitleExtractability(
-        track: SubtitleTrack
-    ): Promise<SubtitleExtractabilityProbeResult> {
-        const context = this.deps.getCurrentStreamDescriptor?.()?.subtitleContext ?? null;
-        if (!context) return 'unknown';
-        const cacheKey = this.getProbeCacheKey(track.id, context);
-        const cached = this.subtitleProbeCache.get(cacheKey);
-        if (cached) return cached;
-
-        // Fast probe only: only permanent unsupported results force burn-in for this selection.
-        // Use a minimal header set so the probe matches the normal query-token extraction path and avoids
-        // preflight-only failures caused by broader X-Plex-* header bundles.
-        const url = this.buildSubtitleProbeUrl(track, context);
-        if (!url) return 'unknown';
-
-        const startMs = Date.now();
-        try {
-            let response: Response;
-            let methodFallbackExhausted = false;
-            response = await fetchWithTimeout({
-                url: url.toString(),
-                init: {
-                    method: 'HEAD',
-                    headers: { Accept: 'text/vtt, text/plain, */*' },
-                },
-                timeoutMs: SUBTITLE_PROBE_TOTAL_TIMEOUT_MS,
-            });
-            if (!response.ok && (response.status === 405 || response.status === 501)) {
-                // Some Plex endpoints/proxies may not support HEAD reliably; fall back to GET.
-                const elapsedMs = Date.now() - startMs;
-                const remainingMs = Math.max(0, SUBTITLE_PROBE_TOTAL_TIMEOUT_MS - elapsedMs);
-                // Keep the total probe time bounded; don't double the worst-case latency.
-                const fallbackTimeoutMs = Math.max(50, remainingMs);
-
-                response = await fetchWithTimeout({
-                    url: url.toString(),
-                    init: {
-                        method: 'GET',
-                        headers: { Accept: 'text/vtt, text/plain, */*' },
-                    },
-                    timeoutMs: fallbackTimeoutMs,
-                });
-                methodFallbackExhausted = true;
-            }
-            if (response.ok) {
-                this.subtitleProbeCache.set(cacheKey, 'supported');
-                return 'supported';
-            }
-            const decision = this.classifySubtitleProbeStatus(
-                response.status,
-                methodFallbackExhausted
-            );
-            if (decision === 'unsupported') {
-                this.subtitleProbeCache.set(cacheKey, 'unsupported');
-            }
-            return decision;
-        } catch {
-            // Don't cache transient network/timeout errors; allow future attempts to succeed.
-            return 'transient_failure';
-        }
     }
 
     private handleAudioSelect(trackId: string): void {

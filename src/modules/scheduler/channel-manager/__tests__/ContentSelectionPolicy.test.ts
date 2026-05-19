@@ -54,6 +54,73 @@ describe('ContentSelectionPolicy', () => {
         expect(first.map((item) => item.scheduledIndex)).toEqual([0, 1, 2]);
     });
 
+    it('applies genre and director filters with matching list semantics', () => {
+        const items: ResolvedContentItem[] = [
+            ...createItems(),
+            {
+                ratingKey: '4',
+                type: 'movie',
+                title: 'D',
+                fullTitle: 'D',
+                durationMs: 3_000_000,
+                thumb: null,
+                year: 2024,
+                scheduledIndex: 3,
+                genres: [],
+                directors: [],
+            },
+        ];
+
+        const listFilterCases: Array<{
+            field: 'genre' | 'director';
+            value: string;
+            expectations: Record<'contains' | 'notContains' | 'eq' | 'neq', string[]>;
+        }> = [
+            {
+                field: 'genre',
+                value: 'dRaMa',
+                expectations: {
+                    contains: ['1'],
+                    notContains: ['2', '3', '4'],
+                    eq: ['1'],
+                    neq: ['2', '3', '4'],
+                },
+            },
+            {
+                field: 'director',
+                value: 'dIrEcToR a',
+                expectations: {
+                    contains: ['1'],
+                    notContains: ['2', '3', '4'],
+                    eq: ['1'],
+                    neq: ['2', '3', '4'],
+                },
+            },
+        ];
+
+        for (const { field, value, expectations } of listFilterCases) {
+            for (const [operator, expectedRatingKeys] of Object.entries(expectations)) {
+                const result = policy.applyFilters(items, [
+                    { field, operator: operator as ContentFilter['operator'], value },
+                ]);
+
+                expect(result.map((item) => item.ratingKey)).toEqual(expectedRatingKeys);
+            }
+        }
+    });
+
+    it('fails closed for unsupported list filter operators', () => {
+        const items = createItems();
+        const unsupportedListFilters = [
+            { field: 'genre', operator: 'gt', value: 'Drama' },
+            { field: 'director', operator: 'lte', value: 'Director A' },
+        ];
+
+        for (const filter of unsupportedListFilters) {
+            expect(policy.applyFilters(items, [filter as ContentFilter])).toHaveLength(0);
+        }
+    });
+
     it('fails closed for malformed runtime filters', () => {
         const items = createItems();
         const malformedFilters = [

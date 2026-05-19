@@ -26,6 +26,8 @@ export interface ServerSelectionCoordinatorDeps {
 }
 
 export class ServerSelectionCoordinator {
+    private _selectionTail: Promise<void> = Promise.resolve();
+
     constructor(private readonly _deps: ServerSelectionCoordinatorDeps) {}
 
     private _tryRestoreDiscoverySelectionSnapshot(snapshot: DiscoverySelectedServerSnapshot): void {
@@ -46,7 +48,18 @@ export class ServerSelectionCoordinator {
         }
     }
 
-    async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
+    selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
+        const selection = this._selectionTail.then(() => this._selectServerTransaction(serverId));
+        this._selectionTail = selection.then(
+            () => undefined,
+            () => undefined
+        );
+        return selection;
+    }
+
+    private async _selectServerTransaction(
+        serverId: string
+    ): Promise<OrchestratorServerSelectionResult> {
         const discoverySnapshot = this._deps.captureDiscoverySelectionSnapshot();
         const selectionResult = await this._deps.selectServer(serverId);
         if (selectionResult.kind !== 'selected') {
