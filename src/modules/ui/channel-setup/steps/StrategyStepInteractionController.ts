@@ -7,6 +7,7 @@ import type {
 import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
+    DEFAULT_STRATEGY_PRIORITIES,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
     type SetupStrategyKey,
@@ -19,6 +20,8 @@ import {
     type StrategyControlDescriptor,
     type StrategyControlValue,
 } from './StrategyStepControlDescriptors';
+
+const GUIDE_ORDER_RESET_ID = 'setup-guide-order-reset';
 
 type AdjustableControl = {
     cyclePrev: () => boolean;
@@ -45,7 +48,6 @@ type StrategyStepInteractionAdapters = {
         dir: 'left' | 'right',
         mode: 'clamp' | 'wrap'
     ) => number;
-    updatePriorityRowState: (rowId: string, enabled: boolean) => boolean;
     updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void) => void;
 };
 
@@ -54,6 +56,7 @@ export class StrategyStepInteractionController {
     private _rememberedDetailFocusByCategory: Partial<Record<StrategyCategoryKey, string>> = {};
     private _lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null = null;
     private _grabbedPriorityKey: SetupStrategyKey | null = null;
+    private _grabbedOriginalStrategyOrder: SetupStrategyKey[] | null = null;
 
     constructor(
         private readonly _deps: {
@@ -67,6 +70,7 @@ export class StrategyStepInteractionController {
         this._rememberedDetailFocusByCategory = {};
         this._lastReorder = null;
         this._grabbedPriorityKey = null;
+        this._grabbedOriginalStrategyOrder = null;
     }
 
     getActiveStrategyCategory(): StrategyCategoryKey {
@@ -131,7 +135,6 @@ export class StrategyStepInteractionController {
             | 'hasActiveDropdown'
             | 'renderStep'
             | 'setPreferredFocusId'
-            | 'updatePriorityRowState'
             | 'updateStrategyState'
         > & {
             schedulePreview: () => void;
@@ -143,20 +146,6 @@ export class StrategyStepInteractionController {
             mutate(draft);
         });
         adapters.schedulePreview();
-
-        if (focusId.startsWith('setup-priority-row-')) {
-            const strategy = this._strategyKeyFromControlId(focusId, 'setup-priority-row-');
-            if (strategy) {
-                const updatedSession = adapters.getSessionSnapshot();
-                const updated = adapters.updatePriorityRowState(
-                    this.priorityRowId(strategy),
-                    updatedSession.strategies[strategy].enabled
-                );
-                if (updated) {
-                    adapters.setPreferredFocusId(null);
-                }
-            }
-        }
 
         if (adapters.hasActiveDropdown()) {
             adapters.deferDropdownRender();
@@ -176,7 +165,6 @@ export class StrategyStepInteractionController {
             | 'openDropdown'
             | 'renderStep'
             | 'setPreferredFocusId'
-            | 'updatePriorityRowState'
             | 'updateStrategyState'
         > & {
             channelLimitOptions: number[];
@@ -243,6 +231,87 @@ export class StrategyStepInteractionController {
             }
         }
 
+        if (this._activeStrategyCategory === 'priority-order' && this._grabbedPriorityKey !== null) {
+            event.handled = true;
+            event.originalEvent.preventDefault();
+
+            if (event.button === 'ok') {
+                const strategy = this._grabbedPriorityKey;
+                const focusId = this.priorityRowId(strategy);
+                adapters.setPriorityRowGrabbedVisual(strategy, false);
+                this._grabbedPriorityKey = null;
+                this._grabbedOriginalStrategyOrder = null;
+                adapters.setPreferredFocusId(focusId);
+                this._rememberedDetailFocusByCategory['priority-order'] = focusId;
+                adapters.renderStep();
+                return;
+            }
+
+            if (event.button === 'back') {
+                const strategy = this._grabbedPriorityKey;
+                const originalOrder = this._grabbedOriginalStrategyOrder;
+                adapters.updateStrategyState((draft) => {
+                    if (originalOrder) {
+                        draft.strategyOrder = [...originalOrder];
+                    }
+                });
+                this._grabbedPriorityKey = null;
+                this._grabbedOriginalStrategyOrder = null;
+                this._lastReorder = null;
+                adapters.setPreferredFocusId(this.priorityRowId(strategy));
+                this._rememberedDetailFocusByCategory['priority-order'] = this.priorityRowId(strategy);
+                adapters.schedulePreview();
+                adapters.renderStep();
+                adapters.setPriorityRowGrabbedVisual(strategy, false);
+                return;
+            }
+
+            if (event.button === 'left' || event.button === 'right') {
+                return;
+            }
+
+            if (event.button !== 'up' && event.button !== 'down') {
+                return;
+            }
+
+            if (event.isRepeat || event.isLongPress) {
+                return;
+            }
+
+            const strategy = this._grabbedPriorityKey;
+            const activeOrder = this._getActiveStrategyOrder(session);
+            const currentIndex = activeOrder.indexOf(strategy);
+            if (currentIndex < 0) {
+                return;
+            }
+
+            const targetIndex = event.button === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= activeOrder.length) {
+                return;
+            }
+
+            const targetKey = activeOrder[targetIndex];
+            if (!targetKey) {
+                return;
+            }
+
+            adapters.updateStrategyState((draft) => {
+                const nextActiveOrder = [...activeOrder];
+                nextActiveOrder[currentIndex] = targetKey;
+                nextActiveOrder[targetIndex] = strategy;
+                draft.strategyOrder = this._mergeActiveOrder(draft.strategyOrder, draft.strategies, nextActiveOrder);
+            });
+            this._lastReorder = { key: strategy, dir: event.button === 'up' ? 'up' : 'down' };
+            const focusId = this.priorityRowId(strategy);
+            adapters.setPreferredFocusId(focusId);
+            this._rememberedDetailFocusByCategory['priority-order'] = focusId;
+            adapters.schedulePreview();
+            adapters.renderStep();
+            this._lastReorder = null;
+            adapters.setPriorityRowGrabbedVisual(strategy, true);
+            return;
+        }
+
         if (
             this._activeStrategyCategory === 'priority-order'
             && focusedId.startsWith('setup-priority-row-')
@@ -254,67 +323,13 @@ export class StrategyStepInteractionController {
             if (!strategy) {
                 return;
             }
-
-            if (this._grabbedPriorityKey === strategy) {
-                adapters.setPriorityRowGrabbedVisual(strategy, false);
-                this._grabbedPriorityKey = null;
-            } else {
-                if (this._grabbedPriorityKey) {
-                    adapters.setPriorityRowGrabbedVisual(this._grabbedPriorityKey, false);
-                }
-                this._grabbedPriorityKey = strategy;
-                adapters.setPriorityRowGrabbedVisual(strategy, true);
-            }
-            return;
-        }
-
-        if (
-            this._activeStrategyCategory === 'priority-order'
-            && focusedId.startsWith('setup-priority-row-')
-            && this._grabbedPriorityKey !== null
-            && (event.button === 'up' || event.button === 'down')
-        ) {
-            if (event.isRepeat || event.isLongPress) {
-                event.handled = true;
-                event.originalEvent.preventDefault();
+            const activeOrder = this._getActiveStrategyOrder(session);
+            if (!activeOrder.includes(strategy) || activeOrder.length < 2) {
                 return;
             }
 
-            const strategy = this._grabbedPriorityKey;
-            const currentIndex = session.strategyOrder.indexOf(strategy);
-            if (currentIndex < 0) {
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                return;
-            }
-
-            const targetIndex = event.button === 'up' ? currentIndex - 1 : currentIndex + 1;
-            if (targetIndex < 0 || targetIndex >= session.strategyOrder.length) {
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                return;
-            }
-
-            const targetKey = session.strategyOrder[targetIndex];
-            if (!targetKey) {
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                return;
-            }
-
-            event.handled = true;
-            event.originalEvent.preventDefault();
-            adapters.updateStrategyState((draft) => {
-                draft.strategyOrder[currentIndex] = targetKey;
-                draft.strategyOrder[targetIndex] = strategy;
-            });
-            this._lastReorder = { key: strategy, dir: event.button === 'up' ? 'up' : 'down' };
-            const focusId = this.priorityRowId(strategy);
-            adapters.setPreferredFocusId(focusId);
-            this._rememberedDetailFocusByCategory['priority-order'] = focusId;
-            adapters.schedulePreview();
-            adapters.renderStep();
-            this._lastReorder = null;
+            this._grabbedPriorityKey = strategy;
+            this._grabbedOriginalStrategyOrder = [...session.strategyOrder];
             adapters.setPriorityRowGrabbedVisual(strategy, true);
             return;
         }
@@ -365,6 +380,33 @@ export class StrategyStepInteractionController {
         }
     }
 
+    resetGuideOrder(
+        _focusId: string,
+        adapters: Pick<
+            StrategyStepInteractionAdapters,
+            'getSessionSnapshot' | 'renderStep' | 'setPreferredFocusId' | 'updateStrategyState'
+        > & {
+            schedulePreview: () => void;
+        }
+    ): void {
+        const session = adapters.getSessionSnapshot();
+        const activeOrder = this._getActiveStrategyOrder(session);
+        if (activeOrder.length < 2 || !this._canResetActiveOrder(activeOrder)) {
+            return;
+        }
+        const defaultActiveOrder = this._sortByDefaultPriority(activeOrder);
+        const preferredStrategy = defaultActiveOrder[0];
+        if (!preferredStrategy) {
+            return;
+        }
+        adapters.setPreferredFocusId(this.priorityRowId(preferredStrategy));
+        adapters.updateStrategyState((draft) => {
+            draft.strategyOrder = this._mergeActiveOrder(draft.strategyOrder, draft.strategies, defaultActiveOrder);
+        });
+        adapters.schedulePreview();
+        adapters.renderStep();
+    }
+
     registerStep2Focusables(
         categoryButtons: HTMLButtonElement[],
         detailButtons: HTMLButtonElement[],
@@ -373,7 +415,11 @@ export class StrategyStepInteractionController {
         adapters: Pick<
             StrategyStepInteractionAdapters,
             'getPreferredFocusId' | 'getSessionSnapshot' | 'registerStep2' | 'setPreferredFocusId'
-        >
+        >,
+        options: {
+            onFocus?: (id: string) => void;
+            onDetailFocus?: (id: string) => void;
+        } = {}
     ): void {
         const activeCategoryButtonId = this.categoryButtonId(this._activeStrategyCategory);
         const detailIds = detailButtons.filter((button) => !button.disabled).map((button) => button.id);
@@ -382,7 +428,7 @@ export class StrategyStepInteractionController {
             detailIds,
             adapters.getSessionSnapshot()
         );
-        const preferredApplied = adapters.registerStep2({
+        const registerOptions: RegisterStep2FocusOptions = {
             categoryButtons,
             detailButtons,
             footerButtons: [backButton, nextButton],
@@ -391,8 +437,13 @@ export class StrategyStepInteractionController {
             preferredFocusId: adapters.getPreferredFocusId(),
             onDetailFocus: (id) => {
                 this._rememberActiveDetailFocus(id, adapters.getSessionSnapshot());
+                options.onDetailFocus?.(id);
             },
-        });
+        };
+        if (options.onFocus) {
+            registerOptions.onFocus = options.onFocus;
+        }
+        const preferredApplied = adapters.registerStep2(registerOptions);
         if (preferredApplied) {
             adapters.setPreferredFocusId(null);
         }
@@ -406,6 +457,7 @@ export class StrategyStepInteractionController {
         }
         setPriorityRowGrabbedVisual(this._grabbedPriorityKey, false);
         this._grabbedPriorityKey = null;
+        this._grabbedOriginalStrategyOrder = null;
     }
 
     private _buildDropdownConfig(
@@ -418,7 +470,6 @@ export class StrategyStepInteractionController {
             | 'openDropdown'
             | 'renderStep'
             | 'setPreferredFocusId'
-            | 'updatePriorityRowState'
             | 'updateStrategyState'
         > & {
             channelLimitOptions: number[];
@@ -458,7 +509,6 @@ export class StrategyStepInteractionController {
             | 'renderStep'
             | 'setPreferredFocusId'
             | 'stepPreset'
-            | 'updatePriorityRowState'
             | 'updateStrategyState'
         > & {
             channelLimitOptions: number[];
@@ -497,7 +547,6 @@ export class StrategyStepInteractionController {
             | 'renderStep'
             | 'setPreferredFocusId'
             | 'stepPreset'
-            | 'updatePriorityRowState'
             | 'updateStrategyState'
         > & {
             channelLimitOptions: number[];
@@ -576,7 +625,10 @@ export class StrategyStepInteractionController {
             ];
         }
         if (category === 'priority-order') {
-            return session.strategyOrder.map((key) => this.priorityRowId(key));
+            return [
+                GUIDE_ORDER_RESET_ID,
+                ...this._getActiveStrategyOrder(session).map((key) => this.priorityRowId(key)),
+            ];
         }
         return [STEP2_CONTROL_IDS.maxChannels, STEP2_CONTROL_IDS.minItems, STEP2_CONTROL_IDS.expandLineup];
     }
@@ -593,6 +645,9 @@ export class StrategyStepInteractionController {
         if (enabledIds.length === 0) {
             return null;
         }
+        if (category === 'priority-order' && enabledIds.includes(GUIDE_ORDER_RESET_ID)) {
+            return GUIDE_ORDER_RESET_ID;
+        }
         const remembered = this._rememberedDetailFocusByCategory[category];
         if (remembered && enabledIds.includes(remembered)) {
             return remembered;
@@ -601,15 +656,57 @@ export class StrategyStepInteractionController {
     }
 
     private _isDetailControlEnabled(
-        _category: StrategyCategoryKey,
+        category: StrategyCategoryKey,
         controlId: string,
         session: ChannelSetupSessionSnapshot
     ): boolean {
+        if (category === 'priority-order') {
+            const activeOrder = this._getActiveStrategyOrder(session);
+            if (controlId === GUIDE_ORDER_RESET_ID) {
+                return this._canResetActiveOrder(activeOrder);
+            }
+            if (controlId.startsWith('setup-priority-row-')) {
+                const strategy = this._strategyKeyFromControlId(controlId, 'setup-priority-row-');
+                return strategy !== null && activeOrder.length >= 2 && activeOrder.includes(strategy);
+            }
+        }
+
         const descriptor = this._getControlDescriptor(controlId);
         if (descriptor) {
             return !this._isDescriptorDisabled(descriptor, session);
         }
         return true;
+    }
+
+    private _getActiveStrategyOrder(session: Pick<ChannelSetupSessionSnapshot, 'strategies' | 'strategyOrder'>): SetupStrategyKey[] {
+        return session.strategyOrder.filter((key) => session.strategies[key]?.enabled);
+    }
+
+    private _mergeActiveOrder(
+        fullOrder: SetupStrategyKey[],
+        strategies: ChannelSetupSessionSnapshot['strategies'],
+        activeOrder: SetupStrategyKey[]
+    ): SetupStrategyKey[] {
+        const remainingActive = [...activeOrder];
+        return fullOrder.map((key) => {
+            if (!strategies[key]?.enabled) {
+                return key;
+            }
+            return remainingActive.shift() ?? key;
+        });
+    }
+
+    private _canResetActiveOrder(activeOrder: SetupStrategyKey[]): boolean {
+        const defaultOrder = this._sortByDefaultPriority(activeOrder);
+        return activeOrder.some((key, index) => key !== defaultOrder[index]);
+    }
+
+    private _sortByDefaultPriority(keys: SetupStrategyKey[]): SetupStrategyKey[] {
+        return [...keys].sort((a, b) => {
+            const diff = DEFAULT_STRATEGY_PRIORITIES[a] - DEFAULT_STRATEGY_PRIORITIES[b];
+            if (diff !== 0) return diff;
+            return a < b ? -1 : a > b ? 1 : 0;
+        });
     }
 
     private _strategyKeyFromControlId(controlId: string, prefix: string): SetupStrategyKey | null {

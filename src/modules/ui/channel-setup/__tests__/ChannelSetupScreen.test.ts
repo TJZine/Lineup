@@ -488,7 +488,7 @@ describe('ChannelSetupScreen', () => {
             'Build Options',
             'Series Ordering',
             'Limits',
-            'Priority Order',
+            'Guide Order',
         ]);
     });
 
@@ -1772,7 +1772,7 @@ describe('ChannelSetupScreen', () => {
         expect(container.querySelector('#setup-scope-decades')).toBeNull();
     });
 
-    it('updates priority row enabled state when toggled from the priority list', async () => {
+    it('renders guide-order rows without enablement toggle state', async () => {
         const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1790,18 +1790,21 @@ describe('ChannelSetupScreen', () => {
         const before = container.querySelector(rowId) as HTMLButtonElement | null;
         expect(before).not.toBeNull();
         const beforeLabel = before?.getAttribute('aria-label');
-        expect(beforeLabel).toContain(', On');
-        expect(before?.classList.contains('selected')).toBe(true);
+        expect(beforeLabel).toBe('Guide order 1: Playlists');
+        expect(before?.getAttribute('aria-pressed')).toBeNull();
+        expect(before?.classList.contains('selected')).toBe(false);
+        expect(before?.querySelector('.setup-priority-hint')?.textContent).toBe('↕');
 
         clickButton(container, rowId);
 
         const after = container.querySelector(rowId) as HTMLButtonElement | null;
         const afterLabel = after?.getAttribute('aria-label');
-        expect(afterLabel).toContain(', Off');
+        expect(afterLabel).toBe(beforeLabel);
+        expect(after?.getAttribute('aria-pressed')).toBeNull();
         expect(after?.classList.contains('selected')).toBe(false);
     });
 
-    it('refreshes category activity dots after priority-row toggles', async () => {
+    it('shows only active strategies in Guide Order after source toggles', async () => {
         const container = createBodyAppendedTestContainer();
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -1813,18 +1816,19 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
         await enterStep2(container);
 
+        clickButton(container, '#setup-strategy-collections');
+        clickButton(container, '#setup-strategy-playlists');
+        clickButton(container, '#setup-strategy-recentlyAdded');
         clickButton(container, '#setup-category-priority-order');
 
-        expect(container.querySelector('#setup-category-content-sources .setup-category-dot')).not.toBeNull();
-
-        clickButton(container, '#setup-priority-row-collections');
-        clickButton(container, '#setup-priority-row-playlists');
-        clickButton(container, '#setup-priority-row-recentlyAdded');
-
+        expect(container.querySelector('#setup-priority-row-collections')).toBeNull();
+        expect(container.querySelector('#setup-priority-row-playlists')).toBeNull();
+        expect(container.querySelector('#setup-priority-row-recentlyAdded')).toBeNull();
+        expect(container.querySelector('#setup-priority-row-genres')).not.toBeNull();
         expect(container.querySelector('#setup-category-content-sources .setup-category-dot')).toBeNull();
     });
 
-    it('drops grabbed priority state when moving left back to the category rail', async () => {
+    it('keeps grabbed guide-order focus trapped on left/right until placed or canceled', async () => {
         const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
@@ -1856,16 +1860,18 @@ describe('ChannelSetupScreen', () => {
             (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
                 'setup-priority-row--grabbed'
             )
-        ).toBe(false);
+        ).toBe(true);
 
         nav.setMockFocus('setup-category-priority-order');
+        nav.setFocus.mockClear();
         const right = nav.emitKeyPress('right');
         expect(right.handled).toBe(true);
         expect(right.originalEvent.preventDefault).toHaveBeenCalled();
+        expect(nav.setFocus).not.toHaveBeenCalled();
 
         nav.setMockFocus('setup-priority-row-playlists');
         const moveWithoutGrab = nav.emitKeyPress('down');
-        expect(moveWithoutGrab.handled).toBeFalsy();
+        expect(moveWithoutGrab.handled).toBe(true);
     });
 
     it('does not snap focus back to a stale priority row during preview rerenders', async () => {

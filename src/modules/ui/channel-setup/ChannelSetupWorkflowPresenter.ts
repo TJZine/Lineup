@@ -97,6 +97,7 @@ export class ChannelSetupWorkflowPresenter {
             strategyButtonId: (strategy) => this._strategyInteraction.strategyButtonId(strategy),
             priorityRowId: (strategy) => this._strategyInteraction.priorityRowId(strategy),
             lastReorder: this._strategyInteraction.getLastReorder(),
+            grabbedPriorityKey: this._strategyInteraction.getGrabbedPriorityKey(),
             scopeButtonId: (strategy) => this._strategyInteraction.scopeButtonId(strategy),
             strategySupportsMixedScope,
             buildPreviewRow: (label, value, key) =>
@@ -109,6 +110,9 @@ export class ChannelSetupWorkflowPresenter {
             },
             applySettingChange: (focusId, mutate) => {
                 this._strategyInteraction.applySettingChange(focusId, mutate, strategyInteraction);
+            },
+            resetGuideOrder: (focusId) => {
+                this._strategyInteraction.resetGuideOrder(focusId, strategyInteraction);
             },
             openAdjustableControl: (controlId) => {
                 this._strategyInteraction.openAdjustableControl(controlId, strategyInteraction);
@@ -127,13 +131,14 @@ export class ChannelSetupWorkflowPresenter {
                 this._deps.session.setStep(3);
                 this._deps.renderStep();
             },
-            registerStep2Focusables: (categoryButtons, detailButtons, backButton, nextButton) => {
+            registerStep2Focusables: (categoryButtons, detailButtons, backButton, nextButton, options) => {
                 this._strategyInteraction.registerStep2Focusables(
                     categoryButtons,
                     detailButtons,
                     backButton,
                     nextButton,
-                    strategyInteraction
+                    strategyInteraction,
+                    options
                 );
             },
             detailText: session.strategies.genres.enabled || session.strategies.directors.enabled
@@ -234,8 +239,6 @@ export class ChannelSetupWorkflowPresenter {
                 dir: 'left' | 'right',
                 mode: 'clamp' | 'wrap'
             ): number => stepPreset(options, current, dir, mode),
-            updatePriorityRowState: (rowId: string, enabled: boolean): boolean =>
-                this._strategyStep.updatePriorityRowState(this._deps.contentEl, rowId, enabled) !== null,
             updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void): void => {
                 this._deps.session.updateStrategyState(mutate);
             },

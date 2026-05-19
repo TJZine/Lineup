@@ -86,6 +86,7 @@ export class ChannelSetupFocusCoordinator {
             activeCategoryId,
             detailFocusTarget,
             preferredFocusId,
+            onFocus,
             onDetailFocus,
         } = options;
 
@@ -122,6 +123,7 @@ export class ChannelSetupFocusCoordinator {
                 neighbors,
                 onFocus: () => {
                     scrollToNearest(button);
+                    onFocus?.(button.id);
                     if (isDetailButton) {
                         onDetailFocus(button.id);
                     }
