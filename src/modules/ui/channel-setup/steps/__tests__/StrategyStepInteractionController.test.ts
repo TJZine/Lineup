@@ -647,6 +647,33 @@ describe('StrategyStepInteractionController', () => {
         expect(boundaryEvent.handled).toBe(true);
     });
 
+    it('parses Guide Order row ids through the configured DOM id encoder', () => {
+        const controller = new StrategyStepInteractionController({
+            strategySupportsMixedScope: (): boolean => false,
+            toDomId: (raw): string => raw.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`),
+        });
+        controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
+            renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
+            setPreferredFocusId: jest.fn(),
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+        const adapters = createAdapters(createSnapshot(), {
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+        const event = createEvent('ok');
+
+        controller.handleKeyPress(
+            event,
+            createNav('setup-priority-row-recently-added') as never,
+            adapters
+        );
+
+        expect(event.handled).toBe(true);
+        expect(adapters.setPriorityRowGrabbedVisual).toHaveBeenCalledWith('recentlyAdded', true);
+        expect(controller.getGrabbedPriorityKey()).toBe('recentlyAdded');
+    });
+
     it('Back cancels a grabbed guide-order move and restores the pre-grab order', () => {
         const controller = createController();
         controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {

@@ -8,6 +8,7 @@ import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
     DEFAULT_STRATEGY_PRIORITIES,
+    SETUP_STRATEGY_KEYS,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
     type SetupStrategyKey,
@@ -97,15 +98,15 @@ export class StrategyStepInteractionController {
     }
 
     strategyButtonId(strategy: SetupStrategyKey): string {
-        return `setup-strategy-${this._deps.toDomId(String(strategy))}`;
+        return `setup-strategy-${this._strategyDomId(strategy)}`;
     }
 
     priorityRowId(strategy: SetupStrategyKey): string {
-        return `setup-priority-row-${this._deps.toDomId(String(strategy))}`;
+        return `setup-priority-row-${this._strategyDomId(strategy)}`;
     }
 
     scopeButtonId(strategy: SetupStrategyKey): string {
-        return `setup-scope-${this._deps.toDomId(String(strategy))}`;
+        return `setup-scope-${this._strategyDomId(strategy)}`;
     }
 
     applyCategoryChange(
@@ -710,14 +711,13 @@ export class StrategyStepInteractionController {
     }
 
     private _strategyKeyFromControlId(controlId: string, prefix: string): SetupStrategyKey | null {
-        if (!controlId.startsWith(prefix)) {
-            return null;
-        }
-        const raw = controlId.slice(prefix.length).toLowerCase();
-        const match = [...CONTENT_STRATEGY_KEYS, ...ADVANCED_STRATEGY_KEYS].find(
-            (strategy) => strategy.toLowerCase() === raw
-        );
-        return match ?? null;
+        if (!controlId.startsWith(prefix)) return null;
+        const suffix = controlId.slice(prefix.length);
+        return SETUP_STRATEGY_KEYS.find((strategy) => this._strategyDomId(strategy) === suffix) ?? null;
+    }
+
+    private _strategyDomId(strategy: SetupStrategyKey): string {
+        return this._deps.toDomId(String(strategy));
     }
 
     private _rememberActiveDetailFocus(
