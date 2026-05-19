@@ -117,7 +117,6 @@ export class ChannelSetupBuildStepPresenter {
                 deps.session.toggleReplaceConfirm();
                 deps.renderStep();
             },
-            buildPreviewRow: (label, value, key) => this.buildPreviewRow(deps.session.getSnapshot(), label, value, key),
             renderCappedWarnings: (warnings, container) => this.renderCappedPreviewWarnings(warnings, container),
             registerLinearFocusables: (buttons) => {
                 const preferredApplied = deps.focus.registerLinear(buttons, deps.getPreferredFocusId());

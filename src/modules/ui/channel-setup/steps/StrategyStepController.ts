@@ -646,5 +646,6 @@ export class StrategyStepController {
 
         ctx.detailEl.textContent = deps.detailText;
         deps.schedulePreview();
+        deps.preloadReview();
     }
 }

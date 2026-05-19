@@ -29,11 +29,6 @@ const createDeps = (overrides: Partial<BuildReviewDeps> = {}): BuildReviewDeps =
     onBackToStrategy: jest.fn(),
     onConfirmBuild: jest.fn(),
     onToggleReplaceConfirm: jest.fn(),
-    buildPreviewRow: jest.fn((label: string, value: number | string) => {
-        const row = document.createElement('div');
-        row.textContent = `${label}: ${value}`;
-        return row;
-    }),
     renderCappedWarnings: jest.fn(),
     registerLinearFocusables: jest.fn(),
     ...overrides,
@@ -152,7 +147,12 @@ describe('BuildReviewStepController', () => {
 
         controller.render(ctx, deps);
 
-        (ctx.contentEl.querySelector('#setup-replace-confirm') as HTMLButtonElement).click();
+        const replaceConfirm = ctx.contentEl.querySelector('#setup-replace-confirm') as HTMLButtonElement;
+        expect(replaceConfirm.classList.contains('setup-replace-confirm')).toBe(true);
+        expect(replaceConfirm.getAttribute('aria-pressed')).toBe('true');
+        expect(replaceConfirm.querySelector('.setup-replace-confirm-state')?.textContent).toBe('Confirmed');
+
+        replaceConfirm.click();
         (ctx.contentEl.querySelector('#setup-confirm') as HTMLButtonElement).click();
 
         expect(deps.onToggleReplaceConfirm).toHaveBeenCalledWith('setup-replace-confirm');
@@ -202,5 +202,100 @@ describe('BuildReviewStepController', () => {
         expect(ctx.contentEl.querySelector('.setup-preview-error')?.textContent).toContain('Review timed out');
         expect((ctx.contentEl.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
         expect(ctx.contentEl.querySelector('#setup-replace-confirm')).not.toBeNull();
+    });
+
+    it('renders impact totals, summary chips, and sorted non-total category chips', () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const deps = createDeps({
+            state: {
+                buildMode: 'replace',
+                review: {
+                    preview: {
+                        estimates: {
+                            total: 18,
+                            collections: 4,
+                            playlists: 0,
+                            genres: 9,
+                            directors: 0,
+                            decades: 2,
+                            recentlyAdded: 3,
+                            studios: 0,
+                            actors: 0,
+                        },
+                        warnings: [],
+                        reachedMaxChannels: false,
+                    },
+                    diff: {
+                        summary: { created: 7, removed: 5, unchanged: 10 },
+                        samples: { created: ['News'], removed: ['Sports'], unchanged: ['Kids'] },
+                    },
+                },
+                reviewError: null,
+                isReviewLoading: false,
+                replaceConfirm: true,
+                isBuilding: false,
+                recordApplied: true,
+            },
+        });
+        const controller = new BuildReviewStepController();
+
+        controller.render(ctx, deps);
+
+        const counts = Array.from(ctx.contentEl.querySelectorAll('.setup-impact-count')).map((el) => el.textContent);
+        expect(counts).toEqual(['15', '17']);
+        expect(ctx.contentEl.querySelector('.setup-impact-bar')?.getAttribute('aria-label'))
+            .toBe('10 channels staying, 5 leaving, 7 new');
+        expect(Array.from(ctx.contentEl.querySelectorAll('.setup-impact-chip')).map((el) => el.textContent))
+            .toEqual(['10 stay', '5 leave', '7 new']);
+        expect(Array.from(ctx.contentEl.querySelectorAll('.setup-impact-category')).map((el) => el.textContent))
+            .toEqual(['Genres · 9', 'Collections · 4', 'Recently Added · 3', 'Decades · 2']);
+        expect(ctx.contentEl.textContent).not.toContain('Sample creates');
+        expect(ctx.contentEl.textContent).not.toContain('18');
+    });
+
+    it('omits zero-valued leave impact for append builds', () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const deps = createDeps({
+            state: {
+                buildMode: 'append',
+                review: {
+                    preview: {
+                        estimates: {
+                            total: 6,
+                            collections: 0,
+                            playlists: 0,
+                            genres: 6,
+                            directors: 0,
+                            decades: 0,
+                            recentlyAdded: 0,
+                            studios: 0,
+                            actors: 0,
+                        },
+                        warnings: [],
+                        reachedMaxChannels: false,
+                    },
+                    diff: {
+                        summary: { created: 6, removed: 0, unchanged: 12 },
+                        samples: { created: ['News'], removed: [], unchanged: ['Kids'] },
+                    },
+                },
+                reviewError: null,
+                isReviewLoading: false,
+                replaceConfirm: false,
+                isBuilding: false,
+                recordApplied: true,
+            },
+        });
+        const controller = new BuildReviewStepController();
+
+        controller.render(ctx, deps);
+
+        expect(ctx.contentEl.querySelector('.setup-impact-leave')).toBeNull();
+        expect(ctx.contentEl.querySelector('.setup-impact-leave-chip')).toBeNull();
+        expect(Array.from(ctx.contentEl.querySelectorAll('.setup-impact-chip')).map((el) => el.textContent))
+            .toEqual(['12 stay', '6 new']);
+        expect((ctx.contentEl.querySelector('#setup-confirm') as HTMLButtonElement).textContent).toBe('Confirm & Build');
     });
 });

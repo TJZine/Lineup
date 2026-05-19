@@ -78,6 +78,7 @@ export interface StrategyStepDeps {
     ) => void;
     detailText: string;
     schedulePreview: () => void;
+    preloadReview: () => void;
 }
 
 export interface StrategyStepDropdownConfig {
@@ -102,7 +103,6 @@ export interface BuildReviewDeps {
     onBackToStrategy: () => void;
     onConfirmBuild: () => void;
     onToggleReplaceConfirm: (focusId: string) => void;
-    buildPreviewRow: (label: string, value: number | string, key?: EstimateKey) => HTMLElement;
     renderCappedWarnings: (warnings: string[], container: HTMLElement) => void;
     registerLinearFocusables: (buttons: HTMLElement[]) => void;
 }

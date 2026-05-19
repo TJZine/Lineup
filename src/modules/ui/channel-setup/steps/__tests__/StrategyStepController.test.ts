@@ -92,6 +92,7 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
     registerStep2Focusables: jest.fn(),
     detailText: 'Detail text',
     schedulePreview: jest.fn(),
+    preloadReview: jest.fn(),
     ...overrides,
 });
 
