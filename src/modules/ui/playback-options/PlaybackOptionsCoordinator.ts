@@ -51,6 +51,7 @@ export class PlaybackOptionsCoordinator {
     private preferredSection: PlaybackOptionsSectionId = 'subtitles';
     private readonly subtitleProbePolicy = new PlaybackSubtitleProbePolicy();
     private subtitleSelectToken = 0;
+    private lifecycleToken = 0;
 
     constructor(private readonly deps: PlaybackOptionsCoordinatorDeps) {
         this.subtitlePreferencesStore = deps.subtitlePreferencesStore ?? new SubtitlePreferencesStore();
@@ -93,6 +94,8 @@ export class PlaybackOptionsCoordinator {
     }
 
     dispose(): void {
+        this.lifecycleToken += 1;
+        this.subtitleSelectToken += 1;
         this.unregisterFocusables();
         this.pendingViewModel = null;
         this.pendingFocusableIds = [];
@@ -286,11 +289,14 @@ export class PlaybackOptionsCoordinator {
     }
 
     private handleSubtitleSelect(trackId: string | null): void {
-        const token = ++this.subtitleSelectToken;
-        void this.handleSubtitleSelectAsync(trackId, token);
+        const selectionState = this.beginSubtitleSelection();
+        void this.handleSubtitleSelectAsync(trackId, selectionState);
     }
 
-    private async handleSubtitleSelectAsync(trackId: string | null, token: number): Promise<void> {
+    private async handleSubtitleSelectAsync(
+        trackId: string | null,
+        selectionState: SubtitleSelectionState
+    ): Promise<void> {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
         if (trackId) {
@@ -305,10 +311,20 @@ export class PlaybackOptionsCoordinator {
             : null;
 
         if (trackId && track) {
-            const shouldContinue = await this.maybeHandleBurnInSubtitleSelection(trackId, track, token, player);
+            const shouldContinue = await this.maybeHandleBurnInSubtitleSelection(
+                trackId,
+                track,
+                selectionState,
+                player
+            );
             if (!shouldContinue) {
                 return;
             }
+        }
+
+        if (!this.isSubtitleSelectionStateCurrent(selectionState)) {
+            this.handleStaleSubtitleSelection(selectionState);
+            return;
         }
 
         player.setSubtitleTrack(trackId).catch(() => {
@@ -321,7 +337,7 @@ export class PlaybackOptionsCoordinator {
     private async maybeHandleBurnInSubtitleSelection(
         trackId: string,
         track: SubtitleTrack,
-        token: number,
+        selectionState: SubtitleSelectionState,
         player: IVideoPlayer
     ): Promise<boolean> {
         const mode = this.subtitlePreferencesStore.readSubtitleModeAndClean('full');
@@ -332,7 +348,11 @@ export class PlaybackOptionsCoordinator {
 
         // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
         if (this.isBurnInTrack(track)) {
-            this.requestBurnInSubtitle(track.id, 'user_selected_burn_in_format');
+            this.requestBurnInSubtitle(
+                track.id,
+                'user_selected_burn_in_format',
+                selectionState
+            );
             this.refreshAndCloseModal();
             return false;
         }
@@ -352,8 +372,8 @@ export class PlaybackOptionsCoordinator {
             context: this.deps.getCurrentStreamDescriptor?.()?.subtitleContext ?? null,
             fallbackItemKey: selectedItemKey,
         });
-        if (token !== this.subtitleSelectToken) {
-            this.refreshIfOpen();
+        if (!this.isSubtitleSelectionStateCurrent(selectionState)) {
+            this.handleStaleSubtitleSelection(selectionState);
             return false;
         }
 
@@ -366,7 +386,11 @@ export class PlaybackOptionsCoordinator {
         }
 
         if (decision === 'unsupported') {
-            this.requestBurnInSubtitle(currentTrack.id, 'user_selected_text_extract_probe_unsupported');
+            this.requestBurnInSubtitle(
+                currentTrack.id,
+                'user_selected_text_extract_probe_unsupported',
+                selectionState
+            );
             this.refreshAndCloseModal();
             return false;
         }
@@ -374,26 +398,61 @@ export class PlaybackOptionsCoordinator {
         return true;
     }
 
-    private requestBurnInSubtitle(trackId: string, reason: string): void {
+    private requestBurnInSubtitle(
+        trackId: string,
+        reason: string,
+        selectionState: SubtitleSelectionState
+    ): void {
         const request = this.deps.requestBurnInSubtitle;
         if (!request) {
-            this.deps.notifyToast?.({ message: 'Burn-in subtitles unavailable', type: 'warning' });
+            if (this.isSubtitleSelectionStateCurrent(selectionState)) {
+                this.deps.notifyToast?.({ message: 'Burn-in subtitles unavailable', type: 'warning' });
+            }
             return;
         }
-        this.deps.notifyToast?.({ message: 'Loading burn-in subtitles…', type: 'info' });
+        if (this.isSubtitleSelectionStateCurrent(selectionState)) {
+            this.deps.notifyToast?.({ message: 'Loading burn-in subtitles…', type: 'info' });
+        }
         try {
             void Promise.resolve(request(trackId, reason))
                 .then((result) => {
+                    if (!this.isSubtitleSelectionStateCurrent(selectionState)) {
+                        return;
+                    }
                     if (result.outcome === 'failed') {
                         this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
                     }
                 })
                 .catch(() => {
-                    this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
+                    if (this.isSubtitleSelectionStateCurrent(selectionState)) {
+                        this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
+                    }
                 });
         } catch {
-            this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
+            if (this.isSubtitleSelectionStateCurrent(selectionState)) {
+                this.deps.notifyToast?.({ message: 'Failed to load burn-in subtitles', type: 'warning' });
+            }
         }
+    }
+
+    private beginSubtitleSelection(): SubtitleSelectionState {
+        this.subtitleSelectToken += 1;
+        return {
+            selectionToken: this.subtitleSelectToken,
+            lifecycleToken: this.lifecycleToken,
+        };
+    }
+
+    private isSubtitleSelectionStateCurrent(selectionState: SubtitleSelectionState): boolean {
+        return selectionState.lifecycleToken === this.lifecycleToken
+            && selectionState.selectionToken === this.subtitleSelectToken;
+    }
+
+    private handleStaleSubtitleSelection(selectionState: SubtitleSelectionState): void {
+        if (selectionState.lifecycleToken !== this.lifecycleToken) {
+            return;
+        }
+        this.refreshIfOpen();
     }
 
     private getCurrentProgramItemKey(): string | null {
@@ -426,4 +485,9 @@ export class PlaybackOptionsCoordinator {
         const format = (track.format || track.codec || '').toLowerCase();
         return BURN_IN_SUBTITLE_FORMATS.includes(format);
     }
+}
+
+interface SubtitleSelectionState {
+    selectionToken: number;
+    lifecycleToken: number;
 }
