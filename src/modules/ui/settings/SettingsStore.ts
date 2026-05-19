@@ -29,7 +29,6 @@ export type ToggleSettingId =
     | 'debugLogging'
     | 'subtitleDebugLogging'
     | 'subtitlePreferForced'
-    | 'guideCategoryColors'
     | 'epgLibraryTabsEnabled'
     | 'epgNowWatchingEnabled'
     | 'epgAggressivePreloadEnabled'
@@ -47,7 +46,6 @@ const TOGGLE_DEFAULT_BY_ID: Record<ToggleSettingId, boolean> = {
     debugLogging: DEFAULT_SETTINGS.developer.debugLogging,
     subtitleDebugLogging: DEFAULT_SETTINGS.developer.subtitleDebugLogging,
     subtitlePreferForced: DEFAULT_SETTINGS.subtitles.preferForced,
-    guideCategoryColors: true,
     epgLibraryTabsEnabled: true,
     epgNowWatchingEnabled: true,
     epgAggressivePreloadEnabled: false,
@@ -119,10 +117,6 @@ export class SettingsStore {
                 return this._subtitlePreferencesStore.readSubtitlePreferForcedAndClean(
                     TOGGLE_DEFAULT_BY_ID.subtitlePreferForced
                 );
-            case 'guideCategoryColors':
-                return this._epgPreferencesStore.readGuideCategoryColorsEnabledAndClean(
-                    TOGGLE_DEFAULT_BY_ID.guideCategoryColors
-                );
             case 'epgLibraryTabsEnabled':
                 return this._epgPreferencesStore.readLibraryTabsEnabledAndClean(TOGGLE_DEFAULT_BY_ID.epgLibraryTabsEnabled);
             case 'epgNowWatchingEnabled':
@@ -178,9 +172,6 @@ export class SettingsStore {
                 return;
             case 'subtitlePreferForced':
                 this._subtitlePreferencesStore.writeSubtitlePreferForced(value);
-                return;
-            case 'guideCategoryColors':
-                this._epgPreferencesStore.writeGuideCategoryColorsEnabled(value);
                 return;
             case 'epgLibraryTabsEnabled':
                 this._epgPreferencesStore.writeLibraryTabsEnabled(value);

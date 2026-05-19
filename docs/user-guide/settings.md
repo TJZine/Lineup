@@ -44,7 +44,6 @@ Visual customization for the UI and EPG.
 
 | Setting | Description |
 |---------|-------------|
-| **Category Colors** | Show colored left border for auto-setup channel types in the EPG |
 | **Library Tabs** | Filter the guide by source library |
 | **Now Watching Banner** | Show current channel/program above the guide |
 | **Aggressive Guide Preload** | Uses more memory to reduce loading in very large guides (Experimental) |

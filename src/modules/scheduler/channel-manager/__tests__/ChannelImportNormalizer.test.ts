@@ -59,3 +59,30 @@ describe('ChannelImportNormalizer seed handling', () => {
         });
     });
 });
+
+describe('ChannelImportNormalizer legacy color handling', () => {
+    it('omits imported color fields from create input', () => {
+        const normalizer = new ChannelImportNormalizer();
+
+        const channel = normalizer.buildCreateInput({
+            name: 'Imported Color',
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-1',
+                libraryType: 'movie',
+                includeWatched: true,
+            },
+            color: '#ff0000',
+        });
+
+        expect(channel).toEqual({
+            name: 'Imported Color',
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-1',
+                libraryType: 'movie',
+                includeWatched: true,
+            },
+        });
+    });
+});

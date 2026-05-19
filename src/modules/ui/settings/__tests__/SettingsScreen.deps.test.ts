@@ -17,7 +17,7 @@ class TrackingSettingsStore extends SettingsStore {
     }
 
     override readToggleSettingAndClean(id: Parameters<SettingsStore['readToggleSettingAndClean']>[0]): boolean {
-        if (id === 'guideCategoryColors') return false;
+        if (id === 'epgLibraryTabsEnabled') return false;
         return super.readToggleSettingAndClean(id);
     }
 }
@@ -127,12 +127,12 @@ describe('SettingsScreen deps constructor', () => {
         expect(getTheme).toHaveBeenCalled();
         expect(setTheme).toHaveBeenCalledWith(THEME_OPTIONS[emberSteelIndex + 1]?.theme);
 
-        const guideCategoryColors = container.querySelector(
-            '#settings-guide-category-colors'
+        const libraryTabs = container.querySelector(
+            '#settings-guide-library-tabs'
         ) as HTMLButtonElement | null;
-        guideCategoryColors?.click();
-        expect(settingsStore.writeToggleSetting).toHaveBeenCalledWith('guideCategoryColors', true);
-        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'categoryColors', enabled: true });
+        libraryTabs?.click();
+        expect(settingsStore.writeToggleSetting).toHaveBeenCalledWith('epgLibraryTabsEnabled', true);
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'libraryTabs', enabled: true });
 
         screen.destroy();
     });

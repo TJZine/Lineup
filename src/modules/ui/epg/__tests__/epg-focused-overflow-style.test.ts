@@ -106,6 +106,31 @@ describe('focused EPG overflow style contract', () => {
         expect(block).toContain('display: none');
     });
 
+    it('keeps hidden generated-channel provenance spans out of layout', () => {
+        const container = document.createElement('div');
+        container.className = 'epg-container';
+        const provenance = document.createElement('span');
+        provenance.className = 'epg-channel-name-provenance';
+        provenance.hidden = true;
+        const source = document.createElement('span');
+        source.className = 'epg-channel-name-source';
+        source.hidden = true;
+        const category = document.createElement('span');
+        category.className = 'epg-channel-name-category';
+        category.hidden = true;
+        const separator = document.createElement('span');
+        separator.className = 'epg-channel-name-separator';
+        separator.hidden = true;
+
+        provenance.append(category, separator, source);
+        container.appendChild(provenance);
+        document.body.appendChild(container);
+
+        for (const element of [provenance, source, category, separator]) {
+            expect(getComputedStyle(element).display).toBe('none');
+        }
+    });
+
     it('keeps the base time lane bottom-anchored via auto margin', () => {
         const block = getBlock('\n.epg-cell-time {');
         expect(block).toContain('margin-top: auto');
@@ -158,6 +183,78 @@ describe('focused EPG overflow style contract', () => {
         expect(titleBlock).toContain('text-overflow: ellipsis');
         expect(titleBlock).not.toContain('-webkit-line-clamp');
         expect(titleBlock).not.toContain('-webkit-box-orient');
+    });
+
+    it('keeps the channel name rail as a stack with child-owned truncation', () => {
+        const stackBlock = getBlock('\n.epg-channel-name {');
+        expect(stackBlock).toContain('display: flex');
+        expect(stackBlock).toContain('flex-direction: column');
+        expect(stackBlock).toContain('overflow: hidden');
+        expect(stackBlock).not.toContain('-webkit-line-clamp');
+        expect(stackBlock).not.toContain('-webkit-box-orient');
+
+        const childBlock = getBlock(
+            '.epg-channel-name-primary,\n' +
+            '.epg-channel-name-source,\n' +
+            '.epg-channel-name-category,\n' +
+            '.epg-channel-name-separator'
+        );
+        expect(childBlock).toContain('display: block');
+        expect(childBlock).toContain('white-space: nowrap');
+        expect(childBlock).toContain('overflow: hidden');
+        expect(childBlock).toContain('text-overflow: ellipsis');
+
+        const provenanceRuleStart = css.indexOf('\n.epg-channel-name-provenance {\n  min-width');
+        expect(provenanceRuleStart).toBeGreaterThanOrEqual(0);
+        const provenanceBlock = getBlockFromIndex(provenanceRuleStart);
+        expect(provenanceBlock).toContain('display: flex');
+        expect(provenanceBlock).toContain('align-items: baseline');
+        expect(provenanceBlock).toContain('font-size: var(--text-xs)');
+        expect(provenanceBlock).toContain('color: var(--color-text-muted)');
+
+        const sourceRuleStart = css.indexOf('\n.epg-channel-name-source {\n  flex');
+        expect(sourceRuleStart).toBeGreaterThanOrEqual(0);
+        const sourceBlock = getBlockFromIndex(sourceRuleStart);
+        expect(sourceBlock).toContain('flex: 1 1 auto');
+
+        const categoryRuleStart = css.indexOf('\n.epg-channel-name-category {\n  flex');
+        expect(categoryRuleStart).toBeGreaterThanOrEqual(0);
+        const categoryBlock = getBlockFromIndex(categoryRuleStart);
+        expect(categoryBlock).toContain('flex: 0 0 auto');
+        expect(categoryBlock).toContain('color: var(--color-text-muted)');
+
+        const separatorRuleStart = css.indexOf('\n.epg-channel-name-separator {\n  flex');
+        expect(separatorRuleStart).toBeGreaterThanOrEqual(0);
+        const separatorBlock = getBlockFromIndex(separatorRuleStart);
+        expect(separatorBlock).toContain('flex: 0 0 auto');
+        expect(separatorBlock).toContain('color: var(--color-text-muted)');
+    });
+
+    it('keeps classic and DirectV channel-name cascade pointed at the child spans', () => {
+        const classicStackBlock = getBlock('.epg-container.layout-classic .epg-channel-name');
+        expect(classicStackBlock).toContain('color: var(--color-text-primary)');
+        expect(classicStackBlock).not.toContain('-webkit-line-clamp');
+
+        const classicPrimaryBlock = getBlock('.epg-container.layout-classic .epg-channel-name-primary');
+        expect(classicPrimaryBlock).toContain('font-size: var(--classic-channel-name-size)');
+        expect(classicPrimaryBlock).toContain('font-weight: 600');
+
+        const classicProvenanceBlock = getBlock('.epg-container.layout-classic .epg-channel-name-provenance');
+        expect(classicProvenanceBlock).toContain('font-size: var(--text-xs)');
+        expect(classicProvenanceBlock).toContain('color: var(--color-text-muted)');
+
+        const classicCategoryBlock = getBlock('.epg-container.layout-classic .epg-channel-name-category');
+        expect(classicCategoryBlock).toContain('color: var(--color-text-muted)');
+
+        const directvFocusBlock = getBlock(
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-number,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-primary,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-provenance,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-source,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-category'
+        );
+        expect(directvFocusBlock).toContain('color: var(--directv-focus-text)');
     });
 
     it('keeps occluded time-slot labels transparent after classic theme overrides', () => {

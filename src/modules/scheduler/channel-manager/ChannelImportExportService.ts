@@ -1,4 +1,5 @@
 import { ChannelImportNormalizer } from './ChannelImportNormalizer';
+import { clonePersistableChannel } from './ChannelDomainClone';
 import type { ChannelConfig, ChannelCreateInput, ImportResult } from './types';
 
 type ChannelImportExportServiceConfig = {
@@ -23,7 +24,7 @@ export class ChannelImportExportService {
     }
 
     exportChannels(): string {
-        return JSON.stringify(this._getAllChannels(), null, 2);
+        return JSON.stringify(this._getAllChannels().map(clonePersistableChannel), null, 2);
     }
 
     async importChannels(data: string): Promise<ImportResult> {

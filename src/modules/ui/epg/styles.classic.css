@@ -112,10 +112,22 @@
 }
 
 .epg-container.layout-classic .epg-channel-name {
+  color: var(--color-text-primary);
+}
+
+.epg-container.layout-classic .epg-channel-name-primary {
   font-size: var(--classic-channel-name-size);
   font-weight: 600;
-  color: var(--color-text-primary);
-  -webkit-line-clamp: 1;
+}
+
+.epg-container.layout-classic .epg-channel-name-provenance {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.epg-container.layout-classic .epg-channel-name-category {
+  color: var(--color-text-muted);
 }
 
 .epg-container.layout-classic .epg-cell {

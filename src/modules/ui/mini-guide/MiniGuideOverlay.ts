@@ -84,11 +84,6 @@ export class MiniGuideOverlay implements IMiniGuideOverlay {
                 } else {
                     rowElements.row.classList.remove(MINI_GUIDE_CLASSES.CHANNEL_ROW_LOADING);
                 }
-                if (rowVm.buildStrategy) {
-                    rowElements.row.dataset.buildStrategy = rowVm.buildStrategy;
-                } else {
-                    delete rowElements.row.dataset.buildStrategy;
-                }
             }
             if (rowElements.number) {
                 rowElements.number.textContent = String(rowVm.channelNumber);

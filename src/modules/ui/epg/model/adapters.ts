@@ -13,8 +13,32 @@ import type {
 
 export function toEpgChannel(channel: SchedulerChannelConfig): EpgChannel {
     return {
-        ...channel,
+        id: channel.id,
+        number: channel.number,
+        name: channel.name,
+        ...(channel.icon !== undefined ? { icon: channel.icon } : {}),
+        ...(channel.buildStrategy !== undefined ? { buildStrategy: channel.buildStrategy } : {}),
+        ...(channel.sourceLibraryId !== undefined ? { sourceLibraryId: channel.sourceLibraryId } : {}),
+        ...(channel.sourceLibraryName !== undefined ? { sourceLibraryName: channel.sourceLibraryName } : {}),
+        ...(channel.lineupReplicaIndex !== undefined ? { lineupReplicaIndex: channel.lineupReplicaIndex } : {}),
+        ...(channel.isPlaybackModeVariant !== undefined ? { isPlaybackModeVariant: channel.isPlaybackModeVariant } : {}),
         contentSource: { ...channel.contentSource },
+        playbackMode: channel.playbackMode,
+        ...(channel.shuffleSeed !== undefined ? { shuffleSeed: channel.shuffleSeed } : {}),
+        ...(channel.blockSize !== undefined ? { blockSize: channel.blockSize } : {}),
+        ...(channel.phaseSeed !== undefined ? { phaseSeed: channel.phaseSeed } : {}),
+        startTimeAnchor: channel.startTimeAnchor,
+        ...(channel.contentFilters !== undefined ? { contentFilters: channel.contentFilters.map((filter) => ({ ...filter })) } : {}),
+        ...(channel.sortOrder !== undefined ? { sortOrder: channel.sortOrder } : {}),
+        skipIntros: channel.skipIntros,
+        skipCredits: channel.skipCredits,
+        ...(channel.maxEpisodeRunTimeMs !== undefined ? { maxEpisodeRunTimeMs: channel.maxEpisodeRunTimeMs } : {}),
+        ...(channel.minEpisodeRunTimeMs !== undefined ? { minEpisodeRunTimeMs: channel.minEpisodeRunTimeMs } : {}),
+        createdAt: channel.createdAt,
+        updatedAt: channel.updatedAt,
+        lastContentRefresh: channel.lastContentRefresh,
+        itemCount: channel.itemCount,
+        totalDurationMs: channel.totalDurationMs,
     } satisfies EpgChannel;
 }
 

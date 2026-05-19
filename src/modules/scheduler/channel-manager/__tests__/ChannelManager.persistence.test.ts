@@ -350,6 +350,37 @@ describe('ChannelManager persistence and storage keys', () => {
             expect(persisted.channels?.[0]?.isSequentialVariant).toBeUndefined();
         });
 
+        it('strips legacy color from loaded channels and rewrites storage on flush', async () => {
+            const persistedLegacy = {
+                ...createBaseChannel({
+                    id: 'persisted-color',
+                    number: 89,
+                    name: 'Persisted Color',
+                }),
+                color: '#ff0000',
+            };
+
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
+                channels: [persistedLegacy],
+                channelOrder: [persistedLegacy.id],
+                currentChannelId: persistedLegacy.id,
+                savedAt: Date.now(),
+            }));
+            mockLocalStorage.setItem(CURRENT_CHANNEL_KEY, persistedLegacy.id);
+
+            await manager.loadChannels();
+            await manager.flushSaves();
+
+            const loaded = manager.getAllChannels();
+            expect(loaded).toHaveLength(1);
+            expect(loaded[0]).not.toHaveProperty('color');
+
+            const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
+                channels?: Array<Record<string, unknown>>;
+            };
+            expect(persisted.channels?.[0]?.color).toBeUndefined();
+        });
+
         it('does not rewrite channel data when saved current-channel key only changes current', async () => {
             const persistedChannel = createBaseChannel({
                 id: 'persisted-1',
@@ -584,6 +615,25 @@ describe('ChannelManager persistence and storage keys', () => {
             );
         });
 
+        it('strips legacy runtime color updates from persisted channel records', async () => {
+            const channel = await manager.createChannel({
+                name: 'Runtime Color',
+                contentSource: createMockContentSource(),
+            });
+            await manager.flushSaves();
+
+            await manager.updateChannel(channel.id, {
+                color: '#ff0000',
+            } as unknown as Parameters<ChannelManager['updateChannel']>[1]);
+            await manager.flushSaves();
+
+            const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
+                channels?: Array<Record<string, unknown>>;
+            };
+            expect(persisted.channels?.[0]?.id).toBe(channel.id);
+            expect(persisted.channels?.[0]?.color).toBeUndefined();
+        });
+
         it('saveChannels should reject when debounced persistence fails', async () => {
             expectDebouncedSaveQuotaWarning();
             await manager.createChannel({ contentSource: createMockContentSource() });
@@ -779,6 +829,19 @@ describe('ChannelManager persistence and storage keys', () => {
 
             expect(Array.isArray(parsed)).toBe(true);
             expect(parsed[0].name).toBe('Export Test');
+        });
+
+        it('omits color from exported JSON even when a runtime channel is polluted', async () => {
+            const channel = await manager.createChannel({
+                name: 'Polluted Export',
+                contentSource: createMockContentSource(),
+            });
+            (channel as unknown as Record<string, unknown>).color = '#ff0000';
+
+            const parsed = JSON.parse(manager.exportChannels()) as Array<Record<string, unknown>>;
+
+            expect(parsed[0]?.name).toBe('Polluted Export');
+            expect(parsed[0]?.color).toBeUndefined();
         });
     });
 });

@@ -11,8 +11,6 @@ import type { ChannelConfig, EPGConfig } from '../types';
 import type { BuildStrategy } from '../../../scheduler/channel-manager/types';
 
 describe('EPGChannelList', () => {
-    const VALID_CUSTOM_COLOR = 'red';
-
     const createMockChannel = (index: number): ChannelConfig => ({
         id: `ch${index}`,
         number: index + 1,
@@ -87,6 +85,79 @@ describe('EPGChannelList', () => {
         expect(name?.textContent).toBe('Channel 13');
     });
 
+    it('renders generated channel identity with primary, category, and source spans', () => {
+        const list = new EPGChannelList();
+        const config = createConfig({ visibleChannels: 1 });
+
+        list.initialize(parent, config);
+        list.updateChannels([
+            {
+                ...createMockChannel(0),
+                name: 'Gary Oldman - Movies Home',
+                sourceLibraryName: 'Movies Home',
+                buildStrategy: 'actors' as BuildStrategy,
+            },
+        ]);
+
+        const row = parent.querySelector('.epg-channel-row') as HTMLElement;
+        const nameStack = row.querySelector('.epg-channel-name') as HTMLElement;
+        const primary = nameStack.querySelector('.epg-channel-name-primary') as HTMLElement;
+        const provenance = nameStack.querySelector('.epg-channel-name-provenance') as HTMLElement;
+        const source = provenance.querySelector('.epg-channel-name-source') as HTMLElement;
+        const category = provenance.querySelector('.epg-channel-name-category') as HTMLElement;
+        const separator = provenance.querySelector('.epg-channel-name-separator') as HTMLElement;
+
+        expect(row.querySelector('.epg-channel-number')?.textContent).toBe('1');
+        expect(primary.textContent).toBe('Gary Oldman');
+        expect(category.textContent).toBe('Actor');
+        expect(separator.textContent).toBe('·');
+        expect(source.textContent).toBe('Movies Home');
+        expect(Array.from(provenance.children)).toEqual([category, separator, source]);
+        expect(provenance.hidden).toBe(false);
+        expect(category.hidden).toBe(false);
+        expect(separator.hidden).toBe(false);
+        expect(source.hidden).toBe(false);
+        expect(nameStack.getAttribute('aria-label')).toBe('Gary Oldman, Actor, Movies Home');
+    });
+
+    it('clears stale provenance when virtualized rows are recycled', () => {
+        const list = new EPGChannelList();
+        const config = createConfig({ rowHeight: 50, visibleChannels: 1 });
+        const channels = Array.from({ length: 8 }, (_, i) => createMockChannel(i));
+        channels[0] = {
+            ...channels[0]!,
+            name: 'Gary Oldman - Movies Home',
+            sourceLibraryName: 'Movies Home',
+            buildStrategy: 'actors' as BuildStrategy,
+        };
+
+        list.initialize(parent, config);
+        list.updateChannels(channels);
+
+        const firstRenderedRow = parent.querySelector('.epg-channel-row') as HTMLElement;
+        const provenance = firstRenderedRow.querySelector('.epg-channel-name-provenance') as HTMLElement;
+        const source = provenance.querySelector('.epg-channel-name-source') as HTMLElement;
+        const category = provenance.querySelector('.epg-channel-name-category') as HTMLElement;
+        const separator = provenance.querySelector('.epg-channel-name-separator') as HTMLElement;
+        const nameStack = firstRenderedRow.querySelector('.epg-channel-name') as HTMLElement;
+        expect(source.textContent).toBe('Movies Home');
+        expect(category.textContent).toBe('Actor');
+        expect(separator.hidden).toBe(false);
+        expect(provenance.hidden).toBe(false);
+
+        list.updateScrollPosition(5);
+
+        expect(firstRenderedRow.dataset.channelIndex).toBe('3');
+        expect(firstRenderedRow.querySelector('.epg-channel-name-primary')?.textContent).toBe('Channel 4');
+        expect(source.textContent).toBe('');
+        expect(category.textContent).toBe('');
+        expect(source.hidden).toBe(true);
+        expect(category.hidden).toBe(true);
+        expect(separator.hidden).toBe(true);
+        expect(provenance.hidden).toBe(true);
+        expect(nameStack.hasAttribute('aria-label')).toBe(false);
+    });
+
     it('reuses existing row child nodes when virtualized rows are remapped', () => {
         const list = new EPGChannelList();
         const config = createConfig({ rowHeight: 50, visibleChannels: 4 });
@@ -111,40 +182,26 @@ describe('EPGChannelList', () => {
         expect(remappedNameNode).toBe(firstNameNode);
     });
 
-    it('clears buildStrategy dataset when category colors are disabled', () => {
-        const list = new EPGChannelList();
-        const config = createConfig({ visibleChannels: 2 });
-
-        list.initialize(parent, config);
-        list.setCategoryColorsEnabled(false);
-
-        const channels = [
-            { ...createMockChannel(0), buildStrategy: 'genres' as BuildStrategy },
-        ];
-        list.updateChannels(channels);
-
-        const row = parent.querySelector('.epg-channel-row') as HTMLElement;
-        expect(row.dataset.buildStrategy).toBeUndefined();
-    });
-
-    it('clears buildStrategy dataset when custom color is valid', () => {
+    it('does not set color datasets or inline border styles for generated channels', () => {
         const list = new EPGChannelList();
         const config = createConfig({ visibleChannels: 1 });
 
         list.initialize(parent, config);
-        list.setCategoryColorsEnabled(true);
 
         const channels = [
             {
                 ...createMockChannel(0),
                 buildStrategy: 'actors' as BuildStrategy,
-                color: VALID_CUSTOM_COLOR,
+                color: 'red',
             },
-        ];
+        ] as unknown as ChannelConfig[];
         list.updateChannels(channels);
 
         const row = parent.querySelector('.epg-channel-row') as HTMLElement;
         expect(row.dataset.buildStrategy).toBeUndefined();
+        expect(row.style.borderLeftColor).toBe('');
+        expect(row.style.borderLeftWidth).toBe('');
+        expect(row.style.borderLeftStyle).toBe('');
     });
 
     it('does not render branding art in the channel row when no custom icon exists', () => {
@@ -158,6 +215,9 @@ describe('EPGChannelList', () => {
         expect(row.querySelector('.channel-branding-icon')).toBeNull();
         expect(row.querySelector('.epg-channel-icon')).toBeNull();
         expect(row.querySelector('.epg-channel-number')?.textContent).toBe('1');
-        expect(row.querySelector('.epg-channel-name')?.textContent).toBe('Channel 1');
+        expect(row.querySelector('.epg-channel-name-primary')?.textContent).toBe('Channel 1');
+        expect(row.querySelector('.epg-channel-name-source')?.textContent).toBe('');
+        expect(row.querySelector('.epg-channel-name-category')?.textContent).toBe('Genre');
+        expect((row.querySelector('.epg-channel-name-separator') as HTMLElement | null)?.hidden).toBe(true);
     });
 });

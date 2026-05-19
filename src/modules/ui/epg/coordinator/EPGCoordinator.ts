@@ -327,10 +327,6 @@ export class EPGCoordinator {
             this._epgPreferencesStore.writeSelectedLibraryId(null);
         }
 
-        // Category colors
-        const categoryColorsEnabled = this._epgPreferencesStore.readGuideCategoryColorsEnabledAndClean(true);
-        epg.setCategoryColorsEnabled(categoryColorsEnabled);
-
         // Tabs (only show if enabled; EPGComponent will hide if <=1 library)
         if (tabsEnabled) {
             epg.setLibraryTabs(libraries, selectedId);

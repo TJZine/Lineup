@@ -56,11 +56,6 @@ describe('EPGComponent', () => {
         return { epg: instance, container: instanceContainer };
     };
 
-    it('does not render the legacy key legend', () => {
-        const legend = container.querySelector(`.${EPG_CLASSES.LEGEND}`);
-        expect(legend).toBeNull();
-    });
-
     it('renders classic header placeholder before the grid container', () => {
         const header = container.querySelector('.epg-classic-header');
         const glyph = container.querySelector('.epg-classic-header-glyph');

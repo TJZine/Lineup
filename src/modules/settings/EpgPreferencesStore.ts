@@ -83,14 +83,6 @@ export class EpgPreferencesStore {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_NOW_WATCHING_ENABLED, enabled ? '1' : '0');
     }
 
-    readGuideCategoryColorsEnabledAndClean(fallback: boolean = true): boolean {
-        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, fallback);
-    }
-
-    writeGuideCategoryColorsEnabled(enabled: boolean): SafeLocalStorageMutationResult {
-        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.GUIDE_CATEGORY_COLORS, enabled ? '1' : '0');
-    }
-
     readPastItemsWindowAndClean(fallback: EpgPastItemsWindow = 'auto'): EpgPastItemsWindow {
         const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
         if (raw && EPG_PAST_ITEMS_WINDOWS.includes(raw as EpgPastItemsWindow)) {

@@ -321,7 +321,6 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
             loadChannels: jest.fn(),
             loadPrograms: jest.fn(),
             clearProgramsForChannel: jest.fn(),
-            setCategoryColorsEnabled: jest.fn(),
             setLibraryTabs: jest.fn(),
             setLayoutMode: jest.fn(),
             setNowWatchingBannerEnabled: jest.fn(),

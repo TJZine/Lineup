@@ -212,6 +212,26 @@ describe('ChannelManager', () => {
             expect(handler).toHaveBeenCalledWith(expect.objectContaining({ name: 'Updated' }));
         });
 
+        it('strips legacy runtime color from update results, events, and public getters', async () => {
+            const channel = await manager.createChannel({
+                name: 'Original',
+                contentSource: createMockContentSource(),
+            });
+            const handler = jest.fn();
+            manager.on('channelUpdated', handler);
+
+            const updated = await manager.updateChannel(channel.id, {
+                name: 'Updated',
+                color: '#ff0000',
+            } as unknown as ChannelUpdateInput);
+
+            expect(updated.name).toBe('Updated');
+            expect(updated).not.toHaveProperty('color');
+            expect(handler).toHaveBeenCalledWith(expect.not.objectContaining({ color: expect.anything() }));
+            expect(manager.getChannel(channel.id)).not.toHaveProperty('color');
+            expect(manager.getAllChannels()[0]).not.toHaveProperty('color');
+        });
+
         it('takes ownership of mutable content source and filter inputs', async () => {
             const contentSource = {
                 ...createMockContentSource('owned-lib'),
@@ -542,6 +562,23 @@ describe('ChannelManager', () => {
             expect(handler).toHaveBeenCalledWith(
                 expect.objectContaining({
                     channel: expect.objectContaining({ id: channel.id }),
+                })
+            );
+        });
+
+        it('strips polluted public channel fields from channelSwitch payloads', async () => {
+            const channel = await manager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+            (channel as unknown as Record<string, unknown>).color = '#ff0000';
+            const handler = jest.fn();
+            manager.on('channelSwitch', handler);
+
+            manager.setCurrentChannel(channel.id);
+
+            expect(handler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    channel: expect.not.objectContaining({ color: expect.anything() }),
                 })
             );
         });

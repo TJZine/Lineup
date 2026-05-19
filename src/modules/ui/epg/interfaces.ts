@@ -24,8 +24,6 @@ export interface IEPGComponent {
 
     loadChannels(channels: ChannelConfig[]): void;
 
-    setCategoryColorsEnabled(enabled: boolean): void;
-
     setLayoutMode(mode: EpgLayoutMode): void;
 
     setVisibleHours(hours: number): void;

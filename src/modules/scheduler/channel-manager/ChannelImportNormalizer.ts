@@ -73,9 +73,6 @@ export class ChannelImportNormalizer {
         if (typeof record['icon'] === 'string') {
             channel.icon = record['icon'];
         }
-        if (typeof record['color'] === 'string') {
-            channel.color = record['color'];
-        }
         if (isValidBuildStrategy(record['buildStrategy'])) {
             channel.buildStrategy = record['buildStrategy'];
         }

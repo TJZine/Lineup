@@ -10,7 +10,7 @@ import type {
     ChannelManagerEventMap,
     StoredChannelData,
 } from './types';
-import { cloneChannelForOwnership } from './ChannelDomainClone';
+import { clonePersistableChannel } from './ChannelDomainClone';
 
 type ChannelPersistenceCoordinatorLogger = {
     warn: (message: string, ...args: unknown[]) => void;
@@ -126,7 +126,7 @@ export class ChannelPersistenceCoordinator {
     }
 
     private _persistStoredChannelData(data: StoredChannelData): void {
-        const writeResult = this._repository.saveStoredChannelData(data);
+        const writeResult = this._repository.saveStoredChannelData(makePersistableStoredChannelData(data));
 
         if (!writeResult.ok && writeResult.reason === 'quota-exceeded') {
             throw new ChannelError(
@@ -177,10 +177,19 @@ function createDisposedError(): ChannelError {
 }
 
 function makeChannelSnapshot(state: PersistableChannelState): StoredChannelData {
-    return {
-        channels: Array.from(state.channels, cloneChannelForOwnership),
+    return makePersistableStoredChannelData({
+        channels: Array.from(state.channels),
         channelOrder: [...state.channelOrder],
         currentChannelId: state.currentChannelId,
         savedAt: Date.now(),
+    });
+}
+
+function makePersistableStoredChannelData(data: StoredChannelData): StoredChannelData {
+    return {
+        channels: data.channels.map(clonePersistableChannel),
+        channelOrder: [...data.channelOrder],
+        currentChannelId: data.currentChannelId,
+        savedAt: data.savedAt,
     };
 }

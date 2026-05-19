@@ -113,6 +113,35 @@ describe('StoredChannelDataCodec', () => {
         expect(decoded?.channel).not.toHaveProperty('unknownPersistedField');
     });
 
+    it('drops legacy color from persisted channel records and marks them mutated', () => {
+        const decoded = decodeStoredChannelConfigRecord({
+            id: 'legacy-color',
+            number: 7,
+            name: 'Legacy Color',
+            color: '#ff0000',
+            contentSource: {
+                type: 'library',
+                libraryId: 'library-1',
+                libraryType: 'movie',
+                includeWatched: true,
+            },
+            playbackMode: 'sequential',
+            skipIntros: false,
+            skipCredits: false,
+            createdAt: 0,
+            updatedAt: 0,
+            lastContentRefresh: 0,
+            itemCount: 0,
+            totalDurationMs: 0,
+            shuffleSeed: 1,
+            phaseSeed: 1,
+            startTimeAnchor: 0,
+        });
+
+        expect(decoded?.didMutate).toBe(true);
+        expect(decoded?.channel).not.toHaveProperty('color');
+    });
+
     it.each([
         ['missing', undefined],
         ['NaN', Number.NaN],

@@ -157,26 +157,12 @@ describe('MiniGuideOverlay', () => {
         expect(now.querySelector('.mini-guide-start-time')).toBeNull();
     });
 
-    it('sets row build strategy data attribute when present', () => {
+    it('does not set row build strategy data attribute when present', () => {
         const vm = makeViewModel();
         (vm.channels[0] as { buildStrategy?: string | null }).buildStrategy = 'collections';
 
         overlay.setViewModel(vm);
         overlay.show();
-
-        const row = document.getElementById('mini-guide-row-0') as HTMLElement;
-        expect(row.dataset.buildStrategy).toBe('collections');
-    });
-
-    it('removes row build strategy data attribute when absent', () => {
-        const vm = makeViewModel();
-        (vm.channels[0] as { buildStrategy?: string | null }).buildStrategy = 'collections';
-
-        overlay.setViewModel(vm);
-
-        const cleared = makeViewModel();
-        (cleared.channels[0] as { buildStrategy?: string | null }).buildStrategy = null;
-        overlay.setViewModel(cleared);
 
         const row = document.getElementById('mini-guide-row-0') as HTMLElement;
         expect(row.dataset.buildStrategy).toBeUndefined();

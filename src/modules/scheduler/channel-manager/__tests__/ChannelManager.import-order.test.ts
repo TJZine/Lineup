@@ -4,9 +4,11 @@ import type { IPlexLibraryMinimal } from '../interfaces';
 import { AppErrorCode } from '../../../../types/app-errors';
 import {
     installMockLocalStorage,
+    mockLocalStorage,
     resetMockLocalStorage,
     restoreOriginalLocalStorage,
 } from '../../../../__tests__/mocks/localStorage';
+import { STORAGE_KEY } from '../constants';
 import {
     createBaseChannel,
     createMockContentSource,
@@ -63,6 +65,7 @@ describe('ChannelManager import and reorder contracts', () => {
             {
                 name: 'Imported Channel',
                 contentSource: createMockContentSource(),
+                color: '#ff0000',
             },
         ]);
 
@@ -72,6 +75,13 @@ describe('ChannelManager import and reorder contracts', () => {
         expect(result.importedCount).toBe(1);
         expect(result.errors).toHaveLength(0);
         expect(manager.getAllChannels()).toHaveLength(1);
+        expect(manager.getAllChannels()[0]).not.toHaveProperty('color');
+
+        await manager.flushSaves();
+        const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
+            channels?: Array<Record<string, unknown>>;
+        };
+        expect(persisted.channels?.[0]?.color).toBeUndefined();
     });
 
     it('omits invalid enum-like fields and content filters during import', async () => {

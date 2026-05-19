@@ -465,14 +465,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
-    setCategoryColorsEnabled(enabled: boolean): void {
-        this.channelList.setCategoryColorsEnabled(enabled);
-        if (this.state.isVisible) {
-            // Re-render visible rows only (virtualized pool), not all channels.
-            this.channelList.updateChannels(this.state.channels);
-        }
-    }
-
     setLayoutMode(mode: EpgLayoutMode): void {
         this.config.layoutMode = mode;
         if (this.state.isVisible) {

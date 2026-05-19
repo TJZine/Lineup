@@ -292,7 +292,11 @@
 }
 
 .theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-number,
-.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name {
+.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name,
+.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-primary,
+.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-provenance,
+.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-source,
+.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-category {
   color: var(--directv-focus-text);
 }
 
