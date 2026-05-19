@@ -1,6 +1,7 @@
 import { PlaybackOptionsCoordinator, SUBTITLE_PROBE_TOTAL_TIMEOUT_MS } from '../PlaybackOptionsCoordinator';
 import type { IVideoPlayer } from '../../../player';
 import type { INavigationManager } from '../../../navigation';
+import type { IPlaybackOptionsModal } from '../interfaces';
 import type { PlaybackOptionsViewModel } from '../types';
 import type { ScheduledProgram } from '../../../scheduler/scheduler';
 import type { SubtitleTrack, AudioTrack } from '../../../player/types';
@@ -174,6 +175,70 @@ describe('PlaybackOptionsCoordinator', () => {
         const prep = coordinator.prepareModal('audio');
 
         expect(prep.preferredFocusId).toBe('playback-audio-audio-1');
+    });
+
+    it('registers modal options with scroll-neutral native focus', () => {
+        const player = createPlayer(
+            [makeTextTrack({ id: 'sub-1' })],
+            [{ id: 'audio-1', language: 'en', codec: 'aac', channels: 2 } as AudioTrack]
+        );
+        const navigation: INavigationManager = {
+            registerFocusable: jest.fn(),
+            setFocus: jest.fn(),
+        } as unknown as INavigationManager;
+        const modal = {
+            show: jest.fn(),
+        };
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): INavigationManager => navigation,
+            getPlaybackOptionsModal: (): IPlaybackOptionsModal => modal as unknown as IPlaybackOptionsModal,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+        });
+
+        const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+        const elementsById = new Map<string, HTMLElement>();
+        const prep = coordinator.prepareModal('audio');
+        for (const id of prep.focusableIds) {
+            elementsById.set(id, { id, click: jest.fn() } as unknown as HTMLElement);
+        }
+
+        Object.defineProperty(globalThis, 'document', {
+            value: {
+                getElementById: jest.fn((id: string) => elementsById.get(id) ?? null),
+            },
+            configurable: true,
+        });
+
+        try {
+            coordinator.handleModalOpen('playback-options');
+        } finally {
+            if (originalDocumentDescriptor) {
+                Object.defineProperty(globalThis, 'document', originalDocumentDescriptor);
+            } else {
+                delete (globalThis as { document?: Document }).document;
+            }
+        }
+
+        const focusables = (navigation.registerFocusable as jest.Mock).mock.calls.map(
+            (call) => call[0]
+        );
+        expect(focusables).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                id: 'playback-subtitle-off',
+                preventScrollOnFocus: true,
+            }),
+            expect.objectContaining({
+                id: 'playback-subtitle-sub-1',
+                preventScrollOnFocus: true,
+            }),
+            expect.objectContaining({
+                id: 'playback-audio-audio-1',
+                preventScrollOnFocus: true,
+            }),
+        ]));
+        expect(navigation.setFocus).toHaveBeenCalledWith('playback-audio-audio-1');
     });
 
     it('surfaces unavailable subtitle and audio copy when no tracks exist', () => {

@@ -261,6 +261,7 @@ export class PlaybackOptionsCoordinator {
             navigation.registerFocusable({
                 id,
                 element,
+                preventScrollOnFocus: true,
                 neighbors,
                 onSelect: () => element.click(),
             });
