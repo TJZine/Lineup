@@ -122,6 +122,29 @@ export interface StreamDecision {
     };
 
     /**
+     * Lineup's Dolby Vision/HDR10 fallback intent for the selected source.
+     * Smart mode is direct-play-first capability hiding; force mode is HLS/transcode-oriented.
+     */
+    hdr10Fallback?: {
+        mode: 'off' | 'smart' | 'force';
+        applied: boolean;
+        reason: 'none' | 'smart' | 'force';
+        debugWhy: string;
+        hideDolbyVision: boolean;
+        forcedHls: boolean;
+    };
+
+    /**
+     * Subtitle burn-in request details, separated from HDR fallback diagnostics.
+     */
+    subtitleBurnIn?: {
+        requested: boolean;
+        reason: 'requested' | 'format_required' | 'none';
+        subtitleStreamId?: string;
+        subtitleMode?: 'none' | 'burn';
+    };
+
+    /**
      * When the default Plex audio track is TrueHD/MLP, Lineup will prefer an AC3/EAC3/AAC
      * fallback track (non-commentary) if available. This records that selection.
      */

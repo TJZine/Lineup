@@ -190,6 +190,38 @@ describe('NowPlayingDebugManager', () => {
         expect(manager3.buildNowPlayingStreamDebugText()).not.toBeNull();
     });
 
+    it('debug text includes HDR fallback and subtitle burn-in diagnostics', () => {
+        enableDebug();
+        const decision = makeDecision();
+        decision.hdr10Fallback = {
+            mode: 'smart',
+            applied: true,
+            reason: 'smart',
+            debugWhy: 'letterbox_detected',
+            hideDolbyVision: true,
+            forcedHls: false,
+        };
+        decision.subtitleBurnIn = {
+            requested: true,
+            reason: 'format_required',
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'none',
+        };
+        decision.serverDecision = {
+            fetchedAt: 123,
+            videoDecision: 'copy',
+            audioDecision: 'transcode',
+            subtitleDecision: 'burn',
+        };
+
+        const { manager } = setup({ getCurrentStreamDecision: () => decision });
+        const text = manager.buildNowPlayingStreamDebugText();
+
+        expect(text).toContain('HDR10 FB: smart/smart hideDV=yes HLS=no');
+        expect(text).toContain('Burn-in: format_required sub=sub-1');
+        expect(text).toContain('PMS: v=copy a=transcode sub=burn');
+    });
+
     it('snapshot fetch does not require debug enabled', async () => {
         const { manager, resolver, decision } = setup();
         decision.isTranscoding = true;

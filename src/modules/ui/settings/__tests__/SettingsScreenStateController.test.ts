@@ -68,6 +68,24 @@ it('builds the current settings categories from persisted state', () => {
     expect(preferForced?.disabled).toBe(true);
 });
 
+it('labels HDR fallback preferred mode as direct-play-first and force mode as HLS/transcode-oriented', () => {
+    const controller = new SettingsScreenStateController({ settingsStore: new SettingsStore() });
+    const playbackCategory = controller.getCategories().find((category) => category.id === 'playback_hdr');
+    const hdrFallback = playbackCategory?.items.find((item) => item.id === 'settings-hdr10-fallback-mode');
+
+    if (!hdrFallback || !('options' in hdrFallback)) {
+        throw new Error('HDR fallback item not found');
+    }
+
+    expect(hdrFallback.description).toContain('Prefer HDR10 hides DV for direct-play');
+    expect(hdrFallback.description).toContain('Force requests HLS/transcode');
+    expect((hdrFallback as SettingsSelectConfig).options).toEqual([
+        { label: 'Off', value: 0 },
+        { label: 'Prefer HDR10 (Direct Play)', value: 1 },
+        { label: 'Force HLS/Transcode', value: 2 },
+    ]);
+});
+
 it('writes subtitle mode, emits subtitle callback, and invalidates state', () => {
     const onSubtitleModeChange = jest.fn();
     const onStateInvalidated = jest.fn();

@@ -191,15 +191,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 logPlexWarning('HDR10 fallback applied:', {
                     itemKey: request.itemKey,
                     reason: pipeline.hdrFallbackReason,
+                    debugWhy: decision.hdr10Fallback?.debugWhy,
+                    hideDolbyVision: decision.hdr10Fallback?.hideDolbyVision === true,
+                    forcedHls: decision.hdr10Fallback?.forcedHls === true,
                     container: media.container,
                     isDolbyVision: videoStream?.doviPresent === true,
-                });
-            }
-            if (pipeline.forceHlsForDvNoHdr10BaseLayer) {
-                logPlexWarning('HDR10 base-layer fallback forced:', {
-                    itemKey: request.itemKey,
-                    reason: 'dv_profile_no_hdr10_base_layer',
-                    container: media.container,
                 });
             }
         }
@@ -214,6 +210,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 mode: decision.isTranscoding ? 'transcode' : 'direct_play',
                 protocol: decision.protocol,
                 subtitleDelivery: decision.subtitleDelivery,
+                hdr10Fallback: decision.hdr10Fallback,
+                subtitleBurnIn: decision.subtitleBurnIn,
                 reasonCount: decision.directPlay?.reasons.length ?? 0,
             });
         }

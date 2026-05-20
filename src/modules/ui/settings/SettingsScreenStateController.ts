@@ -172,12 +172,12 @@ export class SettingsScreenStateController {
                     id: 'settings-hdr10-fallback-mode',
                     label: 'HDR Fallback',
                     description:
-                        'For Dolby Vision MKV only. Does not affect MP4/TS. Only applies when an HDR10 base layer exists (DV profile 7 or 8.1).',
+                        'For DV MKV with HDR10 base layer only. Prefer HDR10 hides DV for direct-play; Force requests HLS/transcode.',
                     value: this._settingsStore.readHdr10FallbackModeValueAndClean(),
                     options: [
                         { label: 'Off', value: 0 },
-                        { label: 'Smart (Recommended)', value: 1 },
-                        { label: 'Force', value: 2 },
+                        { label: 'Prefer HDR10 (Direct Play)', value: 1 },
+                        { label: 'Force HLS/Transcode', value: 2 },
                     ],
                     onChange: (value: number) => this._settingsStore.writeHdr10FallbackModeValue(value as 0 | 1 | 2),
                 },

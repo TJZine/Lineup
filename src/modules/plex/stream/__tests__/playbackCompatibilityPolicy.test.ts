@@ -383,8 +383,8 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.fallbackReason).toBe('none');
         });
 
-        it('applies smart HDR10 fallback for letterbox DV MKV', () => {
-            const media = createDolbyVisionMedia('mkv', '8.1', { aspectRatio: 2.39, width: 2560, height: 1070 });
+        it('applies smart HDR10 fallback for DV MKV with HDR10 base layer', () => {
+            const media = createDolbyVisionMedia('mkv', '8.1', { aspectRatio: 1.78, width: 1920, height: 1080 });
             const decision = getHdrCompatibilityDecision({
                 media,
                 videoStream: media.parts[0]!.streams[0]!,
@@ -398,7 +398,7 @@ describe('playbackCompatibilityPolicy', () => {
         });
 
         it('normalizes whitespace-padded MKV container values before applying smart HDR10 fallback', () => {
-            const media = createDolbyVisionMedia(' MKV ', '8.1', { aspectRatio: 2.39, width: 2560, height: 1070 });
+            const media = createDolbyVisionMedia(' MKV ', '8.1', { aspectRatio: 1.78, width: 1920, height: 1080 });
             const decision = getHdrCompatibilityDecision({
                 media,
                 videoStream: media.parts[0]!.streams[0]!,
@@ -410,8 +410,8 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.fallbackReason).toBe('smart');
         });
 
-        it('does not apply smart HDR10 fallback for non-letterbox DV MKV', () => {
-            const media = createDolbyVisionMedia('mkv', '8.1', { aspectRatio: 1.78, width: 1920, height: 1080 });
+        it('does not apply smart HDR10 fallback for DV MKV without HDR10 base layer', () => {
+            const media = createDolbyVisionMedia('mkv', '5', { aspectRatio: 1.78, width: 1920, height: 1080 });
             const decision = getHdrCompatibilityDecision({
                 media,
                 videoStream: media.parts[0]!.streams[0]!,
@@ -423,7 +423,7 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.fallbackReason).toBe('none');
         });
 
-        it('forces HLS when Dolby Vision MKV has no HDR10 base layer', () => {
+        it('does not force HLS when Dolby Vision MKV has no HDR10 base layer', () => {
             const media = createDolbyVisionMedia('mkv', '5');
             const decision = getHdrCompatibilityDecision({
                 media,
@@ -431,20 +431,19 @@ describe('playbackCompatibilityPolicy', () => {
                 hdr10FallbackMode: 'off',
             });
 
-            expect(decision.forceHlsForDvNoHdr10BaseLayer).toBe(true);
             expect(decision.applyHdr10Fallback).toBe(false);
             expect(decision.fallbackReason).toBe('none');
         });
 
-        it('normalizes Dolby Vision container values before forcing HLS for MKV without HDR10 base layer', () => {
+        it('does not apply force HDR10 fallback to MKV without HDR10 base layer', () => {
             const media = createDolbyVisionMedia(' MKV ', '5');
             const decision = getHdrCompatibilityDecision({
                 media,
                 videoStream: media.parts[0]!.streams[0]!,
-                hdr10FallbackMode: 'off',
+                hdr10FallbackMode: 'force',
             });
 
-            expect(decision.forceHlsForDvNoHdr10BaseLayer).toBe(true);
+            expect(decision.forceTranscodeForHdr10Fallback).toBe(false);
             expect(decision.applyHdr10Fallback).toBe(false);
             expect(decision.fallbackReason).toBe('none');
         });

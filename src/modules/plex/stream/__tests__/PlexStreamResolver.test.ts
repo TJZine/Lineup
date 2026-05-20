@@ -519,9 +519,14 @@ describe('PlexStreamResolver', () => {
 
             expect(decision.isTranscoding).toBe(true);
             expect(decision.protocol).toBe('hls');
-            expect(decision.directPlay?.reasons).toContain('hdr10_fallback_smart');
             expect(decision.directPlay?.reasons).toContain('unsupported_audio_codec:truehd');
             expect(decision.transcodeRequest?.hideDolbyVision).toBe(true);
+            expect(decision.hdr10Fallback).toMatchObject({
+                mode: 'smart',
+                applied: true,
+                hideDolbyVision: true,
+                forcedHls: false,
+            });
         });
 
         it('logs a warning when PMS universal decision fetch fails in debug mode', async () => {
@@ -529,10 +534,6 @@ describe('PlexStreamResolver', () => {
                 'Transcode URL (compat=0):',
                 expect.stringContaining('X-Plex-Token=REDACTED'),
             ], { times: 2 });
-            expectConsoleWarn([
-                'HDR10 fallback applied:',
-                expect.objectContaining({ itemKey: '12345', reason: expect.any(String) }),
-            ]);
             expectConsoleWarn([
                 'Stream decision:',
                 expect.objectContaining({ itemKey: '12345', mode: 'transcode' }),
@@ -570,10 +571,6 @@ describe('PlexStreamResolver', () => {
                 'Transcode URL (compat=0):',
                 expect.stringContaining('X-Plex-Token=REDACTED'),
             ], { times: 2 });
-            expectConsoleWarn([
-                'HDR10 fallback applied:',
-                expect.objectContaining({ itemKey: '12345', reason: expect.any(String) }),
-            ]);
             expectConsoleWarn([
                 'Stream decision:',
                 expect.objectContaining({ itemKey: '12345', mode: 'transcode' }),
@@ -665,7 +662,7 @@ describe('PlexStreamResolver', () => {
             expect(decision.isTranscoding).toBe(true);
         });
 
-        it('allows direct play for DV MKV when Smart is enabled but not letterbox', async () => {
+        it('hides Dolby Vision for non-letterbox DV MKV with HDR10 base layer when Smart is enabled', async () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
@@ -690,6 +687,14 @@ describe('PlexStreamResolver', () => {
 
             expect(decision.isDirectPlay).toBe(true);
             expect(decision.isTranscoding).toBe(false);
+            expect(decision.hdr10Fallback).toMatchObject({
+                mode: 'smart',
+                applied: true,
+                hideDolbyVision: true,
+                forcedHls: false,
+            });
+            expect(decision.playbackUrl).toContain('X-Plex-Client-Capabilities=');
+            expect(decision.playbackUrl).not.toContain('dvhe');
         });
 
         it('forces HLS with HDR10 fallback for DV MKV when Force is enabled', async () => {
@@ -793,7 +798,15 @@ describe('PlexStreamResolver', () => {
             expect(decision.isTranscoding).toBe(false);
         });
 
-        it('forces HLS for DV MKV profile 5 even when fallback is off', async () => {
+        it('allows direct play for DV MKV profile 5 even when Force fallback is enabled', async () => {
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
             const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
@@ -807,13 +820,19 @@ describe('PlexStreamResolver', () => {
 
             const decision = await resolver.resolveStream({ itemKey: '12345' });
 
-            expect(decision.isTranscoding).toBe(true);
-            expect(decision.protocol).toBe('hls');
-            expect(decision.directPlay?.reasons).toContain('dv_profile_no_hdr10_base_layer');
-            expect(decision.playbackUrl).toContain('directStream=1');
+            expect(decision.isDirectPlay).toBe(true);
+            expect(decision.isTranscoding).toBe(false);
+            expect(decision.protocol).toBe('http');
+            expect(decision.directPlay?.reasons).toEqual([]);
+            expect(decision.hdr10Fallback).toMatchObject({
+                mode: 'force',
+                applied: false,
+                hideDolbyVision: false,
+                forcedHls: false,
+            });
         });
 
-        it('forces HLS for DV MKV profile 8 HLG even when fallback is off', async () => {
+        it('allows direct play for DV MKV profile 8 HLG because it has no HDR10 base layer', async () => {
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
             const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
@@ -828,10 +847,10 @@ describe('PlexStreamResolver', () => {
 
             const decision = await resolver.resolveStream({ itemKey: '12345' });
 
-            expect(decision.isTranscoding).toBe(true);
-            expect(decision.protocol).toBe('hls');
-            expect(decision.directPlay?.reasons).toContain('dv_profile_no_hdr10_base_layer');
-            expect(decision.playbackUrl).toContain('directStream=1');
+            expect(decision.isDirectPlay).toBe(true);
+            expect(decision.isTranscoding).toBe(false);
+            expect(decision.protocol).toBe('http');
+            expect(decision.directPlay?.reasons).toEqual([]);
         });
 
         it('should return transcode URL for incompatible content', async () => {

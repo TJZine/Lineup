@@ -49,6 +49,20 @@ const createTranscodeSnapshot = (): AppShellPlaybackInfoSnapshot => ({
             allowed: false,
             reasons: ['unsupported_audio_codec:truehd'],
         },
+        hdr10Fallback: {
+            mode: 'smart',
+            applied: true,
+            reason: 'smart',
+            debugWhy: 'letterbox_detected',
+            hideDolbyVision: true,
+            forcedHls: false,
+        },
+        subtitleBurnIn: {
+            requested: true,
+            reason: 'requested',
+            subtitleStreamId: 'subtitle-1',
+            subtitleMode: 'burn',
+        },
         audioFallback: {
             fromCodec: 'truehd',
             toCodec: 'aac',
@@ -66,11 +80,16 @@ const createTranscodeSnapshot = (): AppShellPlaybackInfoSnapshot => ({
             sessionId: 'session-1',
             maxBitrate: 20_000,
             audioStreamId: 'audio-1',
+            hideDolbyVision: true,
+            subtitleStreamId: 'subtitle-1',
+            subtitleMode: 'burn',
         },
         serverDecision: {
+            fetchedAt: 123,
             videoDecision: 'transcode',
             audioDecision: 'transcode',
             subtitleDecision: 'burn',
+            decisionCode: '1001',
             decisionText: 'server selected transcode',
         },
     },
@@ -104,6 +123,11 @@ describe('formatAppDiagnosticsPlaybackInfo', () => {
         expect(formatted.display).toContain('RAW\n------------------------------------------------------------');
         expect(formatted.display).toContain(expectedRawJson);
         expect(formatted.summary).toContain('REQUEST (Lineup -> PMS)');
+        expect(formatted.summary).toContain('HDR10 FB:  mode=smart applied=yes hideDV=yes forcedHLS=no reason=smart (letterbox_detected)');
+        expect(formatted.summary).toContain('Burn-in:   requested=yes reason=requested subtitle=subtitle-1 mode=burn');
+        expect(formatted.summary).toContain('PMS code:  1001');
+        expect(formatted.summary).toContain('Hide DV: yes');
+        expect(formatted.summary).toContain('SubID:   subtitle-1');
         expect(formatted.summary).not.toContain('RAW');
         expect(formatted.summary).not.toContain(expectedRawJson);
     });

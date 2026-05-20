@@ -332,6 +332,22 @@ interface StreamDecision {
     reasons: string[];
   };
 
+  hdr10Fallback?: {
+    mode: 'off' | 'smart' | 'force';
+    applied: boolean;
+    reason: 'none' | 'smart' | 'force';
+    debugWhy: string;
+    hideDolbyVision: boolean;
+    forcedHls: boolean;
+  };
+
+  subtitleBurnIn?: {
+    requested: boolean;
+    reason: 'requested' | 'format_required' | 'none';
+    subtitleStreamId?: string;
+    subtitleMode?: 'none' | 'burn';
+  };
+
   audioFallback?: {
     fromCodec: string;
     toCodec: string;

@@ -110,6 +110,124 @@ describe('resolveStreamPipeline', () => {
             subtitleStreamId: 'sub-1',
             subtitleMode: 'burn',
         });
+        expect(result.decision.subtitleBurnIn).toMatchObject({
+            requested: true,
+            reason: 'requested',
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'burn',
+        });
+    });
+
+    it('uses direct-play capability hiding for smart HDR10 fallback without requesting HLS', () => {
+        const item = createMockMediaItem({ container: 'mkv', videoCodec: 'hevc', aspectRatio: 2.39 });
+        const video = item.media[0]!.parts[0]!.streams.find((stream) => stream.streamType === 1)!;
+        video.displayTitle = 'Dolby Vision';
+        video.doviPresent = true;
+        video.doviProfile = '8.1';
+        const buildDirectPlayUrl = jest.fn(
+            (_partKey: string, _sessionId: string, _audioStreamId?: string, hideDolbyVision?: boolean) =>
+                `http://example.com/direct?hideDolbyVision=${hideDolbyVision === true ? '1' : '0'}`
+        );
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345' },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            dtsPassthroughEnabled: false,
+            userAgent: null,
+            hdr10FallbackMode: 'smart',
+            createError,
+            buildDirectPlayUrl,
+            getTranscodeUrl: () => {
+                throw new Error('transcode path should not be used');
+            },
+        });
+
+        expect(result.decision.isDirectPlay).toBe(true);
+        expect(result.decision.transcodeRequest).toBeUndefined();
+        expect(result.decision.directPlay?.reasons).toEqual([]);
+        expect(result.decision.hdr10Fallback).toMatchObject({
+            mode: 'smart',
+            applied: true,
+            reason: 'smart',
+            hideDolbyVision: true,
+            forcedHls: false,
+        });
+        expect(buildDirectPlayUrl).toHaveBeenCalledWith(
+            item.media[0]!.parts[0]!.key,
+            'session-1',
+            undefined,
+            true
+        );
+    });
+
+    it('keeps Profile 5 Dolby Vision direct-playable when HDR fallback force is enabled', () => {
+        const item = createMockMediaItem({ container: 'mkv', videoCodec: 'hevc', aspectRatio: 1.78 });
+        const video = item.media[0]!.parts[0]!.streams.find((stream) => stream.streamType === 1)!;
+        video.displayTitle = 'Dolby Vision';
+        video.doviPresent = true;
+        video.doviProfile = '5';
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345' },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            dtsPassthroughEnabled: false,
+            userAgent: null,
+            hdr10FallbackMode: 'force',
+            createError,
+            buildDirectPlayUrl: () => 'http://example.com/direct',
+            getTranscodeUrl: () => {
+                throw new Error('transcode path should not be used');
+            },
+        });
+
+        expect(result.decision.isDirectPlay).toBe(true);
+        expect(result.decision.isTranscoding).toBe(false);
+        expect(result.decision.directPlay?.reasons).toEqual([]);
+        expect(result.decision.hdr10Fallback).toMatchObject({
+            mode: 'force',
+            applied: false,
+            reason: 'none',
+            hideDolbyVision: false,
+            forcedHls: false,
+        });
+    });
+
+    it('forces HLS for force HDR10 fallback only when the DV source has an HDR10 base layer', () => {
+        const item = createMockMediaItem({ container: 'mkv', videoCodec: 'hevc', aspectRatio: 1.78 });
+        const video = item.media[0]!.parts[0]!.streams.find((stream) => stream.streamType === 1)!;
+        video.displayTitle = 'Dolby Vision';
+        video.doviPresent = true;
+        video.doviProfile = '8.1';
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345' },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            dtsPassthroughEnabled: false,
+            userAgent: null,
+            hdr10FallbackMode: 'force',
+            createError,
+            buildDirectPlayUrl: () => {
+                throw new Error('direct play path should not be used');
+            },
+            getTranscodeUrl: () => 'http://example.com/transcode',
+        });
+
+        expect(result.decision.isTranscoding).toBe(true);
+        expect(result.decision.directPlay?.reasons).toContain('hdr10_fallback_force');
+        expect(result.decision.transcodeRequest?.hideDolbyVision).toBe(true);
+        expect(result.decision.hdr10Fallback).toMatchObject({
+            mode: 'force',
+            applied: true,
+            reason: 'force',
+            hideDolbyVision: true,
+            forcedHls: true,
+        });
     });
 
     it('throws the precise subtitle-stream error when explicit selection is missing', () => {

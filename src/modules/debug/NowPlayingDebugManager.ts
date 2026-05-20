@@ -75,6 +75,17 @@ export class NowPlayingDebugManager {
         if (hdrLabel) {
             lines.push(`HDR: ${hdrLabel}${dvProfile ? ` (${dvProfile})` : ''}`);
         }
+        if (decision.hdr10Fallback) {
+            const fallback = decision.hdr10Fallback;
+            lines.push(
+                `HDR10 FB: ${fallback.mode}/${fallback.reason} hideDV=${fallback.hideDolbyVision ? 'yes' : 'no'} HLS=${fallback.forcedHls ? 'yes' : 'no'}`
+            );
+        }
+        if (decision.subtitleBurnIn?.requested) {
+            lines.push(
+                `Burn-in: ${decision.subtitleBurnIn.reason} sub=${decision.subtitleBurnIn.subtitleStreamId ?? 'none'}`
+            );
+        }
 
         if (decision.serverDecision) {
             const sd = decision.serverDecision;
@@ -105,7 +116,7 @@ export class NowPlayingDebugManager {
         }
 
         // Keep short for TVs (CSS also clamps, but avoid generating huge strings).
-        return lines.slice(0, 6).join('\n');
+        return lines.slice(0, 8).join('\n');
     }
 
     async maybeFetchNowPlayingStreamDecisionForDebugHud(): Promise<void> {

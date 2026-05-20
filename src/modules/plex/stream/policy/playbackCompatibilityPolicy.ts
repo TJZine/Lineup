@@ -2,7 +2,7 @@ import type { PlexMediaFile, PlexStream } from '../contracts/types';
 import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
 import { SUPPORTED_AUDIO_CODECS, SUPPORTED_CONTAINERS, SUPPORTED_VIDEO_CODECS, MAX_RESOLUTION } from './constants';
 import { detectHdrLabel } from './hdr';
-import { inferHdr10BaseLayer, shouldApplyHdr10Fallback } from './dvHdr10Fallback';
+import { shouldApplyHdr10Fallback } from './dvHdr10Fallback';
 
 export type DirectPlayDecision = {
     canDirect: boolean;
@@ -82,8 +82,8 @@ export type HdrCompatibilityDecision = {
     isDolbyVision: boolean;
     applyHdr10Fallback: boolean;
     forceTranscodeForHdr10Fallback: boolean;
-    forceHlsForDvNoHdr10BaseLayer: boolean;
     fallbackReason: HdrCompatibilityReason;
+    fallbackDebugWhy: string;
 };
 
 export function getHdrCompatibilityDecision(
@@ -93,12 +93,6 @@ export function getHdrCompatibilityDecision(
     const isDolbyVision = detectHdrLabel(videoStream) === 'Dolby Vision';
     const sourceContainer = normalizeCompatibilityValue(inputs.media.container);
 
-    const hdr10BaseLayerInfo = inferHdr10BaseLayer(buildHdr10BaseLayerContext(videoStream));
-    const forceHlsForDvNoHdr10BaseLayer = shouldForceHlsForDvNoHdr10BaseLayer(
-        isDolbyVision,
-        sourceContainer,
-        hdr10BaseLayerInfo.isKnownNoHdr10BaseLayer
-    );
     const fallback = shouldApplyHdr10Fallback(
         buildHdr10FallbackRequest(inputs, isDolbyVision, sourceContainer)
     );
@@ -107,8 +101,8 @@ export function getHdrCompatibilityDecision(
         isDolbyVision,
         applyHdr10Fallback: fallback.apply,
         forceTranscodeForHdr10Fallback: fallback.apply && fallback.reason === 'force',
-        forceHlsForDvNoHdr10BaseLayer,
         fallbackReason: fallback.reason,
+        fallbackDebugWhy: fallback.debugWhy,
     };
 }
 
@@ -234,34 +228,6 @@ function getFallbackCodecPriority(stream: PlexStream): number {
         normalizeCompatibilityValue(stream.codec) as (typeof FALLBACK_AUDIO_CODECS)[number]
     );
     return index === -1 ? Number.MAX_SAFE_INTEGER : index;
-}
-
-function buildHdr10BaseLayerContext(videoStream: PlexStream | null): {
-    doviProfile: string | null;
-    codecProfileString: string | null;
-    hdr: string | null;
-    dynamicRange: string | null;
-    colorTrc: string | null;
-    displayTitle: string | null;
-    extendedDisplayTitle: string | null;
-} {
-    return {
-        doviProfile: videoStream?.doviProfile ?? null,
-        codecProfileString: videoStream?.profile ?? null,
-        hdr: videoStream?.hdr ?? null,
-        dynamicRange: videoStream?.dynamicRange ?? null,
-        colorTrc: videoStream?.colorTrc ?? null,
-        displayTitle: videoStream?.displayTitle ?? null,
-        extendedDisplayTitle: videoStream?.extendedDisplayTitle ?? null,
-    };
-}
-
-function shouldForceHlsForDvNoHdr10BaseLayer(
-    isDolbyVision: boolean,
-    sourceContainer: string,
-    isKnownNoHdr10BaseLayer: boolean
-): boolean {
-    return isDolbyVision && sourceContainer === 'mkv' && isKnownNoHdr10BaseLayer;
 }
 
 function buildHdr10FallbackRequest(

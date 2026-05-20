@@ -124,6 +124,20 @@ export interface AppShellPlaybackInfoSnapshot {
             allowed: boolean;
             reasons: string[];
         } | undefined;
+        hdr10Fallback?: {
+            mode: 'off' | 'smart' | 'force';
+            applied: boolean;
+            reason: 'none' | 'smart' | 'force';
+            debugWhy: string;
+            hideDolbyVision: boolean;
+            forcedHls: boolean;
+        } | undefined;
+        subtitleBurnIn?: {
+            requested: boolean;
+            reason: 'requested' | 'format_required' | 'none';
+            subtitleStreamId?: string;
+            subtitleMode?: 'none' | 'burn';
+        } | undefined;
         audioFallback?: {
             fromCodec: string;
             toCodec: string;
@@ -136,16 +150,34 @@ export interface AppShellPlaybackInfoSnapshot {
             width: number;
             height: number;
             bitrate: number;
+            hdr?: string;
+            dynamicRange?: string;
+            doviPresent?: boolean;
+            doviProfile?: string;
         } | undefined;
-        transcodeRequest?: {
+        transcodeRequest?: ({
             sessionId: string;
             maxBitrate: number;
+            mediaIndex?: number;
+            partIndex?: number;
             audioStreamId?: string;
-        } | undefined;
+            hideDolbyVision?: true;
+        } & (
+            | {
+                subtitleStreamId?: undefined;
+                subtitleMode?: undefined;
+            }
+            | {
+                subtitleStreamId: string;
+                subtitleMode: 'burn';
+            }
+        )) | undefined;
         serverDecision?: {
+            fetchedAt?: number;
             videoDecision?: string;
             audioDecision?: string;
             subtitleDecision?: string;
+            decisionCode?: string;
             decisionText?: string;
         } | undefined;
     } | null;
