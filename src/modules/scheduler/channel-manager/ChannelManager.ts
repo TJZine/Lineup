@@ -347,9 +347,9 @@ export class ChannelManager implements IChannelManager {
         }
 
         this._queueSave();
-        this._emitter.emit('channelCreated', channel);
+        this._emitter.emit('channelCreated', cloneChannelForOwnership(channel));
 
-        return channel;
+        return cloneChannelForOwnership(channel);
     }
 
     async updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig> {
@@ -389,9 +389,9 @@ export class ChannelManager implements IChannelManager {
         }
 
         this._queueSave();
-        this._emitter.emit('channelUpdated', updated);
+        this._emitter.emit('channelUpdated', cloneChannelForOwnership(updated));
 
-        return updated;
+        return cloneChannelForOwnership(updated);
     }
 
     async deleteChannel(id: string): Promise<void> {
@@ -522,7 +522,7 @@ export class ChannelManager implements IChannelManager {
         this._persistence.persistCurrentChannelIdBestEffort(channelId);
 
         const index = this._state.channelOrder.indexOf(channelId);
-        this._emitter.emit('channelSwitch', { channel, index });
+        this._emitter.emit('channelSwitch', { channel: cloneChannelForOwnership(channel), index });
     }
 
     getCurrentChannel(): ChannelConfig | null {

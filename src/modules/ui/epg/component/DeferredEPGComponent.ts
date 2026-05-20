@@ -30,7 +30,6 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
     private _channels: ChannelConfig[] | null = null;
     private _schedules = new Map<string, ScheduleWindow>();
     private _scheduleOrder: string[] = [];
-    private _categoryColorsEnabled: boolean | null = null;
     private _layoutMode: EpgLayoutMode | null = null;
     private _visibleHours: number | null = null;
     private _nowWatchingBannerEnabled: boolean | null = null;
@@ -132,13 +131,6 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         this._channels = channels;
         if (this._runtimeInitialized && this._runtime) {
             this._runtime.loadChannels(channels);
-        }
-    }
-
-    setCategoryColorsEnabled(enabled: boolean): void {
-        this._categoryColorsEnabled = enabled;
-        if (this._runtimeInitialized && this._runtime) {
-            this._runtime.setCategoryColorsEnabled(enabled);
         }
     }
 
@@ -300,7 +292,6 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         this._channels = null;
         this._schedules.clear();
         this._scheduleOrder = [];
-        this._categoryColorsEnabled = null;
         this._layoutMode = null;
         this._visibleHours = null;
         this._nowWatchingBannerEnabled = null;
@@ -374,10 +365,6 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
             if (schedule) {
                 this._runtime.loadScheduleForChannel(channelId, schedule);
             }
-        }
-
-        if (this._categoryColorsEnabled !== null) {
-            this._runtime.setCategoryColorsEnabled(this._categoryColorsEnabled);
         }
 
         if (this._layoutMode !== null) {

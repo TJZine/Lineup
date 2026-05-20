@@ -368,6 +368,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         // Render immediately on open to avoid a blank guide before first input.
         this.renderGridInternal();
         this.virtualizer.updateTemporalClasses(this.state.currentTime);
+        this.channelList.refreshChannelNameLayouts();
 
         // Auto-focus current program if available.
         if (this.config.autoScrollToNow && !shouldPreserveFocus) {
@@ -462,14 +463,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 timeOffset: this.state.scrollPosition.timeOffset,
             };
             this._appendDebugLog('EPG.loadChannels', payload);
-        }
-    }
-
-    setCategoryColorsEnabled(enabled: boolean): void {
-        this.channelList.setCategoryColorsEnabled(enabled);
-        if (this.state.isVisible) {
-            // Re-render visible rows only (virtualized pool), not all channels.
-            this.channelList.updateChannels(this.state.channels);
         }
     }
 

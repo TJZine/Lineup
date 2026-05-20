@@ -10,7 +10,8 @@ import type {
 } from '../ChannelSetupSessionContracts';
 import { ChannelSetupWorkflowPresenter } from '../ChannelSetupWorkflowPresenter';
 import { STEP2_CONTROL_IDS } from '../steps/constants';
-import { createScreenPorts } from './channel-setup-test-helpers';
+import { flushPromises } from '../../../../__tests__/helpers';
+import { createScreenPorts, DEFAULT_PREVIEW } from './channel-setup-test-helpers';
 
 const createSnapshot = (
     overrides: Partial<ChannelSetupSessionSnapshot> = {}
@@ -134,5 +135,130 @@ describe('ChannelSetupWorkflowPresenter', () => {
         expect(session.updateStrategyState).toHaveBeenCalledTimes(1);
         expect(captured.draftAfterMutation?.maxChannels).toBe(100);
         expect(session.schedulePreview).toHaveBeenCalledTimes(1);
+    });
+
+    it('preloads review from Step 2 after the preview is ready', async () => {
+        const contentEl = document.createElement('div');
+        const ctx = {
+            contentEl,
+            stepEl: document.createElement('div'),
+            statusEl: document.createElement('div'),
+            detailEl: document.createElement('div'),
+            errorEl: document.createElement('div'),
+        };
+        let snapshot = createSnapshot({
+            setupContext: 'existing',
+            preview: DEFAULT_PREVIEW,
+            previewStatus: 'ready',
+        });
+        const session = {
+            getSnapshot: jest.fn(() => snapshot),
+            syncSetupContext: jest.fn(),
+            updateStrategyState: jest.fn(),
+            schedulePreview: jest.fn(),
+            setStep: jest.fn(),
+            ensureReviewLoaded: jest.fn((onStateChange: () => void) => {
+                onStateChange();
+            }),
+        };
+        let visibilityToken = 1;
+        const renderStep = jest.fn();
+        const presenter = new ChannelSetupWorkflowPresenter({
+            session: session as never,
+            focus: { registerStep2: jest.fn(() => false) } as never,
+            dropdown: {
+                deferRender: jest.fn(),
+                dismiss: jest.fn(),
+                hasActiveDropdown: jest.fn(() => false),
+                open: jest.fn(),
+            } as never,
+            screenPorts: createScreenPorts(),
+            contentEl,
+            previewPanelId: 'setup-preview-panel',
+            getPreferredFocusId: jest.fn(() => null),
+            setPreferredFocusId: jest.fn(),
+            getVisibilityToken: jest.fn(() => visibilityToken),
+            renderStep,
+            resetStep2Scroll: jest.fn(),
+            toDomId: (raw): string => raw,
+        });
+
+        presenter.renderStrategyStep(ctx);
+        await flushPromises();
+
+        expect(session.ensureReviewLoaded).toHaveBeenCalledWith(expect.any(Function));
+        expect(renderStep).not.toHaveBeenCalled();
+
+        const [onStateChange] = session.ensureReviewLoaded.mock.calls[0] ?? [];
+        snapshot = createSnapshot({
+            step: 3,
+            setupContext: 'existing',
+            preview: DEFAULT_PREVIEW,
+            previewStatus: 'ready',
+        });
+        onStateChange?.();
+        expect(renderStep).toHaveBeenCalledTimes(1);
+
+        visibilityToken = 2;
+        onStateChange?.();
+        expect(renderStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears a failed Step 2 preload before opening review so Step 3 can retry', () => {
+        const contentEl = document.createElement('div');
+        const ctx = {
+            contentEl,
+            stepEl: document.createElement('div'),
+            statusEl: document.createElement('div'),
+            detailEl: document.createElement('div'),
+            errorEl: document.createElement('div'),
+        };
+        let snapshot = createSnapshot({
+            setupContext: 'existing',
+            preview: DEFAULT_PREVIEW,
+            previewStatus: 'ready',
+            reviewError: 'preload failed',
+        });
+        const session = {
+            getSnapshot: jest.fn(() => snapshot),
+            syncSetupContext: jest.fn(),
+            updateStrategyState: jest.fn(),
+            schedulePreview: jest.fn(),
+            setStep: jest.fn((step: 1 | 2 | 3) => {
+                snapshot = { ...snapshot, step };
+            }),
+            clearReviewForEdits: jest.fn(() => {
+                snapshot = { ...snapshot, reviewError: null };
+            }),
+        };
+        const renderStep = jest.fn();
+        const presenter = new ChannelSetupWorkflowPresenter({
+            session: session as never,
+            focus: { registerStep2: jest.fn(() => false) } as never,
+            dropdown: {
+                deferRender: jest.fn(),
+                dismiss: jest.fn(),
+                hasActiveDropdown: jest.fn(() => false),
+                open: jest.fn(),
+            } as never,
+            screenPorts: createScreenPorts(),
+            contentEl,
+            previewPanelId: 'setup-preview-panel',
+            getPreferredFocusId: jest.fn(() => null),
+            setPreferredFocusId: jest.fn(),
+            getVisibilityToken: jest.fn(() => 1),
+            renderStep,
+            resetStep2Scroll: jest.fn(),
+            toDomId: (raw): string => raw,
+        });
+
+        presenter.renderStrategyStep(ctx);
+        (contentEl.querySelector('#setup-next') as HTMLButtonElement).click();
+
+        expect(session.clearReviewForEdits).toHaveBeenCalledTimes(1);
+        expect(session.setStep).toHaveBeenCalledWith(3);
+        expect(session.clearReviewForEdits.mock.invocationCallOrder[0]!)
+            .toBeLessThan(session.setStep.mock.invocationCallOrder[0]!);
+        expect(renderStep).toHaveBeenCalledTimes(1);
     });
 });

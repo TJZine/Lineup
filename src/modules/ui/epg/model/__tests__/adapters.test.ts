@@ -149,6 +149,20 @@ describe('EPG model adapters', () => {
         expect(epgProgram.item).not.toBe(program.item);
     });
 
+    it('omits polluted scheduler channel color fields at the EPG adapter boundary', () => {
+        const channel = {
+            ...makeChannel({ buildStrategy: 'genres' }),
+            color: '#ffffff',
+            runtimeOnly: true,
+        } as unknown as Parameters<typeof toEpgChannel>[0];
+
+        const epgChannel = toEpgChannel(channel);
+
+        expect(epgChannel.buildStrategy).toBe('genres');
+        expect('color' in epgChannel).toBe(false);
+        expect('runtimeOnly' in epgChannel).toBe(false);
+    });
+
     it('clones schedule windows and item details recursively', () => {
         const window = makeScheduleWindow();
         const item = makePlexMediaItem();

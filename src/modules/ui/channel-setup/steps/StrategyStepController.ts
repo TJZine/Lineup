@@ -6,6 +6,7 @@ import {
 import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
+    DEFAULT_STRATEGY_PRIORITIES,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
 } from './constants';
@@ -57,8 +58,10 @@ const CATEGORY_TITLES: Record<StrategyCategoryKey, string> = {
     'build-options': 'Build Options',
     'series-ordering': 'Series Ordering',
     limits: 'Limits',
-    'priority-order': 'Priority Order',
+    'priority-order': 'Guide Order',
 };
+
+const GUIDE_ORDER_RESET_ID = 'setup-guide-order-reset';
 
 export class StrategyStepController {
     private _previewExpanded = false;
@@ -328,7 +331,8 @@ export class StrategyStepController {
         const activeControls = controlsByCategory[state.activeStrategyCategory] ?? [];
         const activeCategoryTitle = CATEGORY_TITLES[state.activeStrategyCategory];
 
-        const detailScroll = this._renderDetailPane(activeControls, activeCategoryTitle);
+        const isGuideOrderActive = state.activeStrategyCategory === 'priority-order';
+        const detailScroll = this._renderDetailPane(activeControls, activeCategoryTitle, { isCompactGuideOrder: isGuideOrderActive });
         const previewPanel = this._renderPreviewPanel(deps, state);
 
         right.appendChild(detailScroll);
@@ -337,7 +341,7 @@ export class StrategyStepController {
         ctx.contentEl.appendChild(split);
 
         const previewStrip = document.createElement('section');
-        previewStrip.className = 'setup-preview-strip is-collapsed';
+        previewStrip.className = `setup-preview-strip is-collapsed${isGuideOrderActive ? ' setup-preview-strip--floating-details' : ''}`;
         previewStrip.setAttribute('aria-label', 'Estimate summary');
 
         const previewSummary = document.createElement('div');
@@ -365,18 +369,25 @@ export class StrategyStepController {
         };
 
         setExpanded(this._previewExpanded);
-        previewToggle.addEventListener('click', () => {
-            setExpanded(!this._previewExpanded);
-        });
+        previewToggle.addEventListener('click', () => setExpanded(!this._previewExpanded));
+        if (isGuideOrderActive) {
+            previewStrip.addEventListener('focusout', (event) => {
+                const nextFocus = event.relatedTarget;
+                if (!(nextFocus instanceof Node) || !previewStrip.contains(nextFocus)) setExpanded(false);
+            });
+        }
 
-        previewSummary.appendChild(previewSummaryText);
-        previewSummary.appendChild(previewToggle);
-        previewStrip.appendChild(previewSummary);
-        previewStrip.appendChild(previewPanel);
+        previewSummary.append(previewSummaryText, previewToggle);
+        previewStrip.append(previewSummary, previewPanel);
         ctx.contentEl.appendChild(previewStrip);
 
         const detailFocusables = [...activeControls, previewToggle];
-        this._renderFooterActions(ctx, deps, state, categoryButtons, detailFocusables);
+        const footerOptions = isGuideOrderActive ? {
+            onFocus: (id: string): void => {
+                if (id !== previewToggle.id) setExpanded(false);
+            },
+        } : {};
+        this._renderFooterActions(ctx, deps, state, categoryButtons, detailFocusables, footerOptions);
     }
 
     private _renderCategoryRail(
@@ -419,19 +430,35 @@ export class StrategyStepController {
         return categoryButtons;
     }
 
-    private _renderDetailPane(activeControls: HTMLButtonElement[], activeCategoryTitle: string): HTMLElement {
+    private _renderDetailPane(
+        activeControls: HTMLButtonElement[],
+        activeCategoryTitle: string,
+        options: { isCompactGuideOrder?: boolean } = {}
+    ): HTMLElement {
         const detailScroll = document.createElement('div');
-        detailScroll.className = 'setup-detail-scroll setup-focus-safe-scroll';
+        detailScroll.className = `setup-detail-scroll setup-focus-safe-scroll${options.isCompactGuideOrder ? ' setup-detail-scroll--guide-order' : ''}`;
         const header = document.createElement('div');
         header.className = 'setup-detail-header';
-        header.textContent = activeCategoryTitle;
-        detailScroll.appendChild(header);
 
+        const resetControl = activeControls.find((button) => button.id === GUIDE_ORDER_RESET_ID);
+        const detailControlsToRender = resetControl
+            ? activeControls.filter((button) => button.id !== GUIDE_ORDER_RESET_ID)
+            : activeControls;
+
+        if (resetControl) {
+            header.classList.add('setup-detail-header--with-action');
+            const title = document.createElement('span');
+            title.className = 'setup-detail-header-title';
+            title.textContent = activeCategoryTitle;
+            header.append(title, resetControl);
+        } else {
+            header.textContent = activeCategoryTitle;
+        }
+
+        detailScroll.appendChild(header);
         const detailControls = document.createElement('div');
         detailControls.className = 'setup-list';
-        for (const button of activeControls) {
-            detailControls.appendChild(button);
-        }
+        detailControls.append(...detailControlsToRender);
         detailScroll.appendChild(detailControls);
         return detailScroll;
     }
@@ -441,23 +468,19 @@ export class StrategyStepController {
         state: StrategyStepDeps['state'],
         strategyLabels: Array<{ key: SetupStrategyKey; label: string; detail: string }>
     ): HTMLButtonElement[] {
-        return state.strategyOrder.map((key, index) => {
+        const activeOrder = state.strategyOrder.filter((key) => state.strategies[key]?.enabled);
+        const canMove = activeOrder.length >= 2;
+        const rows = activeOrder.map((key, index) => {
             const strategy = strategyLabels.find((item) => item.key === key);
-            const strategyState = state.strategies[key];
             const rowId = deps.priorityRowId(key);
             const button = document.createElement('button');
             button.id = rowId;
             button.className = 'setup-toggle setup-priority-row';
-            button.classList.toggle('selected', strategyState.enabled);
+            button.disabled = !canMove;
+            button.classList.toggle('setup-priority-row--disabled', !canMove);
             const labelText = strategy?.label ?? String(key);
-            const stateText = strategyState.enabled ? 'On' : 'Off';
-            button.setAttribute('aria-label', `Priority ${index + 1}: ${labelText}, ${stateText}`);
-            button.setAttribute('aria-pressed', strategyState.enabled ? 'true' : 'false');
-            if (deps.lastReorder?.key === key && deps.lastReorder.dir === 'up') {
-                button.classList.add('setup-priority-row--move-up');
-            } else if (deps.lastReorder?.key === key && deps.lastReorder.dir === 'down') {
-                button.classList.add('setup-priority-row--move-down');
-            }
+            button.setAttribute('aria-label', `Guide order ${index + 1}: ${labelText}`);
+            if (deps.lastReorder?.key === key) button.classList.add(`setup-priority-row--move-${deps.lastReorder.dir}`);
 
             const rank = document.createElement('span');
             rank.className = 'setup-priority-rank';
@@ -469,67 +492,47 @@ export class StrategyStepController {
             label.textContent = labelText;
             label.setAttribute('aria-hidden', 'true');
 
-            const rowState = document.createElement('span');
-            rowState.className = 'setup-priority-state';
-            rowState.textContent = stateText;
-            rowState.setAttribute('aria-hidden', 'true');
+            const hint = document.createElement('span');
+            hint.className = 'setup-priority-hint';
+            hint.textContent = canMove ? '↕' : '';
+            hint.setAttribute('aria-hidden', 'true');
 
-            const grip = document.createElement('span');
-            grip.className = 'setup-priority-grip';
-            grip.textContent = '⠿';
-            grip.setAttribute('aria-hidden', 'true');
-
-            const arrows = document.createElement('span');
-            arrows.className = 'setup-priority-arrows';
-            const arrowUp = document.createElement('span');
-            arrowUp.className = 'setup-priority-arrow-up';
-            arrowUp.textContent = '▲';
-            if (index === 0) arrowUp.classList.add('setup-priority-arrow--hidden');
-            const arrowDown = document.createElement('span');
-            arrowDown.className = 'setup-priority-arrow-down';
-            arrowDown.textContent = '▼';
-            if (index === state.strategyOrder.length - 1) arrowDown.classList.add('setup-priority-arrow--hidden');
-            arrows.appendChild(arrowUp);
-            arrows.appendChild(arrowDown);
-            arrows.setAttribute('aria-hidden', 'true');
-
-            button.appendChild(rank);
-            button.appendChild(label);
-            button.appendChild(rowState);
-            button.appendChild(grip);
-            button.appendChild(arrows);
-            button.addEventListener('click', () => {
-                deps.applySettingChange(rowId, (draft) => {
-                    draft.strategies[key].enabled = !draft.strategies[key].enabled;
-                });
-            });
+            button.append(rank, label, hint);
             return button;
         });
+
+        const hint = document.createElement('button');
+        hint.id = 'setup-guide-order-hint';
+        hint.type = 'button';
+        hint.className = 'setup-guide-order-hint';
+        hint.disabled = true;
+        hint.setAttribute('role', 'status');
+        hint.setAttribute('aria-live', 'polite');
+        hint.textContent = canMove
+            ? deps.grabbedPriorityKey
+                ? 'Up/Down to move · OK to place · Back to cancel'
+                : 'OK to pick up · Up/Down to move · OK to place'
+            : 'Enable more categories to customize order.';
+
+        const reset = document.createElement('button');
+        reset.id = GUIDE_ORDER_RESET_ID;
+        reset.type = 'button';
+        reset.className = 'screen-button secondary setup-guide-order-reset';
+        reset.textContent = 'Reset Order';
+        reset.disabled = !this._canResetGuideOrder(activeOrder);
+        reset.addEventListener('click', () => deps.resetGuideOrder(GUIDE_ORDER_RESET_ID));
+
+        return [reset, ...rows, hint];
     }
 
-    updatePriorityRowState(
-        container: HTMLElement,
-        rowId: string,
-        enabled: boolean
-    ): HTMLButtonElement | null {
-        const row = container.querySelector(`#${rowId}`) as HTMLButtonElement | null;
-        if (!row) return null;
-
-        row.classList.toggle('selected', enabled);
-        row.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-
-        const stateEl = row.querySelector('.setup-priority-state') as HTMLElement | null;
-        if (stateEl) {
-            stateEl.textContent = enabled ? 'On' : 'Off';
-        }
-
-        const rankText = row.querySelector('.setup-priority-rank')?.textContent?.trim();
-        const labelText = row.querySelector('.setup-priority-label')?.textContent?.trim();
-        if (rankText && labelText) {
-            const stateText = enabled ? 'On' : 'Off';
-            row.setAttribute('aria-label', `Priority ${rankText}: ${labelText}, ${stateText}`);
-        }
-        return row;
+    private _canResetGuideOrder(activeOrder: SetupStrategyKey[]): boolean {
+        if (activeOrder.length < 2) return false;
+        const defaultOrder = [...activeOrder].sort((a, b) => {
+            const diff = DEFAULT_STRATEGY_PRIORITIES[a] - DEFAULT_STRATEGY_PRIORITIES[b];
+            if (diff !== 0) return diff;
+            return a < b ? -1 : a > b ? 1 : 0;
+        });
+        return activeOrder.some((key, index) => key !== defaultOrder[index]);
     }
 
     private _renderPreviewPanel(deps: StrategyStepDeps, state: StrategyStepDeps['state']): HTMLElement {
@@ -618,7 +621,11 @@ export class StrategyStepController {
         deps: StrategyStepDeps,
         state: StrategyStepDeps['state'],
         categoryButtons: HTMLButtonElement[],
-        activeControls: HTMLButtonElement[]
+        activeControls: HTMLButtonElement[],
+        options: {
+            onFocus?: (id: string) => void;
+            onDetailFocus?: (id: string) => void;
+        } = {}
     ): void {
         const actions = document.createElement('div');
         actions.className = 'button-row';
@@ -642,9 +649,16 @@ export class StrategyStepController {
         actions.appendChild(nextButton);
 
         ctx.contentEl.appendChild(actions);
-        deps.registerStep2Focusables(categoryButtons, activeControls, backButton, nextButton);
+        deps.registerStep2Focusables(
+            categoryButtons,
+            activeControls,
+            backButton,
+            nextButton,
+            Object.keys(options).length > 0 ? options : undefined
+        );
 
         ctx.detailEl.textContent = deps.detailText;
         deps.schedulePreview();
+        deps.preloadReview();
     }
 }

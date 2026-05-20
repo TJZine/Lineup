@@ -8,7 +8,6 @@ type RuntimeCall =
     | ['initialize', EPGConfig]
     | ['loadChannels', ChannelConfig[]]
     | ['loadScheduleForChannel', string, ScheduleWindow]
-    | ['setCategoryColorsEnabled', boolean]
     | ['setLayoutMode', EpgLayoutMode]
     | ['setVisibleHours', number]
     | ['setNowWatchingBannerEnabled', boolean]
@@ -127,7 +126,6 @@ const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPG
             return this.visible;
         }
         loadChannels(): void {}
-        setCategoryColorsEnabled(): void {}
         setLayoutMode(): void {}
         setVisibleHours(): void {}
         setNowWatchingBannerEnabled(): void {}
@@ -189,9 +187,6 @@ describe('DeferredEPGComponent', () => {
             },
             loadChannels(channels: ChannelConfig[]): void {
                 calls.push(['loadChannels', channels]);
-            },
-            setCategoryColorsEnabled(enabled: boolean): void {
-                calls.push(['setCategoryColorsEnabled', enabled]);
             },
             setLayoutMode(mode: EpgLayoutMode): void {
                 calls.push(['setLayoutMode', mode]);
@@ -351,9 +346,6 @@ describe('DeferredEPGComponent', () => {
             loadChannels(channels: ChannelConfig[]): void {
                 callLog.push(`loadChannels:${channels.map((channel) => channel.id).join(',')}`);
             },
-            setCategoryColorsEnabled(enabled: boolean): void {
-                callLog.push(`setCategoryColorsEnabled:${enabled}`);
-            },
             setLayoutMode(mode: EpgLayoutMode): void {
                 callLog.push(`setLayoutMode:${mode}`);
             },
@@ -382,7 +374,6 @@ describe('DeferredEPGComponent', () => {
         component.initialize(config);
         component.loadChannels(channels);
         component.loadScheduleForChannel('ch-1', makeSchedule('prog-1'));
-        component.setCategoryColorsEnabled(true);
         component.setLayoutMode('classic');
         component.setVisibleHours(4);
         component.setNowWatchingBannerEnabled(false);
@@ -395,7 +386,6 @@ describe('DeferredEPGComponent', () => {
             'debugRuntime:true',
             'loadChannels:ch-1,ch-2',
             'loadScheduleForChannel:ch-1',
-            'setCategoryColorsEnabled:true',
             'setLayoutMode:classic',
             'setVisibleHours:4',
             'setNowWatchingBannerEnabled:false',

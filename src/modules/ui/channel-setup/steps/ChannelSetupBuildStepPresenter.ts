@@ -117,7 +117,6 @@ export class ChannelSetupBuildStepPresenter {
                 deps.session.toggleReplaceConfirm();
                 deps.renderStep();
             },
-            buildPreviewRow: (label, value, key) => this.buildPreviewRow(deps.session.getSnapshot(), label, value, key),
             renderCappedWarnings: (warnings, container) => this.renderCappedPreviewWarnings(warnings, container),
             registerLinearFocusables: (buttons) => {
                 const preferredApplied = deps.focus.registerLinear(buttons, deps.getPreferredFocusId());
@@ -163,7 +162,17 @@ export class ChannelSetupBuildStepPresenter {
                 ) {
                     return;
                 }
-                return deps.session.ensureReviewLoaded(deps.renderStep);
+                return deps.session.ensureReviewLoaded(() => {
+                    const latest = deps.session.getSnapshot();
+                    if (
+                        token !== deps.getVisibilityToken() ||
+                        latest.step !== 3 ||
+                        latest.isBuilding
+                    ) {
+                        return;
+                    }
+                    deps.renderStep();
+                });
             })
             .catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;

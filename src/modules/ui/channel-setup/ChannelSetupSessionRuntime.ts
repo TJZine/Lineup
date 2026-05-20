@@ -121,7 +121,7 @@ export class ChannelSetupSessionRuntime {
         const state = this._deps.state;
         state.step = step;
         if (step !== 2) {
-            this._cleanupPlanningAsyncState();
+            this._cleanupPlanningAsyncState(step === 3);
         }
         if (step === 3) {
             state.isBuilding = state.setupContext === 'first-time';
@@ -512,12 +512,12 @@ export class ChannelSetupSessionRuntime {
         state.resetForNewSession();
     }
 
-    private _cleanupPlanningAsyncState(): void {
+    private _cleanupPlanningAsyncState(preserveReview = false): void {
         const state = this._deps.state;
         this._previewAbortController?.abort();
-        this._reviewAbortController?.abort();
+        if (!preserveReview) this._reviewAbortController?.abort();
         this._previewAbortController = null;
-        this._reviewAbortController = null;
+        if (!preserveReview) this._reviewAbortController = null;
         if (this._previewTimeoutId !== null) {
             clearTimeout(this._previewTimeoutId);
             this._previewTimeoutId = null;
@@ -529,7 +529,7 @@ export class ChannelSetupSessionRuntime {
         state.pendingPreviewKey = null;
         state.isPreviewLoading = false;
         state.previewStatus = 'idle';
-        state.isReviewLoading = false;
+        if (!preserveReview) state.isReviewLoading = false;
         this._clearPreviewDeltas();
     }
 

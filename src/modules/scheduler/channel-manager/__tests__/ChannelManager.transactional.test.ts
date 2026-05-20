@@ -141,6 +141,28 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
         expect(result[3]!.number).toBe(4);
     });
 
+    it('strips color from replaceAllChannels persisted channel records', async () => {
+        const polluted = {
+            ...createBaseChannel({
+                id: 'replace-color',
+                number: 7,
+                name: 'Replace Color',
+                contentSource: createMockContentSource('new-lib'),
+            }),
+            color: '#ff0000',
+        } as unknown as ReturnType<typeof createBaseChannel>;
+
+        await manager.replaceAllChannels([polluted], { currentChannelId: 'replace-color' });
+
+        const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
+            channels?: Array<Record<string, unknown>>;
+        };
+        expect(manager.getAllChannels()[0]).not.toHaveProperty('color');
+        expect(manager.getChannel('replace-color')).not.toHaveProperty('color');
+        expect(persisted.channels?.[0]?.id).toBe('replace-color');
+        expect(persisted.channels?.[0]?.color).toBeUndefined();
+    });
+
     it('skips channels over MAX_CHANNELS and warns per skipped channel', async () => {
         const warn = jest.fn();
         manager = new ChannelManager({ plexLibrary: mockLibrary, logger: { warn, error: jest.fn() } });

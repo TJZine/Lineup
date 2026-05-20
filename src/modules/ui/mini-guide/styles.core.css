@@ -66,42 +66,6 @@
   border-left: 3px solid transparent;
 }
 
-.mini-guide-row:not(.focused)[data-build-strategy="collections"] {
-  border-left: 3px solid var(--epg-category-collections);
-}
-
-.mini-guide-row:not(.focused)[data-build-strategy="playlists"] {
-  border-left: 3px solid var(--epg-category-playlists);
-}
-
-.mini-guide-row:not(.focused)[data-build-strategy="genres"] {
-  border-left: 3px solid var(--epg-category-genres);
-}
-
-.mini-guide-row:not(.focused)[data-build-strategy="directors"] {
-  border-left: 3px solid var(--epg-category-directors);
-}
-
-.mini-guide-row:not(.focused)[data-build-strategy="decades"] {
-  border-left: 3px solid var(--epg-category-decades);
-}
-
-.mini-guide-row:not(.focused)[data-build-strategy="recentlyAdded"] {
-  border-left: 3px solid var(--epg-category-recently-added);
-}
-
-.mini-guide-row:not(.focused)[data-build-strategy="studios"] {
-  border-left: 3px solid var(--epg-category-studios);
-}
-
-.mini-guide-row:not(.focused)[data-build-strategy="actors"] {
-  border-left: 3px solid var(--epg-category-actors);
-}
-
-.mini-guide-row:not(.focused)[data-build-strategy="libraryFallback"] {
-  border-left: 3px solid var(--epg-category-library);
-}
-
 .mini-guide-row.loading .mini-guide-now,
 .mini-guide-row.loading .mini-guide-next {
   position: relative;

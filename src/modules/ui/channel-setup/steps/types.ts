@@ -58,6 +58,7 @@ export interface StrategyStepDeps {
     strategyButtonId: (strategy: SetupStrategyKey) => string;
     priorityRowId: (strategy: SetupStrategyKey) => string;
     lastReorder: { key: SetupStrategyKey; dir: 'up' | 'down' } | null;
+    grabbedPriorityKey: SetupStrategyKey | null;
     scopeButtonId: (strategy: SetupStrategyKey) => string;
     strategySupportsMixedScope: (strategy: SetupStrategyKey) => boolean;
     buildPreviewRow: (label: string, value: number | string, key?: EstimateKey) => HTMLElement;
@@ -67,6 +68,7 @@ export interface StrategyStepDeps {
         focusId: string,
         mutate: (state: StrategyStepMutableState) => void
     ) => void;
+    resetGuideOrder: (focusId: string) => void;
     openAdjustableControl: (controlId: string) => void;
     onBack: () => void;
     onNext: () => void;
@@ -74,10 +76,15 @@ export interface StrategyStepDeps {
         categoryButtons: HTMLButtonElement[],
         detailButtons: HTMLButtonElement[],
         backButton: HTMLButtonElement,
-        nextButton: HTMLButtonElement
+        nextButton: HTMLButtonElement,
+        options?: {
+            onFocus?: (id: string) => void;
+            onDetailFocus?: (id: string) => void;
+        }
     ) => void;
     detailText: string;
     schedulePreview: () => void;
+    preloadReview: () => void;
 }
 
 export interface StrategyStepDropdownConfig {
@@ -102,7 +109,6 @@ export interface BuildReviewDeps {
     onBackToStrategy: () => void;
     onConfirmBuild: () => void;
     onToggleReplaceConfirm: (focusId: string) => void;
-    buildPreviewRow: (label: string, value: number | string, key?: EstimateKey) => HTMLElement;
     renderCappedWarnings: (warnings: string[], container: HTMLElement) => void;
     registerLinearFocusables: (buttons: HTMLElement[]) => void;
 }

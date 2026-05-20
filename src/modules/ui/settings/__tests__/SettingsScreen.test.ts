@@ -588,7 +588,7 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(typeof keyHandler).toBe('function');
 
         keyHandler?.({ handled: false, button: 'right' });
-        expect(nav.getFocusedElement()?.id).toBe('settings-guide-category-colors');
+        expect(nav.getFocusedElement()?.id).toBe('settings-guide-library-tabs');
     });
 
 	    it('moves focus into the newly-rendered detail pane when RIGHT is pressed during a deferred category swap', () => {
@@ -618,7 +618,7 @@ describe('SettingsScreen (Two-pane layout)', () => {
 	            swapFrame(16);
 
             // After detail items exist, focus should transfer into the detail pane.
-            expect(nav.getFocusedElement()?.id).toBe('settings-guide-category-colors');
+            expect(nav.getFocusedElement()?.id).toBe('settings-guide-library-tabs');
 	        } finally {
 	            restore();
 	        }
@@ -666,7 +666,7 @@ describe('SettingsScreen (Two-pane layout)', () => {
 	                frame?.(16);
 	            }
 
-	            expect(nav.setFocus).not.toHaveBeenCalledWith(expect.stringContaining('settings-guide-category-colors'));
+	            expect(nav.setFocus).not.toHaveBeenCalledWith(expect.stringContaining('settings-guide-library-tabs'));
 	            expect(nav.getFocusedElement()?.id).toBe('settings-category-appearance');
 	        } finally {
 	            restore();

@@ -211,16 +211,6 @@ export class SettingsScreenStateController {
             label: '🎨 Appearance',
             items: [
                 {
-                    id: 'settings-guide-category-colors',
-                    label: 'Category Colors',
-                    description: 'Show colored left border for auto-setup channel types',
-                    value: this._settingsStore.readToggleSettingAndClean('guideCategoryColors'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('guideCategoryColors', value);
-                        this._onGuideSettingChange?.({ key: 'categoryColors', enabled: value });
-                    },
-                },
-                {
                     id: 'settings-guide-library-tabs',
                     label: 'Library Tabs',
                     description: 'Filter the guide by source library',

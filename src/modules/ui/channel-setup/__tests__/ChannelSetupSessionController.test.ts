@@ -1004,6 +1004,43 @@ describe('ChannelSetupSessionController', () => {
         expect(controller.getSnapshot().review).toBeNull();
     });
 
+    it('setStep(3) preserves an in-flight review preload from Step 2', async (): Promise<void> => {
+        const review = createDeferred<typeof DEFAULT_REVIEW>();
+        let reviewSignal: AbortSignal | undefined;
+        const getSetupReview = jest.fn((_config: ChannelSetupConfig, options?: { signal?: AbortSignal }) => {
+            reviewSignal = options?.signal;
+            return review.promise;
+        });
+        const workflowPort = createWorkflowPort({
+            getSetupReview,
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+        });
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        await controller.loadLibraries();
+        controller.setStep(2);
+
+        const reviewPromise = controller.ensureReviewLoaded(jest.fn());
+        await flushPromises();
+        expect(controller.getSnapshot().isReviewLoading).toBe(true);
+
+        controller.setStep(3);
+        expect(reviewSignal?.aborted ?? false).toBe(false);
+        expect(controller.getSnapshot().isReviewLoading).toBe(true);
+
+        review.resolve(DEFAULT_REVIEW);
+        await reviewPromise;
+        await flushPromises();
+
+        expect(getSetupReview).toHaveBeenCalledTimes(1);
+        expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
+        expect(controller.getSnapshot().isReviewLoading).toBe(false);
+    });
+
     it('ensureReviewLoaded() propagates onStateChange errors after cleanup without leaking loading state', async (): Promise<void> => {
         const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
         const workflowPort = createWorkflowPort({ getSetupReview });

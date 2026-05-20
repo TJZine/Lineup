@@ -176,8 +176,7 @@ function applyOptionalPersistedChannelFields(
         else didMutate = true;
     }
     if (record['color'] !== undefined) {
-        if (typeof record['color'] === 'string') channel.color = record['color'];
-        else didMutate = true;
+        didMutate = true;
     }
     if (record['buildStrategy'] !== undefined) {
         if (isValidBuildStrategy(record['buildStrategy'])) channel.buildStrategy = record['buildStrategy'];

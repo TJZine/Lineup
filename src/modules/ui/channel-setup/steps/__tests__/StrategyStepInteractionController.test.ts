@@ -81,11 +81,10 @@ const createAdapters = (
             : Math.min(options.length - 1, index + 1);
         return options[nextIndex] ?? current;
     }),
-    updatePriorityRowState: jest.fn(() => false),
     updateStrategyState: jest.fn((mutate: (draft: StrategyStepMutableState) => void) => {
         const draft: StrategyStepMutableState = {
-            strategies: createDefaultStrategyState(),
-            strategyOrder: createDefaultStrategyOrder(),
+            strategies: JSON.parse(JSON.stringify(snapshot.strategies)) as StrategyStepMutableState['strategies'],
+            strategyOrder: [...snapshot.strategyOrder],
             channelExpansion: {
                 addAlternateLineups: snapshot.channelExpansion.addAlternateLineups,
                 alternateLineupCopies: snapshot.channelExpansion.alternateLineupCopies,
@@ -193,8 +192,23 @@ describe('StrategyStepInteractionController', () => {
         });
 
         const snapshot = createSnapshot();
+        let reorderedDraft: StrategyStepMutableState | null = null;
         const adapters = createAdapters(snapshot, {
             setPriorityRowGrabbedVisual: jest.fn(),
+            updateStrategyState: jest.fn((mutate: (draft: StrategyStepMutableState) => void) => {
+                const draft: StrategyStepMutableState = {
+                    strategies: JSON.parse(JSON.stringify(snapshot.strategies)) as StrategyStepMutableState['strategies'],
+                    strategyOrder: [...snapshot.strategyOrder],
+                    channelExpansion: { ...snapshot.channelExpansion },
+                    seriesOrdering: { ...snapshot.seriesOrdering },
+                    buildMode: snapshot.buildMode,
+                    actorStudioCombineMode: snapshot.actorStudioCombineMode,
+                    maxChannels: snapshot.maxChannels,
+                    minItems: snapshot.minItems,
+                };
+                mutate(draft);
+                reorderedDraft = draft;
+            }),
         });
         const nav = createNav('setup-priority-row-playlists');
 
@@ -207,6 +221,17 @@ describe('StrategyStepInteractionController', () => {
         controller.handleKeyPress(reorderEvent, nav as never, adapters);
         expect(reorderEvent.handled).toBe(true);
         expect(adapters.updateStrategyState).toHaveBeenCalledTimes(1);
+        expect(reorderedDraft).not.toBeNull();
+        expect((reorderedDraft as unknown as StrategyStepMutableState).strategyOrder).toEqual([
+            'collections',
+            'playlists',
+            'recentlyAdded',
+            'genres',
+            'studios',
+            'actors',
+            'decades',
+            'directors',
+        ]);
         expect(adapters.setPreferredFocusId).toHaveBeenCalledWith('setup-priority-row-playlists');
         expect(controller.getGrabbedPriorityKey()).toBe('playlists');
     });
@@ -305,7 +330,7 @@ describe('StrategyStepInteractionController', () => {
         expect(categoryAdapters.setPriorityRowGrabbedVisual).toHaveBeenCalledWith('playlists', false);
     });
 
-    it('applySettingChange updates priority rows in place and defers rerender when a dropdown is already open', () => {
+    it('applySettingChange defers rerender when a dropdown is already open', () => {
         const controller = createController();
         controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
             renderStep: jest.fn(),
@@ -314,32 +339,16 @@ describe('StrategyStepInteractionController', () => {
             setPriorityRowGrabbedVisual: jest.fn(),
         });
 
-        const before = createSnapshot();
-        const after = createSnapshot({
-            strategies: {
-                ...createDefaultStrategyState(),
-                playlists: {
-                    ...createDefaultStrategyState().playlists,
-                    enabled: true,
-                },
-            },
-        });
-        const getSessionSnapshot = jest.fn<ChannelSetupSessionSnapshot, []>()
-            .mockReturnValueOnce(before)
-            .mockReturnValueOnce(after);
-        const adapters = createAdapters(before, {
-            getSessionSnapshot,
+        const snapshot = createSnapshot();
+        const adapters = createAdapters(snapshot, {
             hasActiveDropdown: jest.fn(() => true),
-            updatePriorityRowState: jest.fn(() => true),
         });
 
-        controller.applySettingChange('setup-priority-row-playlists', (draft) => {
+        controller.applySettingChange('setup-strategy-playlists', (draft) => {
             draft.strategies.playlists.enabled = true;
         }, adapters);
 
-        expect(adapters.setPreferredFocusId).toHaveBeenNthCalledWith(1, 'setup-priority-row-playlists');
-        expect(adapters.setPreferredFocusId).toHaveBeenNthCalledWith(2, null);
-        expect(adapters.updatePriorityRowState).toHaveBeenCalledWith('setup-priority-row-playlists', true);
+        expect(adapters.setPreferredFocusId).toHaveBeenCalledWith('setup-strategy-playlists');
         expect(adapters.deferDropdownRender).toHaveBeenCalledTimes(1);
         expect(adapters.renderStep).not.toHaveBeenCalled();
     });
@@ -608,10 +617,15 @@ describe('StrategyStepInteractionController', () => {
         controller.handleKeyPress(createEvent('ok'), nav as never, adapters);
         expect(adapters.setPriorityRowGrabbedVisual).toHaveBeenNthCalledWith(1, 'playlists', true);
         expect(adapters.setPriorityRowGrabbedVisual).toHaveBeenNthCalledWith(2, 'playlists', false);
+        expect(adapters.setPreferredFocusId).toHaveBeenCalledWith('setup-priority-row-playlists');
+        expect(adapters.renderStep).toHaveBeenCalledTimes(1);
 
         controller.handleKeyPress(createEvent('ok'), nav as never, adapters);
         controller.handleKeyPress(createEvent('ok'), createNav('setup-priority-row-genres') as never, adapters);
         expect(adapters.setPriorityRowGrabbedVisual).toHaveBeenCalledWith('playlists', false);
+        expect(controller.getGrabbedPriorityKey()).toBeNull();
+
+        controller.handleKeyPress(createEvent('ok'), createNav('setup-priority-row-genres') as never, adapters);
         expect(adapters.setPriorityRowGrabbedVisual).toHaveBeenCalledWith('genres', true);
 
         const repeatEvent = createEvent('down');
@@ -627,12 +641,138 @@ describe('StrategyStepInteractionController', () => {
         expect(missingIndexAdapters.updateStrategyState).not.toHaveBeenCalled();
 
         controller.handleKeyPress(createEvent('ok'), createNav('setup-priority-row-collections') as never, adapters);
+        controller.handleKeyPress(createEvent('ok'), createNav('setup-priority-row-collections') as never, adapters);
         const boundaryEvent = createEvent('up');
         controller.handleKeyPress(boundaryEvent, createNav('setup-priority-row-collections') as never, createAdapters(createSnapshot()));
         expect(boundaryEvent.handled).toBe(true);
     });
 
-    it('handleKeyPress moves between category rail and detail focus while preserving valid targets', () => {
+    it('parses Guide Order row ids through the configured DOM id encoder', () => {
+        const controller = new StrategyStepInteractionController({
+            strategySupportsMixedScope: (): boolean => false,
+            toDomId: (raw): string => raw.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`),
+        });
+        controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
+            renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
+            setPreferredFocusId: jest.fn(),
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+        const adapters = createAdapters(createSnapshot(), {
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+        const event = createEvent('ok');
+
+        controller.handleKeyPress(
+            event,
+            createNav('setup-priority-row-recently-added') as never,
+            adapters
+        );
+
+        expect(event.handled).toBe(true);
+        expect(adapters.setPriorityRowGrabbedVisual).toHaveBeenCalledWith('recentlyAdded', true);
+        expect(controller.getGrabbedPriorityKey()).toBe('recentlyAdded');
+    });
+
+    it('Back cancels a grabbed guide-order move and restores the pre-grab order', () => {
+        const controller = createController();
+        controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
+            renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
+            setPreferredFocusId: jest.fn(),
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+
+        let snapshot = createSnapshot();
+        const adapters = createAdapters(snapshot, {
+            getSessionSnapshot: jest.fn(() => snapshot),
+            updateStrategyState: jest.fn((mutate: (draft: StrategyStepMutableState) => void) => {
+                const draft: StrategyStepMutableState = {
+                    strategies: JSON.parse(JSON.stringify(snapshot.strategies)) as StrategyStepMutableState['strategies'],
+                    strategyOrder: [...snapshot.strategyOrder],
+                    channelExpansion: { ...snapshot.channelExpansion },
+                    seriesOrdering: { ...snapshot.seriesOrdering },
+                    buildMode: snapshot.buildMode,
+                    actorStudioCombineMode: snapshot.actorStudioCombineMode,
+                    maxChannels: snapshot.maxChannels,
+                    minItems: snapshot.minItems,
+                };
+                mutate(draft);
+                snapshot = { ...snapshot, strategyOrder: draft.strategyOrder };
+            }),
+        });
+
+        controller.handleKeyPress(createEvent('ok'), createNav('setup-priority-row-playlists') as never, adapters);
+        controller.handleKeyPress(createEvent('down'), createNav('setup-priority-row-playlists') as never, adapters);
+        expect(snapshot.strategyOrder[0]).toBe('collections');
+
+        const back = createEvent('back');
+        controller.handleKeyPress(back, createNav('setup-priority-row-playlists') as never, adapters);
+
+        expect(back.handled).toBe(true);
+        expect(snapshot.strategyOrder).toEqual(createDefaultStrategyOrder());
+        expect(controller.getGrabbedPriorityKey()).toBeNull();
+        expect(adapters.setPreferredFocusId).toHaveBeenCalledWith('setup-priority-row-playlists');
+        expect(adapters.renderStep).toHaveBeenCalled();
+    });
+
+    it('resetGuideOrder restores active default order and keeps focus in Guide Order rows', () => {
+        const controller = createController();
+        const strategies = createDefaultStrategyState();
+        strategies.genres.enabled = false;
+        strategies.decades.enabled = false;
+        const snapshot = createSnapshot({
+            strategies,
+            strategyOrder: [
+                'genres',
+                'collections',
+                'playlists',
+                'decades',
+                'actors',
+                'studios',
+                'recentlyAdded',
+                'directors',
+            ],
+        });
+        let resetDraft: StrategyStepMutableState | null = null;
+        const adapters = createAdapters(snapshot, {
+            updateStrategyState: jest.fn((mutate: (draft: StrategyStepMutableState) => void) => {
+                const draft: StrategyStepMutableState = {
+                    strategies: JSON.parse(JSON.stringify(snapshot.strategies)) as StrategyStepMutableState['strategies'],
+                    strategyOrder: [...snapshot.strategyOrder],
+                    channelExpansion: { ...snapshot.channelExpansion },
+                    seriesOrdering: { ...snapshot.seriesOrdering },
+                    buildMode: snapshot.buildMode,
+                    actorStudioCombineMode: snapshot.actorStudioCombineMode,
+                    maxChannels: snapshot.maxChannels,
+                    minItems: snapshot.minItems,
+                };
+                mutate(draft);
+                resetDraft = draft;
+            }),
+        });
+
+        controller.resetGuideOrder('setup-guide-order-reset', adapters);
+
+        expect(resetDraft).not.toBeNull();
+        const draft = resetDraft as unknown as StrategyStepMutableState;
+        expect(draft.strategyOrder).toEqual([
+            'genres',
+            'playlists',
+            'collections',
+            'decades',
+            'recentlyAdded',
+            'studios',
+            'actors',
+            'directors',
+        ]);
+        expect(draft.strategies.genres.enabled).toBe(false);
+        expect(draft.strategies.decades.enabled).toBe(false);
+        expect(adapters.setPreferredFocusId).toHaveBeenCalledWith('setup-priority-row-playlists');
+        expect(adapters.schedulePreview).toHaveBeenCalledTimes(1);
+    });
+
+    it('handleKeyPress blocks focus escape while a guide-order row is grabbed', () => {
         const controller = createController();
         controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
             renderStep: jest.fn(),
@@ -647,19 +787,34 @@ describe('StrategyStepInteractionController', () => {
         controller.handleKeyPress(createEvent('ok'), createNav('setup-priority-row-playlists') as never, grabAdapters);
         jest.clearAllMocks();
 
-        const buildSnapshot = createSnapshot();
-        const buildAdapters = createAdapters(buildSnapshot, {
+        const adapters = createAdapters(createSnapshot(), {
             setPriorityRowGrabbedVisual: grabAdapters.setPriorityRowGrabbedVisual,
         });
-        controller.handleKeyPress(
-            createEvent('right'),
-            createNav('setup-category-build-options') as never,
-            buildAdapters
-        );
-        expect(buildAdapters.setPreferredFocusId).toHaveBeenCalledWith('setup-category-build-options');
-        expect(buildAdapters.resetStep2Scroll).toHaveBeenCalledTimes(1);
-        expect(buildAdapters.renderStep).toHaveBeenCalledTimes(1);
-        expect(buildAdapters.setPriorityRowGrabbedVisual).toHaveBeenCalledWith('playlists', false);
+
+        const left = createEvent('left');
+        controller.handleKeyPress(left, createNav('setup-priority-row-playlists') as never, adapters);
+        expect(left.handled).toBe(true);
+        expect(adapters.setPreferredFocusId).not.toHaveBeenCalled();
+        expect(adapters.setPriorityRowGrabbedVisual).not.toHaveBeenCalled();
+
+        const right = createEvent('right');
+        controller.handleKeyPress(right, createNav('setup-priority-row-playlists') as never, adapters);
+        expect(right.handled).toBe(true);
+        expect(adapters.resetStep2Scroll).not.toHaveBeenCalled();
+        expect(controller.getGrabbedPriorityKey()).toBe('playlists');
+    });
+
+    it('handleKeyPress moves between category rail and detail focus while preserving valid targets', () => {
+        const controller = createController();
+        controller.applyCategoryChange('build-options', 'setup-category-build-options', {
+            renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
+            setPreferredFocusId: jest.fn(),
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+
+        const buildSnapshot = createSnapshot();
+        const buildAdapters = createAdapters(buildSnapshot);
 
         const enterDetailEvent = createEvent('right');
         controller.handleKeyPress(enterDetailEvent, createNav('setup-category-build-options') as never, buildAdapters);
@@ -670,6 +825,114 @@ describe('StrategyStepInteractionController', () => {
         controller.handleKeyPress(createEvent('left'), leftNav as never, buildAdapters);
         expect(buildAdapters.setPreferredFocusId).toHaveBeenLastCalledWith('setup-category-build-options');
         expect(leftNav.setFocus).toHaveBeenCalledWith('setup-category-build-options');
+    });
+
+    it('handleKeyPress sends Guide Order category right to reset before rows when reset is enabled', () => {
+        const controller = createController();
+        controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
+            renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
+            setPreferredFocusId: jest.fn(),
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+        const adapters = createAdapters(createSnapshot({
+            strategyOrder: [
+                'collections',
+                'playlists',
+                'recentlyAdded',
+                'genres',
+                'studios',
+                'actors',
+                'decades',
+                'directors',
+            ],
+        }));
+
+        const event = createEvent('right');
+        controller.handleKeyPress(event, createNav('setup-category-priority-order') as never, adapters);
+
+        expect(event.handled).toBe(true);
+        expect(adapters.setPreferredFocusId).toHaveBeenCalledWith('setup-guide-order-reset');
+        expect(adapters.renderStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('handleKeyPress sends Guide Order category right to reset when a row was remembered', () => {
+        const controller = createController();
+        controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
+            renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
+            setPreferredFocusId: jest.fn(),
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+
+        const defaultAdapters = createAdapters(createSnapshot());
+        controller.handleKeyPress(
+            createEvent('right'),
+            createNav('setup-category-priority-order') as never,
+            defaultAdapters
+        );
+        expect(defaultAdapters.setPreferredFocusId).toHaveBeenCalledWith(`setup-priority-row-${createDefaultStrategyOrder()[0]}`);
+
+        const resetEnabledAdapters = createAdapters(createSnapshot({
+            strategyOrder: [
+                'collections',
+                'playlists',
+                'recentlyAdded',
+                'genres',
+                'studios',
+                'actors',
+                'decades',
+                'directors',
+            ],
+        }));
+        const event = createEvent('right');
+
+        controller.handleKeyPress(event, createNav('setup-category-priority-order') as never, resetEnabledAdapters);
+
+        expect(event.handled).toBe(true);
+        expect(resetEnabledAdapters.setPreferredFocusId).toHaveBeenCalledWith('setup-guide-order-reset');
+        expect(resetEnabledAdapters.renderStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('handleKeyPress skips disabled Guide Order reset and targets the first enabled row', () => {
+        const controller = createController();
+        controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
+            renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
+            setPreferredFocusId: jest.fn(),
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+        const adapters = createAdapters(createSnapshot());
+
+        const event = createEvent('right');
+        controller.handleKeyPress(event, createNav('setup-category-priority-order') as never, adapters);
+
+        expect(event.handled).toBe(true);
+        expect(adapters.setPreferredFocusId).toHaveBeenCalledWith(`setup-priority-row-${createDefaultStrategyOrder()[0]}`);
+        expect(adapters.renderStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('handleKeyPress keeps Guide Order category focus when one active strategy leaves rows disabled', () => {
+        const controller = createController();
+        controller.applyCategoryChange('priority-order', 'setup-category-priority-order', {
+            renderStep: jest.fn(),
+            resetStep2Scroll: jest.fn(),
+            setPreferredFocusId: jest.fn(),
+            setPriorityRowGrabbedVisual: jest.fn(),
+        });
+        const strategies = createDefaultStrategyState();
+        for (const strategy of createDefaultStrategyOrder()) {
+            strategies[strategy].enabled = strategy === 'playlists';
+        }
+        const adapters = createAdapters(createSnapshot({ strategies }));
+
+        const event = createEvent('right');
+        controller.handleKeyPress(event, createNav('setup-category-priority-order') as never, adapters);
+
+        expect(event.handled).toBe(false);
+        expect(event.originalEvent.preventDefault).not.toHaveBeenCalled();
+        expect(adapters.setPreferredFocusId).not.toHaveBeenCalled();
+        expect(adapters.renderStep).not.toHaveBeenCalled();
     });
 
     it('handleKeyPress routes non-adjustable detail controls back to the active category rail', () => {
@@ -716,7 +979,7 @@ describe('StrategyStepInteractionController', () => {
         const sparseDown = createEvent('down');
         controller.handleKeyPress(sparseDown, createNav(`setup-priority-row-${sparseKey}`) as never, sparseAdapters);
         expect(sparseDown.handled).toBe(true);
-        expect(sparseAdapters.updateStrategyState).not.toHaveBeenCalled();
+        expect(sparseAdapters.updateStrategyState).toHaveBeenCalledTimes(1);
     });
 
     it('registerStep2Focusables falls back to the first enabled detail target and clears preferred focus when applied', () => {

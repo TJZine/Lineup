@@ -30,6 +30,25 @@ describe('focused EPG overflow style contract', () => {
         expect(start).toBeGreaterThanOrEqual(0);
         return getBlockFromIndex(start);
     };
+    const getExactRuleBlock = (selector: string): string => {
+        let cursor = 0;
+        while (cursor < css.length) {
+            const start = css.indexOf(selector, cursor);
+            if (start < 0) break;
+
+            const open = css.indexOf('{', start);
+            expect(open).toBeGreaterThanOrEqual(0);
+            const previousClose = css.lastIndexOf('}', start);
+            const prefix = css.slice(previousClose + 1, start).trim();
+            const suffix = css.slice(start + selector.length, open).trim();
+            if (prefix === '' && suffix === '') {
+                return getBlockFromIndex(start);
+            }
+            cursor = start + selector.length;
+        }
+
+        throw new Error(`Expected standalone CSS rule for ${selector}`);
+    };
     const getAtRuleBlocks = (atRule: string): string[] => {
         const blocks: string[] = [];
         let cursor = 0;
@@ -106,6 +125,31 @@ describe('focused EPG overflow style contract', () => {
         expect(block).toContain('display: none');
     });
 
+    it('keeps hidden generated-channel provenance spans out of layout', () => {
+        const container = document.createElement('div');
+        container.className = 'epg-container';
+        const provenance = document.createElement('span');
+        provenance.className = 'epg-channel-name-provenance';
+        provenance.hidden = true;
+        const source = document.createElement('span');
+        source.className = 'epg-channel-name-source';
+        source.hidden = true;
+        const category = document.createElement('span');
+        category.className = 'epg-channel-name-category';
+        category.hidden = true;
+        const separator = document.createElement('span');
+        separator.className = 'epg-channel-name-separator';
+        separator.hidden = true;
+
+        provenance.append(category, separator, source);
+        container.appendChild(provenance);
+        document.body.appendChild(container);
+
+        for (const element of [provenance, source, category, separator]) {
+            expect(getComputedStyle(element).display).toBe('none');
+        }
+    });
+
     it('keeps the base time lane bottom-anchored via auto margin', () => {
         const block = getBlock('\n.epg-cell-time {');
         expect(block).toContain('margin-top: auto');
@@ -158,6 +202,105 @@ describe('focused EPG overflow style contract', () => {
         expect(titleBlock).toContain('text-overflow: ellipsis');
         expect(titleBlock).not.toContain('-webkit-line-clamp');
         expect(titleBlock).not.toContain('-webkit-box-orient');
+    });
+
+    it('keeps the channel name rail as a stack with child-owned truncation', () => {
+        const stackBlock = getBlock('\n.epg-channel-name {');
+        expect(stackBlock).toContain('display: flex');
+        expect(stackBlock).toContain('flex-direction: column');
+        expect(stackBlock).toContain('overflow: hidden');
+        expect(stackBlock).not.toContain('-webkit-line-clamp');
+        expect(stackBlock).not.toContain('-webkit-box-orient');
+
+        const childBlock = getBlock(
+            '.epg-channel-name-primary,\n' +
+            '.epg-channel-name-source,\n' +
+            '.epg-channel-name-category,\n' +
+            '.epg-channel-name-separator'
+        );
+        expect(childBlock).toContain('display: block');
+        expect(childBlock).toContain('white-space: nowrap');
+        expect(childBlock).toContain('overflow: hidden');
+        expect(childBlock).toContain('text-overflow: ellipsis');
+
+        const provenanceBlock = getExactRuleBlock('.epg-channel-name-provenance');
+        expect(provenanceBlock).toContain('display: flex');
+        expect(provenanceBlock).toContain('align-items: baseline');
+        expect(provenanceBlock).toContain('font-size: var(--text-xs)');
+        expect(provenanceBlock).toContain('color: var(--color-text-muted)');
+
+        const sourceBlock = getExactRuleBlock('.epg-channel-name-source');
+        expect(sourceBlock).toContain('flex: 1 1 auto');
+
+        const categoryBlock = getExactRuleBlock('.epg-channel-name-category');
+        expect(categoryBlock).toContain('flex: 0 0 auto');
+        expect(categoryBlock).toContain('color: var(--color-text-muted)');
+
+        const separatorBlock = getExactRuleBlock('.epg-channel-name-separator');
+        expect(separatorBlock).toContain('flex: 0 0 auto');
+        expect(separatorBlock).toContain('color: var(--color-text-muted)');
+    });
+
+    it('keeps expanded channel-name rows within the fixed rail and row contracts', () => {
+        const gridBlock = getBlock('.epg-grid');
+        expect(gridBlock).toContain('grid-template-columns: 260px 1fr');
+
+        const rowBlock = getBlock('\n.epg-channel-row {');
+        expect(rowBlock).toContain('height: var(--epg-row-height, 108px)');
+
+        const primaryBlock = getExactRuleBlock(
+            '.epg-channel-row[data-channel-name-expanded="true"] .epg-channel-name-primary'
+        );
+        expect(primaryBlock).toContain('display: -webkit-box');
+        expect(primaryBlock).toContain('height: calc(var(--text-sm) * 2.4)');
+        expect(primaryBlock).toContain('font-size: var(--text-sm)');
+        expect(primaryBlock).toContain('line-height: 1.2');
+        expect(primaryBlock).toContain('white-space: normal');
+        expect(primaryBlock).toContain('overflow-wrap: anywhere');
+        expect(primaryBlock).toContain('text-overflow: clip');
+        expect(primaryBlock).toContain('-webkit-line-clamp: 2');
+        expect(primaryBlock).toContain('-webkit-box-orient: vertical');
+
+        const expandedProvenanceBlock = getExactRuleBlock(
+            '.epg-channel-row[data-channel-name-expanded="true"] .epg-channel-name-provenance'
+        );
+        expect(expandedProvenanceBlock).toContain('display: none');
+
+        const hiddenBlock = getBlock(
+            '.epg-channel-name-provenance[hidden],\n' +
+            '.epg-channel-name-source[hidden],\n' +
+            '.epg-channel-name-category[hidden],\n' +
+            '.epg-channel-name-separator[hidden]'
+        );
+        expect(hiddenBlock).toContain('display: none');
+        expect(hiddenBlock).not.toContain('data-channel-name-expanded');
+    });
+
+    it('keeps classic and DirectV channel-name cascade pointed at the child spans', () => {
+        const classicStackBlock = getBlock('.epg-container.layout-classic .epg-channel-name');
+        expect(classicStackBlock).toContain('color: var(--color-text-primary)');
+        expect(classicStackBlock).not.toContain('-webkit-line-clamp');
+
+        const classicPrimaryBlock = getBlock('.epg-container.layout-classic .epg-channel-name-primary');
+        expect(classicPrimaryBlock).toContain('font-size: var(--classic-channel-name-size)');
+        expect(classicPrimaryBlock).toContain('font-weight: 600');
+
+        const classicProvenanceBlock = getBlock('.epg-container.layout-classic .epg-channel-name-provenance');
+        expect(classicProvenanceBlock).toContain('font-size: var(--text-xs)');
+        expect(classicProvenanceBlock).toContain('color: var(--color-text-muted)');
+
+        const classicCategoryBlock = getBlock('.epg-container.layout-classic .epg-channel-name-category');
+        expect(classicCategoryBlock).toContain('color: var(--color-text-muted)');
+
+        const directvFocusBlock = getBlock(
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-number,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-primary,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-provenance,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-source,\n' +
+            '.theme-directv .epg-container.layout-classic .epg-channel-row.focused .epg-channel-name-category'
+        );
+        expect(directvFocusBlock).toContain('color: var(--directv-focus-text)');
     });
 
     it('keeps occluded time-slot labels transparent after classic theme overrides', () => {

@@ -394,11 +394,11 @@ describe('AppLazyScreenPortFactory', () => {
         expect(settingsRuntimePorts?.getTheme()).toBe('ember-steel');
 
         await settingsRuntimePorts?.clearSubtitleTrack();
-        settingsRuntimePorts?.onGuideSettingChange({ key: 'categoryColors', enabled: true });
+        settingsRuntimePorts?.onGuideSettingChange({ key: 'libraryTabs', enabled: true });
         settingsRuntimePorts?.setTheme('glass');
 
         expect(orchestrator.setSubtitleTrack).toHaveBeenCalledWith(null);
-        expect(orchestrator.onGuideSettingChange).toHaveBeenCalledWith({ key: 'categoryColors', enabled: true });
+        expect(orchestrator.onGuideSettingChange).toHaveBeenCalledWith({ key: 'libraryTabs', enabled: true });
         expect(orchestrator.setTheme).toHaveBeenCalledWith('glass');
     });
 });

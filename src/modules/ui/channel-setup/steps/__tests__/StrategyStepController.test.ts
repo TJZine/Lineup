@@ -55,6 +55,7 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
     strategyButtonId: (strategy) => `strategy-${strategy}`,
     priorityRowId: (strategy) => `priority-${strategy}`,
     lastReorder: null,
+    grabbedPriorityKey: null,
     scopeButtonId: (strategy) => `scope-${strategy}`,
     strategySupportsMixedScope: (strategy) => strategy === 'genres' || strategy === 'directors' || strategy === 'studios' || strategy === 'actors',
     buildPreviewRow: jest.fn((label: string, value: number | string, key?: EstimateKey) => {
@@ -86,12 +87,14 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
         };
         mutate(draft);
     }),
+    resetGuideOrder: jest.fn(),
     openAdjustableControl: jest.fn(),
     onBack: jest.fn(),
     onNext: jest.fn(),
     registerStep2Focusables: jest.fn(),
     detailText: 'Detail text',
     schedulePreview: jest.fn(),
+    preloadReview: jest.fn(),
     ...overrides,
 });
 
@@ -213,6 +216,35 @@ describe('StrategyStepController', () => {
         expect(previewPanel.hidden).toBe(false);
     });
 
+    it('collapses floating Guide Order preview details when internal focus leaves the preview toggle', () => {
+        const { ctx, deps } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'priority-order',
+            },
+        });
+
+        const strip = ctx.contentEl.querySelector('.setup-preview-strip') as HTMLElement | null;
+        const toggle = ctx.contentEl.querySelector('#setup-preview-toggle') as HTMLButtonElement | null;
+
+        expect(strip?.classList.contains('setup-preview-strip--floating-details')).toBe(true);
+        expect(strip?.classList.contains('is-collapsed')).toBe(true);
+
+        toggle?.click();
+
+        expect(strip?.classList.contains('is-collapsed')).toBe(false);
+        expect(ctx.contentEl.querySelector('#preview-panel')?.parentElement).toBe(strip);
+
+        const focusOptions = (deps.registerStep2Focusables as jest.Mock).mock.calls[0]?.[4] as
+            | { onFocus?: (id: string) => void }
+            | undefined;
+        focusOptions?.onFocus?.('category-priority-order');
+
+        expect(strip?.classList.contains('is-collapsed')).toBe(true);
+        expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+        expect((ctx.contentEl.querySelector('#preview-panel') as HTMLElement | null)?.hidden).toBe(true);
+    });
+
     it('routes adjustable controls through the interaction owner hook', () => {
         const ctx = createContext();
         document.body.appendChild(ctx.contentEl);
@@ -230,23 +262,31 @@ describe('StrategyStepController', () => {
         expect(deps.openAdjustableControl).toHaveBeenCalledWith('setup-build-mode');
     });
 
-    it('updates priority rows in place without a full rerender', () => {
-        const ctx = createContext();
-        const deps = createDeps({
+    it('renders Guide Order rows as active-only reorder controls without toggle state', () => {
+        const strategies = createDefaultStrategyState();
+        strategies.genres.enabled = false;
+        const { ctx, deps } = renderController({
             state: {
                 ...createDeps().state,
                 activeStrategyCategory: 'priority-order',
+                strategies,
             },
         });
-        const controller = new StrategyStepController();
 
-        controller.render(ctx, deps);
-        const row = controller.updatePriorityRowState(ctx.contentEl, 'priority-playlists', false);
+        expect(ctx.contentEl.querySelector('.setup-detail-header-title')?.textContent).toBe('Guide Order');
+        expect(ctx.contentEl.querySelector('.setup-detail-header #setup-guide-order-reset')).not.toBeNull();
+        expect(ctx.contentEl.querySelector('#priority-genres')).toBeNull();
 
+        const row = ctx.contentEl.querySelector('#priority-playlists') as HTMLButtonElement | null;
         expect(row).not.toBeNull();
-        expect(row?.classList.contains('selected')).toBe(false);
-        expect(row?.getAttribute('aria-pressed')).toBe('false');
-        expect(row?.getAttribute('aria-label')).toContain('Off');
+        expect(row?.getAttribute('aria-pressed')).toBeNull();
+        expect(row?.querySelector('.setup-priority-state')).toBeNull();
+        expect(row?.querySelector('.setup-priority-grip')).toBeNull();
+        expect(row?.querySelector('.setup-priority-arrow-up')).toBeNull();
+        expect(row?.querySelector('.setup-priority-hint')?.textContent).toBe('↕');
+
+        row?.click();
+        expect(deps.applySettingChange).not.toHaveBeenCalled();
     });
 
     it('renders mixed-scope controls only for supported strategies', () => {
@@ -290,6 +330,7 @@ describe('StrategyStepController', () => {
         expect(deps.onNext).toHaveBeenCalledTimes(1);
         expect(deps.registerStep2Focusables).toHaveBeenCalledTimes(1);
         expect(deps.schedulePreview).toHaveBeenCalledTimes(1);
+        expect(deps.preloadReview).toHaveBeenCalledTimes(1);
         expect(ctx.detailEl.textContent).toBe('Detail text');
     });
 
@@ -576,71 +617,73 @@ describe('StrategyStepController', () => {
         expect(loadingCtx.contentEl.querySelector('.setup-preview-loading')?.textContent).toContain('Estimating');
     });
 
-    it('renders priority row move states and updates row buttons in place', () => {
-        const { ctx: upCtx, deps: upDeps, controller: upController } = renderController({
+    it('renders guide order move, disabled, contextual hint, and reset states', () => {
+        const { ctx: upCtx } = renderController({
             state: {
                 ...createDeps().state,
                 activeStrategyCategory: 'priority-order',
             },
             lastReorder: { key: 'collections', dir: 'up' },
+            grabbedPriorityKey: 'collections',
         });
-        const priorityOrder = createDefaultStrategyOrder();
-        const firstPriority = priorityOrder[0];
-        const lastPriority = priorityOrder[priorityOrder.length - 1];
 
         expect(
             upCtx.contentEl.querySelector('#priority-collections')?.classList.contains('setup-priority-row--move-up')
         ).toBe(true);
-        expect(
-            upCtx.contentEl.querySelector(`#priority-${firstPriority} .setup-priority-arrow-up`)?.classList.contains(
-                'setup-priority-arrow--hidden'
-            )
-        ).toBe(true);
+        expect(upCtx.contentEl.querySelector('#setup-guide-order-hint')?.textContent).toContain('Back to cancel');
+        expect((upCtx.contentEl.querySelector('#setup-guide-order-reset') as HTMLButtonElement).disabled).toBe(true);
+        expect(upCtx.contentEl.querySelector('.setup-detail-header #setup-guide-order-reset')).not.toBeNull();
 
-        (upCtx.contentEl.querySelector('#priority-playlists') as HTMLButtonElement).click();
-        const priorityApplySettingChange = upDeps.applySettingChange as jest.Mock;
-        const togglePriority = priorityApplySettingChange.mock.calls[0]?.[1] as
-            | ((state: StrategyStepMutableState) => void)
-            | undefined;
-        const draft: StrategyStepMutableState = {
-            strategies: createDefaultStrategyState(),
-            strategyOrder: createDefaultStrategyOrder(),
-            channelExpansion: {
-                addAlternateLineups: false,
-                alternateLineupCopies: 1,
-                variantType: 'none',
-                variantBlockSize: 3,
-            },
-            seriesOrdering: {
-                basePlaybackMode: 'shuffle',
-                baseBlockSize: 3,
-            },
-            buildMode: 'replace',
-            actorStudioCombineMode: 'separate',
-            maxChannels: 200,
-            minItems: 1,
-        };
-        togglePriority?.(draft);
-        expect(draft.strategies.playlists.enabled).toBe(false);
-
-        const updated = upController.updatePriorityRowState(upCtx.contentEl, 'priority-playlists', true);
-        expect(updated?.getAttribute('aria-pressed')).toBe('true');
-        expect(updated?.getAttribute('aria-label')).toContain('On');
-
-        const { ctx: downCtx } = renderController({
+        const { ctx: downCtx, deps: downDeps } = renderController({
             state: {
                 ...createDeps().state,
                 activeStrategyCategory: 'priority-order',
+                strategyOrder: ['collections', 'playlists', 'recentlyAdded', 'genres', 'studios', 'actors', 'decades', 'directors'],
             },
             lastReorder: { key: 'playlists', dir: 'down' },
         });
         expect(
             downCtx.contentEl.querySelector('#priority-playlists')?.classList.contains('setup-priority-row--move-down')
         ).toBe(true);
-        expect(
-            downCtx.contentEl.querySelector(`#priority-${lastPriority} .setup-priority-arrow-down`)?.classList.contains(
-                'setup-priority-arrow--hidden'
-            )
-        ).toBe(true);
+        const reset = downCtx.contentEl.querySelector('#setup-guide-order-reset') as HTMLButtonElement;
+        expect(reset.disabled).toBe(false);
+        const registeredDetailButtons = (downDeps.registerStep2Focusables as jest.Mock).mock.calls[0]?.[1] as
+            | HTMLButtonElement[]
+            | undefined;
+        expect(registeredDetailButtons?.map((button) => button.id)).toEqual([
+            'setup-guide-order-reset',
+            'priority-collections',
+            'priority-playlists',
+            'priority-recentlyAdded',
+            'priority-genres',
+            'priority-studios',
+            'priority-actors',
+            'priority-decades',
+            'priority-directors',
+            'setup-guide-order-hint',
+            'setup-preview-toggle',
+        ]);
+        reset.click();
+        expect(downDeps.resetGuideOrder).toHaveBeenCalledWith('setup-guide-order-reset');
+
+        const strategies = createDefaultStrategyState();
+        strategies.playlists.enabled = false;
+        strategies.genres.enabled = false;
+        strategies.directors.enabled = false;
+        strategies.decades.enabled = false;
+        strategies.recentlyAdded.enabled = false;
+        strategies.studios.enabled = false;
+        strategies.actors.enabled = false;
+        const { ctx: disabledCtx } = renderController({
+            state: {
+                ...createDeps().state,
+                activeStrategyCategory: 'priority-order',
+                strategies,
+            },
+        });
+        const onlyRow = disabledCtx.contentEl.querySelector('#priority-collections') as HTMLButtonElement;
+        expect(onlyRow.disabled).toBe(true);
+        expect(onlyRow.querySelector('.setup-priority-hint')?.textContent).toBe('');
+        expect(disabledCtx.contentEl.querySelector('#setup-guide-order-hint')?.textContent).toContain('Enable more categories');
     });
 });

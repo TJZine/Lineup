@@ -513,7 +513,6 @@ const mockEpg = {
     handleSelect: jest.fn().mockReturnValue(false),
     handleBack: jest.fn().mockReturnValue(true),
     loadChannels: jest.fn(),
-    setCategoryColorsEnabled: jest.fn(),
     setLayoutMode: jest.fn(),
     setVisibleHours: jest.fn(),
     setNowWatchingBannerEnabled: jest.fn(),

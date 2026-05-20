@@ -187,19 +187,6 @@
     --osd-pill-border-strong: rgba(255, 255, 255, 0.18);
     --osd-pill-border-focused: rgba(255, 255, 255, 0.35);
 
-    /* =========================================
-       EPG category colors (auto-setup buildStrategy)
-       ========================================= */
-    --epg-category-collections: #4caf50;
-    --epg-category-playlists: #2196f3;
-    --epg-category-genres: #e91e63;
-    --epg-category-directors: #9c27b0;
-    --epg-category-decades: #ff9800;
-    --epg-category-recently-added: #00bcd4;
-    --epg-category-studios: #795548;
-    --epg-category-actors: #ff5722;
-    --epg-category-library: #607d8b;
-
     /* Live / "Now" indicator */
     --color-live: #ff4444;
     --color-live-warm: #e85d4a;

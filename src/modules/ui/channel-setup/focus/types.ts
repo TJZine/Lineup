@@ -21,5 +21,6 @@ export interface RegisterStep2FocusOptions {
     activeCategoryId: string;
     detailFocusTarget: string | null;
     preferredFocusId: string | null;
+    onFocus?: (id: string) => void;
     onDetailFocus: (id: string) => void;
 }

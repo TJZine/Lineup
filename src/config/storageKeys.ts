@@ -46,7 +46,6 @@ export const LINEUP_STORAGE_KEYS = {
     SUBTITLE_LANGUAGE: 'lineup_subtitle_language',
     SUBTITLE_PREFER_FORCED: 'lineup_subtitle_prefer_forced',
     // Guide / EPG
-    GUIDE_CATEGORY_COLORS: 'lineup_guide_category_colors',
     EPG_DEBUG: 'lineup_debug_epg',
     EPG_DEBUG_LOG: 'lineup_debug_epg_log',
     EPG_LIBRARY_TABS_ENABLED: 'lineup_epg_library_tabs_enabled',

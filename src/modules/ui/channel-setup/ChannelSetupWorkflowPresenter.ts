@@ -1,5 +1,6 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
 import type { INavigationManager, KeyEvent } from '../../navigation/contracts/interfaces';
+import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { ChannelSetupDropdownController } from './ChannelSetupDropdownController';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import {
@@ -96,6 +97,7 @@ export class ChannelSetupWorkflowPresenter {
             strategyButtonId: (strategy) => this._strategyInteraction.strategyButtonId(strategy),
             priorityRowId: (strategy) => this._strategyInteraction.priorityRowId(strategy),
             lastReorder: this._strategyInteraction.getLastReorder(),
+            grabbedPriorityKey: this._strategyInteraction.getGrabbedPriorityKey(),
             scopeButtonId: (strategy) => this._strategyInteraction.scopeButtonId(strategy),
             strategySupportsMixedScope,
             buildPreviewRow: (label, value, key) =>
@@ -109,6 +111,9 @@ export class ChannelSetupWorkflowPresenter {
             applySettingChange: (focusId, mutate) => {
                 this._strategyInteraction.applySettingChange(focusId, mutate, strategyInteraction);
             },
+            resetGuideOrder: (focusId) => {
+                this._strategyInteraction.resetGuideOrder(focusId, strategyInteraction);
+            },
             openAdjustableControl: (controlId) => {
                 this._strategyInteraction.openAdjustableControl(controlId, strategyInteraction);
             },
@@ -119,24 +124,75 @@ export class ChannelSetupWorkflowPresenter {
             },
             onNext: () => {
                 this.clearStrategyStepTransientState();
+                const current = this._deps.session.getSnapshot();
+                if (current.reviewError && !current.review && !current.isReviewLoading) {
+                    this._deps.session.clearReviewForEdits();
+                }
                 this._deps.session.setStep(3);
                 this._deps.renderStep();
             },
-            registerStep2Focusables: (categoryButtons, detailButtons, backButton, nextButton) => {
+            registerStep2Focusables: (categoryButtons, detailButtons, backButton, nextButton, options) => {
                 this._strategyInteraction.registerStep2Focusables(
                     categoryButtons,
                     detailButtons,
                     backButton,
                     nextButton,
-                    strategyInteraction
+                    strategyInteraction,
+                    options
                 );
             },
             detailText: session.strategies.genres.enabled || session.strategies.directors.enabled
                 ? 'Performance warning: may be slow on large libraries.'
                 : '',
             schedulePreview: () => strategyInteraction.schedulePreview(),
+            preloadReview: () => this._preloadReviewFromStep2(),
         });
         this._setPriorityRowGrabbedVisual(this._strategyInteraction.getGrabbedPriorityKey(), true);
+    }
+
+    private _preloadReviewFromStep2(): void {
+        const session = this._deps.session.getSnapshot();
+        if (!this._shouldPreloadReview(session)) {
+            return;
+        }
+
+        const token = this._deps.getVisibilityToken();
+        void Promise.resolve()
+            .then(() => {
+                const current = this._deps.session.getSnapshot();
+                if (
+                    token !== this._deps.getVisibilityToken()
+                    || !this._shouldPreloadReview(current)
+                ) {
+                    return;
+                }
+                return this._deps.session.ensureReviewLoaded(() => {
+                    const latest = this._deps.session.getSnapshot();
+                    if (
+                        token !== this._deps.getVisibilityToken()
+                        || latest.step !== 3
+                    ) {
+                        return;
+                    }
+                    this._deps.renderStep();
+                });
+            })
+            .catch((error: unknown) => {
+                if (isAbortLikeError(error)) return;
+                console.warn('Preload review failed:', summarizeErrorForLog(error));
+            });
+    }
+
+    private _shouldPreloadReview(session: ChannelSetupSessionSnapshot): boolean {
+        return session.step === 2
+            && session.recordApplied
+            && session.setupContext === 'existing'
+            && session.previewStatus === 'ready'
+            && session.preview !== null
+            && !session.isBuilding
+            && !session.isReviewLoading
+            && !session.review
+            && !session.reviewError;
     }
 
     renderBuildStep(ctx: StepRenderContext): void {
@@ -183,8 +239,6 @@ export class ChannelSetupWorkflowPresenter {
                 dir: 'left' | 'right',
                 mode: 'clamp' | 'wrap'
             ): number => stepPreset(options, current, dir, mode),
-            updatePriorityRowState: (rowId: string, enabled: boolean): boolean =>
-                this._strategyStep.updatePriorityRowState(this._deps.contentEl, rowId, enabled) !== null,
             updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void): void => {
                 this._deps.session.updateStrategyState(mutate);
             },
