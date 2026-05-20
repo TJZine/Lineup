@@ -7,6 +7,10 @@ import {
     ensurePlexClientProfileName,
 } from '../url/plexStreamUrlPolicy';
 import { PLEX_TOKEN_HEADER, PLEX_TOKEN_QUERY_PARAM } from '../../shared/plexUrl';
+import {
+    createPlaybackCapabilityProfile,
+    type PlaybackCapabilityProfileInput,
+} from '../capabilities/PlaybackCapabilityProfile';
 
 const createTranscodeInput = (
     overrides: Partial<Parameters<typeof buildPlexTranscodeStartUrl>[0]> = {}
@@ -43,18 +47,21 @@ const createTranscodeInput = (
 
 const createCapabilityInput = (
     supportedMimeTypes: Iterable<string>,
-    overrides: Partial<Parameters<typeof buildPlexClientCapabilities>[0]> = {}
+    overrides: Partial<PlaybackCapabilityProfileInput> & { hideDolbyVision?: boolean } = {}
 ): Parameters<typeof buildPlexClientCapabilities>[0] => {
     const mimeTypes = new Set(supportedMimeTypes);
+    const { hideDolbyVision = false, ...profileOverrides } = overrides;
 
     return {
-        is4K: true,
-        canPlayMimeType: (mime) => mimeTypes.has(mime),
-        chromeMajor: null,
-        isWebOs: false,
-        dtsPassthroughEnabled: false,
-        hideDolbyVision: false,
-        ...overrides,
+        profile: createPlaybackCapabilityProfile({
+            is4K: true,
+            canPlayMimeType: (mime) => mimeTypes.has(mime),
+            chromeMajor: null,
+            isWebOs: false,
+            dtsPassthroughEnabled: false,
+            ...profileOverrides,
+        }),
+        hideDolbyVision,
     };
 };
 
@@ -186,6 +193,7 @@ describe('plexStreamUrlPolicy', () => {
             'video/mp4; codecs="hvc1.2.4.L150.B0"',
             'video/mp4; codecs="hvc1.1.6.L93.B0"',
             'video/mp4; codecs="dvh1.05.06"',
+            'video/mp4; codecs="dvh1.08.06"',
             'video/webm; codecs="vp9"',
             'video/mp4; codecs="av01.0.05M.08"',
         ], {
@@ -229,8 +237,36 @@ describe('plexStreamUrlPolicy', () => {
             hideDolbyVision: true,
         }));
 
-        expect(advertised).toContain('hevc{profile:dvhe.05},hevc{profile:dvhe.08}');
+        expect(advertised).toContain('hevc{profile:dvhe.08}');
+        expect(advertised).not.toContain('hevc{profile:dvhe.05}');
         expect(hidden).not.toContain('dvhe');
+    });
+
+    it('advertises explicit Dolby Vision support without over-advertising assumed generic HEVC', () => {
+        const capabilities = buildPlexClientCapabilities(createCapabilityInput([
+            'video/mp4; codecs="dvh1.05.06"',
+        ], {
+            is4K: false,
+        }));
+
+        expect(capabilities).toContain(
+            'videoDecoders=h264{profile:high&level:42},hevc{profile:dvhe.05};'
+        );
+        expect(capabilities).not.toContain('hevc{profile:main&');
+        expect(capabilities).not.toContain('hevc{profile:main10&');
+    });
+
+    it('advertises declared Dolby Vision support without generic HEVC capability evidence', () => {
+        const capabilities = buildPlexClientCapabilities(createCapabilityInput([], {
+            is4K: false,
+            declaredDolbyVisionProfiles: ['dvhe.08'],
+        }));
+
+        expect(capabilities).toContain(
+            'videoDecoders=h264{profile:high&level:42},hevc{profile:dvhe.08};'
+        );
+        expect(capabilities).not.toContain('hevc{profile:main&');
+        expect(capabilities).not.toContain('hevc{profile:main10&');
     });
 
     it('includes AV1 only when an approved AV1 probe succeeds', () => {

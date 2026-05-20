@@ -34,10 +34,30 @@ function getPrimaryVideoStream(item: PlexStreamMediaItem): PlexStream {
     return requireValue(getPrimaryPart(item).streams[0]) as PlexStream;
 }
 
+function mockCanPlayMimeTypes(supportedMimeTypes: readonly string[]): void {
+    const supported = new Set(supportedMimeTypes);
+    Object.defineProperty(globalThis, 'document', {
+        value: {
+            createElement: jest.fn((tagName: string) => {
+                if (tagName !== 'video') {
+                    return {};
+                }
+
+                return {
+                    canPlayType: (mime: string): CanPlayTypeResult =>
+                        supported.has(mime) ? 'probably' : '',
+                };
+            }),
+        },
+        configurable: true,
+    });
+}
+
 describe('PlexStreamResolver', () => {
     let mockFetch: jest.Mock;
     let originalNavigator: unknown;
     let originalLocalStorage: unknown;
+    let originalDocument: unknown;
 
     beforeEach(() => {
         mockFetch = jest.fn().mockResolvedValue({ ok: true });
@@ -45,6 +65,7 @@ describe('PlexStreamResolver', () => {
 
         originalNavigator = (globalThis as unknown as { navigator?: unknown }).navigator;
         originalLocalStorage = (globalThis as unknown as { localStorage?: unknown }).localStorage;
+        originalDocument = (globalThis as unknown as { document?: unknown }).document;
     });
 
     afterEach(() => {
@@ -67,6 +88,16 @@ describe('PlexStreamResolver', () => {
                 writable: true,
             });
         }
+        if (originalDocument === undefined) {
+            delete (globalThis as unknown as { document?: unknown }).document;
+        } else {
+            Object.defineProperty(globalThis, 'document', {
+                value: originalDocument,
+                configurable: true,
+                writable: true,
+            });
+        }
+        jest.restoreAllMocks();
         jest.resetAllMocks();
     });
 
@@ -250,6 +281,37 @@ describe('PlexStreamResolver', () => {
             const resolver = new PlexStreamResolver(config);
 
             expect(resolver.canDirectPlay(item)).toBe(false);
+        });
+
+        it('should return false for Profile 5 Dolby Vision without explicit DV support', () => {
+            const item = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'hevc',
+                audioCodec: 'aac',
+            });
+            const videoStream = getPrimaryVideoStream(item);
+            videoStream.displayTitle = 'Dolby Vision';
+            videoStream.doviPresent = true;
+            videoStream.doviProfile = '5';
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(false);
+        });
+
+        it('should return true for Profile 5 Dolby Vision with explicit matching DV support', () => {
+            mockCanPlayMimeTypes(['video/mp4; codecs="dvh1.05.06"']);
+            const item = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'hevc',
+                audioCodec: 'aac',
+            });
+            const videoStream = getPrimaryVideoStream(item);
+            videoStream.displayTitle = 'Dolby Vision';
+            videoStream.doviPresent = true;
+            videoStream.doviProfile = '5';
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(true);
         });
 
         it('should evaluate only the first media entry for canDirectPlay', () => {
@@ -780,7 +842,7 @@ describe('PlexStreamResolver', () => {
             expect(decision.isTranscoding).toBe(false);
         });
 
-        it('does not force HLS for DV MP4 profile 5 when fallback is off', async () => {
+        it('does not apply HDR fallback for DV MP4 profile 5 without explicit DV support', async () => {
             const dvItem = createMockMediaItem({ container: 'mp4', aspectRatio: 1.78 });
             const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
@@ -794,11 +856,17 @@ describe('PlexStreamResolver', () => {
 
             const decision = await resolver.resolveStream({ itemKey: '12345' });
 
-            expect(decision.isDirectPlay).toBe(true);
-            expect(decision.isTranscoding).toBe(false);
+            expect(decision.isTranscoding).toBe(true);
+            expect(decision.directPlay?.reasons).toContain('unknown_dolby_vision_support:dvhe.05');
+            expect(decision.hdr10Fallback).toMatchObject({
+                applied: false,
+                hideDolbyVision: false,
+                forcedHls: false,
+            });
         });
 
-        it('allows direct play for DV MKV profile 5 even when Force fallback is enabled', async () => {
+        it('allows direct play for DV MKV profile 5 with explicit DV support even when Force fallback is enabled', async () => {
+            mockCanPlayMimeTypes(['video/mp4; codecs="dvh1.05.06"']);
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
@@ -824,6 +892,8 @@ describe('PlexStreamResolver', () => {
             expect(decision.isTranscoding).toBe(false);
             expect(decision.protocol).toBe('http');
             expect(decision.directPlay?.reasons).toEqual([]);
+            expect(decodeURIComponent(decision.playbackUrl)).toContain('hevc{profile:dvhe.05}');
+            expect(decodeURIComponent(decision.playbackUrl)).not.toContain('hevc{profile:main&');
             expect(decision.hdr10Fallback).toMatchObject({
                 mode: 'force',
                 applied: false,
@@ -833,6 +903,7 @@ describe('PlexStreamResolver', () => {
         });
 
         it('allows direct play for DV MKV profile 8 HLG because it has no HDR10 base layer', async () => {
+            mockCanPlayMimeTypes(['video/mp4; codecs="dvh1.08.06"']);
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
             const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';

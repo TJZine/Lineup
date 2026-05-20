@@ -210,6 +210,11 @@ after this extraction.
   responsibilities instead of constructing settings/debug storage owners
   directly. It receives typed policy readers and a subtitle-debug logging port
   from composition wiring.
+- `src/modules/plex/stream/capabilities/PlaybackCapabilityProfile.ts` owns the
+  durable playback capability snapshot consumed by local direct-play decisions,
+  Plex `X-Plex-Client-Capabilities` serialization, and public
+  `IPlexStreamResolver.canDirectPlay()` checks; request-level overrides such as
+  hiding Dolby Vision remain outside the base profile.
 - `src/modules/plex/stream/diagnostics/SubtitleStreamDebugProbeCoordinator.ts` owns debug
   subtitle discovery summaries, text-candidate selection, key-backed/keyless
   probe selection, and fire-and-forget subtitle probe scheduling.

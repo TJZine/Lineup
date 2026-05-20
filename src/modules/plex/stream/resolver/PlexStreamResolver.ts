@@ -23,6 +23,11 @@ import { summarizeErrorForLog } from '../../../../utils/errors';
 import {
     getDirectPlayDecision,
 } from '../policy/playbackCompatibilityPolicy';
+import type { PlaybackCapabilityProfile } from '../capabilities/PlaybackCapabilityProfile';
+import {
+    createBrowserPlaybackCapabilityProfile,
+    getBrowserChromeMajor,
+} from '../capabilities/PlaybackCapabilityProfile';
 import { fetchWithTimeout } from '../../shared/fetchWithTimeout';
 import { detectHdrLabel } from '../policy/hdr';
 import type { PlatformIdentityService } from '../../../../platform';
@@ -74,34 +79,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         });
     }
 
-    private _getChromeMajor(): number | null {
-        try {
-            if (typeof navigator === 'undefined') return null;
-            const ua = navigator.userAgent || '';
-            const chromeMatch = ua.match(/Chrome\/(\d+)/);
-            if (!chromeMatch) return null;
-            const n = Number(chromeMatch[1]);
-            return Number.isFinite(n) ? n : null;
-        } catch {
-            return null;
-        }
-    }
-
-    private _getBrowserUserAgent(): string | null {
-        try {
-            if (typeof navigator === 'undefined') {
-                return null;
-            }
-            return navigator.userAgent || null;
-        } catch {
-            return null;
-        }
-    }
-
     private _isDtsPassthroughEnabled(): boolean {
         try {
             const userEnabled = this._config.audioPolicyReader.readDtsPassthroughEnabledAndClean(false);
-            const chromeMajor = this._getChromeMajor();
+            const chromeMajor = getBrowserChromeMajor();
             return userEnabled && chromeMajor !== null && chromeMajor >= 108;
         } catch {
             return false;
@@ -138,8 +119,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         const sessionId = generatePlexSessionId();
         const allowDirectPlayAudioFallback = this._config.audioPolicyReader.readDirectPlayAudioFallbackEnabledAndClean();
-        const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
-        const userAgent = this._getBrowserUserAgent();
+        const capabilityProfile = this._createPlaybackCapabilityProfile();
         const hdr10FallbackMode = this._getHdr10FallbackMode();
         const debugEnabled = this._isDebugLoggingEnabled();
 
@@ -148,8 +128,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             request,
             sessionId,
             allowDirectPlayAudioFallback,
-            dtsPassthroughEnabled,
-            userAgent,
+            capabilityProfile,
             hdr10FallbackMode,
             createError: (
                 code,
@@ -167,9 +146,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 partKey,
                 pipelineSessionId,
                 directPlayAudioStreamId,
-                applyHdr10Fallback
+                applyHdr10Fallback,
+                capabilityProfile
             ),
-            getTranscodeUrl: (itemKey, options) => this.getTranscodeUrl(itemKey, options),
+            getTranscodeUrl: (itemKey, options) => this._getTranscodeUrlWithProfile(itemKey, options, capabilityProfile),
         });
 
         const {
@@ -283,12 +263,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         if (!media) {
             return false;
         }
-        const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
-        const userAgent = this._getBrowserUserAgent();
+        const videoStream = media.parts[0]?.streams.find((stream) => stream.streamType === 1) ?? null;
+        const capabilityProfile = this._createPlaybackCapabilityProfile();
         return getDirectPlayDecision({
             media,
-            dtsPassthroughEnabled,
-            userAgent,
+            videoStream,
+            capabilityProfile,
         }).canDirect;
     }
 
@@ -301,6 +281,18 @@ export class PlexStreamResolver implements IPlexStreamResolver {
      * @throws StreamResolverError synchronously when a transcode URL cannot be built.
      */
     getTranscodeUrl(itemKey: string, options: HlsOptions): string {
+        return this._getTranscodeUrlWithProfile(
+            itemKey,
+            options,
+            this._createPlaybackCapabilityProfile()
+        );
+    }
+
+    private _getTranscodeUrlWithProfile(
+        itemKey: string,
+        options: HlsOptions,
+        capabilityProfile: PlaybackCapabilityProfile
+    ): string {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
             throw this._createError(
@@ -341,6 +333,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             relayConnectionUri: this._config.getRelayConnection()?.uri ?? null,
             clientCapabilities: this._buildClientCapabilities({
                 hideDolbyVision: options.hideDolbyVision === true,
+                capabilityProfile,
             }),
             authHeaders,
             forcedProfileName,
@@ -397,7 +390,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         partKey: string,
         sessionId: string,
         audioStreamId?: string,
-        hideDolbyVision?: boolean
+        hideDolbyVision?: boolean,
+        capabilityProfile: PlaybackCapabilityProfile = this._createPlaybackCapabilityProfile()
     ): string {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
@@ -409,7 +403,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         const baseUri = this._selectBaseUriForMixedContent(serverUri);
-        return this._buildUrlWithToken(baseUri, partKey, sessionId, audioStreamId, hideDolbyVision);
+        return this._buildUrlWithToken(baseUri, partKey, sessionId, audioStreamId, hideDolbyVision, capabilityProfile);
     }
 
     /**
@@ -420,7 +414,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         partKey: string,
         sessionId: string,
         audioStreamId?: string,
-        hideDolbyVision?: boolean
+        hideDolbyVision?: boolean,
+        capabilityProfile: PlaybackCapabilityProfile = this._createPlaybackCapabilityProfile()
     ): string {
         const headers = this._config.getAuthHeaders();
         const url = buildPlexUrlFromKey(baseUri, partKey);
@@ -434,33 +429,36 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         // over DV when fallback mode asks us to hide Dolby Vision decoders.
         url.searchParams.set(
             'X-Plex-Client-Capabilities',
-            this._buildClientCapabilities({ hideDolbyVision: hideDolbyVision === true })
+            this._buildClientCapabilities({
+                hideDolbyVision: hideDolbyVision === true,
+                capabilityProfile,
+            })
         );
         this._applyDefaultIdentityParams(url.searchParams);
         return url.toString();
     }
 
-    private _buildClientCapabilities(options?: { hideDolbyVision?: boolean }): string {
+    private _buildClientCapabilities(options?: {
+        hideDolbyVision?: boolean;
+        capabilityProfile?: PlaybackCapabilityProfile;
+    }): string {
+        const profile = options?.capabilityProfile ?? this._createPlaybackCapabilityProfile();
+
+        return buildPlexClientCapabilities({
+            profile,
+            hideDolbyVision: options?.hideDolbyVision === true,
+        });
+    }
+
+    private _createPlaybackCapabilityProfile(): PlaybackCapabilityProfile {
         const is4K = typeof window !== 'undefined' &&
             typeof window.screen?.width === 'number' &&
             window.screen.width >= 3840;
 
-        const videoEl = typeof document !== 'undefined' ? document.createElement('video') : null;
-        const canPlayMimeType = (mime: string): boolean => {
-            try {
-                return !!videoEl && videoEl.canPlayType(mime) !== '';
-            } catch {
-                return false;
-            }
-        };
-
-        return buildPlexClientCapabilities({
+        return createBrowserPlaybackCapabilityProfile({
             is4K,
-            canPlayMimeType,
-            chromeMajor: this._getChromeMajor(),
             isWebOs: this._isWebOs(),
             dtsPassthroughEnabled: this._isDtsPassthroughEnabled(),
-            hideDolbyVision: options?.hideDolbyVision === true,
         });
     }
 

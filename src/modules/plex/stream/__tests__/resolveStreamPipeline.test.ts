@@ -2,8 +2,31 @@ import { resolveStreamPipeline } from '../pipeline/resolveStreamPipeline';
 import type { StreamResolverError } from '../contracts/interfaces';
 import { createMockMediaItem } from './testUtils';
 import { AppErrorCode } from '../../../../types/app-errors';
+import {
+    createPlaybackCapabilityProfile,
+    type DolbyVisionDecoderProfile,
+    type PlaybackCapabilityProfile,
+} from '../capabilities/PlaybackCapabilityProfile';
 
 describe('resolveStreamPipeline', () => {
+    const createCapabilityProfile = (options: {
+        dtsPassthroughEnabled?: boolean;
+        declaredDolbyVisionProfiles?: readonly DolbyVisionDecoderProfile[];
+    } = {}): PlaybackCapabilityProfile => {
+        const input = {
+            is4K: true,
+            canPlayMimeType: (): boolean => false,
+            chromeMajor: 108,
+            isWebOs: true,
+            dtsPassthroughEnabled: options.dtsPassthroughEnabled ?? false,
+            userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36',
+        };
+
+        return createPlaybackCapabilityProfile(options.declaredDolbyVisionProfiles
+            ? { ...input, declaredDolbyVisionProfiles: options.declaredDolbyVisionProfiles }
+            : input);
+    };
+
     const createError = (
         code: StreamResolverError['code'],
         message: string,
@@ -53,8 +76,7 @@ describe('resolveStreamPipeline', () => {
             request: { itemKey: '12345', subtitleStreamId: 'sub-1' },
             sessionId: 'session-1',
             allowDirectPlayAudioFallback: true,
-            dtsPassthroughEnabled: false,
-            userAgent: null,
+            capabilityProfile: createCapabilityProfile(),
             hdr10FallbackMode: 'off',
             createError,
             buildDirectPlayUrl: (partKey) => `http://example.com${partKey}`,
@@ -95,8 +117,7 @@ describe('resolveStreamPipeline', () => {
             request: { itemKey: '12345', subtitleStreamId: 'sub-1', subtitleMode: 'burn' },
             sessionId: 'session-1',
             allowDirectPlayAudioFallback: true,
-            dtsPassthroughEnabled: false,
-            userAgent: null,
+            capabilityProfile: createCapabilityProfile(),
             hdr10FallbackMode: 'off',
             createError,
             buildDirectPlayUrl: () => 'http://example.com/direct',
@@ -134,8 +155,7 @@ describe('resolveStreamPipeline', () => {
             request: { itemKey: '12345' },
             sessionId: 'session-1',
             allowDirectPlayAudioFallback: true,
-            dtsPassthroughEnabled: false,
-            userAgent: null,
+            capabilityProfile: createCapabilityProfile(),
             hdr10FallbackMode: 'smart',
             createError,
             buildDirectPlayUrl,
@@ -162,7 +182,7 @@ describe('resolveStreamPipeline', () => {
         );
     });
 
-    it('keeps Profile 5 Dolby Vision direct-playable when HDR fallback force is enabled', () => {
+    it('blocks Profile 5 Dolby Vision direct play without explicit matching DV support', () => {
         const item = createMockMediaItem({ container: 'mkv', videoCodec: 'hevc', aspectRatio: 1.78 });
         const video = item.media[0]!.parts[0]!.streams.find((stream) => stream.streamType === 1)!;
         video.displayTitle = 'Dolby Vision';
@@ -174,8 +194,41 @@ describe('resolveStreamPipeline', () => {
             request: { itemKey: '12345' },
             sessionId: 'session-1',
             allowDirectPlayAudioFallback: true,
-            dtsPassthroughEnabled: false,
-            userAgent: null,
+            capabilityProfile: createCapabilityProfile(),
+            hdr10FallbackMode: 'force',
+            createError,
+            buildDirectPlayUrl: () => {
+                throw new Error('direct play path should not be used');
+            },
+            getTranscodeUrl: () => 'http://example.com/transcode',
+        });
+
+        expect(result.decision.isTranscoding).toBe(true);
+        expect(result.decision.directPlay?.reasons).toContain('unknown_dolby_vision_support:dvhe.05');
+        expect(result.decision.hdr10Fallback).toMatchObject({
+            mode: 'force',
+            applied: false,
+            reason: 'none',
+            hideDolbyVision: false,
+            forcedHls: false,
+        });
+    });
+
+    it('keeps Profile 5 Dolby Vision direct-playable when explicit DV support exists', () => {
+        const item = createMockMediaItem({ container: 'mkv', videoCodec: 'hevc', aspectRatio: 1.78 });
+        const video = item.media[0]!.parts[0]!.streams.find((stream) => stream.streamType === 1)!;
+        video.displayTitle = 'Dolby Vision';
+        video.doviPresent = true;
+        video.doviProfile = '5';
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345' },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            capabilityProfile: createCapabilityProfile({
+                declaredDolbyVisionProfiles: ['dvhe.05'],
+            }),
             hdr10FallbackMode: 'force',
             createError,
             buildDirectPlayUrl: () => 'http://example.com/direct',
@@ -208,8 +261,7 @@ describe('resolveStreamPipeline', () => {
             request: { itemKey: '12345' },
             sessionId: 'session-1',
             allowDirectPlayAudioFallback: true,
-            dtsPassthroughEnabled: false,
-            userAgent: null,
+            capabilityProfile: createCapabilityProfile(),
             hdr10FallbackMode: 'force',
             createError,
             buildDirectPlayUrl: () => {
@@ -239,8 +291,7 @@ describe('resolveStreamPipeline', () => {
                 request: { itemKey: '12345', subtitleStreamId: 'missing-subtitle' },
                 sessionId: 'session-1',
                 allowDirectPlayAudioFallback: true,
-                dtsPassthroughEnabled: false,
-                userAgent: null,
+                capabilityProfile: createCapabilityProfile(),
                 hdr10FallbackMode: 'off',
                 createError,
                 buildDirectPlayUrl: () => 'http://example.com/direct',
@@ -264,8 +315,7 @@ describe('resolveStreamPipeline', () => {
                 request: { itemKey: '12345', subtitleMode: 'burn' },
                 sessionId: 'session-1',
                 allowDirectPlayAudioFallback: true,
-                dtsPassthroughEnabled: false,
-                userAgent: null,
+                capabilityProfile: createCapabilityProfile(),
                 hdr10FallbackMode: 'off',
                 createError,
                 buildDirectPlayUrl: () => 'http://example.com/direct',
@@ -329,8 +379,7 @@ describe('resolveStreamPipeline', () => {
                     },
                     sessionId: 'session-1',
                     allowDirectPlayAudioFallback: true,
-                    dtsPassthroughEnabled: false,
-                    userAgent: null,
+                    capabilityProfile: createCapabilityProfile(),
                     hdr10FallbackMode: 'off',
                     createError,
                     buildDirectPlayUrl: () => 'http://example.com/direct',
@@ -358,8 +407,7 @@ describe('resolveStreamPipeline', () => {
             request: { itemKey: '12345' },
             sessionId: 'session-1',
             allowDirectPlayAudioFallback: true,
-            dtsPassthroughEnabled: false,
-            userAgent: null,
+            capabilityProfile: createCapabilityProfile(),
             hdr10FallbackMode: 'off',
             createError,
             buildDirectPlayUrl: () => 'http://example.com/direct',
@@ -391,8 +439,7 @@ describe('resolveStreamPipeline', () => {
                 request: { itemKey: '12345' },
                 sessionId: 'session-1',
                 allowDirectPlayAudioFallback: true,
-                dtsPassthroughEnabled: false,
-                userAgent: null,
+                capabilityProfile: createCapabilityProfile(),
                 hdr10FallbackMode: 'off',
                 createError,
                 buildDirectPlayUrl: () => 'http://example.com/direct',
@@ -433,8 +480,7 @@ describe('resolveStreamPipeline', () => {
             request: { itemKey: '12345', audioStreamId: 'audio-2' },
             sessionId: 'session-1',
             allowDirectPlayAudioFallback: true,
-            dtsPassthroughEnabled: false,
-            userAgent: null,
+            capabilityProfile: createCapabilityProfile(),
             hdr10FallbackMode: 'off',
             createError,
             buildDirectPlayUrl,
@@ -476,8 +522,7 @@ describe('resolveStreamPipeline', () => {
             request: { itemKey: '12345', audioStreamId: 'audio-2' },
             sessionId: 'session-1',
             allowDirectPlayAudioFallback: true,
-            dtsPassthroughEnabled: false,
-            userAgent: null,
+            capabilityProfile: createCapabilityProfile(),
             hdr10FallbackMode: 'off',
             createError,
             buildDirectPlayUrl: () => 'http://example.com/direct',

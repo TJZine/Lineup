@@ -14,6 +14,11 @@ import {
     selectCompatibleAudioTrack,
     shouldForceTranscodeAudioStreamId,
 } from '../policy/playbackCompatibilityPolicy';
+import {
+    createPlaybackCapabilityProfile,
+    type DolbyVisionDecoderProfile,
+    type PlaybackCapabilityProfile,
+} from '../capabilities/PlaybackCapabilityProfile';
 
 function createPolicyMedia(overrides: {
     container?: string;
@@ -88,12 +93,36 @@ function createAudioTrack(id: string, codec: string, options: {
     };
 }
 
+function createCapabilityProfile(options: {
+    is4K?: boolean;
+    dtsPassthroughEnabled?: boolean;
+    chromeMajor?: number | null;
+    userAgent?: string | null;
+    isWebOs?: boolean;
+    canPlayMimeType?: (mime: string) => boolean;
+    declaredDolbyVisionProfiles?: readonly DolbyVisionDecoderProfile[];
+} = {}): PlaybackCapabilityProfile {
+    const input = {
+        is4K: options.is4K ?? true,
+        canPlayMimeType: options.canPlayMimeType ?? ((): boolean => false),
+        chromeMajor: options.chromeMajor ?? 108,
+        isWebOs: options.isWebOs ?? true,
+        dtsPassthroughEnabled: options.dtsPassthroughEnabled ?? true,
+        userAgent: options.userAgent ??
+            'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36',
+    };
+
+    return createPlaybackCapabilityProfile(options.declaredDolbyVisionProfiles
+        ? { ...input, declaredDolbyVisionProfiles: options.declaredDolbyVisionProfiles }
+        : input);
+}
+
 describe('playbackCompatibilityPolicy', () => {
     describe('getDirectPlayDecision', () => {
         it('blocks unsupported video codec', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ videoCodec: 'mpeg2' }),
-                dtsPassthroughEnabled: true,
+                capabilityProfile: createCapabilityProfile(),
             });
 
             expect(decision.canDirect).toBe(false);
@@ -103,7 +132,7 @@ describe('playbackCompatibilityPolicy', () => {
         it('blocks unsupported container', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ container: 'avi' }),
-                dtsPassthroughEnabled: true,
+                capabilityProfile: createCapabilityProfile(),
             });
 
             expect(decision.canDirect).toBe(false);
@@ -113,9 +142,7 @@ describe('playbackCompatibilityPolicy', () => {
         it('normalizes container and video codec casing before compatibility checks', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ container: ' MKV ', videoCodec: ' H264 ' }),
-                dtsPassthroughEnabled: true,
-                userAgent:
-                    'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36',
+                capabilityProfile: createCapabilityProfile(),
             });
 
             expect(decision.canDirect).toBe(true);
@@ -125,7 +152,7 @@ describe('playbackCompatibilityPolicy', () => {
         it('blocks TrueHD audio by default', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ audioCodec: 'truehd' }),
-                dtsPassthroughEnabled: true,
+                capabilityProfile: createCapabilityProfile(),
             });
 
             expect(decision.canDirect).toBe(false);
@@ -135,7 +162,7 @@ describe('playbackCompatibilityPolicy', () => {
         it('blocks DTS when passthrough toggle is disabled', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ audioCodec: 'dts' }),
-                dtsPassthroughEnabled: false,
+                capabilityProfile: createCapabilityProfile({ dtsPassthroughEnabled: false }),
             });
 
             expect(decision.canDirect).toBe(false);
@@ -145,7 +172,7 @@ describe('playbackCompatibilityPolicy', () => {
         it('allows DTS when passthrough is enabled', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ audioCodec: 'dts' }),
-                dtsPassthroughEnabled: true,
+                capabilityProfile: createCapabilityProfile(),
             });
 
             expect(decision.canDirect).toBe(true);
@@ -155,7 +182,7 @@ describe('playbackCompatibilityPolicy', () => {
         it('normalizes audio codec casing and whitespace before compatibility checks', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ audioCodec: ' DTS ' }),
-                dtsPassthroughEnabled: false,
+                capabilityProfile: createCapabilityProfile({ dtsPassthroughEnabled: false }),
             });
 
             expect(decision.canDirect).toBe(false);
@@ -165,9 +192,7 @@ describe('playbackCompatibilityPolicy', () => {
         it('blocks legacy webOS MKV when webOS Chromium is too old', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ container: 'mkv' }),
-                dtsPassthroughEnabled: true,
-                userAgent:
-                    'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/86.0.0.0 Safari/537.36',
+                capabilityProfile: createCapabilityProfile({ chromeMajor: 86, userAgent: 'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/86.0.0.0 Safari/537.36' }),
             });
 
             expect(decision.canDirect).toBe(false);
@@ -177,9 +202,7 @@ describe('playbackCompatibilityPolicy', () => {
         it('allows MKV on webOS with modern Chromium', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ container: 'mkv' }),
-                dtsPassthroughEnabled: true,
-                userAgent:
-                    'Mozilla/5.0 (Web0S) AppleWebKit/537.36 Chrome/108.0.0.0 Safari/537.36',
+                capabilityProfile: createCapabilityProfile(),
             });
 
             expect(decision.canDirect).toBe(true);
@@ -189,11 +212,57 @@ describe('playbackCompatibilityPolicy', () => {
         it('blocks over-4K resolutions', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ width: 5120, height: 2880 }),
-                dtsPassthroughEnabled: true,
+                capabilityProfile: createCapabilityProfile(),
             });
 
             expect(decision.canDirect).toBe(false);
             expect(decision.reasons).toContain('unsupported_resolution:5120x2880');
+        });
+
+        it('blocks 4K direct play for non-4K capability profiles', () => {
+            const decision = getDirectPlayDecision({
+                media: createPolicyMedia({ width: 3840, height: 2160 }),
+                capabilityProfile: createCapabilityProfile({ is4K: false }),
+            });
+
+            expect(decision.canDirect).toBe(false);
+            expect(decision.reasons).toContain('unsupported_resolution:3840x2160');
+        });
+
+        it('blocks Profile 5 Dolby Vision without explicit DV decoder support', () => {
+            const media = createPolicyMedia({ container: 'mkv', videoCodec: 'hevc' });
+            const videoStream = media.parts[0]!.streams[0]!;
+            videoStream.displayTitle = 'Dolby Vision';
+            videoStream.doviPresent = true;
+            videoStream.doviProfile = '5';
+
+            const decision = getDirectPlayDecision({
+                media,
+                videoStream,
+                capabilityProfile: createCapabilityProfile(),
+            });
+
+            expect(decision.canDirect).toBe(false);
+            expect(decision.reasons).toContain('unknown_dolby_vision_support:dvhe.05');
+        });
+
+        it('allows Profile 5 Dolby Vision when explicit matching DV decoder support exists', () => {
+            const media = createPolicyMedia({ container: 'mkv', videoCodec: 'hevc' });
+            const videoStream = media.parts[0]!.streams[0]!;
+            videoStream.displayTitle = 'Dolby Vision';
+            videoStream.doviPresent = true;
+            videoStream.doviProfile = '5';
+
+            const decision = getDirectPlayDecision({
+                media,
+                videoStream,
+                capabilityProfile: createCapabilityProfile({
+                    declaredDolbyVisionProfiles: ['dvhe.05'],
+                }),
+            });
+
+            expect(decision.canDirect).toBe(true);
+            expect(decision.reasons).toEqual([]);
         });
     });
 

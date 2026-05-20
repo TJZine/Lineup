@@ -1,5 +1,6 @@
 import { AppErrorCode } from '../../../../types/app-errors';
 import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
+import type { PlaybackCapabilityProfile } from '../capabilities/PlaybackCapabilityProfile';
 import type { StreamResolverError } from '../contracts/interfaces';
 import {
     getDirectPlayDecision,
@@ -32,8 +33,7 @@ export interface ResolveStreamPipelineArgs {
     request: StreamRequest;
     sessionId: string;
     allowDirectPlayAudioFallback: boolean;
-    dtsPassthroughEnabled: boolean;
-    userAgent: string | null;
+    capabilityProfile: PlaybackCapabilityProfile;
     hdr10FallbackMode: Hdr10FallbackMode;
     createError: CreateResolverError;
     buildDirectPlayUrl: (
@@ -66,8 +66,7 @@ export function resolveStreamPipeline({
     request,
     sessionId,
     allowDirectPlayAudioFallback,
-    dtsPassthroughEnabled,
-    userAgent,
+    capabilityProfile,
     hdr10FallbackMode,
     createError,
     buildDirectPlayUrl,
@@ -156,9 +155,9 @@ export function resolveStreamPipeline({
 
     let directDecision = getDirectPlayDecision({
         media,
+        videoStream,
         audioCodecOverride: requestedAudioStream?.codec ?? null,
-        dtsPassthroughEnabled,
-        userAgent,
+        capabilityProfile,
     });
 
     let directPlayAudioStreamId: string | undefined = requestedAudioStream?.id;
@@ -177,9 +176,9 @@ export function resolveStreamPipeline({
         if (nonAudioReasons.length === 0) {
             const overridden = getDirectPlayDecision({
                 media,
+                videoStream,
                 audioCodecOverride: audioStream.codec,
-                dtsPassthroughEnabled,
-                userAgent,
+                capabilityProfile,
             });
             if (overridden.canDirect) {
                 directDecision = overridden;
