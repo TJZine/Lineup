@@ -11,7 +11,6 @@ import {
     EVAL_PROMPT_INVENTORY,
     extractHarnessIngestionTriage,
     extractChecklistPlanPaths,
-    parseSkillMirrorManifest,
     REQUIRED_REPO_LOCAL_SKILL_FILES,
     REQUIRED_REPO_LOCAL_SKILLS,
     renderEvalPromptInventory,
@@ -234,30 +233,6 @@ ${extraSections}
 `;
 }
 
-test('parseSkillMirrorManifest reads tracked allowlist entries and ignores comments', () => {
-    const entries = parseSkillMirrorManifest(`
-# comment
-global:brainstorming
-global:frontend-design
-    `);
-
-    assert.deepEqual(entries, [
-        { source: 'global', skill: 'brainstorming' },
-        { source: 'global', skill: 'frontend-design' },
-    ]);
-});
-
-test('parseSkillMirrorManifest throws on invalid allowlist entries', () => {
-    assert.throws(
-        () =>
-            parseSkillMirrorManifest(`
-legacy:skill
-oops:not valid
-            `),
-        /Invalid skill mirror manifest entry: legacy:skill/
-    );
-});
-
 test('required repo-local skill inventory includes the canonical planner and verification skills', () => {
     assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('closeout-verification'));
     assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('debugging-remediation'));
@@ -265,12 +240,12 @@ test('required repo-local skill inventory includes the canonical planner and ver
     assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('review-adjudication'));
     assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('review-request'));
     assert.ok(REQUIRED_REPO_LOCAL_SKILLS.includes('verification-strategy'));
-    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/closeout-verification/SKILL.md'));
-    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/debugging-remediation/SKILL.md'));
-    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/execution-plan-authoring/SKILL.md'));
-    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/review-adjudication/SKILL.md'));
-    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/review-request/SKILL.md'));
-    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.codex/skills/verification-strategy/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.agents/skills/closeout-verification/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.agents/skills/debugging-remediation/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.agents/skills/execution-plan-authoring/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.agents/skills/review-adjudication/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.agents/skills/review-request/SKILL.md'));
+    assert.ok(REQUIRED_REPO_LOCAL_SKILL_FILES.includes('.agents/skills/verification-strategy/SKILL.md'));
 });
 
 test('extractChecklistPlanPaths returns every checklist-linked tracked plan path', () => {

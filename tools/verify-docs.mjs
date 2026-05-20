@@ -15,14 +15,12 @@ import {
     EXPECTED_SESSION_PROMPT_FILES,
     extractChecklistPlanPaths,
     hasActivePlanMarker,
-    parseSkillMirrorManifest,
     renderEvalPromptInventory,
     REQUIRED_REPO_LOCAL_SKILL_FILES,
     REQUIRED_REPO_LOCAL_SKILLS,
     renderSessionPromptSet,
     SESSION_PROMPT_SET_END_MARKER,
     SESSION_PROMPT_SET_START_MARKER,
-    SKILL_MIRROR_MANIFEST_PATH,
 } from './harness-docs-lib.mjs';
 
 const repoRoot = process.cwd();
@@ -62,12 +60,11 @@ const requiredFiles = [
     'docs/plans/README.md',
     'docs/archive/plans/README.md',
     'docs/runs/README.md',
-    SKILL_MIRROR_MANIFEST_PATH,
 ];
 
 const markdownRoots = [
     'agents.md',
-    '.codex/skills',
+    '.agents/skills',
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic',
     'docs/archive/plans',
@@ -115,15 +112,15 @@ const codexRoleWorkflowMarkerFiles = [
     'docs/agentic/session-prompts/workflow-harness-review.md',
 ];
 const repoLocalLauncherSkillReadOrderFiles = [
-    '.codex/skills/lineup-cleanup-plan/SKILL.md',
-    '.codex/skills/lineup-cleanup-implement/SKILL.md',
-    '.codex/skills/lineup-cleanup-review/SKILL.md',
-    '.codex/skills/lineup-cleanup-loop/SKILL.md',
-    '.codex/skills/lineup-feature-plan/SKILL.md',
-    '.codex/skills/lineup-feature-implement/SKILL.md',
-    '.codex/skills/lineup-feature-review/SKILL.md',
-    '.codex/skills/lineup-workflow-harness-review/SKILL.md',
-    '.codex/skills/repo-production-review/SKILL.md',
+    '.agents/skills/lineup-cleanup-plan/SKILL.md',
+    '.agents/skills/lineup-cleanup-implement/SKILL.md',
+    '.agents/skills/lineup-cleanup-review/SKILL.md',
+    '.agents/skills/lineup-cleanup-loop/SKILL.md',
+    '.agents/skills/lineup-feature-plan/SKILL.md',
+    '.agents/skills/lineup-feature-implement/SKILL.md',
+    '.agents/skills/lineup-feature-review/SKILL.md',
+    '.agents/skills/lineup-workflow-harness-review/SKILL.md',
+    '.agents/skills/repo-production-review/SKILL.md',
 ];
 const requiredCodexRoleContracts = new Map([
     [
@@ -232,7 +229,7 @@ function getTrackedRepoLocalSkillPaths(errors) {
         );
         return cachedTrackedRepoLocalSkillPaths;
     } catch (error) {
-        recordFsError(errors, 'list tracked repo-local skill files via git', '.codex/skills', error);
+        recordFsError(errors, 'list tracked repo-local skill files via git', '.agents/skills', error);
         cachedTrackedRepoLocalSkillPaths = FAILED_GIT;
         return cachedTrackedRepoLocalSkillPaths;
     }
@@ -280,11 +277,24 @@ function isForbiddenLocalOnlyTarget(relativePath) {
         return false;
     }
 
+    if (
+        relativePath === '.agents/skills/desloppify' ||
+        relativePath.startsWith('.agents/skills/desloppify/')
+    ) {
+        return true;
+    }
+
+    if (relativePath === '.agents/skills' || relativePath.startsWith('.agents/skills/')) {
+        return false;
+    }
+
     return (
-        relativePath === '.agent/skills' ||
-        relativePath.startsWith('.agent/skills/') ||
+        relativePath === '.agent' ||
+        relativePath.startsWith('.agent/') ||
         relativePath === '.agents' ||
         relativePath.startsWith('.agents/') ||
+        relativePath === '.codex/skills' ||
+        relativePath.startsWith('.codex/skills/') ||
         relativePath.startsWith('docs/agentic/evals/baselines/') ||
         relativePath === 'docs/runs' ||
         relativePath.startsWith('docs/runs/')
@@ -292,6 +302,10 @@ function isForbiddenLocalOnlyTarget(relativePath) {
 }
 
 function collectMarkdownFiles(entry, errors) {
+    if (entry === '.agents/skills/desloppify' || entry.startsWith('.agents/skills/desloppify/')) {
+        return [];
+    }
+
     if (localOnlyMarkdownDirs.includes(entry)) {
         const readmeEntry = normalizeRepoPath(path.join(entry, 'README.md'));
         return existsSync(path.join(repoRoot, readmeEntry)) ? [readmeEntry] : [];
@@ -422,11 +436,25 @@ function checkForbiddenLiteralReferences(errors) {
     const patterns = [
         {
             description: 'local-only mirrored skill file',
-            regex: /\.agent\/skills\/[a-z0-9._-]+\/SKILL\.md/giu,
+            regex: /\.agent\/skills(?:\/[a-z0-9._/-]+)?/giu,
+        },
+        {
+            description: 'ignored local desloppify skill',
+            regex: /\.agents\/skills\/desloppify(?:\/[a-z0-9._/-]+)?/giu,
+        },
+        {
+            description: 'obsolete .codex skill source',
+            regex: /\.codex\/skills(?:\/[a-z0-9._/-]+)?/giu,
+            includePrefixes: [
+                '.agents/skills/',
+                'docs/AGENTIC_DEV_WORKFLOW.md',
+                'docs/agentic/session-prompts/',
+                'docs/agentic/skill-strategy.md',
+            ],
         },
         {
             description: 'local-only .agents artifact',
-            regex: /\.agents(?:\/[a-z0-9._/-]+)?/giu,
+            regex: /\.agents(?!\/skills(?:\/|$|[^A-Za-z0-9._-]))(?:\/[a-z0-9._/-]+)?/giu,
         },
         {
             description: 'local-only run instance',
@@ -452,7 +480,18 @@ function checkForbiddenLiteralReferences(errors) {
             continue;
         }
 
-        for (const { description, regex } of patterns) {
+        for (const { description, regex, skipPrefixes = [], includePrefixes = [] } of patterns) {
+            if (
+                includePrefixes.length > 0 &&
+                !includePrefixes.some((prefix) => file === prefix || file.startsWith(prefix))
+            ) {
+                continue;
+            }
+
+            if (skipPrefixes.some((prefix) => file.startsWith(prefix))) {
+                continue;
+            }
+
             regex.lastIndex = 0;
             const seenMatches = new Set();
             let match = regex.exec(content);
@@ -740,10 +779,6 @@ function checkControlPlaneAuthorityModel(errors) {
 
 export function checkRepoLocalLauncherSkillReadOrders(errors) {
     for (const relativePath of repoLocalLauncherSkillReadOrderFiles) {
-        if (!existsSync(path.join(repoRoot, relativePath))) {
-            continue;
-        }
-
         const content = readRepoFile(relativePath, errors);
         if (content === null) {
             continue;
@@ -1526,46 +1561,10 @@ function checkArchivedSectionSummaryConformance(errors) {
     }
 }
 
-function checkSkillMirrorManifest(errors) {
-    const manifestContent = readRepoFile(SKILL_MIRROR_MANIFEST_PATH, errors);
-    if (manifestContent === null) {
-        return;
-    }
-
-    let entries;
-    try {
-        entries = parseSkillMirrorManifest(manifestContent);
-    } catch (error) {
-        errors.push(error instanceof Error ? error.message : String(error));
-        return;
-    }
-
-    const seenEntries = new Set();
-    for (const entry of entries) {
-        const key = `${entry.source}:${entry.skill}`;
-        if (seenEntries.has(key)) {
-            errors.push(`Duplicate skill mirror allowlist entry: ${key}`);
-        }
-        seenEntries.add(key);
-    }
-
-    const strategyDoc = readRepoFile('docs/agentic/skill-strategy.md', errors);
-    if (strategyDoc !== null) {
-        if (!strategyDoc.includes(SKILL_MIRROR_MANIFEST_PATH)) {
-            errors.push(`Skill strategy must reference the tracked mirror allowlist: ${SKILL_MIRROR_MANIFEST_PATH}`);
-        }
-    }
-
-    const syncScript = readRepoFile('scripts/sync_agent_skills.sh', errors);
-    if (syncScript !== null && !syncScript.includes(SKILL_MIRROR_MANIFEST_PATH)) {
-        errors.push(`sync_agent_skills.sh must read the tracked mirror allowlist: ${SKILL_MIRROR_MANIFEST_PATH}`);
-    }
-}
-
 function checkRequiredRepoLocalSkills(errors) {
     const trackedSkillPaths = getTrackedRepoLocalSkillPaths(errors);
     for (const skill of REQUIRED_REPO_LOCAL_SKILLS) {
-        const relativePath = `.codex/skills/${skill}/SKILL.md`;
+        const relativePath = `.agents/skills/${skill}/SKILL.md`;
         if (!existsSync(path.join(repoRoot, relativePath))) {
             errors.push(`Missing required repo-local canonical skill \`${skill}\`: ${relativePath}`);
             continue;
@@ -1868,7 +1867,6 @@ function main() {
     checkChecklistPlanPaths(errors, warnings);
     checkPlanArchiveCoherence(errors);
     checkArchivedSectionSummaryConformance(errors);
-    checkSkillMirrorManifest(errors);
     checkRequiredRepoLocalSkills(errors);
     checkTrackedCodexRoleConfig(errors);
     checkSeriousPlanConformance(errors);

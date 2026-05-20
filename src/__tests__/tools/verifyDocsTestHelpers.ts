@@ -34,7 +34,6 @@ type PromptInventories = {
     expectedSessionPromptFiles: string[];
     requiredRepoLocalSkills: string[];
     requiredRepoLocalSkillFiles: string[];
-    skillMirrorManifestPath: string;
     sessionPromptSetStartMarker: string;
     sessionPromptSetEndMarker: string;
     evalPromptInventoryStartMarker: string;
@@ -57,7 +56,6 @@ export function loadPromptInventoriesFromHarnessDocsLib(): PromptInventories {
         '  expectedSessionPromptFiles: lib.EXPECTED_SESSION_PROMPT_FILES,',
         '  requiredRepoLocalSkills: lib.REQUIRED_REPO_LOCAL_SKILLS,',
         '  requiredRepoLocalSkillFiles: lib.REQUIRED_REPO_LOCAL_SKILL_FILES,',
-        '  skillMirrorManifestPath: lib.SKILL_MIRROR_MANIFEST_PATH,',
         '  sessionPromptSetStartMarker: lib.SESSION_PROMPT_SET_START_MARKER,',
         '  sessionPromptSetEndMarker: lib.SESSION_PROMPT_SET_END_MARKER,',
         '  evalPromptInventoryStartMarker: lib.EVAL_PROMPT_INVENTORY_START_MARKER,',
@@ -112,10 +110,6 @@ export function getRequiredRepoLocalSkills(): string[] {
 
 export function getRequiredRepoLocalSkillFiles(): string[] {
     return getPromptInventories().requiredRepoLocalSkillFiles;
-}
-
-export function getSkillMirrorManifestPath(): string {
-    return getPromptInventories().skillMirrorManifestPath;
 }
 
 export function getSessionPromptSetStartMarker(): string {
@@ -176,7 +170,6 @@ export function getRequiredFiles(): string[] {
         'docs/plans/README.md',
         'docs/archive/plans/README.md',
         'docs/runs/README.md',
-        getSkillMirrorManifestPath(),
     ];
 }
 
@@ -202,6 +195,11 @@ export function writeValidRepoLocalSkillFixtures(repoRoot: string): void {
                 '---',
                 '',
                 `# ${skill}`,
+                '',
+                'Read these files in order:',
+                '',
+                '1. `agents.md`',
+                '2. `docs/AGENTIC_DEV_WORKFLOW.md`',
                 '',
             ].join('\n')
         );
@@ -253,29 +251,6 @@ export function buildChecklistLinkedPackageDecomposition({
         '- `parallel_execution_policy`: serial',
         '',
     ].join('\n');
-}
-
-export function writeValidSkillMirrorFixture(repoRoot: string): void {
-    const skillMirrorManifestPath = getSkillMirrorManifestPath();
-
-    writeRepoFile(repoRoot, skillMirrorManifestPath, 'global:brainstorming\n');
-    writeRepoFile(
-        repoRoot,
-        'docs/agentic/skill-strategy.md',
-        [
-            '# Skill Strategy',
-            '',
-            `Tracked mirror allowlist: ${skillMirrorManifestPath}`,
-            '',
-            '- `brainstorming`',
-            '',
-        ].join('\n')
-    );
-    writeRepoFile(
-        repoRoot,
-        'scripts/sync_agent_skills.sh',
-        `#!/usr/bin/env bash\nskill_manifest_path="${skillMirrorManifestPath}"\n`
-    );
 }
 
 export function writeValidSessionPromptFixture(repoRoot: string): void {
@@ -799,7 +774,6 @@ export function createRepoFixture(overrides: Partial<Record<string, string>> = {
         writeRepoFile(repoRoot, 'docs/development/subtitles.md');
         writeRepoFile(repoRoot, 'docs/development/testing.md');
         writeValidRepoLocalSkillFixtures(repoRoot);
-        writeValidSkillMirrorFixture(repoRoot);
         writeValidSessionPromptFixture(repoRoot);
         writeValidEvalPromptFixture(repoRoot);
 

@@ -14,6 +14,7 @@ reviews:
     - "!docs/_local/**"
     - "!docs/agentic/evals/baselines/**"
     - "!**/.agent/**"
+    - "!**/.agents/skills/desloppify/**"
     - "!**/.codanna/**"
     - "!**/.fastembed_cache/**"
     - "!**/.mcp_sequential_thinking/**"
@@ -40,7 +41,7 @@ reviews:
     - path: "docs/runs/_template/**/*.md"
       instructions: |
         Review these as tracked templates only. Ensure they support fresh-session execution, exact verification, and durable task structure without assuming local-only artifacts are tracked.
-    - path: ".codex/skills/**/*.md"
+    - path: ".agents/skills/**/*.md"
       instructions: |
         These are repo-local Lineup skills. Review for overlap with global Codex skills, contradictions with agents.md or docs/agentic/*, and anything that would weaken architectural boundaries, persistence discipline, Plex integration boundaries, or UI composition rules.
     - path: "tools/verify-docs.mjs"

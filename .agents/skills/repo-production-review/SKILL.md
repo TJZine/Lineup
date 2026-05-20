@@ -14,7 +14,7 @@ Before running the universal review, read and honor:
 - `agents.md`
 - `docs/AGENTIC_DEV_WORKFLOW.md`
 - `.codex/config.toml`
-- `.codex/skills/*/SKILL.md`
+- `.agents/skills/*/SKILL.md`
 - `docs/architecture/CURRENT_STATE.md`
 - `ARCHITECTURE_CLEANUP_CHECKLIST.md`
 - `docs/agentic/skill-strategy.md`

@@ -58,7 +58,7 @@ In short-follow-up mode, use the named approved plan or run-bundle context as th
   - `frontend-design` for marketing/landing pages and other brand-forward surfaces
 - prefer extraction and focused collaborators over growing hotspot files
 - do not add fallback paths, migration shims, or dual-path logic unless explicitly approved
-- do not commit local-only artifacts such as `.agent/skills/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts
+- do not commit local-only artifacts such as `.agent/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts
 - if a local run bundle changes the workflow conclusion, commit the updated tracked baseline-summary or workflow doc before closeout and keep only the raw bundle local
 - keep `update_plan` aligned with actual progress
 

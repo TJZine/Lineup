@@ -1,45 +1,42 @@
 # Agent Skill Strategy
 
-> Established 2026-03-05. This document defines the Lineup skill topology for Codex and Antigravity.
+> Established 2026-03-05. Updated 2026-05-20 for the `.agents/skills/` default.
+
+This document defines the Lineup skill topology for Codex and Antigravity.
 
 ## Goals
 
-- Give Codex access to global reusable skills without duplicating them locally.
-- Give Antigravity access to the same critical workflow skills through actual copied folders in `.agent/skills/`.
-- Add only Lineup-specific skills to `.codex/skills/`.
-- Encode repo-specific architectural, UI, persistence, and Plex boundaries to reduce future tech debt and "AI slop."
-- Keep Lineup's multi-agent patterns repo-local when the repo needs tighter delegation discipline than generic global skills provide.
-- Keep serious-plan authoring repo-local when the repo needs stricter planning depth and verification rules than generic global planner skills provide.
-- Keep debugging, review, and closeout discipline repo-local when Lineup needs evidence routing, owner-boundary checks, and verification gates that generic global skills cannot calibrate.
-- Fit the skill system into a smaller control plane rather than letting skills become a second source of truth for workflow policy.
+- Use `.agents/skills/` as the single tracked repo-local skill home for both Codex and Antigravity discovery.
+- Keep `.codex/config.toml` and `.codex/agents/*.toml` as the tracked Codex role-configuration surface.
+- Avoid generated legacy skill mirrors, sync scripts, and duplicate skill copies that can drift.
+- Encode repo-specific architectural, UI, persistence, and Plex boundaries to reduce future tech debt and AI slop.
+- Keep Lineup's multi-agent, planning, debugging, review, and closeout discipline repo-local when the repo needs stricter guidance than generic global skills provide.
+- Fit skills into the control plane without turning them into a second source of truth for workflow policy.
 
 ## Research Takeaways
 
-The skill layout and workflow in this repo are based on a small set of recurring patterns from current primary-source guidance:
+The skill layout and workflow in this repo are based on recurring patterns from primary-source guidance:
 
 - OpenAI, [Harness Engineering](https://openai.com/index/harness-engineering/): agent performance depends heavily on repo legibility, explicit commands, readable docs, and active cleanup of stale context and dead files.
 - OpenAI, [Building an AI-Native Engineering Team](https://developers.openai.com/codex/guides/build-ai-native-engineering-team): agents are strongest on well-specified work with explicit plans, stable policy rules, evaluation loops, and human ownership of architecture and review.
-- OpenAI, [Agent Skills](https://developers.openai.com/codex/skills): keep skills narrow, searchable, and progressive-disclosure friendly; do not overload one skill with many unrelated responsibilities.
+- OpenAI, [Agent Skills](https://developers.openai.com/codex/skills): keep skills narrow, searchable, and progressive-disclosure friendly; do not overload one skill with unrelated responsibilities.
 - OpenAI Cookbook, [Long Horizon Tasks with Codex](https://github.com/openai/openai-cookbook/blob/main/examples/codex/long_horizon_tasks.md): durable project memory works best when spec, plan, execution instructions, and status live in files the agent can revisit.
 - Anthropic, [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents): prefer simple composed workflows, add orchestration only when a single loop stops being reliable, and use evaluator/optimizer patterns for quality control rather than more prompt text.
 - OpenAI, [Demystifying Evals for Agents](https://openai.com/index/demystifying-evals-for-agents/): agent workflows should be measured with small, high-signal regression tasks instead of relying on anecdotal success.
 
 ## Resulting Repo Policy
 
-- `.codex/skills/` is the canonical tracked home for Lineup-only skills.
+- `.agents/skills/` is the canonical tracked home for Lineup-only skills.
 - `.codex/config.toml` plus `.codex/agents/*.toml` are tracked Codex multi-agent role surfaces for this repo.
-- `.agent/skills/` is a generated local mirror for Antigravity and contains actual copies, not symlinks.
+- `.agent/` is legacy local state and must not be a repo workflow surface.
 - `docs/agentic/skills/` is not a steady-state skill source or fallback policy surface.
-- Global Codex skills that already exist for Codex should not be duplicated into `.codex/skills/`.
-- For Codex, global skills are resolved from `${CODEX_HOME:-$HOME/.codex}/skills/` first; the repo does not expect duplicate tracked copies under `.codex/skills/`.
-- The exact global mirror set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt); `scripts/sync_agent_skills.sh` reads that file directly.
-- A missing `.agent/skills/<skill>/` path means the Antigravity mirror is absent or stale in that checkout/worktree, not that the global skill is missing overall.
+- Global skills that already exist in an agent's global skill home should not be duplicated into this repo unless the repo intentionally owns a Lineup-specific adaptation.
 - Repo-specific skills should stay local to this repo unless they become broadly reusable enough to justify promotion to a global skill home.
-- Lineup's preferred subagent patterns should live in repo-local skills when the tracked workflow needs stricter delegation rules than the generic global defaults.
+- Lineup's preferred subagent patterns should live in repo-local skills when the tracked workflow needs stricter delegation rules than generic global defaults.
 - The broader document/control-plane structure is defined in [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](../AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles).
 - Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus one bounded `planner` role for planning artifacts, one general bounded `worker` role for implementation, and one cleanup-loop-specific `cleanup_worker` role for approved Tier 3 cleanup-loop implementation passes, with explicit fallback roles instead of assumed automatic failover.
-- Stable entrypoint doc: `agents.md`
-- Stable workflow doc: `docs/AGENTIC_DEV_WORKFLOW.md`
+- Stable entrypoint doc: `agents.md`.
+- Stable workflow doc: `docs/AGENTIC_DEV_WORKFLOW.md`.
 
 ## Policy Ownership Boundaries
 
@@ -61,13 +58,21 @@ When a rule appears in multiple places, prefer moving the detailed version to th
 
 ## Current Skill Inventory
 
-### Repo-Local Codex Skills
+### Repo-Local Skills
 
 - `architecture-boundaries`
 - `bounded-worker-execution`
 - `closeout-verification`
 - `debugging-remediation`
 - `execution-plan-authoring`
+- `lineup-cleanup-implement`
+- `lineup-cleanup-loop`
+- `lineup-cleanup-plan`
+- `lineup-cleanup-review`
+- `lineup-feature-implement`
+- `lineup-feature-plan`
+- `lineup-feature-review`
+- `lineup-workflow-harness-review`
 - `model-selection`
 - `parallel-sidecars`
 - `persistence-boundaries`
@@ -78,29 +83,26 @@ When a rule appears in multiple places, prefer moving the detailed version to th
 - `ui-composition-patterns`
 - `verification-strategy`
 
-These are the source-of-truth Lineup skills. They are authored in `.codex/skills/` and mirrored into `.agent/skills/`.
+These are the source-of-truth Lineup skills. They are authored and reviewed in `.agents/skills/`.
 
-### Mirrored Global Skills For Antigravity
+### Optional Local Code-Health Skill
 
-- The exact mirrored set is pinned in [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) for global skills.
-- Maintainers should update only `skill-mirror-allowlist.txt` when the pinned mirror set changes.
-
-These are mirrored into `.agent/skills/` because the repo workflow depends on them and the allowlist keeps the Antigravity surface reproducible. The mirror is a convenience/materialization layer for Antigravity, not the canonical Codex source of a global skill.
+`desloppify` may exist locally in the ignored repo skill area for code-health workflow. It is not part of the tracked repo-local skill set, and it must not become always-on policy. Use it only when the task explicitly targets code-health scanning, technical debt, cleanup planning, or desloppify workflow.
 
 ## Tracked Vs Local
 
 Tracked in git:
 
+- `.agents/skills/`
 - `.codex/config.toml`
 - `.codex/agents/*.toml`
-- `.codex/skills/`
 - control-plane docs
 - eval definitions such as prompts and rubric
-- sync scripts and validators
+- validators
 
 Local-only by default:
 
-- `.agent/skills/`
+- `.agent/`
 - eval baseline outputs under `docs/agentic/evals/baselines/*.md`
 - concrete long-horizon run instances under `docs/runs/<date>-<topic>/`
 
@@ -120,10 +122,6 @@ Local-only by default:
 - `review-adjudication`: calibrates reviewer feedback against current Lineup evidence, plan scope, and boundary ownership before implementation.
 - `review-request`: standardizes bounded packets for reviewer agents and launcher reviews without passing unbounded session history.
 - `model-selection`: keeps Lineup session-to-session model advice explicit, cheap by default, and only auto-emitted for high-risk handoffs.
-- `brainstorming`: lightweight ambiguity-resolution across projects without inheriting generic spec-writing and planner-coupling workflow.
-- `frontend-design`: marketing/brand-forward UI generation (landing pages, posters, high-aesthetic surfaces) aligned with anti-slop goals.
-- `interface-design`: product interface design skill for dashboards/admin/settings/tools and other data-heavy UIs.
-- `desloppify`: useful for recurring debt audits and cleanup planning as the architecture cleanup continues.
 
 ## Repo-Local Subagent Policy
 
@@ -140,7 +138,6 @@ Local-only by default:
   - `review-request` for bounded reviewer packets
   - `review-adjudication` for acting on review feedback
   - `closeout-verification` before completion, commit, push, PR, or handoff claims
-- If a mirrored global skill stops being useful for Antigravity, remove it from [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) instead of encoding negative routing rules in the main workflow docs.
 
 ## UI Skill Recommendation
 
@@ -152,15 +149,7 @@ For UI work, the default stack should be:
 2. Repo-local `ui-composition-patterns` for Lineup-specific TV composition, focus, motion, and cleanup rules.
 3. Repo-local `architecture-boundaries` when UI work starts changing ownership or expanding hotspot classes.
 
-Keep the set minimal: two global UI skills with a clear boundary is preferable to many overlapping “design” skills.
-
-## Copy / Refresh Commands
-
-Use actual copies. Do not use symlinks. Materialize the local mirror with the tracked sync script and keep the allowlist as the only place where the mirrored global set is edited.
-
-```bash
-scripts/sync_agent_skills.sh
-```
+Keep the set minimal: two global UI skills with a clear boundary is preferable to many overlapping design skills.
 
 ## Future Recommendations
 
@@ -170,5 +159,4 @@ scripts/sync_agent_skills.sh
   - modify overlay without breaking focus cleanup
   - change Plex stream logic without leaking transport policy into callers
 - Use [`docs/agentic/evals-roadmap.md`](./evals-roadmap.md) as the first evaluation layer and tighten it during the phase-2 transition in [`docs/agentic/phase-2-steady-state-plan.md`](./phase-2-steady-state-plan.md).
-- Keep the mirror set pinned and reviewable. If a global skill is not helping Antigravity in practice, remove it from [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) rather than relying on machine-local installs.
 - Promote a Lineup skill to global only after it proves broadly reusable outside this repo.

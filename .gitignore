@@ -120,7 +120,10 @@ test-results/
 .worktrees/
 worktrees/
 .agent/
-.agents/
+.agents/*
+!.agents/skills/
+!.agents/skills/**
+.agents/skills/desloppify/
 agent-memory/
 orchestration-docs/
 .codex/
@@ -142,13 +145,14 @@ jellyfin_webos_dv_research.md
 plex_fetch.js
 
 !.codex/
-!.codex/skills/
-!.codex/skills/**
+!.codex/agents/
+!.codex/agents/**
+!.codex/config.toml
+.codex/skills/
 .codex/cache/
 !docs/AGENTIC_DEV_WORKFLOW.md
 !docs/agentic/**
 !docs/architecture/CURRENT_STATE.md
-!scripts/sync_agent_skills.sh
 
 # Local agent/runtime artifacts
 docs/runs/*

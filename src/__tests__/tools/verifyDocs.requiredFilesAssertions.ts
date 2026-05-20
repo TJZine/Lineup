@@ -94,6 +94,85 @@ export function registerVerifyDocsRequiredFilesAssertions({ tempRoots }: VerifyD
         expect(result.stderr).toContain('.agents/run-logs/session.md');
     });
 
+    it('fails when a tracked doc links to a legacy singular-agent artifact', () => {
+        const repoRoot = createRepoFixture({
+            'docs/development/testing.md': '# Testing\n\n[Legacy mirror](../../.agent/skills/foo/SKILL.md)\n',
+            '.agent/skills/foo/SKILL.md': '# Local legacy mirror\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Tracked doc docs/development/testing.md links to local-only artifact');
+        expect(result.stderr).toContain('../../.agent/skills/foo/SKILL.md');
+    });
+
+    it('fails when a tracked doc contains a concrete legacy skill mirror path', () => {
+        const repoRoot = createRepoFixture({
+            'docs/development/testing.md': '# Testing\n\nRaw mirror artifact: .agent/skills/foo/SKILL.md\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('.agent/skills/foo/SKILL.md');
+    });
+
+    it('fails when an active tracked doc contains a raw obsolete .codex skill source path', () => {
+        const repoRoot = createRepoFixture({
+            '.agents/skills/verification-strategy/SKILL.md':
+                '# verification-strategy\n\nRaw obsolete skill source: .codex/skills/foo/SKILL.md\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('.codex/skills/foo/SKILL.md');
+    });
+
+    it('allows historical baseline summaries to mention obsolete .codex skill source paths', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/evals/baseline-summaries/2026-01-01-historical.md':
+                '# Historical\n\nPast evidence read `.codex/skills/foo/SKILL.md`.\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when a tracked doc depends on ignored local desloppify skill files', () => {
+        const repoRoot = createRepoFixture({
+            'docs/development/testing.md':
+                '# Testing\n\n[Ignored local skill](../../.agents/skills/desloppify/SKILL.md)\n',
+            '.agents/skills/desloppify/SKILL.md': '# Local desloppify skill\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Tracked doc docs/development/testing.md links to local-only artifact');
+        expect(result.stderr).toContain('../../.agents/skills/desloppify/SKILL.md');
+    });
+
+    it('does not scan ignored local desloppify skill contents as tracked markdown', () => {
+        const repoRoot = createRepoFixture({
+            '.agents/skills/desloppify/SKILL.md': '# Local desloppify skill\n\n[Broken](./missing.md)\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
     it('allows placeholder local-only paths that do not point to concrete artifacts', () => {
         const repoRoot = createRepoFixture({
             'docs/development/testing.md': [
@@ -155,13 +234,27 @@ export function registerVerifyDocsRequiredFilesAssertions({ tempRoots }: VerifyD
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
 
-        rmSync(path.join(repoRoot, '.codex/skills/verification-strategy'), { recursive: true, force: true });
+        rmSync(path.join(repoRoot, '.agents/skills/verification-strategy'), { recursive: true, force: true });
 
         const result = runVerifier(repoRoot);
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
-            'Missing required repo-local canonical skill `verification-strategy`: .codex/skills/verification-strategy/SKILL.md'
+            'Missing required repo-local canonical skill `verification-strategy`: .agents/skills/verification-strategy/SKILL.md'
+        );
+    });
+
+    it('fails when a required repo-local launcher skill file is missing', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        rmSync(path.join(repoRoot, '.agents/skills/lineup-feature-plan'), { recursive: true, force: true });
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Missing required repo-local canonical skill `lineup-feature-plan`: .agents/skills/lineup-feature-plan/SKILL.md'
         );
     });
 
@@ -169,13 +262,13 @@ export function registerVerifyDocsRequiredFilesAssertions({ tempRoots }: VerifyD
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
 
-        runGit(['rm', '--cached', '--quiet', '.codex/skills/verification-strategy/SKILL.md'], repoRoot);
+        runGit(['rm', '--cached', '--quiet', '.agents/skills/verification-strategy/SKILL.md'], repoRoot);
 
         const result = runVerifier(repoRoot);
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
-            'Required repo-local canonical skill is not tracked: .codex/skills/verification-strategy/SKILL.md'
+            'Required repo-local canonical skill is not tracked: .agents/skills/verification-strategy/SKILL.md'
         );
     });
 

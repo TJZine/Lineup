@@ -49,8 +49,8 @@ For `standalone remediation`, do not require checklist linkage just to use the s
 - if repo state contradicts the plan, update the plan first instead of improvising
 - prefer extraction and focused collaborators over growing hotspot files
 - do not add fallback paths, migration shims, or dual-path logic unless explicitly approved
-- treat `.codex/skills/` as the tracked repo skill surface; commit updates there when the task changes repo-local skill behavior
-- do not commit local-only artifacts such as `.agent/skills/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts
+- treat `.agents/skills/` as the tracked repo skill surface; commit updates there when the task changes repo-local skill behavior
+- do not commit local-only artifacts such as `.agent/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts
 - do not stage active tracked plan docs from `docs/plans/` into implementation commits, even when the execution pass refreshed plan progress; leave plan-doc changes for the orchestrator or a separate tracked-doc commit
 - if the execution pass updates tracked package-plan slice status, keep those plan edits out of the implementation checkpoint and either leave them for the orchestrator or land them in a separate tracked-doc commit when no controller session owns closeout
 - if a local run bundle changes the workflow conclusion, commit the updated tracked baseline-summary or workflow doc before closeout and keep only the raw bundle local

@@ -11,12 +11,42 @@ function verifyDocsUrl() {
     return new URL(`../verify-docs.mjs?cacheBust=launcher-${importCounter}`, import.meta.url);
 }
 
+const launcherSkillNames = [
+    'lineup-cleanup-plan',
+    'lineup-cleanup-implement',
+    'lineup-cleanup-review',
+    'lineup-cleanup-loop',
+    'lineup-feature-plan',
+    'lineup-feature-implement',
+    'lineup-feature-review',
+    'lineup-workflow-harness-review',
+    'repo-production-review',
+];
+
+function writeLauncherSkill(tmpRoot, skillName, readList) {
+    const skillDir = path.join(tmpRoot, '.agents', 'skills', skillName);
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(path.join(skillDir, 'SKILL.md'), readList.join('\n'), 'utf8');
+}
+
+function writeValidLauncherSkills(tmpRoot) {
+    for (const skillName of launcherSkillNames) {
+        writeLauncherSkill(tmpRoot, skillName, [
+            'Read these files in order:',
+            '',
+            '1. `agents.md`',
+            '2. `docs/AGENTIC_DEV_WORKFLOW.md`',
+            '',
+        ]);
+    }
+}
+
 test('checkRepoLocalLauncherSkillReadOrders rejects ignored entrypoint and document-map reads', async () => {
     const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-launchers-'));
-    const skillDir = path.join(tmpRoot, '.codex', 'skills', 'lineup-cleanup-plan');
-    mkdirSync(skillDir, { recursive: true });
-    writeFileSync(
-        path.join(skillDir, 'SKILL.md'),
+    writeValidLauncherSkills(tmpRoot);
+    writeLauncherSkill(
+        tmpRoot,
+        'lineup-cleanup-plan',
         [
             'Read these files in order:',
             '',
@@ -25,8 +55,7 @@ test('checkRepoLocalLauncherSkillReadOrders rejects ignored entrypoint and docum
             '3. `docs/AGENTIC_DEV_WORKFLOW.md`',
             '4. `docs/agentic/session-prompts/cleanup-plan.md`',
             '',
-        ].join('\n'),
-        'utf8',
+        ],
     );
 
     const previousCwd = process.cwd();
@@ -54,20 +83,7 @@ test('checkRepoLocalLauncherSkillReadOrders rejects ignored entrypoint and docum
 
 test('checkRepoLocalLauncherSkillReadOrders accepts tracked entrypoint and workflow reads', async () => {
     const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-launchers-'));
-    const skillDir = path.join(tmpRoot, '.codex', 'skills', 'lineup-cleanup-plan');
-    mkdirSync(skillDir, { recursive: true });
-    writeFileSync(
-        path.join(skillDir, 'SKILL.md'),
-        [
-            'Read these files in order:',
-            '',
-            '1. `agents.md`',
-            '2. `docs/AGENTIC_DEV_WORKFLOW.md`',
-            '3. `docs/agentic/session-prompts/cleanup-plan.md`',
-            '',
-        ].join('\n'),
-        'utf8',
-    );
+    writeValidLauncherSkills(tmpRoot);
 
     const previousCwd = process.cwd();
     try {

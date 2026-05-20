@@ -27,7 +27,7 @@ When tracked docs conflict, use this order:
 1. this file for operating workflow, precedence, and where-to-look-next
 2. [`agents.md`](../agents.md) for entrypoint defaults only; it is not a second runbook
 3. [`docs/agentic/codanna-playbook.md`](./agentic/codanna-playbook.md) for Codanna query shaping and fallback rules
-4. [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md) for skill topology and mirror policy
+4. [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md) for skill topology
 5. [`docs/architecture/CURRENT_STATE.md`](./architecture/CURRENT_STATE.md) for current architecture claims
 6. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../ARCHITECTURE_CLEANUP_CHECKLIST.md) for active cleanup and live status
 7. domain-specific current docs such as [`docs/design/ui-design-language.md`](./design/ui-design-language.md) and [`docs/api/plex-integration.md`](./api/plex-integration.md)
@@ -253,8 +253,8 @@ unless that exception record exists.
 11. Close workflow/control-plane changes deliberately.
    - when launcher invocation behavior changes, update the matching tracked launcher docs and keep cleanup vs feature ergonomics aligned unless a documented difference is intentional
    - when plan-standard section ownership changes, realign launcher/workflow references to the correct plan-standard anchors in the same pass
-   - when repo-local skills change, sync the `.agent/skills/` mirror with `scripts/sync_agent_skills.sh`
-   - `.codex/skills/` is the canonical tracked source for repo-local skills; do not treat tracked docs as a steady-state skill fallback
+   - when repo-local skills change, update the tracked `.agents/skills/` source directly
+   - `.agents/skills/` is the canonical tracked source for repo-local skills; do not treat tracked docs as a steady-state skill fallback
    - when prompt inventories or managed README sections change, run `npm run docs:sync` before `npm run verify:docs`
    - when workflow, launcher, skill, or role changes trip an eval trigger, run the required manual eval prompt set named in [`docs/agentic/evals/README.md`](./agentic/evals/README.md) and record the tracked baseline summary in the same pass
    - do not claim a workflow-quality improvement from prose alone; pair the doc update with the matching verification and eval evidence
@@ -314,9 +314,9 @@ Use Codex multi-agent support only when it materially improves reliability, thro
 - `model-selection`
   - explicit "which model should I use?" requests and high-risk handoffs that need a model recommendation for the next session
 
-For skill topology and mirror policy, see [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md).
+For skill topology, see [`docs/agentic/skill-strategy.md`](./agentic/skill-strategy.md).
 
-After cloning the repo or updating repo-local/global mirrored skills, run `scripts/sync_agent_skills.sh` to materialize the local `.agent/skills/` mirror for Antigravity.
+After cloning the repo, use the tracked `.agents/skills/` directory directly for repo-local skill discovery.
 
 ## Session Launchers
 

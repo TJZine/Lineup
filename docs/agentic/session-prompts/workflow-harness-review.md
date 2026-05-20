@@ -70,7 +70,7 @@ Rationale: these define the authority surfaces, how work is routed, and what is 
 1. [`agents.md`](../../../agents.md) (deep, ~8-12m): stable policy and global defaults
 2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~12-18m): workflow, precedence, routing, and verification expectations
 3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md) (deep, ~8-12m): Codanna-first discovery and fallback rules
-4. [`docs/agentic/skill-strategy.md`](../skill-strategy.md) (skim, ~5-8m): skill topology and mirror policy
+4. [`docs/agentic/skill-strategy.md`](../skill-strategy.md) (skim, ~5-8m): skill topology
 5. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) (deep, ~10-15m): single plan-standard authority surface, including `Universal Plan Core` and `Cleanup Overlay`
 6. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) (skim, ~5-8m): common failure modes and what to avoid repeating
 7. [`docs/agentic/evals/README.md`](../evals/README.md) (deep, ~10-15m): eval protocol, ownership, and what is measured
@@ -90,7 +90,7 @@ Rationale: these validate the core workflow against steady-state plans, architec
 16. [`docs/archive/plans/README.md`](../../archive/plans/README.md) (skim, ~3-5m): how completed/superseded plans are archived
 17. [`docs/runs/README.md`](../../runs/README.md) (skim, ~3-5m): local-only run bundles and promotion rules
 
-Also inspect the tracked session launchers in this directory and the repo-local tracked skill surfaces under [`.codex/skills/`](../../../.codex/skills/) (`.agent/skills/` is a generated local-only mirror and must remain untracked).
+Also inspect the tracked session launchers in this directory and the repo-local tracked skill surfaces under [`.agents/skills/`](../../../.agents/skills/).
 
 ## Required Review Axes
 
@@ -231,7 +231,7 @@ Review:
 - archive rules
 - corpus-review updates
 - phase-2 steady-state plan
-- skill topology and mirror policy
+- skill topology
 
 Flag:
 

@@ -67,7 +67,7 @@
 
 - no raw eval transcript committed
 - no `docs/runs/*` bundle was promoted in this pass
-- `.agent/skills/` remains the local materialization surface rather than tracked workflow truth
+- the legacy singular-agent skill mirror remains the local materialization surface rather than tracked workflow truth
 
 ## Next Follow-Up
 

@@ -37,7 +37,7 @@ Before saying work is complete, answer:
 4. Did I read the output and exit code?
 5. Does the current diff contain only intended changes?
 6. Are there unrelated dirty files I must leave alone?
-7. Are docs, plans, mirrors, generated inventories, or eval summaries required by the workflow?
+7. Are docs, plans, generated inventories, or eval summaries required by the workflow?
 8. Is an adversarial review required or requested?
 
 If any answer is missing, do not claim completion. State the actual status and the missing proof.
@@ -49,7 +49,6 @@ Use the repo workflow first:
 - `npm run verify` for UI, navigation, Orchestrator, or Plex work
 - `npm run verify:docs` for workflow, control-plane, launcher, repo-local skill, prompt, eval, or reference-doc changes
 - `npm run docs:sync` before `npm run verify:docs` when prompt inventories or managed README sections changed
-- `scripts/sync_agent_skills.sh` when repo-local skills or mirrored global skill policy changed
 - targeted tests plus `npm test`/`npm run typecheck` for logic-only TypeScript changes when `npm run verify` is disproportionate
 
 If verification fails, report failure and the first actionable failure cause. Do not bury it under unrelated passing checks.
@@ -68,7 +67,7 @@ Classify changes:
 
 - made by this task
 - pre-existing user or workspace changes
-- generated mirror/inventory changes expected by workflow
+- generated inventory changes expected by workflow
 - unexpected changes requiring investigation
 
 Never revert unrelated user changes. If unrelated dirty files exist, mention that they were left untouched when relevant.
@@ -129,7 +128,7 @@ Avoid:
 ## Common Mistakes
 
 - trusting a worker or reviewer success claim without local verification
-- forgetting generated docs/skill mirror updates
+- forgetting generated docs or inventory updates
 - running the wrong verification command for the change class
 - staging unrelated dirty files
 - claiming completion before reading command output
