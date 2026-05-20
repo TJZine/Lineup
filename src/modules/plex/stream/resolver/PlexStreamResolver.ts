@@ -451,12 +451,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     }
 
     private _createPlaybackCapabilityProfile(): PlaybackCapabilityProfile {
-        const is4K = typeof window !== 'undefined' &&
-            typeof window.screen?.width === 'number' &&
-            window.screen.width >= 3840;
-
         return createBrowserPlaybackCapabilityProfile({
-            is4K,
             isWebOs: this._isWebOs(),
             dtsPassthroughEnabled: this._isDtsPassthroughEnabled(),
         });

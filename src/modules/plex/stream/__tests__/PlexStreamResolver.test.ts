@@ -58,6 +58,7 @@ describe('PlexStreamResolver', () => {
     let originalNavigator: unknown;
     let originalLocalStorage: unknown;
     let originalDocument: unknown;
+    let originalWindow: unknown;
 
     beforeEach(() => {
         mockFetch = jest.fn().mockResolvedValue({ ok: true });
@@ -66,6 +67,7 @@ describe('PlexStreamResolver', () => {
         originalNavigator = (globalThis as unknown as { navigator?: unknown }).navigator;
         originalLocalStorage = (globalThis as unknown as { localStorage?: unknown }).localStorage;
         originalDocument = (globalThis as unknown as { document?: unknown }).document;
+        originalWindow = (globalThis as unknown as { window?: unknown }).window;
     });
 
     afterEach(() => {
@@ -93,6 +95,15 @@ describe('PlexStreamResolver', () => {
         } else {
             Object.defineProperty(globalThis, 'document', {
                 value: originalDocument,
+                configurable: true,
+                writable: true,
+            });
+        }
+        if (originalWindow === undefined) {
+            delete (globalThis as unknown as { window?: unknown }).window;
+        } else {
+            Object.defineProperty(globalThis, 'window', {
+                value: originalWindow,
                 configurable: true,
                 writable: true,
             });
@@ -272,6 +283,24 @@ describe('PlexStreamResolver', () => {
             const resolver = new PlexStreamResolver(config);
 
             expect(resolver.canDirectPlay(item)).toBe(false);
+        });
+
+        it('should allow 4K direct play on webOS when the app surface reports 1080p', () => {
+            Object.defineProperty(globalThis, 'window', {
+                value: { screen: { width: 1920, height: 1080 } },
+                configurable: true,
+            });
+
+            const item = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+                width: 3840,
+                height: 2160,
+            });
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(true);
         });
 
         it('should return false for empty media array', () => {
@@ -1366,7 +1395,7 @@ describe('PlexStreamResolver', () => {
             const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
 
             expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe(
-                'protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=h264{profile:high&level:42};audioDecoders=mp3,aac{bitrate:800000},ac3{bitrate:800000},eac3{bitrate:800000}'
+                'protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=h264{profile:high&level:51};audioDecoders=mp3,aac{bitrate:800000},ac3{bitrate:800000},eac3{bitrate:800000}'
             );
         });
 

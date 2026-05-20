@@ -48,7 +48,6 @@ export interface PlaybackCapabilityProfileInput {
 }
 
 export interface BrowserPlaybackCapabilityProfileInput {
-    is4K: boolean;
     isWebOs: boolean;
     dtsPassthroughEnabled: boolean;
 }
@@ -144,7 +143,7 @@ export function createBrowserPlaybackCapabilityProfile(
 ): PlaybackCapabilityProfile {
     const videoEl = createVideoProbeElement();
     return createPlaybackCapabilityProfile({
-        is4K: input.is4K,
+        is4K: resolveBrowserDisplayIs4K(input),
         isWebOs: input.isWebOs,
         dtsPassthroughEnabled: input.dtsPassthroughEnabled,
         chromeMajor: getBrowserChromeMajor(),
@@ -157,6 +156,22 @@ export function createBrowserPlaybackCapabilityProfile(
             }
         },
     });
+}
+
+function resolveBrowserDisplayIs4K(input: BrowserPlaybackCapabilityProfileInput): boolean {
+    if (input.isWebOs) {
+        return true;
+    }
+
+    const screenSize = getBrowserScreenSize();
+    if (!screenSize) {
+        return false;
+    }
+
+    const longSide = Math.max(screenSize.width, screenSize.height);
+    const shortSide = Math.min(screenSize.width, screenSize.height);
+    return longSide >= DISPLAY_4K_MAX_RESOLUTION.width &&
+        shortSide >= DISPLAY_4K_MAX_RESOLUTION.height;
 }
 
 export function getBrowserChromeMajor(): number | null {
@@ -270,6 +285,27 @@ function createVideoProbeElement(): { canPlayType(mime: string): string } | null
             return null;
         }
         return document.createElement('video');
+    } catch {
+        return null;
+    }
+}
+
+function getBrowserScreenSize(): { width: number; height: number } | null {
+    try {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+
+        const width = window.screen?.width;
+        const height = window.screen?.height;
+        if (typeof width !== 'number' || typeof height !== 'number') {
+            return null;
+        }
+        if (!Number.isFinite(width) || !Number.isFinite(height)) {
+            return null;
+        }
+
+        return { width, height };
     } catch {
         return null;
     }

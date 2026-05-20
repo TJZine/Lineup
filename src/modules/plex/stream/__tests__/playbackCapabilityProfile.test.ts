@@ -1,4 +1,5 @@
 import {
+    createBrowserPlaybackCapabilityProfile,
     createPlaybackCapabilityProfile,
     getDolbyVisionProfileSupport,
     isCapabilityAdvertisable,
@@ -46,6 +47,36 @@ describe('PlaybackCapabilityProfile', () => {
             is4K: true,
             maxResolution: { width: 3840, height: 2160 },
         });
+    });
+
+    it('does not treat the webOS app surface as the device playback resolution', () => {
+        const originalWindow = (globalThis as unknown as { window?: unknown }).window;
+        Object.defineProperty(globalThis, 'window', {
+            value: { screen: { width: 1920, height: 1080 } },
+            configurable: true,
+        });
+
+        try {
+            const profile = createBrowserPlaybackCapabilityProfile({
+                isWebOs: true,
+                dtsPassthroughEnabled: false,
+            });
+
+            expect(profile.display).toMatchObject({
+                is4K: true,
+                maxResolution: { width: 3840, height: 2160 },
+            });
+        } finally {
+            if (originalWindow === undefined) {
+                delete (globalThis as unknown as { window?: unknown }).window;
+            } else {
+                Object.defineProperty(globalThis, 'window', {
+                    value: originalWindow,
+                    configurable: true,
+                    writable: true,
+                });
+            }
+        }
     });
 
     it('records explicit HEVC probes as advertizable capability evidence', () => {
