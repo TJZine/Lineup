@@ -362,7 +362,7 @@ test('SESSION_PROMPT_INVENTORY and EVAL_PROMPT_INVENTORY drive expected file ord
     );
     assert.equal(SESSION_PROMPT_INVENTORY.at(-1)?.file, 'workflow-harness-review.md');
     assert.equal(EVAL_PROMPT_INVENTORY[0].file, '01-app-container-extraction-no-ui-drift.md');
-    assert.equal(EVAL_PROMPT_INVENTORY.at(-1)?.file, '20-skill-routing-interface-vs-frontend.md');
+    assert.equal(EVAL_PROMPT_INVENTORY.at(-1)?.file, '23-reviewer-specialization-effectiveness.md');
 });
 
 test('renderSessionPromptSet renders the managed launcher inventory from manifest data', () => {

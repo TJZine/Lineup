@@ -7,6 +7,17 @@
 ## Agent / Surface
 
 - record the surface used, for example Codex CLI or Antigravity
+- ROLE:
+- MODEL:
+- REASONING_EFFORT:
+- Surface-recording note: use observed/operator-entered values only; exact reasoning-token telemetry is optional because Codex may not expose it consistently.
+
+## Task Classification
+
+- Task family:
+- Tier:
+- Risk score:
+- Routing/escalation reason:
 
 ## Outcome
 
@@ -55,6 +66,12 @@
 
 - note whether Codanna was consulted
 - note whether the expected skills were consulted
+- list verification commands and observed results
+- list review findings count, blocking findings count, accepted findings count
+- list rework rounds
+- list wall time
+- list observed token, credit, or cost data when available
+- note that exact reasoning-token telemetry is optional/observed-only
 - list the concrete evidence that supports the outcome
 
 ## Failure Notes

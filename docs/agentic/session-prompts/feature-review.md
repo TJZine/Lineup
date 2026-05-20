@@ -2,6 +2,8 @@
 
 Use this prompt for adversarial review of a feature/design artifact from any orchestration tier.
 
+Run normal feature/design review with the read-only `reviewer` role. Route code-health, slop, file-shape, test-brittleness, or maintainability-only review to `maintainability_reviewer`; route hotspot, owner-seam, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contract, priority-exit, or security-adjacent architecture risk to `architecture_reviewer`.
+
 This launcher supports review of either:
 
 - a feature/design plan

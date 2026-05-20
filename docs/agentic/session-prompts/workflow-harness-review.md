@@ -4,6 +4,8 @@ Use this prompt when you want an adversarial review of the entire Lineup agent w
 
 This is not a style pass. It is a production-readiness audit for whether the repo harness is likely to produce reliable, low-slop agent behavior over time.
 
+Run this launcher through the workflow-harness review path with the read-only `reviewer` role by default. Add an optional `maintainability_reviewer` sidecar only when prompt bloat, slop, file shape, or maintainability is a specific review target.
+
 ## Review Goal
 
 Determine whether the Lineup harness is:

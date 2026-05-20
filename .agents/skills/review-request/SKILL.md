@@ -29,10 +29,12 @@ The goal is to give a reviewer enough evidence to find real defects without hand
 
 ## Review Routing
 
-- Use tracked `reviewer` for adversarial review.
+- Use tracked `reviewer` for normal adversarial review.
+- Use tracked `maintainability_reviewer` for code-health, slop, file-shape, test-brittleness, or maintainability-only review. Do not block on style-only preferences.
+- Use tracked `architecture_reviewer` for hotspot, owner-seam, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contract, priority-exit, or security-adjacent architecture risk.
 - Use `cleanup-review.md` for cleanup/refactor plans and implementations.
 - Use `feature-review.md` for feature/design plans and implementations.
-- Use `workflow-harness-review.md` for whole workflow/control-plane, skill topology, eval surface, or review-loop audits.
+- Use `workflow-harness-review.md` for whole workflow/control-plane, skill topology, eval surface, or review-loop audits; optionally add `maintainability_reviewer` only when prompt bloat or slop is a specific review target.
 - Use a narrow reviewer sidecar only when the review target is smaller than a launcher session.
 
 Keep reviewers read-only. If the reviewer needs implementation, return to the owning session with adjudicated findings.

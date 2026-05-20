@@ -175,6 +175,21 @@ export const EVAL_PROMPT_INVENTORY = [
         linkText: '20-skill-routing-interface-vs-frontend',
         title: '20 Skill Routing Interface-vs-Frontend',
     },
+    {
+        file: '21-model-role-routing-cost-effectiveness.md',
+        linkText: '21-model-role-routing-cost-effectiveness',
+        title: '21 Model Role Routing Cost Effectiveness',
+    },
+    {
+        file: '22-planner-escalation-and-plan-critique-boundaries.md',
+        linkText: '22-planner-escalation-and-plan-critique-boundaries',
+        title: '22 Planner Escalation And Plan Critique Boundaries',
+    },
+    {
+        file: '23-reviewer-specialization-effectiveness.md',
+        linkText: '23-reviewer-specialization-effectiveness',
+        title: '23 Reviewer Specialization Effectiveness',
+    },
 ];
 
 export const EXPECTED_SESSION_PROMPT_FILES = SESSION_PROMPT_INVENTORY.map(({ file }) => file);

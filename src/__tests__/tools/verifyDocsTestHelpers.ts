@@ -299,16 +299,16 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             'Tracked role intent:',
             '',
-            '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role',
-            '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role',
-            '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only',
-            '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role',
+            '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role by default; use `planner_deep` for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning',
+            '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_54_high` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify',
+            '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_54_high` for a bounded exact cheap-to-verify subunit',
+            '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role for normal review, with `maintainability_reviewer` for maintainability-only review and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review',
             '',
             '## Routing (Authoritative)',
             '',
             '| Task Type | Use This Path | Prompt Family | Notes |',
             '|---|---|---|---|',
-            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop with planner + cleanup_worker + reviewer. |',
+            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop with planner by default, planner_deep for hotspot/unresolved seam planning, cleanup_worker for implementation, reviewer by default, maintainability_reviewer for maintainability-only review, and architecture_reviewer for hotspot/boundary review. |',
             '| feature/design | net-new capability | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
             '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
             '',
@@ -324,8 +324,8 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '1. confirm the current repo is Lineup',
             '2. load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
             '3. load the matching file in this directory',
-            '4. use the tracked role that matches the launcher intent (`planner` for planning, `worker` for implementation, `reviewer` for review)',
-            '   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker',
+            '4. use the tracked role that matches the launcher intent (`planner` for default planning, `planner_deep` for deep Tier 3/hotspot/boundary planning, `worker` for default implementation, `worker_54_high` only when an approved execution packet declares eligibility, `reviewer` for normal review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review)',
+            '   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker_54_high',
             '',
         ].join('\n')
     );
@@ -483,7 +483,7 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
             '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
-            '- Use `planner` for bounded planning artifacts, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, and `reviewer` for adversarial review passes.',
+            '- Use `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, `worker_54_high` only for approved bounded exact cheap-to-verify execution units, `reviewer` for normal adversarial review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review.',
             '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
             '',
         ].join('\n')
@@ -668,6 +668,14 @@ export function writeValidCodexRoleConfigFixture(
             'description = "Reviewer"',
             'config_file = "agents/reviewer.toml"',
             '',
+            '[agents.maintainability_reviewer]',
+            'description = "Read-only reviewer for code-health, slop, file shape, test brittleness, and maintainability risks; no style-only blocking."',
+            'config_file = "agents/maintainability-reviewer.toml"',
+            '',
+            '[agents.architecture_reviewer]',
+            'description = "Read-only reviewer for hotspots, owner seams, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contracts, and security-adjacent architecture risk."',
+            'config_file = "agents/architecture-reviewer.toml"',
+            '',
             '[agents.docs_researcher]',
             'description = "Docs researcher"',
             'config_file = "agents/docs-researcher.toml"',
@@ -676,9 +684,17 @@ export function writeValidCodexRoleConfigFixture(
             'description = "Planner"',
             'config_file = "agents/planner.toml"',
             '',
+            '[agents.planner_deep]',
+            'description = "Deep planning writer for Tier 3, hotspot, priority-exit, cross-boundary, or unresolved architecture/product seam planning; not product-code implementation."',
+            'config_file = "agents/planner-deep.toml"',
+            '',
             '[agents.worker]',
             'description = "Worker"',
             'config_file = "agents/worker.toml"',
+            '',
+            '[agents.worker_54_high]',
+            'description = "Cost-optimized write-capable implementer for approved, bounded, exact, cheap-to-verify execution units only."',
+            'config_file = "agents/worker-54-high.toml"',
             '',
             '[agents.cleanup_worker]',
             'description = "Cleanup-loop-specific implementer for approved Tier 3 cleanup-loop implementation passes."',
@@ -712,6 +728,33 @@ export function writeValidCodexRoleConfigFixture(
     );
     writeRepoFile(
         repoRoot,
+        '.codex/agents/maintainability-reviewer.toml',
+        [
+            `model = "${CODEX_MODEL_DEFAULT}"`,
+            'sandbox_mode = "read-only"',
+            'developer_instructions = """',
+            'Review code-health, slop, file shape, test brittleness, maintainability, duplication, naming, and unnecessary indirection.',
+            'Do not block on style-only preferences.',
+            'Do not edit files.',
+            '"""',
+            '',
+        ].join('\n')
+    );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/architecture-reviewer.toml',
+        [
+            `model = "${CODEX_MODEL_DEFAULT}"`,
+            'sandbox_mode = "read-only"',
+            'developer_instructions = """',
+            'Review hotspots, owner seams, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contracts, priority-exit, and security-adjacent architecture risk.',
+            'Do not edit files.',
+            '"""',
+            '',
+        ].join('\n')
+    );
+    writeRepoFile(
+        repoRoot,
         '.codex/agents/docs-researcher.toml',
         `model = "${CODEX_MODEL_DEFAULT}"\nsandbox_mode = "read-only"\n`
     );
@@ -720,7 +763,7 @@ export function writeValidCodexRoleConfigFixture(
         '.codex/agents/planner.toml',
         [
             `model = "${CODEX_MODEL_PLANNER}"`,
-            'model_reasoning_effort = "high"',
+            'model_reasoning_effort = "medium"',
             'developer_instructions = """',
             'Own bounded planning work, not product-code implementation.',
             'Use write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.',
@@ -729,7 +772,35 @@ export function writeValidCodexRoleConfigFixture(
             '',
         ].join('\n')
     );
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/planner-deep.toml',
+        [
+            `model = "${CODEX_MODEL_PLANNER}"`,
+            'model_reasoning_effort = "xhigh"',
+            'developer_instructions = """',
+            'Own deep planning work for Tier 3, hotspot, priority-exit, cross-boundary, or unresolved architecture/product seam plans.',
+            'Use write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.',
+            'Do not implement product code.',
+            '"""',
+            '',
+        ].join('\n')
+    );
     writeRepoFile(repoRoot, '.codex/agents/worker.toml', `model = "${CODEX_MODEL_DEFAULT}"\n`);
+    writeRepoFile(
+        repoRoot,
+        '.codex/agents/worker-54-high.toml',
+        [
+            `model = "${CODEX_MODEL_DEFAULT}"`,
+            'model_reasoning_effort = "high"',
+            'developer_instructions = """',
+            'Own only approved, bounded, exact, cheap-to-verify execution units.',
+            'Use this role when the plan or CURRENT_EXECUTION_PACKET explicitly declares worker_54_high eligibility.',
+            'Stop and escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure that needs diagnosis.',
+            '"""',
+            '',
+        ].join('\n')
+    );
     writeRepoFile(
         repoRoot,
         '.codex/agents/cleanup-worker.toml',

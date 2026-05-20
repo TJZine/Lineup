@@ -53,6 +53,10 @@ description: Use when a Lineup task has optional read-only sidecars, blocking do
   - same job as `explorer` when the primary explorer path is unavailable or constrained
 - `reviewer`
   - adversarial review for correctness, regressions, security, and missing tests
+- `maintainability_reviewer`
+  - read-only code-health, slop, file-shape, test-brittleness, and maintainability review; no style-only blocking
+- `architecture_reviewer`
+  - read-only hotspot, owner-seam, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contract, priority-exit, and security-adjacent architecture review
 - `docs_researcher`
   - external documentation and source-backed research; may run as a parallel sidecar or as a blocking research pass
   when the research result is the next needed input

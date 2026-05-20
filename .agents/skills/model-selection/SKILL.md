@@ -9,7 +9,7 @@ description: Use when a user asks which model or reasoning effort to use for a L
 
 Use this skill to recommend the cheapest model setup that is still reliable for the next Lineup session.
 
-Default low, escalate only when risk is real.
+Default to the cheapest reliable tracked role/model, escalate only when risk is real.
 
 ## Use This Skill For
 
@@ -34,33 +34,45 @@ Start at `0` and add `+1` for each:
 
 - Score `0-1`
   - omit `MODEL_SUGGESTION` unless the user explicitly asked
-  - if asked: default to the current session model; use `gpt-5.5 medium` for planner/reviewer/implementer when a concrete model is needed
+  - if asked: default to the current session model; use tracked `planner` (`gpt-5.5 medium`), tracked `worker` (`gpt-5.5 medium`), and tracked `reviewer` (`gpt-5.5 high`) when concrete roles are needed
+  - planning default: tracked `planner` (`gpt-5.5 medium`)
+  - implementation default: tracked `worker` (`gpt-5.5 medium`)
+  - use `worker_54_high` (`gpt-5.4 high`) only when the approved `CURRENT_EXECUTION_PACKET` explicitly declares `IMPLEMENTER_ROLE_ELIGIBILITY: worker_54_high` and the unit is exact, bounded, and cheap to verify
   - use `gpt-5.5 low` for a feature/design implementer only when `CURRENT_EXECUTION_PACKET` explicitly freezes `IMPLEMENTER_REASONING_ELIGIBILITY: low` and includes `LOW_ELIGIBLE_IF`, `ESCALATE_TO_MEDIUM_IF`, and `STOP_AND_REPLAN_IF`
   - for tiny read-heavy sidecars, `gpt-5.4-mini low|medium` is acceptable when speed/cost matters more than deep reasoning
 - Score `2-3`
   - include `MODEL_SUGGESTION`
-  - planner `gpt-5.5 medium`
+  - planner `gpt-5.5 medium` by default
+  - planner `gpt-5.5 high` can be recommended as a direct model override for ambiguous Tier 2 work or moderate architecture risk when `planner_deep` would be disproportionate
   - implementer `gpt-5.5 medium`
-  - reviewer `gpt-5.5 high` only if the review must catch hidden architecture mistakes; otherwise `gpt-5.5 medium`
-  - use `gpt-5.4` as the fallback when `gpt-5.5` is unavailable in the current surface
+  - implementer `gpt-5.4 high` through `worker_54_high` only for approved, bounded, exact, cheap-to-verify units with explicit stop/escalation rules
+  - reviewer `gpt-5.5 high` through the tracked `reviewer` role for normal adversarial review
+  - use `maintainability_reviewer` (`gpt-5.4 xhigh`) for code-health, slop, file-shape, test-brittleness, or maintainability-only review
 - Score `4+` or any Tier 3 hotspot/priority-exit review
   - include `MODEL_SUGGESTION`
-  - planner `gpt-5.5 high`
+  - planner `planner_deep` (`gpt-5.5 xhigh`) for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning
   - implementer `gpt-5.5 medium` by default; use `gpt-5.5 high` when the implementation itself must resolve complex ambiguity, trace edge cases, or repair failing verification
-  - reviewer `gpt-5.5 high`
-  - use `gpt-5.4 high` as the fallback when `gpt-5.5` is unavailable
+  - reviewer `architecture_reviewer` (`gpt-5.5 xhigh`) for hotspot, boundary, persistence, Plex, UI composition/focus/navigation, public contract, priority-exit, or security-adjacent architecture review
+  - use `maintainability_reviewer` (`gpt-5.4 xhigh`) for plan critique or maintainability/code-health review; do not use it as authoritative primary planning
 
 ## Model And Reasoning Notes
 
 - Start with `gpt-5.5` when it is available for demanding Lineup planning, implementation, and review sessions.
-- Use `gpt-5.4` as the fallback when `gpt-5.5` is unavailable or a surface is intentionally pinned during rollout.
+- Treat `gpt-5.4 high` and `gpt-5.4 xhigh` as first-class cost/effectiveness choices for the specific tracked roles that use them, not fallback-only models.
+- Use `gpt-5.4 high` through `worker_54_high` for approved, bounded, exact, cheap-to-verify execution units.
+- Use `gpt-5.4 xhigh` through `maintainability_reviewer` for code-health/slop/file-shape/test-brittleness/maintainability review and plan critique.
 - Use `gpt-5.4-mini` for lighter read-heavy sidecars such as broad scans, supporting-document summaries, or simple monitoring when correctness risk is low.
 - Keep `gpt-5.3-codex-spark` only for intentionally latency-sensitive, text-only explorer/monitor workflows where the tracked role config already chooses it.
 - Treat reasoning effort as a task-fit knob:
   - `low` for straightforward read-only or monitoring work
   - `medium` for most bounded implementation and routine planning
   - `high` for architecture-heavy planning, adversarial review, priority-exit review, ambiguous debugging, or edge-case tracing
-  - avoid `xhigh` by default unless an eval or an explicit task need justifies the cost
+  - `xhigh` for `planner_deep`, `architecture_reviewer`, and `maintainability_reviewer` when their explicit routing triggers apply
+- Planning policy:
+  - use tracked `planner` (`gpt-5.5 medium`) by default
+  - use `gpt-5.5 high` only as a direct model override escalation for ambiguous Tier 2 or moderate architecture-risk planning
+  - use tracked `planner_deep` (`gpt-5.5 xhigh`) for Tier 3, hotspot, priority-exit, cross-boundary, unresolved seam, or security-adjacent planning
+  - do not use `gpt-5.4 xhigh` as authoritative primary planning; use it for plan critique and maintainability review
 - Low-execution-ready applies only to feature/design implementation units whose `CURRENT_EXECUTION_PACKET` explicitly freezes `IMPLEMENTER_REASONING_ELIGIBILITY: low` and includes all of:
   - `LOW_ELIGIBLE_IF`
   - `ESCALATE_TO_MEDIUM_IF`
@@ -73,8 +85,9 @@ Start at `0` and add `+1` for each:
   - no security, auth, persistence, or token-sensitive change
   - no priority-exit or checklist-closeout consequence
 - Escalate implementer reasoning to `medium` or `high` when the work requires local judgment, architecture seam decisions, UX/product interpretation, failing verification repair, cross-module work, Plex/navigation/Orchestrator/high-risk UI changes, cleanup/refactor execution, or scope is unclear.
+- `worker_54_high` eligibility requires `IMPLEMENTER_ROLE_ELIGIBILITY: worker_54_high` or an eligibility set containing `worker_54_high`, exact files, exact constraints, explicit verification, and stop/replan triggers; stop on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis.
 - Keep planner and reviewer recommendations stronger than implementer recommendations. Do not recommend `low` for adversarial review or serious planning.
-- `cleanup_worker` and cleanup/refactor implementers remain `gpt-5.5 medium` by default unless a future eval-backed policy revisits that.
+- `cleanup_worker` and cleanup/refactor implementers remain `gpt-5.5 medium` by default; route only explicitly exact, bounded, cheap-to-verify cleanup units to `worker_54_high`.
 
 ## Handoff Format
 
@@ -95,4 +108,5 @@ Use `n/a` for roles that are not part of the next session.
 - Emitting model advice for every handoff
 - Using `high` just because work is important instead of because the reasoning problem is hard
 - Recommending mini models for ambiguous architecture work only because a later review exists
-- Forgetting that the default implementer choice is `gpt-5.5 medium`, with `gpt-5.4` as the fallback when `gpt-5.5` is unavailable
+- Treating `gpt-5.4 high/xhigh` as fallback-only instead of using the tracked roles where they are first-class choices
+- Using `maintainability_reviewer` as the authoritative primary planner

@@ -51,7 +51,7 @@ Run the loop as an explicit state machine:
   - initialize or refresh `update_plan`
 - `plan`
   - keep initial routing and seam decisions local, but for `checklist-linked` Tier 3 cleanup delegate the primary execution-grade plan-writing pass by default after `scope-load`
-  - for that primary `checklist-linked` planning pass, use the tracked write-capable `planner` role for the bounded plan artifact and rely on the tracked planner defaults instead of prompt-level model overrides
+  - for that primary `checklist-linked` planning pass, use the tracked write-capable `planner` role for the bounded plan artifact by default; use `planner_deep` for Tier 3 hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning and rely on tracked role defaults instead of prompt-level model overrides
   - spawn that tracked-role planner as a fresh bounded-context thread, not a full-history fork; current Codex forked launches cannot also change `agent_type`, `model`, or `reasoning_effort`, and tracked role routing depends on those role-bound settings
   - once delegated planning starts, that planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned only after a long wait, a direct status check, and a follow-up wait that still produces no usable progress signal
   - while that planner pass is active, the controller may wait, poll status, answer blocker questions, and keep `update_plan` current, but must not do planner-grade repo discovery, redundant package-local scoping, issue reconciliation, or tracked plan drafting locally; limit controller-side inspection to the minimum needed to answer an explicit blocker question or resolve a controller-only seam decision
@@ -64,7 +64,7 @@ Run the loop as an explicit state machine:
   - do not enter `implement` for `checklist-linked` work until the active approved plan exposes inline scalar `ready_now_execution_unit` and `ready_now_slice`; `ready_now_slice` remains the first slice inside that approved unit
   - for `standalone remediation`, require one explicit bounded execution target in the approved plan and do not invent package slices or checklist linkage
 - `plan-review`
-  - run an adversarial plan review using a fresh tracked `reviewer` pass
+  - run an adversarial plan review using a fresh tracked `reviewer` pass by default; use `architecture_reviewer` for hotspot/boundary/security-adjacent architecture risk and `maintainability_reviewer` for code-health or maintainability-only review
   - launch that reviewer as a fresh bounded-context tracked-role thread instead of a full-history fork for the same role-selection reason
   - keep that reviewer thread alive for follow-up closure checks on the same plan artifact when findings come back
   - treat the plan as implementation-ready only when there are no material findings
@@ -86,7 +86,8 @@ Run the loop as an explicit state machine:
   - if the approved plan explicitly allows bounded parallel execution units, launch only the approved set; do not invent new splits in the controller
 - `implement`
   - spawn or resume a persistent tracked `cleanup_worker` implementation subagent using the approved plan and selected execution scope
-  - for Tier 3 `cleanup-loop` implementation passes, use the tracked `cleanup_worker` role instead of `worker`; keep Tier 2 implementers and feature implementers on the general `worker` role
+  - for Tier 3 `cleanup-loop` implementation passes, use the tracked `cleanup_worker` role instead of `worker`; keep Tier 2 implementers and feature implementers on the general `worker` role unless an approved current execution packet explicitly allows `worker_54_high` for a bounded exact cheap-to-verify subunit
+  - `worker_54_high` must stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis
   - when starting that tracked-role implementer, pass the approved plan/execution-unit context explicitly and avoid full-history forking; the runtime rejects forked launches when role/model/reasoning overrides are attached
   - follow the tracked role defaults and any explicit `MODEL_SUGGESTION` guidance already present in the approved handoff rather than inventing ad hoc controller-side role/model routing
   - execute one approved execution unit by default for `checklist-linked` work; package-wide implementation is not the default loop unit there
@@ -96,7 +97,7 @@ Run the loop as an explicit state machine:
   - when the delegated write pass makes substantive repo changes, require a focused non-interactive implementation commit checkpoint before handoff unless the controller explicitly chose a no-commit tiny-edit exception
   - keep active tracked plan docs from `docs/plans/` out of delegated implementation commits; plan-progress updates may stay in the working tree for orchestrator handling or a separate tracked-doc commit
 - `implementation-review`
-  - run an adversarial implementation review using a fresh tracked `reviewer` pass for the implemented execution unit or bounded execution target
+  - run an adversarial implementation review using a fresh tracked `reviewer` pass for the implemented execution unit or bounded execution target by default; use `architecture_reviewer` for hotspot/boundary/security-adjacent architecture risk and `maintainability_reviewer` for code-health or maintainability-only review
   - launch that reviewer as a fresh bounded-context tracked-role thread instead of a full-history fork for the same role-selection reason
   - keep that reviewer thread alive for follow-up closure checks on the same execution-unit artifact when findings come back
   - after a clean review, return to `execution-unit-select` for remaining checklist-linked work or proceed to `closeout` when the subtype-matched exit conditions are satisfied
@@ -133,7 +134,7 @@ Run the loop as an explicit state machine:
 - ensure cleanup planning targets the correct long-term owner shape rather than minimum-diff issue closure, and require replan instead of deferral when the intended rewrite crosses an unapproved boundary
 - keep orchestration package-scoped for planning and closeout only when the task is `checklist-linked`; otherwise keep `standalone remediation` bounded to its approved execution target
 - for checklist-linked package work, treat `slice_table` as the atomic ownership map and `execution_unit` as the execution/review surface
-- keep delegation inside the tracked role catalog from `.codex/config.toml`; use `planner` for bounded planning artifacts, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, and `reviewer` for adversarial review passes
+- keep delegation inside the tracked role catalog from `.codex/config.toml`; use `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, `worker_54_high` only for approved bounded exact cheap-to-verify execution units, `reviewer` for normal adversarial review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review
 - for `checklist-linked` Tier 3 cleanup, treat delegated primary plan authoring as the default, and treat main-thread plan authoring as a last-resort exception that must be justified by delegated planning explicitly blocking or failing, a user request for local planning, a controller-only seam decision that must be resolved before planning can continue, or the narrow long-wait/direct-status-check/follow-up-wait abandonment test
 - while a delegated planner pass is active, treat that planner as the authoritative plan author and do not run competing controller-side planning discovery or draft a rival tracked/local plan
 - ensure delegated write passes use the right repo-local boundary skills
