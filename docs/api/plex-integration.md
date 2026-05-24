@@ -393,6 +393,22 @@ type StreamDecisionTranscodeRequest = {
 );
 ```
 
+`StreamDecision.subtitleDelivery` uses Lineup-facing delivery terms, not PMS
+HLS subtitle URL modes. In particular, `subtitleDelivery: 'sidecar'` means
+Lineup handles a text subtitle out-of-band from the video stream: the player
+attaches an already WebVTT-capable direct/key-backed text track when possible,
+or it fetches/extracts text and converts it to a local VTT `blob:` track through
+the subtitle fallback pipeline.
+
+Current PMS playback URL policy is narrower than the Lineup delivery enum:
+
+- Burn-in requests send PMS `subtitles=burn` with the selected
+  `subtitleStreamID`.
+- Non-burn HLS playback sends PMS `subtitles=none`, `subtitleStreamID=0`, and
+  `subtitleFormat=none`; Lineup then handles eligible text subtitles locally.
+- Lineup does not currently request PMS native/HLS subtitle delivery modes such
+  as `subtitles=sidecar`, `subtitles=embedded`, or `subtitles=segmented`.
+
 `subtitleBurnIn.requested` is Lineup's local request intent. It does not prove
 that Plex burned the subtitle into the video. `subtitleBurnIn.confirmed` is set
 only when PMS universal decision evidence shows the requested subtitle stream

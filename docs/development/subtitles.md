@@ -13,6 +13,8 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 
 - **Direct**: A subtitle stream can be fetched directly from Plex (often has a `key`).
 - **Extract**: Lineup asks Plex to extract/serve the selected subtitle stream as text, then converts to WebVTT.
+- **Lineup sidecar**: Lineup-local out-of-band text subtitle rendering, not PMS native/HLS `subtitles=sidecar` delivery. This includes direct/key-backed WebVTT track
+  attachment and fetch/extract/convert-to-blob VTT paths.
 - **Burn-in**: Lineup asks Plex to burn subtitles into the video stream (forces transcoding).
 
 ## Current architecture
@@ -40,7 +42,9 @@ Key files:
 
 ## What Lineup tries (in order)
 
-When a user selects a subtitle track that isn’t already “ready”, `SubtitleManager` fetches the subtitle text and converts to WebVTT, then attaches it as a `blob:` URL.
+When a user selects a subtitle track that isn’t already “ready”, `SubtitleManager`
+uses Lineup sidecar-style local rendering: it fetches the subtitle text and
+converts to WebVTT, then attaches it as a `blob:` URL.
 
 ### Attempt A: direct subtitle stream
 
@@ -64,6 +68,11 @@ If direct stream fails (common for keyless/embedded), request:
   - best-effort identity params (`X-Plex-*`) + token
 
 Lineup then runs `normalizeSubtitleToVtt()` and uses a VTT `Blob`.
+
+This endpoint is an extraction/fallback source for Lineup-local rendering. Its
+use does not mean the HLS playback URL requested PMS native sidecar subtitle
+delivery; current non-burn HLS playback sends PMS `subtitles=none` and keeps
+subtitle rendering in Lineup.
 
 ### Burn-in escalation (Full mode)
 
@@ -133,3 +142,7 @@ Look for `[SubtitleDebug]` JSON logs. Helpful events:
 - Consider “always blob-fetch” for subtitles (even VTT) to avoid `<track src>` auth/CORS quirks.
 - Cache extracted VTT per session (avoid re-fetching on reselect).
 - UI affordance: “Try Burn‑in” action in Playback Options (explicit instead of only automatic in Full mode).
+- Research PMS native sidecar/embedded/segmented subtitle delivery only with
+  separate PMS/webOS empirical proof and URL-policy contract planning. Do not
+  infer that support from Lineup's current local sidecar paths or from
+  `/video/:/transcode/universal/subtitles`.
