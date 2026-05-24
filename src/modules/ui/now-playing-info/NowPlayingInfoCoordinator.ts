@@ -6,7 +6,7 @@ import type { NowPlayingInfoViewModel } from './types';
 import type { NowPlayingInfoConfig } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from './constants';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
-import { type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
+import { buildPlaybackSummary, type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
 import { formatAudioCodec } from '../../../utils/mediaFormat';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/policy/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
@@ -297,7 +297,7 @@ export class NowPlayingInfoCoordinator {
         const badges = this.buildQualityBadges(item, details, contentRating);
         const metaLines = this.buildMetaLines(item, details);
         const actorHeadshots = this.buildActorHeadshots(details);
-        const playbackSummary = this.buildPlaybackModeSummary(this.deps.getPlaybackInfoSnapshot());
+        const playbackSummary = buildPlaybackSummary(this.deps.getPlaybackInfoSnapshot()).summary;
 
         const baseViewModel: NowPlayingInfoViewModel = {
             title,
@@ -510,15 +510,6 @@ export class NowPlayingInfoCoordinator {
         const audioDetail = this.formatAudioDetail(mediaInfo);
         if (audioDetail) badges.push(audioDetail);
         return badges;
-    }
-
-    private buildPlaybackModeSummary(snapshot: PlaybackInfoSnapshotLike | null | undefined): string | null {
-        const stream = snapshot?.stream;
-        if (!stream) return null;
-        const mode = stream.isDirectPlay
-            ? 'Direct Play'
-            : (stream.isTranscoding ? 'Transcode' : 'Stream');
-        return `Playback: ${mode}`;
     }
 
     private formatAudioDetail(

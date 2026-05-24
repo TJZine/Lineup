@@ -393,6 +393,19 @@ type StreamDecisionTranscodeRequest = {
 );
 ```
 
+`StreamDecision.isTranscoding` is a legacy compatibility/session-lifecycle
+flag for Lineup-requested HLS sessions. It remains `true` for request paths that
+need transcode-session lifecycle handling even when PMS later reports copy/remux
+or audio-only transcode. It is not proof of a PMS video transcode. User-facing
+compact summaries should use PMS `serverDecision` fields and confirmed
+`subtitleBurnIn` evidence when available:
+
+- direct play: `Direct Play`
+- HLS session without PMS decision evidence: `HLS Session`
+- PMS copy/remux without audio or video transcode: `Direct Stream`
+- PMS audio-only transcode: `Audio Transcode`
+- PMS video transcode or confirmed subtitle burn-in: `Video Transcode`
+
 `StreamDecision.subtitleDelivery` uses Lineup-facing delivery terms, not PMS
 HLS subtitle URL modes. In particular, `subtitleDelivery: 'sidecar'` means
 Lineup handles a text subtitle out-of-band from the video stream: the player

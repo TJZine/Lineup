@@ -2,13 +2,32 @@ import { formatAudioCodec } from './mediaFormat';
 
 export type PlaybackInfoSnapshotLike = {
     stream: {
+        protocol?: string | undefined;
         isDirectPlay: boolean;
         isTranscoding: boolean;
-        container?: string;
-        videoCodec?: string;
-        audioCodec?: string;
-        width?: number;
-        height?: number;
+        container?: string | undefined;
+        videoCodec?: string | undefined;
+        audioCodec?: string | undefined;
+        width?: number | undefined;
+        height?: number | undefined;
+        selectedSubtitle?: {
+            id: string;
+        } | null | undefined;
+        subtitleBurnIn?: {
+            confirmed?: boolean | undefined;
+        } | undefined;
+        serverDecision?: {
+            videoDecision?: string | undefined;
+            audioDecision?: string | undefined;
+            subtitleDecision?: string | undefined;
+            decisionCode?: string | undefined;
+            decisionText?: string | undefined;
+            streams?: Array<{
+                id?: string | undefined;
+                streamType?: 1 | 2 | 3 | undefined;
+                decision?: string | undefined;
+            }> | undefined;
+        } | undefined;
     } | null;
 };
 
@@ -28,9 +47,7 @@ export function buildPlaybackSummary(
     }
 
     const overrideResolution = options?.resolutionOverride?.trim() || null;
-    const mode = stream.isDirectPlay
-        ? 'Direct Play'
-        : (stream.isTranscoding ? 'Transcode' : 'Stream');
+    const mode = summarizePlaybackMode(stream);
     const video = formatVideoCodec(stream.videoCodec);
     const audio = formatAudioCodec(stream.audioCodec);
     const resolution = overrideResolution || formatResolution(stream.width, stream.height);
@@ -56,6 +73,67 @@ export function buildPlaybackSummary(
         tag: parts.length > 0 ? parts.join(' • ') : null,
         details,
     };
+}
+
+function summarizePlaybackMode(stream: NonNullable<PlaybackInfoSnapshotLike['stream']>): string {
+    if (stream.isDirectPlay) {
+        return 'Direct Play';
+    }
+
+    const serverDecision = stream.serverDecision;
+    if (hasConfirmedSubtitleBurn(stream)) {
+        return 'Video Transcode';
+    }
+    if (isDecision(serverDecision?.videoDecision, 'transcode')) {
+        return 'Video Transcode';
+    }
+    if (
+        hasCopyOrRemuxDecision(serverDecision?.videoDecision) &&
+        isDecision(serverDecision?.audioDecision, 'transcode')
+    ) {
+        return 'Audio Transcode';
+    }
+    if (
+        hasCopyOrRemuxDecision(serverDecision?.videoDecision) &&
+        hasCopyOrRemuxDecision(serverDecision?.audioDecision)
+    ) {
+        return 'Direct Stream';
+    }
+    if (stream.isTranscoding || stream.protocol?.toLowerCase() === 'hls') {
+        return 'HLS Session';
+    }
+    return 'Direct Stream';
+}
+
+function hasConfirmedSubtitleBurn(stream: NonNullable<PlaybackInfoSnapshotLike['stream']>): boolean {
+    if (stream.subtitleBurnIn?.confirmed === true) {
+        return true;
+    }
+
+    const selectedSubtitleId = stream.selectedSubtitle?.id;
+    if (!selectedSubtitleId) {
+        return false;
+    }
+
+    return stream.serverDecision?.streams?.some((decision) =>
+        decision.streamType === 3 &&
+        decision.id === selectedSubtitleId &&
+        isDecision(decision.decision, 'burn')
+    ) ?? false;
+}
+
+function isDecision(value: string | undefined, expected: string): boolean {
+    return value?.trim().toLowerCase() === expected;
+}
+
+function hasCopyOrRemuxDecision(value: string | undefined): boolean {
+    const normalized = value?.trim().toLowerCase();
+    return (
+        normalized === 'copy' ||
+        normalized === 'remux' ||
+        normalized === 'directstream' ||
+        normalized === 'direct_stream'
+    );
 }
 
 function formatVideoCodec(codec?: string): string | null {

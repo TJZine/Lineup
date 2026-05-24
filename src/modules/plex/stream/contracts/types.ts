@@ -76,6 +76,13 @@ export interface StreamDecision {
     resolvedBaseUrl?: string;
     protocol: 'hls' | 'dash' | 'http';
     isDirectPlay: boolean;
+    /**
+     * Legacy compatibility/session-lifecycle flag for Lineup-requested HLS sessions.
+     * This stays true for HLS request paths that need transcode-session lifecycle
+     * handling, including PMS direct-stream/remux outcomes. It is not proof that
+     * PMS performed a video transcode; use `serverDecision` and confirmed
+     * `subtitleBurnIn` evidence for PMS audio/video/subtitle outcomes.
+     */
     isTranscoding: boolean;
     container: string;
     videoCodec: string;
