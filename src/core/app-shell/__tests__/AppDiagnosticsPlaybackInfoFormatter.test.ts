@@ -131,4 +131,25 @@ describe('formatAppDiagnosticsPlaybackInfo', () => {
         expect(formatted.summary).not.toContain('RAW');
         expect(formatted.summary).not.toContain(expectedRawJson);
     });
+
+    it('redacts PMS decision text in display and raw JSON without mutating the snapshot', () => {
+        const snapshot = createTranscodeSnapshot();
+        const originalDecisionText =
+            'decision used http://10.0.0.2:32400/transcode?X-Plex-Token=secret from /Users/tristan/subtitles/movie.srt';
+        snapshot.stream!.serverDecision!.decisionText = originalDecisionText;
+
+        const formatted = formatAppDiagnosticsPlaybackInfo(snapshot);
+        const raw = JSON.parse(formatted.rawJson) as AppShellPlaybackInfoSnapshot;
+
+        expect(snapshot.stream!.serverDecision!.decisionText).toBe(originalDecisionText);
+        expect(formatted.summary).toContain('PMS text:');
+        expect(formatted.summary).toContain('[REDACTED_URL]');
+        expect(formatted.summary).toContain('[REDACTED_PATH]');
+        expect(formatted.summary).not.toContain('10.0.0.2');
+        expect(formatted.summary).not.toContain('secret');
+        expect(formatted.summary).not.toContain('/Users/tristan');
+        expect(raw.stream!.serverDecision!.decisionText).toContain('[REDACTED_URL]');
+        expect(raw.stream!.serverDecision!.decisionText).not.toContain('10.0.0.2');
+        expect(raw.stream!.serverDecision!.decisionText).not.toContain('secret');
+    });
 });

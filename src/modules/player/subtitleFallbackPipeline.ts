@@ -12,7 +12,7 @@ import {
     buildPlexSubtitleTranscodeUrl,
     type PlexSubtitleFallbackContext,
 } from '../plex/stream/policy/plexSubtitleFallbackPolicy';
-import { redactSensitiveTokens } from '../../utils/redact';
+import { redactSensitiveTokens, sanitizeDiagnosticText } from '../../utils/redact';
 
 export type SubtitleFallbackPipelineContext = PlexSubtitleFallbackContext;
 
@@ -255,7 +255,7 @@ async function fetchSubtitleTextWithFallbacks({
                     // ignore
                 }
                 if (!isCurrentLoad()) return staleFailure();
-                bodySample = bodyText.length > 0 ? bodyText.slice(0, 200) : null;
+                bodySample = bodyText.length > 0 ? sanitizeDiagnosticText(bodyText, { maxLength: 200 }) : null;
                 logDebug('subtitle_fetch_error', () => ({
                     id: trackId,
                     status: response.status,
@@ -403,7 +403,7 @@ function xhrGetText({
                 if (xhrRef.status < 200 || xhrRef.status >= 300) {
                     const bodySample =
                         typeof xhrRef.responseText === 'string' && xhrRef.responseText.length > 0
-                            ? xhrRef.responseText.slice(0, 200)
+                            ? sanitizeDiagnosticText(xhrRef.responseText, { maxLength: 200 })
                             : null;
                     logDebug('subtitle_fetch_error', () => ({
                         id: trackId,

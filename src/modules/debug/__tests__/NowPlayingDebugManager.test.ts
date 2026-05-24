@@ -212,6 +212,7 @@ describe('NowPlayingDebugManager', () => {
             videoDecision: 'copy',
             audioDecision: 'transcode',
             subtitleDecision: 'burn',
+            decisionText: 'used http://10.0.0.2:32400/transcode?X-Plex-Token=secret from /Users/tristan/subtitles/movie.srt',
         };
 
         const { manager } = setup({ getCurrentStreamDecision: () => decision });
@@ -220,6 +221,11 @@ describe('NowPlayingDebugManager', () => {
         expect(text).toContain('HDR10 FB: smart/smart hideDV=yes HLS=no');
         expect(text).toContain('Burn-in: format_required sub=sub-1');
         expect(text).toContain('PMS: v=copy a=transcode sub=burn');
+        expect(text).toContain('[REDACTED_URL]');
+        expect(text).toContain('[REDACTED_PATH]');
+        expect(text).not.toContain('10.0.0.2');
+        expect(text).not.toContain('secret');
+        expect(text).not.toContain('/Users/tristan');
     });
 
     it('snapshot fetch does not require debug enabled', async () => {

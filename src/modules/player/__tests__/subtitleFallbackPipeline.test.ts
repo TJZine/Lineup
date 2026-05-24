@@ -257,6 +257,45 @@ Hello`));
         );
     });
 
+    it('redacts fetch error response samples before logging', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        const logDebug = jest.fn();
+        const dirtyBody =
+            'error http://10.0.0.2:32400/library/streams/1?X-Plex-Token=secret /Users/tristan/subtitles/movie.srt';
+        fetchMock
+            .mockResolvedValueOnce(createResponse(dirtyBody, { ok: false, status: 500, contentType: 'text/plain' }))
+            .mockResolvedValueOnce(createResponse(`1
+00:00:00,000 --> 00:00:01,000
+Hello`));
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug,
+        });
+
+        expect(result).toMatchObject({ kind: 'success' });
+        const fetchStatusLog = logDebug.mock.calls
+            .map((call) => call[1]())
+            .find((entry) => entry.attempt === 'subtitle_text_fetch_status');
+        expect(fetchStatusLog).toEqual(
+            expect.objectContaining({
+                bodySample: expect.stringContaining('[REDACTED_URL]'),
+            })
+        );
+        expect(fetchStatusLog.bodySample).toContain('[REDACTED_PATH]');
+        expect(fetchStatusLog.bodySample).not.toContain('10.0.0.2');
+        expect(fetchStatusLog.bodySample).not.toContain('secret');
+        expect(fetchStatusLog.bodySample).not.toContain('/Users/tristan');
+    });
+
     it('returns stale when the load is no longer current after a fetch attempt', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock.mockResolvedValueOnce(createResponse(`1
@@ -551,6 +590,63 @@ Hello`;
             kind: 'success',
             vtt: expect.stringContaining('WEBVTT'),
         });
+    });
+
+    it('redacts XHR error response samples before logging', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        const logDebug = jest.fn();
+        fetchMock
+            .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+            .mockResolvedValueOnce(createResponse(`1
+00:00:00,000 --> 00:00:01,000
+Hello`));
+
+        class MockXhr {
+            status = 500;
+            responseText =
+                'error http://10.0.0.2:32400/library/streams/1?X-Plex-Token=secret /Users/tristan/subtitles/movie.srt';
+            readyState = 4;
+            timeout = 0;
+            onerror: null | (() => void) = null;
+            ontimeout: null | (() => void) = null;
+            onabort: null | (() => void) = null;
+            onload: null | (() => void) = null;
+            open = jest.fn();
+            setRequestHeader = jest.fn();
+            overrideMimeType = jest.fn();
+            abort = jest.fn();
+            send = jest.fn(() => {
+                void Promise.resolve().then(() => this.onload?.());
+            });
+        }
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug,
+            createXhr: () => new MockXhr() as unknown as XMLHttpRequest,
+        });
+
+        expect(result).toMatchObject({ kind: 'success' });
+        const xhrStatusLog = logDebug.mock.calls
+            .map((call) => call[1]())
+            .find((entry) => entry.attempt === 'subtitle_text_xhr_status');
+        expect(xhrStatusLog).toEqual(
+            expect.objectContaining({
+                bodySample: expect.stringContaining('[REDACTED_URL]'),
+            })
+        );
+        expect(xhrStatusLog.bodySample).toContain('[REDACTED_PATH]');
+        expect(xhrStatusLog.bodySample).not.toContain('10.0.0.2');
+        expect(xhrStatusLog.bodySample).not.toContain('secret');
+        expect(xhrStatusLog.bodySample).not.toContain('/Users/tristan');
     });
 
     it('keeps XHR retry on the secure URL and does not use LAN http for token-bearing requests', async () => {

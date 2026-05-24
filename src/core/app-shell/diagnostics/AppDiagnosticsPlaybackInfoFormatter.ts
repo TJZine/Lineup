@@ -1,4 +1,5 @@
 import type { AppShellPlaybackInfoSnapshot } from '../runtime/AppShellRuntimeContracts';
+import { sanitizeDiagnosticText } from '../../../utils/redact';
 
 export interface AppDiagnosticsPlaybackInfoText {
     display: string;
@@ -9,7 +10,7 @@ export interface AppDiagnosticsPlaybackInfoText {
 export function formatAppDiagnosticsPlaybackInfo(
     snapshot: AppShellPlaybackInfoSnapshot
 ): AppDiagnosticsPlaybackInfoText {
-    const rawJson = JSON.stringify(snapshot, null, 2);
+    const rawJson = JSON.stringify(snapshot, sanitizePlaybackInfoSnapshotValue, 2);
     const lines: string[] = [];
     appendPlaybackHeader(lines, snapshot);
     appendDeliverySection(lines, snapshot);
@@ -76,7 +77,7 @@ function appendPmsDecision(
             lines.push(`PMS:       ${parts.join(' ')}`);
         }
         if (serverDecision.decisionText) {
-            lines.push(`PMS text:  ${serverDecision.decisionText}`);
+            lines.push(`PMS text:  ${sanitizeDiagnosticText(serverDecision.decisionText)}`);
         }
         if (serverDecision.decisionCode) {
             lines.push(`PMS code:  ${serverDecision.decisionCode}`);
@@ -84,6 +85,13 @@ function appendPmsDecision(
     } else if (!stream.isDirectPlay) {
         lines.push('PMS:       (decision not fetched; press Refresh again)');
     }
+}
+
+function sanitizePlaybackInfoSnapshotValue(key: string, value: unknown): unknown {
+    if (key === 'decisionText' && typeof value === 'string') {
+        return sanitizeDiagnosticText(value);
+    }
+    return value;
 }
 
 function appendHdrFallback(

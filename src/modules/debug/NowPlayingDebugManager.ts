@@ -1,4 +1,5 @@
 import { summarizeErrorForLog } from '../../utils/errors';
+import { sanitizeDiagnosticText } from '../../utils/redact';
 import type { INavigationManager } from '../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../plex/stream';
 import type { ScheduledProgram } from '../scheduler/scheduler';
@@ -96,7 +97,7 @@ export class NowPlayingDebugManager {
             ].filter(Boolean);
             if (parts.length > 0) lines.push(`PMS: ${parts.join(' ')}`);
             if (sd.decisionCode) lines.push(`PMS code: ${sd.decisionCode}`);
-            if (sd.decisionText) lines.push(`PMS: ${sd.decisionText}`);
+            if (sd.decisionText) lines.push(`PMS: ${sanitizeDiagnosticText(sd.decisionText)}`);
         } else if (decision.isTranscoding) {
             lines.push('PMS: (decision pending)');
         }

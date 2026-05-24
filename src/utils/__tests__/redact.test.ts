@@ -1,4 +1,4 @@
-import { redactSensitiveTokens, redactUrlForLog, safeStringifyForLog } from '../redact';
+import { redactSensitiveTokens, redactUrlForLog, safeStringifyForLog, sanitizeDiagnosticText } from '../redact';
 
 describe('redactSensitiveTokens', () => {
     it('redacts Plex token query params', () => {
@@ -79,6 +79,48 @@ describe('safeStringifyForLog', () => {
         const out = safeStringifyForLog(a);
         expect(typeof out).toBe('string');
         expect(out).toContain('"unserializable":true');
+    });
+});
+
+describe('sanitizeDiagnosticText', () => {
+    it('redacts tokens, absolute URLs, file URLs, and local filesystem paths', () => {
+        const text = [
+            'decision http://10.0.0.2:32400/video/:/transcode?X-Plex-Token=secret',
+            'X-Plex-Token: secret',
+            'file:///Users/tristan/subtitles/movie.srt',
+            'file:///Users/tristan/subtitles/Movie (2020)/English [SDH].srt',
+            '/Users/tristan/Library/Application Support/Plex Media Server/media.srt',
+            '/mnt/media/Movies/Example.srt',
+            '/media/plex/Movie (2020)/subs/English [SDH].srt',
+            '/data/TV/Episode [1080p].srt',
+            '/volume1/video/Movies/Example.srt',
+            '\\\\NAS\\Media\\Movie (2020)\\English [SDH].srt',
+        ].join('\n');
+
+        const sanitized = sanitizeDiagnosticText(text, { maxLength: null });
+
+        expect(sanitized).toContain('[REDACTED_URL]');
+        expect(sanitized).toContain('[REDACTED_FILE_URL]');
+        expect(sanitized).toContain('[REDACTED_PATH]');
+        expect(sanitized).toContain('X-Plex-Token: REDACTED');
+        expect(sanitized).not.toContain('10.0.0.2');
+        expect(sanitized).not.toContain('secret');
+        expect(sanitized).not.toContain('file:///');
+        expect(sanitized).not.toContain('/Users/tristan');
+        expect(sanitized).not.toContain('English [SDH].srt');
+        expect(sanitized).not.toContain('/mnt/media');
+        expect(sanitized).not.toContain('(2020)');
+        expect(sanitized).not.toContain('[1080p]');
+        expect(sanitized).not.toContain('[SDH]');
+        expect(sanitized).not.toContain('/volume1/video');
+        expect(sanitized).not.toContain('\\\\NAS');
+    });
+
+    it('caps long diagnostic text after redaction', () => {
+        const sanitized = sanitizeDiagnosticText(`prefix ${'x'.repeat(100)}`, { maxLength: 24 });
+
+        expect(sanitized).toHaveLength(24);
+        expect(sanitized.endsWith('...')).toBe(true);
     });
 });
 
