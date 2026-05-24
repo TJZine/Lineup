@@ -52,7 +52,7 @@ function appendDeliverySection(lines: string[], snapshot: AppShellPlaybackInfoSn
     lines.push(`Protocol: ${stream.protocol.toUpperCase()}  MIME: ${stream.mimeType}`);
     lines.push(`Lineup:    ${stream.isDirectPlay ? 'DIRECT PLAY' : 'HLS SESSION REQUESTED (Plex decides copy vs transcode)'}`);
     lines.push(`Target:    ${stream.container}  video=${stream.videoCodec}  audio=${stream.audioCodec}  ${stream.width}x${stream.height}  ${formatKbps(stream.bitrate)}`);
-    lines.push(`Subtitles: ${stream.subtitleDelivery}`);
+    lines.push(`Subtitles: ${formatSubtitleDelivery(stream.subtitleDelivery)}`);
     appendHdrFallback(lines, stream);
     appendSubtitleBurnIn(lines, stream);
     appendPmsDecision(lines, stream);
@@ -212,4 +212,11 @@ function formatKbps(kbps: number): string {
 
 function formatBool(value: boolean): string {
     return value ? 'yes' : 'no';
+}
+
+function formatSubtitleDelivery(delivery: string): string {
+    if (delivery === 'embed') {
+        return 'embed (native-or-unknown; not Lineup-rendered)';
+    }
+    return delivery;
 }

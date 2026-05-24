@@ -16,6 +16,11 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 - **Lineup sidecar**: Lineup-local out-of-band text subtitle rendering, not PMS native/HLS `subtitles=sidecar` delivery. This includes direct/key-backed WebVTT track
   attachment and fetch/extract/convert-to-blob VTT paths.
 - **Burn-in**: Lineup asks Plex to burn subtitles into the video stream (forces transcoding).
+- **`subtitleDelivery: 'embed'`**: Legacy diagnostics/contract value for a
+  native-or-unknown/unhandled category. The selected subtitle is neither a
+  recognized Lineup sidecar text format nor a recognized burn-in-required
+  format. This is not proof that webOS or the HTML video element renders that
+  embedded subtitle.
 
 ## Current architecture
 
@@ -134,6 +139,9 @@ Look for `[SubtitleDebug]` JSON logs. Helpful events:
 - `SUBTITLE_STREAM_NOT_FOUND`: `StreamRequest.subtitleStreamId` was not present where `resolveStream()` expected it.
   - Failure path A (strict selection; before media+part selection): `resolveStream()` could not find any selectable media version/part containing `subtitleStreamId` (stale ID, media versions changed, selection constraints excluded the version that had it). Verify the `subtitleStreamId` against the currently loaded/selectable media versions + parts (ensure metadata is fresh and selection filters or ingest jobs haven’t removed/renamed the stream); then re-sync stream metadata or clear the stale selection.
   - Failure path B (burn-in only; after mediaIndex/partIndex selection): burn-in was requested, but the selected part does not contain `subtitleStreamId`. Confirm the subtitle appears in the selected media version + part metadata and that the selected part/version wasn’t changed before the burn-in retry.
+- `subtitleDelivery: 'embed'`: native-or-unknown/unhandled by Lineup. Treat it
+  as a classification gap for support/debugging, not proof of native embedded
+  subtitle rendering on webOS.
 
 ## Future experiments (if embedded still fails)
 

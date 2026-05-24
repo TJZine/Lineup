@@ -87,6 +87,10 @@ export interface StreamDecision {
     container: string;
     videoCodec: string;
     audioCodec: string;
+    /**
+     * Lineup-facing subtitle category. The legacy `embed` value means
+     * native-or-unknown/unhandled by Lineup, not proof of webOS/native rendering.
+     */
     subtitleDelivery: 'embed' | 'sidecar' | 'burn' | 'none';
     sessionId: string;
     mediaIndex: number;

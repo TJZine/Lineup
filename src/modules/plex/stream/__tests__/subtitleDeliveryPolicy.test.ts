@@ -38,8 +38,9 @@ describe('getSubtitleDelivery', () => {
         }
     });
 
-    it('returns embed for non-text/burn formats when not transcoding', () => {
+    it('keeps unknown non-text/non-burn formats in the native-or-unknown embed category', () => {
         expect(getSubtitleDelivery(streamFor('unknown'), false)).toBe('embed');
+        expect(getSubtitleDelivery(streamFor('unknown'), true)).toBe('embed');
     });
 
     it('treats codec-only text subtitles as sidecar', () => {

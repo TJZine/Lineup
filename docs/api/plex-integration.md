@@ -411,7 +411,11 @@ HLS subtitle URL modes. In particular, `subtitleDelivery: 'sidecar'` means
 Lineup handles a text subtitle out-of-band from the video stream: the player
 attaches an already WebVTT-capable direct/key-backed text track when possible,
 or it fetches/extracts text and converts it to a local VTT `blob:` track through
-the subtitle fallback pipeline.
+the subtitle fallback pipeline. The legacy `subtitleDelivery: 'embed'` value is
+a native-or-unknown/unhandled diagnostic category: the selected subtitle is
+neither a recognized Lineup text-sidecar format nor a recognized
+burn-in-required format. It is not evidence that webOS, the HTML video element,
+or PMS native embedded subtitle delivery rendered the subtitle.
 
 Current PMS playback URL policy is narrower than the Lineup delivery enum:
 

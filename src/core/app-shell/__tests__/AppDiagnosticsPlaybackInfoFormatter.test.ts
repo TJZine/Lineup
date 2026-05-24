@@ -132,6 +132,20 @@ describe('formatAppDiagnosticsPlaybackInfo', () => {
         expect(formatted.summary).not.toContain(expectedRawJson);
     });
 
+    it('clarifies embed delivery in diagnostics while preserving raw JSON', () => {
+        const snapshot = createTranscodeSnapshot();
+        snapshot.stream!.subtitleDelivery = 'embed';
+
+        const formatted = formatAppDiagnosticsPlaybackInfo(snapshot);
+        const raw = JSON.parse(formatted.rawJson) as AppShellPlaybackInfoSnapshot;
+
+        expect(formatted.summary).toContain(
+            'Subtitles: embed (native-or-unknown; not Lineup-rendered)'
+        );
+        expect(raw.stream!.subtitleDelivery).toBe('embed');
+        expect(formatted.rawJson).toContain('"subtitleDelivery": "embed"');
+    });
+
     it('redacts PMS decision text in display and raw JSON without mutating the snapshot', () => {
         const snapshot = createTranscodeSnapshot();
         const originalDecisionText =
