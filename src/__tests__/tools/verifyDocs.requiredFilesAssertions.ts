@@ -146,6 +146,33 @@ export function registerVerifyDocsRequiredFilesAssertions({ tempRoots }: VerifyD
         expect(result.stdout).toContain('Documentation verification passed.');
     });
 
+    it('allows tracked policy docs to mention obsolete .codex skill source paths only as forbidden examples', () => {
+        const repoRoot = createRepoFixture({
+            'docs/agentic/doc-gardening-checklist.md':
+                '# Gardening\n\n- no legacy singular-agent mirror or `.codex/skills` source has reappeared\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Documentation verification passed.');
+    });
+
+    it('fails when an active tracked plan contains a raw obsolete .codex skill source path', () => {
+        const repoRoot = createRepoFixture({
+            'docs/plans/2026-01-01-example-plan.md':
+                '**Plan Status:** active\n\n# Example\n\nRequired read: `.codex/skills/foo/SKILL.md`\n',
+        });
+        tempRoots.push(repoRoot);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('docs/plans/2026-01-01-example-plan.md');
+        expect(result.stderr).toContain('.codex/skills/foo/SKILL.md');
+    });
+
     it('fails when a tracked doc depends on ignored local desloppify skill files', () => {
         const repoRoot = createRepoFixture({
             'docs/development/testing.md':

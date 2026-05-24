@@ -198,8 +198,8 @@ export function writeValidRepoLocalSkillFixtures(repoRoot: string): void {
                 '',
                 'Read these files in order:',
                 '',
-                '1. `agents.md`',
-                '2. `docs/AGENTIC_DEV_WORKFLOW.md`',
+                '1. `docs/AGENTIC_DEV_WORKFLOW.md`',
+                '2. `agents.md`',
                 '',
             ].join('\n')
         );
@@ -308,7 +308,7 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '',
             '| Task Type | Use This Path | Prompt Family | Notes |',
             '|---|---|---|---|',
-            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop with planner by default, planner_deep for hotspot/unresolved seam planning, cleanup_worker for implementation, reviewer by default, maintainability_reviewer for maintainability-only review, and architecture_reviewer for hotspot/boundary review. |',
+            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop with planner by default, planner_deep for hotspot/unresolved seam planning, cleanup_worker for implementation, reviewer by default, maintainability_reviewer for maintainability-only review, and architecture_reviewer for hotspot/boundary/security-adjacent review. |',
             '| feature/design | net-new capability | `feature-plan` + `feature-implement` + `feature-review` | Tier 2 feature flow uses tracked launchers. |',
             '| mixed | split slices explicitly | route by primary intent | Keep cleanup scoped to cleanup work. |',
             '',
@@ -322,7 +322,7 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             'Each launcher should:',
             '',
             '1. confirm the current repo is Lineup',
-            '2. load [`agents.md`](../../../agents.md) and [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)',
+            '2. load [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) and [`agents.md`](../../../agents.md)',
             '3. load the matching file in this directory',
             '4. use the tracked role that matches the launcher intent (`planner` for default planning, `planner_deep` for deep Tier 3/hotspot/boundary planning, `worker` for default implementation, `worker_54_high` only when an approved execution packet declares eligibility, `reviewer` for normal review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review)',
             '   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker_54_high',

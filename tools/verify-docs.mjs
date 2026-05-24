@@ -507,12 +507,10 @@ function checkForbiddenLiteralReferences(errors) {
         {
             description: 'obsolete .codex skill source',
             regex: /\.codex\/skills(?:\/[a-z0-9._/-]+)?/giu,
-            includePrefixes: [
-                '.agents/skills/',
-                'docs/AGENTIC_DEV_WORKFLOW.md',
-                'docs/agentic/session-prompts/',
-                'docs/agentic/skill-strategy.md',
+            skipPrefixes: [
+                'docs/agentic/evals/baseline-summaries/',
             ],
+            allowFiles: ['docs/agentic/doc-gardening-checklist.md'],
         },
         {
             description: 'local-only .agents artifact',
@@ -542,7 +540,7 @@ function checkForbiddenLiteralReferences(errors) {
             continue;
         }
 
-        for (const { description, regex, skipPrefixes = [], includePrefixes = [] } of patterns) {
+        for (const { description, regex, skipPrefixes = [], includePrefixes = [], allowFiles = [] } of patterns) {
             if (
                 includePrefixes.length > 0 &&
                 !includePrefixes.some((prefix) => file === prefix || file.startsWith(prefix))
@@ -551,6 +549,10 @@ function checkForbiddenLiteralReferences(errors) {
             }
 
             if (skipPrefixes.some((prefix) => file.startsWith(prefix))) {
+                continue;
+            }
+
+            if (allowFiles.includes(file)) {
                 continue;
             }
 
@@ -827,16 +829,19 @@ function checkControlPlaneAuthorityModel(errors) {
             );
         }
 
+        const readmeLauncherLoadLine = normalizedReadmeLines.find(
+            (line) =>
+                line.includes('load') &&
+                line.includes('agents.md') &&
+                line.includes('docs/agentic dev workflow.md')
+        );
         if (
-            !normalizedReadmeLines.some(
-                (line) =>
-                    line.includes('load') &&
-                    line.includes('agents.md') &&
-                    line.includes('docs/agentic dev workflow.md')
-            )
+            !readmeLauncherLoadLine ||
+            readmeLauncherLoadLine.indexOf('docs/agentic dev workflow.md') >
+                readmeLauncherLoadLine.indexOf('agents.md')
         ) {
             errors.push(
-                'Session prompt README must require launcher read order to load agents.md and docs/AGENTIC_DEV_WORKFLOW.md.'
+                'Session prompt README must require launcher read order to load docs/AGENTIC_DEV_WORKFLOW.md before agents.md.'
             );
         }
 
@@ -854,6 +859,15 @@ function checkControlPlaneAuthorityModel(errors) {
 
         if (hasPositiveDocumentMapAuthorityReference(content)) {
             errors.push(`${relativePath} must not require docs/agentic/document-map.md in its launcher read order.`);
+        }
+
+        const normalizedLines = normalizeDocLines(content);
+        const workflowReadIndex = findTrackedWorkflowReadIndex(normalizedLines);
+        const agentsReadIndex = findTrackedAgentsReadIndex(normalizedLines);
+        if (workflowReadIndex !== -1 && agentsReadIndex !== -1 && workflowReadIndex > agentsReadIndex) {
+            errors.push(
+                `${relativePath} must list docs/AGENTIC_DEV_WORKFLOW.md before agents.md in its read order.`
+            );
         }
     }
 }
@@ -874,15 +888,20 @@ export function checkRepoLocalLauncherSkillReadOrders(errors) {
         }
 
         const normalizedLines = normalizeDocLines(content);
-        const hasTrackedEntrypointRead = normalizedLines.some((line) =>
-            /^(?:\d+\.|-)\s+agents\.md$/u.test(line)
-        );
-        const hasWorkflowRead = normalizedLines.some((line) =>
-            /^(?:\d+\.|-)\s+docs\/agentic dev workflow\.md$/u.test(line)
-        );
+        const agentsReadIndex = findTrackedAgentsReadIndex(normalizedLines);
+        const workflowReadIndex = findTrackedWorkflowReadIndex(normalizedLines);
+        const hasTrackedEntrypointRead = agentsReadIndex !== -1;
+        const hasWorkflowRead = workflowReadIndex !== -1;
 
         if (!hasTrackedEntrypointRead || !hasWorkflowRead) {
             errors.push(`${relativePath} must include agents.md and docs/AGENTIC_DEV_WORKFLOW.md in its read list.`);
+            continue;
+        }
+
+        if (workflowReadIndex > agentsReadIndex) {
+            errors.push(
+                `${relativePath} must read docs/AGENTIC_DEV_WORKFLOW.md before agents.md to match the canonical launcher bootstrap order.`
+            );
         }
     }
 }
@@ -977,6 +996,14 @@ function normalizeDocLines(content) {
         .split(/\r?\n/u)
         .map((line) => normalizeDocText(line))
         .filter((line) => line.length > 0);
+}
+
+function findTrackedAgentsReadIndex(normalizedLines) {
+    return normalizedLines.findIndex((line) => /^(?:\d+\.|-)\s+agents\.md$/u.test(line));
+}
+
+function findTrackedWorkflowReadIndex(normalizedLines) {
+    return normalizedLines.findIndex((line) => /^(?:\d+\.|-)\s+docs\/agentic dev workflow\.md$/u.test(line));
 }
 
 function includesAllMarkers(content, markers) {
