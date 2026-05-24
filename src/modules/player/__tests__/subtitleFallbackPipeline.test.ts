@@ -97,10 +97,10 @@ Hello`));
         });
     });
 
-    it('retries a derived LAN http subtitle url when the primary request fails', async () => {
+    it('retries a derived LAN http subtitle url for a non-token request when the primary request fails', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         const deriveLanHttpUrl = jest.fn(
-            () => new URL('http://192.168.50.19:32400/library/streams/1?X-Plex-Token=token')
+            () => new URL('http://192.168.50.19:32400/library/streams/1')
         );
         fetchMock
             .mockResolvedValueOnce(createResponse('nope', { ok: false, status: 500 }))
@@ -110,10 +110,10 @@ Hello`));
 
         const result = await fetchSubtitleFallbackVtt({
             track: createTrack(),
-            initialUrl: new URL('https://relay.plex.tv/library/streams/1?X-Plex-Token=token'),
+            initialUrl: new URL('https://10-0-0-1.plex.direct:32400/library/streams/1'),
             context: {
-                serverUri: 'https://relay.plex.tv',
-                authHeaders: { 'X-Plex-Token': 'token' },
+                serverUri: 'https://10-0-0-1.plex.direct:32400',
+                authHeaders: {},
             },
             signal: new AbortController().signal,
             isCurrentLoad: () => true,
@@ -126,7 +126,97 @@ Hello`));
             vtt: expect.stringContaining('WEBVTT'),
         });
         expect(deriveLanHttpUrl).toHaveBeenCalledTimes(1);
-        expect(fetchMock.mock.calls[1]?.[0]).toBe('http://192.168.50.19:32400/library/streams/1?X-Plex-Token=token');
+        expect(fetchMock.mock.calls[1]?.[0]).toBe('http://192.168.50.19:32400/library/streams/1');
+    });
+
+    it('does not retry token-bearing HTTPS subtitle requests over LAN http and continues secure header attempts', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        const deriveLanHttpUrl = jest.fn(
+            (url: URL) => new URL(`http://192.168.50.19:32400${url.pathname}${url.search}`)
+        );
+        fetchMock
+            .mockResolvedValueOnce(createResponse('nope', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse(`1
+00:00:00,000 --> 00:00:01,000
+Hello`));
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'https://10-0-0-1.plex.direct:32400',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl,
+            logDebug: jest.fn(),
+        });
+
+        expect(result).toMatchObject({
+            kind: 'success',
+            vtt: expect.stringContaining('WEBVTT'),
+        });
+        expect(deriveLanHttpUrl).toHaveBeenCalledTimes(2);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+            'https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token',
+            'https://10-0-0-1.plex.direct:32400/library/streams/1',
+        ]);
+        expect(fetchMock.mock.calls[1]?.[1]?.headers).toEqual({
+            Accept: 'text/vtt, text/plain, */*',
+            'X-Plex-Token': 'token',
+        });
+    });
+
+    it('does not retry token-bearing universal subtitle extraction urls over LAN http', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        const deriveLanHttpUrl = jest.fn(
+            (url: URL) => new URL(`http://192.168.50.19:32400${url.pathname}${url.search}`)
+        );
+        fetchMock
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse(`1
+00:00:00,000 --> 00:00:01,000
+Hello`));
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'https://10-0-0-1.plex.direct:32400',
+                resolvedBaseUrl: 'https://10-0-0-1.plex.direct:32400',
+                authHeaders: {
+                    'X-Plex-Token': 'token',
+                    'X-Plex-Client-Identifier': 'client-1',
+                },
+                itemKey: '999',
+                sessionId: 'sess-1',
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl,
+            logDebug: jest.fn(),
+        });
+
+        expect(result).toMatchObject({
+            kind: 'success',
+            vtt: expect.stringContaining('WEBVTT'),
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(6);
+        for (const call of fetchMock.mock.calls) {
+            expect(String(call[0])).toMatch(/^https:/);
+        }
+        const universalUrls = fetchMock.mock.calls
+            .map((call) => new URL(String(call[0])))
+            .filter((url) => url.pathname === '/video/:/transcode/universal/subtitles');
+        expect(universalUrls).toHaveLength(2);
+        expect(universalUrls[0]?.searchParams.get('format')).toBe('srt');
+        expect(universalUrls[1]?.searchParams.get('format')).toBe('vtt');
     });
 
     it('classifies html subtitle responses as unsupported', async () => {
@@ -461,5 +551,66 @@ Hello`;
             kind: 'success',
             vtt: expect.stringContaining('WEBVTT'),
         });
+    });
+
+    it('keeps XHR retry on the secure URL and does not use LAN http for token-bearing requests', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        const openedUrls: string[] = [];
+        const deriveLanHttpUrl = jest.fn(
+            (url: URL) => new URL(`http://192.168.50.19:32400${url.pathname}${url.search}`)
+        );
+        fetchMock
+            .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+            .mockResolvedValueOnce(createResponse(`1
+00:00:00,000 --> 00:00:01,000
+Hello`));
+
+        class MockXhr {
+            status = 0;
+            responseText = '';
+            readyState = 4;
+            timeout = 0;
+            onerror: null | (() => void) = null;
+            ontimeout: null | (() => void) = null;
+            onabort: null | (() => void) = null;
+            onload: null | (() => void) = null;
+            open = jest.fn((_method: string, url: string) => {
+                openedUrls.push(url);
+            });
+            setRequestHeader = jest.fn();
+            overrideMimeType = jest.fn();
+            abort = jest.fn();
+            send = jest.fn(() => {
+                void Promise.resolve().then(() => this.onerror?.());
+            });
+        }
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'https://10-0-0-1.plex.direct:32400',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl,
+            logDebug: jest.fn(),
+            createXhr: () => new MockXhr() as unknown as XMLHttpRequest,
+        });
+
+        expect(result).toMatchObject({
+            kind: 'success',
+            vtt: expect.stringContaining('WEBVTT'),
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+            'https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token',
+            'https://10-0-0-1.plex.direct:32400/library/streams/1',
+        ]);
+        expect(openedUrls).toEqual([
+            'https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token',
+        ]);
+        expect(openedUrls.join(' ')).not.toContain('http://192.168.50.19');
     });
 });

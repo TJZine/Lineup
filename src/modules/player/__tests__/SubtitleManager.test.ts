@@ -656,7 +656,7 @@ Hello`,
                 manager.loadTracks([track], {
                     serverUri: 'http://example.com',
                     authHeaders: { 'X-Plex-Token': 'token' },
-                    burnedInSubtitleTrackId: 'burned-text',
+                    confirmedBurnedInSubtitleTrackId: 'burned-text',
                 });
 
                 manager.setActiveTrack('burned-text');
@@ -667,7 +667,34 @@ Hello`,
                 restore();
             }
         });
-        it('uses the injected subtitle service when fallback retries a selected track', async () => {
+
+        it('attempts text fallback when burn-in was requested but not confirmed', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+
+            try {
+                const track = createMockSubtitleTrack({
+                    id: 'unconfirmed-text',
+                    codec: 'srt',
+                    format: 'srt',
+                    key: '/library/streams/1',
+                    fetchableViaKey: true,
+                });
+                manager.loadTracks([track], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    confirmedBurnedInSubtitleTrackId: null,
+                });
+
+                manager.setActiveTrack('unconfirmed-text');
+                await flushSubtitleAsync();
+
+                expect(manager.getActiveTrackId()).toBe('unconfirmed-text');
+                expect(fetchMock).toHaveBeenCalled();
+            } finally {
+                restore();
+            }
+        });
+        it('uses the injected subtitle service but does not retry token-bearing fallback over LAN http', async () => {
             const { fetchMock, restore } = installFetchAndBlobMocks();
 
             const subtitleService: PlatformSubtitleService = {
@@ -709,8 +736,15 @@ Hello`,
                 injectedManager.setActiveTrack('srt-1');
                 await flushSubtitleAsync();
 
-                expect(subtitleService.deriveLanHttpSubtitleUrl).toHaveBeenCalledTimes(1);
-                expect(fetchMock.mock.calls[1]?.[0]).toBe('http://10.0.0.1:32400/library/streams/1?X-Plex-Token=token');
+                expect(subtitleService.deriveLanHttpSubtitleUrl).toHaveBeenCalledTimes(2);
+                expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+                    'https://ignored.example/library/streams/1?X-Plex-Token=token',
+                    'https://ignored.example/library/streams/1',
+                ]);
+                expect(fetchMock.mock.calls[1]?.[1]?.headers).toEqual({
+                    Accept: 'text/vtt, text/plain, */*',
+                    'X-Plex-Token': 'token',
+                });
             } finally {
                 injectedManager.destroy();
                 restore();

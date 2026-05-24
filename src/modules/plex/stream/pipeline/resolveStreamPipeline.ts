@@ -280,6 +280,7 @@ export function resolveStreamPipeline({
     const subtitleBurnInInfo = shouldBurnInSubtitles
         ? {
             requested: true,
+            confirmed: false,
             reason: subtitleBurnInReason,
             ...(subtitleStream?.id ? { subtitleStreamId: subtitleStream.id } : {}),
             subtitleMode: request.subtitleMode ?? 'none',

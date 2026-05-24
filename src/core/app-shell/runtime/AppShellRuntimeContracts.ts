@@ -134,6 +134,7 @@ export interface AppShellPlaybackInfoSnapshot {
         } | undefined;
         subtitleBurnIn?: {
             requested: boolean;
+            confirmed?: boolean;
             reason: 'requested' | 'format_required' | 'none';
             subtitleStreamId?: string;
             subtitleMode?: 'none' | 'burn';
@@ -177,6 +178,11 @@ export interface AppShellPlaybackInfoSnapshot {
             videoDecision?: string;
             audioDecision?: string;
             subtitleDecision?: string;
+            streams?: Array<{
+                id?: string;
+                streamType?: 1 | 2 | 3;
+                decision?: string;
+            }>;
             decisionCode?: string;
             decisionText?: string;
         } | undefined;

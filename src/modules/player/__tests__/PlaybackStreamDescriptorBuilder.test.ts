@@ -145,6 +145,66 @@ describe('PlaybackStreamDescriptorBuilder', () => {
         expect(descriptor.preferredSubtitleTrackId).toBe('sub-forced');
     });
 
+    it('marks subtitle context as burned in only when PMS burn is confirmed', () => {
+        const builder = new PlaybackStreamDescriptorBuilder({
+            buildPlexResourceUrl: (pathOrUrl): string => pathOrUrl,
+            getMimeType: (): string => 'video/mp4',
+            getAuthHeaders: (): Record<string, string> => ({ 'X-Plex-Token': 'token' }),
+            getServerUri: (): string => 'http://example.com',
+            getPreferredSubtitleLanguage: (): string => 'en',
+            getPlexPreferredSubtitleLanguage: (): null => null,
+            notifySubtitleUnavailable: jest.fn(),
+            readSubtitleMode: (): 'full' => 'full',
+            preferForcedSubtitles: (): boolean => false,
+            shouldHandleSubtitleDeactivation: (): boolean => true,
+            recoverSubtitleDeactivation: jest.fn().mockResolvedValue('handled'),
+        });
+
+        const unconfirmed = builder.build(
+            makeProgram(),
+            makeDecision({
+                availableSubtitleStreams: makeSubtitleStreams(),
+                subtitleBurnIn: {
+                    requested: true,
+                    confirmed: false,
+                    reason: 'requested',
+                    subtitleStreamId: 'sub-full',
+                    subtitleMode: 'burn',
+                },
+                transcodeRequest: {
+                    sessionId: 'sess-1',
+                    maxBitrate: 8000,
+                    subtitleStreamId: 'sub-full',
+                    subtitleMode: 'burn',
+                },
+            }),
+            5000
+        );
+        const confirmed = builder.build(
+            makeProgram(),
+            makeDecision({
+                availableSubtitleStreams: makeSubtitleStreams(),
+                subtitleBurnIn: {
+                    requested: true,
+                    confirmed: true,
+                    reason: 'requested',
+                    subtitleStreamId: 'sub-full',
+                    subtitleMode: 'burn',
+                },
+                transcodeRequest: {
+                    sessionId: 'sess-1',
+                    maxBitrate: 8000,
+                    subtitleStreamId: 'sub-full',
+                    subtitleMode: 'burn',
+                },
+            }),
+            5000
+        );
+
+        expect(unconfirmed.subtitleContext?.confirmedBurnedInSubtitleTrackId).toBeNull();
+        expect(confirmed.subtitleContext?.confirmedBurnedInSubtitleTrackId).toBe('sub-full');
+    });
+
     it('filters keyless subtitles when direct-only mode is enabled and routes deactivation callbacks through its deps', async () => {
         const shouldHandleSubtitleDeactivation = jest.fn().mockReturnValue(false);
         const recoverSubtitleDeactivation = jest.fn().mockResolvedValue('failed');

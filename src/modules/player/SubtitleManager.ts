@@ -21,7 +21,7 @@ interface SubtitleTrackContext {
     partIndex?: number;
     partKey?: string;
     sessionId?: string;
-    burnedInSubtitleTrackId?: string | null;
+    confirmedBurnedInSubtitleTrackId?: string | null;
     onUnavailable?: () => void;
     onDeactivate?: (args: { trackId: string; reason: string }) => boolean;
     onDeactivateRecovery?: (args: {
@@ -167,7 +167,7 @@ export class SubtitleManager {
         const burnedInActive =
             typeof trackId === 'string' &&
             trackId.length > 0 &&
-            this._subtitleContext?.burnedInSubtitleTrackId === trackId;
+            this._subtitleContext?.confirmedBurnedInSubtitleTrackId === trackId;
 
         const textTracks = this._videoElement.textTracks;
 

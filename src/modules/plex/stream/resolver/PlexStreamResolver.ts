@@ -46,7 +46,7 @@ import {
 } from '../url/plexStreamUrlPolicy';
 import { logPlexWarning } from '../../shared/plexLogging';
 import { SubtitleStreamDebugProbeCoordinator } from '../diagnostics/SubtitleStreamDebugProbeCoordinator';
-import { UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
+import { isSubtitleBurnConfirmedByServerDecision, UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from '../contracts/types';
@@ -200,10 +200,14 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
         if (debugEnabled && decision.isTranscoding && decision.transcodeRequest) {
             try {
-                decision.serverDecision = await this.fetchUniversalTranscodeDecision(
+                const serverDecision = await this.fetchUniversalTranscodeDecision(
                     request.itemKey,
                     decision.transcodeRequest
                 );
+                decision.serverDecision = serverDecision;
+                if (decision.subtitleBurnIn) {
+                    decision.subtitleBurnIn.confirmed = isSubtitleBurnConfirmedByServerDecision(decision.transcodeRequest, serverDecision);
+                }
             } catch (error) {
                 logPlexWarning('PMS universal decision fetch failed:', {
                     itemKey: request.itemKey,

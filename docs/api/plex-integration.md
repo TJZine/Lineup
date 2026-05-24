@@ -343,6 +343,7 @@ interface StreamDecision {
 
   subtitleBurnIn?: {
     requested: boolean;
+    confirmed?: boolean;
     reason: 'requested' | 'format_required' | 'none';
     subtitleStreamId?: string;
     subtitleMode?: 'none' | 'burn';
@@ -361,9 +362,16 @@ interface StreamDecision {
     videoDecision?: string;
     audioDecision?: string;
     subtitleDecision?: string;
+    streams?: PlexStreamDecision[];
     decisionCode?: string;
     decisionText?: string;
   };
+}
+
+interface PlexStreamDecision {
+  id?: string;
+  streamType?: 1 | 2 | 3;
+  decision?: string;
 }
 
 type StreamDecisionTranscodeRequest = {
@@ -384,3 +392,10 @@ type StreamDecisionTranscodeRequest = {
     }
 );
 ```
+
+`subtitleBurnIn.requested` is Lineup's local request intent. It does not prove
+that Plex burned the subtitle into the video. `subtitleBurnIn.confirmed` is set
+only when PMS universal decision evidence shows the requested subtitle stream
+with `decision="burn"`. Broad PMS fields such as `subtitleDecision` are
+diagnostic-only unless future PMS API evidence promotes them into the supported
+contract.

@@ -6,6 +6,7 @@ import type {
 } from './types';
 import { looksLikeHtml, normalizeSubtitleToVtt } from './subtitleConversion';
 import { fetchWithTimeout } from '../plex/shared/fetchWithTimeout';
+import { PLEX_TOKEN_HEADER, PLEX_TOKEN_QUERY_PARAM } from '../plex/shared/plexUrl';
 import {
     buildPlexSubtitleFetchAttempts,
     buildPlexSubtitleTranscodeUrl,
@@ -86,6 +87,24 @@ function classifyExceptionFailure(
         return transientFailure('timeout');
     }
     return transientFailure('network_error');
+}
+
+function hasPlexTokenMaterial(url: URL, headers: Record<string, string>): boolean {
+    if (url.searchParams.has(PLEX_TOKEN_QUERY_PARAM)) {
+        return true;
+    }
+    return typeof headers[PLEX_TOKEN_HEADER] === 'string' && headers[PLEX_TOKEN_HEADER].length > 0;
+}
+
+function canRetryLanHttpSubtitleUrl(
+    original: URL,
+    candidate: URL,
+    headers: Record<string, string>
+): boolean {
+    if (original.protocol !== 'https:' || candidate.protocol !== 'http:') {
+        return true;
+    }
+    return !hasPlexTokenMaterial(candidate, headers);
 }
 
 export async function fetchSubtitleFallbackVtt({
@@ -206,7 +225,11 @@ async function fetchSubtitleTextWithFallbacks({
 }: FetchSubtitleTextWithFallbacksArgs): Promise<SubtitleFetchTextResult> {
     const urlsToTry: Array<{ variant: 'primary' | 'lan_http'; url: URL }> = [{ variant: 'primary', url }];
     const lanHttp = deriveLanHttpUrl(url);
-    if (lanHttp && lanHttp.toString() !== url.toString()) {
+    if (
+        lanHttp &&
+        lanHttp.toString() !== url.toString() &&
+        canRetryLanHttpSubtitleUrl(url, lanHttp, headers)
+    ) {
         urlsToTry.push({ variant: 'lan_http', url: lanHttp });
     }
 

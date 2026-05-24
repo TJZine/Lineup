@@ -1,4 +1,5 @@
 import { UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
+import { isSubtitleBurnConfirmedByServerDecision } from '../diagnostics/UniversalTranscodeDecisionClient';
 import type { HlsOptions, StreamDecision } from '../contracts/types';
 
 function createResponse(overrides: Partial<Response> & { bodyText?: string } = {}): Response {
@@ -49,7 +50,9 @@ describe('UniversalTranscodeDecisionClient', () => {
         mockFetch.mockResolvedValue(createResponse({
             bodyText:
                 '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
-                '<TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none" />' +
+                '<TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none">' +
+                '<Stream id="sub-1" streamType="3" decision="burn" location="segments-video" />' +
+                '</TranscodeSession>' +
                 '</MediaContainer>',
         }));
 
@@ -96,6 +99,13 @@ describe('UniversalTranscodeDecisionClient', () => {
             videoDecision: 'copy',
             audioDecision: 'transcode',
             subtitleDecision: 'none',
+            streams: [
+                {
+                    id: 'sub-1',
+                    streamType: 3,
+                    decision: 'burn',
+                },
+            ],
         });
     });
 
@@ -103,7 +113,7 @@ describe('UniversalTranscodeDecisionClient', () => {
         mockFetch.mockResolvedValue(createResponse({
             bodyText:
                 '<MediaContainer decisionCode="2000" decisionText="Fallback">' +
-                '<TranscodeSession></MediaContainer>',
+                '<TranscodeSession><Stream id="sub-1" streamType="3" decision="burn"></MediaContainer>',
         }));
 
         const result = await createClient().fetchDecision('/library/metadata/123', {
@@ -114,6 +124,13 @@ describe('UniversalTranscodeDecisionClient', () => {
         expect(result).toMatchObject({
             decisionCode: '2000',
             decisionText: 'Fallback',
+            streams: [
+                {
+                    id: 'sub-1',
+                    streamType: 3,
+                    decision: 'burn',
+                },
+            ],
         });
     });
 
@@ -129,6 +146,32 @@ describe('UniversalTranscodeDecisionClient', () => {
             sessionId: 'sess-1',
             maxBitrate: 8000,
         })).rejects.toBe(authError);
+    });
+
+    it('confirms burn only from the selected subtitle stream decision', () => {
+        const request: NonNullable<StreamDecision['transcodeRequest']> = {
+            sessionId: 'sess-1',
+            maxBitrate: 8000,
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'burn',
+        };
+
+        expect(isSubtitleBurnConfirmedByServerDecision(request, {
+            fetchedAt: 1,
+            subtitleDecision: 'burn',
+        })).toBe(false);
+        expect(isSubtitleBurnConfirmedByServerDecision(request, {
+            fetchedAt: 1,
+            streams: [{ id: 'sub-2', streamType: 3, decision: 'burn' }],
+        })).toBe(false);
+        expect(isSubtitleBurnConfirmedByServerDecision(request, {
+            fetchedAt: 1,
+            streams: [{ id: 'sub-1', streamType: 3, decision: 'copy' }],
+        })).toBe(false);
+        expect(isSubtitleBurnConfirmedByServerDecision(request, {
+            fetchedAt: 1,
+            streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
+        })).toBe(true);
     });
 
     it('rejects non-ok decision responses', async () => {

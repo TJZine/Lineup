@@ -107,10 +107,10 @@ export interface StreamDescriptor {
         partKey?: string;
         sessionId?: string;
         /**
-         * When a stream is playing with subtitles burned into the video, this records which subtitle track
-         * triggered the burn-in request so the player does not attempt slow extract-based rendering for it.
+         * When PMS has confirmed subtitles are burned into the video, this records which subtitle track
+         * was burned so the player does not attempt slow extract-based rendering for it.
          */
-        burnedInSubtitleTrackId?: string | null;
+        confirmedBurnedInSubtitleTrackId?: string | null;
         onUnavailable?: () => void;
         /**
          * Called when the selected subtitle track is deactivated due to failure.

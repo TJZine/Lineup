@@ -139,6 +139,7 @@ export interface StreamDecision {
      */
     subtitleBurnIn?: {
         requested: boolean;
+        confirmed?: boolean;
         reason: 'requested' | 'format_required' | 'none';
         subtitleStreamId?: string;
         subtitleMode?: 'none' | 'burn';
@@ -169,9 +170,16 @@ export interface StreamDecision {
         videoDecision?: string;
         audioDecision?: string;
         subtitleDecision?: string;
+        streams?: PlexStreamDecision[];
         decisionCode?: string;
         decisionText?: string;
     };
+}
+
+export interface PlexStreamDecision {
+    id?: string;
+    streamType?: 1 | 2 | 3;
+    decision?: string;
 }
 
 export type StreamDecisionTranscodeRequest = {

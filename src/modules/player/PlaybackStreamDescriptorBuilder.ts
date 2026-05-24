@@ -73,6 +73,7 @@ export class PlaybackStreamDescriptorBuilder {
         const preferredSubtitleTrackId = subtitleMode !== 'off'
             ? this._resolvePreferredSubtitleId(subtitleTracks)
             : null;
+        const confirmedBurnedInSubtitleTrackId = getConfirmedBurnedInSubtitleTrackId(decision);
         const subtitleContext: StreamDescriptor['subtitleContext'] | undefined = subtitlesEnabled
             ? {
                 serverUri: this.deps.getServerUri(),
@@ -83,10 +84,7 @@ export class PlaybackStreamDescriptorBuilder {
                 partIndex: decision.partIndex,
                 partKey: decision.partKey,
                 sessionId: decision.sessionId,
-                burnedInSubtitleTrackId:
-                    decision.transcodeRequest?.subtitleMode === 'burn'
-                        ? (decision.transcodeRequest.subtitleStreamId ?? null)
-                        : null,
+                confirmedBurnedInSubtitleTrackId,
                 onUnavailable: this.deps.notifySubtitleUnavailable,
                 onDeactivate: ({ trackId, reason }): boolean =>
                     this.deps.shouldHandleSubtitleDeactivation({ trackId, reason }),
@@ -252,4 +250,12 @@ export class PlaybackStreamDescriptorBuilder {
         const trimmed = value.trim();
         return trimmed.length > 0 ? trimmed : null;
     }
+}
+
+function getConfirmedBurnedInSubtitleTrackId(decision: StreamDecision): string | null {
+    const burn = decision.subtitleBurnIn;
+    if (!burn?.confirmed || !burn.subtitleStreamId) {
+        return null;
+    }
+    return burn.subtitleStreamId;
 }

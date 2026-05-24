@@ -1174,6 +1174,67 @@ describe('PlexStreamResolver', () => {
             expect(parsed.searchParams.get('subtitleStreamID')).toBe('sub-1');
         });
 
+        it('marks subtitle burn-in as confirmed only from matching PMS stream decision evidence', async () => {
+            expectConsoleWarn([
+                'Transcode URL (compat=0):',
+                expect.stringContaining('X-Plex-Token=REDACTED'),
+            ], { times: 2 });
+            expectConsoleWarn([
+                'Stream decision:',
+                expect.objectContaining({ itemKey: '12345', mode: 'transcode' }),
+            ]);
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.DEBUG_LOGGING ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            getPrimaryPart(mockItem).streams.push({
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            });
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                text: async () =>
+                    '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                    '<TranscodeSession>' +
+                    '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                    '</TranscodeSession>' +
+                    '</MediaContainer>',
+            });
+
+            const resolver = new PlexStreamResolver(createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            }));
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+
+            expect(decision.subtitleBurnIn).toMatchObject({
+                requested: true,
+                confirmed: true,
+                subtitleStreamId: 'sub-1',
+            });
+            expect(decision.serverDecision?.streams).toEqual([
+                { id: 'sub-1', streamType: 3, decision: 'burn' },
+            ]);
+        });
+
         it('does not request burn-in when a text subtitle is selected but burn mode is not requested', async () => {
             const mockItem = createMockMediaItem({
                 container: 'avi',

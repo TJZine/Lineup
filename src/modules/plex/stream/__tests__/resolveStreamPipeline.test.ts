@@ -133,6 +133,7 @@ describe('resolveStreamPipeline', () => {
         });
         expect(result.decision.subtitleBurnIn).toMatchObject({
             requested: true,
+            confirmed: false,
             reason: 'requested',
             subtitleStreamId: 'sub-1',
             subtitleMode: 'burn',
