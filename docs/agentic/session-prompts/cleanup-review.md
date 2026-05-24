@@ -6,8 +6,8 @@ Run normal cleanup review with the read-only `reviewer` role. Route code-health,
 
 ## Read Order
 
-1. [`agents.md`](../../../agents.md)
-2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. [`agents.md`](../../../agents.md)
 3. the artifact being reviewed
 4. supporting standards that apply:
    - [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core) and [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](../plan-authoring-standard.md#cleanup-overlay) for cleanup plan review

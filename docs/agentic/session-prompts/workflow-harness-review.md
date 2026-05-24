@@ -59,8 +59,8 @@ Lineup stable policy file: `agents.md`
 
 For a light harness review (aim: ~15-25 minutes total), read these and then jump to the Required Review Axes:
 
-- [`agents.md`](../../../agents.md) (skim, ~3-5m): stable policy map and defaults
 - [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~8-12m): operating runbook, precedence, and verification gates
+- [`agents.md`](../../../agents.md) (skim, ~3-5m): stable policy map and defaults
 - [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs) (skim, ~3-5m): mechanical enforcement surface (what is actually checked)
 
 ## Required Read Order
@@ -69,8 +69,8 @@ For a light harness review (aim: ~15-25 minutes total), read these and then jump
 
 Rationale: these define the authority surfaces, how work is routed, and what is mechanically enforced.
 
-1. [`agents.md`](../../../agents.md) (deep, ~8-12m): stable policy and global defaults
-2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~12-18m): workflow, precedence, routing, and verification expectations
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~12-18m): workflow, precedence, routing, and verification expectations
+2. [`agents.md`](../../../agents.md) (deep, ~8-12m): stable policy and global defaults
 3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md) (deep, ~8-12m): Codanna-first discovery and fallback rules
 4. [`docs/agentic/skill-strategy.md`](../skill-strategy.md) (skim, ~5-8m): skill topology
 5. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) (deep, ~10-15m): single plan-standard authority surface, including `Universal Plan Core` and `Cleanup Overlay`

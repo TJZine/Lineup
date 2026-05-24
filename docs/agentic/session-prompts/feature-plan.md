@@ -4,12 +4,12 @@ Use this prompt for Tier 2 or Tier 3 feature/design work when you need a serious
 
 Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./cleanup-plan.md) for that path.
 
-Run this launcher with the tracked write-capable `planner` role by default. Use `planner_deep` for Tier 3, hotspot, cross-boundary, unresolved architecture/product seam, or security-adjacent planning. Both planning roles are for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs rather than product-code implementation.
+Run this launcher with the tracked write-capable `planner` role by default. Use `planner_deep` for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning. Both planning roles are for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs rather than product-code implementation.
 
 ## Read Order
 
-1. [`agents.md`](../../../agents.md)
-2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. [`agents.md`](../../../agents.md)
 3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
 4. [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core)
 5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope

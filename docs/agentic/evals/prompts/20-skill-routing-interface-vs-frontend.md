@@ -25,7 +25,7 @@ Adversarially review the tracked repo workflow surfaces for skill routing and sk
 
 2) Validate the skill topology is correct and reproducible:
    - repo-local Lineup skills live under `.agents/skills/`
-   - the legacy singular-agent mirror and `.codex/skills` are not treated as active repo skill sources
+   - the legacy singular-agent mirror and other obsolete repo-local skill-source directories are not treated as active repo skill sources
    - global UI skills are referenced as global skills, not copied into the repo as Lineup-owned duplicates
    - the verification flow does not leave tracked skill-topology churn behind (`git status --porcelain` stays clean for tracked files)
 
@@ -53,7 +53,7 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 - `sed -n '20,60p' docs/AGENTIC_DEV_WORKFLOW.md`
 - `sed -n '70,95p' docs/agentic/skill-strategy.md`
 - `git ls-files '.agents/skills/**/SKILL.md' | sort`
-- `test -z "$(git ls-files .agent .codex/skills)"`
+- `test -z "$(git ls-files .agent)"`
 - `sed -n '1,60p' .agents/skills/ui-composition-patterns/SKILL.md`
 - `git status --porcelain` (must not show tracked changes introduced by the verification flow)
 
@@ -79,4 +79,4 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 - `frontend-design` or `interface-design` is treated as a Lineup-owned repo-local duplicate instead of a global skill
 - `.agents/skills/ui-composition-patterns/SKILL.md` still hard-codes `frontend-design` as the only pairing
 - review omits the required `Evidence` section, or claims success without showing the evidence commands/tools and observed results
-- the eval depends on mutating local-only mirror output during the eval run, or treats the legacy singular-agent mirror or `.codex/skills` as active repo skill sources
+- the eval depends on mutating local-only mirror output during the eval run, or treats the legacy singular-agent mirror or another obsolete repo-local skill-source directory as an active repo skill source

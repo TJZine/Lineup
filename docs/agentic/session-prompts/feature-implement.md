@@ -9,8 +9,8 @@ Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed wo
 
 ## Read Order
 
-1. [`agents.md`](../../../agents.md)
-2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. [`agents.md`](../../../agents.md)
 3. task-specific context from exactly one input mode:
    - handoff mode: the `NEXT_SESSION_HANDOFF` block that routed work here (from [`feature-review.md`](./feature-review.md)); then read its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE`
    - short-follow-up mode: one short follow-up message naming the approved plan path or active run bundle plus target feature scope; then read the named plan or run bundle as the execution surface and do not wait for a handoff block

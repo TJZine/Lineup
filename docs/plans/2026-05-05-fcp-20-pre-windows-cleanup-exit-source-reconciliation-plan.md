@@ -65,10 +65,10 @@ Freshness gate: before execution, rerun `git status --short --branch` and re-rea
 
 ## Required Skills
 
-- `.codex/skills/architecture-boundaries/SKILL.md`
-- `.codex/skills/verification-strategy/SKILL.md`
-- `.codex/skills/execution-plan-authoring/SKILL.md`
-- `.codex/skills/plex-integration-boundaries/SKILL.md` for the FCP-19 Plex stream/API/subtitle path-truth audit only
+- `.agents/skills/architecture-boundaries/SKILL.md`
+- `.agents/skills/verification-strategy/SKILL.md`
+- `.agents/skills/execution-plan-authoring/SKILL.md`
+- `.agents/skills/plex-integration-boundaries/SKILL.md` for the FCP-19 Plex stream/API/subtitle path-truth audit only
 
 Do not load `ui-composition-patterns` unless the source audit proves the deferred ChannelSetupScreen candidate is a distinct live residual that needs more than owner/revisit accounting. If that happens, stop and replan instead of expanding FCP-20.
 

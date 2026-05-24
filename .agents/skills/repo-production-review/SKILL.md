@@ -11,8 +11,8 @@ Thin Lineup wrapper for the global `repo-production-review` skill suite.
 
 Before running the universal review, read and honor:
 
-- `agents.md`
 - `docs/AGENTIC_DEV_WORKFLOW.md`
+- `agents.md`
 - `.codex/config.toml`
 - `.agents/skills/*/SKILL.md`
 - `docs/architecture/CURRENT_STATE.md`

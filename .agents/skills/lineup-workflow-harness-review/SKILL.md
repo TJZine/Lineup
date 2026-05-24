@@ -13,8 +13,8 @@ Use this only from the Lineup repo.
 
 Read these files in order:
 
-1. `agents.md`
-2. `docs/AGENTIC_DEV_WORKFLOW.md`
+1. `docs/AGENTIC_DEV_WORKFLOW.md`
+2. `agents.md`
 3. `docs/agentic/session-prompts/workflow-harness-review.md`
 
 Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this repo-local skill.
