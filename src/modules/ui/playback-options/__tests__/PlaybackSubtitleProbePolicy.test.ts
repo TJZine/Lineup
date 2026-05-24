@@ -62,24 +62,46 @@ describe('PlaybackSubtitleProbePolicy', () => {
         const track = makeTextTrack({ id: 'sub-1' });
         const context = makeContext({
             serverUri: 'http://server-a',
+            resolvedBaseUrl: 'https://10-0-0-1.plex.direct:32400',
             authHeaders: { 'X-Plex-Token': 'raw-token-a' },
             itemKey: 'item-1',
         });
 
         const cacheKey = policy.getProbeCacheKey(track.id, context, null);
-        expect(cacheKey).toContain('http://server-a');
+        expect(cacheKey).toContain('https://10-0-0-1.plex.direct:32400');
         expect(cacheKey).toContain('item-1');
         expect(cacheKey).toContain('sub-1');
         expect(cacheKey).not.toContain('raw-token-a');
 
         await expect(probe(policy, track, context)).resolves.toBe('unsupported');
         await expect(probe(policy, track, context)).resolves.toBe('unsupported');
-        await expect(probe(policy, track, makeContext({ serverUri: 'http://server-b' }))).resolves.toBe('unsupported');
+        await expect(probe(policy, track, makeContext({ resolvedBaseUrl: 'https://10-0-0-2.plex.direct:32400' }))).resolves.toBe('unsupported');
         await expect(probe(policy, track, makeContext({ authHeaders: { 'X-Plex-Token': 'raw-token-b' } }))).resolves.toBe('unsupported');
         await expect(probe(policy, track, makeContext({ itemKey: 'item-2' }))).resolves.toBe('unsupported');
         await expect(probe(policy, makeTextTrack({ id: 'sub-2' }), context)).resolves.toBe('unsupported');
 
         expect(fetchWithTimeout).toHaveBeenCalledTimes(5);
+    });
+
+    it('uses resolvedBaseUrl for probe requests when it is available', async () => {
+        const fetchWithTimeout = jest.fn().mockResolvedValue(makeResponse(200, true));
+        const policy = new PlaybackSubtitleProbePolicy({ fetchWithTimeout });
+
+        await expect(
+            probe(
+                policy,
+                makeTextTrack({ id: 'keyless', fetchableViaKey: false }),
+                makeContext({
+                    serverUri: 'http://server-a',
+                    resolvedBaseUrl: 'https://10-0-0-1.plex.direct:32400',
+                })
+            )
+        ).resolves.toBe('supported');
+
+        const firstRequest = fetchWithTimeout.mock.calls[0]?.[0] as FetchWithTimeoutArgs | undefined;
+        expect(firstRequest?.url).toBe(
+            'https://10-0-0-1.plex.direct:32400/library/streams/keyless?X-Plex-Token=secret-token'
+        );
     });
 
     it('caches HEAD success as supported', async () => {
@@ -189,10 +211,12 @@ describe('PlaybackSubtitleProbePolicy', () => {
             fetchableViaKey: true,
         });
 
-        await expect(probe(policy, track, makeContext())).resolves.toBe('supported');
+        await expect(probe(policy, track, makeContext({
+            resolvedBaseUrl: 'https://10-0-0-1.plex.direct:32400',
+        }))).resolves.toBe('supported');
 
         const firstRequest = fetchWithTimeout.mock.calls[0]?.[0] as FetchWithTimeoutArgs | undefined;
-        expect(firstRequest?.url).toBe('http://server-a/library/streams/foreign?X-Plex-Token=secret-token');
+        expect(firstRequest?.url).toBe('https://10-0-0-1.plex.direct:32400/library/streams/foreign?X-Plex-Token=secret-token');
     });
 
     it('clearCache drops cached decisions', async () => {

@@ -6,11 +6,9 @@ import type {
 import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
 import type { FetchWithTimeoutArgs } from '../../plex/shared/fetchWithTimeout';
 import {
-    applyXPlexTokenQueryParamFromHeaders,
-    buildPlexUrlFromKey,
-    readXPlexTokenFromHeaders,
-    tryBuildPlexServerUrlFromKey,
-} from '../../plex/shared/plexUrl';
+    buildPlexSubtitleProbeCacheKey,
+    buildPlexSubtitleProbeRequest,
+} from '../../plex/stream/policy/plexSubtitleProbePolicy';
 
 export const SUBTITLE_PROBE_TOTAL_TIMEOUT_MS = 400;
 
@@ -39,38 +37,20 @@ export class PlaybackSubtitleProbePolicy {
         context: SubtitleProbeContext,
         fallbackItemKey: string | null
     ): string {
-        const itemKey = context.itemKey ?? fallbackItemKey ?? 'global';
-        const serverKey = context.serverUri ?? 'unknown-server';
-        const token = readXPlexTokenFromHeaders(context.authHeaders);
-        const accountKey = token ? this.hashForCacheKeyScope(token) : 'anonymous';
-        return `${serverKey}::${accountKey}::${itemKey}::${trackId}`;
+        return buildPlexSubtitleProbeCacheKey({
+            context,
+            fallbackItemKey,
+            target: { id: trackId },
+        }) ?? 'invalid-probe-cache-key';
     }
 
     buildSubtitleProbeUrl(track: SubtitleTrack, context: SubtitleProbeContext): URL | null {
-        const baseUri = context.serverUri ?? null;
-        if (!baseUri) return null;
-        try {
-            let url: URL;
-            if (track.key) {
-                const isAbsoluteHttpUrl = /^https?:\/\//i.test(track.key);
-                if (isAbsoluteHttpUrl) {
-                    const normalized = tryBuildPlexServerUrlFromKey(baseUri, track.key);
-                    if (!normalized) {
-                        url = new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
-                    } else {
-                        url = normalized;
-                    }
-                } else {
-                    url = buildPlexUrlFromKey(baseUri, track.key);
-                }
-            } else {
-                url = new URL(`/library/streams/${encodeURIComponent(track.id)}`, baseUri);
-            }
-            applyXPlexTokenQueryParamFromHeaders(url.searchParams, context.authHeaders);
-            return url;
-        } catch {
-            return null;
-        }
+        const request = buildPlexSubtitleProbeRequest({
+            context,
+            fallbackItemKey: null,
+            target: { id: track.id, key: track.key },
+        });
+        return request?.url ?? null;
     }
 
     async probeTextSubtitleExtractability(args: {
@@ -81,20 +61,24 @@ export class PlaybackSubtitleProbePolicy {
         const { track, context, fallbackItemKey } = args;
         if (!context) return 'unknown';
 
-        const cacheKey = this.getProbeCacheKey(track.id, context, fallbackItemKey);
+        const request = buildPlexSubtitleProbeRequest({
+            context,
+            fallbackItemKey,
+            target: { id: track.id, key: track.key },
+        });
+        if (!request) return 'unknown';
+
+        const cacheKey = request.cacheKey;
         const cached = this.cache.get(cacheKey);
         if (cached) return cached;
-
-        const url = this.buildSubtitleProbeUrl(track, context);
-        if (!url) return 'unknown';
 
         const startMs = Date.now();
         try {
             let response = await this.fetchWithTimeout({
-                url: url.toString(),
+                url: request.url.toString(),
                 init: {
                     method: 'HEAD',
-                    headers: { Accept: 'text/vtt, text/plain, */*' },
+                    headers: request.headers,
                 },
                 timeoutMs: SUBTITLE_PROBE_TOTAL_TIMEOUT_MS,
             });
@@ -106,10 +90,10 @@ export class PlaybackSubtitleProbePolicy {
                 const fallbackTimeoutMs = Math.max(50, remainingMs);
 
                 response = await this.fetchWithTimeout({
-                    url: url.toString(),
+                    url: request.url.toString(),
                     init: {
                         method: 'GET',
-                        headers: { Accept: 'text/vtt, text/plain, */*' },
+                        headers: request.headers,
                     },
                     timeoutMs: fallbackTimeoutMs,
                 });
@@ -132,14 +116,6 @@ export class PlaybackSubtitleProbePolicy {
         } catch {
             return 'transient_failure';
         }
-    }
-
-    private hashForCacheKeyScope(value: string): string {
-        let hash = 0;
-        for (let index = 0; index < value.length; index += 1) {
-            hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
-        }
-        return (hash >>> 0).toString(16);
     }
 
     private classifySubtitleProbeStatus(
