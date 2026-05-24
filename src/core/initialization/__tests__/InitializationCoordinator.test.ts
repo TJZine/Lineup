@@ -89,7 +89,6 @@ describe('InitializationCoordinator (Plex Home)', () => {
         switchToChannel: InitializationCallbacks['routing']['switchToChannel'];
         openServerSelect: InitializationCallbacks['routing']['openServerSelect'];
         buildPlexResourceUrl: InitializationCallbacks['resources']['buildPlexResourceUrl'];
-        seedSubtitleLanguageFromPlexUser?: InitializationCallbacks['subtitle']['seedSubtitleLanguageFromPlexUser'];
     };
 
     type CoordinatorHarness = {
@@ -228,11 +227,6 @@ describe('InitializationCoordinator (Plex Home)', () => {
             },
             resources: {
                 buildPlexResourceUrl: legacyCallbacks.buildPlexResourceUrl,
-            },
-            subtitle: {
-                ...(legacyCallbacks.seedSubtitleLanguageFromPlexUser
-                    ? { seedSubtitleLanguageFromPlexUser: legacyCallbacks.seedSubtitleLanguageFromPlexUser }
-                    : {}),
             },
         };
 

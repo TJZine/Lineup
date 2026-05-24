@@ -14,19 +14,14 @@ import {
     EPG_PAST_ITEMS_WINDOWS,
     type EpgPastItemsWindow,
 } from '../../settings/EpgPreferencesStore';
+import { SUPPORTED_SUBTITLE_LANGUAGES } from '../../../shared/subtitle-language';
 
 const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
     { label: 'Auto (Plex)', code: null },
-    { label: 'English', code: 'en' },
-    { label: 'Spanish', code: 'es' },
-    { label: 'French', code: 'fr' },
-    { label: 'German', code: 'de' },
-    { label: 'Italian', code: 'it' },
-    { label: 'Portuguese', code: 'pt' },
-    { label: 'Russian', code: 'ru' },
-    { label: 'Japanese', code: 'ja' },
-    { label: 'Korean', code: 'ko' },
-    { label: 'Chinese', code: 'zh' },
+    ...SUPPORTED_SUBTITLE_LANGUAGES.map((language) => ({
+        label: language.label,
+        code: language.code,
+    })),
 ];
 
 const SUBTITLE_MODE_LABELS: Record<SubtitleMode, string> = {

@@ -1,4 +1,5 @@
 import { isTextSubtitleFormat } from '../../shared/subtitle-formats';
+import { normalizeSubtitleLanguage } from '../../shared/subtitle-language';
 import { subtitleModeIsDirectOnly, type SubtitleMode } from '../../shared/subtitle-mode';
 import type { PlexStream, StreamDecision } from '../plex/stream';
 import type { ScheduledProgram } from '../scheduler/scheduler';
@@ -126,14 +127,14 @@ export class PlaybackStreamDescriptorBuilder {
             return null;
         }
 
-        const appPreferredLanguage = this._normalizeLanguage(
+        const appPreferredLanguage = normalizeSubtitleLanguage(
             this.deps.getPreferredSubtitleLanguage()
         );
         if (appPreferredLanguage) {
             const preferred = this._findSubtitleByLanguage(eligible, appPreferredLanguage);
             if (preferred) return preferred.id;
         } else {
-            const plexPreferredLanguage = this._normalizeLanguage(
+            const plexPreferredLanguage = normalizeSubtitleLanguage(
                 this.deps.getPlexPreferredSubtitleLanguage?.() ?? null
             );
             if (plexPreferredLanguage) {
@@ -142,13 +143,16 @@ export class PlaybackStreamDescriptorBuilder {
             }
         }
 
-        const defaultLanguage =
-            eligible.find((track) => track.default)?.languageCode ||
-            eligible.find((track) => track.default)?.language ||
-            null;
-        if (defaultLanguage) {
-            const preferred = this._findSubtitleByLanguage(eligible, defaultLanguage);
-            if (preferred) return preferred.id;
+        if (this.deps.preferForcedSubtitles()) {
+            const forcedTracks = eligible.filter((track) => track.forced);
+            if (forcedTracks.length === 1) {
+                return forcedTracks[0]?.id ?? null;
+            }
+        }
+
+        const defaultTrack = eligible.find((track) => track.default);
+        if (defaultTrack) {
+            return defaultTrack.id;
         }
 
         return null;
@@ -158,11 +162,12 @@ export class PlaybackStreamDescriptorBuilder {
         tracks: SubtitleTrack[],
         language: string
     ): SubtitleTrack | null {
-        const normalized = language.trim().toLowerCase();
+        const normalized = normalizeSubtitleLanguage(language);
+        if (!normalized) return null;
         const matches = tracks.filter((track) => {
             return (
-                track.languageCode.toLowerCase() === normalized ||
-                track.language.toLowerCase() === normalized
+                normalizeSubtitleLanguage(track.languageCode) === normalized ||
+                normalizeSubtitleLanguage(track.language) === normalized
             );
         });
         if (matches.length === 0) return null;
@@ -243,12 +248,6 @@ export class PlaybackStreamDescriptorBuilder {
                 fetchableViaKey: track.fetchableViaKey,
             };
         });
-    }
-
-    private _normalizeLanguage(value: string | null): string | null {
-        if (typeof value !== 'string') return null;
-        const trimmed = value.trim();
-        return trimmed.length > 0 ? trimmed : null;
     }
 }
 

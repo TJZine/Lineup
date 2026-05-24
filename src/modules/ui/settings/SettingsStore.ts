@@ -18,6 +18,7 @@ import {
     DEFAULT_SUBTITLE_MODE,
     type SubtitleMode,
 } from '../../../shared/subtitle-mode';
+import { normalizeSubtitleLanguage } from '../../../shared/subtitle-language';
 import { DEFAULT_SETTINGS } from './constants';
 type SubtitleLanguageOption = Readonly<{ code: string | null }>;
 
@@ -263,14 +264,14 @@ export class SettingsStore {
         const raw = this._subtitlePreferencesStore.readSubtitleLanguageAndClean();
         if (raw === null) return 0;
 
+        const normalizedRaw = normalizeSubtitleLanguage(raw);
         const index = options.findIndex((option) => {
             if (!option.code) return false;
-            return option.code.toLowerCase() === raw;
+            return normalizeSubtitleLanguage(option.code) === normalizedRaw;
         });
 
         if (index >= 0) return index;
 
-        this._subtitlePreferencesStore.writeSubtitleLanguage(null);
         return 0;
     }
 

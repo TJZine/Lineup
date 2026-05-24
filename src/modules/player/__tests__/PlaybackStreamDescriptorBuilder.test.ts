@@ -69,6 +69,23 @@ const makeSubtitleStreams = (): PlexStream[] => [
     },
 ];
 
+const makeBuilder = (
+    overrides: Partial<ConstructorParameters<typeof PlaybackStreamDescriptorBuilder>[0]> = {}
+): PlaybackStreamDescriptorBuilder => new PlaybackStreamDescriptorBuilder({
+    buildPlexResourceUrl: (pathOrUrl): string => pathOrUrl,
+    getMimeType: (): string => 'video/mp4',
+    getAuthHeaders: (): Record<string, string> => ({ 'X-Plex-Token': 'token' }),
+    getServerUri: (): string => 'http://example.com',
+    getPreferredSubtitleLanguage: (): null => null,
+    getPlexPreferredSubtitleLanguage: (): null => null,
+    notifySubtitleUnavailable: jest.fn(),
+    readSubtitleMode: (): 'full' => 'full',
+    preferForcedSubtitles: (): boolean => false,
+    shouldHandleSubtitleDeactivation: (): boolean => true,
+    recoverSubtitleDeactivation: jest.fn().mockResolvedValue('handled'),
+    ...overrides,
+});
+
 describe('PlaybackStreamDescriptorBuilder', () => {
     it('aligns audio defaults to the selected stream and derives subtitle context from the resolved playback URL', () => {
         const aac: PlexStream = {
@@ -143,6 +160,173 @@ describe('PlaybackStreamDescriptorBuilder', () => {
         );
 
         expect(descriptor.preferredSubtitleTrackId).toBe('sub-forced');
+    });
+
+    it('uses dynamic Plex language only when the app language override is unset', () => {
+        const builder = makeBuilder({
+            getPreferredSubtitleLanguage: (): string => 'es',
+            getPlexPreferredSubtitleLanguage: (): string => 'en',
+        });
+
+        const descriptor = builder.build(
+            makeProgram(),
+            makeDecision({
+                availableSubtitleStreams: [
+                    ...makeSubtitleStreams(),
+                    {
+                        id: 'sub-es',
+                        streamType: 3,
+                        language: 'Spanish',
+                        languageCode: 'spa',
+                        codec: 'srt',
+                        format: 'srt',
+                        key: '/library/streams/3',
+                        forced: false,
+                        default: false,
+                        title: 'Spanish',
+                    },
+                ],
+            }),
+            5000
+        );
+
+        expect(descriptor.preferredSubtitleTrackId).toBe('sub-es');
+
+        const autoBuilder = makeBuilder({
+            getPreferredSubtitleLanguage: (): null => null,
+            getPlexPreferredSubtitleLanguage: (): string => 'eng',
+        });
+
+        const autoDescriptor = autoBuilder.build(
+            makeProgram(),
+            makeDecision({ availableSubtitleStreams: makeSubtitleStreams() }),
+            5000
+        );
+
+        expect(autoDescriptor.preferredSubtitleTrackId).toBe('sub-full');
+    });
+
+    it('matches preferred subtitle languages across app codes, Plex codes, and display names', () => {
+        const descriptor = makeBuilder({
+            getPreferredSubtitleLanguage: (): string => 'English',
+        }).build(
+            makeProgram(),
+            makeDecision({
+                availableSubtitleStreams: [
+                    {
+                        id: 'sub-eng',
+                        streamType: 3,
+                        language: 'Eng',
+                        languageCode: 'eng',
+                        codec: 'srt',
+                        format: 'srt',
+                        key: '/library/streams/eng',
+                        forced: false,
+                        default: false,
+                        title: 'English',
+                    },
+                ],
+            }),
+            5000
+        );
+
+        expect(descriptor.preferredSubtitleTrackId).toBe('sub-eng');
+    });
+
+    it('selects a single forced track before default fallback when no language preference matches', () => {
+        const descriptor = makeBuilder({
+            getPreferredSubtitleLanguage: (): string => 'ja',
+            getPlexPreferredSubtitleLanguage: (): null => null,
+            preferForcedSubtitles: (): boolean => true,
+        }).build(
+            makeProgram(),
+            makeDecision({
+                availableSubtitleStreams: [
+                    {
+                        id: 'sub-full',
+                        streamType: 3,
+                        language: 'English',
+                        languageCode: 'en',
+                        codec: 'srt',
+                        format: 'srt',
+                        key: '/library/streams/full',
+                        forced: false,
+                        default: true,
+                        title: 'Full',
+                    },
+                    {
+                        id: 'sub-forced-only',
+                        streamType: 3,
+                        language: 'English',
+                        languageCode: 'eng',
+                        codec: 'srt',
+                        format: 'srt',
+                        key: '/library/streams/forced',
+                        forced: true,
+                        default: false,
+                        title: 'Forced',
+                    },
+                ],
+            }),
+            5000
+        );
+
+        expect(descriptor.preferredSubtitleTrackId).toBe('sub-forced-only');
+    });
+
+    it('falls back to the exact default subtitle track when no language or forced preference selects one', () => {
+        const descriptor = makeBuilder({
+            getPreferredSubtitleLanguage: (): null => null,
+            getPlexPreferredSubtitleLanguage: (): null => null,
+        }).build(
+            makeProgram(),
+            makeDecision({
+                availableSubtitleStreams: [
+                    {
+                        id: 'sub-non-default-same-language',
+                        streamType: 3,
+                        language: 'English',
+                        languageCode: 'en',
+                        codec: 'srt',
+                        format: 'srt',
+                        key: '/library/streams/non-default',
+                        forced: false,
+                        default: false,
+                        title: 'Non-default',
+                    },
+                    {
+                        id: 'sub-default',
+                        streamType: 3,
+                        language: 'English',
+                        languageCode: 'eng',
+                        codec: 'srt',
+                        format: 'srt',
+                        key: '/library/streams/default',
+                        forced: false,
+                        default: true,
+                        title: 'Default',
+                    },
+                ],
+            }),
+            5000
+        );
+
+        expect(descriptor.preferredSubtitleTrackId).toBe('sub-default');
+    });
+
+    it('selects no subtitle tracks when subtitles are off', () => {
+        const descriptor = makeBuilder({
+            readSubtitleMode: (): 'off' => 'off',
+            getPreferredSubtitleLanguage: (): string => 'en',
+        }).build(
+            makeProgram(),
+            makeDecision({ availableSubtitleStreams: makeSubtitleStreams() }),
+            5000
+        );
+
+        expect(descriptor.subtitleTracks).toEqual([]);
+        expect(descriptor.preferredSubtitleTrackId).toBeNull();
+        expect(descriptor.subtitleContext).toBeUndefined();
     });
 
     it('marks subtitle context as burned in only when PMS burn is confirmed', () => {

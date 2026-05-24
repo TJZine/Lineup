@@ -23,6 +23,7 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 - `PlaybackRecoveryManager` maps those to `SubtitleTrack[]` and builds `StreamDescriptor.subtitleContext`.
 - `VideoPlayer` loads tracks via `SubtitleManager`.
 - Subtitle track selections are not persisted; only language preferences influence auto-selection.
+- Missing `lineup_subtitle_language` means Auto/Plex. Lineup does not seed that setting from the active Plex user at startup; playback reads the Plex user's preferred subtitle language dynamically only when there is no app language override.
 - `StreamRequest.subtitleStreamId` is treated as **strict**: if the requested subtitle stream is not present in any selectable media version/part, `resolveStream()` throws `SUBTITLE_STREAM_NOT_FOUND` rather than silently dropping the selection.
 
 Key files:
@@ -86,6 +87,20 @@ Historically, the most common causes:
 5. **Non-VTT text formats** being attached directly to `<track>` (works inconsistently).
 
 Lineup now carries `mediaIndex`/`partIndex` through to the universal subtitle extraction URL and avoids attaching non‑VTT sources as `<track src>`.
+
+## Auto-selection semantics
+
+Lineup owns subtitle auto-selection from already-resolved Plex stream metadata. It intentionally does not implement Plex account foreign-audio auto mode in the client.
+
+Selection order:
+
+1. `Subtitle Mode = Off` selects no subtitle tracks.
+2. An explicit Lineup language override wins over the Plex user's preferred subtitle language.
+3. When the Lineup language is unset, playback uses the active Plex user's preferred subtitle language dynamically.
+4. Language matching accepts Lineup's supported two-letter codes, common Plex three-letter codes, and supported display names such as `en`, `eng`, and `English`.
+5. If forced subtitles are preferred, a forced track wins within the matched language.
+6. If no Lineup/Plex language match exists and exactly one eligible forced track exists, forced preference may select it before default fallback.
+7. Otherwise Lineup selects the exact subtitle track flagged as default, if one is present.
 
 ## Debugging
 

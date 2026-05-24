@@ -44,7 +44,6 @@ type AuthValidationPolicyTestInputs = AuthValidationPolicyInputs & {
     lifecycle: LifecycleGateMock;
     updateModuleStatus: jest.Mock;
     configureDiscoveryStorage: jest.Mock;
-    seedSubtitleLanguageFromPlexUser: jest.Mock;
     handlers: {
         registerAuthResume: jest.Mock;
         registerProfileResume: jest.Mock;
@@ -213,7 +212,6 @@ function createInputs(overrides: AuthValidationPlexAuthOverrides = {}): AuthVali
         updateModuleStatus: jest.fn(),
         configureDiscoveryStorage: jest.fn(),
         readShowProfilePickerOnStartup: jest.fn(() => false),
-        seedSubtitleLanguageFromPlexUser: jest.fn(),
         handlers: {
             registerAuthResume: jest.fn(),
             registerProfileResume: jest.fn(),
@@ -477,7 +475,6 @@ describe('applyAuthValidationPolicy', () => {
             updateModuleStatus: jest.fn(),
             configureDiscoveryStorage: jest.fn(),
             readShowProfilePickerOnStartup: jest.fn(() => false),
-            seedSubtitleLanguageFromPlexUser: jest.fn(),
             handlers: {
                 registerAuthResume: jest.fn(),
                 registerProfileResume: jest.fn(),

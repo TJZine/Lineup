@@ -522,11 +522,6 @@ export class AppOrchestrator {
                         return this._buildPlexResourceUrl(pathOrUrl);
                     },
                 },
-                subtitle: {
-                    seedSubtitleLanguageFromPlexUser: (): void => {
-                        this._seedSubtitleLanguageFromPlexUser();
-                    },
-                },
             }
         );
 
@@ -1597,22 +1592,6 @@ export class AppOrchestrator {
 
     private _configureDiscoveryStorageKeysForActiveUser(): void {
         this._storageContext.configureDiscoveryStorageKeysForActiveUser();
-    }
-
-    private _seedSubtitleLanguageFromPlexUser(): void {
-        const existing = this._subtitlePreferencesStore.readSubtitleLanguageAndClean();
-        if (typeof existing === 'string' && existing.trim().length > 0) {
-            return;
-        }
-        const plexPreferred = this._plexAuth?.getCurrentUser()?.preferredSubtitleLanguage ?? null;
-        if (typeof plexPreferred !== 'string') {
-            return;
-        }
-        const normalized = plexPreferred.trim();
-        if (normalized.length === 0) {
-            return;
-        }
-        this._subtitlePreferencesStore.writeSubtitleLanguage(normalized);
     }
 
     private async _configureChannelManagerStorageForSelectedServer(): Promise<void> {

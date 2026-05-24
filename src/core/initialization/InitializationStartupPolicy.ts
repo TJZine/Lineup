@@ -40,7 +40,6 @@ export interface AuthValidationPolicyInputs {
     updateModuleStatus: UpdateModuleStatus;
     configureDiscoveryStorage: () => void;
     readShowProfilePickerOnStartup: () => boolean;
-    seedSubtitleLanguageFromPlexUser?: () => void;
     handlers: Pick<StartupResumeHandlers, 'registerAuthResume' | 'registerProfileResume'>;
 }
 
@@ -251,7 +250,6 @@ export async function applyAuthValidationPolicy(inputs: AuthValidationPolicyInpu
         if (activeValid) {
             persistValidatedActiveCredentials(inputs, storedCredentials);
             inputs.configureDiscoveryStorage();
-            inputs.seedSubtitleLanguageFromPlexUser?.();
             markAuthReady(inputs);
             return maybeRouteToProfileSelect(inputs);
         }

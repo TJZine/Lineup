@@ -9,6 +9,7 @@ import {
     parseSubtitleMode,
     type SubtitleMode,
 } from '../../shared/subtitle-mode';
+import { normalizeSubtitleLanguage } from '../../shared/subtitle-language';
 
 export class SubtitlePreferencesStore {
     readSubtitleModeAndClean(fallback: SubtitleMode = 'full'): SubtitleMode {
@@ -40,7 +41,7 @@ export class SubtitlePreferencesStore {
         if (raw === null) {
             return null;
         }
-        const normalized = raw.trim().toLowerCase();
+        const normalized = normalizeSubtitleLanguage(raw);
         if (!normalized) {
             safeLocalStorageRemove(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
             return null;
@@ -53,7 +54,7 @@ export class SubtitlePreferencesStore {
             safeLocalStorageRemove(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
             return;
         }
-        const normalized = languageCode.trim().toLowerCase();
+        const normalized = normalizeSubtitleLanguage(languageCode);
         if (!normalized) {
             safeLocalStorageRemove(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
             return;

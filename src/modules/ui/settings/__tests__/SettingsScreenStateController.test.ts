@@ -10,6 +10,7 @@ import * as ConfigEvents from '../../../../config/events';
 import { SubtitlePreferencesStore } from '../../../settings/SubtitlePreferencesStore';
 import { EPG_PAST_ITEMS_WINDOWS } from '../../../settings/EpgPreferencesStore';
 import { THEME_OPTIONS } from '../../theme/themeDefinitions';
+import { SUPPORTED_SUBTITLE_LANGUAGES } from '../../../../shared/subtitle-language';
 
 beforeEach(() => {
     localStorage.clear();
@@ -66,6 +67,24 @@ it('builds the current settings categories from persisted state', () => {
     expect(subtitleLanguage?.value).toBe(2);
     expect(subtitleLanguage?.disabled).toBe(true);
     expect(preferForced?.disabled).toBe(true);
+});
+
+it('derives subtitle language options from the shared language contract while preserving Auto first', () => {
+    const controller = new SettingsScreenStateController({ settingsStore: new SettingsStore() });
+    const audioCategory = controller.getCategories().find((category) => category.id === 'audio_subtitles');
+    const subtitleLanguage = audioCategory?.items.find((item) => item.id === 'settings-subtitle-language');
+
+    if (!subtitleLanguage || !('options' in subtitleLanguage)) {
+        throw new Error('Subtitle language item not found');
+    }
+
+    expect((subtitleLanguage as SettingsSelectConfig).options).toEqual([
+        { label: 'Auto (Plex)', value: 0 },
+        ...SUPPORTED_SUBTITLE_LANGUAGES.map((language, index) => ({
+            label: language.label,
+            value: index + 1,
+        })),
+    ]);
 });
 
 it('labels HDR fallback preferred mode as direct-play-first and force mode as HLS/transcode-oriented', () => {
