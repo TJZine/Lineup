@@ -459,6 +459,7 @@ const mockScheduler = {
     getCurrentProgram: jest.fn().mockReturnValue(null),
     getState: jest.fn().mockReturnValue({ isActive: false, channelId: null }),
     getScheduleWindow: jest.fn().mockReturnValue({ startTime: 0, endTime: 0, programs: [] }),
+    jumpToProgram: jest.fn(),
     skipToNext: jest.fn(),
     skipToPrevious: jest.fn(),
     pauseSyncTimer: jest.fn(),
@@ -2083,12 +2084,28 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             playerHandlers.ended?.();
             expect(mockScheduler.skipToNext).toHaveBeenCalledTimes(1);
 
+            expectConsoleWarn([
+                'Global error in playback',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.PLAYBACK_FAILED,
+                        message: 'Playback failed',
+                    }),
+                }),
+            ]);
             playerHandlers.error?.({
                 recoverable: false,
                 code: 'PLAYBACK_FAILED',
                 message: 'boom',
             });
-            expect(mockScheduler.skipToNext).toHaveBeenCalledTimes(2);
+            expect(mockScheduler.skipToNext).toHaveBeenCalledTimes(1);
+            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: 'PLAYBACK_FAILED',
+                    message: 'Playback failed',
+                    recoverable: true,
+                })
+            );
 
             await pauseHandler?.();
             expect(mockVideoPlayer.pause).toHaveBeenCalled();
@@ -2282,6 +2299,15 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 })
             );
 
+            expectConsoleWarn([
+                'Global error in playback',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.PLAYBACK_FAILED,
+                        message: 'Playback failed',
+                    }),
+                }),
+            ]);
             playerHandlers.error?.({
                 recoverable: false,
                 code: 'PLAYBACK_FORMAT_UNSUPPORTED',
@@ -3206,12 +3232,68 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(labels).toContain('Exit');
         });
 
-        it('should return Skip action for PLAYBACK_DECODE_ERROR', () => {
+        it('should return Retry and Skip actions for PLAYBACK_DECODE_ERROR', () => {
+            const currentProgram = {
+                item: {
+                    ratingKey: 'item-1',
+                    title: 'Test Item',
+                    durationMs: 60000,
+                    type: 'movie',
+                },
+                elapsedMs: 5000,
+                scheduledStartTime: 0,
+                scheduledEndTime: 60000,
+                remainingMs: 55000,
+                scheduleIndex: 0,
+            };
+            mockScheduler.getState.mockReturnValue({
+                isActive: true,
+                channelId: 'ch1',
+                currentProgram,
+            });
             const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
 
-            expect(actions).toContainEqual(
-                expect.objectContaining({ label: 'Skip', isPrimary: true })
+            expect(actions[0]).toEqual(expect.objectContaining({ label: 'Retry', isPrimary: true }));
+            expect(actions[1]).toEqual(expect.objectContaining({ label: 'Skip', isPrimary: false }));
+
+            actions[0]?.action();
+            expect(mockScheduler.jumpToProgram).toHaveBeenCalledWith(currentProgram);
+        });
+
+        it('should surface playback failure again when Retry cannot start playback', () => {
+            mockScheduler.getState.mockReturnValue({
+                isActive: false,
+                channelId: 'ch1',
+                currentProgram: null,
+            });
+            const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
+
+            actions[0]?.action();
+
+            expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
+            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.PLAYBACK_FAILED,
+                    message: 'Playback retry failed',
+                    recoverable: true,
+                })
             );
+            expectConsoleWarn([
+                'Retry playback failed',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        message: 'Cannot retry playback without an active program',
+                    }),
+                }),
+            ]);
+            expectConsoleWarn([
+                'Global error in playback',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.PLAYBACK_FAILED,
+                    }),
+                }),
+            ]);
         });
     });
 

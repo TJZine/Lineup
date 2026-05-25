@@ -50,9 +50,12 @@ const RECOVERY_ACTION_FACTORIES: Record<RecoveryActionGroupId, RecoveryActionFac
         }, { isPrimary: false, requiresNetwork: true }),
     ],
     playback: (deps) => [
+        buildAction('Retry', () => {
+            deps.retryPlayback();
+        }, { isPrimary: true, requiresNetwork: true }),
         buildAction('Skip', () => {
             deps.skipToNext();
-        }, { isPrimary: true, requiresNetwork: false }),
+        }, { isPrimary: false, requiresNetwork: false }),
     ],
     content: (deps) => [
         buildAction('Edit Channels', () => {

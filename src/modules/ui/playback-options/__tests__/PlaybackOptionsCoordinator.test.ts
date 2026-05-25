@@ -260,6 +260,52 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(viewModel.audio.emptyMessage).toBe('No alternate audio tracks available');
     });
 
+    it('persists subtitle mode off when the Off option is selected', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+
+        const player = createPlayer([makeTextTrack({ id: 'sub-1' })]);
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+        });
+
+        const viewModel = getViewModel(coordinator);
+        const off = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-off');
+
+        off?.onSelect?.();
+        await flushPlaybackOptionsPromises();
+
+        expect(player.setSubtitleTrack).toHaveBeenCalledWith(null);
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE)).toBe('off');
+    });
+
+    it('selecting a subtitle from Off mode reenables standard subtitle handling', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'off');
+
+        const player = createPlayer([
+            makeTextTrack({ id: 'sub-1', fetchableViaKey: true, key: '/library/streams/1' }),
+        ]);
+        const coordinator = new PlaybackOptionsCoordinator({
+            playbackOptionsModalId: 'playback-options',
+            getNavigation: (): null => null,
+            getPlaybackOptionsModal: (): null => null,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getCurrentProgram: (): ScheduledProgram | null => makeProgram(),
+        });
+
+        const viewModel = getViewModel(coordinator);
+        const option = viewModel.subtitles.options.find((o) => o.id === 'playback-subtitle-sub-1');
+
+        option?.onSelect?.();
+        await flushPlaybackOptionsPromises();
+
+        expect(player.setSubtitleTrack).toHaveBeenCalledWith('sub-1');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE)).toBe('standard');
+    });
+
     it('shows burn-in tracks only in Full mode', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
@@ -1049,7 +1095,7 @@ describe('PlaybackOptionsCoordinator', () => {
         expect(notifyToast).not.toHaveBeenCalledWith({ message: 'Failed to load burn-in subtitles', type: 'warning' });
     });
 
-    it('does not persist subtitle preference (no per-item or global storage)', async (): Promise<void> => {
+    it('does not persist subtitle track preference (no per-item or global storage)', async (): Promise<void> => {
         const player = createPlayer([
             makeTextTrack({ id: 'sub-99', fetchableViaKey: true, key: '/library/streams/99' }),
         ]);

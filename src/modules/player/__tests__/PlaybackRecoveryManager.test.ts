@@ -200,50 +200,122 @@ describe('PlaybackRecoveryManager', () => {
         expect(scheduler.resumeSyncTimer).toHaveBeenCalled();
     });
 
-    it('skips on failures until tripped, then pauses and surfaces error', () => {
+    it('pauses scheduler sync and surfaces playback errors without auto-skipping', () => {
         const { manager, scheduler, deps } = setup();
         const handleGlobalError = deps.handleGlobalError as jest.Mock;
         const appendIssueDiagnostic = deps.appendIssueDiagnostic as jest.Mock;
 
         manager.handlePlaybackFailure('context', new Error('boom'));
-        manager.handlePlaybackFailure('context', new Error('boom'));
 
-        expect(scheduler.skipToNext).toHaveBeenCalledTimes(2);
-        expect(scheduler.pauseSyncTimer).not.toHaveBeenCalled();
+        expect(scheduler.skipToNext).not.toHaveBeenCalled();
+        expect(scheduler.pauseSyncTimer).toHaveBeenCalledTimes(1);
         expect(appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'playbackRecovery.skipToNext',
+            'playbackRecovery.failureGuardTripped',
             expect.objectContaining({
-                context: 'context',
+                source: 'context',
                 failureCount: 1,
             })
         );
-        expect(appendIssueDiagnostic).toHaveBeenCalledWith(
-            'QA-003b',
-            'playbackRecovery.skipToNext',
-            expect.objectContaining({
-                context: 'context',
-                failureCount: 2,
-            })
-        );
-
-        manager.handlePlaybackFailure('context', new Error('boom'));
-
-        expect(scheduler.pauseSyncTimer).toHaveBeenCalled();
         expect(handleGlobalError).toHaveBeenCalledWith(
             expect.objectContaining({
                 code: AppErrorCode.PLAYBACK_FAILED,
-                message: 'Playback failed repeatedly',
+                message: 'Playback failed',
                 recoverable: true,
                 context: expect.objectContaining({
                     source: 'context',
-                    failureCount: 3,
+                    failureCount: 1,
                     safeError: expect.any(Object),
                     itemKey: 'item-1',
                     channelId: 'ch1',
                     streamDescriptor: expect.objectContaining({
                         protocol: 'direct',
                     }),
+                }),
+            }),
+            'playback'
+        );
+
+        manager.handlePlaybackFailure('context', new Error('boom again'));
+
+        expect(scheduler.skipToNext).not.toHaveBeenCalled();
+        expect(scheduler.pauseSyncTimer).toHaveBeenCalledTimes(1);
+        expect(handleGlobalError).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces playback errors once per scheduled occurrence while still avoiding automatic skip', () => {
+        let currentProgram = makeProgram();
+        const { manager, scheduler, deps } = setup({
+            getCurrentProgramForPlayback: () => currentProgram,
+        });
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+        const appendIssueDiagnostic = deps.appendIssueDiagnostic as jest.Mock;
+
+        manager.handlePlaybackFailure('context', new Error('boom'));
+        manager.handlePlaybackFailure('context', new Error('boom again'));
+
+        currentProgram = makeProgram({
+            item: {
+                ...currentProgram.item,
+                ratingKey: 'item-2',
+            } as ScheduledProgram['item'],
+        });
+        manager.handlePlaybackFailure('context', new Error('boom on item 2'));
+
+        expect(scheduler.skipToNext).not.toHaveBeenCalled();
+        expect(scheduler.pauseSyncTimer).toHaveBeenCalledTimes(2);
+        expect(handleGlobalError).toHaveBeenCalledTimes(2);
+        expect(appendIssueDiagnostic).toHaveBeenCalledTimes(2);
+        expect(handleGlobalError).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                context: expect.objectContaining({
+                    itemKey: 'item-1',
+                    failureCount: 1,
+                }),
+            }),
+            'playback'
+        );
+        expect(handleGlobalError).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                context: expect.objectContaining({
+                    itemKey: 'item-2',
+                    failureCount: 2,
+                }),
+            }),
+            'playback'
+        );
+    });
+
+    it('does not suppress a later scheduled occurrence with the same item key', () => {
+        let currentProgram = makeProgram();
+        const { manager, scheduler, deps } = setup({
+            getCurrentProgramForPlayback: () => currentProgram,
+        });
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+
+        manager.handlePlaybackFailure('context', new Error('first occurrence failed'));
+        manager.handlePlaybackFailure('context', new Error('duplicate event'));
+
+        currentProgram = makeProgram({
+            item: currentProgram.item,
+            scheduledStartTime: 60_000,
+            scheduledEndTime: 120_000,
+            scheduleIndex: 1,
+            loopNumber: 0,
+        });
+        manager.handlePlaybackFailure('context', new Error('second occurrence failed'));
+
+        expect(scheduler.skipToNext).not.toHaveBeenCalled();
+        expect(scheduler.pauseSyncTimer).toHaveBeenCalledTimes(2);
+        expect(handleGlobalError).toHaveBeenCalledTimes(2);
+        expect(handleGlobalError).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                context: expect.objectContaining({
+                    itemKey: 'item-1',
+                    failureCount: 2,
                 }),
             }),
             'playback'
@@ -303,14 +375,6 @@ describe('PlaybackRecoveryManager', () => {
         });
         const handleGlobalError = deps.handleGlobalError as jest.Mock;
 
-        manager.handlePlaybackFailure('video-player?X-Plex-Token=secret-token', {
-            code: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
-            message: 'Media format not supported: http://plex.example/video.mkv?X-Plex-Token=secret-token',
-        });
-        manager.handlePlaybackFailure('video-player?X-Plex-Token=secret-token', {
-            code: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
-            message: 'Media format not supported: http://plex.example/video.mkv?X-Plex-Token=secret-token',
-        });
         manager.handlePlaybackFailure('video-player?X-Plex-Token=secret-token', {
             code: AppErrorCode.PLAYBACK_FORMAT_UNSUPPORTED,
             message: 'Media format not supported: http://plex.example/video.mkv?X-Plex-Token=secret-token',

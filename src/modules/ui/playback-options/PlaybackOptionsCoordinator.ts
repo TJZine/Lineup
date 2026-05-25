@@ -300,7 +300,9 @@ export class PlaybackOptionsCoordinator {
     ): Promise<void> {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
-        if (trackId) {
+        if (trackId === null) {
+            this.subtitlePreferencesStore.writeSubtitleMode('off');
+        } else {
             const mode = this.subtitlePreferencesStore.readSubtitleModeAndClean('full');
             if (mode === 'off') {
                 // Selecting a subtitle should implicitly enable subtitle handling.

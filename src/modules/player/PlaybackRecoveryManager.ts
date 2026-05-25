@@ -127,12 +127,9 @@ export class PlaybackRecoveryManager {
     private readonly _subtitlePreferencesStore: SubtitlePreferencesStore;
     private readonly _descriptorBuilder: PlaybackStreamDescriptorBuilder;
     private readonly _reloadController: PlaybackReloadController;
-    // Playback fast-fail guard: prevents tight skip loops when all items fail to play.
-    private _playbackFailureWindowStartMs: number = 0;
+    // Playback failure guard: avoids repeated error surfacing for the same item until playback succeeds or is retried.
     private _playbackFailureCount: number = 0;
-    private _playbackFailureTripped: boolean = false;
-    private _playbackFailureWindowMs: number = 2000;
-    private _playbackFailureTripCount: number = 3;
+    private _playbackFailureSurfacedForGuardKey: string | null = null;
 
     // Prevent runaway recovery loops
     private _directFallbackAttemptedForItemKey: Set<string> = new Set();
@@ -189,6 +186,20 @@ export class PlaybackRecoveryManager {
         if (!program) return null;
         const itemKey = program.item.ratingKey;
         return typeof itemKey === 'string' && itemKey.length > 0 ? itemKey : null;
+    }
+
+    private _getPlaybackFailureGuardKey(): string {
+        const program = this.deps.getCurrentProgramForPlayback();
+        if (!program) {
+            return `item:${this._getCurrentItemKey() ?? '<unknown>'}`;
+        }
+        const itemKey = program.item.ratingKey || '<unknown>';
+        return [
+            `item:${itemKey}`,
+            `start:${program.scheduledStartTime}`,
+            `index:${program.scheduleIndex}`,
+            `loop:${program.loopNumber}`,
+        ].join('|');
     }
 
     private _buildPlaybackFailureContext(context: string, error: unknown): Record<string, unknown> {
@@ -299,9 +310,8 @@ export class PlaybackRecoveryManager {
     }
 
     resetPlaybackFailureGuard(): void {
-        this._playbackFailureWindowStartMs = 0;
         this._playbackFailureCount = 0;
-        this._playbackFailureTripped = false;
+        this._playbackFailureSurfacedForGuardKey = null;
         const scheduler = this.deps.getScheduler();
         if (scheduler) {
             scheduler.resumeSyncTimer();
@@ -314,60 +324,32 @@ export class PlaybackRecoveryManager {
     }
 
     handlePlaybackFailure(context: string, error: unknown): void {
-        if (this._playbackFailureTripped) {
+        const guardKey = this._getPlaybackFailureGuardKey();
+        if (this._playbackFailureSurfacedForGuardKey === guardKey) {
             return;
         }
 
         const scheduler = this.deps.getScheduler();
-        const now = Date.now();
-
-        // Reset window if stale
-        if (
-            this._playbackFailureWindowStartMs === 0 ||
-            now - this._playbackFailureWindowStartMs > this._playbackFailureWindowMs
-        ) {
-            this._playbackFailureWindowStartMs = now;
-            this._playbackFailureCount = 0;
-        }
-
         this._playbackFailureCount++;
-
-        // Trip guard: stop auto-skipping and surface the error to the user
-        if (this._playbackFailureCount >= this._playbackFailureTripCount) {
-            this._playbackFailureTripped = true;
-            if (scheduler) {
-                scheduler.pauseSyncTimer();
-            }
-            const failureContext = this._buildPlaybackFailureContext(context, error);
-            this.deps.appendIssueDiagnostic(
-                QA_003B_ISSUE_ID,
-                'playbackRecovery.failureGuardTripped',
-                failureContext
-            );
-            this.deps.handleGlobalError(
-                {
-                    code: AppErrorCode.PLAYBACK_FAILED,
-                    message: 'Playback failed repeatedly',
-                    recoverable: true,
-                    context: failureContext,
-                },
-                'playback'
-            );
-            return;
-        }
-
-        // Single/rare failure: skip as before
+        this._playbackFailureSurfacedForGuardKey = guardKey;
         if (scheduler) {
-            const schedulerState = scheduler.getState();
-            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'playbackRecovery.skipToNext', {
-                context: redactSensitiveTokens(context),
-                itemKey: this._getCurrentItemKey(),
-                channelId: schedulerState.channelId ?? null,
-                failureCount: this._playbackFailureCount,
-                safeError: summarizeErrorForLog(error),
-            });
-            scheduler.skipToNext();
+            scheduler.pauseSyncTimer();
         }
+        const failureContext = this._buildPlaybackFailureContext(context, error);
+        this.deps.appendIssueDiagnostic(
+            QA_003B_ISSUE_ID,
+            'playbackRecovery.failureGuardTripped',
+            failureContext
+        );
+        this.deps.handleGlobalError(
+            {
+                code: AppErrorCode.PLAYBACK_FAILED,
+                message: 'Playback failed',
+                recoverable: true,
+                context: failureContext,
+            },
+            'playback'
+        );
     }
 
     tryHandleStreamResolverAuthError(error: unknown): boolean {

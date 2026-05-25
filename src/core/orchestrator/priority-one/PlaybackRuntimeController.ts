@@ -126,6 +126,11 @@ export class PlaybackRuntimeController {
     }
 
     public handlePlaybackError(error: PlaybackError): void {
+        const playbackRecovery = this._deps.playback.playbackRecovery;
+        if (playbackRecovery.isStreamRecoveryInProgress()) {
+            return;
+        }
+
         if (error.recoverable) {
             this._deps.uiRuntime.handleGlobalError(
                 {
@@ -138,7 +143,6 @@ export class PlaybackRuntimeController {
             return;
         }
 
-        const playbackRecovery = this._deps.playback.playbackRecovery;
         if (playbackRecovery.handlePlaybackFailure) {
             try {
                 playbackRecovery.handlePlaybackFailure('video-player', error);

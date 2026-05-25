@@ -15,6 +15,7 @@ export interface RecoveryActionDeps {
     goToChannelEdit: () => void; // must internally no-op if navigation missing
     goToSettings: () => void; // must internally no-op if navigation missing
     retryStart: () => void; // MUST call start() and catch (no unhandled rejection)
+    retryPlayback: () => void; // must retry the current loaded program and internally no-op if unavailable
     exitApp: () => void; // MUST call shutdown() and catch (no unhandled rejection)
     skipToNext: () => void; // must internally no-op if scheduler missing
 }

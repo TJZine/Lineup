@@ -128,6 +128,32 @@ describe('PlaybackRuntimeController', () => {
         expect(callOrder).toEqual([]);
     });
 
+    it('ignores player errors while stream recovery is in progress', () => {
+        const error: PlaybackError = {
+            code: AppErrorCode.PLAYBACK_DECODE_ERROR,
+            message: 'fatal during stream recovery',
+            recoverable: false,
+            retryCount: 0,
+        };
+        const handlePlaybackFailure = jest.fn();
+        const { controller, deps } = makeSetup((callOrder) => ({
+            playback: {
+                ...makePlaybackMocks(callOrder),
+                playbackRecovery: {
+                    isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(true),
+                    handlePlaybackFailure,
+                },
+            },
+        }));
+
+        controller.handlePlaybackError(error);
+
+        expect(handlePlaybackFailure).not.toHaveBeenCalled();
+        expect(deps.uiRuntime.handleGlobalError).not.toHaveBeenCalled();
+        expect(deps.playback.stopTranscodeSessionById).not.toHaveBeenCalled();
+        expect(deps.playback.skipToNextProgram).not.toHaveBeenCalled();
+    });
+
     it('stops the active transcode session before skipping to next on ended when recovery is idle', () => {
         const { controller, deps, callOrder } = makeSetup();
 

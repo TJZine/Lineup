@@ -1391,6 +1391,26 @@ export class AppOrchestrator {
                     );
                 });
             },
+            retryPlayback: (): void => {
+                try {
+                    const scheduler = this._scheduler;
+                    const schedulerState = scheduler?.getState();
+                    const currentProgram = this._currentProgramForPlayback ?? schedulerState?.currentProgram ?? null;
+                    if (!scheduler || !schedulerState?.isActive || !currentProgram) {
+                        throw new Error(`Cannot retry playback without ${scheduler ? 'an active program' : 'an active scheduler'}`);
+                    }
+                    this._playbackRecovery?.resetPlaybackFailureGuard();
+                    scheduler.jumpToProgram(currentProgram);
+                } catch (error: unknown) {
+                    this._warnRecoverableRuntimeError('orchestrator.recovery.retryPlayback', 'Retry playback failed', error);
+                    this.handleGlobalError({
+                        code: AppErrorCode.PLAYBACK_FAILED,
+                        message: 'Playback retry failed',
+                        recoverable: true,
+                        context: { safeError: summarizeErrorForLog(error) },
+                    }, 'playback');
+                }
+            },
             exitApp: (): void => {
                 this.shutdown().catch((error: unknown) => {
                     this._warnRecoverableRuntimeError(
