@@ -228,11 +228,25 @@ export function isSubtitleBurnConfirmedByServerDecision(
         return false;
     }
 
+    return getSubtitleStreamServerDecision(
+        serverDecision,
+        request.subtitleStreamId
+    ) === 'burn';
+}
+
+export function getSubtitleStreamServerDecision(
+    serverDecision: NonNullable<StreamDecision['serverDecision']> | null | undefined,
+    subtitleStreamId: string | null | undefined
+): string | null {
+    if (!serverDecision || !subtitleStreamId) {
+        return null;
+    }
+
     const selectedSubtitleDecision = serverDecision.streams?.find((stream) =>
         stream.streamType === 3 &&
-        stream.id === request.subtitleStreamId
+        stream.id === subtitleStreamId
     );
-    return selectedSubtitleDecision?.decision === 'burn';
+    return selectedSubtitleDecision?.decision ?? null;
 }
 
 export function applyServerDecisionToStreamDecision(

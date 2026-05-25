@@ -31,6 +31,7 @@ import {
     summarizePlaybackFailureDecision,
     summarizePlaybackFailureDescriptor,
 } from './PlaybackFailureDiagnostics';
+import { logPlaybackRecoveryError } from '../debug/PlayerConsoleLogger';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -219,11 +220,19 @@ export class PlaybackRecoveryManager {
             scheduler.pauseSyncTimer();
         }
         const failureContext = this._buildPlaybackFailureContext(context, error);
-        this.deps.appendIssueDiagnostic(
-            QA_003B_ISSUE_ID,
-            'playbackRecovery.failureGuardTripped',
-            failureContext
-        );
+        try {
+            this.deps.appendIssueDiagnostic(
+                QA_003B_ISSUE_ID,
+                'playbackRecovery.failureGuardTripped',
+                failureContext
+            );
+        } catch (diagnosticError: unknown) {
+            logPlaybackRecoveryError(
+                'playbackRecovery.failureGuardDiagnosticFailed',
+                { source: context },
+                diagnosticError
+            );
+        }
         this.deps.handleGlobalError(
             {
                 code: AppErrorCode.PLAYBACK_FAILED,

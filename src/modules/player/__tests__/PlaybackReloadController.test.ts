@@ -800,4 +800,44 @@ describe('PlaybackReloadController', () => {
 
         expect(result).toEqual({ outcome: 'failed' });
     });
+
+    it('returns failed when the failure hook throws', async () => {
+        const hookError = new Error('failure hook failed');
+        const context = makeContext({
+            resolver: {
+                resolveStream: jest.fn().mockRejectedValue(new Error('reload failed')),
+            } as unknown as IPlexStreamResolver,
+        });
+        expectPlaybackRecoveryStart('transcodeFallback.start');
+        expectPlaybackRecoveryFailed('transcodeFallback.failed');
+        expectPlaybackRecoveryFailed('transcodeFallback.failed.onFailureFailed');
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => context.player,
+            getStreamResolver: (): IPlexStreamResolver => context.resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn(),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'transcodeFallback.start',
+            abortedEvent: 'transcodeFallback.aborted',
+            failedEvent: 'transcodeFallback.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: false,
+            }),
+            onFailure: () => {
+                throw hookError;
+            },
+        });
+
+        expect(result).toEqual({ outcome: 'failed' });
+    });
 });

@@ -2269,11 +2269,18 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
-            mockPlexStreamResolver.resolveStream.mockResolvedValueOnce({
-                playbackUrl: 'http://test/stream.mkv',
-                protocol: 'direct',
-                container: 'mkv',
-            });
+            mockPlexStreamResolver.resolveStream
+                .mockResolvedValueOnce({
+                    playbackUrl: 'http://test/stream.mkv',
+                    protocol: 'direct',
+                    container: 'mkv',
+                })
+                .mockResolvedValueOnce({
+                    playbackUrl: 'http://test/transcoded.m3u8',
+                    protocol: 'hls',
+                    container: 'ts',
+                    mimeType: 'application/x-mpegURL',
+                });
 
             await orchestrator.start();
 
@@ -2315,13 +2322,20 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             await new Promise((resolve) => setImmediate(resolve));
 
             expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(2);
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
+            expect(mockPlexStreamResolver.resolveStream).toHaveBeenNthCalledWith(
+                2,
                 expect.objectContaining({
                     itemKey: 'item-1',
                     directPlay: false,
                 })
             );
             expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(2);
+            expect(mockVideoPlayer.loadStream).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    url: 'http://test/transcoded.m3u8',
+                    protocol: 'hls',
+                })
+            );
             expect(mockVideoPlayer.play).toHaveBeenCalledTimes(2);
         });
 

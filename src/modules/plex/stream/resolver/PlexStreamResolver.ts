@@ -184,18 +184,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             decision.source.hdr = hdrLabel;
         }
 
-        if (debugEnabled) {
-            logPlexWarning('Stream decision:', {
-                itemKey: request.itemKey,
-                mode: decision.isTranscoding ? 'transcode' : 'direct_play',
-                protocol: decision.protocol,
-                subtitleDelivery: decision.subtitleDelivery,
-                hdr10Fallback: decision.hdr10Fallback,
-                subtitleBurnIn: decision.subtitleBurnIn,
-                reasonCount: decision.directPlay?.reasons.length ?? 0,
-            });
-        }
-
         // Ask PMS why it chose to transcode vs direct-stream for debug surfaces, and always
         // confirm burn-in requests before player subtitle state assumes PMS rendered them.
         const shouldFetchServerDecision =
@@ -218,6 +206,19 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                     });
                 }
             }
+        }
+
+        if (debugEnabled) {
+            logPlexWarning('Stream decision:', {
+                itemKey: request.itemKey,
+                mode: decision.isTranscoding ? 'transcode' : 'direct_play',
+                protocol: decision.protocol,
+                subtitleDelivery: decision.subtitleDelivery,
+                hdr10Fallback: decision.hdr10Fallback,
+                subtitleBurnIn: decision.subtitleBurnIn,
+                serverDecision: decision.serverDecision ?? null,
+                reasonCount: decision.directPlay?.reasons.length ?? 0,
+            });
         }
 
         return decision;

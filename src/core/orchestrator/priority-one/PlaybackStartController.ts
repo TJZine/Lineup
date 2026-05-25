@@ -92,7 +92,24 @@ export class PlaybackStartController {
             }
 
             this._deps.logPlaybackStartFailure(error);
-            if (await this._deps.attemptTranscodeFallbackForCurrentProgram('programStart')) {
+            let fallbackApplied = false;
+            try {
+                fallbackApplied = await this._deps.attemptTranscodeFallbackForCurrentProgram('programStart');
+            } catch {
+                this._deps.handlePlaybackFailure('programStart', error);
+                abort();
+                return;
+            }
+
+            if (
+                isStale() ||
+                !this._deps.isProgramStillCurrent(programAtStart)
+            ) {
+                abort();
+                return;
+            }
+
+            if (fallbackApplied) {
                 abort();
                 return;
             }

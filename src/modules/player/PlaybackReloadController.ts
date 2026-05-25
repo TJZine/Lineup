@@ -249,12 +249,24 @@ export class PlaybackReloadController {
                 },
                 error
             );
-            config.onFailure?.({
-                ...context,
-                error,
-                failureStage,
-                priorStreamLikelyUnloaded: teardownDescriptor !== null,
-            });
+            try {
+                config.onFailure?.({
+                    ...context,
+                    error,
+                    failureStage,
+                    priorStreamLikelyUnloaded: teardownDescriptor !== null,
+                });
+            } catch (hookError: unknown) {
+                logPlaybackRecoveryError(
+                    `${config.failedEvent}.onFailureFailed`,
+                    {
+                        reason: context.safeReason,
+                        outcome: 'failed',
+                        failureStage,
+                    },
+                    hookError
+                );
+            }
             return { outcome: 'failed' };
         } finally {
             this._streamRecoveryInProgress = false;

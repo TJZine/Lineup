@@ -1,5 +1,6 @@
 import {
     applyServerDecisionToStreamDecision,
+    getSubtitleStreamServerDecision,
     isSubtitleBurnConfirmedByServerDecision,
     UniversalTranscodeDecisionClient,
 } from '../diagnostics/UniversalTranscodeDecisionClient';
@@ -175,6 +176,24 @@ describe('UniversalTranscodeDecisionClient', () => {
             fetchedAt: 1,
             streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
         })).toBe(true);
+    });
+
+    it('returns the selected subtitle stream server decision only for subtitle streams', () => {
+        expect(getSubtitleStreamServerDecision(null, 'sub-1')).toBeNull();
+        expect(getSubtitleStreamServerDecision({
+            fetchedAt: 1,
+            streams: [
+                { id: 'sub-1', streamType: 2, decision: 'copy' },
+                { id: 'sub-2', streamType: 3, decision: 'burn' },
+            ],
+        }, 'sub-1')).toBeNull();
+        expect(getSubtitleStreamServerDecision({
+            fetchedAt: 1,
+            streams: [
+                { id: 'sub-1', streamType: 2, decision: 'copy' },
+                { id: 'sub-1', streamType: 3, decision: 'burn' },
+            ],
+        }, 'sub-1')).toBe('burn');
     });
 
     it('applies server decision evidence to subtitle burn-in confirmation', () => {

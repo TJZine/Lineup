@@ -143,7 +143,17 @@ export class PlaybackRuntimeController {
             return;
         }
 
-        void this._handleNonRecoverablePlaybackError(error);
+        this._handleNonRecoverablePlaybackError(error).catch((handlerError: unknown) => {
+            this._reportRecoverableAsyncFailureSafely(
+                'orchestrator.playbackRuntime.handleNonRecoverablePlaybackError',
+                'Non-recoverable playback error handler rejected',
+                handlerError,
+                {
+                    context: 'video-player',
+                    playbackError: summarizeErrorForLog(error),
+                }
+            );
+        });
     }
 
     private async _handleNonRecoverablePlaybackError(error: PlaybackError): Promise<void> {
@@ -154,7 +164,7 @@ export class PlaybackRuntimeController {
                 return;
             }
         } catch (fallbackError: unknown) {
-            this._deps.reportRecoverableAsyncFailure(
+            this._reportRecoverableAsyncFailureSafely(
                 'orchestrator.playbackRecovery.attemptTranscodeFallbackForCurrentProgram',
                 'Playback transcode fallback handler threw',
                 fallbackError,
@@ -170,7 +180,7 @@ export class PlaybackRuntimeController {
                 playbackRecovery.handlePlaybackFailure('video-player', error);
                 return;
             } catch (handlerError: unknown) {
-                this._deps.reportRecoverableAsyncFailure(
+                this._reportRecoverableAsyncFailureSafely(
                     'orchestrator.playbackRecovery.handlePlaybackFailure',
                     'Playback recovery failure handler threw',
                     handlerError,
@@ -191,6 +201,23 @@ export class PlaybackRuntimeController {
             },
             'video-player'
         );
+    }
+
+    private _reportRecoverableAsyncFailureSafely(
+        event: string,
+        message: string,
+        error: unknown,
+        data?: Record<string, unknown>
+    ): void {
+        try {
+            this._deps.reportRecoverableAsyncFailure(event, message, error, data);
+        } catch (reporterError: unknown) {
+            console.warn('[PlaybackRuntimeController] recoverable failure reporter threw:', {
+                event,
+                reporterError: summarizeErrorForLog(reporterError),
+                originalError: summarizeErrorForLog(error),
+            });
+        }
     }
 
     public handlePlayerStateChange(state: PlaybackState): void {

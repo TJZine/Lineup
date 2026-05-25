@@ -1,4 +1,5 @@
 import type { StreamDecision } from '../plex/stream';
+import { getSubtitleStreamServerDecision } from '../plex/stream/diagnostics/UniversalTranscodeDecisionClient';
 import type { StreamDescriptor } from './types';
 
 type PlaybackFailureDescriptorSummary = {
@@ -157,12 +158,5 @@ export function summarizePlaybackFailureDecision(
 
 function getSelectedSubtitleServerDecision(decision: StreamDecision): string | null {
     const subtitleStreamId = decision.subtitleBurnIn?.subtitleStreamId ?? decision.selectedSubtitleStream?.id ?? null;
-    if (!subtitleStreamId) {
-        return null;
-    }
-    const streamDecision = decision.serverDecision?.streams?.find((stream) =>
-        stream.streamType === 3 &&
-        stream.id === subtitleStreamId
-    );
-    return streamDecision?.decision ?? null;
+    return getSubtitleStreamServerDecision(decision.serverDecision, subtitleStreamId);
 }

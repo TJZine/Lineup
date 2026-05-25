@@ -243,6 +243,34 @@ describe('PlaybackRecoveryManager', () => {
         expect(handleGlobalError).toHaveBeenCalledTimes(1);
     });
 
+    it('surfaces playback errors even when diagnostics append fails', () => {
+        expectPlaybackRecoveryError({
+            event: 'playbackRecovery.failureGuardDiagnosticFailed',
+            source: 'context',
+        });
+        const diagnosticError = new Error('diagnostics unavailable');
+        const { manager, scheduler, deps } = setup({
+            appendIssueDiagnostic: jest.fn(() => {
+                throw diagnosticError;
+            }),
+        });
+        const handleGlobalError = deps.handleGlobalError as jest.Mock;
+
+        manager.handlePlaybackFailure('context', new Error('boom'));
+
+        expect(scheduler.pauseSyncTimer).toHaveBeenCalledTimes(1);
+        expect(handleGlobalError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: AppErrorCode.PLAYBACK_FAILED,
+                context: expect.objectContaining({
+                    source: 'context',
+                    failureCount: 1,
+                }),
+            }),
+            'playback'
+        );
+    });
+
     it('surfaces playback errors once per scheduled occurrence while still avoiding automatic skip', () => {
         let currentProgram = makeProgram();
         const { manager, scheduler, deps } = setup({
