@@ -89,6 +89,7 @@ If **Subtitle Mode = Full (Burn-in, default)**, Lineup triggers a best-effort bu
 
 - `PlaybackRecoveryManager.attemptBurnInSubtitleForCurrentProgram(trackId, reason)`
 - `PlexStreamResolver.resolveStream({ directPlay: false, subtitleMode: 'burn', subtitleStreamId })`
+- Burn-in requests fetch PMS `/video/:/transcode/universal/decision` evidence even when debug logging is off. Lineup only treats a subtitle as already burned in when PMS reports the selected subtitle stream with `decision="burn"`.
 
 ## The “embedded SRT doesn’t work” cluster
 

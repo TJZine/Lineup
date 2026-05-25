@@ -1,5 +1,8 @@
-import { UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
-import { isSubtitleBurnConfirmedByServerDecision } from '../diagnostics/UniversalTranscodeDecisionClient';
+import {
+    applyServerDecisionToStreamDecision,
+    isSubtitleBurnConfirmedByServerDecision,
+    UniversalTranscodeDecisionClient,
+} from '../diagnostics/UniversalTranscodeDecisionClient';
 import type { HlsOptions, StreamDecision } from '../contracts/types';
 
 function createResponse(overrides: Partial<Response> & { bodyText?: string } = {}): Response {
@@ -172,6 +175,50 @@ describe('UniversalTranscodeDecisionClient', () => {
             fetchedAt: 1,
             streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
         })).toBe(true);
+    });
+
+    it('applies server decision evidence to subtitle burn-in confirmation', () => {
+        const decision = {
+            playbackUrl: 'http://plex.local/stream.m3u8',
+            protocol: 'hls',
+            isDirectPlay: false,
+            isTranscoding: true,
+            container: 'mpegts',
+            videoCodec: 'h264',
+            audioCodec: 'aac',
+            subtitleDelivery: 'burn',
+            sessionId: 'sess-1',
+            mediaIndex: 0,
+            partIndex: 0,
+            partKey: '/library/parts/1/1/file.mkv',
+            selectedAudioStream: null,
+            selectedSubtitleStream: null,
+            width: 1920,
+            height: 1080,
+            bitrate: 8000,
+            subtitleBurnIn: {
+                requested: true,
+                confirmed: false,
+                reason: 'requested',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            },
+            transcodeRequest: {
+                sessionId: 'sess-1',
+                maxBitrate: 8000,
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            },
+        } as StreamDecision;
+
+        applyServerDecisionToStreamDecision(decision, {
+            fetchedAt: 1,
+            videoDecision: 'copy',
+            streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
+        });
+
+        expect(decision.serverDecision?.videoDecision).toBe('copy');
+        expect(decision.subtitleBurnIn?.confirmed).toBe(true);
     });
 
     it('rejects non-ok decision responses', async () => {

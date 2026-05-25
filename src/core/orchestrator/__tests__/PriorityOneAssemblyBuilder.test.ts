@@ -130,6 +130,7 @@ describe('createPriorityOneRuntimeAssembly', () => {
                     resetPlaybackFailureGuard: jest.fn(),
                     tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
                     tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
+                    attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
                     handlePlaybackFailure,
                     isStreamRecoveryInProgress: jest.fn().mockReturnValue(false),
                 },
@@ -195,6 +196,7 @@ describe('createPriorityOneRuntimeAssembly', () => {
             recoverable: false,
             retryCount: 0,
         });
+        await flushPromises();
         priorityOne.overlayRuntimePolicyController.toggleNowPlayingInfoOverlay();
         priorityOne.eventBinder.dispose();
 

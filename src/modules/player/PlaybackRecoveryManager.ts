@@ -22,10 +22,15 @@ import { summarizeErrorForLog } from '../../utils/errors';
 import {
     PlaybackReloadController,
     type RecoveryAttemptResult,
+    type RecoveryReloadFailureContext,
     type RecoveryReloadContext,
     type RecoveryReloadIgnoredReason,
 } from './PlaybackReloadController';
 import { PlaybackStreamDescriptorBuilder } from './PlaybackStreamDescriptorBuilder';
+import {
+    summarizePlaybackFailureDecision,
+    summarizePlaybackFailureDescriptor,
+} from './PlaybackFailureDiagnostics';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -59,56 +64,6 @@ type PreparedBurnInSubtitleRecovery = {
     context: RecoveryReloadContext;
     attemptKey: string;
     recordAttemptBeforeReload: boolean;
-};
-
-type PlaybackFailureDescriptorSummary = {
-    protocol: StreamDescriptor['protocol'];
-    mimeType: string;
-    isLive: boolean;
-    durationMs: number;
-    audioCodecs: string[];
-    subtitleFormats: string[];
-};
-
-type PlaybackFailureDecisionSummary = {
-    protocol: StreamDecision['protocol'];
-    isDirectPlay: boolean;
-    isTranscoding: boolean;
-    container: string;
-    videoCodec: string;
-    audioCodec: string;
-    subtitleDelivery: StreamDecision['subtitleDelivery'];
-    width: number;
-    height: number;
-    bitrate: number;
-    directPlay: {
-        allowed: boolean;
-        reasons: string[];
-    } | null;
-    source: {
-        container: string;
-        videoCodec: string;
-        audioCodec: string;
-        width: number;
-        height: number;
-        bitrate: number;
-        hdr?: string;
-        dynamicRange?: string;
-        doviPresent?: boolean;
-        doviProfile?: string;
-    } | null;
-    selectedAudio: {
-        codec: string | null;
-        channels: number | null;
-        language: string | null;
-        default: boolean | null;
-    } | null;
-    selectedSubtitle: {
-        codec: string | null;
-        format: string | null;
-        language: string | null;
-        default: boolean | null;
-    } | null;
 };
 
 export type AudioTrackReloadResult = RecoveryAttemptResult<'reloaded', RecoveryReloadIgnoredReason>;
@@ -210,80 +165,8 @@ export class PlaybackRecoveryManager {
             itemKey: this._getCurrentItemKey(),
             channelId: schedulerState?.channelId ?? null,
             safeError: summarizeErrorForLog(error),
-            streamDescriptor: this._summarizeCurrentStreamDescriptor(),
-            streamDecision: this._summarizeCurrentStreamDecision(),
-        };
-    }
-
-    private _summarizeCurrentStreamDescriptor(): PlaybackFailureDescriptorSummary | null {
-        const descriptor = this.deps.getCurrentStreamDescriptor();
-        if (!descriptor) {
-            return null;
-        }
-
-        return {
-            protocol: descriptor.protocol,
-            mimeType: descriptor.mimeType,
-            isLive: descriptor.isLive,
-            durationMs: descriptor.durationMs,
-            audioCodecs: [...new Set((descriptor.audioTracks ?? []).map((track) => track.codec).filter(Boolean))],
-            subtitleFormats: [...new Set((descriptor.subtitleTracks ?? []).map((track) => track.format).filter(Boolean))],
-        };
-    }
-
-    private _summarizeCurrentStreamDecision(): PlaybackFailureDecisionSummary | null {
-        const decision = this.deps.getCurrentStreamDecision?.() ?? null;
-        if (!decision) {
-            return null;
-        }
-
-        return {
-            protocol: decision.protocol,
-            isDirectPlay: decision.isDirectPlay,
-            isTranscoding: decision.isTranscoding,
-            container: decision.container,
-            videoCodec: decision.videoCodec,
-            audioCodec: decision.audioCodec,
-            subtitleDelivery: decision.subtitleDelivery,
-            width: decision.width,
-            height: decision.height,
-            bitrate: decision.bitrate,
-            directPlay: decision.directPlay
-                ? {
-                    allowed: decision.directPlay.allowed,
-                    reasons: [...decision.directPlay.reasons],
-                }
-                : null,
-            source: decision.source
-                ? {
-                    container: decision.source.container,
-                    videoCodec: decision.source.videoCodec,
-                    audioCodec: decision.source.audioCodec,
-                    width: decision.source.width,
-                    height: decision.source.height,
-                    bitrate: decision.source.bitrate,
-                    ...(decision.source.hdr !== undefined ? { hdr: decision.source.hdr } : {}),
-                    ...(decision.source.dynamicRange !== undefined ? { dynamicRange: decision.source.dynamicRange } : {}),
-                    ...(decision.source.doviPresent !== undefined ? { doviPresent: decision.source.doviPresent } : {}),
-                    ...(decision.source.doviProfile !== undefined ? { doviProfile: decision.source.doviProfile } : {}),
-                }
-                : null,
-            selectedAudio: decision.selectedAudioStream
-                ? {
-                    codec: decision.selectedAudioStream.codec ?? null,
-                    channels: decision.selectedAudioStream.channels ?? null,
-                    language: decision.selectedAudioStream.language ?? null,
-                    default: decision.selectedAudioStream.default ?? null,
-                }
-                : null,
-            selectedSubtitle: decision.selectedSubtitleStream
-                ? {
-                    codec: decision.selectedSubtitleStream.codec ?? null,
-                    format: decision.selectedSubtitleStream.format ?? null,
-                    language: decision.selectedSubtitleStream.language ?? null,
-                    default: decision.selectedSubtitleStream.default ?? null,
-                }
-                : null,
+            streamDescriptor: summarizePlaybackFailureDescriptor(this.deps.getCurrentStreamDescriptor()),
+            streamDecision: summarizePlaybackFailureDecision(this.deps.getCurrentStreamDecision?.() ?? null),
         };
     }
 
@@ -350,6 +233,16 @@ export class PlaybackRecoveryManager {
             },
             'playback'
         );
+    }
+
+    private _handleReloadFailureIfPlaybackWasLost(
+        context: string,
+        failure: RecoveryReloadFailureContext
+    ): void {
+        if (!failure.priorStreamLikelyUnloaded) {
+            return;
+        }
+        this.handlePlaybackFailure(context, failure.error);
     }
 
     tryHandleStreamResolverAuthError(error: unknown): boolean {
@@ -617,7 +510,8 @@ export class PlaybackRecoveryManager {
         if (
             currentDescriptor?.protocol === 'hls' &&
             context.currentDecision?.transcodeRequest?.subtitleMode === 'burn' &&
-            context.currentDecision.transcodeRequest.subtitleStreamId === trackId
+            context.currentDecision.transcodeRequest.subtitleStreamId === trackId &&
+            context.currentDecision.subtitleBurnIn?.confirmed === true
         ) {
             return { outcome: 'ignored', reason: 'already_burned_in' };
         }
@@ -669,6 +563,9 @@ export class PlaybackRecoveryManager {
             shouldResumeAfterReload: true,
             onSuccess: () => {
                 this._burnInAttemptedForItemKey.add(prepared.attemptKey);
+            },
+            onFailure: (failure) => {
+                this._handleReloadFailureIfPlaybackWasLost('burnInReload', failure);
             },
         });
     }

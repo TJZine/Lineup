@@ -143,6 +143,28 @@ export class PlaybackRuntimeController {
             return;
         }
 
+        void this._handleNonRecoverablePlaybackError(error);
+    }
+
+    private async _handleNonRecoverablePlaybackError(error: PlaybackError): Promise<void> {
+        const playbackRecovery = this._deps.playback.playbackRecovery;
+        try {
+            const fallbackApplied = await playbackRecovery.attemptTranscodeFallbackForCurrentProgram?.('video-player');
+            if (fallbackApplied) {
+                return;
+            }
+        } catch (fallbackError: unknown) {
+            this._deps.reportRecoverableAsyncFailure(
+                'orchestrator.playbackRecovery.attemptTranscodeFallbackForCurrentProgram',
+                'Playback transcode fallback handler threw',
+                fallbackError,
+                {
+                    context: 'video-player',
+                    playbackError: summarizeErrorForLog(error),
+                }
+            );
+        }
+
         if (playbackRecovery.handlePlaybackFailure) {
             try {
                 playbackRecovery.handlePlaybackFailure('video-player', error);

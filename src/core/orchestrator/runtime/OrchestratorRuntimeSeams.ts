@@ -31,6 +31,7 @@ export interface PriorityOnePlaybackRecoveryPort {
     resetPlaybackFailureGuard?: () => void;
     tryHandleStreamResolverAuthError?: (error: unknown) => boolean;
     tryHandleStreamResolverPermissionError?: (error: unknown) => boolean;
+    attemptTranscodeFallbackForCurrentProgram?: (reason: string) => Promise<boolean>;
     handlePlaybackFailure?: (context: string, error: unknown) => void;
     isStreamRecoveryInProgress: () => boolean;
 }

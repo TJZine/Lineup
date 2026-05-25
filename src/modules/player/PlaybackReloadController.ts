@@ -30,6 +30,21 @@ export type RecoveryDescriptorContext = RecoveryReloadContext & {
     decision: StreamDecision;
 };
 
+export type RecoveryReloadFailureStage =
+    | 'before_resolve'
+    | 'resolve'
+    | 'build_descriptor'
+    | 'load'
+    | 'after_load'
+    | 'play'
+    | 'unknown';
+
+export type RecoveryReloadFailureContext = RecoveryReloadContext & {
+    error: unknown;
+    failureStage: RecoveryReloadFailureStage;
+    priorStreamLikelyUnloaded: boolean;
+};
+
 interface PlaybackReloadControllerDeps {
     getVideoPlayer: () => IVideoPlayer | null;
     getStreamResolver: () => IPlexStreamResolver | null;
@@ -115,6 +130,7 @@ export class PlaybackReloadController {
         ) => void | Promise<void>;
         shouldResumeAfterReload?: boolean;
         onSuccess?: (context: RecoveryDescriptorContext) => void;
+        onFailure?: (context: RecoveryReloadFailureContext) => void;
     }): Promise<RecoveryAttemptResult<TSuccess, 'program_changed'>> {
         const { context } = config;
         logPlaybackRecoveryWarning(config.startEvent, {
@@ -147,6 +163,7 @@ export class PlaybackReloadController {
             clearCommittedState();
         };
 
+        let failureStage: RecoveryReloadFailureStage = 'unknown';
         try {
             const abortIfProgramChanged = (
                 teardownDescriptor: StreamDescriptor | null
@@ -165,18 +182,21 @@ export class PlaybackReloadController {
                 return { outcome: 'ignored', reason: 'program_changed' };
             };
 
+            failureStage = 'before_resolve';
             await config.beforeResolve?.(context);
             const beforeResolveAbort = abortIfProgramChanged(null);
             if (beforeResolveAbort) {
                 return beforeResolveAbort;
             }
 
+            failureStage = 'resolve';
             const decision = await context.resolver.resolveStream(config.buildRequest(context));
             const resolveAbort = abortIfProgramChanged(null);
             if (resolveAbort) {
                 return resolveAbort;
             }
 
+            failureStage = 'build_descriptor';
             let descriptor = this.deps.buildStreamDescriptor(
                 context.program,
                 decision,
@@ -191,12 +211,14 @@ export class PlaybackReloadController {
             }
 
             teardownDescriptor = descriptor;
+            failureStage = 'load';
             await context.player.loadStream(descriptor);
             const loadAbort = abortIfProgramChanged(descriptor);
             if (loadAbort) {
                 return loadAbort;
             }
 
+            failureStage = 'after_load';
             await config.afterLoad?.(descriptor, descriptorContext);
             const afterLoadAbort = abortIfProgramChanged(descriptor);
             if (afterLoadAbort) {
@@ -204,6 +226,7 @@ export class PlaybackReloadController {
             }
 
             if (config.shouldResumeAfterReload) {
+                failureStage = 'play';
                 await context.player.play();
                 const playAbort = abortIfProgramChanged(descriptor);
                 if (playAbort) {
@@ -226,6 +249,12 @@ export class PlaybackReloadController {
                 },
                 error
             );
+            config.onFailure?.({
+                ...context,
+                error,
+                failureStage,
+                priorStreamLikelyUnloaded: teardownDescriptor !== null,
+            });
             return { outcome: 'failed' };
         } finally {
             this._streamRecoveryInProgress = false;

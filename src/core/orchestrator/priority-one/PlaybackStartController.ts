@@ -7,6 +7,7 @@ export interface PlaybackStartControllerDeps {
     resetPlaybackFailureGuard: () => void;
     tryHandleStreamResolverAuthError: (error: unknown) => boolean;
     tryHandleStreamResolverPermissionError: (error: unknown) => boolean;
+    attemptTranscodeFallbackForCurrentProgram: (reason: string) => Promise<boolean>;
     handlePlaybackFailure: (context: string, error: unknown) => void;
     logPlaybackStartFailure: (error: unknown) => void;
     markProgramStarting: (
@@ -72,6 +73,14 @@ export class PlaybackStartController {
             await videoPlayer.play();
             this._deps.resetPlaybackFailureGuard();
         } catch (error) {
+            if (
+                isStale() ||
+                !this._deps.isProgramStillCurrent(programAtStart)
+            ) {
+                abort();
+                return;
+            }
+
             if (this._deps.tryHandleStreamResolverAuthError(error)) {
                 abort();
                 return;
@@ -83,6 +92,10 @@ export class PlaybackStartController {
             }
 
             this._deps.logPlaybackStartFailure(error);
+            if (await this._deps.attemptTranscodeFallbackForCurrentProgram('programStart')) {
+                abort();
+                return;
+            }
             this._deps.handlePlaybackFailure('programStart', error);
             abort();
         }

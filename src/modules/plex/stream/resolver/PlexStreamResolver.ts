@@ -46,7 +46,7 @@ import {
 } from '../url/plexStreamUrlPolicy';
 import { logPlexWarning } from '../../shared/plexLogging';
 import { SubtitleStreamDebugProbeCoordinator } from '../diagnostics/SubtitleStreamDebugProbeCoordinator';
-import { isSubtitleBurnConfirmedByServerDecision, UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
+import { applyServerDecisionToStreamDecision, UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from '../contracts/types';
@@ -196,24 +196,27 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             });
         }
 
-        // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
-        // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
-        if (debugEnabled && decision.isTranscoding && decision.transcodeRequest) {
+        // Ask PMS why it chose to transcode vs direct-stream for debug surfaces, and always
+        // confirm burn-in requests before player subtitle state assumes PMS rendered them.
+        const shouldFetchServerDecision =
+            decision.isTranscoding &&
+            Boolean(decision.transcodeRequest) &&
+            (debugEnabled || decision.subtitleBurnIn?.requested === true);
+        if (shouldFetchServerDecision && decision.transcodeRequest) {
             try {
                 const serverDecision = await this.fetchUniversalTranscodeDecision(
                     request.itemKey,
                     decision.transcodeRequest
                 );
-                decision.serverDecision = serverDecision;
-                if (decision.subtitleBurnIn) {
-                    decision.subtitleBurnIn.confirmed = isSubtitleBurnConfirmedByServerDecision(decision.transcodeRequest, serverDecision);
-                }
+                applyServerDecisionToStreamDecision(decision, serverDecision);
             } catch (error) {
-                logPlexWarning('PMS universal decision fetch failed:', {
-                    itemKey: request.itemKey,
-                    sessionId: decision.transcodeRequest.sessionId,
-                    error: summarizeErrorForLog(error),
-                });
+                if (debugEnabled) {
+                    logPlexWarning('PMS universal decision fetch failed:', {
+                        itemKey: request.itemKey,
+                        sessionId: decision.transcodeRequest.sessionId,
+                        error: summarizeErrorForLog(error),
+                    });
+                }
             }
         }
 

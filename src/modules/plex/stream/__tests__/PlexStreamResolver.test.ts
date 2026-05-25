@@ -1235,6 +1235,52 @@ describe('PlexStreamResolver', () => {
             ]);
         });
 
+        it('fetches PMS decision evidence for burn-in requests even when debug logging is disabled', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            getPrimaryPart(mockItem).streams.push({
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            });
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                text: async () =>
+                    '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                    '<TranscodeSession videoDecision="copy" audioDecision="transcode">' +
+                    '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                    '</TranscodeSession>' +
+                    '</MediaContainer>',
+            });
+
+            const resolver = new PlexStreamResolver(createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            }));
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            const [decisionUrl] = mockFetch.mock.calls[0]!;
+            expect(new URL(String(decisionUrl)).pathname).toBe('/video/:/transcode/universal/decision');
+            expect(decision.subtitleBurnIn).toMatchObject({
+                requested: true,
+                confirmed: true,
+                subtitleStreamId: 'sub-1',
+            });
+            expect(decision.serverDecision?.videoDecision).toBe('copy');
+        });
+
         it('does not request burn-in when a text subtitle is selected but burn mode is not requested', async () => {
             const mockItem = createMockMediaItem({
                 container: 'avi',

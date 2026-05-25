@@ -1140,6 +1140,13 @@ describe('PlaybackRecoveryManager', () => {
         const { manager, resolver } = setup({
             getCurrentStreamDescriptor: () => ({ protocol: 'hls' } as StreamDescriptor),
             getCurrentStreamDecision: () => ({
+                subtitleBurnIn: {
+                    requested: true,
+                    confirmed: true,
+                    reason: 'requested',
+                    subtitleStreamId: 'burn-1',
+                    subtitleMode: 'burn',
+                },
                 transcodeRequest: {
                     sessionId: 'sess-1',
                     maxBitrate: 2000,
@@ -1153,6 +1160,44 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(result).toEqual({ outcome: 'ignored', reason: 'already_burned_in' });
         expect(resolver.resolveStream).not.toHaveBeenCalled();
+    });
+
+    it('does not treat burn-in HLS as already burned in until PMS confirms the selected subtitle stream', async () => {
+        expectPlaybackRecoveryWarn({
+            event: 'burnInReload.start',
+            trackId: 'burn-1',
+            reason: 'test',
+            itemKey: 'item-1',
+        });
+        const { manager, resolver } = setup({
+            getCurrentStreamDescriptor: () => ({ protocol: 'hls' } as StreamDescriptor),
+            getCurrentStreamDecision: () => ({
+                subtitleBurnIn: {
+                    requested: true,
+                    confirmed: false,
+                    reason: 'requested',
+                    subtitleStreamId: 'burn-1',
+                    subtitleMode: 'burn',
+                },
+                transcodeRequest: {
+                    sessionId: 'sess-1',
+                    maxBitrate: 2000,
+                    subtitleStreamId: 'burn-1',
+                    subtitleMode: 'burn',
+                },
+            } as StreamDecision),
+        });
+
+        const result = await manager.attemptBurnInSubtitleForCurrentProgram('burn-1', 'test');
+
+        expect(result).toEqual({ outcome: 'burned_in' });
+        expect(resolver.resolveStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                directPlay: false,
+                subtitleStreamId: 'burn-1',
+                subtitleMode: 'burn',
+            })
+        );
     });
 
     it('logs burn-in start and failure telemetry', async () => {
@@ -1175,6 +1220,43 @@ describe('PlaybackRecoveryManager', () => {
         const result = await manager.attemptBurnInSubtitleForCurrentProgram('sub-keyless', 'subtitle_extract_failed:test');
 
         expect(result).toEqual({ outcome: 'failed' });
+    });
+
+    it('surfaces PLAYBACK_FAILED when burn-in reload load failure likely unloaded prior playback', async () => {
+        expectPlaybackRecoveryWarn({
+            event: 'burnInReload.start',
+            trackId: 'sub-keyless',
+            reason: 'subtitle_extract_failed:test',
+            itemKey: 'item-1',
+        });
+        expectPlaybackRecoveryError({
+            event: 'burnInReload.failed',
+            trackId: 'sub-keyless',
+            reason: 'subtitle_extract_failed:test',
+            itemKey: 'item-1',
+            safeError: expect.any(Object),
+        });
+        const loadError = new Error('burn-in load failed');
+        const player = {
+            loadStream: jest.fn().mockRejectedValue(loadError),
+            play: jest.fn().mockResolvedValue(undefined),
+            getState: jest.fn().mockReturnValue(makePlayerState()),
+            getCurrentTimeMs: jest.fn().mockReturnValue(5000),
+        } as unknown as IVideoPlayer;
+        const { manager, deps } = setup({
+            getVideoPlayer: () => player,
+        });
+
+        const result = await manager.attemptBurnInSubtitleForCurrentProgram('sub-keyless', 'subtitle_extract_failed:test');
+
+        expect(result).toEqual({ outcome: 'failed' });
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: AppErrorCode.PLAYBACK_FAILED,
+                recoverable: true,
+            }),
+            'playback'
+        );
     });
 
     it('falls back to the program elapsed offset when the live position is not finite', async () => {
@@ -1539,6 +1621,13 @@ describe('PlaybackRecoveryManager', () => {
             getCurrentStreamDescriptor: () => ({ protocol: 'hls' } as StreamDescriptor),
             getCurrentStreamDecision: () =>
                 ({
+                    subtitleBurnIn: {
+                        requested: true,
+                        confirmed: true,
+                        reason: 'requested',
+                        subtitleStreamId: 'sub-keyless',
+                        subtitleMode: 'burn',
+                    },
                     transcodeRequest: {
                         sessionId: 'sess-burn',
                         maxBitrate: 2000,

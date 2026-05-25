@@ -1400,6 +1400,7 @@ export class AppOrchestrator {
                         throw new Error(`Cannot retry playback without ${scheduler ? 'an active program' : 'an active scheduler'}`);
                     }
                     this._playbackRecovery?.resetPlaybackFailureGuard();
+                    this._playbackRecovery?.resetDirectFallbackAndBurnInAttempts();
                     scheduler.jumpToProgram(currentProgram);
                 } catch (error: unknown) {
                     this._warnRecoverableRuntimeError('orchestrator.recovery.retryPlayback', 'Retry playback failed', error);

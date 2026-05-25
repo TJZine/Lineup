@@ -239,6 +239,32 @@ describe('NowPlayingDebugManager', () => {
         expect(resolver.fetchUniversalTranscodeDecision).toHaveBeenCalled();
     });
 
+    it('snapshot fetch updates burn-in confirmation from selected PMS subtitle stream evidence', async () => {
+        const { manager, resolver, decision } = setup();
+        decision.isTranscoding = true;
+        decision.subtitleBurnIn = {
+            requested: true,
+            confirmed: false,
+            reason: 'requested',
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'burn',
+        };
+        decision.transcodeRequest = {
+            sessionId: 'sess',
+            maxBitrate: 1234,
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'burn',
+        } as NonNullable<StreamDecision['transcodeRequest']>;
+        (resolver.fetchUniversalTranscodeDecision as jest.Mock).mockResolvedValueOnce({
+            fetchedAt: 123,
+            streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
+        });
+
+        await manager.ensureServerDecisionForPlaybackInfoSnapshot();
+
+        expect(decision.subtitleBurnIn.confirmed).toBe(true);
+    });
+
     it('debug fetch calls refresh only when modal open', async () => {
         enableDebug();
         const closed = setup();

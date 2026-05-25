@@ -111,6 +111,8 @@ function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStart
             input.playback.playbackRecovery.tryHandleStreamResolverAuthError?.(error) ?? false,
         tryHandleStreamResolverPermissionError: (error): boolean =>
             input.playback.playbackRecovery.tryHandleStreamResolverPermissionError?.(error) ?? false,
+        attemptTranscodeFallbackForCurrentProgram: (reason): Promise<boolean> =>
+            input.playback.playbackRecovery.attemptTranscodeFallbackForCurrentProgram?.(reason) ?? Promise.resolve(false),
         handlePlaybackFailure: (context, error): void => {
             input.playback.playbackRecovery.handlePlaybackFailure?.(context, error);
         },

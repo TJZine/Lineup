@@ -54,6 +54,7 @@ const wireLifecycleResumeHarness = (overrides: {
         tryHandleStreamResolverAuthError: (error): boolean =>
             overrides.playbackRecovery.tryHandleStreamResolverAuthError(error),
         tryHandleStreamResolverPermissionError: (): boolean => false,
+        attemptTranscodeFallbackForCurrentProgram: (): Promise<boolean> => Promise.resolve(false),
         handlePlaybackFailure: (context, error): void =>
             overrides.playbackRecovery.handlePlaybackFailure(context, error),
         logPlaybackStartFailure: (): void => undefined,

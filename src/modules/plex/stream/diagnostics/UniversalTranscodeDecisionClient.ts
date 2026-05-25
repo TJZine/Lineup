@@ -234,3 +234,18 @@ export function isSubtitleBurnConfirmedByServerDecision(
     );
     return selectedSubtitleDecision?.decision === 'burn';
 }
+
+export function applyServerDecisionToStreamDecision(
+    decision: StreamDecision,
+    serverDecision: NonNullable<StreamDecision['serverDecision']>
+): void {
+    decision.serverDecision = serverDecision;
+    if (!decision.subtitleBurnIn || !decision.transcodeRequest) {
+        return;
+    }
+
+    decision.subtitleBurnIn.confirmed = isSubtitleBurnConfirmedByServerDecision(
+        decision.transcodeRequest,
+        serverDecision
+    );
+}

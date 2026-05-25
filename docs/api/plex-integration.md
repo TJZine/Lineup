@@ -427,8 +427,9 @@ Current PMS playback URL policy is narrower than the Lineup delivery enum:
   as `subtitles=sidecar`, `subtitles=embedded`, or `subtitles=segmented`.
 
 `subtitleBurnIn.requested` is Lineup's local request intent. It does not prove
-that Plex burned the subtitle into the video. `subtitleBurnIn.confirmed` is set
-only when PMS universal decision evidence shows the requested subtitle stream
-with `decision="burn"`. Broad PMS fields such as `subtitleDecision` are
-diagnostic-only unless future PMS API evidence promotes them into the supported
-contract.
+that Plex burned the subtitle into the video. Burn-in stream resolution fetches
+PMS universal decision evidence even when debug logging is disabled, and
+`subtitleBurnIn.confirmed` is set only when that evidence shows the requested
+subtitle stream with `decision="burn"`. Broad PMS fields such as
+`subtitleDecision` are diagnostic-only unless future PMS API evidence promotes
+them into the supported contract.

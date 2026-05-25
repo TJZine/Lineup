@@ -2085,12 +2085,11 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(mockScheduler.skipToNext).toHaveBeenCalledTimes(1);
 
             expectConsoleWarn([
-                'Global error in playback',
+                'playback_recovery',
                 expect.objectContaining({
-                    safeError: expect.objectContaining({
-                        code: AppErrorCode.PLAYBACK_FAILED,
-                        message: 'Playback failed',
-                    }),
+                    event: 'transcodeFallback.start',
+                    reason: 'video-player',
+                    itemKey: 'item-1',
                 }),
             ]);
             playerHandlers.error?.({
@@ -2098,12 +2097,12 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 code: 'PLAYBACK_FAILED',
                 message: 'boom',
             });
+            await new Promise((resolve) => setImmediate(resolve));
             expect(mockScheduler.skipToNext).toHaveBeenCalledTimes(1);
-            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
+            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    code: 'PLAYBACK_FAILED',
-                    message: 'Playback failed',
-                    recoverable: true,
+                    itemKey: 'item-1',
+                    directPlay: false,
                 })
             );
 
@@ -2265,7 +2264,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(lastLoad?.url).toBe('http://test/reloaded.m3u8');
         });
 
-        it('does not force direct-stream fallback when format is unsupported pre-MVP', async () => {
+        it('attempts guarded transcode fallback when direct playback reports unsupported format', async () => {
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
             mockPlexAuth.validateToken.mockResolvedValue(true);
             mockPlexDiscovery.isConnected.mockReturnValue(true);
@@ -2300,12 +2299,11 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             );
 
             expectConsoleWarn([
-                'Global error in playback',
+                'playback_recovery',
                 expect.objectContaining({
-                    safeError: expect.objectContaining({
-                        code: AppErrorCode.PLAYBACK_FAILED,
-                        message: 'Playback failed',
-                    }),
+                    event: 'transcodeFallback.start',
+                    reason: 'video-player',
+                    itemKey: 'item-1',
                 }),
             ]);
             playerHandlers.error?.({
@@ -2316,12 +2314,15 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             await new Promise((resolve) => setImmediate(resolve));
 
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(1);
-            expect(mockPlexStreamResolver.resolveStream).not.toHaveBeenCalledWith(
-                expect.objectContaining({ directPlay: false })
+            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(2);
+            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    itemKey: 'item-1',
+                    directPlay: false,
+                })
             );
-            expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(1);
-            expect(mockVideoPlayer.play).toHaveBeenCalledTimes(1);
+            expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(2);
+            expect(mockVideoPlayer.play).toHaveBeenCalledTimes(2);
         });
 
     });

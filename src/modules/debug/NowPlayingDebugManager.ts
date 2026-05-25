@@ -2,6 +2,7 @@ import { summarizeErrorForLog } from '../../utils/errors';
 import { sanitizeDiagnosticText } from '../../utils/redact';
 import type { INavigationManager } from '../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../plex/stream';
+import { applyServerDecisionToStreamDecision } from '../plex/stream/diagnostics/UniversalTranscodeDecisionClient';
 import type { ScheduledProgram } from '../scheduler/scheduler';
 import { DebugOverridesStore } from './DebugOverridesStore';
 
@@ -208,7 +209,7 @@ export class NowPlayingDebugManager {
             if (token !== this._nowPlayingStreamDecisionFetchToken) return;
             if (this.deps.getCurrentStreamDecision() !== decision) return;
 
-            decision.serverDecision = serverDecision;
+            applyServerDecisionToStreamDecision(decision, serverDecision);
             this._nowPlayingStreamDecisionFetchedForSessionId = sessionId;
             options.onApplied?.();
         } catch (error) {
