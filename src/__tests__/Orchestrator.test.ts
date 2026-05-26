@@ -2270,17 +2270,18 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockPlexDiscovery.isConnected.mockReturnValue(true);
 
             mockPlexStreamResolver.resolveStream
-                .mockResolvedValueOnce({
+                .mockResolvedValueOnce(makeDecision({
                     playbackUrl: 'http://test/stream.mkv',
-                    protocol: 'direct',
+                    protocol: 'http',
                     container: 'mkv',
-                })
-                .mockResolvedValueOnce({
+                }))
+                .mockResolvedValueOnce(makeDecision({
                     playbackUrl: 'http://test/transcoded.m3u8',
                     protocol: 'hls',
                     container: 'ts',
-                    mimeType: 'application/x-mpegURL',
-                });
+                    isDirectPlay: false,
+                    isTranscoding: true,
+                }));
 
             await orchestrator.start();
 
