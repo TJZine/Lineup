@@ -320,10 +320,9 @@ export interface OrchestratorChannelTransitionCoordinatorBuilderInput {
 }
 
 export interface OrchestratorPlaybackOptionsCoordinatorBuilderInput {
-    modules: Pick<CoordinatorModules, 'navigation' | 'videoPlayer' | 'scheduler'>;
+    modules: Pick<CoordinatorModules, 'navigation' | 'videoPlayer'>;
     overlays: Pick<CoordinatorOverlays, 'playbackOptionsModal'>;
     stores: Pick<CoordinatorStores, 'subtitlePreferencesStore'>;
-    playback: Pick<CoordinatorPlayback, 'state'>;
     nowPlaying: OrchestratorCoordinatorAssemblyInput['nowPlaying'];
 }
 

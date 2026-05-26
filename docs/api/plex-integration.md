@@ -421,6 +421,13 @@ Current PMS playback URL policy is narrower than the Lineup delivery enum:
 
 - Burn-in requests send PMS `subtitles=burn` with the selected
   `subtitleStreamID`.
+- Before a burn-in HLS transcode starts, `PlexStreamResolver` also selects the
+  requested subtitle on the chosen PMS media part with
+  `PUT /library/parts/{partId}?subtitleStreamID={streamId}`. This resolver-owned
+  PMS mutation is required for the observed keyless embedded SRT burn-in path
+  and is not persisted in Lineup storage. When Lineup disables a burn-in subtitle
+  stream, the resolver clears the selected PMS part subtitle with
+  `subtitleStreamID=0` before resolving the no-subtitle reload.
 - Non-burn HLS playback sends PMS `subtitles=none`, `subtitleStreamID=0`, and
   `subtitleFormat=none`; Lineup then handles eligible text subtitles locally.
 - Lineup does not currently request PMS native/HLS subtitle delivery modes such

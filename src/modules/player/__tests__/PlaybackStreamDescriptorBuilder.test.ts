@@ -386,7 +386,17 @@ describe('PlaybackStreamDescriptorBuilder', () => {
         );
 
         expect(unconfirmed.subtitleContext?.confirmedBurnedInSubtitleTrackId).toBeNull();
+        expect(unconfirmed.subtitleContext?.localExtractionSuppression).toEqual({
+            trackId: 'sub-full',
+            reason: 'server_burn_in_requested',
+            confirmation: 'unconfirmed',
+        });
         expect(confirmed.subtitleContext?.confirmedBurnedInSubtitleTrackId).toBe('sub-full');
+        expect(confirmed.subtitleContext?.localExtractionSuppression).toEqual({
+            trackId: 'sub-full',
+            reason: 'server_burn_in_requested',
+            confirmation: 'confirmed',
+        });
     });
 
     it('filters keyless subtitles when direct-only mode is enabled and routes deactivation callbacks through its deps', async () => {

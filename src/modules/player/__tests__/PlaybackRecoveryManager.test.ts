@@ -1287,6 +1287,95 @@ describe('PlaybackRecoveryManager', () => {
         );
     });
 
+    it('restores prior no-subtitle playback when burn-in reload fails after load replaces the stream', async () => {
+        expectPlaybackRecoveryWarn({
+            event: 'burnInReload.start',
+            trackId: 'sub-keyless',
+            reason: 'user_selected_text_burn_in',
+            itemKey: 'item-1',
+        });
+        expectPlaybackRecoveryError({
+            event: 'burnInReload.failed',
+            trackId: 'sub-keyless',
+            reason: 'user_selected_text_burn_in',
+            itemKey: 'item-1',
+            safeError: expect.any(Object),
+        });
+        const priorDecision = makeDecision({
+            playbackUrl: 'http://test/prior.m3u8',
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        const priorDescriptor = {
+            url: 'http://test/prior.m3u8',
+            protocol: 'direct',
+            preferredSubtitleTrackId: 'sub-old',
+            startPositionMs: 0,
+        } as StreamDescriptor;
+        const burnInDecision = makeDecision({
+            transcodeRequest: {
+                sessionId: 'sess-burn',
+                maxBitrate: 8000,
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+            },
+            subtitleBurnIn: {
+                requested: true,
+                confirmed: false,
+                reason: 'requested',
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+            },
+        });
+        const loadError = new Error('burn-in load failed');
+        const player = {
+            loadStream: jest.fn()
+                .mockRejectedValueOnce(loadError)
+                .mockResolvedValueOnce(undefined),
+            play: jest.fn().mockResolvedValue(undefined),
+            getState: jest.fn().mockReturnValue(makePlayerState({ status: 'playing' })),
+            getCurrentTimeMs: jest.fn().mockReturnValue(12_345),
+        } as unknown as IVideoPlayer;
+        const { manager, resolver, deps } = setup({
+            getVideoPlayer: () => player,
+            getCurrentStreamDecision: () => priorDecision,
+            getCurrentStreamDescriptor: () => priorDescriptor,
+        });
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(burnInDecision);
+
+        const result = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'user_selected_text_burn_in'
+        );
+
+        expect(result).toEqual({ outcome: 'failed' });
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+        expect(player.loadStream).toHaveBeenNthCalledWith(2, expect.objectContaining({
+            url: 'http://test/prior.m3u8',
+            preferredSubtitleTrackId: null,
+            startPositionMs: 12_345,
+        }));
+        expect(player.play).toHaveBeenCalledTimes(1);
+        expect(deps.setCurrentStreamDecision).toHaveBeenLastCalledWith(priorDecision);
+        expect(deps.setCurrentStreamDescriptor).toHaveBeenLastCalledWith(expect.objectContaining({
+            preferredSubtitleTrackId: null,
+            startPositionMs: 12_345,
+        }));
+        expect(deps.handleGlobalError).not.toHaveBeenCalled();
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'playbackRecovery.burnInReloadFailed',
+            expect.objectContaining({
+                restoreOutcome: { outcome: 'restored' },
+                attemptedBurnIn: expect.objectContaining({
+                    failureStage: 'load',
+                    manifestProbe: { runtime: 'not_run' },
+                }),
+            })
+        );
+    });
+
     it('falls back to the program elapsed offset when the live position is not finite', async () => {
         expectPlaybackRecoveryWarn({
             event: 'audioReload.start',
@@ -1353,7 +1442,9 @@ describe('PlaybackRecoveryManager', () => {
         releaseStop();
         await pending;
 
-        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+        expect(resolver.resolveStream).toHaveBeenCalledWith(expect.objectContaining({
+            subtitleMode: 'none',
+        }));
     });
 
     it('continues disable-burn-in recovery when stopping the prior transcode session fails', async () => {
@@ -1391,7 +1482,9 @@ describe('PlaybackRecoveryManager', () => {
 
         expect(result).toEqual({ outcome: 'disabled' });
         expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-burn');
-        expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+        expect(resolver.resolveStream).toHaveBeenCalledWith(expect.objectContaining({
+            subtitleMode: 'none',
+        }));
     });
 
     it('suppresses repeated automatic burn-in recovery attempts after the first failure', async () => {

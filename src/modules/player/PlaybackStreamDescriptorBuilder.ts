@@ -75,6 +75,7 @@ export class PlaybackStreamDescriptorBuilder {
             ? this._resolvePreferredSubtitleId(subtitleTracks)
             : null;
         const confirmedBurnedInSubtitleTrackId = getConfirmedBurnedInSubtitleTrackId(decision);
+        const localExtractionSuppression = getLocalExtractionSuppression(decision);
         const subtitleContext: StreamDescriptor['subtitleContext'] | undefined = subtitlesEnabled
             ? {
                 serverUri: this.deps.getServerUri(),
@@ -86,6 +87,7 @@ export class PlaybackStreamDescriptorBuilder {
                 partKey: decision.partKey,
                 sessionId: decision.sessionId,
                 confirmedBurnedInSubtitleTrackId,
+                ...(localExtractionSuppression ? { localExtractionSuppression } : {}),
                 onUnavailable: this.deps.notifySubtitleUnavailable,
                 onDeactivate: ({ trackId, reason }): boolean =>
                     this.deps.shouldHandleSubtitleDeactivation({ trackId, reason }),
@@ -257,4 +259,20 @@ function getConfirmedBurnedInSubtitleTrackId(decision: StreamDecision): string |
         return null;
     }
     return burn.subtitleStreamId;
+}
+
+function getLocalExtractionSuppression(
+    decision: StreamDecision
+): NonNullable<StreamDescriptor['subtitleContext']>['localExtractionSuppression'] | null {
+    const subtitleStreamId = decision.transcodeRequest?.subtitleStreamId
+        ?? decision.subtitleBurnIn?.subtitleStreamId
+        ?? null;
+    if (decision.subtitleBurnIn?.requested !== true || !subtitleStreamId) {
+        return null;
+    }
+    return {
+        trackId: subtitleStreamId,
+        reason: 'server_burn_in_requested',
+        confirmation: decision.subtitleBurnIn.confirmed === true ? 'confirmed' : 'unconfirmed',
+    };
 }

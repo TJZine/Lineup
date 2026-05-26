@@ -84,12 +84,14 @@ subtitle rendering in Lineup.
 If **Subtitle Mode = Full (Burn-in, default)**, Lineup triggers a best-effort burn-in reload when needed:
 
 - immediately for burn-in formats (PGS/ASS/etc) when selected in Playback Options
-- when a fast direct-stream probe suggests a text track is not directly fetchable (avoid slow Extract UX)
+- immediately for keyless embedded text tracks in Playback Options (avoid exposing broken Extract UX)
 - when extraction fails after a normal selection attempt
 
 - `PlaybackRecoveryManager.attemptBurnInSubtitleForCurrentProgram(trackId, reason)`
 - `PlexStreamResolver.resolveStream({ directPlay: false, subtitleMode: 'burn', subtitleStreamId })`
+- Before starting the HLS burn-in transcode, `PlexStreamResolver` selects the requested embedded subtitle on the chosen PMS media part with `PUT /library/parts/{partId}?subtitleStreamID={streamId}`. PMS needs that part-level selected state for keyless embedded SRT burn-in; `subtitles=burn&subtitleStreamID=...` alone is not enough for the observed path. When burn-in subtitles are disabled, the resolver clears that PMS part selection with `subtitleStreamID=0` before resolving the no-subtitle reload.
 - Burn-in requests fetch PMS `/video/:/transcode/universal/decision` evidence even when debug logging is off. Lineup only treats a subtitle as already burned in when PMS reports the selected subtitle stream with `decision="burn"`.
+- Player descriptors also carry a local, player-only extraction-suppression context for requested burn-in. This prevents Lineup sidecar extraction for that selected track even when PMS decision evidence does not confirm visual burn-in; it is not persisted and is not a Plex contract.
 
 ## The “embedded SRT doesn’t work” cluster
 

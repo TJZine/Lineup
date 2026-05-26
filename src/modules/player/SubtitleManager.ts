@@ -1,4 +1,4 @@
-import type { SubtitleFallbackResult, SubtitleTrack } from './types';
+import type { StreamDescriptor, SubtitleFallbackResult, SubtitleTrack } from './types';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../shared/subtitle-formats';
 import { redactSensitiveTokens } from '../../utils/redact';
 import type { PlatformSubtitleService } from '../../platform';
@@ -11,24 +11,9 @@ import {
 import { fetchSubtitleFallbackVtt } from './subtitleFallbackPipeline';
 import { SubtitleDebugLogger } from '../debug/SubtitleDebugLogger';
 import { snapshotNativeTextTracks } from './nativeTextTrackDebugSnapshot';
+import { getRequestedBurnInExtractionSuppression } from './SubtitleLocalExtractionSuppression';
 
-interface SubtitleTrackContext {
-    serverUri: string | null;
-    resolvedBaseUrl?: string;
-    authHeaders: Record<string, string>;
-    itemKey?: string;
-    mediaIndex?: number;
-    partIndex?: number;
-    partKey?: string;
-    sessionId?: string;
-    confirmedBurnedInSubtitleTrackId?: string | null;
-    onUnavailable?: () => void;
-    onDeactivate?: (args: { trackId: string; reason: string }) => boolean;
-    onDeactivateRecovery?: (args: {
-        trackId: string;
-        reason: string;
-    }) => Promise<'handled' | 'failed'>;
-}
+type SubtitleTrackContext = NonNullable<StreamDescriptor['subtitleContext']>;
 
 type SubtitleFallbackBlobResult =
     | { kind: 'success'; blobUrl: string }
@@ -168,6 +153,10 @@ export class SubtitleManager {
             typeof trackId === 'string' &&
             trackId.length > 0 &&
             this._subtitleContext?.confirmedBurnedInSubtitleTrackId === trackId;
+        const localExtractionSuppression = getRequestedBurnInExtractionSuppression(
+            this._subtitleContext,
+            trackId
+        );
 
         const textTracks = this._videoElement.textTracks;
 
@@ -185,6 +174,14 @@ export class SubtitleManager {
         } else if (trackId) {
             // When the current stream has subtitles burned into the video, avoid slow extract attempts.
             // Track selection is still reflected in state/OSD, but rendering is handled by the video stream.
+            if (localExtractionSuppression) {
+                this._logSubtitleDebug('subtitle_local_extraction_suppressed', () => ({
+                    id: trackId,
+                    reason: localExtractionSuppression.reason,
+                    confirmation: localExtractionSuppression.confirmation,
+                }));
+                return;
+            }
             if (burnedInActive) {
                 this._logSubtitleDebug('subtitle_track_burned_in_active', () => ({
                     id: trackId,

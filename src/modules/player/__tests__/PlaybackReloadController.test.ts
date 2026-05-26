@@ -74,6 +74,7 @@ const makeContext = (
             isDirectPlay: true,
             isTranscoding: false,
         }),
+        currentDescriptor: { url: 'http://test/current.m3u8' } as StreamDescriptor,
         ...overrides,
     };
 };

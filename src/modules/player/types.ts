@@ -71,13 +71,6 @@ export type SubtitleFallbackResult =
     | { kind: 'transient'; reason: SubtitleFallbackTransientReason; status?: number }
     | SubtitleFallbackAuthResult;
 
-export type SubtitleExtractabilityProbeResult =
-    | 'supported'
-    | 'unsupported'
-    | 'transient_failure'
-    | 'auth_failure'
-    | 'unknown';
-
 export interface AudioTrack {
     id: string;
     title: string;
@@ -87,6 +80,12 @@ export interface AudioTrack {
     channels: number;
     index: number;
     default?: boolean;
+}
+
+export interface LocalSubtitleExtractionSuppression {
+    trackId: string;
+    reason: 'server_burn_in_requested';
+    confirmation: 'confirmed' | 'unconfirmed';
 }
 
 export interface StreamDescriptor {
@@ -111,6 +110,7 @@ export interface StreamDescriptor {
          * was burned so the player does not attempt slow extract-based rendering for it.
          */
         confirmedBurnedInSubtitleTrackId?: string | null;
+        localExtractionSuppression?: LocalSubtitleExtractionSuppression;
         onUnavailable?: () => void;
         /**
          * Called when the selected subtitle track is deactivated due to failure.

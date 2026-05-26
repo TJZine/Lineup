@@ -1,5 +1,11 @@
-import { summarizePlaybackFailureDecision } from '../PlaybackFailureDiagnostics';
-import type { StreamDecision } from '../../plex/stream';
+import {
+    summarizePlaybackFailureDecision,
+    summarizePlaybackFailureDescriptor,
+    summarizePlaybackFailureReloadAttempt,
+} from '../PlaybackFailureDiagnostics';
+import type { StreamDecision, StreamRequest } from '../../plex/stream';
+import type { RecoveryReloadFailureContext } from '../PlaybackReloadController';
+import type { StreamDescriptor } from '../types';
 
 const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision => ({
     playbackUrl: 'http://test/stream.m3u8',
@@ -42,5 +48,62 @@ describe('PlaybackFailureDiagnostics', () => {
         const summary = summarizePlaybackFailureDecision(makeDecision());
 
         expect(summary?.serverDecision?.selectedSubtitleDecision).toBe('burn');
+    });
+
+    it('summarizes requested burn-in suppression and leaves runtime manifest probes out of product diagnostics', () => {
+        const descriptor = {
+            protocol: 'hls',
+            mimeType: 'application/vnd.apple.mpegurl',
+            isLive: false,
+            durationMs: 60_000,
+            audioTracks: [],
+            subtitleTracks: [{ format: 'srt' }],
+            subtitleContext: {
+                serverUri: 'http://example.com',
+                authHeaders: {},
+                localExtractionSuppression: {
+                    trackId: 'sub-1',
+                    reason: 'server_burn_in_requested',
+                    confirmation: 'unconfirmed',
+                },
+            },
+        } as unknown as StreamDescriptor;
+        const request: StreamRequest = {
+            itemKey: 'item-1',
+            startOffsetMs: 12_000,
+            directPlay: false,
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'burn',
+        };
+
+        expect(summarizePlaybackFailureDescriptor(descriptor)).toEqual(expect.objectContaining({
+            localExtractionSuppression: {
+                trackId: 'sub-1',
+                reason: 'server_burn_in_requested',
+                confirmation: 'unconfirmed',
+            },
+        }));
+        expect(summarizePlaybackFailureReloadAttempt({
+            failureStage: 'load',
+            priorStreamLikelyUnloaded: true,
+            clampedOffset: 12_000,
+            attemptedRequest: request,
+            attemptedDecision: makeDecision({
+                subtitleBurnIn: {
+                    requested: true,
+                    confirmed: false,
+                    reason: 'requested',
+                    subtitleStreamId: 'sub-1',
+                    subtitleMode: 'burn',
+                },
+            }),
+            attemptedDescriptor: descriptor,
+        } as RecoveryReloadFailureContext)).toEqual(expect.objectContaining({
+            request: expect.objectContaining({
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            }),
+            manifestProbe: { runtime: 'not_run' },
+        }));
     });
 });

@@ -162,16 +162,12 @@ export function buildPlaybackOptionsCoordinatorInput(
         modules: {
             navigation: input.modules.navigation,
             videoPlayer: input.modules.videoPlayer,
-            scheduler: input.modules.scheduler,
         },
         overlays: {
             playbackOptionsModal: input.overlays.playbackOptionsModal,
         },
         stores: {
             subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
-        },
-        playback: {
-            state: input.playback.state,
         },
         nowPlaying: input.nowPlaying,
     };
@@ -266,10 +262,6 @@ export function buildPlaybackOptionsCoordinator(
         getNavigation: (): import('../../../modules/navigation').INavigationManager | null => input.modules.navigation,
         getPlaybackOptionsModal: (): IPlaybackOptionsModal | null => input.overlays.playbackOptionsModal,
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
-        getCurrentStreamDescriptor: (): StreamDescriptor | null =>
-            input.playback.state.getCurrentStreamDescriptor(),
-        getCurrentProgram: (): ScheduledProgram | null =>
-            input.modules.scheduler.getCurrentProgram() ?? input.playback.state.getCurrentProgramForPlayback(),
         requestBurnInSubtitle: (trackId: string, reason: string) =>
             playbackRecovery.attemptBurnInSubtitleForCurrentProgram(trackId, reason),
         notifyToast: (toast: ToastInput): void => notifyPlaybackToast(input, toast),

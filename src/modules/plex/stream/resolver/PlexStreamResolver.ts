@@ -1,7 +1,3 @@
-/**
- * Resolves playback URLs, handles direct play detection, and manages sessions.
- */
-
 import { EventEmitter } from '../../../../utils/EventEmitter';
 import { AppErrorCode } from '../../../../types/app-errors';
 import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
@@ -47,15 +43,11 @@ import {
 import { logPlexWarning } from '../../shared/plexLogging';
 import { SubtitleStreamDebugProbeCoordinator } from '../diagnostics/SubtitleStreamDebugProbeCoordinator';
 import { applyServerDecisionToStreamDecision, UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
+import { updatePlexPartSubtitleSelection } from './PlexPartSubtitleSelector';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from '../contracts/types';
 
-/**
- * Plex Stream Resolver implementation.
- * Resolves stream URLs and manages playback sessions.
- * @implements {IPlexStreamResolver}
- */
 export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _config: PlexStreamResolverConfig;
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
@@ -182,6 +174,23 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         const hdrLabel = decision.source?.hdr || detectHdrLabel(videoStream);
         if (hdrLabel && decision.source && !decision.source.hdr) {
             decision.source.hdr = hdrLabel;
+        }
+
+        const shouldUpdatePartSubtitleSelection =
+            (decision.subtitleBurnIn?.requested === true && decision.transcodeRequest?.subtitleMode === 'burn') ||
+            request.subtitleMode === 'none';
+        if (shouldUpdatePartSubtitleSelection) {
+            await updatePlexPartSubtitleSelection({
+                partId: pipeline.part.id,
+                subtitleStreamId: decision.transcodeRequest?.subtitleMode === 'burn'
+                    ? decision.transcodeRequest.subtitleStreamId
+                    : null,
+                getServerUri: this._config.getServerUri,
+                getAuthHeaders: this._config.getAuthHeaders,
+                selectBaseUriForMixedContent: (serverUri) => this._selectBaseUriForMixedContent(serverUri),
+                throwIfAuthFailure: (response) => this._throwIfAuthFailure(response),
+                createError: (code, message, recoverable) => this._createError(code, message, recoverable),
+            });
         }
 
         // Ask PMS why it chose to transcode vs direct-stream for debug surfaces, and always
@@ -388,12 +397,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         this._emitter.off(event, handler);
     }
 
-
-    /**
-     * Build direct play URL with mixed content handling.
-     * @param partKey - Media part key
-     * @returns Full playback URL
-     */
     private _buildDirectPlayUrl(
         partKey: string,
         sessionId: string,
@@ -505,7 +508,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             false
         );
     }
-
     private _throwIfAuthFailure(response: Response, emitError = true): void {
         if (response.status === 401) {
             throw this._createAuthError(
@@ -523,7 +525,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
     }
 
-
     private _getHdr10FallbackMode(): Hdr10FallbackMode {
         return this._config.playbackPolicyReader.readHdr10FallbackModeAndClean();
     }
@@ -531,7 +532,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private _isDebugLoggingEnabled(): boolean {
         return this._config.debugPolicyReader.readDebugLoggingEnabledAndClean(false);
     }
-
 
     private _createError(
         code: StreamResolverError['code'],

@@ -1169,9 +1169,19 @@ describe('PlexStreamResolver', () => {
                 subtitleStreamId: 'sub-1',
                 subtitleMode: 'burn',
             });
+            expect(mockFetch).toHaveBeenCalledWith(
+                expect.stringContaining('/library/parts/part-1?subtitleStreamID=sub-1'),
+                expect.objectContaining({
+                    method: 'PUT',
+                    headers: expect.objectContaining({
+                        'X-Plex-Token': 'mock-token',
+                    }),
+                })
+            );
             const parsed = new URL(decision.playbackUrl);
             expect(parsed.searchParams.get('subtitles')).toBe('burn');
             expect(parsed.searchParams.get('subtitleStreamID')).toBe('sub-1');
+            expect(parsed.searchParams.get('advancedSubtitles')).toBeNull();
         });
 
         it('marks subtitle burn-in as confirmed only from matching PMS stream decision evidence', async () => {
@@ -1205,16 +1215,22 @@ describe('PlexStreamResolver', () => {
                 format: 'srt',
                 default: true,
             });
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                status: 200,
-                text: async () =>
-                    '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
-                    '<TranscodeSession>' +
-                    '<Stream id="sub-1" streamType="3" decision="burn" />' +
-                    '</TranscodeSession>' +
-                    '</MediaContainer>',
-            });
+            mockFetch
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () => '',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () =>
+                        '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                        '<TranscodeSession>' +
+                        '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                        '</TranscodeSession>' +
+                        '</MediaContainer>',
+                });
 
             const resolver = new PlexStreamResolver(createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -1250,16 +1266,22 @@ describe('PlexStreamResolver', () => {
                 format: 'srt',
                 default: true,
             });
-            mockFetch.mockResolvedValueOnce({
-                ok: true,
-                status: 200,
-                text: async () =>
-                    '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
-                    '<TranscodeSession videoDecision="copy" audioDecision="transcode">' +
-                    '<Stream id="sub-1" streamType="3" decision="burn" />' +
-                    '</TranscodeSession>' +
-                    '</MediaContainer>',
-            });
+            mockFetch
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () => '',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () =>
+                        '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                        '<TranscodeSession videoDecision="copy" audioDecision="transcode">' +
+                        '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                        '</TranscodeSession>' +
+                        '</MediaContainer>',
+                });
 
             const resolver = new PlexStreamResolver(createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -1270,8 +1292,12 @@ describe('PlexStreamResolver', () => {
                 subtitleMode: 'burn',
             });
 
-            expect(mockFetch).toHaveBeenCalledTimes(1);
-            const [decisionUrl] = mockFetch.mock.calls[0]!;
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            const [selectionUrl, selectionInit] = mockFetch.mock.calls[0]!;
+            expect(new URL(String(selectionUrl)).pathname).toBe('/library/parts/part-1');
+            expect(new URL(String(selectionUrl)).searchParams.get('subtitleStreamID')).toBe('sub-1');
+            expect(selectionInit).toEqual(expect.objectContaining({ method: 'PUT' }));
+            const [decisionUrl] = mockFetch.mock.calls[1]!;
             expect(new URL(String(decisionUrl)).pathname).toBe('/video/:/transcode/universal/decision');
             expect(decision.subtitleBurnIn).toMatchObject({
                 requested: true,
@@ -1279,6 +1305,67 @@ describe('PlexStreamResolver', () => {
                 subtitleStreamId: 'sub-1',
             });
             expect(decision.serverDecision?.videoDecision).toBe('copy');
+        });
+
+        it('fails burn-in resolution when PMS cannot select the subtitle on the part', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            getPrimaryPart(mockItem).streams.push({
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+            });
+            mockFetch.mockResolvedValueOnce({
+                ok: false,
+                status: 500,
+                text: async () => 'server error',
+            });
+            const resolver = new PlexStreamResolver(createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            }));
+
+            await expect(resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            })).rejects.toMatchObject({
+                code: AppErrorCode.TRANSCODE_FAILED,
+                message: 'Failed to update subtitle stream selection: HTTP 500',
+                recoverable: true,
+            });
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
+        it('clears PMS part subtitle selection when subtitle mode is explicitly none', async () => {
+            const mockItem = createMockMediaItem();
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleMode: 'none',
+            });
+
+            expect(decision.isDirectPlay).toBe(true);
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            const [selectionUrl, selectionInit] = mockFetch.mock.calls[0]!;
+            const parsed = new URL(String(selectionUrl));
+            expect(parsed.pathname).toBe('/library/parts/part-1');
+            expect(parsed.searchParams.get('subtitleStreamID')).toBe('0');
+            expect(selectionInit).toEqual(expect.objectContaining({
+                method: 'PUT',
+                headers: expect.objectContaining({
+                    'X-Plex-Token': 'mock-token',
+                }),
+            }));
         });
 
         it('does not request burn-in when a text subtitle is selected but burn mode is not requested', async () => {
@@ -1312,6 +1399,7 @@ describe('PlexStreamResolver', () => {
             expect(decision.selectedSubtitleStream?.id).toBe('sub-1');
             expect(decision.subtitleDelivery).toBe('sidecar');
             expect(decision.transcodeRequest?.subtitleStreamId).toBeUndefined();
+            expect(mockFetch).not.toHaveBeenCalled();
 
             const parsed = new URL(decision.playbackUrl);
             expect(parsed.searchParams.get('subtitles')).toBe('none');

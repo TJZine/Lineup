@@ -1,5 +1,6 @@
-import type { StreamDecision } from '../plex/stream';
+import type { StreamDecision, StreamRequest } from '../plex/stream';
 import { getSubtitleStreamServerDecision } from '../plex/stream/diagnostics/UniversalTranscodeDecisionClient';
+import type { RecoveryReloadFailureContext } from './PlaybackReloadController';
 import type { StreamDescriptor } from './types';
 
 type PlaybackFailureDescriptorSummary = {
@@ -9,6 +10,11 @@ type PlaybackFailureDescriptorSummary = {
     durationMs: number;
     audioCodecs: string[];
     subtitleFormats: string[];
+    localExtractionSuppression: {
+        trackId: string;
+        reason: string;
+        confirmation: string;
+    } | null;
 };
 
 type PlaybackFailureDecisionSummary = {
@@ -79,6 +85,37 @@ export function summarizePlaybackFailureDescriptor(
         durationMs: descriptor.durationMs,
         audioCodecs: [...new Set((descriptor.audioTracks ?? []).map((track) => track.codec).filter(Boolean))],
         subtitleFormats: [...new Set((descriptor.subtitleTracks ?? []).map((track) => track.format).filter(Boolean))],
+        localExtractionSuppression: descriptor.subtitleContext?.localExtractionSuppression
+            ? { ...descriptor.subtitleContext.localExtractionSuppression }
+            : null,
+    };
+}
+
+export function summarizePlaybackFailureReloadAttempt(
+    failure: RecoveryReloadFailureContext
+): Record<string, unknown> {
+    return {
+        failureStage: failure.failureStage,
+        priorStreamLikelyUnloaded: failure.priorStreamLikelyUnloaded,
+        clampedOffset: failure.clampedOffset,
+        request: summarizeStreamRequest(failure.attemptedRequest),
+        decision: summarizePlaybackFailureDecision(failure.attemptedDecision),
+        descriptor: summarizePlaybackFailureDescriptor(failure.attemptedDescriptor),
+        manifestProbe: { runtime: 'not_run' },
+    };
+}
+
+function summarizeStreamRequest(request: StreamRequest | null): Record<string, unknown> | null {
+    if (!request) {
+        return null;
+    }
+    return {
+        itemKey: request.itemKey,
+        startOffsetMs: request.startOffsetMs,
+        directPlay: request.directPlay,
+        audioStreamId: request.audioStreamId ?? null,
+        subtitleStreamId: request.subtitleStreamId ?? null,
+        subtitleMode: request.subtitleMode ?? null,
     };
 }
 

@@ -30,6 +30,7 @@ import { PlaybackStreamDescriptorBuilder } from './PlaybackStreamDescriptorBuild
 import {
     summarizePlaybackFailureDecision,
     summarizePlaybackFailureDescriptor,
+    summarizePlaybackFailureReloadAttempt,
 } from './PlaybackFailureDiagnostics';
 import { logPlaybackRecoveryError } from '../debug/PlayerConsoleLogger';
 
@@ -86,6 +87,7 @@ export class PlaybackRecoveryManager {
     // Playback failure guard: avoids repeated error surfacing for the same item until playback succeeds or is retried.
     private _playbackFailureCount: number = 0;
     private _playbackFailureSurfacedForGuardKey: string | null = null;
+    private _pendingPlaybackFailureContext: Record<string, unknown> | null = null;
 
     // Prevent runaway recovery loops
     private _directFallbackAttemptedForItemKey: Set<string> = new Set();
@@ -116,6 +118,7 @@ export class PlaybackRecoveryManager {
             getCurrentProgramForPlayback: deps.getCurrentProgramForPlayback,
             setCurrentStreamDecision: deps.setCurrentStreamDecision,
             setCurrentStreamDescriptor: deps.setCurrentStreamDescriptor,
+            getCurrentStreamDescriptor: deps.getCurrentStreamDescriptor,
             buildStreamDescriptor: (program, decision, startOffsetMs): StreamDescriptor =>
                 this._descriptorBuilder.build(program, decision, startOffsetMs),
             resetPlaybackFailureGuard: (): void => this.resetPlaybackFailureGuard(),
@@ -168,6 +171,7 @@ export class PlaybackRecoveryManager {
             safeError: summarizeErrorForLog(error),
             streamDescriptor: summarizePlaybackFailureDescriptor(this.deps.getCurrentStreamDescriptor()),
             streamDecision: summarizePlaybackFailureDecision(this.deps.getCurrentStreamDecision?.() ?? null),
+            ...(this._pendingPlaybackFailureContext ?? {}),
         };
     }
 
@@ -244,14 +248,36 @@ export class PlaybackRecoveryManager {
         );
     }
 
-    private _handleReloadFailureIfPlaybackWasLost(
+    private async _handleBurnInReloadFailure(
         context: string,
-        failure: RecoveryReloadFailureContext
-    ): void {
+        failure: RecoveryReloadFailureContext,
+        shouldResumeAfterRestore: boolean
+    ): Promise<void> {
         if (!failure.priorStreamLikelyUnloaded) {
             return;
         }
-        this.handlePlaybackFailure(context, failure.error);
+        const restoreOutcome = await this._restorePriorPlaybackAfterBurnInFailure(
+            failure,
+            shouldResumeAfterRestore
+        );
+        const attemptedBurnIn = summarizePlaybackFailureReloadAttempt(failure);
+        this._appendPlaybackRecoveryDiagnostic('playbackRecovery.burnInReloadFailed', {
+            attemptedBurnIn,
+            restoreOutcome,
+        });
+        if (restoreOutcome.outcome === 'restored') {
+            this.resetPlaybackFailureGuard();
+            return;
+        }
+        this._pendingPlaybackFailureContext = {
+            attemptedBurnIn,
+            burnInRestoreOutcome: restoreOutcome,
+        };
+        try {
+            this.handlePlaybackFailure(context, failure.error);
+        } finally {
+            this._pendingPlaybackFailureContext = null;
+        }
     }
 
     tryHandleStreamResolverAuthError(error: unknown): boolean {
@@ -484,6 +510,7 @@ export class PlaybackRecoveryManager {
                     itemKey,
                     startOffsetMs: clampedOffset,
                     directPlay: true,
+                    subtitleMode: 'none',
                     ...(activeAudioId ? { audioStreamId: activeAudioId } : {}),
                 };
             },
@@ -543,6 +570,9 @@ export class PlaybackRecoveryManager {
         if (prepared.recordAttemptBeforeReload) {
             this._burnInAttemptedForItemKey.add(prepared.attemptKey);
         }
+        const preReloadState = this._readPlayerState(prepared.context.player);
+        const shouldResumeAfterRestore =
+            preReloadState?.status === 'playing' || preReloadState?.status === 'buffering';
 
         return this._reloadController.executeReload({
             context: prepared.context,
@@ -574,9 +604,55 @@ export class PlaybackRecoveryManager {
                 this._burnInAttemptedForItemKey.add(prepared.attemptKey);
             },
             onFailure: (failure) => {
-                this._handleReloadFailureIfPlaybackWasLost('burnInReload', failure);
+                return this._handleBurnInReloadFailure(
+                    'burnInReload',
+                    failure,
+                    shouldResumeAfterRestore
+                );
             },
         });
+    }
+
+    private async _restorePriorPlaybackAfterBurnInFailure(
+        failure: RecoveryReloadFailureContext,
+        shouldResumeAfterRestore: boolean
+    ): Promise<{ outcome: 'restored' } | { outcome: 'unavailable'; reason: string } | { outcome: 'failed'; safeError: unknown }> {
+        const priorDecision = failure.currentDecision;
+        const priorDescriptor = failure.currentDescriptor;
+        if (!priorDecision || !priorDescriptor) {
+            return { outcome: 'unavailable', reason: 'missing_prior_stream' };
+        }
+        if (failure.failureStage !== 'load' && failure.failureStage !== 'after_load' && failure.failureStage !== 'play') {
+            return { outcome: 'unavailable', reason: 'failure_stage_not_loaded' };
+        }
+        const restoredDescriptor: StreamDescriptor = {
+            ...priorDescriptor,
+            startPositionMs: failure.clampedOffset,
+            preferredSubtitleTrackId: null,
+        };
+        try {
+            await failure.player.loadStream(restoredDescriptor);
+            if (shouldResumeAfterRestore) {
+                await failure.player.play();
+            }
+            this.deps.setCurrentStreamDecision(priorDecision);
+            this.deps.setCurrentStreamDescriptor(restoredDescriptor);
+            return { outcome: 'restored' };
+        } catch (error: unknown) {
+            return { outcome: 'failed', safeError: summarizeErrorForLog(error) };
+        }
+    }
+
+    private _appendPlaybackRecoveryDiagnostic(event: string, context: Record<string, unknown>): void {
+        try {
+            this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, event, context);
+        } catch (diagnosticError: unknown) {
+            logPlaybackRecoveryError(
+                'playbackRecovery.diagnosticAppendFailed',
+                { event },
+                diagnosticError
+            );
+        }
     }
 
     private _shouldHandleSubtitleDeactivation(_trackId: string, _reason: string): boolean {

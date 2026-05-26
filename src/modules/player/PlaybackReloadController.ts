@@ -24,6 +24,7 @@ export type RecoveryReloadContext = {
     safeReason: string;
     clampedOffset: number;
     currentDecision: StreamDecision | null;
+    currentDescriptor: StreamDescriptor | null;
 };
 
 export type RecoveryDescriptorContext = RecoveryReloadContext & {
@@ -43,6 +44,9 @@ export type RecoveryReloadFailureContext = RecoveryReloadContext & {
     error: unknown;
     failureStage: RecoveryReloadFailureStage;
     priorStreamLikelyUnloaded: boolean;
+    attemptedRequest: StreamRequest | null;
+    attemptedDecision: StreamDecision | null;
+    attemptedDescriptor: StreamDescriptor | null;
 };
 
 interface PlaybackReloadControllerDeps {
@@ -50,6 +54,7 @@ interface PlaybackReloadControllerDeps {
     getStreamResolver: () => IPlexStreamResolver | null;
     getCurrentProgramForPlayback: () => ScheduledProgram | null;
     getCurrentStreamDecision?: () => StreamDecision | null;
+    getCurrentStreamDescriptor?: () => StreamDescriptor | null;
     setCurrentStreamDecision: (decision: StreamDecision | null) => void;
     setCurrentStreamDescriptor: (descriptor: StreamDescriptor | null) => void;
     buildStreamDescriptor: (
@@ -107,6 +112,7 @@ export class PlaybackReloadController {
             safeReason: redactSensitiveTokens(reason),
             clampedOffset: this._getRecoveryReloadOffset(program, player),
             currentDecision: this.deps.getCurrentStreamDecision?.() ?? null,
+            currentDescriptor: this.deps.getCurrentStreamDescriptor?.() ?? null,
         };
     }
 
@@ -130,7 +136,7 @@ export class PlaybackReloadController {
         ) => void | Promise<void>;
         shouldResumeAfterReload?: boolean;
         onSuccess?: (context: RecoveryDescriptorContext) => void;
-        onFailure?: (context: RecoveryReloadFailureContext) => void;
+        onFailure?: (context: RecoveryReloadFailureContext) => void | Promise<void>;
     }): Promise<RecoveryAttemptResult<TSuccess, 'program_changed'>> {
         const { context } = config;
         logPlaybackRecoveryWarning(config.startEvent, {
@@ -164,6 +170,9 @@ export class PlaybackReloadController {
         };
 
         let failureStage: RecoveryReloadFailureStage = 'unknown';
+        let attemptedRequest: StreamRequest | null = null;
+        let attemptedDecision: StreamDecision | null = null;
+        let attemptedDescriptor: StreamDescriptor | null = null;
         try {
             const abortIfProgramChanged = (
                 teardownDescriptor: StreamDescriptor | null
@@ -190,7 +199,9 @@ export class PlaybackReloadController {
             }
 
             failureStage = 'resolve';
-            const decision = await context.resolver.resolveStream(config.buildRequest(context));
+            attemptedRequest = config.buildRequest(context);
+            const decision = await context.resolver.resolveStream(attemptedRequest);
+            attemptedDecision = decision;
             const resolveAbort = abortIfProgramChanged(null);
             if (resolveAbort) {
                 return resolveAbort;
@@ -209,6 +220,7 @@ export class PlaybackReloadController {
             if (config.customizeDescriptor) {
                 descriptor = config.customizeDescriptor(descriptor, descriptorContext);
             }
+            attemptedDescriptor = descriptor;
 
             teardownDescriptor = descriptor;
             failureStage = 'load';
@@ -250,11 +262,16 @@ export class PlaybackReloadController {
                 error
             );
             try {
-                config.onFailure?.({
+                await config.onFailure?.({
                     ...context,
                     error,
                     failureStage,
-                    priorStreamLikelyUnloaded: teardownDescriptor !== null,
+                    priorStreamLikelyUnloaded: failureStage === 'load'
+                        || failureStage === 'after_load'
+                        || failureStage === 'play',
+                    attemptedRequest,
+                    attemptedDecision,
+                    attemptedDescriptor,
                 });
             } catch (hookError: unknown) {
                 logPlaybackRecoveryError(

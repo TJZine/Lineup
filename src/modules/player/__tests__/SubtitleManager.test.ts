@@ -668,7 +668,7 @@ Hello`,
             }
         });
 
-        it('attempts text fallback when burn-in was requested but not confirmed', async () => {
+        it('suppresses text fallback when server burn-in was requested but not confirmed', async () => {
             const { fetchMock, restore } = installFetchAndBlobMocks();
 
             try {
@@ -683,12 +683,43 @@ Hello`,
                     serverUri: 'http://example.com',
                     authHeaders: { 'X-Plex-Token': 'token' },
                     confirmedBurnedInSubtitleTrackId: null,
+                    localExtractionSuppression: {
+                        trackId: 'unconfirmed-text',
+                        reason: 'server_burn_in_requested',
+                        confirmation: 'unconfirmed',
+                    },
                 });
 
                 manager.setActiveTrack('unconfirmed-text');
                 await flushSubtitleAsync();
 
                 expect(manager.getActiveTrackId()).toBe('unconfirmed-text');
+                expect(fetchMock).not.toHaveBeenCalled();
+            } finally {
+                restore();
+            }
+        });
+
+        it('still attempts text fallback for ordinary unconfirmed text tracks', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+
+            try {
+                const track = createMockSubtitleTrack({
+                    id: 'ordinary-text',
+                    codec: 'srt',
+                    format: 'srt',
+                    key: '/library/streams/1',
+                    fetchableViaKey: true,
+                });
+                manager.loadTracks([track], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                    confirmedBurnedInSubtitleTrackId: null,
+                });
+
+                manager.setActiveTrack('ordinary-text');
+                await flushSubtitleAsync();
+
                 expect(fetchMock).toHaveBeenCalled();
             } finally {
                 restore();
