@@ -19,7 +19,8 @@ export function isDtsFamilyAudioCodec(codec: string): boolean {
     const normalizedCodec = normalizeAudioCodec(codec);
     return normalizedCodec === 'dts'
         || normalizedCodec === 'dca'
-        || normalizedCodec.startsWith('dts');
+        || normalizedCodec.startsWith('dts')
+        || normalizedCodec.startsWith('dca');
 }
 
 export function isSupportedAudioCodec(

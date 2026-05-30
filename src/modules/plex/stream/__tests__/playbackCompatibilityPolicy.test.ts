@@ -169,6 +169,16 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.reasons).toContain('dts_passthrough_disabled');
         });
 
+        it('blocks DTS-HD MA when passthrough toggle is disabled', () => {
+            const decision = getDirectPlayDecision({
+                media: createPolicyMedia({ audioCodec: 'dca-ma' }),
+                capabilityProfile: createCapabilityProfile({ dtsPassthroughEnabled: false }),
+            });
+
+            expect(decision.canDirect).toBe(false);
+            expect(decision.reasons).toContain('dts_passthrough_disabled');
+        });
+
         it('allows DTS when passthrough is enabled', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ audioCodec: 'dts' }),

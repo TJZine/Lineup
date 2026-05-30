@@ -13,6 +13,7 @@ describe('audioCodecSupport', () => {
         expect(isDtsFamilyAudioCodec('dts')).toBe(true);
         expect(isDtsFamilyAudioCodec('dts-hd')).toBe(true);
         expect(isDtsFamilyAudioCodec('dca')).toBe(true);
+        expect(isDtsFamilyAudioCodec('dca-ma')).toBe(true);
         expect(isDtsFamilyAudioCodec('aac')).toBe(false);
     });
 
