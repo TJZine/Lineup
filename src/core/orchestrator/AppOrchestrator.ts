@@ -1056,23 +1056,14 @@ export class AppOrchestrator {
         };
     }
 
-    /**
-     * Request a Plex PIN for authentication.
-     */
     async requestAuthPin(): Promise<PlexPinRequest> {
         return this._plexAuthRuntime.requestAuthPin();
     }
 
-    /**
-     * Poll for PIN claim status.
-     */
     async pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {
         return this._plexAuthRuntime.pollForPin(pinId, options);
     }
 
-    /**
-     * Cancel an active PIN request.
-     */
     async cancelPin(pinId: number): Promise<void> {
         await this._plexAuthRuntime.cancelPin(pinId);
     }
@@ -1186,16 +1177,10 @@ export class AppOrchestrator {
         return this._plexDiscovery.discoverServers();
     }
 
-    /**
-     * Select a Plex server to connect to.
-     */
     async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
         return this._serverSelectionRuntime.selectServer(serverId);
     }
 
-    /**
-     * Clear saved server selection.
-     */
     async clearSelectedServer(): Promise<void> {
         await this._serverSelectionRuntime.clearSelectedServer();
     }
@@ -1249,25 +1234,16 @@ export class AppOrchestrator {
         return this._channelSwitchRuntime.switchToChannelByNumberWithOutcome(number, options);
     }
 
-    /**
-     * Open the EPG overlay.
-     */
     openEPG(): void {
         this._assertNotShutdown('openEPG');
         this._epgCoordinator?.openEPG();
     }
 
-    /**
-     * Close the EPG overlay.
-     */
     closeEPG(): void {
         this._assertNotShutdown('closeEPG');
         this._epgCoordinator?.closeEPG();
     }
 
-    /**
-     * Open the server selection screen.
-     */
     openServerSelect(options?: { allowAutoConnect?: boolean }): void {
         this._assertNotShutdown('openServerSelect');
         if (!this._navigation) {
@@ -1278,9 +1254,6 @@ export class AppOrchestrator {
         });
     }
 
-    /**
-     * Toggle the server selection screen.
-     */
     toggleServerSelect(): void {
         this._assertNotShutdown('toggleServerSelect');
         if (!this._navigation) {

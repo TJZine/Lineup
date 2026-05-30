@@ -16,13 +16,10 @@ export const CACHE_TTL_MS = 60 * 60 * 1000;
 /** Default maximum channels used by setup wizard */
 export const DEFAULT_CHANNEL_SETUP_MAX = 200;
 
-/** Maximum number of channels allowed */
 export const MAX_CHANNELS = 500;
 
-/** Minimum channel number */
 export const MIN_CHANNEL_NUMBER = 1;
 
-/** Maximum channel number */
 export const MAX_CHANNEL_NUMBER = 500;
 
 
