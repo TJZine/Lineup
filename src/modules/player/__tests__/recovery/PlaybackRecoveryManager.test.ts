@@ -36,6 +36,15 @@ const makeProgramIdentity = (
 ): ScheduledProgramIdentity =>
     buildScheduledProgramIdentity(channelId, program) as ScheduledProgramIdentity;
 
+const makeLaterOccurrence = (program: ScheduledProgram): ScheduledProgram =>
+    makeProgram({
+        item: program.item,
+        scheduledStartTime: program.scheduledStartTime + 60_000,
+        scheduledEndTime: program.scheduledEndTime + 60_000,
+        scheduleIndex: program.scheduleIndex + 1,
+        loopNumber: program.loopNumber,
+    });
+
 const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =>
     ({
         playbackUrl: 'http://test/stream.m3u8',
@@ -1001,6 +1010,40 @@ describe('PlaybackRecoveryManager', () => {
         expect(resolver.resolveStream).toHaveBeenCalledTimes(4);
     });
 
+    it('does not let a program_changed transcode fallback abort poison the next occurrence of the same item', async () => {
+        expectPlaybackRecoveryWarn({
+            event: 'transcodeFallback.start',
+            reason: 'reason',
+            itemKey: 'item-1',
+        }, { times: 2 });
+        expectPlaybackRecoveryWarn({
+            event: 'transcodeFallback.aborted',
+            reason: 'reason',
+            itemKey: 'item-1',
+            outcome: 'program_changed',
+        });
+        const originalProgram = makeProgram();
+        let currentProgram = originalProgram;
+        const nextProgram = makeLaterOccurrence(originalProgram);
+        const { manager, resolver } = setup({
+            getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(currentProgram),
+        });
+        (resolver.resolveStream as jest.Mock)
+            .mockImplementationOnce(async () => {
+                currentProgram = nextProgram;
+                return makeDecision();
+            })
+            .mockResolvedValueOnce(makeDecision());
+
+        const aborted = await manager.attemptTranscodeFallbackForCurrentProgram('reason');
+        const retried = await manager.attemptTranscodeFallbackForCurrentProgram('reason');
+
+        expect(aborted).toBe(false);
+        expect(retried).toBe(true);
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(2);
+    });
+
     it('ignores stored subtitle track selections (no per-item or global persistence)', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'standard');
         localStorage.setItem(
@@ -1715,6 +1758,43 @@ describe('PlaybackRecoveryManager', () => {
         expect(first).toEqual({ outcome: 'failed' });
         expect(second).toEqual({ outcome: 'ignored', reason: 'already_attempted' });
         expect(resolver.resolveStream).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not suppress automatic burn-in retries for a later occurrence of the same item', async () => {
+        expectPlaybackRecoveryWarn({
+            event: 'burnInReload.start',
+            reason: 'subtitle_extract_failed:test',
+            trackId: 'sub-keyless',
+            itemKey: 'item-1',
+        }, { times: 2 });
+        expectPlaybackRecoveryError({
+            event: 'burnInReload.failed',
+            reason: 'subtitle_extract_failed:test',
+            trackId: 'sub-keyless',
+            itemKey: 'item-1',
+            safeError: expect.any(Object),
+        }, { times: 2 });
+        const originalProgram = makeProgram();
+        let currentProgram = originalProgram;
+        const { manager, resolver } = setup({
+            getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(currentProgram),
+        });
+        (resolver.resolveStream as jest.Mock).mockRejectedValue(new Error('burn-in failed'));
+
+        const first = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+        currentProgram = makeLaterOccurrence(originalProgram);
+        const second = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'subtitle_extract_failed:test'
+        );
+
+        expect(first).toEqual({ outcome: 'failed' });
+        expect(second).toEqual({ outcome: 'failed' });
+        expect(resolver.resolveStream).toHaveBeenCalledTimes(2);
     });
 
     it('allows explicit user retries after a failed burn-in attempt', async () => {

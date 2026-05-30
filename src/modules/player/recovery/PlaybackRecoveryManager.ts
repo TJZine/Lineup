@@ -1,22 +1,6 @@
-import {
-    AppErrorCode,
-    getAppErrorCode,
-    type AppError,
-} from '../../../types/app-errors';
-import {
-    mapPlexStreamErrorCodeToAppErrorCode,
-    type IPlexStreamResolver,
-    type StreamDecision,
-    type StreamRequest,
-    type StreamResolverError,
-} from '../../plex/stream';
-import {
-    createScheduledProgramIdentityKey,
-    scheduledProgramIdentitiesMatch,
-    type IChannelScheduler,
-    type ScheduledProgram,
-    type ScheduledProgramIdentity,
-} from '../../scheduler/scheduler';
+import { AppErrorCode, getAppErrorCode, type AppError } from '../../../types/app-errors';
+import { mapPlexStreamErrorCodeToAppErrorCode, type IPlexStreamResolver, type StreamDecision, type StreamRequest, type StreamResolverError } from '../../plex/stream';
+import { createScheduledProgramIdentityKey, createScheduledProgramTrackKey, scheduledProgramIdentitiesMatch, type IChannelScheduler, type ScheduledProgram, type ScheduledProgramIdentity } from '../../scheduler/scheduler';
 import type { IVideoPlayer } from '../core/interfaces';
 import type { StreamDescriptor } from '../core/types';
 import { subtitleModeAllowsBurnIn, type SubtitleMode } from '../../../shared/subtitle-mode';
@@ -25,19 +9,9 @@ import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStor
 import type { ToastInput } from '../../../shared/toast';
 import { redactSensitiveTokens } from '../../../utils/redact';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import {
-    PlaybackReloadController,
-    type RecoveryAttemptResult,
-    type RecoveryReloadFailureContext,
-    type RecoveryReloadContext,
-    type RecoveryReloadIgnoredReason,
-} from './PlaybackReloadController';
+import { PlaybackReloadController, type RecoveryAttemptResult, type RecoveryReloadFailureContext, type RecoveryReloadContext, type RecoveryReloadIgnoredReason } from './PlaybackReloadController';
 import { PlaybackStreamDescriptorBuilder } from '../streaming/PlaybackStreamDescriptorBuilder';
-import {
-    summarizePlaybackFailureDecision,
-    summarizePlaybackFailureDescriptor,
-    summarizePlaybackFailureReloadAttempt,
-} from './PlaybackFailureDiagnostics';
+import { summarizePlaybackFailureDecision, summarizePlaybackFailureDescriptor, summarizePlaybackFailureReloadAttempt } from './PlaybackFailureDiagnostics';
 import { logPlaybackRecoveryError } from '../../debug/PlayerConsoleLogger';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
@@ -89,8 +63,8 @@ export class PlaybackRecoveryManager {
     private _pendingPlaybackFailureContext: Record<string, unknown> | null = null;
 
     // Prevent runaway recovery loops
-    private _directFallbackAttemptedForItemKey: Set<string> = new Set();
-    private _burnInAttemptedForItemKey: Set<string> = new Set();
+    private _directFallbackAttemptedForProgramKey: Set<string> = new Set();
+    private _burnInAttemptedForProgramTrackKey: Set<string> = new Set();
 
     constructor(private readonly deps: PlaybackRecoveryDeps) {
         this._subtitlePreferencesStore = deps.subtitlePreferencesStore ?? new SubtitlePreferencesStore();
@@ -198,8 +172,8 @@ export class PlaybackRecoveryManager {
     }
 
     resetDirectFallbackAndBurnInAttempts(): void {
-        this._directFallbackAttemptedForItemKey.clear();
-        this._burnInAttemptedForItemKey.clear();
+        this._directFallbackAttemptedForProgramKey.clear();
+        this._burnInAttemptedForProgramTrackKey.clear();
     }
 
     handlePlaybackFailure(context: string, error: unknown): void {
@@ -414,11 +388,10 @@ export class PlaybackRecoveryManager {
         if (currentProtocol !== 'direct') {
             return false;
         }
-        if (this._directFallbackAttemptedForItemKey.has(context.itemKey)) {
+        const attemptKey = createScheduledProgramIdentityKey(context.programIdentity);
+        if (!attemptKey || this._directFallbackAttemptedForProgramKey.has(attemptKey)) {
             return false;
         }
-
-        this._directFallbackAttemptedForItemKey.add(context.itemKey);
 
         const result = await this._reloadController.executeReload({
             context,
@@ -439,6 +412,9 @@ export class PlaybackRecoveryManager {
             },
             shouldResumeAfterReload: true,
         });
+        if (result.outcome !== 'ignored') {
+            this._directFallbackAttemptedForProgramKey.add(attemptKey);
+        }
 
         return result.outcome === 'reloaded';
     }
@@ -509,9 +485,12 @@ export class PlaybackRecoveryManager {
                 preferredSubtitleTrackId: null,
             }),
             shouldResumeAfterReload: true,
-            onSuccess: ({ itemKey }) => {
+            onSuccess: ({ programIdentity }) => {
                 if (typeof burnedInTrackId === 'string' && burnedInTrackId.length > 0) {
-                    this._burnInAttemptedForItemKey.delete(`${itemKey}::${burnedInTrackId}`);
+                    const attemptKey = createScheduledProgramTrackKey(programIdentity, burnedInTrackId);
+                    if (attemptKey) {
+                        this._burnInAttemptedForProgramTrackKey.delete(attemptKey);
+                    }
                 }
             },
         });
@@ -526,9 +505,12 @@ export class PlaybackRecoveryManager {
             return context;
         }
 
-        const attemptKey = `${context.itemKey}::${trackId}`;
+        const attemptKey = createScheduledProgramTrackKey(context.programIdentity, trackId);
+        if (!attemptKey) {
+            return { outcome: 'ignored', reason: 'missing_deps' };
+        }
         const recordAttemptBeforeReload = this._shouldRecordAutomaticBurnInAttempt(reason);
-        if (recordAttemptBeforeReload && this._burnInAttemptedForItemKey.has(attemptKey)) {
+        if (recordAttemptBeforeReload && this._burnInAttemptedForProgramTrackKey.has(attemptKey)) {
             return { outcome: 'ignored', reason: 'already_attempted' };
         }
 
@@ -557,9 +539,6 @@ export class PlaybackRecoveryManager {
         trackId: string,
         prepared: PreparedBurnInSubtitleRecovery
     ): Promise<BurnInSubtitleRecoveryResult> {
-        if (prepared.recordAttemptBeforeReload) {
-            this._burnInAttemptedForItemKey.add(prepared.attemptKey);
-        }
         const preReloadState = this._readPlayerState(prepared.context.player);
         const shouldResumeAfterRestore =
             preReloadState?.status === 'playing' || preReloadState?.status === 'buffering';
@@ -591,7 +570,9 @@ export class PlaybackRecoveryManager {
             }),
             shouldResumeAfterReload: true,
             onSuccess: () => {
-                this._burnInAttemptedForItemKey.add(prepared.attemptKey);
+                if (prepared.recordAttemptBeforeReload) {
+                    this._burnInAttemptedForProgramTrackKey.add(prepared.attemptKey);
+                }
             },
             onFailure: (failure) => {
                 return this._handleBurnInReloadFailure(
@@ -600,6 +581,11 @@ export class PlaybackRecoveryManager {
                     shouldResumeAfterRestore
                 );
             },
+        }).then((result) => {
+            if (prepared.recordAttemptBeforeReload && result.outcome === 'failed') {
+                this._burnInAttemptedForProgramTrackKey.add(prepared.attemptKey);
+            }
+            return result;
         });
     }
 

@@ -27,6 +27,7 @@ export {
     buildScheduledProgramIdentity,
     buildScheduledProgramIdentityFromState,
     createScheduledProgramIdentityKey,
+    createScheduledProgramTrackKey,
     scheduledProgramIdentitiesMatch,
 } from './programIdentity';
 

@@ -73,3 +73,11 @@ export function createScheduledProgramIdentityKey(
         `loop:${identity.loopNumber}`,
     ].join('|');
 }
+
+export function createScheduledProgramTrackKey(
+    identity: ScheduledProgramIdentity | null,
+    trackId: string
+): string | null {
+    const programKey = createScheduledProgramIdentityKey(identity);
+    return programKey ? `${programKey}::${trackId}` : null;
+}
