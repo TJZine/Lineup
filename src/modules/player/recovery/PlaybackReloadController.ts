@@ -1,10 +1,13 @@
 import { redactSensitiveTokens } from '../../../utils/redact';
 import type { IPlexStreamResolver, StreamDecision, StreamRequest } from '../../plex/stream';
-import type { ScheduledProgram } from '../../scheduler/scheduler';
+import {
+    scheduledProgramIdentitiesMatch,
+    type ScheduledProgram,
+    type ScheduledProgramIdentity,
+} from '../../scheduler/scheduler';
 import { logPlaybackRecoveryError, logPlaybackRecoveryWarning } from '../../debug/PlayerConsoleLogger';
 import type { IVideoPlayer } from '../core/interfaces';
 import type { StreamDescriptor } from '../core/types';
-import { programsMatchIdentity } from './PlaybackProgramIdentity';
 
 export type RecoveryReloadIgnoredReason =
     | 'recovery_in_progress'
@@ -19,6 +22,7 @@ export type RecoveryAttemptResult<Success extends string, IgnoredReason extends 
 
 export type RecoveryReloadContext = {
     program: ScheduledProgram;
+    programIdentity: ScheduledProgramIdentity;
     player: IVideoPlayer;
     resolver: IPlexStreamResolver;
     itemKey: string;
@@ -54,6 +58,7 @@ interface PlaybackReloadControllerDeps {
     getVideoPlayer: () => IVideoPlayer | null;
     getStreamResolver: () => IPlexStreamResolver | null;
     getCurrentProgramForPlayback: () => ScheduledProgram | null;
+    getCurrentProgramIdentityForPlayback: () => ScheduledProgramIdentity | null;
     getCurrentStreamDecision?: () => StreamDecision | null;
     getCurrentStreamDescriptor?: () => StreamDescriptor | null;
     setCurrentStreamDecision: (decision: StreamDecision | null) => void;
@@ -83,7 +88,8 @@ export class PlaybackReloadController {
         }
 
         const program = this.deps.getCurrentProgramForPlayback();
-        if (!program) {
+        const programIdentity = this.deps.getCurrentProgramIdentityForPlayback();
+        if (!program || !programIdentity) {
             return { outcome: 'ignored', reason: 'no_program' };
         }
 
@@ -95,6 +101,7 @@ export class PlaybackReloadController {
 
         return {
             program,
+            programIdentity,
             player,
             resolver,
             itemKey: program.item.ratingKey,
@@ -166,7 +173,12 @@ export class PlaybackReloadController {
             const abortIfProgramChanged = (
                 teardownDescriptor: StreamDescriptor | null
             ): RecoveryAttemptResult<TSuccess, 'program_changed'> | null => {
-                if (programsMatchIdentity(this.deps.getCurrentProgramForPlayback(), context.program)) {
+                if (
+                    scheduledProgramIdentitiesMatch(
+                        this.deps.getCurrentProgramIdentityForPlayback(),
+                        context.programIdentity
+                    )
+                ) {
                     return null;
                 }
 

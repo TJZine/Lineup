@@ -5,7 +5,12 @@ import type { IPlexAuth } from '../../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../../modules/plex/discovery';
 import type { IPlexStreamResolver, StreamDecision } from '../../../modules/plex/stream';
 import type { ChannelConfig, IChannelManager, ResolvedChannelContent } from '../../../modules/scheduler/channel-manager';
-import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../modules/scheduler/scheduler';
+import {
+    buildScheduledProgramIdentityFromState,
+    type IChannelScheduler,
+    type ScheduledProgram,
+    type ScheduleConfig,
+} from '../../../modules/scheduler/scheduler';
 import type { IChannelTransitionOverlay } from '../../../modules/ui/channel-transition';
 import { ChannelTransitionCoordinator } from '../../../modules/ui/channel-transition';
 import { PLAYBACK_OPTIONS_MODAL_ID, PlaybackOptionsCoordinator, type IPlaybackOptionsModal, type PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
@@ -225,6 +230,8 @@ export function buildPlaybackRecovery(
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
         getCurrentProgramForPlayback: (): ScheduledProgram | null =>
             input.playback.state.getCurrentProgramForPlayback(),
+        getCurrentProgramIdentityForPlayback: () =>
+            buildScheduledProgramIdentityFromState(input.modules.scheduler.getState()),
         getCurrentStreamDescriptor: (): StreamDescriptor | null =>
             input.playback.state.getCurrentStreamDescriptor(),
         getCurrentStreamDecision: (): StreamDecision | null =>

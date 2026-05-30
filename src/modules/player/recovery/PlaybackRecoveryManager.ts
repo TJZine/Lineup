@@ -10,7 +10,13 @@ import {
     type StreamRequest,
     type StreamResolverError,
 } from '../../plex/stream';
-import type { IChannelScheduler, ScheduledProgram } from '../../scheduler/scheduler';
+import {
+    createScheduledProgramIdentityKey,
+    scheduledProgramIdentitiesMatch,
+    type IChannelScheduler,
+    type ScheduledProgram,
+    type ScheduledProgramIdentity,
+} from '../../scheduler/scheduler';
 import type { IVideoPlayer } from '../core/interfaces';
 import type { StreamDescriptor } from '../core/types';
 import { subtitleModeAllowsBurnIn, type SubtitleMode } from '../../../shared/subtitle-mode';
@@ -33,7 +39,6 @@ import {
     summarizePlaybackFailureReloadAttempt,
 } from './PlaybackFailureDiagnostics';
 import { logPlaybackRecoveryError } from '../../debug/PlayerConsoleLogger';
-import { programsMatchIdentity } from './PlaybackProgramIdentity';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -43,6 +48,7 @@ export interface PlaybackRecoveryDeps {
     getScheduler: () => IChannelScheduler | null;
 
     getCurrentProgramForPlayback: () => ScheduledProgram | null;
+    getCurrentProgramIdentityForPlayback: () => ScheduledProgramIdentity | null;
     getCurrentStreamDescriptor: () => StreamDescriptor | null;
     getCurrentStreamDecision?: () => StreamDecision | null;
 
@@ -109,6 +115,7 @@ export class PlaybackRecoveryManager {
             getVideoPlayer: deps.getVideoPlayer,
             getStreamResolver: deps.getStreamResolver,
             getCurrentProgramForPlayback: deps.getCurrentProgramForPlayback,
+            getCurrentProgramIdentityForPlayback: deps.getCurrentProgramIdentityForPlayback,
             setCurrentStreamDecision: deps.setCurrentStreamDecision,
             setCurrentStreamDescriptor: deps.setCurrentStreamDescriptor,
             getCurrentStreamDescriptor: deps.getCurrentStreamDescriptor,
@@ -141,17 +148,8 @@ export class PlaybackRecoveryManager {
     }
 
     private _getPlaybackFailureGuardKey(): string {
-        const program = this.deps.getCurrentProgramForPlayback();
-        if (!program) {
-            return `item:${this._getCurrentItemKey() ?? '<unknown>'}`;
-        }
-        const itemKey = program.item.ratingKey || '<unknown>';
-        return [
-            `item:${itemKey}`,
-            `start:${program.scheduledStartTime}`,
-            `index:${program.scheduleIndex}`,
-            `loop:${program.loopNumber}`,
-        ].join('|');
+        return createScheduledProgramIdentityKey(this.deps.getCurrentProgramIdentityForPlayback())
+            ?? `item:${this._getCurrentItemKey() ?? '<unknown>'}`;
     }
 
     private _buildPlaybackFailureContext(context: string, error: unknown): Record<string, unknown> {
@@ -614,7 +612,12 @@ export class PlaybackRecoveryManager {
         if (!priorDecision || !priorDescriptor) {
             return { outcome: 'unavailable', reason: 'missing_prior_stream' };
         }
-        if (!programsMatchIdentity(this.deps.getCurrentProgramForPlayback(), failure.program)) {
+        if (
+            !scheduledProgramIdentitiesMatch(
+                this.deps.getCurrentProgramIdentityForPlayback(),
+                failure.programIdentity
+            )
+        ) {
             return { outcome: 'unavailable', reason: 'program_changed' };
         }
         if (failure.failureStage !== 'load' && failure.failureStage !== 'after_load' && failure.failureStage !== 'play') {

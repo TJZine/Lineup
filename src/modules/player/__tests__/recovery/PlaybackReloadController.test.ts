@@ -3,7 +3,11 @@ import {
     type RecoveryReloadContext,
 } from '../../recovery/PlaybackReloadController';
 import type { IPlexStreamResolver, StreamDecision } from '../../../plex/stream';
-import type { ScheduledProgram } from '../../../scheduler/scheduler';
+import {
+    buildScheduledProgramIdentity,
+    type ScheduledProgram,
+    type ScheduledProgramIdentity,
+} from '../../../scheduler/scheduler';
 import type { IVideoPlayer } from '../../core/interfaces';
 import type { StreamDescriptor } from '../../core/types';
 import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
@@ -21,8 +25,16 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         scheduledEndTime: 0,
         remainingMs: 0,
         scheduleIndex: 0,
+        loopNumber: 0,
+        isCurrent: true,
         ...overrides,
     } as ScheduledProgram);
+
+const makeProgramIdentity = (
+    program: ScheduledProgram,
+    channelId: string = 'channel-1'
+): ScheduledProgramIdentity =>
+    buildScheduledProgramIdentity(channelId, program) as ScheduledProgramIdentity;
 
 const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =>
     ({
@@ -51,6 +63,8 @@ const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =
 const makeContext = (
     overrides: Partial<RecoveryReloadContext> = {}
 ): RecoveryReloadContext => {
+    const program = overrides.program ?? makeProgram();
+    const programIdentity = overrides.programIdentity ?? makeProgramIdentity(program);
     const player: IVideoPlayer = {
         loadStream: jest.fn().mockResolvedValue(undefined),
         unloadStream: jest.fn(),
@@ -63,7 +77,8 @@ const makeContext = (
     } as unknown as IPlexStreamResolver;
 
     return {
-        program: makeProgram(),
+        program,
+        programIdentity,
         player,
         resolver,
         itemKey: 'item-1',
@@ -123,6 +138,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                makeProgramIdentity(program),
             getCurrentStreamDecision: (): null => null,
             setCurrentStreamDecision: jest.fn(),
             setCurrentStreamDescriptor: jest.fn(),
@@ -154,6 +171,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
             getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
             setCurrentStreamDecision,
             setCurrentStreamDescriptor,
@@ -190,10 +209,12 @@ describe('PlaybackReloadController', () => {
             item: { ...originalProgram.item, ratingKey: 'item-2' } as ScheduledProgram['item'],
         });
         let currentProgram: ScheduledProgram | null = originalProgram;
+        let currentProgramIdentity: ScheduledProgramIdentity | null = makeProgramIdentity(originalProgram);
         const context = makeContext({ program: originalProgram });
         const resolver = {
             resolveStream: jest.fn().mockImplementation(async () => {
                 currentProgram = changedProgram;
+                currentProgramIdentity = makeProgramIdentity(changedProgram);
                 return makeDecision();
             }),
         } as unknown as IPlexStreamResolver;
@@ -203,6 +224,53 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity | null =>
+                currentProgramIdentity,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn(),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context: { ...context, resolver },
+            successOutcome: 'reloaded',
+            startEvent: 'disableBurnIn.start',
+            abortedEvent: 'disableBurnIn.aborted',
+            failedEvent: 'disableBurnIn.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: true,
+            }),
+        });
+
+        expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
+    });
+
+    it('returns ignored when scheduler identity changes without changing the current item key', async () => {
+        const program = makeProgram();
+        let currentProgram: ScheduledProgram | null = program;
+        let currentProgramIdentity: ScheduledProgramIdentity | null = makeProgramIdentity(program, 'channel-1');
+        const context = makeContext({
+            program,
+            programIdentity: makeProgramIdentity(program, 'channel-1'),
+        });
+        const resolver = {
+            resolveStream: jest.fn().mockImplementation(async () => {
+                currentProgramIdentity = makeProgramIdentity(program, 'channel-2');
+                return makeDecision();
+            }),
+        } as unknown as IPlexStreamResolver;
+        expectPlaybackRecoveryStart('disableBurnIn.start');
+        expectPlaybackRecoveryAborted('disableBurnIn.aborted');
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => context.player,
+            getStreamResolver: (): IPlexStreamResolver => resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity | null =>
+                currentProgramIdentity,
             getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
             setCurrentStreamDecision: jest.fn(),
             setCurrentStreamDescriptor: jest.fn(),
@@ -246,6 +314,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity | null =>
+                currentProgram ? makeProgramIdentity(currentProgram) : null,
             getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
             setCurrentStreamDecision: jest.fn(),
             setCurrentStreamDescriptor: jest.fn(),
@@ -288,6 +358,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity | null =>
+                currentProgram ? makeProgramIdentity(currentProgram) : null,
             getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
             setCurrentStreamDecision: jest.fn(),
             setCurrentStreamDescriptor: jest.fn(),
@@ -357,6 +429,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
             getCurrentStreamDecision: (): StreamDecision | null => currentDecision,
             setCurrentStreamDecision: (decision): void => {
                 currentDecision = decision;
@@ -430,6 +504,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
             getCurrentStreamDecision: (): StreamDecision | null => currentDecision,
             setCurrentStreamDecision: (decision): void => {
                 currentDecision = decision;
@@ -516,6 +592,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity | null =>
+                currentProgram ? makeProgramIdentity(currentProgram) : null,
             getCurrentStreamDecision: (): StreamDecision | null => currentDecision,
             setCurrentStreamDecision: (decision): void => {
                 currentDecision = decision;
@@ -603,6 +681,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity | null =>
+                currentProgram ? makeProgramIdentity(currentProgram) : null,
             getCurrentStreamDecision: (): StreamDecision | null => currentDecision,
             setCurrentStreamDecision: (decision): void => {
                 currentDecision = decision;
@@ -686,6 +766,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity | null =>
+                currentProgram ? makeProgramIdentity(currentProgram) : null,
             getCurrentStreamDecision: (): StreamDecision | null => currentDecision,
             setCurrentStreamDecision: (decision): void => {
                 currentDecision = decision;
@@ -742,6 +824,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity | null =>
+                currentProgram ? makeProgramIdentity(currentProgram) : null,
             getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
             setCurrentStreamDecision: jest.fn(),
             setCurrentStreamDescriptor: jest.fn(),
@@ -779,6 +863,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
             getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
             setCurrentStreamDecision: jest.fn(),
             setCurrentStreamDescriptor: jest.fn(),
@@ -816,6 +902,8 @@ describe('PlaybackReloadController', () => {
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
             getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
             setCurrentStreamDecision: jest.fn(),
             setCurrentStreamDescriptor: jest.fn(),

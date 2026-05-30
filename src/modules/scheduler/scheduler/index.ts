@@ -24,6 +24,15 @@ export type {
 } from './types';
 
 export {
+    buildScheduledProgramIdentity,
+    buildScheduledProgramIdentityFromState,
+    createScheduledProgramIdentityKey,
+    scheduledProgramIdentitiesMatch,
+} from './programIdentity';
+
+export type { ScheduledProgramIdentity } from './programIdentity';
+
+export {
     SYNC_INTERVAL_MS,
     MAX_DRIFT_MS,
     RESYNC_THRESHOLD_MS,

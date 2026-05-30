@@ -3,7 +3,12 @@ import { AppErrorCode } from '../../../../types/app-errors';
 import type { IVideoPlayer, StreamDescriptor } from '../../index';
 import type { IPlexStreamResolver, StreamDecision } from '../../../plex/stream';
 import type { PlexStream } from '../../../plex/shared/types';
-import type { IChannelScheduler, ScheduledProgram } from '../../../scheduler/scheduler';
+import {
+    buildScheduledProgramIdentity,
+    type IChannelScheduler,
+    type ScheduledProgram,
+    type ScheduledProgramIdentity,
+} from '../../../scheduler/scheduler';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
 
@@ -20,8 +25,16 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         scheduledEndTime: 0,
         remainingMs: 0,
         scheduleIndex: 0,
+        loopNumber: 0,
+        isCurrent: true,
         ...overrides,
     } as ScheduledProgram);
+
+const makeProgramIdentity = (
+    program: ScheduledProgram,
+    channelId: string = 'ch1'
+): ScheduledProgramIdentity =>
+    buildScheduledProgramIdentity(channelId, program) as ScheduledProgramIdentity;
 
 const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =>
     ({
@@ -122,7 +135,10 @@ const setup = (overrides: Partial<PlaybackRecoveryDeps> = {}): {
         pauseSyncTimer: jest.fn(),
         resumeSyncTimer: jest.fn(),
         skipToNext: jest.fn(),
-        getState: jest.fn().mockReturnValue({ channelId: 'ch1' }),
+        getState: jest.fn().mockReturnValue({
+            channelId: 'ch1',
+            currentProgram: program,
+        }),
     } as unknown as IChannelScheduler;
     const resolver: IPlexStreamResolver = {
         resolveStream: jest.fn().mockResolvedValue(makeDecision()),
@@ -139,6 +155,7 @@ const setup = (overrides: Partial<PlaybackRecoveryDeps> = {}): {
         getStreamResolver: () => resolver,
         getScheduler: () => scheduler,
         getCurrentProgramForPlayback: () => program,
+        getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(program),
         getCurrentStreamDescriptor: () => ({ protocol: 'direct' } as StreamDescriptor),
         setCurrentStreamDecision: jest.fn(),
         setCurrentStreamDescriptor: jest.fn(),
@@ -275,6 +292,7 @@ describe('PlaybackRecoveryManager', () => {
         let currentProgram = makeProgram();
         const { manager, scheduler, deps } = setup({
             getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(currentProgram),
         });
         const handleGlobalError = deps.handleGlobalError as jest.Mock;
         const appendIssueDiagnostic = deps.appendIssueDiagnostic as jest.Mock;
@@ -320,6 +338,7 @@ describe('PlaybackRecoveryManager', () => {
         let currentProgram = makeProgram();
         const { manager, scheduler, deps } = setup({
             getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(currentProgram),
         });
         const handleGlobalError = deps.handleGlobalError as jest.Mock;
 
@@ -501,8 +520,10 @@ describe('PlaybackRecoveryManager', () => {
     });
 
     it('resolves stream for program and records decision', async () => {
+        const currentProgram = makeProgram({ elapsedMs: 999999 });
         const { manager, resolver, deps } = setup({
-            getCurrentProgramForPlayback: () => makeProgram({ elapsedMs: 999999 }),
+            getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(currentProgram),
         });
         const setDecision = deps.setCurrentStreamDecision as jest.Mock;
 
@@ -1435,6 +1456,94 @@ describe('PlaybackRecoveryManager', () => {
         const { manager, resolver, deps } = setup({
             getVideoPlayer: () => player,
             getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(currentProgram),
+            getCurrentStreamDecision: () => priorDecision,
+            getCurrentStreamDescriptor: () => priorDescriptor,
+        });
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(burnInDecision);
+
+        const result = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'user_selected_text_burn_in'
+        );
+
+        expect(result).toEqual({ outcome: 'failed' });
+        expect(player.loadStream).toHaveBeenCalledTimes(1);
+        expect(player.play).not.toHaveBeenCalled();
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: AppErrorCode.PLAYBACK_FAILED,
+                context: expect.objectContaining({
+                    burnInRestoreOutcome: { outcome: 'unavailable', reason: 'program_changed' },
+                }),
+            }),
+            'playback'
+        );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'playbackRecovery.burnInReloadFailed',
+            expect.objectContaining({
+                restoreOutcome: { outcome: 'unavailable', reason: 'program_changed' },
+            })
+        );
+    });
+
+    it('does not restore a prior stream when scheduler ownership changes but the item key and start time stay the same', async () => {
+        expectPlaybackRecoveryWarn({
+            event: 'burnInReload.start',
+            trackId: 'sub-keyless',
+            reason: 'user_selected_text_burn_in',
+            itemKey: 'item-1',
+        });
+        expectPlaybackRecoveryError({
+            event: 'burnInReload.failed',
+            trackId: 'sub-keyless',
+            reason: 'user_selected_text_burn_in',
+            itemKey: 'item-1',
+            safeError: expect.any(Object),
+        });
+        const priorDecision = makeDecision({
+            playbackUrl: 'http://test/prior.m3u8',
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        const priorDescriptor = {
+            url: 'http://test/prior.m3u8',
+            protocol: 'direct',
+            preferredSubtitleTrackId: 'sub-old',
+            startPositionMs: 0,
+        } as StreamDescriptor;
+        const burnInDecision = makeDecision({
+            transcodeRequest: {
+                sessionId: 'sess-burn',
+                maxBitrate: 8000,
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+            },
+            subtitleBurnIn: {
+                requested: true,
+                confirmed: false,
+                reason: 'requested',
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+            },
+        });
+        const currentProgram = makeProgram();
+        let currentProgramIdentity = makeProgramIdentity(currentProgram, 'ch1');
+        const player = {
+            loadStream: jest.fn().mockImplementationOnce(async () => {
+                currentProgramIdentity = makeProgramIdentity(currentProgram, 'ch2');
+                throw new Error('burn-in load failed');
+            }),
+            play: jest.fn().mockResolvedValue(undefined),
+            getState: jest.fn().mockReturnValue(makePlayerState({ status: 'playing' })),
+            getCurrentTimeMs: jest.fn().mockReturnValue(12_345),
+        } as unknown as IVideoPlayer;
+        const { manager, resolver, deps } = setup({
+            getVideoPlayer: () => player,
+            getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentProgramIdentityForPlayback: () => currentProgramIdentity,
             getCurrentStreamDecision: () => priorDecision,
             getCurrentStreamDescriptor: () => priorDescriptor,
         });
@@ -1952,6 +2061,7 @@ describe('PlaybackRecoveryManager', () => {
         let currentProgram = makeProgram();
         const { manager, resolver } = setup({
             getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(currentProgram),
             getCurrentStreamDecision: () => burnInDecision,
         });
         (resolver.resolveStream as jest.Mock).mockImplementationOnce(async () => {
