@@ -83,7 +83,6 @@ describe('EPGGridRuntimeController', () => {
         remainingMs: 60 * 60 * 1000,
         scheduleIndex: 0,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: true,
     });
 

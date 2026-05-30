@@ -7,7 +7,7 @@ import type { NowPlayingInfoConfig } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from './constants';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import { buildPlaybackSummary, type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
-import { formatAudioCodec } from '../../../utils/mediaFormat';
+import { formatAudioCodec, formatAudioDetail } from '../../../utils/mediaFormat';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/policy/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
 import { summarizeErrorForLog } from '../../../utils/errors';
@@ -507,37 +507,9 @@ export class NowPlayingInfoCoordinator {
             const audioCodec = formatAudioCodec(mediaInfo.audioCodec);
             if (audioCodec) badges.push(audioCodec);
         }
-        const audioDetail = this.formatAudioDetail(mediaInfo);
+        const audioDetail = formatAudioDetail(mediaInfo);
         if (audioDetail) badges.push(audioDetail);
         return badges;
-    }
-
-    private formatAudioDetail(
-        mediaInfo: ScheduledProgram['item']['mediaInfo'] | undefined
-    ): string | null {
-        if (!mediaInfo) return null;
-
-        if (typeof mediaInfo.audioChannels === 'number' && mediaInfo.audioChannels > 0) {
-            switch (mediaInfo.audioChannels) {
-                case 1:
-                    return '1.0';
-                case 2:
-                    return '2.0';
-                case 6:
-                    return '5.1';
-                case 8:
-                    return '7.1';
-                default:
-                    return `${mediaInfo.audioChannels}ch`;
-            }
-        }
-
-        if (mediaInfo.audioTrackTitle) {
-            const trimmed = mediaInfo.audioTrackTitle.trim();
-            return trimmed.length > 0 ? trimmed.slice(0, 24) : null;
-        }
-
-        return null;
     }
 
     private clearNowPlayingInfoDetails(): void {

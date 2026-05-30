@@ -54,7 +54,6 @@ describe('EPGInfoPanel', () => {
         remainingMs: 7200000,
         scheduleIndex: 0,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: true,
     });
     const createMockHdrItemDetails = (hdr: string): EpgItemDetails => ({

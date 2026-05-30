@@ -116,7 +116,7 @@ export interface PlexAuthEvents {
     profileChange: { fromUserId: string | null; toUserId: string };
 }
 export interface IPlexAuth {
-    requestPin(): Promise<PlexPinRequest>;
+    requestPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
 
     checkPinStatus(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
 
@@ -130,7 +130,7 @@ export interface IPlexAuth {
      * @returns true for valid token; false only for explicit auth-invalid (401/403) outcomes
      * @throws PlexApiError for timeout, service/network failures, and malformed success payloads
      */
-    validateToken(token: string): Promise<boolean>;
+    validateToken(token: string, options?: { signal?: AbortSignal | null }): Promise<boolean>;
 
     /**
      * Fetch Plex Home profiles using the account token.

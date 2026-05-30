@@ -22,11 +22,11 @@ Pin-based OAuth flow for TV devices. Supports Plex Home user switching.
 
 ```typescript
 interface IPlexAuth {
-  requestPin(): Promise<PlexPinRequest>;
+  requestPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
   checkPinStatus(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
   cancelPin(pinId: number): Promise<void>;
   pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
-  validateToken(token: string): Promise<boolean>;
+  validateToken(token: string, options?: { signal?: AbortSignal | null }): Promise<boolean>;
   getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
   switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
   getActiveUserId(): string | null;

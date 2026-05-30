@@ -32,7 +32,6 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         remainingMs: 59_000,
         scheduleIndex: 0,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: true,
         ...overrides,
     }) as ScheduledProgram;

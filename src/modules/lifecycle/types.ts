@@ -16,26 +16,17 @@ export type AppPhase =
     | 'error'
     | 'terminating';
 
-/**
- * Plex server connection status.
- */
 export type ConnectionStatus =
     | 'connected'
     | 'connecting'
     | 'disconnected'
     | 'unreachable';
 
-/**
- * User preferences stored in persistent state.
- */
 export interface UserPreferences {
-    /** UI theme */
     theme: 'dark' | 'light';
     /** Audio volume level (0-100) */
     volume: number;
-    /** Preferred subtitle language code */
     subtitleLanguage: string | null;
-    /** Preferred audio language code */
     audioLanguage: string | null;
 }
 
@@ -44,11 +35,8 @@ export interface UserPreferences {
  * Includes lifecycle-only fields and a schema version for migrations.
  */
 export interface PersistentState {
-    /** Schema version for migrations */
     version: number;
-    /** User preferences */
     userPreferences: UserPreferences;
-    /** Last update timestamp */
     lastUpdated: number;
 }
 
@@ -56,13 +44,9 @@ export interface PersistentState {
  * Lifecycle-specific error with additional context.
  */
 export interface LifecycleAppError extends AppError {
-    /** Phase when error occurred */
     phase: AppPhase;
-    /** Timestamp of error */
     timestamp: number;
-    /** User-facing message */
     userMessage: string;
-    /** Available recovery actions */
     actions: ErrorAction[];
 }
 
@@ -80,15 +64,10 @@ export interface LifecycleAsyncError {
  * Used with EventEmitter for type-safe event handling.
  */
 export interface LifecycleEventMap {
-    /** Emitted when app phase changes */
     phaseChange: { from: AppPhase; to: AppPhase };
-    /** Emitted when visibility changes (background/foreground) */
     visibilityChange: { isVisible: boolean };
-    /** Emitted when network connectivity changes */
     networkChange: { isAvailable: boolean };
-    /** Emitted when Plex server connection status changes */
     plexConnectionChange: { status: ConnectionStatus };
-    /** Emitted when an error is reported */
     error: LifecycleAppError;
     /** Emitted when an async lifecycle task fails without necessarily changing app phase */
     asyncError: LifecycleAsyncError;
@@ -113,9 +92,7 @@ export interface AppLifecycleState {
     phase: AppPhase;
     isVisible: boolean;
     isNetworkAvailable: boolean;
-    /** Last active timestamp */
     lastActiveTime: number;
-    /** Plex server connection status */
     plexConnectionStatus: ConnectionStatus;
     currentError: AppError | null;
 }
@@ -136,15 +113,10 @@ export interface MemoryUsage {
  * Recovery action presented to user.
  */
 export interface ErrorAction {
-    /** Button label */
     label: string;
-    /** Action to execute */
     action: () => void | Promise<void>;
     isPrimary: boolean;
     requiresNetwork: boolean;
 }
 
-/**
- * Callback type for lifecycle events.
- */
 export type LifecycleCallback = () => void | Promise<void>;

@@ -1,13 +1,9 @@
-
-// Classes
 export { AppLifecycle } from './AppLifecycle';
 export { ErrorRecovery } from './ErrorRecovery';
 export { StateManager } from './StateManager';
 
-// Interfaces
 export type { IAppLifecycle } from './interfaces';
 
-// Types
 export type {
     AppPhase,
     ConnectionStatus,
@@ -24,7 +20,6 @@ export type {
 
 export { AppErrorCode } from './types';
 
-// Constants
 export {
     STORAGE_CONFIG,
     MEMORY_THRESHOLDS,

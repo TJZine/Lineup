@@ -47,7 +47,6 @@ const makeProgram = (options: {
         remainingMs: endTimeMs - startTimeMs,
         scheduleIndex: 0,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: false,
     };
 };

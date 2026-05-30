@@ -1002,7 +1002,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             remainingMs: 120_000,
             scheduleIndex: 0,
             loopNumber: 0,
-            streamDescriptor: null,
             isCurrent: true,
         };
 
@@ -1555,7 +1554,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     scheduledEndTime: Date.now() + 60_000,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: true,
                 };
                 schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
@@ -1662,7 +1660,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     scheduledEndTime: Date.now() + 60_000,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: true,
                 };
                 schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
@@ -2986,7 +2983,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 remainingMs: 120_000,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: true,
             };
 

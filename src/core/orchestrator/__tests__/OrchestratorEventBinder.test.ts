@@ -20,7 +20,6 @@ function createProgram(): ScheduledProgram {
         remainingMs: 60_000,
         scheduleIndex: 0,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: true,
     };
 }

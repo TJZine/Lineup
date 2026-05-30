@@ -269,7 +269,9 @@ export class NavigationManager
     }
 
     public getServerSelectParams(): ServerSelectNavigationParams | null {
-        return this._state.currentScreen === 'server-select' ? this._state.serverSelectParams : null;
+        return this._state.currentScreen === 'server-select' && this._state.serverSelectParams !== null
+            ? { ...this._state.serverSelectParams }
+            : null;
     }
 
     public getCurrentScreen(): Screen {

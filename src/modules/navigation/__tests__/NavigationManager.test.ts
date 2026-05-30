@@ -134,6 +134,19 @@ describe('NavigationManager', () => {
             expect(nav.getServerSelectParams()).toEqual({ allowAutoConnect: true });
         });
 
+        it('returns a defensive copy of server-select params', () => {
+            nav.goTo('server-select', { allowAutoConnect: true });
+
+            const params = nav.getServerSelectParams();
+            expect(params).toEqual({ allowAutoConnect: true });
+
+            if (params) {
+                params.allowAutoConnect = false;
+            }
+
+            expect(nav.getServerSelectParams()).toEqual({ allowAutoConnect: true });
+        });
+
         it('clears stale server-select params on no-param server-select route', () => {
             nav.goTo('server-select', { allowAutoConnect: true });
             nav.goTo('auth');

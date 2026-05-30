@@ -78,7 +78,6 @@ const makeProgram = (ratingKey: string): ScheduledProgram => ({
     remainingMs: 60000,
     scheduleIndex: 0,
     loopNumber: 0,
-    streamDescriptor: null,
     isCurrent: false,
 });
 

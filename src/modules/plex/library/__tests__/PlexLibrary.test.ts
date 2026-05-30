@@ -511,6 +511,7 @@ describe('PlexLibrary', () => {
             const library = new PlexLibrary(mockConfig);
 
             await library.getLibraryItems('1', { offset: 50, limit: 25 });
+            const firstRequest = (fetch as jest.Mock).mock.calls[0]?.[1] as RequestInit;
 
             expect(fetch).toHaveBeenCalledWith(
                 expect.stringContaining('X-Plex-Container-Start=50'),
@@ -520,6 +521,10 @@ describe('PlexLibrary', () => {
                 expect.stringContaining('X-Plex-Container-Size=25'),
                 expect.any(Object)
             );
+            expect(firstRequest.headers).toMatchObject({
+                'X-Plex-Container-Start': '50',
+                'X-Plex-Container-Size': '25',
+            });
         });
 
         it('returns no items without fetching when limit is non-positive', async () => {
@@ -1484,6 +1489,41 @@ describe('PlexLibrary', () => {
 
                 await rejection;
                 expect(fetch).toHaveBeenCalledTimes(PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES + 1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('retries 429 responses using the Retry-After delay', async () => {
+            jest.useFakeTimers();
+            try {
+                const fetchMock = jest.fn()
+                    .mockResolvedValueOnce({
+                        ok: false,
+                        status: 429,
+                        headers: {
+                            get: (name: string): string | null => name === 'Retry-After' ? '2' : null,
+                        },
+                        text: async (): Promise<string> => JSON.stringify({ error: 'Rate limited' }),
+                    })
+                    .mockResolvedValueOnce({
+                        ok: true,
+                        status: 200,
+                        headers: { get: (): string | null => null },
+                        text: async (): Promise<string> => JSON.stringify(mockLibrarySectionsResponse),
+                    });
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+                const library = new PlexLibrary(mockConfig);
+
+                const request = library.getLibraries();
+                const expectation = expect(request).resolves.toHaveLength(4);
+
+                await jest.advanceTimersByTimeAsync(1999);
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+                await jest.advanceTimersByTimeAsync(1);
+
+                await expectation;
+                expect(fetchMock).toHaveBeenCalledTimes(2);
             } finally {
                 jest.useRealTimers();
             }

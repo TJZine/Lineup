@@ -5,7 +5,6 @@ export { PlaybackRecoveryManager } from './recovery/PlaybackRecoveryManager';
 export { normalizeSeekIncrementSeconds } from './tracks/SeekIncrementPolicy';
 export { formatAudioLabel } from './tracks/formatAudioLabel';
 
-// Interface
 export type { IVideoPlayer } from './core/interfaces';
 export type {
     PlaybackRecoveryDeps,
@@ -14,7 +13,6 @@ export type {
     DisableBurnInSubtitlesResult,
 } from './recovery/PlaybackRecoveryManager';
 
-// Types
 export type {
     VideoPlayerConfig,
     StreamDescriptor,
