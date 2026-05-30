@@ -41,6 +41,10 @@ export function formatErrorDetailForMessage(detail: unknown): string {
 
 export function emitBestEffortWarning(message: string, data?: unknown): void {
     try {
+        if (typeof data === 'undefined') {
+            globalThis.console?.warn?.call(globalThis.console, message);
+            return;
+        }
         globalThis.console?.warn?.call(globalThis.console, message, data);
     } catch {
         // Warning delivery is diagnostic-only and must never mask the source failure.

@@ -102,6 +102,15 @@ describe('emitBestEffortWarning', () => {
         expect(() => emitBestEffortWarning('warning message')).not.toThrow();
         warn.mockRestore();
     });
+
+    it('omits the second console argument when no data is provided', () => {
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        emitBestEffortWarning('warning message');
+
+        expect(warn).toHaveBeenCalledWith('warning message');
+        warn.mockRestore();
+    });
 });
 
 describe('isAbortLikeError', () => {

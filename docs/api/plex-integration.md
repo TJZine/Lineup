@@ -45,9 +45,11 @@ interface IPlexAuth {
 
 Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state. The stored-credential read/write/clear methods are synchronous local storage and in-memory state operations; they do not imply an async persistence backend.
 
+Caller-provided cancellation signals on `requestPin()`, `checkPinStatus()`, `pollForPin()`, `validateToken()`, `getHomeUsers()`, and `switchHomeUser()` rethrow the caller's raw `AbortError` or abort reason so callers can distinguish explicit cancellation from Plex failures. `cancelPin()` remains the normal best-effort PIN cancellation API.
+
 `PlexAuthConfig.clientIdentifier` is resolved once at config assembly (`createDefaultPlexAuthConfig`) and treated as already-resolved input by `PlexAuth`.
 Canonical Plex identity metadata and identity-header assembly live in `src/modules/plex/auth/config.ts`; auth transport, platform identity, and stream callers consume or adapt those values instead of generating independent product/device metadata.
-`validateToken()` returns `false` only for explicit auth-invalid (`401`/`403`) outcomes. Timeout, cancellation, service/network failures, and malformed success payloads throw typed `PlexApiError` failures.
+`validateToken()` returns `false` only for explicit auth-invalid (`401`/`403`) outcomes. Timeout, service/network failures, and malformed success payloads throw typed `PlexApiError` failures; caller-triggered aborts are rethrown as raw aborts instead.
 Plex cloud `5xx` responses surface as retryable `SERVER_ERROR` failures; transport-level failures that do not produce an HTTP response remain server/network reachability failures.
 `getHomeUsers()` and `switchHomeUser()` throw typed auth failures for explicit credential problems instead of collapsing those outcomes into empty profile lists.
 `PlexHomeUser.restricted` is informational-only metadata in profile select UI and does not enforce startup or playback gating.

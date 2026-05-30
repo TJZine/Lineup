@@ -56,15 +56,23 @@ export function buildFetchRequestInit(
     delete (optionsWithoutSignal as { signal?: AbortSignal | null }).signal;
 
     const pagingHeaders = buildPagingHeaders(url);
+    const normalizedOptionHeaders = new Headers(options.headers);
+    const requestHeaders = new Headers();
+
+    requestHeaders.set('Accept', 'application/json');
+    for (const [key, value] of Object.entries(authHeaders)) {
+        requestHeaders.set(key, value);
+    }
+    for (const [key, value] of Object.entries(pagingHeaders)) {
+        requestHeaders.set(key, value);
+    }
+    for (const [key, value] of normalizedOptionHeaders.entries()) {
+        requestHeaders.set(key, value);
+    }
 
     return {
         ...optionsWithoutSignal,
-        headers: {
-            Accept: 'application/json',
-            ...authHeaders,
-            ...pagingHeaders,
-            ...(options.headers as Record<string, string> | undefined),
-        },
+        headers: requestHeaders,
     };
 }
 

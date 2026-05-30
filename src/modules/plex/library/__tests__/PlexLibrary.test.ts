@@ -521,10 +521,9 @@ describe('PlexLibrary', () => {
                 expect.stringContaining('X-Plex-Container-Size=25'),
                 expect.any(Object)
             );
-            expect(firstRequest.headers).toMatchObject({
-                'X-Plex-Container-Start': '50',
-                'X-Plex-Container-Size': '25',
-            });
+            const headers = new Headers(firstRequest.headers);
+            expect(headers.get('X-Plex-Container-Start')).toBe('50');
+            expect(headers.get('X-Plex-Container-Size')).toBe('25');
         });
 
         it('returns no items without fetching when limit is non-positive', async () => {

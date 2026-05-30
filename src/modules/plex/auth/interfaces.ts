@@ -115,6 +115,11 @@ export interface PlexAuthEvents {
     authChange: boolean;
     profileChange: { fromUserId: string | null; toUserId: string };
 }
+
+/**
+ * Signal-aware auth methods rethrow caller-triggered abort reasons so explicit cancellation
+ * remains distinguishable from typed Plex API failures.
+ */
 export interface IPlexAuth {
     requestPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
 
