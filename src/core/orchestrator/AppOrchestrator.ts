@@ -55,7 +55,7 @@ import {
     type IVideoPlayer,
     type StreamDescriptor,
 } from '../../modules/player';
-import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
+import { PlaybackRecoveryManager } from '../../modules/player';
 import {
     EPGCoordinator,
     EPGDebugRuntime,

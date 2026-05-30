@@ -1,9 +1,8 @@
 import { PlaybackOptionsCoordinator } from '../PlaybackOptionsCoordinator';
-import type { IVideoPlayer } from '../../../player';
+import type { AudioTrack, IVideoPlayer, SubtitleTrack } from '../../../player';
 import type { INavigationManager } from '../../../navigation';
 import type { IPlaybackOptionsModal } from '../interfaces';
 import type { PlaybackOptionsViewModel } from '../types';
-import type { SubtitleTrack, AudioTrack } from '../../../player/types';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { flushPromises as flushSharedPromises } from '../../../../__tests__/helpers';
 

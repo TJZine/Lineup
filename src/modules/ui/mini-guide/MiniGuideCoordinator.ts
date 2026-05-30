@@ -1,6 +1,6 @@
 import type { IChannelManager, ChannelConfig, ResolvedChannelContent } from '../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../scheduler/scheduler';
-import type { ToastInput } from '../toast/types';
+import type { ToastInput } from '../../../shared/toast';
 import {
     ShuffleGenerator,
     buildScheduleIndex,

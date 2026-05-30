@@ -9,7 +9,7 @@ export type SchedulerPlaybackMode = Exclude<
     'random'
 >;
 
-import type { StreamDescriptor } from '../../player/types';
+import type { StreamDescriptor } from '../../player';
 export type { StreamDescriptor };
 
 export interface ScheduleConfig {

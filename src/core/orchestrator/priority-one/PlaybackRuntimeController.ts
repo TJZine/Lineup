@@ -3,7 +3,7 @@ import {
     type PlaybackState,
     type TimeRange,
 } from '../../../modules/player';
-import { summarizeErrorForLog } from '../../../utils/errors';
+import { emitBestEffortWarning, summarizeErrorForLog } from '../../../utils/errors';
 import type {
     PriorityOnePlaybackRuntimePort,
     PriorityOnePlayerEventPort,
@@ -212,7 +212,8 @@ export class PlaybackRuntimeController {
         try {
             this._deps.reportRecoverableAsyncFailure(event, message, error, data);
         } catch (reporterError: unknown) {
-            console.warn('[PlaybackRuntimeController] recoverable failure reporter threw:', {
+            emitBestEffortWarning('Recoverable failure reporter threw', {
+                subsystem: 'playback-runtime',
                 event,
                 reporterError: summarizeErrorForLog(reporterError),
                 originalError: summarizeErrorForLog(error),

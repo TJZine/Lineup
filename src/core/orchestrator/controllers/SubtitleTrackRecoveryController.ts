@@ -4,7 +4,7 @@ import type {
     AudioTrackReloadResult,
     BurnInSubtitleRecoveryResult,
     PlaybackRecoveryManager,
-} from '../../../modules/player/PlaybackRecoveryManager';
+} from '../../../modules/player';
 import type { StreamDecision } from '../../../modules/plex/stream';
 import { subtitleModeAllowsBurnIn, type SubtitleMode } from '../../../shared/subtitle-mode';
 

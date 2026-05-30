@@ -26,9 +26,6 @@ import {
 } from '../config/constants';
 import type { PlatformInputService } from '../../../platform';
 
-/**
- * Internal state for NavigationManager.
- */
 interface NavigationInternalState {
     config: NavigationConfig;
     currentScreen: Screen;
@@ -156,9 +153,6 @@ export class NavigationManager
         this._isInitialized = true;
     }
 
-    /**
-     * Destroy the navigation manager, cleaning up all resources.
-     */
     public destroy(): void {
         if (!this._isInitialized) {
             return;
@@ -185,7 +179,6 @@ export class NavigationManager
             this._keyUpDisposable = null;
         }
 
-        // Clear click handlers map
         this._clickHandlers.clear();
 
         this._remoteHandler.destroy();
@@ -196,11 +189,6 @@ export class NavigationManager
 
     }
 
-    /**
-     * Navigate to a screen, pushing the current screen to history.
-     * @param screen - Target screen
-     * @param params - Optional parameters for the screen
-     */
     public goTo(screen: 'server-select', params: ServerSelectNavigationParams): void;
     public goTo(screen: 'server-select'): void;
     public goTo(screen: Exclude<Screen, 'server-select'>): void;
@@ -224,33 +212,23 @@ export class NavigationManager
 
         this.emit('screenChange', { from, to: screen });
 
-        // Restore or set initial focus
         if (this._state.config.focusMemoryEnabled) {
-            if (!this._focusManager.restoreFocusState(screen)) {
-                // No saved focus, will need to set initial focus
-                // This is handled by the screen component
-            }
+            this._focusManager.restoreFocusState(screen);
         }
 
     }
 
-    /**
-     * Navigate back to the previous screen.
-     * @returns true if navigation occurred, false if at root
-     */
     public goBack(): boolean {
         if (this._state.isInputBlocked) {
             return false;
         }
 
-        // If modal is open, close it first
         if (this._state.modalStack.length > 0) {
             this.closeModal();
             return true;
         }
 
         if (this._state.screenStack.length === 0) {
-            // At root, cannot go back
             return false;
         }
 
@@ -268,10 +246,8 @@ export class NavigationManager
         this._state.currentScreen = previousScreen;
         this._state.serverSelectParams = null;
 
-        // Emit screen change event
         this.emit('screenChange', { from, to: previousScreen });
 
-        // Restore focus for previous screen
         if (this._state.config.focusMemoryEnabled) {
             this._focusManager.restoreFocusState(previousScreen);
         }
@@ -279,10 +255,6 @@ export class NavigationManager
         return true;
     }
 
-    /**
-     * Replace the current screen without pushing to history.
-     * @param screen - The screen to navigate to
-     */
     public replaceScreen(screen: Screen): void {
         if (this._state.isInputBlocked) {
             return;
@@ -304,10 +276,6 @@ export class NavigationManager
         return this._state.currentScreen;
     }
 
-    /**
-     * Set focus to an element by ID.
-     * @param elementId - The element ID to focus
-     */
     public setFocus(elementId: string, options?: { persist?: boolean }): void {
         const previousId = this._focusManager.getCurrentFocusId();
         const success = this._focusManager.focus(elementId);
@@ -337,11 +305,6 @@ export class NavigationManager
         return this._focusManager.getFocusedElement();
     }
 
-    /**
-     * Move focus in the specified direction.
-     * @param direction - The direction to move
-     * @returns true if focus moved, false if at boundary
-     */
     public moveFocus(direction: Direction): boolean {
         if (this._state.isInputBlocked) {
             return false;
@@ -368,10 +331,6 @@ export class NavigationManager
         return true;
     }
 
-    /**
-     * Register a focusable element.
-     * @param element - The focusable element to register
-     */
     public registerFocusable(element: FocusableElement): void {
         const existingElement = this._focusManager.getElement(element.id);
         const existingHandler = this._clickHandlers.get(element.id);
@@ -394,10 +353,6 @@ export class NavigationManager
         element.element.addEventListener('click', clickHandler);
     }
 
-    /**
-     * Unregister a focusable element.
-     * @param elementId - The element ID to unregister
-     */
     public unregisterFocusable(elementId: string): void {
         const handler = this._clickHandlers.get(elementId);
         if (handler) {
@@ -410,27 +365,14 @@ export class NavigationManager
         this._focusManager.unregisterFocusable(elementId);
     }
 
-    /**
-     * Register a focus group.
-     * @param group - The focus group to register
-     */
     public registerFocusGroup(group: FocusGroup): void {
         this._focusManager.registerFocusGroup(group);
     }
 
-    /**
-     * Unregister a focus group.
-     * @param groupId - The group ID to unregister
-     */
     public unregisterFocusGroup(groupId: string): void {
         this._focusManager.unregisterFocusGroup(groupId);
     }
 
-    /**
-     * Open a modal by ID.
-     * @param modalId - The modal ID to open
-     * @param focusableIds - Optional list of focusable element IDs within this modal
-     */
     public openModal(modalId: string, focusableIds?: string[]): void {
         if (this._state.isInputBlocked) {
             return;
@@ -455,11 +397,6 @@ export class NavigationManager
 
     }
 
-    /**
-     * Close a modal. If modalId is provided, closes that specific modal.
-     * Otherwise closes the top modal.
-     * @param modalId - Optional specific modal ID to close
-     */
     public closeModal(modalId?: string): void {
         if (this._state.modalStack.length === 0) {
             return;
@@ -486,7 +423,6 @@ export class NavigationManager
 
         this.emit('modalClose', { modalId: closedModalId });
 
-        // Restore focus if no more modals
         if (this._state.modalStack.length === 0) {
             this._focusManager.restorePreModalFocus();
         }
@@ -500,17 +436,11 @@ export class NavigationManager
         return this._state.modalStack.length > 0;
     }
 
-    /**
-     * Block all input during transitions.
-     */
     public blockInput(): void {
         this._state.isInputBlocked = true;
 
     }
 
-    /**
-     * Unblock input.
-     */
     public unblockInput(): void {
         this._state.isInputBlocked = false;
 
@@ -530,18 +460,10 @@ export class NavigationManager
         };
     }
 
-    /**
-     * Register a long press handler for a button.
-     * @param button - The button to watch
-     * @param callback - The callback to invoke
-     */
     public handleLongPress(button: RemoteButton, callback: () => void): void {
         this._remoteHandler.registerLongPress(button, callback);
     }
 
-    /**
-     * Cancel all pending long press handlers.
-     */
     public cancelLongPress(): void {
         this._remoteHandler.cancelLongPress();
     }
@@ -604,11 +526,9 @@ export class NavigationManager
     private _handleOkButton(): void {
         const focused = this._focusManager.getFocusedElement();
         if (focused) {
-            // Priority: onSelect reference -> native click
             if (focused.onSelect) {
                 focused.onSelect();
             } else {
-                // If no direct callback, trigger native click which handles listener logic
                 focused.element.click();
             }
         }
@@ -664,7 +584,6 @@ export class NavigationManager
             this.emit('pointerModeChange', { active: true });
         }
 
-        // Reset hide timer
         if (this._pointerHideTimer !== null) {
             window.clearTimeout(this._pointerHideTimer);
         }

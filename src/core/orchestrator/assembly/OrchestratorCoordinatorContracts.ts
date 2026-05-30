@@ -74,7 +74,7 @@ import type { PlayerOsdCoordinator } from '../../../modules/ui/player-osd';
 import type { MiniGuideCoordinator } from '../../../modules/ui/mini-guide';
 import type { ChannelTransitionCoordinator } from '../../../modules/ui/channel-transition';
 import type { PlaybackOptionsCoordinator } from '../../../modules/ui/playback-options';
-import type { PlaybackRecoveryManager } from '../../../modules/player/PlaybackRecoveryManager';
+import type { PlaybackRecoveryManager } from '../../../modules/player';
 import type { ChannelTuningCoordinator } from '../../channel-tuning';
 import type { NavigationCoordinator } from '../../../modules/navigation/coordinator/NavigationCoordinator';
 export interface OrchestratorCoordinatorAssemblyInput {

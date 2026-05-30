@@ -24,9 +24,9 @@ const FROZEN_SUITES = [
     'src/modules/navigation/__tests__/NavigationCoordinator.test.ts',
     'src/modules/navigation/__tests__/RemoteHandler.test.ts',
     'src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts',
-    'src/modules/player/__tests__/PlaybackRecoveryManager.test.ts',
-    'src/modules/player/__tests__/SubtitleManager.test.ts',
-    'src/modules/player/__tests__/VideoPlayer.test.ts',
+    'src/modules/player/__tests__/core/VideoPlayer.test.ts',
+    'src/modules/player/__tests__/recovery/PlaybackRecoveryManager.test.ts',
+    'src/modules/player/__tests__/subtitles/SubtitleManager.test.ts',
     'src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts',
     'src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts',
 ];
@@ -282,7 +282,7 @@ describe('AntiPatterns policy', () => {
         expect(files).toContain('src/__tests__/policy/AntiPatterns.policy.test.ts');
         expect(files).toContain('src/__tests__/helpers.test.ts');
         expect(files).toContain('src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts');
-        expect(files).toContain('src/modules/player/__tests__/subtitleFallbackPipeline.test.ts');
+        expect(files).toContain('src/modules/player/__tests__/subtitles/subtitleFallbackPipeline.test.ts');
         expect(files).toContain('src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts');
         expect(files).toContain('src/modules/ui/__tests__/runtime-token-style-contracts.test.ts');
         expect(files).not.toContain('src/__tests__/tools/verifyDocs.test.ts');

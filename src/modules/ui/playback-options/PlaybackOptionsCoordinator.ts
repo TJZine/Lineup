@@ -5,12 +5,10 @@ import type {
     PlaybackOptionsItem,
     PlaybackOptionsSectionId,
 } from './types';
-import type { IVideoPlayer } from '../../player';
-import type { BurnInSubtitleRecoveryResult } from '../../player/PlaybackRecoveryManager';
-import type { SubtitleTrack } from '../../player/types';
+import type { BurnInSubtitleRecoveryResult, IVideoPlayer, SubtitleTrack } from '../../player';
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
-import type { ToastInput } from '../toast/types';
-import { formatAudioLabel } from '../../../utils/formatAudioLabel';
+import type { ToastInput } from '../../../shared/toast';
+import { formatAudioLabel } from '../../player';
 import {
     classifyPlaybackSubtitleOption,
     isBurnInSubtitleTrack,

@@ -39,6 +39,14 @@ export function formatErrorDetailForMessage(detail: unknown): string {
     return String(summary);
 }
 
+export function emitBestEffortWarning(message: string, data?: unknown): void {
+    try {
+        globalThis.console?.warn?.call(globalThis.console, message, data);
+    } catch {
+        // Warning delivery is diagnostic-only and must never mask the source failure.
+    }
+}
+
 export function isAbortLikeError(error: unknown, signal?: AbortSignal): boolean {
     if (signal?.aborted) return true;
     if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') {

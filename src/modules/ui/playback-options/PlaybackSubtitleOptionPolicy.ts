@@ -1,4 +1,4 @@
-import type { SubtitleTrack } from '../../player/types';
+import type { SubtitleTrack } from '../../player';
 import { BURN_IN_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
 import {
     subtitleModeAllowsBurnIn,

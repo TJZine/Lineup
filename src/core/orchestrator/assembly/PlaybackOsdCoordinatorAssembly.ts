@@ -1,6 +1,6 @@
 import type { AppError } from '../../../modules/lifecycle';
 import type { IVideoPlayer, StreamDescriptor } from '../../../modules/player';
-import { PlaybackRecoveryManager } from '../../../modules/player/PlaybackRecoveryManager';
+import { PlaybackRecoveryManager } from '../../../modules/player';
 import type { IPlexAuth } from '../../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../../modules/plex/discovery';
 import type { IPlexStreamResolver, StreamDecision } from '../../../modules/plex/stream';

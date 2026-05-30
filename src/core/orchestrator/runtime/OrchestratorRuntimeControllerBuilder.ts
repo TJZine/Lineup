@@ -5,7 +5,7 @@ import type {
 } from '../../../modules/scheduler/channel-manager';
 import type { IChannelScheduler, ScheduleConfig } from '../../../modules/scheduler/scheduler';
 import type { IVideoPlayer, StreamDescriptor } from '../../../modules/player';
-import type { PlaybackRecoveryManager } from '../../../modules/player/PlaybackRecoveryManager';
+import type { PlaybackRecoveryManager } from '../../../modules/player';
 import type { StreamDecision } from '../../../modules/plex/stream';
 import type { EPGCoordinator } from '../../../modules/ui/epg';
 import type { AppendIssueDiagnostic } from '../../../modules/debug/IssueDiagnosticsStore';

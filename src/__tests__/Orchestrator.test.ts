@@ -26,7 +26,7 @@ import type { PlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
-import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
+import { PlaybackRecoveryManager } from '../modules/player';
 import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
@@ -500,6 +500,7 @@ const mockVideoPlayer = {
 
 jest.mock('../modules/player', () => ({
     VideoPlayer: jest.fn(() => mockVideoPlayer),
+    PlaybackRecoveryManager: jest.requireActual('../modules/player/recovery/PlaybackRecoveryManager').PlaybackRecoveryManager,
 }));
 
 // Mock EPGComponent

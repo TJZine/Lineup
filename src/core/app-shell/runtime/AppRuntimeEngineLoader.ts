@@ -37,7 +37,7 @@ export function createAppRuntimeEngineLoader(): AppRuntimeEngineLoader {
     return {
         async load(platformServices: PlatformServices): Promise<AppShellOrchestratorRuntime> {
             markTiming(RUNTIME_IMPORT_START_MARK);
-            const { AppOrchestrator } = await import('../../../Orchestrator');
+            const { AppOrchestrator } = await import('../../orchestrator/AppOrchestrator');
             markTiming(RUNTIME_IMPORT_END_MARK);
             measureTiming(RUNTIME_IMPORT_MEASURE, RUNTIME_IMPORT_START_MARK, RUNTIME_IMPORT_END_MARK);
             return new AppOrchestrator(platformServices);

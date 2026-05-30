@@ -114,8 +114,9 @@ describe('PlaybackRuntimeController', () => {
             'video-player'
         );
         expect(warn).toHaveBeenCalledWith(
-            '[PlaybackRuntimeController] recoverable failure reporter threw:',
+            'Recoverable failure reporter threw',
             expect.objectContaining({
+                subsystem: 'playback-runtime',
                 event: 'orchestrator.playbackRecovery.attemptTranscodeFallbackForCurrentProgram',
             })
         );

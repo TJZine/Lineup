@@ -1,5 +1,5 @@
 import { classifyPlaybackSubtitleOption } from '../PlaybackSubtitleOptionPolicy';
-import type { SubtitleTrack } from '../../../player/types';
+import type { SubtitleTrack } from '../../../player';
 
 const makeTrack = (overrides: Partial<SubtitleTrack> = {}): SubtitleTrack => ({
     id: 'sub-1',

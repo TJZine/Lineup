@@ -144,6 +144,15 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             getTranscodeUrl: (itemKey, options) => this._getTranscodeUrlWithProfile(itemKey, options, capabilityProfile),
         });
 
+        return this._finalizeResolvedStreamDecision({ request, pipeline, debugEnabled });
+    }
+
+    private async _finalizeResolvedStreamDecision(input: {
+        request: StreamRequest;
+        pipeline: ReturnType<typeof resolveStreamPipeline>;
+        debugEnabled: boolean;
+    }): Promise<StreamDecision> {
+        const { request, pipeline, debugEnabled } = input;
         const {
             decision,
             media,
@@ -158,19 +167,18 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             availableSubtitleStreams,
         });
 
-        if (debugEnabled) {
-            if (pipeline.hdrFallbackReason) {
-                logPlexWarning('HDR10 fallback applied:', {
-                    itemKey: request.itemKey,
-                    reason: pipeline.hdrFallbackReason,
-                    debugWhy: decision.hdr10Fallback?.debugWhy,
-                    hideDolbyVision: decision.hdr10Fallback?.hideDolbyVision === true,
-                    forcedHls: decision.hdr10Fallback?.forcedHls === true,
-                    container: media.container,
-                    isDolbyVision: videoStream?.doviPresent === true,
-                });
-            }
+        if (debugEnabled && pipeline.hdrFallbackReason) {
+            logPlexWarning('HDR10 fallback applied:', {
+                itemKey: request.itemKey,
+                reason: pipeline.hdrFallbackReason,
+                debugWhy: decision.hdr10Fallback?.debugWhy,
+                hideDolbyVision: decision.hdr10Fallback?.hideDolbyVision === true,
+                forcedHls: decision.hdr10Fallback?.forcedHls === true,
+                container: media.container,
+                isDolbyVision: videoStream?.doviPresent === true,
+            });
         }
+
         const hdrLabel = decision.source?.hdr || detectHdrLabel(videoStream);
         if (hdrLabel && decision.source && !decision.source.hdr) {
             decision.source.hdr = hdrLabel;

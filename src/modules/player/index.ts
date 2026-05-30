@@ -1,9 +1,18 @@
-export { VideoPlayer } from './VideoPlayer';
-export { mapMediaErrorCodeToPlaybackError } from './ErrorHandler';
-export { SubtitleManager } from './SubtitleManager';
+export { VideoPlayer } from './core/VideoPlayer';
+export { mapMediaErrorCodeToPlaybackError } from './core/ErrorHandler';
+export { SubtitleManager } from './subtitles/SubtitleManager';
+export { PlaybackRecoveryManager } from './recovery/PlaybackRecoveryManager';
+export { normalizeSeekIncrementSeconds } from './tracks/SeekIncrementPolicy';
+export { formatAudioLabel } from './tracks/formatAudioLabel';
 
 // Interface
-export type { IVideoPlayer } from './interfaces';
+export type { IVideoPlayer } from './core/interfaces';
+export type {
+    PlaybackRecoveryDeps,
+    BurnInSubtitleRecoveryResult,
+    AudioTrackReloadResult,
+    DisableBurnInSubtitlesResult,
+} from './recovery/PlaybackRecoveryManager';
 
 // Types
 export type {
@@ -17,4 +26,4 @@ export type {
     PlaybackError,
     TimeRange,
     PlayerEventMap,
-} from './types';
+} from './core/types';

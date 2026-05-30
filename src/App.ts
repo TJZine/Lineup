@@ -11,7 +11,6 @@ import type {
 import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
 import type { INavigationManager } from './modules/navigation';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/chrome/AppContainerFactory';
-import type { AppOrchestratorRuntime } from './Orchestrator';
 import {
     AppLazyScreenRegistry,
 } from './core/app-shell/deferred-screens/AppLazyScreenRegistry';
@@ -282,7 +281,7 @@ export class App {
         }
     }
 
-    getOrchestrator(): AppOrchestratorRuntime | null {
+    getOrchestrator(): AppShellOrchestratorRuntime | null {
         return this._orchestrator;
     }
 
