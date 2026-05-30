@@ -15,7 +15,10 @@ import {
 
 interface PlexHomeProfileClientOptions {
     config: PlexAuthConfig;
-    validateAccountToken: (token: string) => Promise<boolean>;
+    validateAccountToken: (
+        token: string,
+        options?: { signal?: AbortSignal | null }
+    ) => Promise<boolean>;
 }
 
 interface SwitchHomeUserOptions {
@@ -27,7 +30,10 @@ interface SwitchHomeUserOptions {
 
 export class PlexHomeProfileClient {
     private readonly _config: PlexAuthConfig;
-    private readonly _validateAccountToken: (token: string) => Promise<boolean>;
+    private readonly _validateAccountToken: (
+        token: string,
+        options?: { signal?: AbortSignal | null }
+    ) => Promise<boolean>;
 
     constructor(options: PlexHomeProfileClientOptions) {
         this._config = options.config;
@@ -151,6 +157,7 @@ export class PlexHomeProfileClient {
                         response.status,
                         accountToken,
                         pinValue,
+                        options.signal,
                         (error) => {
                             pinValidationFailure = error;
                         }
@@ -231,12 +238,15 @@ export class PlexHomeProfileClient {
         status: 401 | 403,
         accountToken: string,
         pinValue: string | null,
+        signal: AbortSignal | null | undefined,
         onValidationFailure: (error: unknown) => void
     ): Promise<never> {
         if (pinValue) {
             let stillValid = false;
             try {
-                stillValid = await this._validateAccountToken(accountToken);
+                stillValid = signal
+                    ? await this._validateAccountToken(accountToken, { signal })
+                    : await this._validateAccountToken(accountToken);
             } catch (error) {
                 onValidationFailure(error);
                 throw error;

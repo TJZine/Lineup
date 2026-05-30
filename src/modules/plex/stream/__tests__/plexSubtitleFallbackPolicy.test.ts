@@ -82,6 +82,27 @@ describe('plexSubtitleFallbackPolicy', () => {
         ]);
     });
 
+    it('keeps token-bearing HTTPS subtitle requests on secure origins even when the LAN candidate drops query params', () => {
+        const [attempt] = buildPlexSubtitleFetchAttempts(
+            new URL('https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token'),
+            {}
+        );
+
+        const requests = expandPlexSubtitleFetchAttemptVariants(
+            attempt!,
+            () => new URL('http://192.168.50.19:32400/library/streams/1')
+        );
+
+        expect(requests).toEqual([
+            expect.objectContaining({
+                variant: 'primary',
+                url: expect.objectContaining({
+                    href: 'https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token',
+                }),
+            }),
+        ]);
+    });
+
     it('builds a universal subtitle transcode url from a metadata path and applies Plex query params', () => {
         const url = buildPlexSubtitleTranscodeUrl('sub-1', {
             serverUri: 'http://example.com',

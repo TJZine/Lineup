@@ -53,14 +53,16 @@ export function normalizePlexAuthTokenDates(
     const preferredSubtitleLanguage = normalizeOptionalNullableString(
         candidate.preferredSubtitleLanguage
     );
-    const thumb = typeof candidate.thumb === 'string' ? candidate.thumb : '';
+    if (typeof candidate.thumb !== 'string') {
+        return null;
+    }
 
     const normalizedToken: PlexAuthToken = {
         token: candidate.token,
         userId: candidate.userId,
         username: candidate.username,
         email: candidate.email,
-        thumb,
+        thumb: candidate.thumb,
         issuedAt,
         expiresAt,
     };

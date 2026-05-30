@@ -50,6 +50,31 @@ describe('fetchWithRetry', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('rethrows the caller abort reason when fetch rejects with the propagated reason', async () => {
+        const controller = new AbortController();
+        const abortReason = new Error('cancelled-by-caller');
+        const fetchMock = jest.fn().mockImplementation((_url: string, options?: RequestInit) =>
+            new Promise((_resolve, reject) => {
+                const signal = options?.signal as AbortSignal | undefined;
+                signal?.addEventListener(
+                    'abort',
+                    () => reject((signal as AbortSignal & { reason?: unknown }).reason),
+                    { once: true }
+                );
+            })
+        );
+        (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+        const request = fetchWithRetry('https://plex.tv/api/test', {
+            method: 'GET',
+            signal: controller.signal,
+        });
+        controller.abort(abortReason);
+
+        await expect(request).rejects.toBe(abortReason);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('preserves retryable PlexApiError classification with an already-aborted external signal', async () => {
         jest.useFakeTimers();
         const controller = new AbortController();

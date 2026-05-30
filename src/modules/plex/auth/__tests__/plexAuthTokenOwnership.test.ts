@@ -32,7 +32,7 @@ describe('normalizePlexAuthTokenDates', () => {
             userId: 'user-1',
             username: 'user',
             email: 'user@example.com',
-            thumb: 42,
+            thumb: '/thumb.jpg',
             issuedAt: issuedAt.toISOString(),
             expiresAt: expiresAt.toISOString(),
             preferredSubtitleLanguage: 7,
@@ -43,10 +43,22 @@ describe('normalizePlexAuthTokenDates', () => {
             userId: 'user-1',
             username: 'user',
             email: 'user@example.com',
-            thumb: '',
+            thumb: '/thumb.jpg',
             issuedAt,
             expiresAt,
             preferredSubtitleLanguage: null,
         });
+    });
+
+    it('returns null when thumb is not a string', () => {
+        expect(normalizePlexAuthTokenDates({
+            token: 'token-1',
+            userId: 'user-1',
+            username: 'user',
+            email: 'user@example.com',
+            thumb: 42,
+            issuedAt: new Date().toISOString(),
+            expiresAt: null,
+        })).toBeNull();
     });
 });

@@ -147,5 +147,5 @@ function canRetryLanHttpSubtitleUrl(
     if (original.protocol !== 'https:' || candidate.protocol !== 'http:') {
         return true;
     }
-    return !hasPlexTokenMaterial(candidate, headers);
+    return !hasPlexTokenMaterial(original, headers) && !hasPlexTokenMaterial(candidate, headers);
 }

@@ -208,6 +208,28 @@ describe('PlexAuth', () => {
             await expect(request).rejects.toMatchObject({ name: 'AbortError' });
         });
 
+        it('rethrows the caller abort reason during PIN requests', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const controller = new AbortController();
+            const abortReason = new Error('user cancelled PIN flow');
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        signal?.addEventListener(
+                            'abort',
+                            () => reject((signal as AbortSignal & { reason?: unknown }).reason),
+                            { once: true }
+                        );
+                    })
+            );
+
+            const request = auth.requestPin({ signal: controller.signal });
+            controller.abort(abortReason);
+
+            await expect(request).rejects.toBe(abortReason);
+        });
+
         it('should throw SERVER_UNREACHABLE on connection failure', async () => {
             jest.useFakeTimers();
             try {
@@ -1243,6 +1265,46 @@ describe('PlexAuth', () => {
                             username: 'testuser',
                             email: 'test@example.com',
                             thumb: '',
+                            expiresAt: null,
+                            issuedAt: now,
+                        },
+                        activeToken: {
+                            token: 'active-token',
+                            userId: 'user1',
+                            username: 'testuser',
+                            email: 'test@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now,
+                        },
+                        activeUserId: 'user1',
+                        selectedServerByUserId: {
+                            user1: { serverId: null, serverUri: null },
+                        },
+                    },
+                })
+            );
+            const auth = new PlexAuth(mockConfig);
+
+            const result = auth.readStoredCredentialsAndClearCorruption();
+
+            expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-shape' });
+            expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
+        });
+
+        it('returns corrupted invalid-shape when persisted auth token metadata has an invalid thumb type', async () => {
+            const now = new Date().toISOString();
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        accountToken: {
+                            token: 'account-token',
+                            userId: 'user1',
+                            username: 'testuser',
+                            email: 'test@example.com',
+                            thumb: 42,
                             expiresAt: null,
                             issuedAt: now,
                         },

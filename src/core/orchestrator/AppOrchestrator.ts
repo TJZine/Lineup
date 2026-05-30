@@ -289,6 +289,14 @@ export class AppOrchestrator {
         }
     }
 
+    private _getAuthoritativeCurrentProgramForPlayback(): ScheduledProgram | null {
+        const schedulerState = this._scheduler?.getState();
+        if (schedulerState?.isActive) {
+            return schedulerState.currentProgram ?? null;
+        }
+        return this._currentProgramForPlayback;
+    }
+
     private _warnRecoverableRuntimeIssue(
         event: string,
         message: string,
@@ -350,7 +358,8 @@ export class AppOrchestrator {
             },
         });
         this._playbackStateAccessors = {
-            getCurrentProgramForPlayback: (): ScheduledProgram | null => this._currentProgramForPlayback,
+            getCurrentProgramForPlayback: (): ScheduledProgram | null =>
+                this._getAuthoritativeCurrentProgramForPlayback(),
             setCurrentProgramForPlayback: (program: ScheduledProgram | null): void => {
                 this._currentProgramForPlayback = program;
             },
@@ -1005,7 +1014,7 @@ export class AppOrchestrator {
     }
 
     async refreshPlaybackInfoSnapshot(): Promise<PlaybackInfoSnapshot> {
-        const program = this._currentProgramForPlayback;
+        const program = this._getAuthoritativeCurrentProgramForPlayback();
         const decision = this._currentStreamDecision;
         if (!program || !decision || !this._plexStreamResolver) {
             return this.getPlaybackInfoSnapshot();
@@ -1368,7 +1377,7 @@ export class AppOrchestrator {
                 try {
                     const scheduler = this._scheduler;
                     const schedulerState = scheduler?.getState();
-                    const currentProgram = schedulerState?.currentProgram ?? this._currentProgramForPlayback ?? null;
+                    const currentProgram = this._getAuthoritativeCurrentProgramForPlayback();
                     if (!scheduler || !schedulerState?.isActive || !currentProgram) {
                         throw new Error(`Cannot retry playback without ${scheduler ? 'an active program' : 'an active scheduler'}`);
                     }

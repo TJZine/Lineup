@@ -3091,6 +3091,56 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(mockScheduler.jumpToProgram).toHaveBeenCalledWith(currentProgram);
         });
 
+        it('does not fall back to stale playback state when the active scheduler has no current program', () => {
+            Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
+                item: {
+                    ratingKey: 'stale-item',
+                    title: 'Stale Item',
+                    durationMs: 30000,
+                    type: 'movie',
+                },
+                elapsedMs: 2000,
+                scheduledStartTime: 10,
+                scheduledEndTime: 30010,
+                remainingMs: 28000,
+                scheduleIndex: 9,
+            } as never);
+            mockScheduler.getState.mockReturnValue({
+                isActive: true,
+                channelId: 'ch1',
+                currentProgram: null,
+            });
+
+            const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
+            actions[0]?.action();
+
+            expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
+            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.PLAYBACK_FAILED,
+                    message: 'Playback retry failed',
+                    recoverable: true,
+                })
+            );
+            expectConsoleWarn([
+                'Retry playback failed',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        message: 'Cannot retry playback without an active program',
+                    }),
+                }),
+            ]);
+            expectConsoleWarn([
+                'Global error in playback',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.PLAYBACK_FAILED,
+                        message: 'Playback retry failed',
+                    }),
+                }),
+            ]);
+        });
+
         it('should surface playback failure again when Retry cannot start playback', () => {
             mockScheduler.getState.mockReturnValue({
                 isActive: false,

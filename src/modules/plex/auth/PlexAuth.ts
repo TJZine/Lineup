@@ -63,7 +63,8 @@ export class PlexAuth implements IPlexAuth {
         this._emitter = new EventEmitter<PlexAuthEvents>();
         this._homeProfileClient = new PlexHomeProfileClient({
             config,
-            validateAccountToken: (token): Promise<boolean> => this.validateToken(token),
+            validateAccountToken: (token, options): Promise<boolean> =>
+                this.validateToken(token, options),
         });
         this._state = {
             config,
