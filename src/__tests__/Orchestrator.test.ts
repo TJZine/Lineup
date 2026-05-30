@@ -468,8 +468,10 @@ const mockScheduler = {
 };
 
 jest.mock('../modules/scheduler/scheduler', () => {
+    const actual = jest.requireActual('../modules/scheduler/scheduler');
     class MockShuffleGenerator { }
     return {
+        ...actual,
         ChannelScheduler: jest.fn(() => mockScheduler),
         ShuffleGenerator: MockShuffleGenerator,
         buildScheduleIndex: jest.fn(() => ({})),

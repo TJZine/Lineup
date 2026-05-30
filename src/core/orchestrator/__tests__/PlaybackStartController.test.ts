@@ -35,6 +35,7 @@ const makeDeps = (
         logPlaybackStartFailure: jest.fn(),
         markProgramStarting: (program) => ({
             programAtStart: program,
+            programIdentityAtStart: null,
             shouldResetAutoShowInfoBannerOnAbort: true,
         }),
         isProgramStillCurrent: jest.fn().mockReturnValue(true),

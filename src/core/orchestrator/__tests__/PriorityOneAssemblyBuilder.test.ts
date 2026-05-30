@@ -1,6 +1,9 @@
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
 import type { StreamDescriptor } from '../../../modules/player';
-import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import type {
+    ScheduledProgram,
+    SchedulerState,
+} from '../../../modules/scheduler/scheduler';
 import { AppErrorCode } from '../../../types/app-errors';
 import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
 import {
@@ -25,6 +28,24 @@ const makeProgram = (): ScheduledProgram =>
         loopNumber: 0,
         isCurrent: true,
     } as unknown as ScheduledProgram);
+
+const makeSchedulerState = (
+    currentProgram: ScheduledProgram | null,
+    overrides: Partial<SchedulerState> = {}
+): SchedulerState =>
+    ({
+        channelId: 'channel-1',
+        isActive: true,
+        currentProgram,
+        nextProgram: null,
+        schedulePosition: {
+            loopNumber: currentProgram?.loopNumber ?? 0,
+            itemIndex: currentProgram?.scheduleIndex ?? 0,
+            offsetMs: currentProgram?.elapsedMs ?? 0,
+        },
+        lastSyncTime: 0,
+        ...overrides,
+    } as SchedulerState);
 
 const flushPromises = async (): Promise<void> => {
     await Promise.resolve();
@@ -75,6 +96,7 @@ describe('createPriorityOneRuntimeAssembly', () => {
         const input: PriorityOneRuntimeAssemblyInput = {
             requiredModules: {
                 scheduler: {
+                    getState: jest.fn().mockReturnValue(makeSchedulerState(program)),
                     on: scheduler.on,
                     off: scheduler.off,
                     skipToNext: jest.fn(),

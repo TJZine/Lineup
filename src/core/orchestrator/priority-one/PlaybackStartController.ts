@@ -1,5 +1,8 @@
 import type { StreamDescriptor, IVideoPlayer } from '../../../modules/player';
-import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import type {
+    ScheduledProgram,
+    ScheduledProgramIdentity,
+} from '../../../modules/scheduler/scheduler';
 
 export interface PlaybackStartControllerDeps {
     getVideoPlayer: () => Pick<IVideoPlayer, 'loadStream' | 'play'> | null;
@@ -14,9 +17,13 @@ export interface PlaybackStartControllerDeps {
         program: ScheduledProgram
     ) => {
         programAtStart: ScheduledProgram;
+        programIdentityAtStart: ScheduledProgramIdentity | null;
         shouldResetAutoShowInfoBannerOnAbort: boolean;
     };
-    isProgramStillCurrent: (program: ScheduledProgram) => boolean;
+    isProgramStillCurrent: (
+        program: ScheduledProgram,
+        programIdentityAtStart: ScheduledProgramIdentity | null
+    ) => boolean;
     handleProgramStartUiSideEffects: (program: ScheduledProgram) => void;
     handleStreamResolved: (stream: StreamDescriptor) => void;
     clearAutoShowInfoBannerAfterAbortedStart: () => void;
@@ -38,6 +45,7 @@ export class PlaybackStartController {
 
         const {
             programAtStart,
+            programIdentityAtStart,
             shouldResetAutoShowInfoBannerOnAbort,
         } = this._deps.markProgramStarting(program);
         const abort = (): void => {
@@ -52,7 +60,7 @@ export class PlaybackStartController {
 
             if (
                 isStale() ||
-                !this._deps.isProgramStillCurrent(programAtStart) ||
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart) ||
                 !stream
             ) {
                 abort();
@@ -64,7 +72,7 @@ export class PlaybackStartController {
 
             if (
                 isStale() ||
-                !this._deps.isProgramStillCurrent(programAtStart)
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
             ) {
                 abort();
                 return;
@@ -75,7 +83,7 @@ export class PlaybackStartController {
         } catch (error) {
             if (
                 isStale() ||
-                !this._deps.isProgramStillCurrent(programAtStart)
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
             ) {
                 abort();
                 return;
@@ -103,7 +111,7 @@ export class PlaybackStartController {
 
             if (
                 isStale() ||
-                !this._deps.isProgramStillCurrent(programAtStart)
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
             ) {
                 abort();
                 return;

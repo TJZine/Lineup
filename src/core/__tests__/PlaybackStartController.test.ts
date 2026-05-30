@@ -50,6 +50,7 @@ const makeSetup = (
         logPlaybackStartFailure: jest.fn(),
         markProgramStarting: jest.fn((program: ScheduledProgram) => ({
             programAtStart: program,
+            programIdentityAtStart: null,
             shouldResetAutoShowInfoBannerOnAbort: false,
         })),
         isProgramStillCurrent: jest.fn().mockReturnValue(true),
@@ -192,6 +193,7 @@ describe('PlaybackStartController', () => {
             resolveStreamForProgram: jest.fn().mockResolvedValue(null),
             markProgramStarting: jest.fn((currentProgram: ScheduledProgram) => ({
                 programAtStart: currentProgram,
+                programIdentityAtStart: null,
                 shouldResetAutoShowInfoBannerOnAbort: true,
             })),
         });

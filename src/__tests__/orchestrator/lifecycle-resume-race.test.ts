@@ -60,11 +60,13 @@ const wireLifecycleResumeHarness = (overrides: {
         logPlaybackStartFailure: (): void => undefined,
         markProgramStarting: (program): {
             programAtStart: ScheduledProgram;
+            programIdentityAtStart: null;
             shouldResetAutoShowInfoBannerOnAbort: boolean;
         } => {
             playbackState.setCurrentProgramForPlayback(program);
             return {
                 programAtStart: program,
+                programIdentityAtStart: null,
                 shouldResetAutoShowInfoBannerOnAbort: false,
             };
         },

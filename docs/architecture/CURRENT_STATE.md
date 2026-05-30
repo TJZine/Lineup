@@ -248,6 +248,9 @@ after this extraction.
   `src/modules/scheduler/shared/blockPlayback.ts` owns block grouping, and
   `src/modules/scheduler/shared/playbackOrdering.ts` owns common
   sequential/shuffle/block ordering plus scheduled-index normalization.
+  `src/modules/scheduler/scheduler/programIdentity.ts` owns scheduled-program
+  occurrence identity construction/comparison for cross-module runtime callers
+  such as playback recovery and orchestrator start/retry guards.
   `src/modules/scheduler/scheduler/ShuffleGenerator.ts` still adapts seeded
   shuffle for scheduler injection, `ScheduleCalculator.ts` keeps the
   scheduler-specific injected shuffler seam, and
