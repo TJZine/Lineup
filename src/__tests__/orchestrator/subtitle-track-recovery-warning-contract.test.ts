@@ -19,6 +19,27 @@ const createDeps = (
 });
 
 describe('SubtitleTrackRecoveryController warn contract', () => {
+    it('delegates direct-play audio track changes to playback recovery', async () => {
+        const playbackRecovery = {
+            attemptAudioTrackReloadForCurrentProgram: jest.fn(async () => ({ outcome: 'reloaded' })),
+        } as unknown as PlaybackRecoveryManager;
+
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                getCurrentStreamDescriptor: () => ({ protocol: 'direct' } as StreamDescriptor),
+                getPlaybackRecovery: () => playbackRecovery,
+            })
+        );
+
+        controller.handleTrackChange({ type: 'audio', trackId: 'audio-2' });
+        await flushPromises();
+
+        expect(playbackRecovery.attemptAudioTrackReloadForCurrentProgram).toHaveBeenCalledWith(
+            'audio-2',
+            'audio_track_change'
+        );
+    });
+
     it('warns when audio reload resolves to failure value', async () => {
         const nowPlayingWarn = jest.fn();
         const playbackRecovery = {
@@ -181,6 +202,31 @@ describe('SubtitleTrackRecoveryController warn contract', () => {
                 format: 'ass',
             },
         });
+    });
+
+    it('delegates eligible burn-in subtitle selections to playback recovery', async () => {
+        const playbackRecovery = {
+            attemptBurnInSubtitleForCurrentProgram: jest.fn(async () => ({ outcome: 'burned_in' })),
+        } as unknown as PlaybackRecoveryManager;
+
+        const controller = new SubtitleTrackRecoveryController(
+            createDeps({
+                getVideoPlayer: () =>
+                    ({
+                        getAvailableSubtitles: () => [{ id: 'sub-1', format: 'ass' }],
+                    } as unknown as IVideoPlayer),
+                readSubtitleMode: () => 'full',
+                getPlaybackRecovery: () => playbackRecovery,
+            })
+        );
+
+        controller.handleTrackChange({ type: 'subtitle', trackId: 'sub-1' });
+        await flushPromises();
+
+        expect(playbackRecovery.attemptBurnInSubtitleForCurrentProgram).toHaveBeenCalledWith(
+            'sub-1',
+            'subtitle_track_change'
+        );
     });
 
     it('does not record a failure diagnostic when burn-in reload is ignored', async () => {

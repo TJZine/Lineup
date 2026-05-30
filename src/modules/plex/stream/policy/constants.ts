@@ -1,3 +1,7 @@
+export {
+    BASELINE_WEBOS_AUDIO_CODECS as SUPPORTED_AUDIO_CODECS,
+} from '../../../../shared/audioCodecSupport';
+
 // webOS Codec Support (MAJOR-002)
 
 /**
@@ -27,24 +31,6 @@ export const SUPPORTED_VIDEO_CODECS: readonly string[] = [
     'vp9',      // Supported in modern webOS (MP4/MKV/WebM)
     'mpeg2video',
     'av1',      // Supported in webOS 22+
-] as const;
-
-/**
- * Supported audio codecs for direct play on webOS.
- * See `WEBOS_COMPETITOR_BEST_PRACTICES.md` for webOS playback notes and caveats.
- * Note: DTS and MP3 are often problematic in Generic profiles.
- */
-export const SUPPORTED_AUDIO_CODECS: readonly string[] = [
-    'aac',
-    'ac3',
-    'eac3',
-    'flac',
-    'vorbis',
-    'opus',
-    'mp3', // Kept but may transcode if bitrate conditional fails
-    'pcm',
-    'dts',  // DTS Core - supported via passthrough on LG C-series and newer
-    'dca',  // DTS alias used by some media files
 ] as const;
 
 /**

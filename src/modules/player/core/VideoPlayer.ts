@@ -34,6 +34,7 @@ import { createWebOsPlatformServices } from '../../../platform';
 import { SubtitleDebugLogger } from '../../debug/SubtitleDebugLogger';
 import { snapshotNativeTextTracks } from '../subtitles/nativeTextTrackDebugSnapshot';
 import { isValidSeekIncrementSeconds, normalizeSeekIncrementSeconds } from '../tracks/SeekIncrementPolicy';
+import { isSupportedAudioCodec } from '../../../shared/audioCodecSupport';
 
 type MediaSessionPlaybackStateLike = 'none' | 'paused' | 'playing';
 
@@ -80,9 +81,7 @@ function isPlaybackError(error: unknown): error is PlaybackError {
 }
 
 export class VideoPlayer implements IVideoPlayer {
-    private readonly _subtitleDebugLogger = new SubtitleDebugLogger({
-        scope: 'VideoPlayer',
-    });
+    private readonly _subtitleDebugLogger = new SubtitleDebugLogger({ scope: 'VideoPlayer' });
     private _loadGeneration = 0;
     private _emitter: EventEmitter<PlayerEventMap> = new EventEmitter();
     private _videoElement: HTMLVideoElement | null = null;
@@ -90,6 +89,7 @@ export class VideoPlayer implements IVideoPlayer {
     private readonly _audioSettingsStore = new AudioSettingsStore();
     private _audioTrackManager: AudioTrackManager = new AudioTrackManager({
         audioSettingsStore: this._audioSettingsStore,
+        isCodecNativelySupported: isSupportedAudioCodec,
     });
     private _eventManager: VideoPlayerEvents = new VideoPlayerEvents();
     private _retryManager: RetryManager = new RetryManager();

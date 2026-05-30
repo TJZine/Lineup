@@ -327,17 +327,43 @@ describe('PlaybackOptionsCoordinator', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, 'full');
 
         const player = createPlayer([makeTextTrack({ id: 'server', fetchableViaKey: false })]);
+        const navigation: INavigationManager = {
+            registerFocusable: jest.fn(),
+            unregisterFocusable: jest.fn(),
+            setFocus: jest.fn(),
+        } as unknown as INavigationManager;
+        const modal = {
+            show: jest.fn(),
+        };
         const coordinator = new PlaybackOptionsCoordinator({
             playbackOptionsModalId: 'playback-options',
-            getNavigation: (): null => null,
-            getPlaybackOptionsModal: (): null => null,
+            getNavigation: (): INavigationManager => navigation,
+            getPlaybackOptionsModal: (): IPlaybackOptionsModal => modal as unknown as IPlaybackOptionsModal,
             getVideoPlayer: (): IVideoPlayer => player,
         });
 
+        const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
         const prep = coordinator.prepareModal('subtitles');
-        const viewModel = (coordinator as unknown as {
-            pendingViewModel: PlaybackOptionsViewModel | null;
-        }).pendingViewModel!;
+        const elementsById = new Map<string, HTMLElement>();
+        for (const id of prep.focusableIds) {
+            elementsById.set(id, { id, click: jest.fn() } as unknown as HTMLElement);
+        }
+        Object.defineProperty(globalThis, 'document', {
+            value: {
+                getElementById: jest.fn((id: string) => elementsById.get(id) ?? null),
+            },
+            configurable: true,
+        });
+        try {
+            coordinator.handleModalOpen('playback-options');
+        } finally {
+            if (originalDocumentDescriptor) {
+                Object.defineProperty(globalThis, 'document', originalDocumentDescriptor);
+            } else {
+                delete (globalThis as { document?: Document }).document;
+            }
+        }
+        const viewModel = (modal.show as jest.Mock).mock.calls[0]?.[0] as PlaybackOptionsViewModel;
         const server = viewModel.subtitles.options.find((option) => option.id === 'playback-subtitle-server');
 
         expect(server).toEqual(expect.objectContaining({ meta: 'Burn-in', disabled: true }));

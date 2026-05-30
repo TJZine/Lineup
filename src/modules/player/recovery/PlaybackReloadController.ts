@@ -4,6 +4,7 @@ import type { ScheduledProgram } from '../../scheduler/scheduler';
 import { logPlaybackRecoveryError, logPlaybackRecoveryWarning } from '../../debug/PlayerConsoleLogger';
 import type { IVideoPlayer } from '../core/interfaces';
 import type { StreamDescriptor } from '../core/types';
+import { programsMatchIdentity } from './PlaybackProgramIdentity';
 
 export type RecoveryReloadIgnoredReason =
     | 'recovery_in_progress'
@@ -63,18 +64,6 @@ interface PlaybackReloadControllerDeps {
         startOffsetMs: number
     ) => StreamDescriptor;
     resetPlaybackFailureGuard: () => void;
-}
-
-function programsMatchIdentity(
-    current: ScheduledProgram | null,
-    expected: ScheduledProgram
-): boolean {
-    if (!current) {
-        return false;
-    }
-
-    return current.item.ratingKey === expected.item.ratingKey
-        && current.scheduledStartTime === expected.scheduledStartTime;
 }
 
 export class PlaybackReloadController {

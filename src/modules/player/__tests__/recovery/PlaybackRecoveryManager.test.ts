@@ -1376,6 +1376,96 @@ describe('PlaybackRecoveryManager', () => {
         );
     });
 
+    it('does not restore a prior stream after burn-in failure when the scheduled program changed', async () => {
+        expectPlaybackRecoveryWarn({
+            event: 'burnInReload.start',
+            trackId: 'sub-keyless',
+            reason: 'user_selected_text_burn_in',
+            itemKey: 'item-1',
+        });
+        expectPlaybackRecoveryError({
+            event: 'burnInReload.failed',
+            trackId: 'sub-keyless',
+            reason: 'user_selected_text_burn_in',
+            itemKey: 'item-1',
+            safeError: expect.any(Object),
+        });
+        const priorDecision = makeDecision({
+            playbackUrl: 'http://test/prior.m3u8',
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        const priorDescriptor = {
+            url: 'http://test/prior.m3u8',
+            protocol: 'direct',
+            preferredSubtitleTrackId: 'sub-old',
+            startPositionMs: 0,
+        } as StreamDescriptor;
+        const burnInDecision = makeDecision({
+            transcodeRequest: {
+                sessionId: 'sess-burn',
+                maxBitrate: 8000,
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+            },
+            subtitleBurnIn: {
+                requested: true,
+                confirmed: false,
+                reason: 'requested',
+                subtitleStreamId: 'sub-keyless',
+                subtitleMode: 'burn',
+            },
+        });
+        let currentProgram = makeProgram();
+        const player = {
+            loadStream: jest.fn().mockImplementationOnce(async () => {
+                currentProgram = makeProgram({
+                    item: { ...currentProgram.item, ratingKey: 'item-2' } as ScheduledProgram['item'],
+                    scheduledStartTime: 60_000,
+                    scheduledEndTime: 120_000,
+                    scheduleIndex: 1,
+                });
+                throw new Error('burn-in load failed');
+            }),
+            play: jest.fn().mockResolvedValue(undefined),
+            getState: jest.fn().mockReturnValue(makePlayerState({ status: 'playing' })),
+            getCurrentTimeMs: jest.fn().mockReturnValue(12_345),
+        } as unknown as IVideoPlayer;
+        const { manager, resolver, deps } = setup({
+            getVideoPlayer: () => player,
+            getCurrentProgramForPlayback: () => currentProgram,
+            getCurrentStreamDecision: () => priorDecision,
+            getCurrentStreamDescriptor: () => priorDescriptor,
+        });
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(burnInDecision);
+
+        const result = await manager.attemptBurnInSubtitleForCurrentProgram(
+            'sub-keyless',
+            'user_selected_text_burn_in'
+        );
+
+        expect(result).toEqual({ outcome: 'failed' });
+        expect(player.loadStream).toHaveBeenCalledTimes(1);
+        expect(player.play).not.toHaveBeenCalled();
+        expect(deps.handleGlobalError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: AppErrorCode.PLAYBACK_FAILED,
+                context: expect.objectContaining({
+                    burnInRestoreOutcome: { outcome: 'unavailable', reason: 'program_changed' },
+                }),
+            }),
+            'playback'
+        );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'playbackRecovery.burnInReloadFailed',
+            expect.objectContaining({
+                restoreOutcome: { outcome: 'unavailable', reason: 'program_changed' },
+            })
+        );
+    });
+
     it('falls back to the program elapsed offset when the live position is not finite', async () => {
         expectPlaybackRecoveryWarn({
             event: 'audioReload.start',

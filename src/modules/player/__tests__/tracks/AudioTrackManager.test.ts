@@ -7,6 +7,7 @@
 import { AppErrorCode } from '../../../../types/app-errors';
 import { AudioTrackManager } from '../../tracks/AudioTrackManager';
 import type { AudioTrack } from '../../core/types';
+import { isSupportedAudioCodec } from '../../../../shared/audioCodecSupport';
 
 // ============================================
 // Test Utilities
@@ -88,6 +89,7 @@ describe('AudioTrackManager', () => {
             audioSettingsStore: {
                 readDtsPassthroughEnabledAndClean,
             },
+            isCodecNativelySupported: isSupportedAudioCodec,
         });
     });
 

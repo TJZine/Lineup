@@ -26,6 +26,12 @@ export interface PlexSubtitleFetchAttempt {
     headers: Record<string, string>;
 }
 
+export interface PlexSubtitleFetchRequest {
+    variant: 'primary' | 'lan_http';
+    url: URL;
+    headers: Record<string, string>;
+}
+
 export function buildPlexSubtitleFetchAttempts(
     initialUrl: URL,
     authHeaders: Record<string, string>
@@ -67,6 +73,35 @@ export function buildPlexSubtitleFetchAttempts(
     return attempts;
 }
 
+export function expandPlexSubtitleFetchAttemptVariants(
+    attempt: Pick<PlexSubtitleFetchAttempt, 'url' | 'headers'>,
+    deriveLanHttpUrl: (original: URL) => URL | null
+): PlexSubtitleFetchRequest[] {
+    const requests: PlexSubtitleFetchRequest[] = [
+        {
+            variant: 'primary',
+            url: attempt.url,
+            headers: attempt.headers,
+        },
+    ];
+
+    const lanHttpUrl = deriveLanHttpUrl(attempt.url);
+    if (!lanHttpUrl || lanHttpUrl.toString() === attempt.url.toString()) {
+        return requests;
+    }
+
+    if (!canRetryLanHttpSubtitleUrl(attempt.url, lanHttpUrl, attempt.headers)) {
+        return requests;
+    }
+
+    requests.push({
+        variant: 'lan_http',
+        url: lanHttpUrl,
+        headers: attempt.headers,
+    });
+    return requests;
+}
+
 export function buildPlexSubtitleTranscodeUrl(
     trackId: string,
     context: PlexSubtitleFallbackContext,
@@ -95,4 +130,22 @@ export function buildPlexSubtitleTranscodeUrl(
     } catch {
         return null;
     }
+}
+
+function hasPlexTokenMaterial(url: URL, headers: Record<string, string>): boolean {
+    if (url.searchParams.has(PLEX_TOKEN_QUERY_PARAM)) {
+        return true;
+    }
+    return typeof headers[PLEX_TOKEN_HEADER] === 'string' && headers[PLEX_TOKEN_HEADER].length > 0;
+}
+
+function canRetryLanHttpSubtitleUrl(
+    original: URL,
+    candidate: URL,
+    headers: Record<string, string>
+): boolean {
+    if (original.protocol !== 'https:' || candidate.protocol !== 'http:') {
+        return true;
+    }
+    return !hasPlexTokenMaterial(candidate, headers);
 }

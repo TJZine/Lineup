@@ -6,10 +6,10 @@ import type {
 } from '../core/types';
 import { looksLikeHtml, normalizeSubtitleToVtt } from './subtitleConversion';
 import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
-import { PLEX_TOKEN_HEADER, PLEX_TOKEN_QUERY_PARAM } from '../../plex/shared/plexUrl';
 import {
     buildPlexSubtitleFetchAttempts,
     buildPlexSubtitleTranscodeUrl,
+    expandPlexSubtitleFetchAttemptVariants,
     type PlexSubtitleFallbackContext,
 } from '../../plex/stream/policy/plexSubtitleFallbackPolicy';
 import { redactSensitiveTokens, sanitizeDiagnosticText } from '../../../utils/redact';
@@ -87,24 +87,6 @@ function classifyExceptionFailure(
         return transientFailure('timeout');
     }
     return transientFailure('network_error');
-}
-
-function hasPlexTokenMaterial(url: URL, headers: Record<string, string>): boolean {
-    if (url.searchParams.has(PLEX_TOKEN_QUERY_PARAM)) {
-        return true;
-    }
-    return typeof headers[PLEX_TOKEN_HEADER] === 'string' && headers[PLEX_TOKEN_HEADER].length > 0;
-}
-
-function canRetryLanHttpSubtitleUrl(
-    original: URL,
-    candidate: URL,
-    headers: Record<string, string>
-): boolean {
-    if (original.protocol !== 'https:' || candidate.protocol !== 'http:') {
-        return true;
-    }
-    return !hasPlexTokenMaterial(candidate, headers);
 }
 
 export async function fetchSubtitleFallbackVtt({
@@ -223,23 +205,21 @@ async function fetchSubtitleTextWithFallbacks({
     logDebug,
     createXhr,
 }: FetchSubtitleTextWithFallbacksArgs): Promise<SubtitleFetchTextResult> {
-    const urlsToTry: Array<{ variant: 'primary' | 'lan_http'; url: URL }> = [{ variant: 'primary', url }];
-    const lanHttp = deriveLanHttpUrl(url);
-    if (
-        lanHttp &&
-        lanHttp.toString() !== url.toString() &&
-        canRetryLanHttpSubtitleUrl(url, lanHttp, headers)
-    ) {
-        urlsToTry.push({ variant: 'lan_http', url: lanHttp });
-    }
+    const requestsToTry = expandPlexSubtitleFetchAttemptVariants(
+        {
+            url,
+            headers,
+        },
+        deriveLanHttpUrl
+    );
 
     let lastFailure: SubtitleFallbackFailure | null = null;
-    for (const entry of urlsToTry) {
+    for (const entry of requestsToTry) {
         const suffix = entry.variant === 'lan_http' ? '_lan_http' : '';
         try {
             const response = await fetchWithTimeout({
                 url: entry.url.toString(),
-                init: { headers },
+                init: { headers: entry.headers },
                 timeoutMs: 10_000,
                 upstreamSignal: signal,
             });
@@ -283,7 +263,7 @@ async function fetchSubtitleTextWithFallbacks({
 
             const xhrResult = await xhrGetText({
                 url: entry.url.toString(),
-                headers,
+                headers: entry.headers,
                 signal,
                 trackId,
                 isCurrentLoad,

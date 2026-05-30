@@ -12,6 +12,10 @@ import {
     isCapabilitySupported,
     mapDoviProfileToDecoderProfile,
 } from '../capabilities/PlaybackCapabilityProfile';
+import {
+    isDtsFamilyAudioCodec,
+    isSupportedAudioCodec,
+} from '../../../../shared/audioCodecSupport';
 
 export type DirectPlayDecision = {
     canDirect: boolean;
@@ -200,14 +204,14 @@ function appendAudioCompatibilityReasons(
     audioCodec: string,
     capabilityProfile: PlaybackCapabilityProfile
 ): void {
-    if (isDtsFamilyCodec(audioCodec)) {
+    if (isDtsFamilyAudioCodec(audioCodec)) {
         if (!isCapabilitySupported(capabilityProfile.audio.dtsPassthrough)) {
             reasons.push('dts_passthrough_disabled');
         }
         return;
     }
 
-    if (!SUPPORTED_AUDIO_CODECS.includes(audioCodec)) {
+    if (!isSupportedAudioCodec(audioCodec, SUPPORTED_AUDIO_CODECS)) {
         reasons.push(`unsupported_audio_codec:${audioCodec}`);
     }
 }
@@ -231,10 +235,6 @@ function isLegacyWebOsCapability(capabilityProfile: PlaybackCapabilityProfile): 
 
     const chromeMajor = capabilityProfile.browser.chromeMajor;
     return chromeMajor !== null && chromeMajor < 87;
-}
-
-function isDtsFamilyCodec(audioCodec: string): boolean {
-    return audioCodec.startsWith('dts') || audioCodec.startsWith('dca');
 }
 
 function getVideoCodecCapability(

@@ -1,8 +1,8 @@
 import { AppErrorCode } from '../../../types/app-errors';
 import type { AudioTrack, PlaybackError } from '../core/types';
 import { AUDIO_TRACK_SWITCH_TIMEOUT_MS } from '../core/constants';
-import { SUPPORTED_AUDIO_CODECS } from '../../plex/stream/policy/constants';
 import type { AudioSettingsStore } from '../../settings/AudioSettingsStore';
+import { isDtsFamilyAudioCodec } from '../../../shared/audioCodecSupport';
 
 /**
  * Not all browsers support this - used for HLS audio track switching.
@@ -30,6 +30,7 @@ const TRACK_SWITCH_POLL_INTERVAL_MS = 100;
 
 export type AudioTrackManagerDeps = {
     audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabledAndClean'>;
+    isCodecNativelySupported: (codec: string) => boolean;
 };
 
 export class AudioTrackManager {
@@ -41,8 +42,11 @@ export class AudioTrackManager {
 
     private readonly _audioSettingsStore: Pick<AudioSettingsStore, 'readDtsPassthroughEnabledAndClean'>;
 
+    private readonly _isCodecNativelySupported: (codec: string) => boolean;
+
     constructor(deps: AudioTrackManagerDeps) {
         this._audioSettingsStore = deps.audioSettingsStore;
+        this._isCodecNativelySupported = deps.isCodecNativelySupported;
     }
 
     public initialize(videoElement: HTMLVideoElement): void {
@@ -151,12 +155,10 @@ export class AudioTrackManager {
 
     private _isCodecSupported(codec: string): boolean {
         const normalizedCodec = codec.toLowerCase().trim();
-        if (normalizedCodec === 'dts' || normalizedCodec === 'dca' || normalizedCodec.startsWith('dts')) {
+        if (isDtsFamilyAudioCodec(normalizedCodec)) {
             return this._audioSettingsStore.readDtsPassthroughEnabledAndClean(false);
         }
-        return SUPPORTED_AUDIO_CODECS.some(
-            (supported) => normalizedCodec === supported || normalizedCodec.startsWith(supported)
-        );
+        return this._isCodecNativelySupported(normalizedCodec);
     }
 
     private async _switchWithTimeout(

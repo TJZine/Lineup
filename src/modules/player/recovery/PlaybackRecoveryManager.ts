@@ -33,6 +33,7 @@ import {
     summarizePlaybackFailureReloadAttempt,
 } from './PlaybackFailureDiagnostics';
 import { logPlaybackRecoveryError } from '../../debug/PlayerConsoleLogger';
+import { programsMatchIdentity } from './PlaybackProgramIdentity';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -69,16 +70,8 @@ type PreparedBurnInSubtitleRecovery = {
 };
 
 export type AudioTrackReloadResult = RecoveryAttemptResult<'reloaded', RecoveryReloadIgnoredReason>;
-
-export type BurnInSubtitleRecoveryResult = RecoveryAttemptResult<
-    'burned_in',
-    RecoveryReloadIgnoredReason | 'already_attempted' | 'already_burned_in'
->;
-
-export type DisableBurnInSubtitlesResult = RecoveryAttemptResult<
-    'disabled',
-    RecoveryReloadIgnoredReason | 'not_burn_in'
->;
+export type BurnInSubtitleRecoveryResult = RecoveryAttemptResult<'burned_in', RecoveryReloadIgnoredReason | 'already_attempted' | 'already_burned_in'>;
+export type DisableBurnInSubtitlesResult = RecoveryAttemptResult<'disabled', RecoveryReloadIgnoredReason | 'not_burn_in'>;
 
 export class PlaybackRecoveryManager {
     private readonly _subtitlePreferencesStore: SubtitlePreferencesStore;
@@ -216,7 +209,6 @@ export class PlaybackRecoveryManager {
         if (this._playbackFailureSurfacedForGuardKey === guardKey) {
             return;
         }
-
         const scheduler = this.deps.getScheduler();
         this._playbackFailureCount++;
         this._playbackFailureSurfacedForGuardKey = guardKey;
@@ -621,6 +613,9 @@ export class PlaybackRecoveryManager {
         const priorDescriptor = failure.currentDescriptor;
         if (!priorDecision || !priorDescriptor) {
             return { outcome: 'unavailable', reason: 'missing_prior_stream' };
+        }
+        if (!programsMatchIdentity(this.deps.getCurrentProgramForPlayback(), failure.program)) {
+            return { outcome: 'unavailable', reason: 'program_changed' };
         }
         if (failure.failureStage !== 'load' && failure.failureStage !== 'after_load' && failure.failureStage !== 'play') {
             return { outcome: 'unavailable', reason: 'failure_stage_not_loaded' };

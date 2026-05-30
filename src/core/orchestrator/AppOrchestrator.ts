@@ -1368,7 +1368,7 @@ export class AppOrchestrator {
                 try {
                     const scheduler = this._scheduler;
                     const schedulerState = scheduler?.getState();
-                    const currentProgram = this._currentProgramForPlayback ?? schedulerState?.currentProgram ?? null;
+                    const currentProgram = schedulerState?.currentProgram ?? this._currentProgramForPlayback ?? null;
                     if (!scheduler || !schedulerState?.isActive || !currentProgram) {
                         throw new Error(`Cannot retry playback without ${scheduler ? 'an active program' : 'an active scheduler'}`);
                     }

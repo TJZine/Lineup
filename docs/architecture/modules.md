@@ -103,6 +103,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 - shared utilities and domain-neutral constants used across features
 - `src/shared/toast.ts` owns the UI-neutral toast payload contract consumed by
   runtime modules and re-exported by `src/modules/ui/toast/`
+- `src/shared/audioCodecSupport.ts` owns shared audio codec normalization plus
+  the baseline webOS codec-support helpers consumed by player runtime and Plex
+  stream compatibility policy
 
 ### `src/styles/`
 
@@ -147,6 +150,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 - playback runtime
 - subtitle attachment/conversion
 - keep-alive, retry, and recovery flows
+- `src/modules/player/tracks/AudioTrackManager.ts` owns runtime audio-track
+  switching and consumes player-facing codec support input instead of importing
+  Plex stream policy constants directly
 
 ### `src/modules/scheduler/`
 
@@ -199,6 +205,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - stream URL resolution
 - subtitle/transcode/HDR policy
+- `src/modules/plex/stream/policy/plexSubtitleFallbackPolicy.ts` owns Plex
+  subtitle fetch attempt planning, authenticated query/header variants,
+  universal subtitle fallback URL shaping, and LAN HTTP retry eligibility
 
 ### `src/modules/plex/shared/`
 
