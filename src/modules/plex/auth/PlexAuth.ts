@@ -289,7 +289,8 @@ export class PlexAuth implements IPlexAuth {
                 false
             );
         } catch (error) {
-            if (options?.signal?.aborted && isAbortLikeError(error)) {
+            const signal = options?.signal ?? null;
+            if (signal?.aborted && (error === signal.reason || isAbortLikeError(error))) {
                 throw error;
             }
             if (isAbortLikeError(error)) {

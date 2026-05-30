@@ -149,6 +149,28 @@ describe('PlexHomeProfileClient', () => {
         });
     });
 
+    it('rethrows the validation abort reason during PIN credential disambiguation', async () => {
+        const controller = new AbortController();
+        const abortReason = new Error('user cancelled profile switch');
+        const validateAccountToken = jest.fn().mockRejectedValue(abortReason);
+        const client = new PlexHomeProfileClient({
+            config: mockConfig,
+            validateAccountToken,
+        });
+        jest.spyOn(globalThis, 'fetch')
+            .mockResolvedValueOnce(createJsonResponse(401, { error: 'unauthorized' }));
+
+        await expect(client.requestHomeUserSwitch({
+            userId: 'kid',
+            accountToken: 'account-token',
+            pin: '1234',
+            signal: controller.signal,
+        })).rejects.toBe(abortReason);
+        expect(validateAccountToken).toHaveBeenCalledWith('account-token', {
+            signal: controller.signal,
+        });
+    });
+
     it('classifies unsupported switch endpoints as RESOURCE_NOT_FOUND', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,

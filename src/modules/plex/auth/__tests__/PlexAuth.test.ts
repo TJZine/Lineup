@@ -758,6 +758,28 @@ describe('PlexAuth', () => {
             await expect(request).rejects.toMatchObject({ name: 'AbortError' });
         });
 
+        it('rethrows the caller abort reason during token validation', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const controller = new AbortController();
+            const abortReason = new Error('user cancelled validation');
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        signal?.addEventListener(
+                            'abort',
+                            () => reject((signal as AbortSignal & { reason?: unknown }).reason),
+                            { once: true }
+                        );
+                    })
+            );
+
+            const request = auth.validateToken('cancelled-token', { signal: controller.signal });
+            controller.abort(abortReason);
+
+            await expect(request).rejects.toBe(abortReason);
+        });
+
         it('should throw NETWORK_TIMEOUT when token validation times out', async () => {
             jest.useFakeTimers();
             try {
