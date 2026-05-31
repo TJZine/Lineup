@@ -999,11 +999,15 @@ function normalizeDocLines(content) {
 }
 
 function findTrackedAgentsReadIndex(normalizedLines) {
-    return normalizedLines.findIndex((line) => /^(?:\d+\.|-)\s+agents\.md$/u.test(line));
+    return normalizedLines.findIndex((line) =>
+        /^(?:\d+\.|-)\s+(?:\[\s*)?agents\.md(?:\s*\]\([^)]*\))?$/u.test(line)
+    );
 }
 
 function findTrackedWorkflowReadIndex(normalizedLines) {
-    return normalizedLines.findIndex((line) => /^(?:\d+\.|-)\s+docs\/agentic dev workflow\.md$/u.test(line));
+    return normalizedLines.findIndex((line) =>
+        /^(?:\d+\.|-)\s+(?:\[\s*)?docs\/agentic dev workflow\.md(?:\s*\]\([^)]*\))?$/u.test(line)
+    );
 }
 
 function includesAllMarkers(content, markers) {
