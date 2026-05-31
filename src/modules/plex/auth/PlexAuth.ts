@@ -33,6 +33,10 @@ import { AppErrorCode } from '../../../types/app-errors';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import { PlexHomeProfileClient } from './plexHomeProfileClient';
 import { isAbortLikeError } from '../../../utils/errors';
+import {
+    clonePlexAuthToken,
+    normalizePlexAuthTokenDates,
+} from './plexAuthTokenOwnership';
 
 // Re-export for consumers
 export { PlexApiError } from './plexAuthTransport';
@@ -59,7 +63,8 @@ export class PlexAuth implements IPlexAuth {
         this._emitter = new EventEmitter<PlexAuthEvents>();
         this._homeProfileClient = new PlexHomeProfileClient({
             config,
-            validateAccountToken: (token): Promise<boolean> => this.validateToken(token),
+            validateAccountToken: (token, options): Promise<boolean> =>
+                this.validateToken(token, options),
         });
         this._state = {
             config,
@@ -77,7 +82,8 @@ export class PlexAuth implements IPlexAuth {
      * @returns PIN request containing code for user display (length varies)
      * @throws {PlexApiError} On connection failure or rate limiting
      */
-    public async requestPin(): Promise<PlexPinRequest> {
+    public async requestPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {
+        throwIfAborted(options?.signal);
         const url = PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL +
             PLEX_AUTH_CONSTANTS.PIN_ENDPOINT;
         const headers = buildRequestHeaders(this._state.config);
@@ -85,10 +91,13 @@ export class PlexAuth implements IPlexAuth {
         const response = await fetchWithRetry(url, {
             method: 'POST',
             headers: headers,
+            ...(options?.signal ? { signal: options.signal } : {}),
         });
+        throwIfAborted(options?.signal);
 
         const data = await response.json();
         const pin = parsePinResponse(data, this._state.config.clientIdentifier);
+        throwIfAborted(options?.signal);
         this._state.pendingPin = pin;
         return pin;
     }
@@ -209,16 +218,25 @@ export class PlexAuth implements IPlexAuth {
      * Returns false only for explicit auth-invalid responses (401/403);
      * service, transport, timeout, and malformed success failures throw.
      */
-    public async validateToken(token: string): Promise<boolean> {
+    public async validateToken(
+        token: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<boolean> {
+        throwIfAborted(options?.signal);
         const url = PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.USER_ENDPOINT;
         const headers = buildRequestHeaders(this._state.config, token);
 
         try {
             const response = await fetchWithTimeout({
                 url,
-                init: { method: 'GET', headers: headers },
+                init: {
+                    method: 'GET',
+                    headers: headers,
+                    ...(options?.signal ? { signal: options.signal } : {}),
+                },
                 timeoutMs: PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS,
             });
+            throwIfAborted(options?.signal);
 
             if (response.status === 200) {
                 let data: unknown;
@@ -233,6 +251,7 @@ export class PlexAuth implements IPlexAuth {
                     );
                 }
                 const userToken = parseUserResponse(data, token);
+                throwIfAborted(options?.signal);
                 const isAccountToken = this._state.accountToken?.token === token;
                 const isActiveToken = this._state.activeToken?.token === token;
                 if (isAccountToken) {
@@ -270,6 +289,10 @@ export class PlexAuth implements IPlexAuth {
                 false
             );
         } catch (error) {
+            const signal = options?.signal ?? null;
+            if (signal?.aborted && (error === signal.reason || isAbortLikeError(error))) {
+                throw error;
+            }
             if (isAbortLikeError(error)) {
                 throw new PlexApiError(
                     AppErrorCode.NETWORK_TIMEOUT,
@@ -312,8 +335,8 @@ export class PlexAuth implements IPlexAuth {
         if (!safeLocalStorageSet(PLEX_AUTH_CONSTANTS.STORAGE_KEY, JSON.stringify(stored))) {
             // Storage can be blocked or quota-limited; keep the token in-memory for this session.
         }
-        this._state.accountToken = auth.accountToken;
-        this._state.activeToken = auth.activeToken;
+        this._state.accountToken = clonePlexAuthToken(auth.accountToken);
+        this._state.activeToken = clonePlexAuthToken(auth.activeToken);
         this._state.activeUserId = auth.activeUserId;
         this._state.isValidated = true;
         this._emitter.emit('authChange', true);
@@ -341,7 +364,7 @@ export class PlexAuth implements IPlexAuth {
     }
 
     public getCurrentUser(): PlexAuthToken | null {
-        return this._state.activeToken;
+        return clonePlexAuthToken(this._state.activeToken);
     }
 
     /**
@@ -532,8 +555,8 @@ export class PlexAuth implements IPlexAuth {
             return { kind: 'corrupted', reason: 'invalid-shape' };
         }
 
-        const accountToken = this._normalizeTokenDates(data.accountToken);
-        const activeToken = this._normalizeTokenDates(data.activeToken);
+        const accountToken = normalizePlexAuthTokenDates(data.accountToken);
+        const activeToken = normalizePlexAuthTokenDates(data.activeToken);
         if (!accountToken || !activeToken) {
             return { kind: 'corrupted', reason: 'invalid-shape' };
         }
@@ -588,28 +611,6 @@ export class PlexAuth implements IPlexAuth {
         if (!safeLocalStorageRemove(PLEX_AUTH_CONSTANTS.STORAGE_KEY)) {
             // localStorage can be blocked/unavailable; clearing will be retried on future reads.
         }
-    }
-
-    private _normalizeTokenDates(token: PlexAuthToken | null | undefined): PlexAuthToken | null {
-        if (!token) return null;
-        const issuedAt = new Date(token.issuedAt);
-        if (isNaN(issuedAt.getTime())) {
-            return null;
-        }
-        let expiresAt: Date | null = null;
-        if (token.expiresAt !== null && typeof token.expiresAt !== 'undefined') {
-            const converted = new Date(token.expiresAt);
-            if (isNaN(converted.getTime())) {
-                return null;
-            }
-            expiresAt = converted;
-        }
-
-        return {
-            ...token,
-            issuedAt,
-            expiresAt,
-        };
     }
 
     private _normalizeDeviceKey(deviceKey: unknown): PlexDeviceKey | null {

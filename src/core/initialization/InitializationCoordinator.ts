@@ -137,9 +137,6 @@ export interface InitializationCallbacks {
     resources: {
         buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
     };
-    subtitle: {
-        seedSubtitleLanguageFromPlexUser?: () => void;
-    };
 }
 
 /**
@@ -434,12 +431,6 @@ export class InitializationCoordinator {
                 registerAuthResume: (): void => this._registerAuthResume(),
                 registerProfileResume: (): void => this._registerProfileResume(),
             },
-            ...(this._callbacks.subtitle.seedSubtitleLanguageFromPlexUser
-                ? {
-                    seedSubtitleLanguageFromPlexUser:
-                        this._callbacks.subtitle.seedSubtitleLanguageFromPlexUser,
-                }
-                : {}),
         };
 
         return applyAuthValidationPolicy(authGateInputs);

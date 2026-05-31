@@ -12,12 +12,15 @@ export async function fetchWithTimeoutCore({
     upstreamSignal = null,
 }: FetchWithTimeoutCoreArgs): Promise<Response> {
     const controller = new AbortController();
-    const onAbort = (): void => {
+    const abortRequest = (reason?: unknown): void => {
         try {
-            controller.abort();
+            controller.abort(reason);
         } catch {
             // Abort cleanup must remain fail-open.
         }
+    };
+    const onAbort = (): void => {
+        abortRequest(readAbortReason(upstreamSignal));
     };
 
     if (upstreamSignal) {
@@ -35,7 +38,7 @@ export async function fetchWithTimeoutCore({
         }
     }
 
-    const timeoutId = setTimeout(() => onAbort(), timeoutMs);
+    const timeoutId = setTimeout(() => abortRequest(), timeoutMs);
 
     try {
         return await fetch(url, { ...init, signal: controller.signal });
@@ -49,4 +52,11 @@ export async function fetchWithTimeoutCore({
             }
         }
     }
+}
+
+function readAbortReason(signal: AbortSignal | null): unknown {
+    if (!signal || !('reason' in signal)) {
+        return undefined;
+    }
+    return (signal as AbortSignal & { reason?: unknown }).reason;
 }

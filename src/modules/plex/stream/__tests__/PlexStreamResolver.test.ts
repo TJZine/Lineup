@@ -34,10 +34,31 @@ function getPrimaryVideoStream(item: PlexStreamMediaItem): PlexStream {
     return requireValue(getPrimaryPart(item).streams[0]) as PlexStream;
 }
 
+function mockCanPlayMimeTypes(supportedMimeTypes: readonly string[]): void {
+    const supported = new Set(supportedMimeTypes);
+    Object.defineProperty(globalThis, 'document', {
+        value: {
+            createElement: jest.fn((tagName: string) => {
+                if (tagName !== 'video') {
+                    return {};
+                }
+
+                return {
+                    canPlayType: (mime: string): CanPlayTypeResult =>
+                        supported.has(mime) ? 'probably' : '',
+                };
+            }),
+        },
+        configurable: true,
+    });
+}
+
 describe('PlexStreamResolver', () => {
     let mockFetch: jest.Mock;
     let originalNavigator: unknown;
     let originalLocalStorage: unknown;
+    let originalDocument: unknown;
+    let originalWindow: unknown;
 
     beforeEach(() => {
         mockFetch = jest.fn().mockResolvedValue({ ok: true });
@@ -45,6 +66,8 @@ describe('PlexStreamResolver', () => {
 
         originalNavigator = (globalThis as unknown as { navigator?: unknown }).navigator;
         originalLocalStorage = (globalThis as unknown as { localStorage?: unknown }).localStorage;
+        originalDocument = (globalThis as unknown as { document?: unknown }).document;
+        originalWindow = (globalThis as unknown as { window?: unknown }).window;
     });
 
     afterEach(() => {
@@ -67,6 +90,25 @@ describe('PlexStreamResolver', () => {
                 writable: true,
             });
         }
+        if (originalDocument === undefined) {
+            delete (globalThis as unknown as { document?: unknown }).document;
+        } else {
+            Object.defineProperty(globalThis, 'document', {
+                value: originalDocument,
+                configurable: true,
+                writable: true,
+            });
+        }
+        if (originalWindow === undefined) {
+            delete (globalThis as unknown as { window?: unknown }).window;
+        } else {
+            Object.defineProperty(globalThis, 'window', {
+                value: originalWindow,
+                configurable: true,
+                writable: true,
+            });
+        }
+        jest.restoreAllMocks();
         jest.resetAllMocks();
     });
 
@@ -243,6 +285,24 @@ describe('PlexStreamResolver', () => {
             expect(resolver.canDirectPlay(item)).toBe(false);
         });
 
+        it('should allow 4K direct play on webOS when the app surface reports 1080p', () => {
+            Object.defineProperty(globalThis, 'window', {
+                value: { screen: { width: 1920, height: 1080 } },
+                configurable: true,
+            });
+
+            const item = createMockMediaItem({
+                container: 'mp4',
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+                width: 3840,
+                height: 2160,
+            });
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(true);
+        });
+
         it('should return false for empty media array', () => {
             const item = createMockMediaItem();
             item.media = [];
@@ -250,6 +310,37 @@ describe('PlexStreamResolver', () => {
             const resolver = new PlexStreamResolver(config);
 
             expect(resolver.canDirectPlay(item)).toBe(false);
+        });
+
+        it('should return false for Profile 5 Dolby Vision without explicit DV support', () => {
+            const item = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'hevc',
+                audioCodec: 'aac',
+            });
+            const videoStream = getPrimaryVideoStream(item);
+            videoStream.displayTitle = 'Dolby Vision';
+            videoStream.doviPresent = true;
+            videoStream.doviProfile = '5';
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(false);
+        });
+
+        it('should return true for Profile 5 Dolby Vision with explicit matching DV support', () => {
+            mockCanPlayMimeTypes(['video/mp4; codecs="dvh1.05.06"']);
+            const item = createMockMediaItem({
+                container: 'mkv',
+                videoCodec: 'hevc',
+                audioCodec: 'aac',
+            });
+            const videoStream = getPrimaryVideoStream(item);
+            videoStream.displayTitle = 'Dolby Vision';
+            videoStream.doviPresent = true;
+            videoStream.doviProfile = '5';
+            const resolver = new PlexStreamResolver(createMockConfig());
+
+            expect(resolver.canDirectPlay(item)).toBe(true);
         });
 
         it('should evaluate only the first media entry for canDirectPlay', () => {
@@ -519,9 +610,14 @@ describe('PlexStreamResolver', () => {
 
             expect(decision.isTranscoding).toBe(true);
             expect(decision.protocol).toBe('hls');
-            expect(decision.directPlay?.reasons).toContain('hdr10_fallback_smart');
             expect(decision.directPlay?.reasons).toContain('unsupported_audio_codec:truehd');
             expect(decision.transcodeRequest?.hideDolbyVision).toBe(true);
+            expect(decision.hdr10Fallback).toMatchObject({
+                mode: 'smart',
+                applied: true,
+                hideDolbyVision: true,
+                forcedHls: false,
+            });
         });
 
         it('logs a warning when PMS universal decision fetch fails in debug mode', async () => {
@@ -529,10 +625,6 @@ describe('PlexStreamResolver', () => {
                 'Transcode URL (compat=0):',
                 expect.stringContaining('X-Plex-Token=REDACTED'),
             ], { times: 2 });
-            expectConsoleWarn([
-                'HDR10 fallback applied:',
-                expect.objectContaining({ itemKey: '12345', reason: expect.any(String) }),
-            ]);
             expectConsoleWarn([
                 'Stream decision:',
                 expect.objectContaining({ itemKey: '12345', mode: 'transcode' }),
@@ -570,10 +662,6 @@ describe('PlexStreamResolver', () => {
                 'Transcode URL (compat=0):',
                 expect.stringContaining('X-Plex-Token=REDACTED'),
             ], { times: 2 });
-            expectConsoleWarn([
-                'HDR10 fallback applied:',
-                expect.objectContaining({ itemKey: '12345', reason: expect.any(String) }),
-            ]);
             expectConsoleWarn([
                 'Stream decision:',
                 expect.objectContaining({ itemKey: '12345', mode: 'transcode' }),
@@ -665,7 +753,7 @@ describe('PlexStreamResolver', () => {
             expect(decision.isTranscoding).toBe(true);
         });
 
-        it('allows direct play for DV MKV when Smart is enabled but not letterbox', async () => {
+        it('hides Dolby Vision for non-letterbox DV MKV with HDR10 base layer when Smart is enabled', async () => {
             Object.defineProperty(globalThis, 'localStorage', {
                 value: {
                     getItem: jest.fn((key: string) =>
@@ -690,6 +778,14 @@ describe('PlexStreamResolver', () => {
 
             expect(decision.isDirectPlay).toBe(true);
             expect(decision.isTranscoding).toBe(false);
+            expect(decision.hdr10Fallback).toMatchObject({
+                mode: 'smart',
+                applied: true,
+                hideDolbyVision: true,
+                forcedHls: false,
+            });
+            expect(decision.playbackUrl).toContain('X-Plex-Client-Capabilities=');
+            expect(decision.playbackUrl).not.toContain('dvhe');
         });
 
         it('forces HLS with HDR10 fallback for DV MKV when Force is enabled', async () => {
@@ -775,8 +871,40 @@ describe('PlexStreamResolver', () => {
             expect(decision.isTranscoding).toBe(false);
         });
 
-        it('does not force HLS for DV MP4 profile 5 when fallback is off', async () => {
+        it('does not apply HDR fallback for DV MP4 profile 5 without explicit DV support', async () => {
             const dvItem = createMockMediaItem({ container: 'mp4', aspectRatio: 1.78 });
+            const dvStream = getPrimaryVideoStream(dvItem);
+            dvStream.displayTitle = 'Dolby Vision';
+            dvStream.doviPresent = true;
+            dvStream.doviProfile = '5';
+
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(dvItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({ itemKey: '12345' });
+
+            expect(decision.isTranscoding).toBe(true);
+            expect(decision.directPlay?.reasons).toContain('unknown_dolby_vision_support:dvhe.05');
+            expect(decision.hdr10Fallback).toMatchObject({
+                applied: false,
+                hideDolbyVision: false,
+                forcedHls: false,
+            });
+        });
+
+        it('allows direct play for DV MKV profile 5 with explicit DV support even when Force fallback is enabled', async () => {
+            mockCanPlayMimeTypes(['video/mp4; codecs="dvh1.05.06"']);
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+            const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
             const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
@@ -791,29 +919,20 @@ describe('PlexStreamResolver', () => {
 
             expect(decision.isDirectPlay).toBe(true);
             expect(decision.isTranscoding).toBe(false);
-        });
-
-        it('forces HLS for DV MKV profile 5 even when fallback is off', async () => {
-            const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
-            const dvStream = getPrimaryVideoStream(dvItem);
-            dvStream.displayTitle = 'Dolby Vision';
-            dvStream.doviPresent = true;
-            dvStream.doviProfile = '5';
-
-            const config = createMockConfig({
-                getItem: jest.fn().mockResolvedValue(dvItem),
+            expect(decision.protocol).toBe('http');
+            expect(decision.directPlay?.reasons).toEqual([]);
+            expect(decodeURIComponent(decision.playbackUrl)).toContain('hevc{profile:dvhe.05}');
+            expect(decodeURIComponent(decision.playbackUrl)).not.toContain('hevc{profile:main&');
+            expect(decision.hdr10Fallback).toMatchObject({
+                mode: 'force',
+                applied: false,
+                hideDolbyVision: false,
+                forcedHls: false,
             });
-            const resolver = new PlexStreamResolver(config);
-
-            const decision = await resolver.resolveStream({ itemKey: '12345' });
-
-            expect(decision.isTranscoding).toBe(true);
-            expect(decision.protocol).toBe('hls');
-            expect(decision.directPlay?.reasons).toContain('dv_profile_no_hdr10_base_layer');
-            expect(decision.playbackUrl).toContain('directStream=1');
         });
 
-        it('forces HLS for DV MKV profile 8 HLG even when fallback is off', async () => {
+        it('allows direct play for DV MKV profile 8 HLG because it has no HDR10 base layer', async () => {
+            mockCanPlayMimeTypes(['video/mp4; codecs="dvh1.08.06"']);
             const dvItem = createMockMediaItem({ container: 'mkv', aspectRatio: 1.78 });
             const dvStream = getPrimaryVideoStream(dvItem);
             dvStream.displayTitle = 'Dolby Vision';
@@ -828,10 +947,10 @@ describe('PlexStreamResolver', () => {
 
             const decision = await resolver.resolveStream({ itemKey: '12345' });
 
-            expect(decision.isTranscoding).toBe(true);
-            expect(decision.protocol).toBe('hls');
-            expect(decision.directPlay?.reasons).toContain('dv_profile_no_hdr10_base_layer');
-            expect(decision.playbackUrl).toContain('directStream=1');
+            expect(decision.isDirectPlay).toBe(true);
+            expect(decision.isTranscoding).toBe(false);
+            expect(decision.protocol).toBe('http');
+            expect(decision.directPlay?.reasons).toEqual([]);
         });
 
         it('should return transcode URL for incompatible content', async () => {
@@ -1050,9 +1169,203 @@ describe('PlexStreamResolver', () => {
                 subtitleStreamId: 'sub-1',
                 subtitleMode: 'burn',
             });
+            expect(mockFetch).toHaveBeenCalledWith(
+                expect.stringContaining('/library/parts/part-1?subtitleStreamID=sub-1'),
+                expect.objectContaining({
+                    method: 'PUT',
+                    headers: expect.objectContaining({
+                        'X-Plex-Token': 'mock-token',
+                    }),
+                })
+            );
             const parsed = new URL(decision.playbackUrl);
             expect(parsed.searchParams.get('subtitles')).toBe('burn');
             expect(parsed.searchParams.get('subtitleStreamID')).toBe('sub-1');
+            expect(parsed.searchParams.get('advancedSubtitles')).toBeNull();
+        });
+
+        it('marks subtitle burn-in as confirmed only from matching PMS stream decision evidence', async () => {
+            expectConsoleWarn([
+                'Transcode URL (compat=0):',
+                expect.stringContaining('X-Plex-Token=REDACTED'),
+            ], { times: 2 });
+            expectConsoleWarn([
+                'Stream decision:',
+                expect.objectContaining({ itemKey: '12345', mode: 'transcode' }),
+            ]);
+            Object.defineProperty(globalThis, 'localStorage', {
+                value: {
+                    getItem: jest.fn((key: string) =>
+                        key === LINEUP_STORAGE_KEYS.DEBUG_LOGGING ? '1' : null
+                    ),
+                },
+                configurable: true,
+            });
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            getPrimaryPart(mockItem).streams.push({
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            });
+            mockFetch
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () => '',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () =>
+                        '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                        '<TranscodeSession>' +
+                        '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                        '</TranscodeSession>' +
+                        '</MediaContainer>',
+                });
+
+            const resolver = new PlexStreamResolver(createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            }));
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+
+            expect(decision.subtitleBurnIn).toMatchObject({
+                requested: true,
+                confirmed: true,
+                subtitleStreamId: 'sub-1',
+            });
+            expect(decision.serverDecision?.streams).toEqual([
+                { id: 'sub-1', streamType: 3, decision: 'burn' },
+            ]);
+        });
+
+        it('fetches PMS decision evidence for burn-in requests even when debug logging is disabled', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            getPrimaryPart(mockItem).streams.push({
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+                default: true,
+            });
+            mockFetch
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () => '',
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    text: async () =>
+                        '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                        '<TranscodeSession videoDecision="copy" audioDecision="transcode">' +
+                        '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                        '</TranscodeSession>' +
+                        '</MediaContainer>',
+                });
+
+            const resolver = new PlexStreamResolver(createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            }));
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            });
+
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            const [selectionUrl, selectionInit] = mockFetch.mock.calls[0]!;
+            expect(new URL(String(selectionUrl)).pathname).toBe('/library/parts/part-1');
+            expect(new URL(String(selectionUrl)).searchParams.get('subtitleStreamID')).toBe('sub-1');
+            expect(selectionInit).toEqual(expect.objectContaining({ method: 'PUT' }));
+            const [decisionUrl] = mockFetch.mock.calls[1]!;
+            expect(new URL(String(decisionUrl)).pathname).toBe('/video/:/transcode/universal/decision');
+            expect(decision.subtitleBurnIn).toMatchObject({
+                requested: true,
+                confirmed: true,
+                subtitleStreamId: 'sub-1',
+            });
+            expect(decision.serverDecision?.videoDecision).toBe('copy');
+        });
+
+        it('fails burn-in resolution when PMS cannot select the subtitle on the part', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            getPrimaryPart(mockItem).streams.push({
+                id: 'sub-1',
+                streamType: 3,
+                codec: 'srt',
+                language: 'English',
+                languageCode: 'en',
+                format: 'srt',
+            });
+            mockFetch.mockResolvedValueOnce({
+                ok: false,
+                status: 500,
+                text: async () => 'server error',
+            });
+            const resolver = new PlexStreamResolver(createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            }));
+
+            await expect(resolver.resolveStream({
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            })).rejects.toMatchObject({
+                code: AppErrorCode.TRANSCODE_FAILED,
+                message: 'Failed to update subtitle stream selection: HTTP 500',
+                recoverable: true,
+            });
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
+        it('clears PMS part subtitle selection when subtitle mode is explicitly none', async () => {
+            const mockItem = createMockMediaItem();
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                subtitleMode: 'none',
+            });
+
+            expect(decision.isDirectPlay).toBe(true);
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            const [selectionUrl, selectionInit] = mockFetch.mock.calls[0]!;
+            const parsed = new URL(String(selectionUrl));
+            expect(parsed.pathname).toBe('/library/parts/part-1');
+            expect(parsed.searchParams.get('subtitleStreamID')).toBe('0');
+            expect(selectionInit).toEqual(expect.objectContaining({
+                method: 'PUT',
+                headers: expect.objectContaining({
+                    'X-Plex-Token': 'mock-token',
+                }),
+            }));
         });
 
         it('does not request burn-in when a text subtitle is selected but burn mode is not requested', async () => {
@@ -1086,6 +1399,7 @@ describe('PlexStreamResolver', () => {
             expect(decision.selectedSubtitleStream?.id).toBe('sub-1');
             expect(decision.subtitleDelivery).toBe('sidecar');
             expect(decision.transcodeRequest?.subtitleStreamId).toBeUndefined();
+            expect(mockFetch).not.toHaveBeenCalled();
 
             const parsed = new URL(decision.playbackUrl);
             expect(parsed.searchParams.get('subtitles')).toBe('none');
@@ -1276,7 +1590,7 @@ describe('PlexStreamResolver', () => {
             const parsed = new URL(resolver.getTranscodeUrl('12345', {}));
 
             expect(parsed.searchParams.get('X-Plex-Client-Capabilities')).toBe(
-                'protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=h264{profile:high&level:42};audioDecoders=mp3,aac{bitrate:800000},ac3{bitrate:800000},eac3{bitrate:800000}'
+                'protocols=http-live-streaming,http-mp4-streaming,http-streaming-video;videoDecoders=h264{profile:high&level:51};audioDecoders=mp3,aac{bitrate:800000},ac3{bitrate:800000},eac3{bitrate:800000}'
             );
         });
 

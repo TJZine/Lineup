@@ -67,6 +67,37 @@ export function safeStringifyForLog(
 }
 
 /**
+ * Redact high-risk free text before it is surfaced in diagnostics.
+ *
+ * This is stricter than `redactSensitiveTokens`: it removes absolute URLs and
+ * local filesystem paths because PMS/debug text can contain transport details.
+ */
+export function sanitizeDiagnosticText(
+    value: string,
+    options: { maxLength?: number | null } = {}
+): string {
+    const maxLength = options.maxLength === undefined ? 240 : options.maxLength;
+    let sanitized = redactSensitiveTokens(value);
+    sanitized = sanitized
+        .replace(/\bfile:\/\/[^\n\r"'`<>]+/gi, '[REDACTED_FILE_URL]')
+        .replace(
+            /(?:\/Users|\/home|\/Volumes|\/private|\/var|\/tmp|\/mnt|\/media|\/srv|\/data|\/volume\d*)\/[^\n\r"'`<>]+/gi,
+            '[REDACTED_PATH]'
+        )
+        .replace(/\b[A-Za-z]:\\[^\n\r"'`<>]+/g, '[REDACTED_PATH]')
+        .replace(/\\\\[^\\\n\r"'`<>]+\\[^\n\r"'`<>]+/g, '[REDACTED_PATH]')
+        .replace(/\bhttps?:\/\/[^\s"'`<>]+/gi, '[REDACTED_URL]');
+
+    if (typeof maxLength === 'number' && maxLength >= 0 && sanitized.length > maxLength) {
+        if (maxLength <= 3) {
+            return '.'.repeat(maxLength);
+        }
+        return `${sanitized.slice(0, maxLength - 3)}...`;
+    }
+    return sanitized;
+}
+
+/**
  * Redact sensitive tokens from a URL-like string for safe logging.
  *
  * - Removes basic-auth userinfo (username/password).

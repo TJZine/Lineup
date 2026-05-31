@@ -79,6 +79,12 @@ Build and refresh eval prompts from:
   - 19 Multi-Agent Role Selection And Delegation Discipline
 - [`20-skill-routing-interface-vs-frontend`](./prompts/20-skill-routing-interface-vs-frontend.md)
   - 20 Skill Routing Interface-vs-Frontend
+- [`21-model-role-routing-cost-effectiveness`](./prompts/21-model-role-routing-cost-effectiveness.md)
+  - 21 Model Role Routing Cost Effectiveness
+- [`22-planner-escalation-and-plan-critique-boundaries`](./prompts/22-planner-escalation-and-plan-critique-boundaries.md)
+  - 22 Planner Escalation And Plan Critique Boundaries
+- [`23-reviewer-specialization-effectiveness`](./prompts/23-reviewer-specialization-effectiveness.md)
+  - 23 Reviewer Specialization Effectiveness
 <!-- END MANAGED EVAL PROMPT INVENTORY -->
 
 ## How To Run A Manual Eval
@@ -87,12 +93,14 @@ Build and refresh eval prompts from:
 2. Use one prompt file as the task input.
 3. Start a fresh session for each prompt you score.
 4. Record the agent surface used.
-5. Record whether the expected skills and Codanna workflow were actually used.
-6. If Codanna fallback is used, log the exact invocation, acceptable condition, and fallback evidence path.
-7. Score only fresh-session runs or explicitly logged Codanna-fallback runs.
-8. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
-9. Write one tracked summary file under [`docs/agentic/evals/baseline-summaries/`](./baseline-summaries/README.md) using [`baseline-summary-template.md`](./baseline-summary-template.md), including fallback usage and fresh-session deviations.
-10. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
+5. Record ROLE / MODEL / REASONING_EFFORT, task family, tier, risk score, verification results, review finding counts, rework rounds, wall time, and observed token/credit/cost data when available.
+6. Treat exact model and reasoning-effort entries as observed/operator-recorded evidence only; do not claim mechanical verification unless the surface actually exposes it.
+7. Record whether the expected skills and Codanna workflow were actually used.
+8. If Codanna fallback is used, log the exact invocation, acceptable condition, and fallback evidence path.
+9. Score only fresh-session runs or explicitly logged Codanna-fallback runs.
+10. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
+11. Write one tracked summary file under [`docs/agentic/evals/baseline-summaries/`](./baseline-summaries/README.md) using [`baseline-summary-template.md`](./baseline-summary-template.md), including fallback usage and fresh-session deviations.
+12. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
 
 For the first manual baseline, run only these prompts in this order:
 
@@ -108,6 +116,8 @@ Do not run all tracked prompts in the first baseline.
 Run [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) whenever the workflow/control-plane changes materially.
 
 Run [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) whenever tracked multi-agent role guidance, repo-local subagent routing guidance, or `.codex/config.toml` role declarations change materially.
+
+Run [`21-model-role-routing-cost-effectiveness`](./prompts/21-model-role-routing-cost-effectiveness.md), [`22-planner-escalation-and-plan-critique-boundaries`](./prompts/22-planner-escalation-and-plan-critique-boundaries.md), and/or [`23-reviewer-specialization-effectiveness`](./prompts/23-reviewer-specialization-effectiveness.md) whenever tracked role/model routing, reasoning-effort guidance, reviewer specialization, or cost-effectiveness policy changes materially. Combine these with [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) for orchestration-tier policy changes and [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) for delegation-role changes.
 
 When workflow/control-plane changes touch settings ownership boundaries, also run [`10-settings-screen-split`](./prompts/10-settings-screen-split.md) in the same manual baseline pass.
 
@@ -132,8 +142,11 @@ Use this table as the operational trigger map for control-plane and boundary-ski
 | --- | --- | --- |
 | tracked workflow/control-plane docs change materially | [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) | Baseline workflow gate for routing, tiering, and local-only absorption. |
 | launcher routing or feature-vs-cleanup guidance changes materially | [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) | Use the feature/design workflow meta-eval scenario below when feature launchers or routing guidance changed. |
-| tracked workflow-critical mirror policy or `skill-mirror-allowlist.txt` changes materially | [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) | Validates mirror-policy ownership and Antigravity parity for workflow-critical skills; also run [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) when the change affects subagent/delegation routing. |
-| tracked multi-agent role guidance, repo-local subagent skill/routing guidance, mirrored subagent-skill policy, or `.codex/config.toml` role declarations change materially | [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) | Required before claiming delegation-policy or role-surface improvements. |
+| tracked workflow-critical skill topology changes materially | [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) | Validates canonical repo-local skill-topology ownership under `.agents/skills/`; also run [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) when the change affects subagent/delegation routing. |
+| tracked multi-agent role guidance, repo-local subagent skill/routing guidance, skill-topology policy, or `.codex/config.toml` role declarations change materially | [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) | Required before claiming delegation-policy or role-surface improvements. |
+| tracked role/model routing, reasoning-effort, or cost-effectiveness policy changes materially | [`21-model-role-routing-cost-effectiveness`](./prompts/21-model-role-routing-cost-effectiveness.md), plus [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) and/or [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) when tiering or delegation also changed | Record ROLE / MODEL / REASONING_EFFORT manually from the surface used; do not treat exact model identity as mechanically verified unless exposed by the tool. |
+| planner escalation, deep-planner trigger, plan-critique, or GPT-5.4/GPT-5.5 planning guidance changes materially | [`22-planner-escalation-and-plan-critique-boundaries`](./prompts/22-planner-escalation-and-plan-critique-boundaries.md), plus [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) when orchestration tiering changed | Confirms normal Tier 2 planning stays on `planner` `gpt-5.5` medium and hotspot/priority-exit/unresolved seams escalate to `planner_deep`; GPT-5.4 xhigh-style use remains critique/review unless policy says otherwise. |
+| reviewer specialization or review role routing changes materially | [`23-reviewer-specialization-effectiveness`](./prompts/23-reviewer-specialization-effectiveness.md), plus [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) when delegation-role policy also changed | Confirms maintainability/code-health review routes to `maintainability_reviewer`, hotspot/boundary/security-adjacent review routes to `architecture_reviewer`, and normal correctness review stays on `reviewer`. |
 | `architecture-boundaries` changes materially | [`06-orchestrator-hotspot-extraction`](./prompts/06-orchestrator-hotspot-extraction.md) or [`12-architecture-doc-refresh`](./prompts/12-architecture-doc-refresh.md) | If the change hardens seam/planning discipline, also run [`18-detect-unresolved-seam-before-freezing-plan`](./prompts/18-detect-unresolved-seam-before-freezing-plan.md). |
 | `persistence-boundaries` changes materially | one or more of [`07-settings-storage-boundary`](./prompts/07-settings-storage-boundary.md), [`08-server-selection-storage-boundary`](./prompts/08-server-selection-storage-boundary.md), [`09-channel-persistence-boundary`](./prompts/09-channel-persistence-boundary.md) | If the change touches settings ownership guidance, also run [`10-settings-screen-split`](./prompts/10-settings-screen-split.md). |
 | `ui-composition-patterns` changes materially | one or more of [`03-overlay-toast-extraction-no-timer-leaks`](./prompts/03-overlay-toast-extraction-no-timer-leaks.md), [`14-epg-info-panel-orchestration-no-host-drift`](./prompts/14-epg-info-panel-orchestration-no-host-drift.md), [`16-shared-ui-primitives-no-policy-centralization`](./prompts/16-shared-ui-primitives-no-policy-centralization.md) | If the change touches global UI-skill routing guidance, also run [`20-skill-routing-interface-vs-frontend`](./prompts/20-skill-routing-interface-vs-frontend.md). |

@@ -190,6 +190,44 @@ describe('NowPlayingDebugManager', () => {
         expect(manager3.buildNowPlayingStreamDebugText()).not.toBeNull();
     });
 
+    it('debug text includes HDR fallback and subtitle burn-in diagnostics', () => {
+        enableDebug();
+        const decision = makeDecision();
+        decision.hdr10Fallback = {
+            mode: 'smart',
+            applied: true,
+            reason: 'smart',
+            debugWhy: 'letterbox_detected',
+            hideDolbyVision: true,
+            forcedHls: false,
+        };
+        decision.subtitleBurnIn = {
+            requested: true,
+            reason: 'format_required',
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'none',
+        };
+        decision.serverDecision = {
+            fetchedAt: 123,
+            videoDecision: 'copy',
+            audioDecision: 'transcode',
+            subtitleDecision: 'burn',
+            decisionText: 'used http://10.0.0.2:32400/transcode?X-Plex-Token=secret from /Users/tristan/subtitles/movie.srt',
+        };
+
+        const { manager } = setup({ getCurrentStreamDecision: () => decision });
+        const text = manager.buildNowPlayingStreamDebugText();
+
+        expect(text).toContain('HDR10 FB: smart/smart hideDV=yes HLS=no');
+        expect(text).toContain('Burn-in: format_required sub=sub-1');
+        expect(text).toContain('PMS: v=copy a=transcode sub=burn');
+        expect(text).toContain('[REDACTED_URL]');
+        expect(text).toContain('[REDACTED_PATH]');
+        expect(text).not.toContain('10.0.0.2');
+        expect(text).not.toContain('secret');
+        expect(text).not.toContain('/Users/tristan');
+    });
+
     it('snapshot fetch does not require debug enabled', async () => {
         const { manager, resolver, decision } = setup();
         decision.isTranscoding = true;
@@ -199,6 +237,32 @@ describe('NowPlayingDebugManager', () => {
         } as NonNullable<StreamDecision['transcodeRequest']>;
         await manager.ensureServerDecisionForPlaybackInfoSnapshot();
         expect(resolver.fetchUniversalTranscodeDecision).toHaveBeenCalled();
+    });
+
+    it('snapshot fetch updates burn-in confirmation from selected PMS subtitle stream evidence', async () => {
+        const { manager, resolver, decision } = setup();
+        decision.isTranscoding = true;
+        decision.subtitleBurnIn = {
+            requested: true,
+            confirmed: false,
+            reason: 'requested',
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'burn',
+        };
+        decision.transcodeRequest = {
+            sessionId: 'sess',
+            maxBitrate: 1234,
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'burn',
+        } as NonNullable<StreamDecision['transcodeRequest']>;
+        (resolver.fetchUniversalTranscodeDecision as jest.Mock).mockResolvedValueOnce({
+            fetchedAt: 123,
+            streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
+        });
+
+        await manager.ensureServerDecisionForPlaybackInfoSnapshot();
+
+        expect(decision.subtitleBurnIn.confirmed).toBe(true);
     });
 
     it('debug fetch calls refresh only when modal open', async () => {

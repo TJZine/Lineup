@@ -360,16 +360,12 @@ describe('createOrchestratorCoordinators', () => {
                 modules: {
                     navigation: deps.modules.navigation,
                     videoPlayer: deps.modules.videoPlayer,
-                    scheduler: deps.modules.scheduler,
                 },
                 overlays: {
                     playbackOptionsModal: deps.overlays.playbackOptionsModal,
                 },
                 stores: {
                     subtitlePreferencesStore: deps.stores.subtitlePreferencesStore,
-                },
-                playback: {
-                    state: deps.playback.state,
                 },
                 nowPlaying: deps.nowPlaying,
             },

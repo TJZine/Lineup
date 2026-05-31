@@ -231,10 +231,10 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
             [
                 'Tracked role intent:',
                 '',
-                '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role',
-                '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role',
-                '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only',
-                '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role',
+                '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role by default; use `planner_deep` for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning',
+                '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_54_high` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify',
+                '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_54_high` for a bounded exact cheap-to-verify subunit',
+                '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role for normal review, with `maintainability_reviewer` for maintainability-only review and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review',
                 '',
             ].join('\n'),
             ''
@@ -245,7 +245,7 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
-            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for general implementers, cleanup_worker only for Tier 3 cleanup-loop implementation passes, reviewer read-only for review launchers.'
+            'Session prompt README must keep the tracked role intent explicit: planner/planner_deep for planning launchers, worker/worker_54_high for eligible implementers, cleanup_worker for Tier 3 cleanup-loop implementation passes, reviewer plus specialized read-only reviewer roles for review launchers.'
         );
     });
 
@@ -829,6 +829,23 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('feature/design routing row');
+    });
+
+    it('fails when cleanup/refactor routing row omits deep planner and specialized reviewer routing', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        const readmePath = path.join(repoRoot, 'docs/agentic/session-prompts/README.md');
+        const readme = readFileSync(readmePath, 'utf8').replace(
+            /\| cleanup\/refactor \|[^\n]+/u,
+            '| cleanup/refactor | checklist cleanup | `cleanup-*` | Tier 3 uses cleanup-loop with planner + cleanup_worker + reviewer. |'
+        );
+        writeRepoFile(repoRoot, 'docs/agentic/session-prompts/README.md', readme);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('cleanup/refactor routing row');
     });
 
     it('fails when workflow lists feature-implement as a launcher but omits it from the Tier 2 feature sequence', () => {

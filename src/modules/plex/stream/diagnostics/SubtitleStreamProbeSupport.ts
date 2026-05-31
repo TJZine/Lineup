@@ -3,10 +3,14 @@ import {
     type SubtitleTextContentFormat,
 } from '../../../../shared/subtitleTextFormatDetection';
 import { redactUrlForLog } from '../../../../utils/redact';
-import { applyXPlexTokenQueryParam, readXPlexTokenFromHeaders, tryBuildPlexServerUrlFromKey } from '../../shared/plexUrl';
+import { applyXPlexTokenQueryParam, readXPlexTokenFromHeaders } from '../../shared/plexUrl';
+import {
+    resolvePlexSubtitleProbeBaseUrl,
+    type PlexSubtitleProbeUrlSource,
+} from '../policy/plexSubtitleProbePolicy';
 
 export type SubtitleTextFormat = SubtitleTextContentFormat;
-export type SubtitleProbeUrlSource = 'key' | 'id_fallback';
+export type SubtitleProbeUrlSource = PlexSubtitleProbeUrlSource;
 
 export interface SubtitleStreamProbeRequestInput {
     authHeaders: Record<string, string>;
@@ -46,17 +50,19 @@ function resolveSubtitleProbeBaseUrl(input: SubtitleStreamProbeRequestInput): {
     baseUrl: URL;
     urlSource: SubtitleProbeUrlSource;
 } {
-    if (typeof input.subtitleStreamKey === 'string' && input.subtitleStreamKey.length > 0) {
-        const normalized = tryBuildPlexServerUrlFromKey(input.serverUri, input.subtitleStreamKey);
-        if (normalized) {
-            return { baseUrl: normalized, urlSource: 'key' };
-        }
+    const resolved = resolvePlexSubtitleProbeBaseUrl({
+        context: {
+            serverUri: input.serverUri,
+        },
+        target: {
+            id: input.subtitleStreamId,
+            key: input.subtitleStreamKey,
+        },
+    });
+    if (!resolved) {
+        throw new TypeError('Invalid subtitle probe URL context');
     }
-
-    return {
-        baseUrl: new URL(`/library/streams/${encodeURIComponent(input.subtitleStreamId)}`, input.serverUri),
-        urlSource: 'id_fallback',
-    };
+    return resolved;
 }
 
 function buildRedactedTrackSrcQueryAuth(baseUrl: URL, token: string | null): string | null {

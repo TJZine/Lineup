@@ -1,7 +1,3 @@
-/**
- * Resolves playback URLs, handles direct play detection, and manages sessions.
- */
-
 import { EventEmitter } from '../../../../utils/EventEmitter';
 import { AppErrorCode } from '../../../../types/app-errors';
 import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
@@ -23,6 +19,11 @@ import { summarizeErrorForLog } from '../../../../utils/errors';
 import {
     getDirectPlayDecision,
 } from '../policy/playbackCompatibilityPolicy';
+import type { PlaybackCapabilityProfile } from '../capabilities/PlaybackCapabilityProfile';
+import {
+    createBrowserPlaybackCapabilityProfile,
+    getBrowserChromeMajor,
+} from '../capabilities/PlaybackCapabilityProfile';
 import { fetchWithTimeout } from '../../shared/fetchWithTimeout';
 import { detectHdrLabel } from '../policy/hdr';
 import type { PlatformIdentityService } from '../../../../platform';
@@ -41,16 +42,12 @@ import {
 } from '../url/plexStreamUrlPolicy';
 import { logPlexWarning } from '../../shared/plexLogging';
 import { SubtitleStreamDebugProbeCoordinator } from '../diagnostics/SubtitleStreamDebugProbeCoordinator';
-import { UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
+import { applyServerDecisionToStreamDecision, UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
+import { updatePlexPartSubtitleSelection } from './PlexPartSubtitleSelector';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from '../contracts/types';
 
-/**
- * Plex Stream Resolver implementation.
- * Resolves stream URLs and manages playback sessions.
- * @implements {IPlexStreamResolver}
- */
 export class PlexStreamResolver implements IPlexStreamResolver {
     private readonly _config: PlexStreamResolverConfig;
     private readonly _emitter: EventEmitter<StreamResolverEventMap>;
@@ -74,34 +71,10 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         });
     }
 
-    private _getChromeMajor(): number | null {
-        try {
-            if (typeof navigator === 'undefined') return null;
-            const ua = navigator.userAgent || '';
-            const chromeMatch = ua.match(/Chrome\/(\d+)/);
-            if (!chromeMatch) return null;
-            const n = Number(chromeMatch[1]);
-            return Number.isFinite(n) ? n : null;
-        } catch {
-            return null;
-        }
-    }
-
-    private _getBrowserUserAgent(): string | null {
-        try {
-            if (typeof navigator === 'undefined') {
-                return null;
-            }
-            return navigator.userAgent || null;
-        } catch {
-            return null;
-        }
-    }
-
     private _isDtsPassthroughEnabled(): boolean {
         try {
             const userEnabled = this._config.audioPolicyReader.readDtsPassthroughEnabledAndClean(false);
-            const chromeMajor = this._getChromeMajor();
+            const chromeMajor = getBrowserChromeMajor();
             return userEnabled && chromeMajor !== null && chromeMajor >= 108;
         } catch {
             return false;
@@ -138,8 +111,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
 
         const sessionId = generatePlexSessionId();
         const allowDirectPlayAudioFallback = this._config.audioPolicyReader.readDirectPlayAudioFallbackEnabledAndClean();
-        const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
-        const userAgent = this._getBrowserUserAgent();
+        const capabilityProfile = this._createPlaybackCapabilityProfile();
         const hdr10FallbackMode = this._getHdr10FallbackMode();
         const debugEnabled = this._isDebugLoggingEnabled();
 
@@ -148,8 +120,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             request,
             sessionId,
             allowDirectPlayAudioFallback,
-            dtsPassthroughEnabled,
-            userAgent,
+            capabilityProfile,
             hdr10FallbackMode,
             createError: (
                 code,
@@ -167,11 +138,21 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 partKey,
                 pipelineSessionId,
                 directPlayAudioStreamId,
-                applyHdr10Fallback
+                applyHdr10Fallback,
+                capabilityProfile
             ),
-            getTranscodeUrl: (itemKey, options) => this.getTranscodeUrl(itemKey, options),
+            getTranscodeUrl: (itemKey, options) => this._getTranscodeUrlWithProfile(itemKey, options, capabilityProfile),
         });
 
+        return this._finalizeResolvedStreamDecision({ request, pipeline, debugEnabled });
+    }
+
+    private async _finalizeResolvedStreamDecision(input: {
+        request: StreamRequest;
+        pipeline: ReturnType<typeof resolveStreamPipeline>;
+        debugEnabled: boolean;
+    }): Promise<StreamDecision> {
+        const { request, pipeline, debugEnabled } = input;
         const {
             decision,
             media,
@@ -186,26 +167,62 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             availableSubtitleStreams,
         });
 
-        if (debugEnabled) {
-            if (pipeline.hdrFallbackReason) {
-                logPlexWarning('HDR10 fallback applied:', {
-                    itemKey: request.itemKey,
-                    reason: pipeline.hdrFallbackReason,
-                    container: media.container,
-                    isDolbyVision: videoStream?.doviPresent === true,
-                });
-            }
-            if (pipeline.forceHlsForDvNoHdr10BaseLayer) {
-                logPlexWarning('HDR10 base-layer fallback forced:', {
-                    itemKey: request.itemKey,
-                    reason: 'dv_profile_no_hdr10_base_layer',
-                    container: media.container,
-                });
-            }
+        if (debugEnabled && pipeline.hdrFallbackReason) {
+            logPlexWarning('HDR10 fallback applied:', {
+                itemKey: request.itemKey,
+                reason: pipeline.hdrFallbackReason,
+                debugWhy: decision.hdr10Fallback?.debugWhy,
+                hideDolbyVision: decision.hdr10Fallback?.hideDolbyVision === true,
+                forcedHls: decision.hdr10Fallback?.forcedHls === true,
+                container: media.container,
+                isDolbyVision: videoStream?.doviPresent === true,
+            });
         }
+
         const hdrLabel = decision.source?.hdr || detectHdrLabel(videoStream);
         if (hdrLabel && decision.source && !decision.source.hdr) {
             decision.source.hdr = hdrLabel;
+        }
+
+        const shouldUpdatePartSubtitleSelection =
+            (decision.subtitleBurnIn?.requested === true && decision.transcodeRequest?.subtitleMode === 'burn') ||
+            request.subtitleMode === 'none';
+        if (shouldUpdatePartSubtitleSelection) {
+            await updatePlexPartSubtitleSelection({
+                partId: pipeline.part.id,
+                subtitleStreamId: decision.transcodeRequest?.subtitleMode === 'burn'
+                    ? decision.transcodeRequest.subtitleStreamId
+                    : null,
+                getServerUri: this._config.getServerUri,
+                getAuthHeaders: this._config.getAuthHeaders,
+                selectBaseUriForMixedContent: (serverUri) => this._selectBaseUriForMixedContent(serverUri),
+                throwIfAuthFailure: (response) => this._throwIfAuthFailure(response),
+                createError: (code, message, recoverable) => this._createError(code, message, recoverable),
+            });
+        }
+
+        // Ask PMS why it chose to transcode vs direct-stream for debug surfaces, and always
+        // confirm burn-in requests before player subtitle state assumes PMS rendered them.
+        const shouldFetchServerDecision =
+            decision.isTranscoding &&
+            Boolean(decision.transcodeRequest) &&
+            (debugEnabled || decision.subtitleBurnIn?.requested === true);
+        if (shouldFetchServerDecision && decision.transcodeRequest) {
+            try {
+                const serverDecision = await this.fetchUniversalTranscodeDecision(
+                    request.itemKey,
+                    decision.transcodeRequest
+                );
+                applyServerDecisionToStreamDecision(decision, serverDecision);
+            } catch (error) {
+                if (debugEnabled) {
+                    logPlexWarning('PMS universal decision fetch failed:', {
+                        itemKey: request.itemKey,
+                        sessionId: decision.transcodeRequest.sessionId,
+                        error: summarizeErrorForLog(error),
+                    });
+                }
+            }
         }
 
         if (debugEnabled) {
@@ -214,25 +231,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 mode: decision.isTranscoding ? 'transcode' : 'direct_play',
                 protocol: decision.protocol,
                 subtitleDelivery: decision.subtitleDelivery,
+                hdr10Fallback: decision.hdr10Fallback,
+                subtitleBurnIn: decision.subtitleBurnIn,
+                serverDecision: decision.serverDecision ?? null,
                 reasonCount: decision.directPlay?.reasons.length ?? 0,
             });
-        }
-
-        // Optional (debug-only): ask PMS why it chose to transcode vs direct-stream.
-        // This helps explain cases where HDR10 fallback unexpectedly results in SDR H.264 transcodes.
-        if (debugEnabled && decision.isTranscoding && decision.transcodeRequest) {
-            try {
-                decision.serverDecision = await this.fetchUniversalTranscodeDecision(
-                    request.itemKey,
-                    decision.transcodeRequest
-                );
-            } catch (error) {
-                logPlexWarning('PMS universal decision fetch failed:', {
-                    itemKey: request.itemKey,
-                    sessionId: decision.transcodeRequest.sessionId,
-                    error: summarizeErrorForLog(error),
-                });
-            }
         }
 
         return decision;
@@ -285,12 +288,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         if (!media) {
             return false;
         }
-        const dtsPassthroughEnabled = this._isDtsPassthroughEnabled();
-        const userAgent = this._getBrowserUserAgent();
+        const videoStream = media.parts[0]?.streams.find((stream) => stream.streamType === 1) ?? null;
+        const capabilityProfile = this._createPlaybackCapabilityProfile();
         return getDirectPlayDecision({
             media,
-            dtsPassthroughEnabled,
-            userAgent,
+            videoStream,
+            capabilityProfile,
         }).canDirect;
     }
 
@@ -303,6 +306,18 @@ export class PlexStreamResolver implements IPlexStreamResolver {
      * @throws StreamResolverError synchronously when a transcode URL cannot be built.
      */
     getTranscodeUrl(itemKey: string, options: HlsOptions): string {
+        return this._getTranscodeUrlWithProfile(
+            itemKey,
+            options,
+            this._createPlaybackCapabilityProfile()
+        );
+    }
+
+    private _getTranscodeUrlWithProfile(
+        itemKey: string,
+        options: HlsOptions,
+        capabilityProfile: PlaybackCapabilityProfile
+    ): string {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
             throw this._createError(
@@ -343,6 +358,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             relayConnectionUri: this._config.getRelayConnection()?.uri ?? null,
             clientCapabilities: this._buildClientCapabilities({
                 hideDolbyVision: options.hideDolbyVision === true,
+                capabilityProfile,
             }),
             authHeaders,
             forcedProfileName,
@@ -389,17 +405,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         this._emitter.off(event, handler);
     }
 
-
-    /**
-     * Build direct play URL with mixed content handling.
-     * @param partKey - Media part key
-     * @returns Full playback URL
-     */
     private _buildDirectPlayUrl(
         partKey: string,
         sessionId: string,
         audioStreamId?: string,
-        hideDolbyVision?: boolean
+        hideDolbyVision?: boolean,
+        capabilityProfile: PlaybackCapabilityProfile = this._createPlaybackCapabilityProfile()
     ): string {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
@@ -411,7 +422,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         const baseUri = this._selectBaseUriForMixedContent(serverUri);
-        return this._buildUrlWithToken(baseUri, partKey, sessionId, audioStreamId, hideDolbyVision);
+        return this._buildUrlWithToken(baseUri, partKey, sessionId, audioStreamId, hideDolbyVision, capabilityProfile);
     }
 
     /**
@@ -422,7 +433,8 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         partKey: string,
         sessionId: string,
         audioStreamId?: string,
-        hideDolbyVision?: boolean
+        hideDolbyVision?: boolean,
+        capabilityProfile: PlaybackCapabilityProfile = this._createPlaybackCapabilityProfile()
     ): string {
         const headers = this._config.getAuthHeaders();
         const url = buildPlexUrlFromKey(baseUri, partKey);
@@ -436,33 +448,31 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         // over DV when fallback mode asks us to hide Dolby Vision decoders.
         url.searchParams.set(
             'X-Plex-Client-Capabilities',
-            this._buildClientCapabilities({ hideDolbyVision: hideDolbyVision === true })
+            this._buildClientCapabilities({
+                hideDolbyVision: hideDolbyVision === true,
+                capabilityProfile,
+            })
         );
         this._applyDefaultIdentityParams(url.searchParams);
         return url.toString();
     }
 
-    private _buildClientCapabilities(options?: { hideDolbyVision?: boolean }): string {
-        const is4K = typeof window !== 'undefined' &&
-            typeof window.screen?.width === 'number' &&
-            window.screen.width >= 3840;
-
-        const videoEl = typeof document !== 'undefined' ? document.createElement('video') : null;
-        const canPlayMimeType = (mime: string): boolean => {
-            try {
-                return !!videoEl && videoEl.canPlayType(mime) !== '';
-            } catch {
-                return false;
-            }
-        };
+    private _buildClientCapabilities(options?: {
+        hideDolbyVision?: boolean;
+        capabilityProfile?: PlaybackCapabilityProfile;
+    }): string {
+        const profile = options?.capabilityProfile ?? this._createPlaybackCapabilityProfile();
 
         return buildPlexClientCapabilities({
-            is4K,
-            canPlayMimeType,
-            chromeMajor: this._getChromeMajor(),
+            profile,
+            hideDolbyVision: options?.hideDolbyVision === true,
+        });
+    }
+
+    private _createPlaybackCapabilityProfile(): PlaybackCapabilityProfile {
+        return createBrowserPlaybackCapabilityProfile({
             isWebOs: this._isWebOs(),
             dtsPassthroughEnabled: this._isDtsPassthroughEnabled(),
-            hideDolbyVision: options?.hideDolbyVision === true,
         });
     }
 
@@ -506,7 +516,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             false
         );
     }
-
     private _throwIfAuthFailure(response: Response, emitError = true): void {
         if (response.status === 401) {
             throw this._createAuthError(
@@ -524,7 +533,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
     }
 
-
     private _getHdr10FallbackMode(): Hdr10FallbackMode {
         return this._config.playbackPolicyReader.readHdr10FallbackModeAndClean();
     }
@@ -532,7 +540,6 @@ export class PlexStreamResolver implements IPlexStreamResolver {
     private _isDebugLoggingEnabled(): boolean {
         return this._config.debugPolicyReader.readDebugLoggingEnabledAndClean(false);
     }
-
 
     private _createError(
         code: StreamResolverError['code'],

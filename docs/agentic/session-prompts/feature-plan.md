@@ -4,12 +4,12 @@ Use this prompt for Tier 2 or Tier 3 feature/design work when you need a serious
 
 Do not use this launcher for cleanup-only refactors; use [`cleanup-plan.md`](./cleanup-plan.md) for that path.
 
-Run this launcher with the tracked write-capable `planner` role. Use that role for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs rather than product-code implementation.
+Run this launcher with the tracked write-capable `planner` role by default. Use `planner_deep` for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning. Both planning roles are for bounded planning discovery, tracked plan artifacts, and execution-ready handoffs rather than product-code implementation.
 
 ## Read Order
 
-1. [`agents.md`](../../../agents.md)
-2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. [`agents.md`](../../../agents.md)
 3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md)
 4. [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core)
 5. [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) when UI creation or redesign is in scope
@@ -109,6 +109,7 @@ Return:
    - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
 8. when a weaker/cheaper implementer or an unusually fragile current unit needs extra detail, include an optional `CURRENT_EXECUTION_PACKET` block before `NEXT_SESSION_HANDOFF` with:
    - `UNIT`
+   - `IMPLEMENTER_ROLE_ELIGIBILITY: worker_54_high | worker`
    - `IMPLEMENTER_REASONING_ELIGIBILITY: low | medium | high`
    - `WHY`
    - `LOW_ELIGIBLE_IF`
@@ -120,3 +121,5 @@ Return:
    - `STOP_AND_REPLAN_IF`
 
 Keep the `MODEL_SUGGESTION` schema unchanged; put lower-reasoning eligibility details only in `CURRENT_EXECUTION_PACKET`.
+
+Use `worker_54_high` eligibility only for approved, bounded, exact, cheap-to-verify execution units. Any packet allowing `worker_54_high` must stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis.

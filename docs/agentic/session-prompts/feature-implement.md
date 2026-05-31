@@ -9,8 +9,8 @@ Tier 2 uses this as the default implementer launcher. Tier 3 feature or mixed wo
 
 ## Read Order
 
-1. [`agents.md`](../../../agents.md)
-2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. [`agents.md`](../../../agents.md)
 3. task-specific context from exactly one input mode:
    - handoff mode: the `NEXT_SESSION_HANDOFF` block that routed work here (from [`feature-review.md`](./feature-review.md)); then read its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE`
    - short-follow-up mode: one short follow-up message naming the approved plan path or active run bundle plus target feature scope; then read the named plan or run bundle as the execution surface and do not wait for a handoff block
@@ -39,7 +39,7 @@ In short-follow-up mode, use the named approved plan or run-bundle context as th
 - if `ARTIFACT` is a remediation/fix findings artifact (commonly named `implementation-findings.md`): treat it as the fix-session gate and implement only the listed fixes without widening scope
 - if remediation findings are actually plan/decision/product boundary defects (not fixable safely inside the approved plan), stop and route back to `lineup-feature-plan` instead of patching ad hoc
 - re-check the plan freshness gate before changing files
-- honor any current execution packet implementer eligibility, escalation, and stop/replan rules
+- honor any current execution packet implementer eligibility, escalation, and stop/replan rules; use `worker` by default and `worker_54_high` only for approved bounded exact cheap-to-verify units
 - re-confirm task routing before implementation if the approved plan includes a mixed cleanup slice
 - run Codanna impact confirmation again before risky/shared-symbol edits if the code moved since planning
 - implement one bounded work unit at a time without widening scope
@@ -51,6 +51,7 @@ In short-follow-up mode, use the named approved plan or run-bundle context as th
 - follow the approved plan exactly unless current repo state contradicts it
 - if the approving review output and the tracked plan disagree, reconcile them before editing instead of picking one ad hoc
 - if repo state contradicts the plan, update the plan first instead of improvising
+- if the unit is assigned to or marked eligible for `worker_54_high` and implementation reveals ambiguity, plan contradiction, required scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis, stop and escalate instead of improvising
 - if the unit is marked low-eligible but implementation reveals ambiguity, failing verification that needs diagnosis, plan contradiction, or required scope expansion, stop and route back or escalate instead of improvising
 - keep feature intent and cleanup intent separated; do not let cleanup-only shortcuts steer net-new behavior
 - for UI creation/redesign, follow [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and use the appropriate global UI skill:
@@ -58,7 +59,7 @@ In short-follow-up mode, use the named approved plan or run-bundle context as th
   - `frontend-design` for marketing/landing pages and other brand-forward surfaces
 - prefer extraction and focused collaborators over growing hotspot files
 - do not add fallback paths, migration shims, or dual-path logic unless explicitly approved
-- do not commit local-only artifacts such as `.agent/skills/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts
+- do not commit local-only artifacts such as `.agent/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts
 - if a local run bundle changes the workflow conclusion, commit the updated tracked baseline-summary or workflow doc before closeout and keep only the raw bundle local
 - keep `update_plan` aligned with actual progress
 

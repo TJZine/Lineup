@@ -10,6 +10,7 @@ import * as ConfigEvents from '../../../../config/events';
 import { SubtitlePreferencesStore } from '../../../settings/SubtitlePreferencesStore';
 import { EPG_PAST_ITEMS_WINDOWS } from '../../../settings/EpgPreferencesStore';
 import { THEME_OPTIONS } from '../../theme/themeDefinitions';
+import { SUPPORTED_SUBTITLE_LANGUAGES } from '../../../../shared/subtitle-language';
 
 beforeEach(() => {
     localStorage.clear();
@@ -66,6 +67,42 @@ it('builds the current settings categories from persisted state', () => {
     expect(subtitleLanguage?.value).toBe(2);
     expect(subtitleLanguage?.disabled).toBe(true);
     expect(preferForced?.disabled).toBe(true);
+});
+
+it('derives subtitle language options from the shared language contract while preserving Auto first', () => {
+    const controller = new SettingsScreenStateController({ settingsStore: new SettingsStore() });
+    const audioCategory = controller.getCategories().find((category) => category.id === 'audio_subtitles');
+    const subtitleLanguage = audioCategory?.items.find((item) => item.id === 'settings-subtitle-language');
+
+    if (!subtitleLanguage || !('options' in subtitleLanguage)) {
+        throw new Error('Subtitle language item not found');
+    }
+
+    expect((subtitleLanguage as SettingsSelectConfig).options).toEqual([
+        { label: 'Auto (Plex)', value: 0 },
+        ...SUPPORTED_SUBTITLE_LANGUAGES.map((language, index) => ({
+            label: language.label,
+            value: index + 1,
+        })),
+    ]);
+});
+
+it('labels HDR fallback preferred mode as direct-play-first and force mode as HLS/transcode-oriented', () => {
+    const controller = new SettingsScreenStateController({ settingsStore: new SettingsStore() });
+    const playbackCategory = controller.getCategories().find((category) => category.id === 'playback_hdr');
+    const hdrFallback = playbackCategory?.items.find((item) => item.id === 'settings-hdr10-fallback-mode');
+
+    if (!hdrFallback || !('options' in hdrFallback)) {
+        throw new Error('HDR fallback item not found');
+    }
+
+    expect(hdrFallback.description).toContain('Prefer HDR10 hides DV for direct-play');
+    expect(hdrFallback.description).toContain('Force requests HLS/transcode');
+    expect((hdrFallback as SettingsSelectConfig).options).toEqual([
+        { label: 'Off', value: 0 },
+        { label: 'Prefer HDR10 (Direct Play)', value: 1 },
+        { label: 'Force HLS/Transcode', value: 2 },
+    ]);
 });
 
 it('writes subtitle mode, emits subtitle callback, and invalidates state', () => {

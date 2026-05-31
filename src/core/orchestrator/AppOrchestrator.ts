@@ -55,7 +55,7 @@ import {
     type IVideoPlayer,
     type StreamDescriptor,
 } from '../../modules/player';
-import { PlaybackRecoveryManager } from '../../modules/player/PlaybackRecoveryManager';
+import { PlaybackRecoveryManager } from '../../modules/player';
 import {
     EPGCoordinator,
     EPGDebugRuntime,
@@ -289,6 +289,14 @@ export class AppOrchestrator {
         }
     }
 
+    private _getAuthoritativeCurrentProgramForPlayback(): ScheduledProgram | null {
+        const schedulerState = this._scheduler?.getState();
+        if (schedulerState?.isActive) {
+            return schedulerState.currentProgram ?? null;
+        }
+        return this._currentProgramForPlayback;
+    }
+
     private _warnRecoverableRuntimeIssue(
         event: string,
         message: string,
@@ -350,7 +358,8 @@ export class AppOrchestrator {
             },
         });
         this._playbackStateAccessors = {
-            getCurrentProgramForPlayback: (): ScheduledProgram | null => this._currentProgramForPlayback,
+            getCurrentProgramForPlayback: (): ScheduledProgram | null =>
+                this._getAuthoritativeCurrentProgramForPlayback(),
             setCurrentProgramForPlayback: (program: ScheduledProgram | null): void => {
                 this._currentProgramForPlayback = program;
             },
@@ -520,11 +529,6 @@ export class AppOrchestrator {
                     buildPlexResourceUrl: (pathOrUrl: string | null): string | null => {
                         if (!pathOrUrl) return null;
                         return this._buildPlexResourceUrl(pathOrUrl);
-                    },
-                },
-                subtitle: {
-                    seedSubtitleLanguageFromPlexUser: (): void => {
-                        this._seedSubtitleLanguageFromPlexUser();
                     },
                 },
             }
@@ -1010,7 +1014,7 @@ export class AppOrchestrator {
     }
 
     async refreshPlaybackInfoSnapshot(): Promise<PlaybackInfoSnapshot> {
-        const program = this._currentProgramForPlayback;
+        const program = this._getAuthoritativeCurrentProgramForPlayback();
         const decision = this._currentStreamDecision;
         if (!program || !decision || !this._plexStreamResolver) {
             return this.getPlaybackInfoSnapshot();
@@ -1061,23 +1065,14 @@ export class AppOrchestrator {
         };
     }
 
-    /**
-     * Request a Plex PIN for authentication.
-     */
     async requestAuthPin(): Promise<PlexPinRequest> {
         return this._plexAuthRuntime.requestAuthPin();
     }
 
-    /**
-     * Poll for PIN claim status.
-     */
     async pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {
         return this._plexAuthRuntime.pollForPin(pinId, options);
     }
 
-    /**
-     * Cancel an active PIN request.
-     */
     async cancelPin(pinId: number): Promise<void> {
         await this._plexAuthRuntime.cancelPin(pinId);
     }
@@ -1191,16 +1186,10 @@ export class AppOrchestrator {
         return this._plexDiscovery.discoverServers();
     }
 
-    /**
-     * Select a Plex server to connect to.
-     */
     async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
         return this._serverSelectionRuntime.selectServer(serverId);
     }
 
-    /**
-     * Clear saved server selection.
-     */
     async clearSelectedServer(): Promise<void> {
         await this._serverSelectionRuntime.clearSelectedServer();
     }
@@ -1254,25 +1243,16 @@ export class AppOrchestrator {
         return this._channelSwitchRuntime.switchToChannelByNumberWithOutcome(number, options);
     }
 
-    /**
-     * Open the EPG overlay.
-     */
     openEPG(): void {
         this._assertNotShutdown('openEPG');
         this._epgCoordinator?.openEPG();
     }
 
-    /**
-     * Close the EPG overlay.
-     */
     closeEPG(): void {
         this._assertNotShutdown('closeEPG');
         this._epgCoordinator?.closeEPG();
     }
 
-    /**
-     * Open the server selection screen.
-     */
     openServerSelect(options?: { allowAutoConnect?: boolean }): void {
         this._assertNotShutdown('openServerSelect');
         if (!this._navigation) {
@@ -1283,9 +1263,6 @@ export class AppOrchestrator {
         });
     }
 
-    /**
-     * Toggle the server selection screen.
-     */
     toggleServerSelect(): void {
         this._assertNotShutdown('toggleServerSelect');
         if (!this._navigation) {
@@ -1395,6 +1372,27 @@ export class AppOrchestrator {
                         error
                     );
                 });
+            },
+            retryPlayback: (): void => {
+                try {
+                    const scheduler = this._scheduler;
+                    const schedulerState = scheduler?.getState();
+                    const currentProgram = this._getAuthoritativeCurrentProgramForPlayback();
+                    if (!scheduler || !schedulerState?.isActive || !currentProgram) {
+                        throw new Error(`Cannot retry playback without ${scheduler ? 'an active program' : 'an active scheduler'}`);
+                    }
+                    this._playbackRecovery?.resetPlaybackFailureGuard();
+                    this._playbackRecovery?.resetDirectFallbackAndBurnInAttempts();
+                    scheduler.jumpToProgram(currentProgram);
+                } catch (error: unknown) {
+                    this._warnRecoverableRuntimeError('orchestrator.recovery.retryPlayback', 'Retry playback failed', error);
+                    this.handleGlobalError({
+                        code: AppErrorCode.PLAYBACK_FAILED,
+                        message: 'Playback retry failed',
+                        recoverable: true,
+                        context: { safeError: summarizeErrorForLog(error) },
+                    }, 'playback');
+                }
             },
             exitApp: (): void => {
                 this.shutdown().catch((error: unknown) => {
@@ -1597,22 +1595,6 @@ export class AppOrchestrator {
 
     private _configureDiscoveryStorageKeysForActiveUser(): void {
         this._storageContext.configureDiscoveryStorageKeysForActiveUser();
-    }
-
-    private _seedSubtitleLanguageFromPlexUser(): void {
-        const existing = this._subtitlePreferencesStore.readSubtitleLanguageAndClean();
-        if (typeof existing === 'string' && existing.trim().length > 0) {
-            return;
-        }
-        const plexPreferred = this._plexAuth?.getCurrentUser()?.preferredSubtitleLanguage ?? null;
-        if (typeof plexPreferred !== 'string') {
-            return;
-        }
-        const normalized = plexPreferred.trim();
-        if (normalized.length === 0) {
-            return;
-        }
-        this._subtitlePreferencesStore.writeSubtitleLanguage(normalized);
     }
 
     private async _configureChannelManagerStorageForSelectedServer(): Promise<void> {

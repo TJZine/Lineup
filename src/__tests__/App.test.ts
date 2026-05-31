@@ -879,6 +879,30 @@ describe('App bootstrap smoke', () => {
         expect(overlay?.classList.contains('hidden')).toBe(false);
     });
 
+    it('app-shell error handler keeps playback failures on the blocking overlay with manual skip', async () => {
+        await bootstrapApp(() => {
+            installRecoveryActionSpy();
+            getRecoveryActionsSpy.mockReturnValue([
+                { label: 'Retry', isPrimary: true, action: jest.fn() },
+                { label: 'Skip', isPrimary: false, action: jest.fn() },
+            ]);
+        });
+
+        expect(appShellErrorHandler).not.toBeNull();
+        const handled = appShellErrorHandler?.({
+            code: 'PLAYBACK_FAILED',
+            message: 'Playback failed',
+            recoverable: true,
+        });
+
+        expect(handled).toBe(false);
+        const overlay = document.getElementById('error-overlay') as HTMLElement | null;
+        const primaryAction = overlay?.querySelector('button.error-button.primary') as HTMLButtonElement | null;
+        expect(overlay?.classList.contains('hidden')).toBe(false);
+        expect(primaryAction?.textContent).toBe('Retry');
+        expect(overlay?.textContent ?? '').toContain('Skip');
+    });
+
     it('shows, throttles, and hides toasts via orchestrator hooks', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(0);

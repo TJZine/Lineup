@@ -73,7 +73,6 @@ export interface EpgScheduledProgram {
     remainingMs: number;
     scheduleIndex: number;
     loopNumber: number;
-    streamDescriptor: unknown | null;
     isCurrent: boolean;
 }
 

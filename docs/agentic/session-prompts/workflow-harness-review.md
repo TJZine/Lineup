@@ -4,6 +4,8 @@ Use this prompt when you want an adversarial review of the entire Lineup agent w
 
 This is not a style pass. It is a production-readiness audit for whether the repo harness is likely to produce reliable, low-slop agent behavior over time.
 
+Run this launcher through the workflow-harness review path with the read-only `reviewer` role by default. Add an optional `maintainability_reviewer` sidecar only when prompt bloat, slop, file shape, or maintainability is a specific review target.
+
 ## Review Goal
 
 Determine whether the Lineup harness is:
@@ -57,8 +59,8 @@ Lineup stable policy file: `agents.md`
 
 For a light harness review (aim: ~15-25 minutes total), read these and then jump to the Required Review Axes:
 
-- [`agents.md`](../../../agents.md) (skim, ~3-5m): stable policy map and defaults
 - [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~8-12m): operating runbook, precedence, and verification gates
+- [`agents.md`](../../../agents.md) (skim, ~3-5m): stable policy map and defaults
 - [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs) (skim, ~3-5m): mechanical enforcement surface (what is actually checked)
 
 ## Required Read Order
@@ -67,10 +69,10 @@ For a light harness review (aim: ~15-25 minutes total), read these and then jump
 
 Rationale: these define the authority surfaces, how work is routed, and what is mechanically enforced.
 
-1. [`agents.md`](../../../agents.md) (deep, ~8-12m): stable policy and global defaults
-2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~12-18m): workflow, precedence, routing, and verification expectations
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) (deep, ~12-18m): workflow, precedence, routing, and verification expectations
+2. [`agents.md`](../../../agents.md) (deep, ~8-12m): stable policy and global defaults
 3. [`docs/agentic/codanna-playbook.md`](../codanna-playbook.md) (deep, ~8-12m): Codanna-first discovery and fallback rules
-4. [`docs/agentic/skill-strategy.md`](../skill-strategy.md) (skim, ~5-8m): skill topology and mirror policy
+4. [`docs/agentic/skill-strategy.md`](../skill-strategy.md) (skim, ~5-8m): skill topology
 5. [`docs/agentic/plan-authoring-standard.md`](../plan-authoring-standard.md) (deep, ~10-15m): single plan-standard authority surface, including `Universal Plan Core` and `Cleanup Overlay`
 6. [`docs/agentic/historical-plan-corpus-review.md`](../historical-plan-corpus-review.md) (skim, ~5-8m): common failure modes and what to avoid repeating
 7. [`docs/agentic/evals/README.md`](../evals/README.md) (deep, ~10-15m): eval protocol, ownership, and what is measured
@@ -90,7 +92,7 @@ Rationale: these validate the core workflow against steady-state plans, architec
 16. [`docs/archive/plans/README.md`](../../archive/plans/README.md) (skim, ~3-5m): how completed/superseded plans are archived
 17. [`docs/runs/README.md`](../../runs/README.md) (skim, ~3-5m): local-only run bundles and promotion rules
 
-Also inspect the tracked session launchers in this directory and the repo-local tracked skill surfaces under [`.codex/skills/`](../../../.codex/skills/) (`.agent/skills/` is a generated local-only mirror and must remain untracked).
+Also inspect the tracked session launchers in this directory and the repo-local tracked skill surfaces under [`.agents/skills/`](../../../.agents/skills/).
 
 ## Required Review Axes
 
@@ -231,7 +233,7 @@ Review:
 - archive rules
 - corpus-review updates
 - phase-2 steady-state plan
-- skill topology and mirror policy
+- skill topology
 
 Flag:
 

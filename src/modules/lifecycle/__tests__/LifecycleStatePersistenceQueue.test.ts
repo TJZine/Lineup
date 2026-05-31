@@ -129,12 +129,38 @@ describe('LifecycleStatePersistenceQueue', () => {
         const queue = createQueue();
 
         const savePromise = queue.saveState();
-        await queue.flush();
+        const saveExpectation = expect(savePromise).rejects.toBe(saveError);
 
-        await expect(savePromise).rejects.toBe(saveError);
+        await expect(queue.flush()).rejects.toBe(saveError);
+        await saveExpectation;
         expect(warnSpy).toHaveBeenCalledWith(
-            '[AppLifecycle] Persistence warning handler failed',
-            observerError
+            'Persistence warning handler failed',
+            {
+                subsystem: 'lifecycle',
+                error: expect.objectContaining({
+                    name: 'Error',
+                    message: 'observer failed',
+                }),
+            }
+        );
+    });
+
+    it('rejects direct non-final flush calls with the original persistence error', async () => {
+        const saveError = new Error('save failed');
+        stateManager.save.mockImplementation(() => {
+            throw saveError;
+        });
+        const queue = createQueue();
+
+        const savePromise = queue.saveState();
+        const saveExpectation = expect(savePromise).rejects.toBe(saveError);
+
+        await expect(queue.flush()).rejects.toBe(saveError);
+        await saveExpectation;
+        expect(emitPersistenceWarning).toHaveBeenCalledWith(
+            expect.objectContaining({
+                isQuotaError: false,
+            })
         );
     });
 
@@ -150,9 +176,12 @@ describe('LifecycleStatePersistenceQueue', () => {
 
         await expect(savePromise).rejects.toBe(saveError);
         expect(warnSpy).toHaveBeenCalledWith(
-            '[AppLifecycle] Final shutdown flush failed',
+            'Final shutdown flush failed',
             expect.objectContaining({
-                name: 'QuotaExceededError',
+                subsystem: 'lifecycle',
+                error: expect.objectContaining({
+                    name: 'QuotaExceededError',
+                }),
             })
         );
         expect(emitPersistenceWarning).not.toHaveBeenCalled();

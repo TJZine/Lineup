@@ -53,6 +53,8 @@ export interface PlaybackInfoSnapshot {
         }
         | null;
         directPlay?: StreamDecision['directPlay'];
+        hdr10Fallback?: StreamDecision['hdr10Fallback'];
+        subtitleBurnIn?: StreamDecision['subtitleBurnIn'];
         audioFallback?: StreamDecision['audioFallback'];
         source?: StreamDecision['source'];
         transcodeRequest?: StreamDecision['transcodeRequest'];
@@ -127,6 +129,8 @@ function mapStreamSnapshot(
         selectedAudio: mapSelectedAudioStream(decision.selectedAudioStream),
         selectedSubtitle: mapSelectedSubtitleStream(decision.selectedSubtitleStream),
         directPlay: decision.directPlay,
+        hdr10Fallback: decision.hdr10Fallback,
+        subtitleBurnIn: decision.subtitleBurnIn,
         audioFallback: decision.audioFallback,
         source: decision.source,
         transcodeRequest: decision.transcodeRequest,

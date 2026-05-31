@@ -117,7 +117,6 @@ export function calculateProgramAtTime(
         remainingMs,
         scheduleIndex: itemIndex,
         loopNumber,
-        streamDescriptor: null,
         isCurrent,
     };
 }

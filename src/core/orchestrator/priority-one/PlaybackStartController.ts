@@ -1,5 +1,8 @@
 import type { StreamDescriptor, IVideoPlayer } from '../../../modules/player';
-import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import type {
+    ScheduledProgram,
+    ScheduledProgramIdentity,
+} from '../../../modules/scheduler/scheduler';
 
 export interface PlaybackStartControllerDeps {
     getVideoPlayer: () => Pick<IVideoPlayer, 'loadStream' | 'play'> | null;
@@ -7,15 +10,20 @@ export interface PlaybackStartControllerDeps {
     resetPlaybackFailureGuard: () => void;
     tryHandleStreamResolverAuthError: (error: unknown) => boolean;
     tryHandleStreamResolverPermissionError: (error: unknown) => boolean;
+    attemptTranscodeFallbackForCurrentProgram: (reason: string) => Promise<boolean>;
     handlePlaybackFailure: (context: string, error: unknown) => void;
     logPlaybackStartFailure: (error: unknown) => void;
     markProgramStarting: (
         program: ScheduledProgram
     ) => {
         programAtStart: ScheduledProgram;
+        programIdentityAtStart: ScheduledProgramIdentity | null;
         shouldResetAutoShowInfoBannerOnAbort: boolean;
     };
-    isProgramStillCurrent: (program: ScheduledProgram) => boolean;
+    isProgramStillCurrent: (
+        program: ScheduledProgram,
+        programIdentityAtStart: ScheduledProgramIdentity | null
+    ) => boolean;
     handleProgramStartUiSideEffects: (program: ScheduledProgram) => void;
     handleStreamResolved: (stream: StreamDescriptor) => void;
     clearAutoShowInfoBannerAfterAbortedStart: () => void;
@@ -37,6 +45,7 @@ export class PlaybackStartController {
 
         const {
             programAtStart,
+            programIdentityAtStart,
             shouldResetAutoShowInfoBannerOnAbort,
         } = this._deps.markProgramStarting(program);
         const abort = (): void => {
@@ -51,7 +60,7 @@ export class PlaybackStartController {
 
             if (
                 isStale() ||
-                !this._deps.isProgramStillCurrent(programAtStart) ||
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart) ||
                 !stream
             ) {
                 abort();
@@ -63,7 +72,7 @@ export class PlaybackStartController {
 
             if (
                 isStale() ||
-                !this._deps.isProgramStillCurrent(programAtStart)
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
             ) {
                 abort();
                 return;
@@ -72,6 +81,14 @@ export class PlaybackStartController {
             await videoPlayer.play();
             this._deps.resetPlaybackFailureGuard();
         } catch (error) {
+            if (
+                isStale() ||
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
+            ) {
+                abort();
+                return;
+            }
+
             if (this._deps.tryHandleStreamResolverAuthError(error)) {
                 abort();
                 return;
@@ -83,6 +100,27 @@ export class PlaybackStartController {
             }
 
             this._deps.logPlaybackStartFailure(error);
+            let fallbackApplied = false;
+            try {
+                fallbackApplied = await this._deps.attemptTranscodeFallbackForCurrentProgram('programStart');
+            } catch {
+                this._deps.handlePlaybackFailure('programStart', error);
+                abort();
+                return;
+            }
+
+            if (
+                isStale() ||
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
+            ) {
+                abort();
+                return;
+            }
+
+            if (fallbackApplied) {
+                abort();
+                return;
+            }
             this._deps.handlePlaybackFailure('programStart', error);
             abort();
         }

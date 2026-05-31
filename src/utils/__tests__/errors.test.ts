@@ -1,4 +1,9 @@
-import { formatErrorDetailForMessage, isAbortLikeError, summarizeErrorForLog } from '../errors';
+import {
+    emitBestEffortWarning,
+    formatErrorDetailForMessage,
+    isAbortLikeError,
+    summarizeErrorForLog,
+} from '../errors';
 
 describe('summarizeErrorForLog', () => {
     it('redacts string input', () => {
@@ -76,6 +81,35 @@ describe('formatErrorDetailForMessage', () => {
 
     it('stringifies numeric fallback details', () => {
         expect(formatErrorDetailForMessage(123)).toBe('123');
+    });
+});
+
+describe('emitBestEffortWarning', () => {
+    it('delivers warnings through console.warn', () => {
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        emitBestEffortWarning('warning message', { detail: true });
+
+        expect(warn).toHaveBeenCalledWith('warning message', { detail: true });
+        warn.mockRestore();
+    });
+
+    it('does not throw when console.warn fails', () => {
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {
+            throw new Error('warn failed');
+        });
+
+        expect(() => emitBestEffortWarning('warning message')).not.toThrow();
+        warn.mockRestore();
+    });
+
+    it('omits the second console argument when no data is provided', () => {
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        emitBestEffortWarning('warning message');
+
+        expect(warn).toHaveBeenCalledWith('warning message');
+        warn.mockRestore();
     });
 });
 

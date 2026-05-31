@@ -1,10 +1,7 @@
-
-// Main classes
 export { NavigationManager } from './manager/NavigationManager';
 export { FocusManager } from './manager/FocusManager';
 export { RemoteHandler } from './input/RemoteHandler';
 
-// Interfaces
 export type {
     INavigationManager,
     IFocusManager,
@@ -24,7 +21,6 @@ export type {
     ServerSelectScreenNavigationPort,
 } from './contracts/ScreenNavigationPorts';
 
-// Constants
 export {
     mapKeyCode,
     resolveKeyMap,

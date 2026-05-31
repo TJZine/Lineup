@@ -7,7 +7,7 @@
 ## Operator / Agent Surface
 
 - operator: Codex reviewer subagent fresh-session rerun
-- eval run surface: fresh reviewer pass against the current subagent-skill and mirror-policy workflow changes
+- eval run surface: fresh reviewer pass against the current subagent-skill and skill-topology workflow changes
 
 ## Session Metadata
 
@@ -39,8 +39,8 @@
   - durable workflow lessons absorbed into existing tracked docs plus the same-pass prompt `19` baseline summary
 - the tracked surfaces now route subagent policy maintenance cleanly:
   - repo-local subagent guidance lives in the workflow doc, skill strategy, and two repo-local skills
-  - mirror-policy ownership stays in the allowlist and skill strategy
-  - eval ownership now points workflow-critical mirror changes to prompt `13` and subagent-routing changes to prompt `19`
+  - workflow-critical skill-topology ownership stays on existing tracked control-plane docs and the skill strategy
+  - eval ownership now points workflow-critical skill-topology changes to prompt `13` and subagent-routing changes to prompt `19`
 - `npm run verify:docs` completed successfully with exit `0`, `Documentation verification passed.`, `34/34` harness-doc tests passed, and `61/61` `verifyDocs` contract tests passed
 
 ## Recurring Misses
@@ -53,7 +53,6 @@
 - `.codex/skills/bounded-worker-execution/SKILL.md`
 - `docs/AGENTIC_DEV_WORKFLOW.md`
 - `docs/agentic/skill-strategy.md`
-- `docs/agentic/skill-mirror-allowlist.txt`
 - `docs/agentic/evals/README.md`
 - `docs/agentic/evals/baseline-summaries/2026-04-15-prompt-19-role-selection-and-delegation-discipline.md`
 - `docs/agentic/evals/baseline-summaries/2026-04-15-prompt-13-subagent-skill-policy-meta-eval.md`
@@ -61,14 +60,14 @@
 ## Durable Lessons Absorbed
 
 - keeping the lightest valid orchestration tier requires same-pass proof hygiene, not just narrow diffs
-- workflow-critical mirror-policy changes should stay on existing tracked surfaces and gain explicit eval ownership instead of creating new doctrine files
+- workflow-critical skill-topology changes should stay on existing tracked surfaces and gain explicit eval ownership instead of creating new doctrine files
 
 ## Intentionally Local-Only Artifacts
 
 - no raw eval transcript committed
 - no `docs/runs/*` bundle was promoted in this pass
-- `.agent/skills/` remains the local materialization surface rather than tracked workflow truth
+- `.agents/skills/` remains the canonical tracked repo-local skill source, while `.agent/` is legacy local state only and not a workflow surface
 
 ## Next Follow-Up
 
-- if repo-local subagent routing or the workflow-critical mirror set changes again, rerun prompt `13` and prompt `19` together in the same closeout pass
+- if repo-local subagent routing or the workflow-critical skill topology changes again, rerun prompt `13` and prompt `19` together in the same closeout pass

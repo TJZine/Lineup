@@ -5,35 +5,20 @@ import type {
     PlaybackOptionsItem,
     PlaybackOptionsSectionId,
 } from './types';
-import type { IVideoPlayer } from '../../player';
-import type { BurnInSubtitleRecoveryResult } from '../../player/PlaybackRecoveryManager';
-import type { ScheduledProgram } from '../../scheduler/scheduler';
-import type {
-    StreamDescriptor,
-    SubtitleTrack,
-} from '../../player/types';
-import { BURN_IN_SUBTITLE_FORMATS } from '../../../shared/subtitle-formats';
-import {
-    subtitleModeAllowsBurnIn,
-    subtitleModeIsDirectOnly,
-} from '../../../shared/subtitle-mode';
+import type { BurnInSubtitleRecoveryResult, IVideoPlayer, SubtitleTrack } from '../../player';
 import { SubtitlePreferencesStore } from '../../settings/SubtitlePreferencesStore';
-import type { ToastInput } from '../toast/types';
-import { formatAudioLabel } from '../../../utils/formatAudioLabel';
+import type { ToastInput } from '../../../shared/toast';
+import { formatAudioLabel } from '../../player';
 import {
-    PlaybackSubtitleProbePolicy,
-    SUBTITLE_PROBE_TOTAL_TIMEOUT_MS,
-} from './PlaybackSubtitleProbePolicy';
-
-export { SUBTITLE_PROBE_TOTAL_TIMEOUT_MS };
+    classifyPlaybackSubtitleOption,
+    isBurnInSubtitleTrack,
+} from './PlaybackSubtitleOptionPolicy';
 
 interface PlaybackOptionsCoordinatorDeps {
     playbackOptionsModalId: string;
     getNavigation: () => INavigationManager | null;
     getPlaybackOptionsModal: () => IPlaybackOptionsModal | null;
     getVideoPlayer: () => IVideoPlayer | null;
-    getCurrentStreamDescriptor?: () => StreamDescriptor | null;
-    getCurrentProgram: () => ScheduledProgram | null;
     requestBurnInSubtitle?: (
         trackId: string,
         reason: string
@@ -49,7 +34,6 @@ export class PlaybackOptionsCoordinator {
     private pendingPreferredFocusId: string | null = null;
     private registeredFocusableIds: string[] = [];
     private preferredSection: PlaybackOptionsSectionId = 'subtitles';
-    private readonly subtitleProbePolicy = new PlaybackSubtitleProbePolicy();
     private subtitleSelectToken = 0;
     private lifecycleToken = 0;
 
@@ -100,7 +84,6 @@ export class PlaybackOptionsCoordinator {
         this.pendingViewModel = null;
         this.pendingFocusableIds = [];
         this.pendingPreferredFocusId = null;
-        this.subtitleProbePolicy.clearCache();
     }
 
     refreshIfOpen(): void {
@@ -121,8 +104,6 @@ export class PlaybackOptionsCoordinator {
     private buildViewModel(): PlaybackOptionsViewModel {
         const player = this.deps.getVideoPlayer();
         const subtitleMode = this.subtitlePreferencesStore.readSubtitleModeAndClean('full');
-        const externalOnly = subtitleModeIsDirectOnly(subtitleMode);
-        const allowBurnIn = subtitleModeAllowsBurnIn(subtitleMode);
         const subtitleTracks = player?.getAvailableSubtitles() ?? [];
         const enabledSubtitleTracks = subtitleTracks;
         const audioTracks = player?.getAvailableAudio() ?? [];
@@ -141,46 +122,41 @@ export class PlaybackOptionsCoordinator {
             },
         ];
 
-        const textTracks = enabledSubtitleTracks.filter(
-            (track) => track.isTextCandidate && (track.fetchableViaKey || track.id)
-        );
-        const visibleTextTracks = externalOnly
-            ? textTracks.filter((track) => track.fetchableViaKey)
-            : textTracks;
-        const burnInTracks = allowBurnIn && !externalOnly
-            ? enabledSubtitleTracks.filter((track) => this.isBurnInTrack(track))
-            : [];
-
-        for (const track of visibleTextTracks) {
-            subtitleOptions.push({
-                id: `playback-subtitle-${track.id}`,
-                label: track.label,
-                meta: track.fetchableViaKey ? 'Direct' : 'Extract',
-                selected: effectiveActiveSubtitleId === track.id,
-                onSelect: (): void => {
-                    this.handleSubtitleSelect(track.id);
-                },
+        let visibleTrackCount = 0;
+        for (const track of enabledSubtitleTracks) {
+            const kind = classifyPlaybackSubtitleOption({
+                track,
+                subtitleMode,
+                canRequestBurnIn: Boolean(this.deps.requestBurnInSubtitle),
             });
-        }
-
-        for (const track of burnInTracks) {
+            if (kind === 'hidden') continue;
+            visibleTrackCount += 1;
             subtitleOptions.push({
                 id: `playback-subtitle-${track.id}`,
                 label: track.label,
-                meta: 'Burn-in',
+                meta: kind === 'direct' ? 'Direct' : kind === 'extract' ? 'Extract' : 'Burn-in',
                 selected: effectiveActiveSubtitleId === track.id,
+                ...(kind === 'disabled' ? { disabled: true, state: 'Unavailable' } : {}),
                 onSelect: (): void => {
+                    if (kind === 'disabled') {
+                        this.deps.notifyToast?.({ message: 'Burn-in subtitles unavailable', type: 'warning' });
+                        return;
+                    }
+                    if (kind === 'burn_in') {
+                        this.handleBurnInSubtitleSelect(track.id, track);
+                        return;
+                    }
                     this.handleSubtitleSelect(track.id);
                 },
             });
         }
 
         const hasAnyTracks = subtitleTracks.length > 0;
-        const hasVisibleTracks = visibleTextTracks.length > 0 || burnInTracks.length > 0;
+        const hasVisibleTracks = visibleTrackCount > 0;
         const subtitleEmptyMessage = !hasAnyTracks
             ? 'No subtitles available'
             : (!hasVisibleTracks
-                ? (externalOnly ? 'No direct subtitles available' : 'No compatible subtitles available')
+                ? (subtitleMode === 'direct' ? 'No direct subtitles available' : 'No compatible subtitles available')
                 : undefined);
 
         const audioOptions = audioTracks.map((track) => ({
@@ -210,8 +186,8 @@ export class PlaybackOptionsCoordinator {
 
     private collectFocusableIds(viewModel: PlaybackOptionsViewModel): string[] {
         return [
-            ...viewModel.subtitles.options.map((option) => option.id),
-            ...viewModel.audio.options.map((option) => option.id),
+            ...this.getEnabledOptions(viewModel.subtitles.options).map((option) => option.id),
+            ...this.getEnabledOptions(viewModel.audio.options).map((option) => option.id),
         ];
     }
 
@@ -219,22 +195,28 @@ export class PlaybackOptionsCoordinator {
         viewModel: PlaybackOptionsViewModel,
         preferredSection: PlaybackOptionsSectionId
     ): string | null {
-        const selectedSubtitle = viewModel.subtitles.options.find((option) => option.selected);
-        const selectedAudio = viewModel.audio.options.find((option) => option.selected);
+        const subtitleOptions = this.getEnabledOptions(viewModel.subtitles.options);
+        const audioOptions = this.getEnabledOptions(viewModel.audio.options);
+        const selectedSubtitle = subtitleOptions.find((option) => option.selected);
+        const selectedAudio = audioOptions.find((option) => option.selected);
 
         if (preferredSection === 'audio') {
             if (selectedAudio) return selectedAudio.id;
-            const firstAudio = viewModel.audio.options[0];
+            const firstAudio = audioOptions[0];
             if (firstAudio) return firstAudio.id;
             if (selectedSubtitle) return selectedSubtitle.id;
-            return viewModel.subtitles.options[0]?.id ?? null;
+            return subtitleOptions[0]?.id ?? null;
         }
 
         if (selectedSubtitle) return selectedSubtitle.id;
-        const firstSubtitle = viewModel.subtitles.options[0];
+        const firstSubtitle = subtitleOptions[0];
         if (firstSubtitle) return firstSubtitle.id;
         if (selectedAudio) return selectedAudio.id;
-        return viewModel.audio.options[0]?.id ?? null;
+        return audioOptions[0]?.id ?? null;
+    }
+
+    private getEnabledOptions(options: PlaybackOptionsItem[]): PlaybackOptionsItem[] {
+        return options.filter((option) => !option.disabled);
     }
 
     private registerFocusables(
@@ -294,13 +276,25 @@ export class PlaybackOptionsCoordinator {
         void this.handleSubtitleSelectAsync(trackId, selectionState);
     }
 
+    private handleBurnInSubtitleSelect(trackId: string, track: SubtitleTrack): void {
+        const selectionState = this.beginSubtitleSelection();
+        this.requestBurnInSubtitle(
+            trackId,
+            isBurnInSubtitleTrack(track) ? 'user_selected_burn_in_format' : 'user_selected_text_burn_in',
+            selectionState
+        );
+        this.refreshAndCloseModal();
+    }
+
     private async handleSubtitleSelectAsync(
         trackId: string | null,
         selectionState: SubtitleSelectionState
     ): Promise<void> {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
-        if (trackId) {
+        if (trackId === null) {
+            this.subtitlePreferencesStore.writeSubtitleMode('off');
+        } else {
             const mode = this.subtitlePreferencesStore.readSubtitleModeAndClean('full');
             if (mode === 'off') {
                 // Selecting a subtitle should implicitly enable subtitle handling.
@@ -310,18 +304,7 @@ export class PlaybackOptionsCoordinator {
         const track = trackId
             ? player.getAvailableSubtitles().find((t) => t.id === trackId) ?? null
             : null;
-
-        if (trackId && track) {
-            const shouldContinue = await this.maybeHandleBurnInSubtitleSelection(
-                trackId,
-                track,
-                selectionState,
-                player
-            );
-            if (!shouldContinue) {
-                return;
-            }
-        }
+        if (trackId && !track) return;
 
         if (!this.isSubtitleSelectionStateCurrent(selectionState)) {
             this.handleStaleSubtitleSelection(selectionState);
@@ -333,70 +316,6 @@ export class PlaybackOptionsCoordinator {
         });
         // Intentionally do not persist subtitle track selections (webOS subtitle reliability concerns).
         this.refreshAndCloseModal();
-    }
-
-    private async maybeHandleBurnInSubtitleSelection(
-        trackId: string,
-        track: SubtitleTrack,
-        selectionState: SubtitleSelectionState,
-        player: IVideoPlayer
-    ): Promise<boolean> {
-        const mode = this.subtitlePreferencesStore.readSubtitleModeAndClean('full');
-        const allowBurnIn = subtitleModeAllowsBurnIn(mode);
-        if (!allowBurnIn) {
-            return true;
-        }
-
-        // For burn-in formats (PGS/ASS/etc), go straight to the burn-in stream reload.
-        if (this.isBurnInTrack(track)) {
-            this.requestBurnInSubtitle(
-                track.id,
-                'user_selected_burn_in_format',
-                selectionState
-            );
-            this.refreshAndCloseModal();
-            return false;
-        }
-
-        if (!track.isTextCandidate) {
-            return true;
-        }
-
-        // Direct-fetchable tracks don't need probing – they already have a known-good key.
-        if (track.fetchableViaKey && track.key) {
-            return true;
-        }
-
-        const selectedItemKey = this.getCurrentProgramItemKey();
-        const decision = await this.subtitleProbePolicy.probeTextSubtitleExtractability({
-            track,
-            context: this.deps.getCurrentStreamDescriptor?.()?.subtitleContext ?? null,
-            fallbackItemKey: selectedItemKey,
-        });
-        if (!this.isSubtitleSelectionStateCurrent(selectionState)) {
-            this.handleStaleSubtitleSelection(selectionState);
-            return false;
-        }
-
-        const currentItemKey = this.getCurrentProgramItemKey();
-        const currentTrack = player.getAvailableSubtitles().find((candidate) => candidate.id === trackId) ?? null;
-        if (currentItemKey !== selectedItemKey || !currentTrack) {
-            // Program rollover or track list changes can occur while probing; drop stale results.
-            this.refreshIfOpen();
-            return false;
-        }
-
-        if (decision === 'unsupported') {
-            this.requestBurnInSubtitle(
-                currentTrack.id,
-                'user_selected_text_extract_probe_unsupported',
-                selectionState
-            );
-            this.refreshAndCloseModal();
-            return false;
-        }
-
-        return true;
     }
 
     private requestBurnInSubtitle(
@@ -456,10 +375,6 @@ export class PlaybackOptionsCoordinator {
         this.refreshIfOpen();
     }
 
-    private getCurrentProgramItemKey(): string | null {
-        return this.deps.getCurrentProgram()?.item.ratingKey ?? null;
-    }
-
     private handleAudioSelect(trackId: string): void {
         const player = this.deps.getVideoPlayer();
         if (!player) return;
@@ -479,12 +394,6 @@ export class PlaybackOptionsCoordinator {
         if (navigation.isModalOpen(this.deps.playbackOptionsModalId)) {
             navigation.closeModal(this.deps.playbackOptionsModalId);
         }
-    }
-
-
-    private isBurnInTrack(track: SubtitleTrack): boolean {
-        const format = (track.format || track.codec || '').toLowerCase();
-        return BURN_IN_SUBTITLE_FORMATS.includes(format);
     }
 }
 

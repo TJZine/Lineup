@@ -1,6 +1,8 @@
 import { summarizeErrorForLog } from '../../utils/errors';
+import { sanitizeDiagnosticText } from '../../utils/redact';
 import type { INavigationManager } from '../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../plex/stream';
+import { applyServerDecisionToStreamDecision } from '../plex/stream/diagnostics/UniversalTranscodeDecisionClient';
 import type { ScheduledProgram } from '../scheduler/scheduler';
 import { DebugOverridesStore } from './DebugOverridesStore';
 
@@ -75,6 +77,17 @@ export class NowPlayingDebugManager {
         if (hdrLabel) {
             lines.push(`HDR: ${hdrLabel}${dvProfile ? ` (${dvProfile})` : ''}`);
         }
+        if (decision.hdr10Fallback) {
+            const fallback = decision.hdr10Fallback;
+            lines.push(
+                `HDR10 FB: ${fallback.mode}/${fallback.reason} hideDV=${fallback.hideDolbyVision ? 'yes' : 'no'} HLS=${fallback.forcedHls ? 'yes' : 'no'}`
+            );
+        }
+        if (decision.subtitleBurnIn?.requested) {
+            lines.push(
+                `Burn-in: ${decision.subtitleBurnIn.reason} sub=${decision.subtitleBurnIn.subtitleStreamId ?? 'none'}`
+            );
+        }
 
         if (decision.serverDecision) {
             const sd = decision.serverDecision;
@@ -85,7 +98,7 @@ export class NowPlayingDebugManager {
             ].filter(Boolean);
             if (parts.length > 0) lines.push(`PMS: ${parts.join(' ')}`);
             if (sd.decisionCode) lines.push(`PMS code: ${sd.decisionCode}`);
-            if (sd.decisionText) lines.push(`PMS: ${sd.decisionText}`);
+            if (sd.decisionText) lines.push(`PMS: ${sanitizeDiagnosticText(sd.decisionText)}`);
         } else if (decision.isTranscoding) {
             lines.push('PMS: (decision pending)');
         }
@@ -105,7 +118,7 @@ export class NowPlayingDebugManager {
         }
 
         // Keep short for TVs (CSS also clamps, but avoid generating huge strings).
-        return lines.slice(0, 6).join('\n');
+        return lines.slice(0, 8).join('\n');
     }
 
     async maybeFetchNowPlayingStreamDecisionForDebugHud(): Promise<void> {
@@ -196,7 +209,7 @@ export class NowPlayingDebugManager {
             if (token !== this._nowPlayingStreamDecisionFetchToken) return;
             if (this.deps.getCurrentStreamDecision() !== decision) return;
 
-            decision.serverDecision = serverDecision;
+            applyServerDecisionToStreamDecision(decision, serverDecision);
             this._nowPlayingStreamDecisionFetchedForSessionId = sessionId;
             options.onApplied?.();
         } catch (error) {

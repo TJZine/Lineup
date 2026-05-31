@@ -14,19 +14,14 @@ import {
     EPG_PAST_ITEMS_WINDOWS,
     type EpgPastItemsWindow,
 } from '../../settings/EpgPreferencesStore';
+import { SUPPORTED_SUBTITLE_LANGUAGES } from '../../../shared/subtitle-language';
 
 const SUBTITLE_LANGUAGE_OPTIONS: Array<{ label: string; code: string | null }> = [
     { label: 'Auto (Plex)', code: null },
-    { label: 'English', code: 'en' },
-    { label: 'Spanish', code: 'es' },
-    { label: 'French', code: 'fr' },
-    { label: 'German', code: 'de' },
-    { label: 'Italian', code: 'it' },
-    { label: 'Portuguese', code: 'pt' },
-    { label: 'Russian', code: 'ru' },
-    { label: 'Japanese', code: 'ja' },
-    { label: 'Korean', code: 'ko' },
-    { label: 'Chinese', code: 'zh' },
+    ...SUPPORTED_SUBTITLE_LANGUAGES.map((language) => ({
+        label: language.label,
+        code: language.code,
+    })),
 ];
 
 const SUBTITLE_MODE_LABELS: Record<SubtitleMode, string> = {
@@ -172,12 +167,12 @@ export class SettingsScreenStateController {
                     id: 'settings-hdr10-fallback-mode',
                     label: 'HDR Fallback',
                     description:
-                        'For Dolby Vision MKV only. Does not affect MP4/TS. Only applies when an HDR10 base layer exists (DV profile 7 or 8.1).',
+                        'For DV MKV with HDR10 base layer only. Prefer HDR10 hides DV for direct-play; Force requests HLS/transcode.',
                     value: this._settingsStore.readHdr10FallbackModeValueAndClean(),
                     options: [
                         { label: 'Off', value: 0 },
-                        { label: 'Smart (Recommended)', value: 1 },
-                        { label: 'Force', value: 2 },
+                        { label: 'Prefer HDR10 (Direct Play)', value: 1 },
+                        { label: 'Force HLS/Transcode', value: 2 },
                     ],
                     onChange: (value: number) => this._settingsStore.writeHdr10FallbackModeValue(value as 0 | 1 | 2),
                 },

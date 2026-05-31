@@ -1,13 +1,7 @@
 import type { PlexMediaFile, PlexMediaType } from '../shared/types';
 
-// Shared Types (repo-local)
-// These types are maintained in-repo for runtime use.
-
 export type PlexLibrarySectionType = 'movie' | 'show' | 'artist' | 'photo';
 
-/**
- * A library section in Plex
- */
 export interface PlexLibrarySection {
     id: string;
     uuid: string;
@@ -22,9 +16,6 @@ export interface PlexLibrarySection {
     thumb: string | null;
 }
 
-/**
- * A media item from Plex
- */
 export interface PlexMediaItem {
     ratingKey: string;
     key: string;
@@ -69,9 +60,6 @@ export interface PlexMediaItem {
  */
 export type { PlexMediaFile, PlexMediaPart, PlexStream, PlexMediaType } from '../shared/types';
 
-/**
- * A TV show season
- */
 export interface PlexSeason {
     ratingKey: string;
     key: string;
@@ -82,9 +70,6 @@ export interface PlexSeason {
     thumb: string | null;
 }
 
-/**
- * A Plex collection
- */
 export interface PlexCollection {
     ratingKey: string;
     key: string;
@@ -93,9 +78,6 @@ export interface PlexCollection {
     childCount: number;
 }
 
-/**
- * A Plex playlist
- */
 export interface PlexPlaylist {
     ratingKey: string;
     key: string;
@@ -116,9 +98,6 @@ export interface PlexTagDirectoryItem {
     thumb?: string;
 }
 
-/**
- * Options for querying Plex library content
- */
 export interface LibraryQueryOptions {
     sort?: string;
     filter?: Record<string, string | number>;
@@ -128,9 +107,6 @@ export interface LibraryQueryOptions {
     signal?: AbortSignal | null;
 }
 
-/**
- * Options for Plex search
- */
 export interface SearchOptions {
     types?: PlexMediaType[];
     libraryId?: string;

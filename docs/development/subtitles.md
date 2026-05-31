@@ -13,7 +13,14 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 
 - **Direct**: A subtitle stream can be fetched directly from Plex (often has a `key`).
 - **Extract**: Lineup asks Plex to extract/serve the selected subtitle stream as text, then converts to WebVTT.
+- **Lineup sidecar**: Lineup-local out-of-band text subtitle rendering, not PMS native/HLS `subtitles=sidecar` delivery. This includes direct/key-backed WebVTT track
+  attachment and fetch/extract/convert-to-blob VTT paths.
 - **Burn-in**: Lineup asks Plex to burn subtitles into the video stream (forces transcoding).
+- **`subtitleDelivery: 'embed'`**: Legacy diagnostics/contract value for a
+  native-or-unknown/unhandled category. The selected subtitle is neither a
+  recognized Lineup sidecar text format nor a recognized burn-in-required
+  format. This is not proof that webOS or the HTML video element renders that
+  embedded subtitle.
 
 ## Current architecture
 
@@ -23,6 +30,7 @@ This document is a living “what we do and why” for subtitles on webOS, plus 
 - `PlaybackRecoveryManager` maps those to `SubtitleTrack[]` and builds `StreamDescriptor.subtitleContext`.
 - `VideoPlayer` loads tracks via `SubtitleManager`.
 - Subtitle track selections are not persisted; only language preferences influence auto-selection.
+- Missing `lineup_subtitle_language` means Auto/Plex. Lineup does not seed that setting from the active Plex user at startup; playback reads the Plex user's preferred subtitle language dynamically only when there is no app language override.
 - `StreamRequest.subtitleStreamId` is treated as **strict**: if the requested subtitle stream is not present in any selectable media version/part, `resolveStream()` throws `SUBTITLE_STREAM_NOT_FOUND` rather than silently dropping the selection.
 
 Key files:
@@ -39,7 +47,9 @@ Key files:
 
 ## What Lineup tries (in order)
 
-When a user selects a subtitle track that isn’t already “ready”, `SubtitleManager` fetches the subtitle text and converts to WebVTT, then attaches it as a `blob:` URL.
+When a user selects a subtitle track that isn’t already “ready”, `SubtitleManager`
+uses Lineup sidecar-style local rendering: it fetches the subtitle text and
+converts to WebVTT, then attaches it as a `blob:` URL.
 
 ### Attempt A: direct subtitle stream
 
@@ -64,16 +74,24 @@ If direct stream fails (common for keyless/embedded), request:
 
 Lineup then runs `normalizeSubtitleToVtt()` and uses a VTT `Blob`.
 
+This endpoint is an extraction/fallback source for Lineup-local rendering. Its
+use does not mean the HLS playback URL requested PMS native sidecar subtitle
+delivery; current non-burn HLS playback sends PMS `subtitles=none` and keeps
+subtitle rendering in Lineup.
+
 ### Burn-in escalation (Full mode)
 
 If **Subtitle Mode = Full (Burn-in, default)**, Lineup triggers a best-effort burn-in reload when needed:
 
 - immediately for burn-in formats (PGS/ASS/etc) when selected in Playback Options
-- when a fast direct-stream probe suggests a text track is not directly fetchable (avoid slow Extract UX)
+- immediately for keyless embedded text tracks in Playback Options (avoid exposing broken Extract UX)
 - when extraction fails after a normal selection attempt
 
 - `PlaybackRecoveryManager.attemptBurnInSubtitleForCurrentProgram(trackId, reason)`
 - `PlexStreamResolver.resolveStream({ directPlay: false, subtitleMode: 'burn', subtitleStreamId })`
+- Before starting the HLS burn-in transcode, `PlexStreamResolver` selects the requested embedded subtitle on the chosen PMS media part with `PUT /library/parts/{partId}?subtitleStreamID={streamId}`. PMS needs that part-level selected state for keyless embedded SRT burn-in; `subtitles=burn&subtitleStreamID=...` alone is not enough for the observed path. When burn-in subtitles are disabled, the resolver clears that PMS part selection with `subtitleStreamID=0` before resolving the no-subtitle reload.
+- Burn-in requests fetch PMS `/video/:/transcode/universal/decision` evidence even when debug logging is off. Lineup only treats a subtitle as already burned in when PMS reports the selected subtitle stream with `decision="burn"`.
+- Player descriptors also carry a local, player-only extraction-suppression context for requested burn-in. This prevents Lineup sidecar extraction for that selected track even when PMS decision evidence does not confirm visual burn-in; it is not persisted and is not a Plex contract.
 
 ## The “embedded SRT doesn’t work” cluster
 
@@ -86,6 +104,20 @@ Historically, the most common causes:
 5. **Non-VTT text formats** being attached directly to `<track>` (works inconsistently).
 
 Lineup now carries `mediaIndex`/`partIndex` through to the universal subtitle extraction URL and avoids attaching non‑VTT sources as `<track src>`.
+
+## Auto-selection semantics
+
+Lineup owns subtitle auto-selection from already-resolved Plex stream metadata. It intentionally does not implement Plex account foreign-audio auto mode in the client.
+
+Selection order:
+
+1. `Subtitle Mode = Off` selects no subtitle tracks.
+2. An explicit Lineup language override wins over the Plex user's preferred subtitle language.
+3. When the Lineup language is unset, playback uses the active Plex user's preferred subtitle language dynamically.
+4. Language matching accepts Lineup's supported two-letter codes, common Plex three-letter codes, and supported display names such as `en`, `eng`, and `English`.
+5. If forced subtitles are preferred, a forced track wins within the matched language.
+6. If no Lineup/Plex language match exists and exactly one eligible forced track exists, forced preference may select it before default fallback.
+7. Otherwise Lineup selects the exact subtitle track flagged as default, if one is present.
 
 ## Debugging
 
@@ -110,6 +142,9 @@ Look for `[SubtitleDebug]` JSON logs. Helpful events:
 - `SUBTITLE_STREAM_NOT_FOUND`: `StreamRequest.subtitleStreamId` was not present where `resolveStream()` expected it.
   - Failure path A (strict selection; before media+part selection): `resolveStream()` could not find any selectable media version/part containing `subtitleStreamId` (stale ID, media versions changed, selection constraints excluded the version that had it). Verify the `subtitleStreamId` against the currently loaded/selectable media versions + parts (ensure metadata is fresh and selection filters or ingest jobs haven’t removed/renamed the stream); then re-sync stream metadata or clear the stale selection.
   - Failure path B (burn-in only; after mediaIndex/partIndex selection): burn-in was requested, but the selected part does not contain `subtitleStreamId`. Confirm the subtitle appears in the selected media version + part metadata and that the selected part/version wasn’t changed before the burn-in retry.
+- `subtitleDelivery: 'embed'`: native-or-unknown/unhandled by Lineup. Treat it
+  as a classification gap for support/debugging, not proof of native embedded
+  subtitle rendering on webOS.
 
 ## Future experiments (if embedded still fails)
 
@@ -118,3 +153,7 @@ Look for `[SubtitleDebug]` JSON logs. Helpful events:
 - Consider “always blob-fetch” for subtitles (even VTT) to avoid `<track src>` auth/CORS quirks.
 - Cache extracted VTT per session (avoid re-fetching on reselect).
 - UI affordance: “Try Burn‑in” action in Playback Options (explicit instead of only automatic in Full mode).
+- Research PMS native sidecar/embedded/segmented subtitle delivery only with
+  separate PMS/webOS empirical proof and URL-policy contract planning. Do not
+  infer that support from Lineup's current local sidecar paths or from
+  `/video/:/transcode/universal/subtitles`.

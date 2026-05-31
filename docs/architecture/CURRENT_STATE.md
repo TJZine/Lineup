@@ -210,6 +210,15 @@ after this extraction.
   responsibilities instead of constructing settings/debug storage owners
   directly. It receives typed policy readers and a subtitle-debug logging port
   from composition wiring.
+- `src/modules/plex/stream/capabilities/PlaybackCapabilityProfile.ts` owns the
+  durable playback capability snapshot consumed by local direct-play decisions,
+  Plex `X-Plex-Client-Capabilities` serialization, and public
+  `IPlexStreamResolver.canDirectPlay()` checks; request-level overrides such as
+  hiding Dolby Vision remain outside the base profile.
+- `src/modules/plex/stream/policy/plexSubtitleFallbackPolicy.ts` owns Plex
+  subtitle fetch attempt planning, including authenticated query/header
+  variants, universal subtitle fallback URLs, and LAN HTTP retry eligibility
+  for token-bearing versus non-token subtitle requests.
 - `src/modules/plex/stream/diagnostics/SubtitleStreamDebugProbeCoordinator.ts` owns debug
   subtitle discovery summaries, text-candidate selection, key-backed/keyless
   probe selection, and fire-and-forget subtitle probe scheduling.
@@ -239,6 +248,9 @@ after this extraction.
   `src/modules/scheduler/shared/blockPlayback.ts` owns block grouping, and
   `src/modules/scheduler/shared/playbackOrdering.ts` owns common
   sequential/shuffle/block ordering plus scheduled-index normalization.
+  `src/modules/scheduler/scheduler/programIdentity.ts` owns scheduled-program
+  occurrence identity construction/comparison for cross-module runtime callers
+  such as playback recovery and orchestrator start/retry guards.
   `src/modules/scheduler/scheduler/ShuffleGenerator.ts` still adapts seeded
   shuffle for scheduler injection, `ScheduleCalculator.ts` keeps the
   scheduler-specific injected shuffler seam, and
@@ -273,6 +285,10 @@ after this extraction.
 
 - `src/modules/player/`
 - owns playback runtime, subtitle attachment/conversion, keep-alive, and player recovery behavior
+- `src/modules/player/tracks/AudioTrackManager.ts` consumes player-facing codec
+  support input instead of importing Plex stream-policy constants directly; the
+  shared baseline codec owner lives in `src/shared/audioCodecSupport.ts` and is
+  reused by both player and Plex compatibility policy.
 
 ### Settings And Persistence Owners
 

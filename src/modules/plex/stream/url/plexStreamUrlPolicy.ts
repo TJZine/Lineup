@@ -1,6 +1,11 @@
 import type { TranscodeQualityOption } from '../../../../config/transcodeQuality';
 import { DEFAULT_HLS_OPTIONS } from '../policy/constants';
 import type { HlsOptions } from '../contracts/types';
+import type {
+    DolbyVisionDecoderProfile,
+    PlaybackCapabilityProfile,
+} from '../capabilities/PlaybackCapabilityProfile';
+import { isCapabilityAdvertisable } from '../capabilities/PlaybackCapabilityProfile';
 import {
     applyXPlexQueryParamsFromHeaders,
 } from '../../shared/plexUrl';
@@ -12,11 +17,7 @@ interface PlexSelectedConnectionSnapshot {
 }
 
 interface PlexClientCapabilityPolicyInput {
-    is4K: boolean;
-    canPlayMimeType: (mime: string) => boolean;
-    chromeMajor: number | null;
-    isWebOs: boolean;
-    dtsPassthroughEnabled: boolean;
+    profile: PlaybackCapabilityProfile;
     hideDolbyVision: boolean;
 }
 
@@ -34,37 +35,7 @@ interface PlexTranscodeUrlPolicyInput {
     defaultIdentityParams: Record<string, string>;
 }
 
-interface PlexVideoCapabilitySupport {
-    hevcMain: boolean;
-    hevcMain10: boolean;
-    dolbyVision: boolean;
-    vp9: boolean;
-    av1: boolean;
-}
-
 const PLEX_CLIENT_PROTOCOLS = 'http-live-streaming,http-mp4-streaming,http-streaming-video';
-const PLEX_HEVC_MAIN_MIME_PROBES = [
-    'video/mp4; codecs="hvc1.1.6.L93.B0"',
-    'video/mp4; codecs="hev1.1.6.L93.B0"',
-];
-const PLEX_HEVC_MAIN10_MIME_PROBES = [
-    'video/mp4; codecs="hvc1.2.4.L93.B0"',
-    'video/mp4; codecs="hev1.2.4.L93.B0"',
-    'video/mp4; codecs="hvc1.2.4.L150.B0"',
-    'video/mp4; codecs="hev1.2.4.L150.B0"',
-];
-const PLEX_DOLBY_VISION_MIME_PROBES = [
-    'video/mp4; codecs="dvh1.05.06"',
-    'video/mp4; codecs="dvh1.08.06"',
-];
-const PLEX_VP9_MIME_PROBES = [
-    'video/webm; codecs="vp9"',
-    'video/mp4; codecs="vp09.00.10.08"',
-];
-const PLEX_AV1_MIME_PROBES = [
-    'video/mp4; codecs="av01.0.05M.08"',
-    'video/webm; codecs="av01.0.05M.08"',
-];
 const PLEX_BASE_AUDIO_DECODERS = [
     'mp3',
     'aac{bitrate:800000}',
@@ -135,9 +106,8 @@ export function classifyPlexTranscodeLocation(input: {
 }
 
 export function buildPlexClientCapabilities(input: PlexClientCapabilityPolicyInput): string {
-    const videoSupport = resolvePlexVideoCapabilitySupport(input);
-    const videoDecoders = buildPlexVideoDecoders(input, videoSupport);
-    const audioDecoders = buildPlexAudioDecoders(input.dtsPassthroughEnabled);
+    const videoDecoders = buildPlexVideoDecoders(input);
+    const audioDecoders = buildPlexAudioDecoders(isCapabilityAdvertisable(input.profile.audio.dtsPassthrough));
 
     return serializePlexClientCapabilities(videoDecoders, audioDecoders);
 }
@@ -267,71 +237,42 @@ function applyTranscodeModeParams(
     applySubtitleParams(params, input.subtitle);
 }
 
-function resolvePlexVideoCapabilitySupport(
-    input: PlexClientCapabilityPolicyInput
-): PlexVideoCapabilitySupport {
-    const hevcFallback = supportsWebOsHevcFallback(input);
-
-    return {
-        hevcMain: supportsAnyPlexMimeType(input, PLEX_HEVC_MAIN_MIME_PROBES) || hevcFallback,
-        hevcMain10: supportsAnyPlexMimeType(input, PLEX_HEVC_MAIN10_MIME_PROBES) || hevcFallback,
-        dolbyVision: supportsAnyPlexMimeType(input, PLEX_DOLBY_VISION_MIME_PROBES),
-        vp9: supportsAnyPlexMimeType(input, PLEX_VP9_MIME_PROBES),
-        av1: supportsAnyPlexMimeType(input, PLEX_AV1_MIME_PROBES),
-    };
-}
-
-function supportsWebOsHevcFallback(input: PlexClientCapabilityPolicyInput): boolean {
-    return input.isWebOs && input.chromeMajor !== null && input.chromeMajor >= 94;
-}
-
-function supportsAnyPlexMimeType(
-    input: PlexClientCapabilityPolicyInput,
-    mimeTypes: readonly string[]
-): boolean {
-    return mimeTypes.some((mime) => input.canPlayMimeType(mime));
-}
-
-function buildPlexVideoDecoders(
-    input: PlexClientCapabilityPolicyInput,
-    support: PlexVideoCapabilitySupport
-): string[] {
+function buildPlexVideoDecoders(input: PlexClientCapabilityPolicyInput): string[] {
+    const profile = input.profile;
     return [
-        `h264{profile:high&level:${input.is4K ? '51' : '42'}}`,
-        ...buildPlexHevcVideoDecoders(input, support),
-        ...(support.vp9 ? ['vp9'] : []),
-        ...(support.av1 ? ['av1'] : []),
+        `h264{profile:high&level:${profile.display.is4K ? '51' : '42'}}`,
+        ...buildPlexHevcVideoDecoders(input),
+        ...(isCapabilityAdvertisable(profile.video.vp9) ? ['vp9'] : []),
+        ...(isCapabilityAdvertisable(profile.video.av1) ? ['av1'] : []),
     ];
 }
 
-function buildPlexHevcVideoDecoders(
-    input: PlexClientCapabilityPolicyInput,
-    support: PlexVideoCapabilitySupport
-): string[] {
-    if (!support.hevcMain && !support.hevcMain10) {
-        return [];
+function buildPlexHevcVideoDecoders(input: PlexClientCapabilityPolicyInput): string[] {
+    const profile = input.profile;
+    const hasHevcMain = isCapabilityAdvertisable(profile.video.hevcMain);
+    const hasHevcMain10 = isCapabilityAdvertisable(profile.video.hevcMain10);
+    const dolbyVisionDecoders = buildPlexDolbyVisionVideoDecoders(input);
+    if (!hasHevcMain && !hasHevcMain10) {
+        return dolbyVisionDecoders;
     }
 
-    const hevcLevel = input.is4K ? '150' : '120';
+    const hevcLevel = profile.display.is4K ? '150' : '120';
     return [
-        ...(support.hevcMain10 ? [`hevc{profile:main10&level:${hevcLevel}}`] : []),
+        ...(hasHevcMain10 ? [`hevc{profile:main10&level:${hevcLevel}}`] : []),
         `hevc{profile:main&level:${hevcLevel}}`,
-        ...buildPlexDolbyVisionVideoDecoders(input, support),
+        ...dolbyVisionDecoders,
     ];
 }
 
-function buildPlexDolbyVisionVideoDecoders(
-    input: PlexClientCapabilityPolicyInput,
-    support: PlexVideoCapabilitySupport
-): string[] {
-    if (!support.dolbyVision || input.hideDolbyVision === true) {
+function buildPlexDolbyVisionVideoDecoders(input: PlexClientCapabilityPolicyInput): string[] {
+    if (input.hideDolbyVision === true) {
         return [];
     }
 
-    return [
-        'hevc{profile:dvhe.05}',
-        'hevc{profile:dvhe.08}',
-    ];
+    const supportedProfiles: DolbyVisionDecoderProfile[] = ['dvhe.05', 'dvhe.08'];
+    return supportedProfiles
+        .filter((profile) => isCapabilityAdvertisable(input.profile.video.dolbyVision.profiles[profile]))
+        .map((profile) => `hevc{profile:${profile}}`);
 }
 
 function buildPlexAudioDecoders(dtsPassthroughEnabled: boolean): string[] {

@@ -15,14 +15,12 @@ import {
     EXPECTED_SESSION_PROMPT_FILES,
     extractChecklistPlanPaths,
     hasActivePlanMarker,
-    parseSkillMirrorManifest,
     renderEvalPromptInventory,
     REQUIRED_REPO_LOCAL_SKILL_FILES,
     REQUIRED_REPO_LOCAL_SKILLS,
     renderSessionPromptSet,
     SESSION_PROMPT_SET_END_MARKER,
     SESSION_PROMPT_SET_START_MARKER,
-    SKILL_MIRROR_MANIFEST_PATH,
 } from './harness-docs-lib.mjs';
 
 const repoRoot = process.cwd();
@@ -62,12 +60,11 @@ const requiredFiles = [
     'docs/plans/README.md',
     'docs/archive/plans/README.md',
     'docs/runs/README.md',
-    SKILL_MIRROR_MANIFEST_PATH,
 ];
 
 const markdownRoots = [
     'agents.md',
-    '.codex/skills',
+    '.agents/skills',
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic',
     'docs/archive/plans',
@@ -94,9 +91,13 @@ const requiredCodexAgentRoles = [
     'explorer',
     'explorer_fallback',
     'reviewer',
+    'maintainability_reviewer',
+    'architecture_reviewer',
     'docs_researcher',
     'planner',
+    'planner_deep',
     'worker',
+    'worker_54_high',
     'cleanup_worker',
     'monitor',
     'monitor_fallback',
@@ -105,6 +106,8 @@ const readOnlyCodexAgentRoles = [
     'explorer',
     'explorer_fallback',
     'reviewer',
+    'maintainability_reviewer',
+    'architecture_reviewer',
     'docs_researcher',
     'monitor',
     'monitor_fallback',
@@ -115,15 +118,15 @@ const codexRoleWorkflowMarkerFiles = [
     'docs/agentic/session-prompts/workflow-harness-review.md',
 ];
 const repoLocalLauncherSkillReadOrderFiles = [
-    '.codex/skills/lineup-cleanup-plan/SKILL.md',
-    '.codex/skills/lineup-cleanup-implement/SKILL.md',
-    '.codex/skills/lineup-cleanup-review/SKILL.md',
-    '.codex/skills/lineup-cleanup-loop/SKILL.md',
-    '.codex/skills/lineup-feature-plan/SKILL.md',
-    '.codex/skills/lineup-feature-implement/SKILL.md',
-    '.codex/skills/lineup-feature-review/SKILL.md',
-    '.codex/skills/lineup-workflow-harness-review/SKILL.md',
-    '.codex/skills/repo-production-review/SKILL.md',
+    '.agents/skills/lineup-cleanup-plan/SKILL.md',
+    '.agents/skills/lineup-cleanup-implement/SKILL.md',
+    '.agents/skills/lineup-cleanup-review/SKILL.md',
+    '.agents/skills/lineup-cleanup-loop/SKILL.md',
+    '.agents/skills/lineup-feature-plan/SKILL.md',
+    '.agents/skills/lineup-feature-implement/SKILL.md',
+    '.agents/skills/lineup-feature-review/SKILL.md',
+    '.agents/skills/lineup-workflow-harness-review/SKILL.md',
+    '.agents/skills/repo-production-review/SKILL.md',
 ];
 const requiredCodexRoleContracts = new Map([
     [
@@ -135,6 +138,58 @@ const requiredCodexRoleContracts = new Map([
                 'planning artifacts',
                 'execution-ready handoffs',
                 'leave implementation to the worker role',
+            ],
+        },
+    ],
+    [
+        'planner_deep',
+        {
+            requiredMarkers: [
+                'deep planning work',
+                'tier 3',
+                'unresolved architecture/product seam',
+                'do not implement product code',
+                'planning artifacts',
+            ],
+        },
+    ],
+    [
+        'worker_54_high',
+        {
+            requiredMarkers: [
+                'approved, bounded, exact, cheap-to-verify execution units',
+                'current execution packet',
+                'stop and escalate on ambiguity',
+                'plan contradiction',
+                'verification failure that needs diagnosis',
+            ],
+        },
+    ],
+    [
+        'maintainability_reviewer',
+        {
+            requiredMarkers: [
+                'code-health',
+                'slop',
+                'file shape',
+                'test brittleness',
+                'unnecessary indirection',
+                'do not block on style-only preferences',
+                'do not edit files',
+            ],
+        },
+    ],
+    [
+        'architecture_reviewer',
+        {
+            requiredMarkers: [
+                'hotspots',
+                'owner seams',
+                'cross-module coupling',
+                'public contracts',
+                'priority-exit',
+                'security-adjacent architecture risk',
+                'do not edit files',
             ],
         },
     ],
@@ -153,6 +208,10 @@ const requiredCodexRoleContracts = new Map([
 ]);
 const requiredCodexRoleDescriptionMarkers = new Map([
     ['cleanup_worker', ['cleanup-loop-specific implementer', 'approved tier 3 cleanup-loop implementation passes']],
+    ['planner_deep', ['deep planning writer', 'tier 3', 'not product-code implementation']],
+    ['worker_54_high', ['cost-optimized write-capable implementer', 'approved', 'cheap-to-verify']],
+    ['maintainability_reviewer', ['read-only reviewer', 'code-health', 'no style-only blocking']],
+    ['architecture_reviewer', ['read-only reviewer', 'hotspots', 'security-adjacent architecture risk']],
 ]);
 
 function recordFsError(errors, operation, targetPath, error) {
@@ -232,7 +291,7 @@ function getTrackedRepoLocalSkillPaths(errors) {
         );
         return cachedTrackedRepoLocalSkillPaths;
     } catch (error) {
-        recordFsError(errors, 'list tracked repo-local skill files via git', '.codex/skills', error);
+        recordFsError(errors, 'list tracked repo-local skill files via git', '.agents/skills', error);
         cachedTrackedRepoLocalSkillPaths = FAILED_GIT;
         return cachedTrackedRepoLocalSkillPaths;
     }
@@ -280,11 +339,24 @@ function isForbiddenLocalOnlyTarget(relativePath) {
         return false;
     }
 
+    if (
+        relativePath === '.agents/skills/desloppify' ||
+        relativePath.startsWith('.agents/skills/desloppify/')
+    ) {
+        return true;
+    }
+
+    if (relativePath === '.agents/skills' || relativePath.startsWith('.agents/skills/')) {
+        return false;
+    }
+
     return (
-        relativePath === '.agent/skills' ||
-        relativePath.startsWith('.agent/skills/') ||
+        relativePath === '.agent' ||
+        relativePath.startsWith('.agent/') ||
         relativePath === '.agents' ||
         relativePath.startsWith('.agents/') ||
+        relativePath === '.codex/skills' ||
+        relativePath.startsWith('.codex/skills/') ||
         relativePath.startsWith('docs/agentic/evals/baselines/') ||
         relativePath === 'docs/runs' ||
         relativePath.startsWith('docs/runs/')
@@ -292,6 +364,10 @@ function isForbiddenLocalOnlyTarget(relativePath) {
 }
 
 function collectMarkdownFiles(entry, errors) {
+    if (entry === '.agents/skills/desloppify' || entry.startsWith('.agents/skills/desloppify/')) {
+        return [];
+    }
+
     if (localOnlyMarkdownDirs.includes(entry)) {
         const readmeEntry = normalizeRepoPath(path.join(entry, 'README.md'));
         return existsSync(path.join(repoRoot, readmeEntry)) ? [readmeEntry] : [];
@@ -422,11 +498,23 @@ function checkForbiddenLiteralReferences(errors) {
     const patterns = [
         {
             description: 'local-only mirrored skill file',
-            regex: /\.agent\/skills\/[a-z0-9._-]+\/SKILL\.md/giu,
+            regex: /\.agent\/skills(?:\/[a-z0-9._/-]+)?/giu,
+        },
+        {
+            description: 'ignored local desloppify skill',
+            regex: /\.agents\/skills\/desloppify(?:\/[a-z0-9._/-]+)?/giu,
+        },
+        {
+            description: 'obsolete .codex skill source',
+            regex: /\.codex\/skills(?:\/[a-z0-9._/-]+)?/giu,
+            skipPrefixes: [
+                'docs/agentic/evals/baseline-summaries/',
+            ],
+            allowFiles: ['docs/agentic/doc-gardening-checklist.md'],
         },
         {
             description: 'local-only .agents artifact',
-            regex: /\.agents(?:\/[a-z0-9._/-]+)?/giu,
+            regex: /\.agents(?!\/skills(?:\/|$|[^A-Za-z0-9._-]))(?:\/[a-z0-9._/-]+)?/giu,
         },
         {
             description: 'local-only run instance',
@@ -452,7 +540,22 @@ function checkForbiddenLiteralReferences(errors) {
             continue;
         }
 
-        for (const { description, regex } of patterns) {
+        for (const { description, regex, skipPrefixes = [], includePrefixes = [], allowFiles = [] } of patterns) {
+            if (
+                includePrefixes.length > 0 &&
+                !includePrefixes.some((prefix) => file === prefix || file.startsWith(prefix))
+            ) {
+                continue;
+            }
+
+            if (skipPrefixes.some((prefix) => file.startsWith(prefix))) {
+                continue;
+            }
+
+            if (allowFiles.includes(file)) {
+                continue;
+            }
+
             regex.lastIndex = 0;
             const seenMatches = new Set();
             let match = regex.exec(content);
@@ -548,8 +651,14 @@ function checkSessionPromptReadme(errors) {
     const hasPlannerRoleIntent = normalizedLines.some(
         (line) => includesAllMarkers(line, ['cleanup-plan.md', 'feature-plan.md', 'planner role'])
     );
+    const hasPlannerDeepRoleIntent = normalizedLines.some(
+        (line) => includesAllMarkers(line, ['planner deep', 'tier 3', 'unresolved'])
+    );
     const hasWorkerRoleIntent = normalizedLines.some(
         (line) => includesAllMarkers(line, ['cleanup-implement.md', 'feature-implement.md', 'worker role'])
+    );
+    const hasWorker54RoleIntent = normalizedLines.some(
+        (line) => includesAllMarkers(line, ['worker 54 high', 'current execution packet', 'cheap to verify'])
     );
     const hasCleanupWorkerRoleIntent = normalizedLines.some(
         (line) => includesAllMarkers(line, ['cleanup-loop.md', 'cleanup worker', 'implementation passes'])
@@ -564,10 +673,23 @@ function checkSessionPromptReadme(errors) {
                 'reviewer role',
             ])
     );
+    const hasSpecializedReviewerRoleIntent = normalizedLines.some(
+        (line) =>
+            includesAllMarkers(line, ['maintainability reviewer', 'architecture reviewer']) &&
+            includesAnyMarker(line, ['maintainability-only review', 'hotspot/boundary'])
+    );
 
-    if (!hasPlannerRoleIntent || !hasWorkerRoleIntent || !hasCleanupWorkerRoleIntent || !hasReviewerRoleIntent) {
+    if (
+        !hasPlannerRoleIntent ||
+        !hasPlannerDeepRoleIntent ||
+        !hasWorkerRoleIntent ||
+        !hasWorker54RoleIntent ||
+        !hasCleanupWorkerRoleIntent ||
+        !hasReviewerRoleIntent ||
+        !hasSpecializedReviewerRoleIntent
+    ) {
         errors.push(
-            'Session prompt README must keep the tracked role intent explicit: planner for planning launchers, worker for general implementers, cleanup_worker only for Tier 3 cleanup-loop implementation passes, reviewer read-only for review launchers.'
+            'Session prompt README must keep the tracked role intent explicit: planner/planner_deep for planning launchers, worker/worker_54_high for eligible implementers, cleanup_worker for Tier 3 cleanup-loop implementation passes, reviewer plus specialized read-only reviewer roles for review launchers.'
         );
     }
 }
@@ -707,16 +829,19 @@ function checkControlPlaneAuthorityModel(errors) {
             );
         }
 
+        const readmeLauncherLoadLine = normalizedReadmeLines.find(
+            (line) =>
+                line.includes('load') &&
+                line.includes('agents.md') &&
+                line.includes('docs/agentic dev workflow.md')
+        );
         if (
-            !normalizedReadmeLines.some(
-                (line) =>
-                    line.includes('load') &&
-                    line.includes('agents.md') &&
-                    line.includes('docs/agentic dev workflow.md')
-            )
+            !readmeLauncherLoadLine ||
+            readmeLauncherLoadLine.indexOf('docs/agentic dev workflow.md') >
+                readmeLauncherLoadLine.indexOf('agents.md')
         ) {
             errors.push(
-                'Session prompt README must require launcher read order to load agents.md and docs/AGENTIC_DEV_WORKFLOW.md.'
+                'Session prompt README must require launcher read order to load docs/AGENTIC_DEV_WORKFLOW.md before agents.md.'
             );
         }
 
@@ -735,15 +860,20 @@ function checkControlPlaneAuthorityModel(errors) {
         if (hasPositiveDocumentMapAuthorityReference(content)) {
             errors.push(`${relativePath} must not require docs/agentic/document-map.md in its launcher read order.`);
         }
+
+        const normalizedLines = normalizeDocLines(content);
+        const workflowReadIndex = findTrackedWorkflowReadIndex(normalizedLines);
+        const agentsReadIndex = findTrackedAgentsReadIndex(normalizedLines);
+        if (workflowReadIndex !== -1 && agentsReadIndex !== -1 && workflowReadIndex > agentsReadIndex) {
+            errors.push(
+                `${relativePath} must list docs/AGENTIC_DEV_WORKFLOW.md before agents.md in its read order.`
+            );
+        }
     }
 }
 
 export function checkRepoLocalLauncherSkillReadOrders(errors) {
     for (const relativePath of repoLocalLauncherSkillReadOrderFiles) {
-        if (!existsSync(path.join(repoRoot, relativePath))) {
-            continue;
-        }
-
         const content = readRepoFile(relativePath, errors);
         if (content === null) {
             continue;
@@ -758,15 +888,20 @@ export function checkRepoLocalLauncherSkillReadOrders(errors) {
         }
 
         const normalizedLines = normalizeDocLines(content);
-        const hasTrackedEntrypointRead = normalizedLines.some((line) =>
-            /^(?:\d+\.|-)\s+agents\.md$/u.test(line)
-        );
-        const hasWorkflowRead = normalizedLines.some((line) =>
-            /^(?:\d+\.|-)\s+docs\/agentic dev workflow\.md$/u.test(line)
-        );
+        const agentsReadIndex = findTrackedAgentsReadIndex(normalizedLines);
+        const workflowReadIndex = findTrackedWorkflowReadIndex(normalizedLines);
+        const hasTrackedEntrypointRead = agentsReadIndex !== -1;
+        const hasWorkflowRead = workflowReadIndex !== -1;
 
         if (!hasTrackedEntrypointRead || !hasWorkflowRead) {
             errors.push(`${relativePath} must include agents.md and docs/AGENTIC_DEV_WORKFLOW.md in its read list.`);
+            continue;
+        }
+
+        if (workflowReadIndex > agentsReadIndex) {
+            errors.push(
+                `${relativePath} must read docs/AGENTIC_DEV_WORKFLOW.md before agents.md to match the canonical launcher bootstrap order.`
+            );
         }
     }
 }
@@ -786,6 +921,21 @@ function checkWorkflowRoutingSplit(errors) {
         }
 
         const normalizedLines = normalizeDocLines(readme);
+        const cleanupRefactorRoutingRow = normalizedLines.find((line) => line.includes('| cleanup/refactor |'));
+        if (
+            cleanupRefactorRoutingRow === undefined ||
+            !includesAllMarkers(cleanupRefactorRoutingRow, [
+                'cleanup-loop',
+                'planner deep',
+                'maintainability reviewer',
+                'architecture reviewer',
+            ])
+        ) {
+            errors.push(
+                'Session prompt README cleanup/refactor routing row must include cleanup-loop plus planner_deep and specialized reviewer routing'
+            );
+        }
+
         const featureDesignRoutingRow = normalizedLines.find((line) => line.includes('| feature/design |'));
         if (
             featureDesignRoutingRow === undefined ||
@@ -846,6 +996,14 @@ function normalizeDocLines(content) {
         .split(/\r?\n/u)
         .map((line) => normalizeDocText(line))
         .filter((line) => line.length > 0);
+}
+
+function findTrackedAgentsReadIndex(normalizedLines) {
+    return normalizedLines.findIndex((line) => /^(?:\d+\.|-)\s+agents\.md$/u.test(line));
+}
+
+function findTrackedWorkflowReadIndex(normalizedLines) {
+    return normalizedLines.findIndex((line) => /^(?:\d+\.|-)\s+docs\/agentic dev workflow\.md$/u.test(line));
 }
 
 function includesAllMarkers(content, markers) {
@@ -1368,7 +1526,7 @@ function checkCleanupExecutionUnitContracts(errors) {
             'completed checklist-linked execution unit closes the final planned',
             'large-package execution should review coherent retirement batches',
             'tracked write-capable planner role',
-            'use planner for bounded planning artifacts, cleanup worker for tier 3 cleanup-loop implementation write passes, worker for general implementation outside that loop, and reviewer for adversarial review passes',
+            'use planner for bounded planning artifacts, planner deep for tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, cleanup worker for tier 3 cleanup-loop implementation write passes, worker for general implementation outside that loop, worker 54 high only for approved bounded exact cheap-to-verify execution units, reviewer for normal adversarial review, maintainability reviewer for maintainability-only review, and architecture reviewer for hotspot/boundary/security-adjacent architecture review',
             'for tier 3 cleanup-loop implementation passes, use the tracked cleanup worker role instead of worker',
             'planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned',
             'long wait, a direct status check, and a follow-up wait',
@@ -1426,8 +1584,8 @@ function checkCleanupExecutionUnitContracts(errors) {
             'execution waves',
             'coverage ledger',
             'large-package execution should review coherent retirement batches',
-            'route tier 3 cleanup-loop.md implementation passes through the tracked cleanup worker role only',
-            'cleanup-loop is the exception: tier 3 cleanup implementation inside that loop routes to cleanup worker while tier 2 cleanup and feature implementation stay on worker',
+            'route tier 3 cleanup-loop.md implementation passes through the tracked cleanup worker role only unless an approved execution packet explicitly names worker 54 high',
+            'cleanup-loop is the exception: tier 3 cleanup implementation inside that loop routes to cleanup worker while tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker 54 high',
         ];
 
         for (const marker of requiredReadmeMarkers) {
@@ -1526,46 +1684,10 @@ function checkArchivedSectionSummaryConformance(errors) {
     }
 }
 
-function checkSkillMirrorManifest(errors) {
-    const manifestContent = readRepoFile(SKILL_MIRROR_MANIFEST_PATH, errors);
-    if (manifestContent === null) {
-        return;
-    }
-
-    let entries;
-    try {
-        entries = parseSkillMirrorManifest(manifestContent);
-    } catch (error) {
-        errors.push(error instanceof Error ? error.message : String(error));
-        return;
-    }
-
-    const seenEntries = new Set();
-    for (const entry of entries) {
-        const key = `${entry.source}:${entry.skill}`;
-        if (seenEntries.has(key)) {
-            errors.push(`Duplicate skill mirror allowlist entry: ${key}`);
-        }
-        seenEntries.add(key);
-    }
-
-    const strategyDoc = readRepoFile('docs/agentic/skill-strategy.md', errors);
-    if (strategyDoc !== null) {
-        if (!strategyDoc.includes(SKILL_MIRROR_MANIFEST_PATH)) {
-            errors.push(`Skill strategy must reference the tracked mirror allowlist: ${SKILL_MIRROR_MANIFEST_PATH}`);
-        }
-    }
-
-    const syncScript = readRepoFile('scripts/sync_agent_skills.sh', errors);
-    if (syncScript !== null && !syncScript.includes(SKILL_MIRROR_MANIFEST_PATH)) {
-        errors.push(`sync_agent_skills.sh must read the tracked mirror allowlist: ${SKILL_MIRROR_MANIFEST_PATH}`);
-    }
-}
-
 function checkRequiredRepoLocalSkills(errors) {
     const trackedSkillPaths = getTrackedRepoLocalSkillPaths(errors);
     for (const skill of REQUIRED_REPO_LOCAL_SKILLS) {
-        const relativePath = `.codex/skills/${skill}/SKILL.md`;
+        const relativePath = `.agents/skills/${skill}/SKILL.md`;
         if (!existsSync(path.join(repoRoot, relativePath))) {
             errors.push(`Missing required repo-local canonical skill \`${skill}\`: ${relativePath}`);
             continue;
@@ -1868,7 +1990,6 @@ function main() {
     checkChecklistPlanPaths(errors, warnings);
     checkPlanArchiveCoherence(errors);
     checkArchivedSectionSummaryConformance(errors);
-    checkSkillMirrorManifest(errors);
     checkRequiredRepoLocalSkills(errors);
     checkTrackedCodexRoleConfig(errors);
     checkSeriousPlanConformance(errors);

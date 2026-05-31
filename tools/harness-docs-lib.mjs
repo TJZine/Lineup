@@ -1,5 +1,3 @@
-export const SKILL_MIRROR_MANIFEST_PATH = 'docs/agentic/skill-mirror-allowlist.txt';
-
 export const SESSION_PROMPT_SET_START_MARKER = '<!-- BEGIN MANAGED SESSION PROMPT SET -->';
 export const SESSION_PROMPT_SET_END_MARKER = '<!-- END MANAGED SESSION PROMPT SET -->';
 export const EVAL_PROMPT_INVENTORY_START_MARKER = '<!-- BEGIN MANAGED EVAL PROMPT INVENTORY -->';
@@ -10,17 +8,26 @@ export const REQUIRED_REPO_LOCAL_SKILLS = [
     'closeout-verification',
     'debugging-remediation',
     'execution-plan-authoring',
+    'lineup-cleanup-implement',
+    'lineup-cleanup-loop',
+    'lineup-cleanup-plan',
+    'lineup-cleanup-review',
+    'lineup-feature-implement',
+    'lineup-feature-plan',
+    'lineup-feature-review',
+    'lineup-workflow-harness-review',
     'model-selection',
     'parallel-sidecars',
     'persistence-boundaries',
     'plex-integration-boundaries',
+    'repo-production-review',
     'review-adjudication',
     'review-request',
     'ui-composition-patterns',
     'verification-strategy',
 ];
 export const REQUIRED_REPO_LOCAL_SKILL_FILES = REQUIRED_REPO_LOCAL_SKILLS.map(
-    (skill) => `.codex/skills/${skill}/SKILL.md`
+    (skill) => `.agents/skills/${skill}/SKILL.md`
 );
 
 export const SESSION_PROMPT_INVENTORY = [
@@ -167,6 +174,21 @@ export const EVAL_PROMPT_INVENTORY = [
         file: '20-skill-routing-interface-vs-frontend.md',
         linkText: '20-skill-routing-interface-vs-frontend',
         title: '20 Skill Routing Interface-vs-Frontend',
+    },
+    {
+        file: '21-model-role-routing-cost-effectiveness.md',
+        linkText: '21-model-role-routing-cost-effectiveness',
+        title: '21 Model Role Routing Cost Effectiveness',
+    },
+    {
+        file: '22-planner-escalation-and-plan-critique-boundaries.md',
+        linkText: '22-planner-escalation-and-plan-critique-boundaries',
+        title: '22 Planner Escalation And Plan Critique Boundaries',
+    },
+    {
+        file: '23-reviewer-specialization-effectiveness.md',
+        linkText: '23-reviewer-specialization-effectiveness',
+        title: '23 Reviewer Specialization Effectiveness',
     },
 ];
 
@@ -943,29 +965,6 @@ function isTrackedFollowUpValue(value) {
 
 function isLocalHoldingConvention(value) {
     return value.startsWith('docs/runs/<date>-harness-ingestion-triage/');
-}
-
-export function parseSkillMirrorManifest(content) {
-    const entries = [];
-
-    for (const rawLine of content.split(/\r?\n/u)) {
-        const line = rawLine.trim();
-        if (line.length === 0 || line.startsWith('#')) {
-            continue;
-        }
-
-        const match = line.match(/^(global):([a-z0-9][a-z0-9-]*)$/u);
-        if (match === null) {
-            throw new Error(`Invalid skill mirror manifest entry: ${line}`);
-        }
-
-        entries.push({
-            source: match[1],
-            skill: match[2],
-        });
-    }
-
-    return entries;
 }
 
 export function extractChecklistPlanPaths(content) {

@@ -1,7 +1,7 @@
 import { TIMING_CONFIG } from './constants';
 import type { StateManager } from './StateManager';
 import type { LifecycleEventMap, PersistentState } from './types';
-import { summarizeErrorForLog } from '../../utils/errors';
+import { emitBestEffortWarning, summarizeErrorForLog } from '../../utils/errors';
 import { PersistenceWarningBackoffPolicy } from '../../utils/persistenceWarningBackoffPolicy';
 
 type PendingSaveWaiter = {
@@ -44,7 +44,7 @@ export class LifecycleStatePersistenceQueue {
         }
 
         this._saveDebounceTimer = window.setTimeout(() => {
-            void this.flush();
+            void this.flush().catch(() => undefined);
         }, TIMING_CONFIG.SAVE_DEBOUNCE_MS) as unknown as number;
 
         return new Promise<void>((resolve, reject) => {
@@ -69,12 +69,16 @@ export class LifecycleStatePersistenceQueue {
             this._resolvePendingSaveWaiters();
         } catch (error) {
             if (options?.finalShutdown === true) {
-                console.warn('[AppLifecycle] Final shutdown flush failed', summarizeErrorForLog(error));
+                emitBestEffortWarning('Final shutdown flush failed', {
+                    subsystem: 'lifecycle',
+                    error: summarizeErrorForLog(error),
+                });
                 this._rejectPendingSaveWaiters(error);
                 return;
             }
             this._rejectPendingSaveWaiters(error);
             this._handleSaveError(error);
+            throw error;
         }
     }
 
@@ -94,7 +98,10 @@ export class LifecycleStatePersistenceQueue {
                 timestamp: Date.now(),
             });
         } catch (handlerError) {
-            console.warn('[AppLifecycle] Persistence warning handler failed', handlerError);
+            emitBestEffortWarning('Persistence warning handler failed', {
+                subsystem: 'lifecycle',
+                error: summarizeErrorForLog(handlerError),
+            });
         }
     }
 

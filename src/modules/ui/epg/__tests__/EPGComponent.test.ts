@@ -169,7 +169,6 @@ describe('EPGComponent', () => {
                 remainingMs: 3600000,
                 scheduleIndex: i,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: i === 0,
             });
         }
@@ -200,7 +199,6 @@ describe('EPGComponent', () => {
                 remainingMs: 3600000,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: true,
             },
             {
@@ -221,7 +219,6 @@ describe('EPGComponent', () => {
                 remainingMs: 3600000,
                 scheduleIndex: 1,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             },
         ];

@@ -41,7 +41,7 @@ import type { PlayerOsdCoordinator } from '../../../modules/ui/player-osd';
 import type { ChannelTransitionCoordinator } from '../../../modules/ui/channel-transition';
 import { secondsToMilliseconds } from '../../../config/timing';
 import type { ToastInput } from '../../../shared/toast';
-import { normalizeSeekIncrementSeconds } from '../../../modules/player/SeekIncrementPolicy';
+import { normalizeSeekIncrementSeconds } from '../../../modules/player';
 import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorExitConfirmCoordinatorBuilderInput,

@@ -1,4 +1,5 @@
 import type { AppShellPlaybackInfoSnapshot } from '../runtime/AppShellRuntimeContracts';
+import { sanitizeDiagnosticText } from '../../../utils/redact';
 
 export interface AppDiagnosticsPlaybackInfoText {
     display: string;
@@ -9,7 +10,7 @@ export interface AppDiagnosticsPlaybackInfoText {
 export function formatAppDiagnosticsPlaybackInfo(
     snapshot: AppShellPlaybackInfoSnapshot
 ): AppDiagnosticsPlaybackInfoText {
-    const rawJson = JSON.stringify(snapshot, null, 2);
+    const rawJson = JSON.stringify(snapshot, sanitizePlaybackInfoSnapshotValue, 2);
     const lines: string[] = [];
     appendPlaybackHeader(lines, snapshot);
     appendDeliverySection(lines, snapshot);
@@ -51,7 +52,9 @@ function appendDeliverySection(lines: string[], snapshot: AppShellPlaybackInfoSn
     lines.push(`Protocol: ${stream.protocol.toUpperCase()}  MIME: ${stream.mimeType}`);
     lines.push(`Lineup:    ${stream.isDirectPlay ? 'DIRECT PLAY' : 'HLS SESSION REQUESTED (Plex decides copy vs transcode)'}`);
     lines.push(`Target:    ${stream.container}  video=${stream.videoCodec}  audio=${stream.audioCodec}  ${stream.width}x${stream.height}  ${formatKbps(stream.bitrate)}`);
-    lines.push(`Subtitles: ${stream.subtitleDelivery}`);
+    lines.push(`Subtitles: ${formatSubtitleDelivery(stream.subtitleDelivery)}`);
+    appendHdrFallback(lines, stream);
+    appendSubtitleBurnIn(lines, stream);
     appendPmsDecision(lines, stream);
     appendDirectPlayBlockedReasons(lines, stream);
     appendSourceSection(lines, stream);
@@ -74,11 +77,49 @@ function appendPmsDecision(
             lines.push(`PMS:       ${parts.join(' ')}`);
         }
         if (serverDecision.decisionText) {
-            lines.push(`PMS text:  ${serverDecision.decisionText}`);
+            lines.push(`PMS text:  ${sanitizeDiagnosticText(serverDecision.decisionText)}`);
+        }
+        if (serverDecision.decisionCode) {
+            lines.push(`PMS code:  ${serverDecision.decisionCode}`);
         }
     } else if (!stream.isDirectPlay) {
         lines.push('PMS:       (decision not fetched; press Refresh again)');
     }
+}
+
+function sanitizePlaybackInfoSnapshotValue(key: string, value: unknown): unknown {
+    if (key === 'decisionText' && typeof value === 'string') {
+        return sanitizeDiagnosticText(value);
+    }
+    return value;
+}
+
+function appendHdrFallback(
+    lines: string[],
+    stream: NonNullable<AppShellPlaybackInfoSnapshot['stream']>
+): void {
+    if (!stream.hdr10Fallback) {
+        return;
+    }
+
+    const fallback = stream.hdr10Fallback;
+    lines.push(
+        `HDR10 FB:  mode=${fallback.mode} applied=${formatBool(fallback.applied)} hideDV=${formatBool(fallback.hideDolbyVision)} forcedHLS=${formatBool(fallback.forcedHls)} reason=${fallback.reason} (${fallback.debugWhy})`
+    );
+}
+
+function appendSubtitleBurnIn(
+    lines: string[],
+    stream: NonNullable<AppShellPlaybackInfoSnapshot['stream']>
+): void {
+    if (!stream.subtitleBurnIn) {
+        return;
+    }
+
+    const burn = stream.subtitleBurnIn;
+    lines.push(
+        `Burn-in:   requested=${formatBool(burn.requested)} reason=${burn.reason} subtitle=${burn.subtitleStreamId ?? '(none)'} mode=${burn.subtitleMode ?? '(none)'}`
+    );
 }
 
 function appendDirectPlayBlockedReasons(
@@ -133,6 +174,9 @@ function appendRequestSection(
     lines.push(`Session: ${stream.transcodeRequest.sessionId}`);
     lines.push(`Max BR:  ${formatKbps(stream.transcodeRequest.maxBitrate)}`);
     lines.push(`AudioID: ${stream.transcodeRequest.audioStreamId ?? '(none)'}`);
+    lines.push(`Hide DV: ${stream.transcodeRequest.hideDolbyVision === true ? 'yes' : 'no'}`);
+    lines.push(`SubID:   ${stream.transcodeRequest.subtitleStreamId ?? '(none)'}`);
+    lines.push(`SubMode: ${stream.transcodeRequest.subtitleMode ?? '(none)'}`);
 }
 
 function appendRawSection(lines: string[], rawJson: string): void {
@@ -164,4 +208,15 @@ function formatKbps(kbps: number): string {
         return `${(kbps / 1000).toFixed(1)} Mbps`;
     }
     return `${kbps} kbps`;
+}
+
+function formatBool(value: boolean): string {
+    return value ? 'yes' : 'no';
+}
+
+function formatSubtitleDelivery(delivery: string): string {
+    if (delivery === 'embed') {
+        return 'embed (native-or-unknown; not Lineup-rendered)';
+    }
+    return delivery;
 }

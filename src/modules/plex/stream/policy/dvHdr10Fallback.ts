@@ -25,19 +25,6 @@ type DvHdr10BaseLayerResult = {
     debugWhy: string;
 };
 
-const LETTERBOX_ASPECT_RATIOS: Array<{ name: string; min: number; max: number }> = [
-    { name: '2.39:1 (Scope)', min: 2.35, max: 2.45 },
-    { name: '2.76:1 (Ultra Panavision)', min: 2.70, max: 2.80 },
-    { name: '2.20:1 (70mm)', min: 2.15, max: 2.25 },
-    { name: '1.85:1 (Flat)', min: 1.82, max: 1.88 },
-];
-
-export function isLetterboxAspectRatio(aspectRatio: number | null | undefined): boolean {
-    if (typeof aspectRatio !== 'number') return false;
-    if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) return false;
-    return LETTERBOX_ASPECT_RATIOS.some((r) => aspectRatio >= r.min && aspectRatio <= r.max);
-}
-
 export function parseDolbyVisionProfileString(
     doviProfile: string | null | undefined,
     codecProfileString?: string | null | undefined
@@ -289,21 +276,9 @@ export function shouldApplyHdr10Fallback(args: {
         return { apply: false, reason: 'none', debugWhy: 'no_hdr10_base_layer' };
     }
 
-    const computedAspect =
-        typeof args.aspectRatio === 'number' && args.aspectRatio > 0
-            ? args.aspectRatio
-            : typeof args.width === 'number' && typeof args.height === 'number' && args.height > 0
-                ? args.width / args.height
-                : null;
-
     if (mode === 'force') {
         return { apply: true, reason: 'force', debugWhy: 'force_enabled' };
     }
 
-    // mode === 'smart'
-    if (isLetterboxAspectRatio(computedAspect)) {
-        return { apply: true, reason: 'smart', debugWhy: 'letterbox_detected' };
-    }
-
-    return { apply: false, reason: 'none', debugWhy: 'smart_not_letterbox' };
+    return { apply: true, reason: 'smart', debugWhy: 'hdr10_base_layer' };
 }

@@ -26,7 +26,6 @@ const createWindow = (channelId: string): ScheduleWindow => ({
             remainingMs: 60_000,
             scheduleIndex: 0,
             loopNumber: 0,
-            streamDescriptor: null,
             isCurrent: false,
         },
     ],

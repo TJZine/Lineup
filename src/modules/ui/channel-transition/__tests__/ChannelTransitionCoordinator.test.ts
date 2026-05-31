@@ -3,7 +3,7 @@ import { CHANNEL_TRANSITION_SHOW_DELAY_MS } from '../constants';
 import type { IChannelTransitionOverlay } from '../interfaces';
 import type { INavigationManager, Screen } from '../../../navigation';
 import type { IVideoPlayer } from '../../../player';
-import type { PlaybackState } from '../../../player/types';
+import type { PlaybackState } from '../../../player';
 
 const makeState = (status: PlaybackState['status']): PlaybackState => ({
     status,

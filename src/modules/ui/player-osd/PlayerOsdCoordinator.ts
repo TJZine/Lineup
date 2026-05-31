@@ -1,13 +1,12 @@
 import type { INavigationManager } from '../../navigation';
-import type { IVideoPlayer } from '../../player';
-import type { PlaybackState, PlayerStatus, TimeRange } from '../../player/types';
+import type { IVideoPlayer, PlaybackState, PlayerStatus, TimeRange } from '../../player';
 import type { ChannelConfig } from '../../scheduler/channel-manager';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
 import type { IPlayerOsdOverlay } from './interfaces';
 import type { PlayerOsdReason, PlayerOsdViewModel } from './types';
 import type { PlaybackOptionsSectionId } from '../playback-options';
 import type { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
-import { formatAudioLabel } from '../../../utils/formatAudioLabel';
+import { formatAudioLabel } from '../../player';
 import { getChannelNameForDisplay } from '../common/channelDisplay';
 import { formatTimecode } from '../common/formatTimecode';
 

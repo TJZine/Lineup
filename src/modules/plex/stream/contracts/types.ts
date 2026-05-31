@@ -76,10 +76,21 @@ export interface StreamDecision {
     resolvedBaseUrl?: string;
     protocol: 'hls' | 'dash' | 'http';
     isDirectPlay: boolean;
+    /**
+     * Legacy compatibility/session-lifecycle flag for Lineup-requested HLS sessions.
+     * This stays true for HLS request paths that need transcode-session lifecycle
+     * handling, including PMS direct-stream/remux outcomes. It is not proof that
+     * PMS performed a video transcode; use `serverDecision` and confirmed
+     * `subtitleBurnIn` evidence for PMS audio/video/subtitle outcomes.
+     */
     isTranscoding: boolean;
     container: string;
     videoCodec: string;
     audioCodec: string;
+    /**
+     * Lineup-facing subtitle category. The legacy `embed` value means
+     * native-or-unknown/unhandled by Lineup, not proof of webOS/native rendering.
+     */
     subtitleDelivery: 'embed' | 'sidecar' | 'burn' | 'none';
     sessionId: string;
     mediaIndex: number;
@@ -122,6 +133,30 @@ export interface StreamDecision {
     };
 
     /**
+     * Lineup's Dolby Vision/HDR10 fallback intent for the selected source.
+     * Smart mode is direct-play-first capability hiding; force mode is HLS/transcode-oriented.
+     */
+    hdr10Fallback?: {
+        mode: 'off' | 'smart' | 'force';
+        applied: boolean;
+        reason: 'none' | 'smart' | 'force';
+        debugWhy: string;
+        hideDolbyVision: boolean;
+        forcedHls: boolean;
+    };
+
+    /**
+     * Subtitle burn-in request details, separated from HDR fallback diagnostics.
+     */
+    subtitleBurnIn?: {
+        requested: boolean;
+        confirmed?: boolean;
+        reason: 'requested' | 'format_required' | 'none';
+        subtitleStreamId?: string;
+        subtitleMode?: 'none' | 'burn';
+    };
+
+    /**
      * When the default Plex audio track is TrueHD/MLP, Lineup will prefer an AC3/EAC3/AAC
      * fallback track (non-commentary) if available. This records that selection.
      */
@@ -146,9 +181,16 @@ export interface StreamDecision {
         videoDecision?: string;
         audioDecision?: string;
         subtitleDecision?: string;
+        streams?: PlexStreamDecision[];
         decisionCode?: string;
         decisionText?: string;
     };
+}
+
+export interface PlexStreamDecision {
+    id?: string;
+    streamType?: 1 | 2 | 3;
+    decision?: string;
 }
 
 export type StreamDecisionTranscodeRequest = {

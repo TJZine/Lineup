@@ -49,6 +49,20 @@ const createTranscodeSnapshot = (): AppShellPlaybackInfoSnapshot => ({
             allowed: false,
             reasons: ['unsupported_audio_codec:truehd'],
         },
+        hdr10Fallback: {
+            mode: 'smart',
+            applied: true,
+            reason: 'smart',
+            debugWhy: 'letterbox_detected',
+            hideDolbyVision: true,
+            forcedHls: false,
+        },
+        subtitleBurnIn: {
+            requested: true,
+            reason: 'requested',
+            subtitleStreamId: 'subtitle-1',
+            subtitleMode: 'burn',
+        },
         audioFallback: {
             fromCodec: 'truehd',
             toCodec: 'aac',
@@ -66,11 +80,16 @@ const createTranscodeSnapshot = (): AppShellPlaybackInfoSnapshot => ({
             sessionId: 'session-1',
             maxBitrate: 20_000,
             audioStreamId: 'audio-1',
+            hideDolbyVision: true,
+            subtitleStreamId: 'subtitle-1',
+            subtitleMode: 'burn',
         },
         serverDecision: {
+            fetchedAt: 123,
             videoDecision: 'transcode',
             audioDecision: 'transcode',
             subtitleDecision: 'burn',
+            decisionCode: '1001',
             decisionText: 'server selected transcode',
         },
     },
@@ -104,7 +123,47 @@ describe('formatAppDiagnosticsPlaybackInfo', () => {
         expect(formatted.display).toContain('RAW\n------------------------------------------------------------');
         expect(formatted.display).toContain(expectedRawJson);
         expect(formatted.summary).toContain('REQUEST (Lineup -> PMS)');
+        expect(formatted.summary).toContain('HDR10 FB:  mode=smart applied=yes hideDV=yes forcedHLS=no reason=smart (letterbox_detected)');
+        expect(formatted.summary).toContain('Burn-in:   requested=yes reason=requested subtitle=subtitle-1 mode=burn');
+        expect(formatted.summary).toContain('PMS code:  1001');
+        expect(formatted.summary).toContain('Hide DV: yes');
+        expect(formatted.summary).toContain('SubID:   subtitle-1');
         expect(formatted.summary).not.toContain('RAW');
         expect(formatted.summary).not.toContain(expectedRawJson);
+    });
+
+    it('clarifies embed delivery in diagnostics while preserving raw JSON', () => {
+        const snapshot = createTranscodeSnapshot();
+        snapshot.stream!.subtitleDelivery = 'embed';
+
+        const formatted = formatAppDiagnosticsPlaybackInfo(snapshot);
+        const raw = JSON.parse(formatted.rawJson) as AppShellPlaybackInfoSnapshot;
+
+        expect(formatted.summary).toContain(
+            'Subtitles: embed (native-or-unknown; not Lineup-rendered)'
+        );
+        expect(raw.stream!.subtitleDelivery).toBe('embed');
+        expect(formatted.rawJson).toContain('"subtitleDelivery": "embed"');
+    });
+
+    it('redacts PMS decision text in display and raw JSON without mutating the snapshot', () => {
+        const snapshot = createTranscodeSnapshot();
+        const originalDecisionText =
+            'decision used http://10.0.0.2:32400/transcode?X-Plex-Token=secret from /Users/tristan/subtitles/movie.srt';
+        snapshot.stream!.serverDecision!.decisionText = originalDecisionText;
+
+        const formatted = formatAppDiagnosticsPlaybackInfo(snapshot);
+        const raw = JSON.parse(formatted.rawJson) as AppShellPlaybackInfoSnapshot;
+
+        expect(snapshot.stream!.serverDecision!.decisionText).toBe(originalDecisionText);
+        expect(formatted.summary).toContain('PMS text:');
+        expect(formatted.summary).toContain('[REDACTED_URL]');
+        expect(formatted.summary).toContain('[REDACTED_PATH]');
+        expect(formatted.summary).not.toContain('10.0.0.2');
+        expect(formatted.summary).not.toContain('secret');
+        expect(formatted.summary).not.toContain('/Users/tristan');
+        expect(raw.stream!.serverDecision!.decisionText).toContain('[REDACTED_URL]');
+        expect(raw.stream!.serverDecision!.decisionText).not.toContain('10.0.0.2');
+        expect(raw.stream!.serverDecision!.decisionText).not.toContain('secret');
     });
 });

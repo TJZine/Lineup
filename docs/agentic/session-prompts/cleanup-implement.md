@@ -4,8 +4,8 @@ Use this prompt for Tier 2 or Tier 3 work when an approved cleanup plan already 
 
 ## Read Order
 
-1. [`agents.md`](../../../agents.md)
-2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. [`agents.md`](../../../agents.md)
 3. the assigned tracked plan in [`docs/plans/`](../../plans/README.md) or active run bundle in [`docs/runs/`](../../runs/README.md)
 4. [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core)
 5. [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](../plan-authoring-standard.md#cleanup-overlay)
@@ -28,6 +28,7 @@ For `standalone remediation`, do not require checklist linkage just to use the s
 
 ## What This Session Must Do
 
+- honor any `IMPLEMENTER_ROLE_ELIGIBILITY` in the approved `CURRENT_EXECUTION_PACKET`; use `worker` by default, `cleanup_worker` for Tier 3 cleanup-loop implementation passes, and `worker_54_high` only for approved bounded exact cheap-to-verify units
 - execute the approved plan in a repo-local worktree under `.worktrees/` when the task is more than a tiny edit
 - exception: for any task where `desloppify` output is used as authoritative checklist/plan evidence, execute those `desloppify` commands only on the target integration branch (no worktree evidence pass)
 - re-check the plan freshness gate before changing files
@@ -47,10 +48,11 @@ For `standalone remediation`, do not require checklist linkage just to use the s
 - for any cleanup task that records `desloppify`-based dispositions, do not run authoritative `desloppify` evidence in a worktree; use the integration branch as the single source of truth for recorded dispositions
 - if a worktree `desloppify` run is unavoidable, synchronize the full `.desloppify` state first, treat output as provisional, and rerun the same commands on the integration branch before recording dispositions
 - if repo state contradicts the plan, update the plan first instead of improvising
+- if the unit is assigned to or marked eligible for `worker_54_high` and implementation reveals ambiguity, plan contradiction, required scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis, stop and escalate instead of improvising
 - prefer extraction and focused collaborators over growing hotspot files
 - do not add fallback paths, migration shims, or dual-path logic unless explicitly approved
-- treat `.codex/skills/` as the tracked repo skill surface; commit updates there when the task changes repo-local skill behavior
-- do not commit local-only artifacts such as `.agent/skills/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts
+- treat `.agents/skills/` as the tracked repo skill surface; commit updates there when the task changes repo-local skill behavior
+- do not commit local-only artifacts such as `.agent/`, `docs/runs/<instance>/`, raw run bundles, or raw eval baseline artifacts
 - do not stage active tracked plan docs from `docs/plans/` into implementation commits, even when the execution pass refreshed plan progress; leave plan-doc changes for the orchestrator or a separate tracked-doc commit
 - if the execution pass updates tracked package-plan slice status, keep those plan edits out of the implementation checkpoint and either leave them for the orchestrator or land them in a separate tracked-doc commit when no controller session owns closeout
 - if a local run bundle changes the workflow conclusion, commit the updated tracked baseline-summary or workflow doc before closeout and keep only the raw bundle local

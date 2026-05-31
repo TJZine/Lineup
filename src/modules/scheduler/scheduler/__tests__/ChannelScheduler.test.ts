@@ -319,7 +319,6 @@ describe('ChannelScheduler', () => {
                 remainingMs: 0,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             });
 

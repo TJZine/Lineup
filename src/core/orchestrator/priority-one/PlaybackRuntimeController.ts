@@ -3,7 +3,7 @@ import {
     type PlaybackState,
     type TimeRange,
 } from '../../../modules/player';
-import { summarizeErrorForLog } from '../../../utils/errors';
+import { emitBestEffortWarning, summarizeErrorForLog } from '../../../utils/errors';
 import type {
     PriorityOnePlaybackRuntimePort,
     PriorityOnePlayerEventPort,
@@ -126,6 +126,11 @@ export class PlaybackRuntimeController {
     }
 
     public handlePlaybackError(error: PlaybackError): void {
+        const playbackRecovery = this._deps.playback.playbackRecovery;
+        if (playbackRecovery.isStreamRecoveryInProgress()) {
+            return;
+        }
+
         if (error.recoverable) {
             this._deps.uiRuntime.handleGlobalError(
                 {
@@ -138,13 +143,44 @@ export class PlaybackRuntimeController {
             return;
         }
 
+        this._handleNonRecoverablePlaybackError(error).catch((handlerError: unknown) => {
+            this._reportRecoverableAsyncFailureSafely(
+                'orchestrator.playbackRuntime.handleNonRecoverablePlaybackError',
+                'Non-recoverable playback error handler rejected',
+                handlerError,
+                {
+                    context: 'video-player',
+                    playbackError: summarizeErrorForLog(error),
+                }
+            );
+        });
+    }
+
+    private async _handleNonRecoverablePlaybackError(error: PlaybackError): Promise<void> {
         const playbackRecovery = this._deps.playback.playbackRecovery;
+        try {
+            const fallbackApplied = await playbackRecovery.attemptTranscodeFallbackForCurrentProgram?.('video-player');
+            if (fallbackApplied) {
+                return;
+            }
+        } catch (fallbackError: unknown) {
+            this._reportRecoverableAsyncFailureSafely(
+                'orchestrator.playbackRecovery.attemptTranscodeFallbackForCurrentProgram',
+                'Playback transcode fallback handler threw',
+                fallbackError,
+                {
+                    context: 'video-player',
+                    playbackError: summarizeErrorForLog(error),
+                }
+            );
+        }
+
         if (playbackRecovery.handlePlaybackFailure) {
             try {
                 playbackRecovery.handlePlaybackFailure('video-player', error);
                 return;
             } catch (handlerError: unknown) {
-                this._deps.reportRecoverableAsyncFailure(
+                this._reportRecoverableAsyncFailureSafely(
                     'orchestrator.playbackRecovery.handlePlaybackFailure',
                     'Playback recovery failure handler threw',
                     handlerError,
@@ -165,6 +201,24 @@ export class PlaybackRuntimeController {
             },
             'video-player'
         );
+    }
+
+    private _reportRecoverableAsyncFailureSafely(
+        event: string,
+        message: string,
+        error: unknown,
+        data?: Record<string, unknown>
+    ): void {
+        try {
+            this._deps.reportRecoverableAsyncFailure(event, message, error, data);
+        } catch (reporterError: unknown) {
+            emitBestEffortWarning('Recoverable failure reporter threw', {
+                subsystem: 'playback-runtime',
+                event,
+                reporterError: summarizeErrorForLog(reporterError),
+                originalError: summarizeErrorForLog(error),
+            });
+        }
     }
 
     public handlePlayerStateChange(state: PlaybackState): void {

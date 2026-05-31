@@ -1,4 +1,9 @@
-import { UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
+import {
+    applyServerDecisionToStreamDecision,
+    getSubtitleStreamServerDecision,
+    isSubtitleBurnConfirmedByServerDecision,
+    UniversalTranscodeDecisionClient,
+} from '../diagnostics/UniversalTranscodeDecisionClient';
 import type { HlsOptions, StreamDecision } from '../contracts/types';
 
 function createResponse(overrides: Partial<Response> & { bodyText?: string } = {}): Response {
@@ -49,7 +54,9 @@ describe('UniversalTranscodeDecisionClient', () => {
         mockFetch.mockResolvedValue(createResponse({
             bodyText:
                 '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
-                '<TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none" />' +
+                '<TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none">' +
+                '<Stream id="sub-1" streamType="3" decision="burn" location="segments-video" />' +
+                '</TranscodeSession>' +
                 '</MediaContainer>',
         }));
 
@@ -96,6 +103,13 @@ describe('UniversalTranscodeDecisionClient', () => {
             videoDecision: 'copy',
             audioDecision: 'transcode',
             subtitleDecision: 'none',
+            streams: [
+                {
+                    id: 'sub-1',
+                    streamType: 3,
+                    decision: 'burn',
+                },
+            ],
         });
     });
 
@@ -103,7 +117,7 @@ describe('UniversalTranscodeDecisionClient', () => {
         mockFetch.mockResolvedValue(createResponse({
             bodyText:
                 '<MediaContainer decisionCode="2000" decisionText="Fallback">' +
-                '<TranscodeSession></MediaContainer>',
+                '<TranscodeSession><Stream id="sub-1" streamType="3" decision="burn"></MediaContainer>',
         }));
 
         const result = await createClient().fetchDecision('/library/metadata/123', {
@@ -114,6 +128,13 @@ describe('UniversalTranscodeDecisionClient', () => {
         expect(result).toMatchObject({
             decisionCode: '2000',
             decisionText: 'Fallback',
+            streams: [
+                {
+                    id: 'sub-1',
+                    streamType: 3,
+                    decision: 'burn',
+                },
+            ],
         });
     });
 
@@ -129,6 +150,94 @@ describe('UniversalTranscodeDecisionClient', () => {
             sessionId: 'sess-1',
             maxBitrate: 8000,
         })).rejects.toBe(authError);
+    });
+
+    it('confirms burn only from the selected subtitle stream decision', () => {
+        const request: NonNullable<StreamDecision['transcodeRequest']> = {
+            sessionId: 'sess-1',
+            maxBitrate: 8000,
+            subtitleStreamId: 'sub-1',
+            subtitleMode: 'burn',
+        };
+
+        expect(isSubtitleBurnConfirmedByServerDecision(request, {
+            fetchedAt: 1,
+            subtitleDecision: 'burn',
+        })).toBe(false);
+        expect(isSubtitleBurnConfirmedByServerDecision(request, {
+            fetchedAt: 1,
+            streams: [{ id: 'sub-2', streamType: 3, decision: 'burn' }],
+        })).toBe(false);
+        expect(isSubtitleBurnConfirmedByServerDecision(request, {
+            fetchedAt: 1,
+            streams: [{ id: 'sub-1', streamType: 3, decision: 'copy' }],
+        })).toBe(false);
+        expect(isSubtitleBurnConfirmedByServerDecision(request, {
+            fetchedAt: 1,
+            streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
+        })).toBe(true);
+    });
+
+    it('returns the selected subtitle stream server decision only for subtitle streams', () => {
+        expect(getSubtitleStreamServerDecision(null, 'sub-1')).toBeNull();
+        expect(getSubtitleStreamServerDecision({
+            fetchedAt: 1,
+            streams: [
+                { id: 'sub-1', streamType: 2, decision: 'copy' },
+                { id: 'sub-2', streamType: 3, decision: 'burn' },
+            ],
+        }, 'sub-1')).toBeNull();
+        expect(getSubtitleStreamServerDecision({
+            fetchedAt: 1,
+            streams: [
+                { id: 'sub-1', streamType: 2, decision: 'copy' },
+                { id: 'sub-1', streamType: 3, decision: 'burn' },
+            ],
+        }, 'sub-1')).toBe('burn');
+    });
+
+    it('applies server decision evidence to subtitle burn-in confirmation', () => {
+        const decision = {
+            playbackUrl: 'http://plex.local/stream.m3u8',
+            protocol: 'hls',
+            isDirectPlay: false,
+            isTranscoding: true,
+            container: 'mpegts',
+            videoCodec: 'h264',
+            audioCodec: 'aac',
+            subtitleDelivery: 'burn',
+            sessionId: 'sess-1',
+            mediaIndex: 0,
+            partIndex: 0,
+            partKey: '/library/parts/1/1/file.mkv',
+            selectedAudioStream: null,
+            selectedSubtitleStream: null,
+            width: 1920,
+            height: 1080,
+            bitrate: 8000,
+            subtitleBurnIn: {
+                requested: true,
+                confirmed: false,
+                reason: 'requested',
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            },
+            transcodeRequest: {
+                sessionId: 'sess-1',
+                maxBitrate: 8000,
+                subtitleStreamId: 'sub-1',
+                subtitleMode: 'burn',
+            },
+        } as StreamDecision;
+
+        applyServerDecisionToStreamDecision(decision, {
+            fetchedAt: 1,
+            videoDecision: 'copy',
+            streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
+        });
+
+        expect(decision.serverDecision?.videoDecision).toBe('copy');
+        expect(decision.subtitleBurnIn?.confirmed).toBe(true);
     });
 
     it('rejects non-ok decision responses', async () => {

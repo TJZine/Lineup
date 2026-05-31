@@ -25,7 +25,6 @@ describe('EPGFocusNavigator', () => {
         remainingMs: 60 * 60 * 1000,
         scheduleIndex: index,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: false,
     });
 

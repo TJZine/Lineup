@@ -9,8 +9,25 @@
 - fresh-session run: `yes` | `no`
 - session id / launcher:
 - repo state note (clean branch/worktree or exception):
+- ROLE / MODEL / REASONING_EFFORT:
+- task family / tier / risk score:
+- telemetry note: exact reasoning-token telemetry is optional and observed-only because Codex may not expose it consistently
 
 ## Prompts Run
+
+## Verification Commands / Results
+
+- command:
+- observed result:
+
+## Review / Rework Telemetry
+
+- review findings count:
+- blocking findings count:
+- accepted findings count:
+- rework rounds:
+- wall time:
+- observed token / credit / cost data when available:
 
 ## Codanna Fallback Log
 

@@ -22,11 +22,11 @@ Pin-based OAuth flow for TV devices. Supports Plex Home user switching.
 
 ```typescript
 interface IPlexAuth {
-  requestPin(): Promise<PlexPinRequest>;
+  requestPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
   checkPinStatus(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
   cancelPin(pinId: number): Promise<void>;
   pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
-  validateToken(token: string): Promise<boolean>;
+  validateToken(token: string, options?: { signal?: AbortSignal | null }): Promise<boolean>;
   getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
   switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
   getActiveUserId(): string | null;
@@ -45,9 +45,11 @@ interface IPlexAuth {
 
 Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state. The stored-credential read/write/clear methods are synchronous local storage and in-memory state operations; they do not imply an async persistence backend.
 
+Caller-provided cancellation signals on `requestPin()`, `checkPinStatus()`, `pollForPin()`, `validateToken()`, `getHomeUsers()`, and `switchHomeUser()` rethrow the caller's raw `AbortError` or abort reason so callers can distinguish explicit cancellation from Plex failures. `cancelPin()` remains the normal best-effort PIN cancellation API.
+
 `PlexAuthConfig.clientIdentifier` is resolved once at config assembly (`createDefaultPlexAuthConfig`) and treated as already-resolved input by `PlexAuth`.
 Canonical Plex identity metadata and identity-header assembly live in `src/modules/plex/auth/config.ts`; auth transport, platform identity, and stream callers consume or adapt those values instead of generating independent product/device metadata.
-`validateToken()` returns `false` only for explicit auth-invalid (`401`/`403`) outcomes. Timeout, cancellation, service/network failures, and malformed success payloads throw typed `PlexApiError` failures.
+`validateToken()` returns `false` only for explicit auth-invalid (`401`/`403`) outcomes. Timeout, service/network failures, and malformed success payloads throw typed `PlexApiError` failures; caller-triggered aborts are rethrown as raw aborts instead.
 Plex cloud `5xx` responses surface as retryable `SERVER_ERROR` failures; transport-level failures that do not produce an HTTP response remain server/network reachability failures.
 `getHomeUsers()` and `switchHomeUser()` throw typed auth failures for explicit credential problems instead of collapsing those outcomes into empty profile lists.
 `PlexHomeUser.restricted` is informational-only metadata in profile select UI and does not enforce startup or playback gating.
@@ -332,6 +334,23 @@ interface StreamDecision {
     reasons: string[];
   };
 
+  hdr10Fallback?: {
+    mode: 'off' | 'smart' | 'force';
+    applied: boolean;
+    reason: 'none' | 'smart' | 'force';
+    debugWhy: string;
+    hideDolbyVision: boolean;
+    forcedHls: boolean;
+  };
+
+  subtitleBurnIn?: {
+    requested: boolean;
+    confirmed?: boolean;
+    reason: 'requested' | 'format_required' | 'none';
+    subtitleStreamId?: string;
+    subtitleMode?: 'none' | 'burn';
+  };
+
   audioFallback?: {
     fromCodec: string;
     toCodec: string;
@@ -345,9 +364,16 @@ interface StreamDecision {
     videoDecision?: string;
     audioDecision?: string;
     subtitleDecision?: string;
+    streams?: PlexStreamDecision[];
     decisionCode?: string;
     decisionText?: string;
   };
+}
+
+interface PlexStreamDecision {
+  id?: string;
+  streamType?: 1 | 2 | 3;
+  decision?: string;
 }
 
 type StreamDecisionTranscodeRequest = {
@@ -368,3 +394,51 @@ type StreamDecisionTranscodeRequest = {
     }
 );
 ```
+
+`StreamDecision.isTranscoding` is a legacy compatibility/session-lifecycle
+flag for Lineup-requested HLS sessions. It remains `true` for request paths that
+need transcode-session lifecycle handling even when PMS later reports copy/remux
+or audio-only transcode. It is not proof of a PMS video transcode. User-facing
+compact summaries should use PMS `serverDecision` fields and confirmed
+`subtitleBurnIn` evidence when available:
+
+- direct play: `Direct Play`
+- HLS session without PMS decision evidence: `HLS Session`
+- PMS copy/remux without audio or video transcode: `Direct Stream`
+- PMS audio-only transcode: `Audio Transcode`
+- PMS video transcode or confirmed subtitle burn-in: `Video Transcode`
+
+`StreamDecision.subtitleDelivery` uses Lineup-facing delivery terms, not PMS
+HLS subtitle URL modes. In particular, `subtitleDelivery: 'sidecar'` means
+Lineup handles a text subtitle out-of-band from the video stream: the player
+attaches an already WebVTT-capable direct/key-backed text track when possible,
+or it fetches/extracts text and converts it to a local VTT `blob:` track through
+the subtitle fallback pipeline. The legacy `subtitleDelivery: 'embed'` value is
+a native-or-unknown/unhandled diagnostic category: the selected subtitle is
+neither a recognized Lineup text-sidecar format nor a recognized
+burn-in-required format. It is not evidence that webOS, the HTML video element,
+or PMS native embedded subtitle delivery rendered the subtitle.
+
+Current PMS playback URL policy is narrower than the Lineup delivery enum:
+
+- Burn-in requests send PMS `subtitles=burn` with the selected
+  `subtitleStreamID`.
+- Before a burn-in HLS transcode starts, `PlexStreamResolver` also selects the
+  requested subtitle on the chosen PMS media part with
+  `PUT /library/parts/{partId}?subtitleStreamID={streamId}`. This resolver-owned
+  PMS mutation is required for the observed keyless embedded SRT burn-in path
+  and is not persisted in Lineup storage. When Lineup disables a burn-in subtitle
+  stream, the resolver clears the selected PMS part subtitle with
+  `subtitleStreamID=0` before resolving the no-subtitle reload.
+- Non-burn HLS playback sends PMS `subtitles=none`, `subtitleStreamID=0`, and
+  `subtitleFormat=none`; Lineup then handles eligible text subtitles locally.
+- Lineup does not currently request PMS native/HLS subtitle delivery modes such
+  as `subtitles=sidecar`, `subtitles=embedded`, or `subtitles=segmented`.
+
+`subtitleBurnIn.requested` is Lineup's local request intent. It does not prove
+that Plex burned the subtitle into the video. Burn-in stream resolution fetches
+PMS universal decision evidence even when debug logging is disabled, and
+`subtitleBurnIn.confirmed` is set only when that evidence shows the requested
+subtitle stream with `decision="burn"`. Broad PMS fields such as
+`subtitleDecision` are diagnostic-only unless future PMS API evidence promotes
+them into the supported contract.

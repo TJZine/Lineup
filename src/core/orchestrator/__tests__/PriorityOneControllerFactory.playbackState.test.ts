@@ -1,5 +1,8 @@
 import type { StreamDescriptor } from '../../../modules/player';
-import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import type {
+    ScheduledProgram,
+    SchedulerState,
+} from '../../../modules/scheduler/scheduler';
 import {
     createPriorityOneControllersAndBinder,
     type PriorityOneAssemblyInput,
@@ -20,15 +23,34 @@ const makeProgram = (): ScheduledProgram =>
         remainingMs: 60_000,
         scheduleIndex: 0,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: true,
     } as unknown as ScheduledProgram);
+
+const makeSchedulerState = (
+    currentProgram: ScheduledProgram | null,
+    overrides: Partial<SchedulerState> = {}
+): SchedulerState =>
+    ({
+        channelId: 'channel-1',
+        isActive: false,
+        currentProgram,
+        nextProgram: null,
+        schedulePosition: {
+            loopNumber: currentProgram?.loopNumber ?? 0,
+            itemIndex: currentProgram?.scheduleIndex ?? 0,
+            offsetMs: currentProgram?.elapsedMs ?? 0,
+        },
+        lastSyncTime: 0,
+        ...overrides,
+    } as SchedulerState);
 
 const makeDeps = (
     playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors>
 ): PriorityOneAssemblyInput => ({
     modules: {
-        scheduler: {} as PriorityOneAssemblyInput['modules']['scheduler'],
+        scheduler: {
+            getState: jest.fn().mockReturnValue(makeSchedulerState(null)),
+        } as unknown as PriorityOneAssemblyInput['modules']['scheduler'],
         videoPlayer: {
             loadStream: jest.fn().mockResolvedValue(undefined),
             play: jest.fn().mockResolvedValue(undefined),

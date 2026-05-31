@@ -18,4 +18,4 @@ Use [`docs/AGENTIC_DEV_WORKFLOW.md`](./docs/AGENTIC_DEV_WORKFLOW.md) as the sing
 - [`docs/AGENTIC_DEV_WORKFLOW.md`](./docs/AGENTIC_DEV_WORKFLOW.md): operating runbook, precedence, routing, verification, and document-role map
 - [`docs/agentic/session-prompts/README.md`](./docs/agentic/session-prompts/README.md): tracked launcher templates and routing table
 - [`docs/agentic/codanna-playbook.md`](./docs/agentic/codanna-playbook.md): Codanna-first discovery details
-- [`docs/agentic/skill-strategy.md`](./docs/agentic/skill-strategy.md): skill topology and mirror policy
+- [`docs/agentic/skill-strategy.md`](./docs/agentic/skill-strategy.md): skill topology

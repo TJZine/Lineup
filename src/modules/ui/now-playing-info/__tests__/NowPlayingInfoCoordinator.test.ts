@@ -32,7 +32,6 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         remainingMs: 59_000,
         scheduleIndex: 0,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: true,
         ...overrides,
     }) as ScheduledProgram;
@@ -616,6 +615,28 @@ describe('NowPlayingInfoCoordinator', () => {
         coordinator.handleModalOpen(modalId);
         await Promise.resolve();
         await Promise.resolve();
+    });
+
+    it('uses shared playback summary wording for HLS sessions without PMS decisions', () => {
+        const { coordinator, overlay } = setup({
+            getPlaybackInfoSnapshot: () => ({
+                stream: {
+                    protocol: 'hls',
+                    isDirectPlay: false,
+                    isTranscoding: true,
+                    videoCodec: 'h264',
+                    audioCodec: 'aac',
+                },
+            }),
+        });
+
+        coordinator.handleModalOpen(modalId);
+
+        const viewModel = (overlay.show as jest.Mock).mock.calls[0]?.[0] as {
+            playbackSummary?: string;
+        };
+        expect(viewModel.playbackSummary).toBe('Playback: HLS Session • H.264/AAC');
+        coordinator.handleModalClose(modalId);
     });
 
     it('omits clearLogoUrl when prefer clear logos is disabled', () => {

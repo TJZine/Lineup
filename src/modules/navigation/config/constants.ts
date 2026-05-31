@@ -23,28 +23,19 @@ export function mapKeyCode(
     return button !== undefined ? button : null;
 }
 
-/**
- * Threshold for detecting long press (ms).
- */
 export const LONG_PRESS_THRESHOLD_MS = 500;
 
-/**
- * Debounce delay after long press fires to prevent repeat triggers (ms).
- */
+/** Prevents repeat triggers after a long press fires. */
 export const LONG_PRESS_DEBOUNCE_MS = 100;
 
-/**
- * Cursor hide delay for pointer mode (ms).
- */
 export const CURSOR_HIDE_DELAY_MS = 3000;
 
 /**
  * Channel number input configuration.
  */
 export const CHANNEL_INPUT_CONFIG = {
-    /** Time to wait for next digit (ms) */
+    /** Time to wait for next digit. */
     TIMEOUT_MS: 2000,
-    /** Maximum digits to collect */
     MAX_DIGITS: 3,
 } as const;
 
@@ -87,21 +78,12 @@ export function computeAcceleratedRepeatIntervalMs(
     return timing.INTERVAL_3_MS;
 }
 
-/**
- * Focus ring CSS class names.
- */
 export const FOCUS_CLASSES = {
-    /** Class added to focusable elements */
     FOCUSABLE: 'focusable',
-    /** Class added to currently focused element */
     FOCUSED: 'focused',
-    /** Class for pointer mode body */
     POINTER_MODE: 'pointer-mode',
 } as const;
 
-/**
- * Default navigation configuration.
- */
 export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
     enablePointerMode: true,
     keyRepeatDelayMs: 500,
@@ -110,7 +92,4 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
     debugMode: false,
 };
 
-/**
- * Initial screen when app starts.
- */
 export const INITIAL_SCREEN = 'splash' as const;

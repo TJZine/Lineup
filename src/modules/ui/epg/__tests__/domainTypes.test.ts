@@ -60,7 +60,6 @@ describe('domainTypes', () => {
             remainingMs: 750,
             scheduleIndex: 1,
             loopNumber: 0,
-            streamDescriptor: null,
             isCurrent: true,
         };
         const channel: EpgChannel = {

@@ -1,8 +1,21 @@
 import type { PlexMediaFile, PlexStream } from '../contracts/types';
 import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
-import { SUPPORTED_AUDIO_CODECS, SUPPORTED_CONTAINERS, SUPPORTED_VIDEO_CODECS, MAX_RESOLUTION } from './constants';
+import { SUPPORTED_AUDIO_CODECS, SUPPORTED_CONTAINERS, SUPPORTED_VIDEO_CODECS } from './constants';
 import { detectHdrLabel } from './hdr';
 import { inferHdr10BaseLayer, shouldApplyHdr10Fallback } from './dvHdr10Fallback';
+import type {
+    PlaybackCapabilityEntry,
+    PlaybackCapabilityProfile,
+} from '../capabilities/PlaybackCapabilityProfile';
+import {
+    getDolbyVisionProfileSupport,
+    isCapabilitySupported,
+    mapDoviProfileToDecoderProfile,
+} from '../capabilities/PlaybackCapabilityProfile';
+import {
+    isDtsFamilyAudioCodec,
+    isSupportedAudioCodec,
+} from '../../../../shared/audioCodecSupport';
 
 export type DirectPlayDecision = {
     canDirect: boolean;
@@ -13,18 +26,18 @@ const FALLBACK_AUDIO_CODECS = ['eac3', 'ac3', 'aac'] as const;
 
 export function getDirectPlayDecision(options: {
     media: PlexMediaFile;
+    videoStream?: PlexStream | null;
     audioCodecOverride?: string | null;
-    dtsPassthroughEnabled: boolean;
-    userAgent?: string | null;
+    capabilityProfile: PlaybackCapabilityProfile;
 }): DirectPlayDecision {
     const reasons: string[] = [];
     const { media } = options;
     const audioCodec = normalizeCompatibilityValue(options.audioCodecOverride ?? media.audioCodec);
 
-    appendContainerCompatibilityReasons(reasons, media.container, options.userAgent);
-    appendVideoCompatibilityReasons(reasons, media.videoCodec);
-    appendAudioCompatibilityReasons(reasons, audioCodec, options.dtsPassthroughEnabled);
-    appendResolutionCompatibilityReasons(reasons, media.width, media.height);
+    appendContainerCompatibilityReasons(reasons, media.container, options.capabilityProfile);
+    appendVideoCompatibilityReasons(reasons, media.videoCodec, options.videoStream ?? null, options.capabilityProfile);
+    appendAudioCompatibilityReasons(reasons, audioCodec, options.capabilityProfile);
+    appendResolutionCompatibilityReasons(reasons, media.width, media.height, options.capabilityProfile);
 
     return { canDirect: reasons.length === 0, reasons };
 }
@@ -82,8 +95,8 @@ export type HdrCompatibilityDecision = {
     isDolbyVision: boolean;
     applyHdr10Fallback: boolean;
     forceTranscodeForHdr10Fallback: boolean;
-    forceHlsForDvNoHdr10BaseLayer: boolean;
     fallbackReason: HdrCompatibilityReason;
+    fallbackDebugWhy: string;
 };
 
 export function getHdrCompatibilityDecision(
@@ -93,12 +106,6 @@ export function getHdrCompatibilityDecision(
     const isDolbyVision = detectHdrLabel(videoStream) === 'Dolby Vision';
     const sourceContainer = normalizeCompatibilityValue(inputs.media.container);
 
-    const hdr10BaseLayerInfo = inferHdr10BaseLayer(buildHdr10BaseLayerContext(videoStream));
-    const forceHlsForDvNoHdr10BaseLayer = shouldForceHlsForDvNoHdr10BaseLayer(
-        isDolbyVision,
-        sourceContainer,
-        hdr10BaseLayerInfo.isKnownNoHdr10BaseLayer
-    );
     const fallback = shouldApplyHdr10Fallback(
         buildHdr10FallbackRequest(inputs, isDolbyVision, sourceContainer)
     );
@@ -107,8 +114,8 @@ export function getHdrCompatibilityDecision(
         isDolbyVision,
         applyHdr10Fallback: fallback.apply,
         forceTranscodeForHdr10Fallback: fallback.apply && fallback.reason === 'force',
-        forceHlsForDvNoHdr10BaseLayer,
         fallbackReason: fallback.reason,
+        fallbackDebugWhy: fallback.debugWhy,
     };
 }
 
@@ -120,22 +127,71 @@ function isCommentaryStream(stream: PlexStream): boolean {
 function appendContainerCompatibilityReasons(
     reasons: string[],
     container: string,
-    userAgent?: string | null
+    capabilityProfile: PlaybackCapabilityProfile
 ): void {
     const normalizedContainer = normalizeCompatibilityValue(container);
     if (!SUPPORTED_CONTAINERS.includes(normalizedContainer)) {
         reasons.push(`unsupported_container:${normalizedContainer}`);
     }
 
-    if (normalizedContainer === 'mkv' && isLegacyWebOsUserAgent(userAgent)) {
+    if (normalizedContainer === 'mkv' && isLegacyWebOsCapability(capabilityProfile)) {
         reasons.push('mkv_legacy_webos');
     }
 }
 
-function appendVideoCompatibilityReasons(reasons: string[], videoCodec: string): void {
+function appendVideoCompatibilityReasons(
+    reasons: string[],
+    videoCodec: string,
+    videoStream: PlexStream | null,
+    capabilityProfile: PlaybackCapabilityProfile
+): void {
     const normalizedVideoCodec = normalizeCompatibilityValue(videoCodec);
     if (!SUPPORTED_VIDEO_CODECS.includes(normalizedVideoCodec)) {
         reasons.push(`unsupported_video_codec:${normalizedVideoCodec}`);
+        return;
+    }
+
+    const codecCapability = getVideoCodecCapability(normalizedVideoCodec, videoStream, capabilityProfile);
+    if (codecCapability && !isCapabilitySupported(codecCapability)) {
+        reasons.push(`unsupported_video_codec:${normalizedVideoCodec}`);
+        return;
+    }
+
+    appendDolbyVisionCompatibilityReasons(reasons, videoStream, capabilityProfile);
+}
+
+function appendDolbyVisionCompatibilityReasons(
+    reasons: string[],
+    videoStream: PlexStream | null,
+    capabilityProfile: PlaybackCapabilityProfile
+): void {
+    if (detectHdrLabel(videoStream) !== 'Dolby Vision') {
+        return;
+    }
+
+    const hdr10BaseLayer = inferHdr10BaseLayer({
+        doviProfile: videoStream?.doviProfile ?? null,
+        codecProfileString: videoStream?.profile ?? null,
+        hdr: videoStream?.hdr ?? null,
+        dynamicRange: videoStream?.dynamicRange ?? null,
+        colorTrc: videoStream?.colorTrc ?? null,
+        displayTitle: videoStream?.displayTitle ?? null,
+        extendedDisplayTitle: videoStream?.extendedDisplayTitle ?? null,
+    });
+
+    if (!hdr10BaseLayer.isKnownNoHdr10BaseLayer) {
+        return;
+    }
+
+    const decoderProfile = mapDoviProfileToDecoderProfile(hdr10BaseLayer.profileInfo.profileId);
+    if (!decoderProfile) {
+        reasons.push('unknown_dolby_vision_support');
+        return;
+    }
+
+    const support = getDolbyVisionProfileSupport(capabilityProfile, decoderProfile);
+    if (!isCapabilitySupported(support) || support.confidence !== 'explicit') {
+        reasons.push(`unknown_dolby_vision_support:${decoderProfile}`);
     }
 }
 
@@ -146,16 +202,16 @@ function normalizeCompatibilityValue(value: string | null | undefined): string {
 function appendAudioCompatibilityReasons(
     reasons: string[],
     audioCodec: string,
-    dtsPassthroughEnabled: boolean
+    capabilityProfile: PlaybackCapabilityProfile
 ): void {
-    if (isDtsFamilyCodec(audioCodec)) {
-        if (!dtsPassthroughEnabled) {
+    if (isDtsFamilyAudioCodec(audioCodec)) {
+        if (!isCapabilitySupported(capabilityProfile.audio.dtsPassthrough)) {
             reasons.push('dts_passthrough_disabled');
         }
         return;
     }
 
-    if (!SUPPORTED_AUDIO_CODECS.includes(audioCodec)) {
+    if (!isSupportedAudioCodec(audioCodec, SUPPORTED_AUDIO_CODECS)) {
         reasons.push(`unsupported_audio_codec:${audioCodec}`);
     }
 }
@@ -163,25 +219,52 @@ function appendAudioCompatibilityReasons(
 function appendResolutionCompatibilityReasons(
     reasons: string[],
     width: number,
-    height: number
+    height: number,
+    capabilityProfile: PlaybackCapabilityProfile
 ): void {
-    if (width > MAX_RESOLUTION.width || height > MAX_RESOLUTION.height) {
+    if (width > capabilityProfile.display.maxResolution.width || height > capabilityProfile.display.maxResolution.height) {
         reasons.push(`unsupported_resolution:${width}x${height}`);
     }
 }
 
-function isLegacyWebOsUserAgent(userAgent?: string | null): boolean {
-    if (typeof userAgent !== 'string' || !userAgent || !/Web0S|webOS/i.test(userAgent)) {
+function isLegacyWebOsCapability(capabilityProfile: PlaybackCapabilityProfile): boolean {
+    const userAgent = capabilityProfile.browser.userAgent;
+    if (!capabilityProfile.browser.isWebOs || typeof userAgent !== 'string' || !userAgent || !/Web0S|webOS/i.test(userAgent)) {
         return false;
     }
 
-    const chromeMatch = userAgent.match(/Chrome\/(\d+)/);
-    const chromeMajor = chromeMatch ? Number(chromeMatch[1]) : NaN;
-    return Number.isFinite(chromeMajor) && chromeMajor < 87;
+    const chromeMajor = capabilityProfile.browser.chromeMajor;
+    return chromeMajor !== null && chromeMajor < 87;
 }
 
-function isDtsFamilyCodec(audioCodec: string): boolean {
-    return audioCodec.startsWith('dts') || audioCodec.startsWith('dca');
+function getVideoCodecCapability(
+    normalizedVideoCodec: string,
+    videoStream: PlexStream | null,
+    capabilityProfile: PlaybackCapabilityProfile
+): PlaybackCapabilityEntry | null {
+    if (normalizedVideoCodec === 'h264' || normalizedVideoCodec === 'avc') {
+        return capabilityProfile.video.h264;
+    }
+    if (normalizedVideoCodec === 'hevc' || normalizedVideoCodec === 'h265') {
+        return shouldRequireMain10(videoStream)
+            ? capabilityProfile.video.hevcMain10
+            : capabilityProfile.video.hevcMain;
+    }
+    if (normalizedVideoCodec === 'vp9') {
+        return capabilityProfile.video.vp9;
+    }
+    if (normalizedVideoCodec === 'av1') {
+        return capabilityProfile.video.av1;
+    }
+    return null;
+}
+
+function shouldRequireMain10(videoStream: PlexStream | null): boolean {
+    if (typeof videoStream?.bitDepth === 'number' && videoStream.bitDepth >= 10) {
+        return true;
+    }
+    const hdrLabel = detectHdrLabel(videoStream);
+    return Boolean(hdrLabel);
 }
 
 function getCompatibleFallbackAudioTracks(
@@ -234,34 +317,6 @@ function getFallbackCodecPriority(stream: PlexStream): number {
         normalizeCompatibilityValue(stream.codec) as (typeof FALLBACK_AUDIO_CODECS)[number]
     );
     return index === -1 ? Number.MAX_SAFE_INTEGER : index;
-}
-
-function buildHdr10BaseLayerContext(videoStream: PlexStream | null): {
-    doviProfile: string | null;
-    codecProfileString: string | null;
-    hdr: string | null;
-    dynamicRange: string | null;
-    colorTrc: string | null;
-    displayTitle: string | null;
-    extendedDisplayTitle: string | null;
-} {
-    return {
-        doviProfile: videoStream?.doviProfile ?? null,
-        codecProfileString: videoStream?.profile ?? null,
-        hdr: videoStream?.hdr ?? null,
-        dynamicRange: videoStream?.dynamicRange ?? null,
-        colorTrc: videoStream?.colorTrc ?? null,
-        displayTitle: videoStream?.displayTitle ?? null,
-        extendedDisplayTitle: videoStream?.extendedDisplayTitle ?? null,
-    };
-}
-
-function shouldForceHlsForDvNoHdr10BaseLayer(
-    isDolbyVision: boolean,
-    sourceContainer: string,
-    isKnownNoHdr10BaseLayer: boolean
-): boolean {
-    return isDolbyVision && sourceContainer === 'mkv' && isKnownNoHdr10BaseLayer;
 }
 
 function buildHdr10FallbackRequest(

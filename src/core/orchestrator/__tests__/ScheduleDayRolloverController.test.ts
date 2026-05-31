@@ -53,7 +53,6 @@ const makeScheduledProgram = (start: number, end: number): ScheduledProgram => (
     remainingMs: Math.max(0, end - start),
     scheduleIndex: 0,
     loopNumber: 0,
-    streamDescriptor: null,
     isCurrent: true,
 });
 

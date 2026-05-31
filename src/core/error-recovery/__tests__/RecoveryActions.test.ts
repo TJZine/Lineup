@@ -9,6 +9,7 @@ describe('getRecoveryActions', () => {
         goToChannelEdit: jest.fn(),
         goToSettings: jest.fn(),
         retryStart: jest.fn(),
+        retryPlayback: jest.fn(),
         exitApp: jest.fn(),
         skipToNext: jest.fn(),
     });
@@ -72,18 +73,47 @@ describe('getRecoveryActions', () => {
         expect(deps.retryStart).toHaveBeenCalledTimes(1);
     });
 
-    it('returns Skip for PLAYBACK_DECODE_ERROR', () => {
+    it('returns Retry and Skip for PLAYBACK_DECODE_ERROR', () => {
         const deps = createDeps();
         const actions = getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR, deps);
 
-        expect(actions).toHaveLength(1);
+        expect(actions).toHaveLength(2);
         expect(actions[0]).toMatchObject({
-            label: 'Skip',
+            label: 'Retry',
             isPrimary: true,
+            requiresNetwork: true,
+        });
+        expect(actions[1]).toMatchObject({
+            label: 'Skip',
+            isPrimary: false,
             requiresNetwork: false,
         });
 
         actions[0]!.action();
+        actions[1]!.action();
+        expect(deps.retryPlayback).toHaveBeenCalledTimes(1);
+        expect(deps.skipToNext).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns Retry and manual Skip for PLAYBACK_FAILED', () => {
+        const deps = createDeps();
+        const actions = getRecoveryActions(AppErrorCode.PLAYBACK_FAILED, deps);
+
+        expect(actions).toHaveLength(2);
+        expect(actions[0]).toMatchObject({
+            label: 'Retry',
+            isPrimary: true,
+            requiresNetwork: true,
+        });
+        expect(actions[1]).toMatchObject({
+            label: 'Skip',
+            isPrimary: false,
+            requiresNetwork: false,
+        });
+
+        actions[0]!.action();
+        actions[1]!.action();
+        expect(deps.retryPlayback).toHaveBeenCalledTimes(1);
         expect(deps.skipToNext).toHaveBeenCalledTimes(1);
     });
 
@@ -96,14 +126,21 @@ describe('getRecoveryActions', () => {
         const deps = createDeps();
         const actions = getRecoveryActions(errorCode, deps);
 
-        expect(actions).toHaveLength(1);
+        expect(actions).toHaveLength(2);
         expect(actions[0]).toMatchObject({
-            label: 'Skip',
+            label: 'Retry',
             isPrimary: true,
+            requiresNetwork: true,
+        });
+        expect(actions[1]).toMatchObject({
+            label: 'Skip',
+            isPrimary: false,
             requiresNetwork: false,
         });
 
         actions[0]!.action();
+        actions[1]!.action();
+        expect(deps.retryPlayback).toHaveBeenCalledTimes(1);
         expect(deps.skipToNext).toHaveBeenCalledTimes(1);
     });
 
@@ -191,6 +228,7 @@ describe('getRecoveryActions', () => {
         expect(deps.goToChannelEdit).not.toHaveBeenCalled();
         expect(deps.goToSettings).not.toHaveBeenCalled();
         expect(deps.retryStart).not.toHaveBeenCalled();
+        expect(deps.retryPlayback).not.toHaveBeenCalled();
         expect(deps.exitApp).not.toHaveBeenCalled();
         expect(deps.skipToNext).not.toHaveBeenCalled();
     });
@@ -199,9 +237,9 @@ describe('getRecoveryActions', () => {
         [AppErrorCode.PARSE_ERROR, 'Dismiss', null],
         [AppErrorCode.EMPTY_RESPONSE, 'Dismiss', null],
         [AppErrorCode.UI_NAVIGATION_BLOCKED, 'Dismiss', null],
-        [AppErrorCode.PLAYBACK_DRM_ERROR, 'Skip', 'skipToNext'],
-        [AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND, 'Skip', 'skipToNext'],
-        [AppErrorCode.TRANSCODE_FAILED, 'Skip', 'skipToNext'],
+        [AppErrorCode.PLAYBACK_DRM_ERROR, 'Retry', 'retryPlayback'],
+        [AppErrorCode.PLAYBACK_SOURCE_NOT_FOUND, 'Retry', 'retryPlayback'],
+        [AppErrorCode.TRANSCODE_FAILED, 'Retry', 'retryPlayback'],
         [AppErrorCode.SERVER_UNAUTHORIZED, 'Sign In', 'goToAuth'],
         [AppErrorCode.LIBRARY_UNAVAILABLE, 'Select Server', 'goToServerSelect'],
         [AppErrorCode.EMPTY_CHANNEL, 'Edit Channels', 'goToChannelEdit'],
@@ -223,6 +261,7 @@ describe('getRecoveryActions', () => {
             expect(deps.goToChannelEdit).not.toHaveBeenCalled();
             expect(deps.goToSettings).not.toHaveBeenCalled();
             expect(deps.retryStart).not.toHaveBeenCalled();
+            expect(deps.retryPlayback).not.toHaveBeenCalled();
             expect(deps.exitApp).not.toHaveBeenCalled();
             expect(deps.skipToNext).not.toHaveBeenCalled();
             return;

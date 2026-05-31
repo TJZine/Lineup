@@ -62,7 +62,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 60000,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
 
@@ -91,7 +90,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 3600000,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
 
@@ -121,7 +119,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 10000,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
 
@@ -239,7 +236,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -285,7 +281,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -343,7 +338,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 1800000,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
             schedules.set(channelId, {
@@ -386,7 +380,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 0,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
 
@@ -430,7 +423,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 0,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
 
@@ -487,7 +479,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 0,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
             const schedules = new Map<string, ScheduleWindow>([
@@ -535,7 +526,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 0,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
             const schedules = new Map<string, ScheduleWindow>([
@@ -578,7 +568,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 0,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
 
@@ -630,7 +619,6 @@ describe('EPGVirtualizer', () => {
                             remainingMs: end - start,
                             scheduleIndex: 0,
                             loopNumber: 0,
-                            streamDescriptor: null,
                             isCurrent: false,
                         },
                     ],
@@ -676,7 +664,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -737,7 +724,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -779,7 +765,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 0,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
 
@@ -832,7 +817,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 3600000,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -873,7 +857,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 1800000,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -917,7 +900,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -966,7 +948,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -1012,7 +993,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -1058,7 +1038,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -1099,7 +1078,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                     {
@@ -1119,7 +1097,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 1,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                     {
@@ -1139,7 +1116,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 2,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                     {
@@ -1159,7 +1135,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 3,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -1362,7 +1337,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: 1800000,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 },
             ];
@@ -1409,7 +1383,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: 60_000,
                     scheduleIndex: minute,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 });
             }
@@ -1466,7 +1439,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 60_000,
                         scheduleIndex: minute,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     });
                 }
@@ -1524,7 +1496,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 60_000,
                         scheduleIndex: minute,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     });
                 }
@@ -1584,7 +1555,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 60_000,
                         scheduleIndex: minute,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     });
                 }
@@ -1640,7 +1610,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 1800000,
                         scheduleIndex: slot,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     });
                 }
@@ -1690,7 +1659,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 3600000,
                         scheduleIndex: slot,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     });
                 }
@@ -1753,7 +1721,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - start,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 }],
             };
@@ -1796,7 +1763,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - now,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     // NOTE: EPGVirtualizer recomputes "current" from Date.now(); this fixture field is ignored here.
                     isCurrent: false,
                 }],
@@ -1840,7 +1806,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: narrowEnd - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                     {
@@ -1863,7 +1828,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: tinyEnd - tinyStart,
                         scheduleIndex: 1,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -1916,7 +1880,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -1973,7 +1936,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -2032,7 +1994,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -2076,7 +2037,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2130,7 +2090,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2182,7 +2141,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2249,7 +2207,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2323,7 +2280,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2383,7 +2339,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2435,7 +2390,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2502,7 +2456,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: mid - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }, {
                         item: {
@@ -2521,7 +2474,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - mid,
                         scheduleIndex: 1,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2589,7 +2541,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -2636,7 +2587,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - beforeCurrent,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -2689,7 +2639,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - now,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 }],
@@ -2738,7 +2687,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - now,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 }],
             };
@@ -2800,7 +2748,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -2854,7 +2801,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2905,7 +2851,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -2970,7 +2915,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -3036,7 +2980,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - start,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 }],
             };
@@ -3088,7 +3031,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     }],
                 };
@@ -3150,7 +3092,6 @@ describe('EPGVirtualizer', () => {
                             remainingMs: mid - start,
                             scheduleIndex: 0,
                             loopNumber: 0,
-                            streamDescriptor: null,
                             isCurrent: false,
                         },
                         {
@@ -3170,7 +3111,6 @@ describe('EPGVirtualizer', () => {
                             remainingMs: end - mid,
                             scheduleIndex: 1,
                             loopNumber: 0,
-                            streamDescriptor: null,
                             isCurrent: false,
                         },
                     ],
@@ -3223,7 +3163,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - now,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     // NOTE: EPGVirtualizer recomputes "current" from Date.now(); this fixture field is ignored here.
                     isCurrent: false,
                 }],
@@ -3264,7 +3203,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - (start + 5 * 60_000),
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 }],
             };
@@ -3306,7 +3244,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - (start + 5 * 60_000),
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 }],
             };
@@ -3354,7 +3291,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - beforeCurrent,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 }],
             };
@@ -3399,7 +3335,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - beforeCurrent,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 }],
             };
@@ -3454,7 +3389,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: end - now,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             });
 
@@ -3525,7 +3459,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - beforeCurrent,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 }],
             };
@@ -3570,7 +3503,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: end - now,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     // NOTE: EPGVirtualizer recomputes "current" from Date.now(); this fixture field is ignored here.
                     isCurrent: false,
                 }],
@@ -3609,7 +3541,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 0,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -3652,7 +3583,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - start,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -3701,7 +3631,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - beforeCurrent,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -3758,7 +3687,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - beforeCurrent,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -3822,7 +3750,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - beforeCurrent,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -3880,7 +3807,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - now,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -3933,7 +3859,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: end - now,
                         scheduleIndex: 0,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     },
                 ],
@@ -3989,7 +3914,6 @@ describe('EPGVirtualizer', () => {
                             remainingMs: end - start,
                             scheduleIndex: 0,
                             loopNumber: 0,
-                            streamDescriptor: null,
                             isCurrent: false,
                         },
                     ],
@@ -4015,7 +3939,6 @@ describe('EPGVirtualizer', () => {
                             remainingMs: end - start,
                             scheduleIndex: 0,
                             loopNumber: 0,
-                            streamDescriptor: null,
                             isCurrent: false,
                         },
                     ],
@@ -4044,7 +3967,6 @@ describe('EPGVirtualizer', () => {
                             remainingMs: end - start,
                             scheduleIndex: 0,
                             loopNumber: 0,
-                            streamDescriptor: null,
                             isCurrent: false,
                         },
                     ],
@@ -4098,7 +4020,6 @@ describe('EPGVirtualizer', () => {
                     remainingMs: 7200000,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: false,
                 }],
             });
@@ -4148,7 +4069,6 @@ describe('EPGVirtualizer', () => {
                         remainingMs: 1800000,
                         scheduleIndex: slot,
                         loopNumber: 0,
-                        streamDescriptor: null,
                         isCurrent: false,
                     });
                 }
@@ -4195,7 +4115,6 @@ describe('EPGVirtualizer', () => {
                 remainingMs: 1800000,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: false,
             };
             const schedules = new Map<string, ScheduleWindow>();

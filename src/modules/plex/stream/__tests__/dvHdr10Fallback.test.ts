@@ -1,7 +1,6 @@
 import {
     hasHdr10BaseLayer,
     inferHdr10BaseLayer,
-    isLetterboxAspectRatio,
     parseDolbyVisionProfileString,
     shouldApplyHdr10Fallback,
 } from '../policy/dvHdr10Fallback';
@@ -38,28 +37,6 @@ describe('dvHdr10Fallback', () => {
 
         it('returns false for unknown profile', () => {
             expect(hasHdr10BaseLayer(null, null, null)).toBe(false);
-        });
-    });
-
-    describe('isLetterboxAspectRatio', () => {
-        it('returns true for boundaries of scope', () => {
-            expect(isLetterboxAspectRatio(2.35)).toBe(true);
-            expect(isLetterboxAspectRatio(2.45)).toBe(true);
-        });
-
-        it('returns false for outside boundaries of scope', () => {
-            expect(isLetterboxAspectRatio(2.34)).toBe(false);
-            expect(isLetterboxAspectRatio(2.46)).toBe(false);
-        });
-
-        it('returns true for flat boundaries', () => {
-            expect(isLetterboxAspectRatio(1.82)).toBe(true);
-            expect(isLetterboxAspectRatio(1.88)).toBe(true);
-        });
-
-        it('returns false for outside flat boundaries', () => {
-            expect(isLetterboxAspectRatio(1.81)).toBe(false);
-            expect(isLetterboxAspectRatio(1.89)).toBe(false);
         });
     });
 
@@ -120,24 +97,25 @@ describe('dvHdr10Fallback', () => {
     });
 
     describe('shouldApplyHdr10Fallback', () => {
-        it('applies for MKV + DV + letterbox when smart mode', () => {
+        it('applies for MKV + DV with HDR10 base layer when smart mode', () => {
             const result = shouldApplyHdr10Fallback({
                 mode: 'smart',
                 container: 'mkv',
                 isDolbyVision: true,
-                doviProfile: '7',
-                aspectRatio: 2.39,
+                doviProfile: '8.1',
+                aspectRatio: 1.78,
             });
             expect(result.apply).toBe(true);
             expect(result.reason).toBe('smart');
+            expect(result.debugWhy).toBe('hdr10_base_layer');
         });
 
-        it('does not apply for MKV + DV + 16:9 when smart mode', () => {
+        it('does not apply for MKV + DV without HDR10 base layer when smart mode', () => {
             const result = shouldApplyHdr10Fallback({
                 mode: 'smart',
                 container: 'mkv',
                 isDolbyVision: true,
-                doviProfile: '7',
+                doviProfile: '5',
                 aspectRatio: 1.78,
             });
             expect(result.apply).toBe(false);
@@ -174,16 +152,16 @@ describe('dvHdr10Fallback', () => {
             expect(result.apply).toBe(false);
         });
 
-        it('falls back to width/height when aspectRatio is missing', () => {
+        it('does not require aspect ratio when smart mode has confident HDR10 base-layer evidence', () => {
             const result = shouldApplyHdr10Fallback({
                 mode: 'smart',
                 container: 'mkv',
                 isDolbyVision: true,
-                doviProfile: '7',
-                width: 3840,
-                height: 1607,
+                doviProfile: '8',
+                colorTrc: 'smpte2084',
             });
             expect(result.apply).toBe(true);
+            expect(result.debugWhy).toBe('hdr10_base_layer');
         });
     });
 

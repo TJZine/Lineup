@@ -1,5 +1,8 @@
 import type { StreamDescriptor } from '../../../modules/player';
-import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import type {
+    ScheduledProgram,
+    SchedulerState,
+} from '../../../modules/scheduler/scheduler';
 import {
     createEventBinder,
     createOverlayRuntimePolicyController,
@@ -11,7 +14,7 @@ import type { PriorityOneAssemblyInput } from '../priority-one/PriorityOneAssemb
 import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
 import { createTestEventSurface } from './eventSurfaceTestUtils';
 
-const makeProgram = (): ScheduledProgram =>
+const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgram =>
     ({
         item: {
             ratingKey: 'item-1',
@@ -25,9 +28,27 @@ const makeProgram = (): ScheduledProgram =>
         remainingMs: 60_000,
         scheduleIndex: 0,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: true,
+        ...overrides,
     } as unknown as ScheduledProgram);
+
+const makeSchedulerState = (
+    currentProgram: ScheduledProgram | null,
+    overrides: Partial<SchedulerState> = {}
+): SchedulerState =>
+    ({
+        channelId: 'channel-7',
+        isActive: false,
+        currentProgram,
+        nextProgram: null,
+        schedulePosition: {
+            loopNumber: currentProgram?.loopNumber ?? 0,
+            itemIndex: currentProgram?.scheduleIndex ?? 0,
+            offsetMs: currentProgram?.elapsedMs ?? 0,
+        },
+        lastSyncTime: 0,
+        ...overrides,
+    } as SchedulerState);
 
 const makeInput = (
     playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors>
@@ -39,6 +60,7 @@ const makeInput = (
         off: jest.fn(),
     };
     const scheduler = createTestEventSurface();
+    const schedulerState = makeSchedulerState(null);
     const playerEmitter = createTestEventSurface();
     const navigation = {
         getCurrentScreen: jest.fn().mockReturnValue('player'),
@@ -52,6 +74,7 @@ const makeInput = (
     return {
         modules: {
             scheduler: {
+                getState: jest.fn().mockImplementation(() => schedulerState),
                 on: scheduler.on,
                 off: scheduler.off,
             } as unknown as PriorityOneAssemblyInput['modules']['scheduler'],
@@ -219,6 +242,109 @@ describe('PriorityOneControllerCollaborators', () => {
         expect(input.uiRuntime.onProgramStartUiSideEffects).toHaveBeenCalledWith(program);
         expect(input.playerEvents.onPlayerStateChange).toHaveBeenCalled();
         expect(input.uiRuntime.showInfoBanner).toHaveBeenCalled();
+    });
+
+    it('keeps playback start current across same-occurrence scheduler rematerialization', async () => {
+        const program = makeProgram({
+            scheduledStartTime: 1_000,
+            scheduledEndTime: 61_000,
+        });
+        const rematerializedProgram = makeProgram({
+            scheduledStartTime: program.scheduledStartTime,
+            scheduledEndTime: program.scheduledEndTime,
+            scheduleIndex: program.scheduleIndex,
+            loopNumber: program.loopNumber,
+            elapsedMs: 5_000,
+            remainingMs: 55_000,
+            isCurrent: true,
+        });
+        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+            getCurrentProgramForPlayback: jest.fn().mockReturnValue(program),
+            setCurrentProgramForPlayback: jest.fn(),
+            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
+            setCurrentStreamDescriptor: jest.fn(),
+            getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+            setCurrentStreamDecision: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            setPendingNowPlayingChannelId: jest.fn(),
+            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+        };
+        const input = makeInput(playbackState);
+        let schedulerState = makeSchedulerState(program, {
+            isActive: true,
+        });
+        (
+            input.modules.scheduler as PriorityOneAssemblyInput['modules']['scheduler'] & {
+                getState: jest.Mock<ReturnType<PriorityOneAssemblyInput['modules']['scheduler']['getState']>, []>;
+            }
+        ).getState.mockImplementation(() => schedulerState);
+        (
+            input.playback.playbackRecovery.resolveStreamForProgram as jest.Mock
+        ).mockImplementation(async () => {
+            schedulerState = makeSchedulerState(rematerializedProgram, {
+                isActive: true,
+            });
+            return ({
+                id: 'stream-1',
+            } as unknown) as StreamDescriptor;
+        });
+
+        await createPlaybackStartController(input).handleProgramStart(program);
+
+        expect(input.uiRuntime.onStreamResolved).toHaveBeenCalled();
+        expect(input.modules.videoPlayer.loadStream).toHaveBeenCalled();
+        expect(input.modules.videoPlayer.play).toHaveBeenCalled();
+    });
+
+    it('aborts playback start when the scheduler advances to a different occurrence', async () => {
+        const program = makeProgram({
+            scheduledStartTime: 1_000,
+            scheduledEndTime: 61_000,
+        });
+        const nextOccurrence = makeProgram({
+            scheduledStartTime: 61_000,
+            scheduledEndTime: 121_000,
+            scheduleIndex: 1,
+            loopNumber: 0,
+        });
+        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+            getCurrentProgramForPlayback: jest.fn().mockReturnValue(program),
+            setCurrentProgramForPlayback: jest.fn(),
+            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
+            setCurrentStreamDescriptor: jest.fn(),
+            getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+            setCurrentStreamDecision: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            setPendingNowPlayingChannelId: jest.fn(),
+            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+        };
+        const input = makeInput(playbackState);
+        let schedulerState = makeSchedulerState(program, {
+            isActive: true,
+        });
+        (
+            input.modules.scheduler as PriorityOneAssemblyInput['modules']['scheduler'] & {
+                getState: jest.Mock<ReturnType<PriorityOneAssemblyInput['modules']['scheduler']['getState']>, []>;
+            }
+        ).getState.mockImplementation(() => schedulerState);
+        (
+            input.playback.playbackRecovery.resolveStreamForProgram as jest.Mock
+        ).mockImplementation(async () => {
+            schedulerState = makeSchedulerState(nextOccurrence, {
+                isActive: true,
+            });
+            return ({
+                id: 'stream-1',
+            } as unknown) as StreamDescriptor;
+        });
+
+        await createPlaybackStartController(input).handleProgramStart(program);
+
+        expect(input.uiRuntime.onStreamResolved).not.toHaveBeenCalled();
+        expect(input.modules.videoPlayer.loadStream).not.toHaveBeenCalled();
+        expect(input.modules.videoPlayer.play).not.toHaveBeenCalled();
     });
 
     it('creates a profile-switch cleanup controller that clears playback state through the assembly input', () => {

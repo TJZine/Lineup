@@ -1,11 +1,16 @@
 import type { AppError } from '../../../modules/lifecycle';
 import type { IVideoPlayer, StreamDescriptor } from '../../../modules/player';
-import { PlaybackRecoveryManager } from '../../../modules/player/PlaybackRecoveryManager';
+import { PlaybackRecoveryManager } from '../../../modules/player';
 import type { IPlexAuth } from '../../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../../modules/plex/discovery';
 import type { IPlexStreamResolver, StreamDecision } from '../../../modules/plex/stream';
 import type { ChannelConfig, IChannelManager, ResolvedChannelContent } from '../../../modules/scheduler/channel-manager';
-import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../modules/scheduler/scheduler';
+import {
+    buildScheduledProgramIdentityFromState,
+    type IChannelScheduler,
+    type ScheduledProgram,
+    type ScheduleConfig,
+} from '../../../modules/scheduler/scheduler';
 import type { IChannelTransitionOverlay } from '../../../modules/ui/channel-transition';
 import { ChannelTransitionCoordinator } from '../../../modules/ui/channel-transition';
 import { PLAYBACK_OPTIONS_MODAL_ID, PlaybackOptionsCoordinator, type IPlaybackOptionsModal, type PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
@@ -162,16 +167,12 @@ export function buildPlaybackOptionsCoordinatorInput(
         modules: {
             navigation: input.modules.navigation,
             videoPlayer: input.modules.videoPlayer,
-            scheduler: input.modules.scheduler,
         },
         overlays: {
             playbackOptionsModal: input.overlays.playbackOptionsModal,
         },
         stores: {
             subtitlePreferencesStore: input.stores.subtitlePreferencesStore,
-        },
-        playback: {
-            state: input.playback.state,
         },
         nowPlaying: input.nowPlaying,
     };
@@ -229,6 +230,8 @@ export function buildPlaybackRecovery(
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
         getCurrentProgramForPlayback: (): ScheduledProgram | null =>
             input.playback.state.getCurrentProgramForPlayback(),
+        getCurrentProgramIdentityForPlayback: () =>
+            buildScheduledProgramIdentityFromState(input.modules.scheduler.getState()),
         getCurrentStreamDescriptor: (): StreamDescriptor | null =>
             input.playback.state.getCurrentStreamDescriptor(),
         getCurrentStreamDecision: (): StreamDecision | null =>
@@ -266,10 +269,6 @@ export function buildPlaybackOptionsCoordinator(
         getNavigation: (): import('../../../modules/navigation').INavigationManager | null => input.modules.navigation,
         getPlaybackOptionsModal: (): IPlaybackOptionsModal | null => input.overlays.playbackOptionsModal,
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
-        getCurrentStreamDescriptor: (): StreamDescriptor | null =>
-            input.playback.state.getCurrentStreamDescriptor(),
-        getCurrentProgram: (): ScheduledProgram | null =>
-            input.modules.scheduler.getCurrentProgram() ?? input.playback.state.getCurrentProgramForPlayback(),
         requestBurnInSubtitle: (trackId: string, reason: string) =>
             playbackRecovery.attemptBurnInSubtitleForCurrentProgram(trackId, reason),
         notifyToast: (toast: ToastInput): void => notifyPlaybackToast(input, toast),

@@ -46,6 +46,29 @@ describe('fetchWithTimeoutCore', () => {
         await expect(rejection).resolves.toMatchObject({ name: 'AbortError' });
     });
 
+    it('propagates the upstream abort reason into the fetch signal', async () => {
+        const upstreamController = new AbortController();
+        const abortReason = new Error('subtitle request cancelled');
+        mockFetch.mockImplementation((_url: string, options?: RequestInit) => new Promise((_resolve, reject) => {
+            const signal = options?.signal as AbortSignal | undefined;
+            signal?.addEventListener(
+                'abort',
+                () => reject((signal as AbortSignal & { reason?: unknown }).reason),
+                { once: true }
+            );
+        }));
+
+        const request = fetchWithTimeoutCore({
+            url: 'http://example.test/core-upstream-abort-reason',
+            init: { method: 'GET' },
+            timeoutMs: 5_000,
+            upstreamSignal: upstreamController.signal,
+        });
+
+        upstreamController.abort(abortReason);
+        await expect(request).rejects.toBe(abortReason);
+    });
+
     it('keeps listener wiring and cleanup fail-open when upstream signal APIs throw', async () => {
         const upstreamController = new AbortController();
         const addEventListenerSpy = jest.spyOn(upstreamController.signal, 'addEventListener').mockImplementation(() => {

@@ -1,5 +1,5 @@
 model = "gpt-5.5"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 developer_instructions = """
 Own bounded planning work, not product-code implementation.
 Use write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.

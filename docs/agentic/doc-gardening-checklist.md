@@ -29,11 +29,11 @@
 - completed sections or standout archived plans are reviewed for updates to `docs/agentic/historical-plan-corpus-review.md`
 - run `npm run harness:ingestion` after archiving a completed section summary and during broader doc-gardening passes
 
-## Skill Mirror Checks
+## Skill Topology Checks
 
-- `.codex/skills` remains Lineup-only
-- `.agent/skills` still matches [`docs/agentic/skill-mirror-allowlist.txt`](./skill-mirror-allowlist.txt) after `scripts/sync_agent_skills.sh`
-- no repo-local skill drift has appeared between Codex source and Antigravity mirror expectations
+- `.agents/skills` remains the tracked repo-local skill home
+- no legacy singular-agent mirror or `.codex/skills` source has reappeared
+- repo-local skill references in the workflow docs, launchers, and verifier still point to `.agents/skills`
 
 ## Eval Review Checks
 

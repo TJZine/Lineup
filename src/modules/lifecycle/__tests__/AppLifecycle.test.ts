@@ -248,10 +248,13 @@ describe('AppLifecycle', () => {
                 savePromise = lifecycle.saveState();
             });
             expectConsoleWarn([
-                '[AppLifecycle] Final shutdown flush failed',
+                'Final shutdown flush failed',
                 expect.objectContaining({
-                    name: 'QuotaExceededError',
-                    message: 'Quota exceeded',
+                    subsystem: 'lifecycle',
+                    error: expect.objectContaining({
+                        name: 'QuotaExceededError',
+                        message: 'Quota exceeded',
+                    }),
                 }),
             ]);
 

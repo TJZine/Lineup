@@ -54,16 +54,19 @@ const wireLifecycleResumeHarness = (overrides: {
         tryHandleStreamResolverAuthError: (error): boolean =>
             overrides.playbackRecovery.tryHandleStreamResolverAuthError(error),
         tryHandleStreamResolverPermissionError: (): boolean => false,
+        attemptTranscodeFallbackForCurrentProgram: (): Promise<boolean> => Promise.resolve(false),
         handlePlaybackFailure: (context, error): void =>
             overrides.playbackRecovery.handlePlaybackFailure(context, error),
         logPlaybackStartFailure: (): void => undefined,
         markProgramStarting: (program): {
             programAtStart: ScheduledProgram;
+            programIdentityAtStart: null;
             shouldResetAutoShowInfoBannerOnAbort: boolean;
         } => {
             playbackState.setCurrentProgramForPlayback(program);
             return {
                 programAtStart: program,
+                programIdentityAtStart: null,
                 shouldResetAutoShowInfoBannerOnAbort: false,
             };
         },

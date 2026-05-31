@@ -1,6 +1,7 @@
 import {
     buildPlexSubtitleFetchAttempts,
     buildPlexSubtitleTranscodeUrl,
+    expandPlexSubtitleFetchAttemptVariants,
 } from '../policy/plexSubtitleFallbackPolicy';
 import { PLEX_TOKEN_HEADER, PLEX_TOKEN_QUERY_PARAM } from '../../shared/plexUrl';
 
@@ -35,6 +36,71 @@ describe('plexSubtitleFallbackPolicy', () => {
         expect(attempts[2]?.url.searchParams.get('download')).toBe('1');
         expect(attempts[3]?.url.searchParams.get('download')).toBe('1');
         expect(attempts[3]?.url.searchParams.get(PLEX_TOKEN_QUERY_PARAM)).toBeNull();
+    });
+
+    it('expands a non-token subtitle request to include a LAN HTTP retry candidate', () => {
+        const [attempt] = buildPlexSubtitleFetchAttempts(
+            new URL('https://10-0-0-1.plex.direct:32400/library/streams/1'),
+            {}
+        );
+
+        const requests = expandPlexSubtitleFetchAttemptVariants(
+            attempt!,
+            () => new URL('http://192.168.50.19:32400/library/streams/1')
+        );
+
+        expect(requests).toEqual([
+            expect.objectContaining({
+                variant: 'primary',
+                url: expect.objectContaining({ href: 'https://10-0-0-1.plex.direct:32400/library/streams/1' }),
+            }),
+            expect.objectContaining({
+                variant: 'lan_http',
+                url: expect.objectContaining({ href: 'http://192.168.50.19:32400/library/streams/1' }),
+            }),
+        ]);
+    });
+
+    it('keeps token-bearing HTTPS subtitle requests on secure origins only', () => {
+        const [attempt] = buildPlexSubtitleFetchAttempts(
+            new URL('https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token'),
+            { [PLEX_TOKEN_HEADER]: 'token' }
+        );
+
+        const requests = expandPlexSubtitleFetchAttemptVariants(
+            attempt!,
+            (url) => new URL(`http://192.168.50.19:32400${url.pathname}${url.search}`)
+        );
+
+        expect(requests).toEqual([
+            expect.objectContaining({
+                variant: 'primary',
+                url: expect.objectContaining({
+                    href: 'https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token',
+                }),
+            }),
+        ]);
+    });
+
+    it('keeps token-bearing HTTPS subtitle requests on secure origins even when the LAN candidate drops query params', () => {
+        const [attempt] = buildPlexSubtitleFetchAttempts(
+            new URL('https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token'),
+            {}
+        );
+
+        const requests = expandPlexSubtitleFetchAttemptVariants(
+            attempt!,
+            () => new URL('http://192.168.50.19:32400/library/streams/1')
+        );
+
+        expect(requests).toEqual([
+            expect.objectContaining({
+                variant: 'primary',
+                url: expect.objectContaining({
+                    href: 'https://10-0-0-1.plex.direct:32400/library/streams/1?X-Plex-Token=token',
+                }),
+            }),
+        ]);
     });
 
     it('builds a universal subtitle transcode url from a metadata path and applies Plex query params', () => {

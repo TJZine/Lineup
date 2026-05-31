@@ -69,8 +69,8 @@ describe('AppOrchestrator platform wiring suite', () => {
 
             expect(identity.detectPlatformVersion()).toBe('24.0');
             expect(warnSpy).toHaveBeenCalledWith(
-                '[webOSPlatformServices] Derived platform version from Chrome major',
-                { chromeMajor: 108, platformVersion: '24.0' }
+                'Derived webOS platform version from Chrome major',
+                { subsystem: 'webos-platform', chromeMajor: 108, platformVersion: '24.0' }
             );
             expect(identity.getDefaultPlexIdentity('client-id')['X-Plex-Platform-Version']).toBe('24.0');
         } finally {

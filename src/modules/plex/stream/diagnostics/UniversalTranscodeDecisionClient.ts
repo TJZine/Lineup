@@ -1,6 +1,8 @@
 import { fetchWithTimeout } from '../../shared/fetchWithTimeout';
 import type { StreamDecision, HlsOptions } from '../contracts/types';
 
+type ParsedStreamDecision = NonNullable<NonNullable<StreamDecision['serverDecision']>['streams']>[number];
+
 interface UniversalTranscodeDecisionClientConfig {
     getAuthHeaders: () => Record<string, string>;
     getTranscodeUrl: (itemKey: string, options: HlsOptions) => string;
@@ -101,14 +103,18 @@ export class UniversalTranscodeDecisionClient {
                     transcode?.getAttribute('subtitleDecision') ??
                     container?.getAttribute('subtitleDecision') ??
                     undefined;
+                const streams = Array.from(doc.querySelectorAll('Stream'))
+                    .map((stream) => this._parseStreamDecisionElement(stream))
+                    .filter((stream): stream is ParsedStreamDecision => stream !== null);
 
-                const result: Record<string, string> = {};
+                const result: Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'> = {};
                 if (decisionCode) result.decisionCode = decisionCode;
                 if (decisionText) result.decisionText = decisionText;
                 if (videoDecision) result.videoDecision = videoDecision;
                 if (audioDecision) result.audioDecision = audioDecision;
                 if (subtitleDecision) result.subtitleDecision = subtitleDecision;
-                return result as Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'>;
+                if (streams.length > 0) result.streams = streams;
+                return result;
             }
         } catch {
             // Fall through to lightweight attribute parsing.
@@ -144,13 +150,64 @@ export class UniversalTranscodeDecisionClient {
         const audioDecision = attr('audioDecision');
         const subtitleDecision = attr('subtitleDecision');
 
-        const result: Record<string, string> = {};
+        const streams = this._parseStreamDecisionAttributes(raw);
+        const result: Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'> = {};
         if (decisionCode) result.decisionCode = decisionCode;
         if (decisionText) result.decisionText = decisionText;
         if (videoDecision) result.videoDecision = videoDecision;
         if (audioDecision) result.audioDecision = audioDecision;
         if (subtitleDecision) result.subtitleDecision = subtitleDecision;
-        return result as Omit<NonNullable<StreamDecision['serverDecision']>, 'fetchedAt'>;
+        if (streams.length > 0) result.streams = streams;
+        return result;
+    }
+
+    private _parseStreamDecisionElement(
+        stream: Element
+    ): ParsedStreamDecision | null {
+        const id = stream.getAttribute('id') ?? undefined;
+        const rawStreamType = stream.getAttribute('streamType');
+        const streamType = rawStreamType === '1' || rawStreamType === '2' || rawStreamType === '3'
+            ? Number(rawStreamType) as 1 | 2 | 3
+            : undefined;
+        const decision = stream.getAttribute('decision') ?? undefined;
+        if (!id && streamType === undefined && !decision) {
+            return null;
+        }
+        return {
+            ...(id ? { id } : {}),
+            ...(streamType !== undefined ? { streamType } : {}),
+            ...(decision ? { decision } : {}),
+        };
+    }
+
+    private _parseStreamDecisionAttributes(
+        raw: string
+    ): NonNullable<NonNullable<StreamDecision['serverDecision']>['streams']> {
+        const streams: NonNullable<NonNullable<StreamDecision['serverDecision']>['streams']> = [];
+        const streamTagPattern = /<Stream\b[^>]*>/g;
+        let match: RegExpExecArray | null;
+        while ((match = streamTagPattern.exec(raw)) !== null) {
+            const tag = match[0] ?? '';
+            const attr = (name: string): string | undefined => {
+                const attrMatch = new RegExp(`\\b${name}="([^"]*)"`).exec(tag);
+                return attrMatch?.[1];
+            };
+            const id = attr('id');
+            const rawStreamType = attr('streamType');
+            const streamType = rawStreamType === '1' || rawStreamType === '2' || rawStreamType === '3'
+                ? Number(rawStreamType) as 1 | 2 | 3
+                : undefined;
+            const decision = attr('decision');
+            if (!id && streamType === undefined && !decision) {
+                continue;
+            }
+            streams.push({
+                ...(id ? { id } : {}),
+                ...(streamType !== undefined ? { streamType } : {}),
+                ...(decision ? { decision } : {}),
+            });
+        }
+        return streams;
     }
 
     private _hasParserError(doc: Document): boolean {
@@ -161,4 +218,48 @@ export class UniversalTranscodeDecisionClient {
             doc.getElementsByTagNameNS(parserErrorNamespace, 'parsererror').length > 0
         );
     }
+}
+
+export function isSubtitleBurnConfirmedByServerDecision(
+    request: NonNullable<StreamDecision['transcodeRequest']>,
+    serverDecision: NonNullable<StreamDecision['serverDecision']>
+): boolean {
+    if (request.subtitleMode !== 'burn' || !request.subtitleStreamId) {
+        return false;
+    }
+
+    return getSubtitleStreamServerDecision(
+        serverDecision,
+        request.subtitleStreamId
+    ) === 'burn';
+}
+
+export function getSubtitleStreamServerDecision(
+    serverDecision: NonNullable<StreamDecision['serverDecision']> | null | undefined,
+    subtitleStreamId: string | null | undefined
+): string | null {
+    if (!serverDecision || !subtitleStreamId) {
+        return null;
+    }
+
+    const selectedSubtitleDecision = serverDecision.streams?.find((stream) =>
+        stream.streamType === 3 &&
+        stream.id === subtitleStreamId
+    );
+    return selectedSubtitleDecision?.decision ?? null;
+}
+
+export function applyServerDecisionToStreamDecision(
+    decision: StreamDecision,
+    serverDecision: NonNullable<StreamDecision['serverDecision']>
+): void {
+    decision.serverDecision = serverDecision;
+    if (!decision.subtitleBurnIn || !decision.transcodeRequest) {
+        return;
+    }
+
+    decision.subtitleBurnIn.confirmed = isSubtitleBurnConfirmedByServerDecision(
+        decision.transcodeRequest,
+        serverDecision
+    );
 }

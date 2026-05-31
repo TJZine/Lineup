@@ -3,7 +3,13 @@ import type {
     PlaybackError,
     StreamDescriptor,
 } from '../../../modules/player';
-import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import {
+    buildScheduledProgramIdentity,
+    buildScheduledProgramIdentityFromState,
+    scheduledProgramIdentitiesMatch,
+    type ScheduledProgram,
+    type ScheduledProgramIdentity,
+} from '../../../modules/scheduler/scheduler';
 import {
     OrchestratorEventBinder,
     type OrchestratorEventBinderDeps,
@@ -43,13 +49,16 @@ function resolvePlaybackStartStream(
 }
 
 function markProgramStarting(
+    scheduler: PriorityOneAssemblyInput['modules']['scheduler'],
     playbackState: PriorityOneAssemblyInput['playback']['playbackState'],
     program: ScheduledProgram
 ): {
     programAtStart: ScheduledProgram;
+    programIdentityAtStart: ScheduledProgramIdentity | null;
     shouldResetAutoShowInfoBannerOnAbort: boolean;
 } {
     playbackState.setCurrentProgramForPlayback(program);
+    const schedulerState = scheduler.getState();
     const shouldResetAutoShowInfoBannerOnAbort =
         playbackState.getPendingNowPlayingChannelId() !== null;
 
@@ -60,8 +69,32 @@ function markProgramStarting(
 
     return {
         programAtStart: program,
+        programIdentityAtStart: schedulerState.isActive
+            ? buildScheduledProgramIdentity(schedulerState.channelId, program)
+            : null,
         shouldResetAutoShowInfoBannerOnAbort,
     };
+}
+
+function isPlaybackStartProgramStillCurrent(
+    scheduler: PriorityOneAssemblyInput['modules']['scheduler'],
+    playbackState: PriorityOneAssemblyInput['playback']['playbackState'],
+    programAtStart: ScheduledProgram,
+    programIdentityAtStart: ScheduledProgramIdentity | null
+): boolean {
+    const schedulerState = scheduler.getState();
+    if (schedulerState.isActive) {
+        if (programIdentityAtStart) {
+            return scheduledProgramIdentitiesMatch(
+                buildScheduledProgramIdentityFromState(schedulerState),
+                programIdentityAtStart
+            );
+        }
+
+        return schedulerState.currentProgram === programAtStart;
+    }
+
+    return playbackState.getCurrentProgramForPlayback() === programAtStart;
 }
 
 function createOverlayRuntimePolicyDeps(
@@ -111,6 +144,8 @@ function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStart
             input.playback.playbackRecovery.tryHandleStreamResolverAuthError?.(error) ?? false,
         tryHandleStreamResolverPermissionError: (error): boolean =>
             input.playback.playbackRecovery.tryHandleStreamResolverPermissionError?.(error) ?? false,
+        attemptTranscodeFallbackForCurrentProgram: (reason): Promise<boolean> =>
+            input.playback.playbackRecovery.attemptTranscodeFallbackForCurrentProgram?.(reason) ?? Promise.resolve(false),
         handlePlaybackFailure: (context, error): void => {
             input.playback.playbackRecovery.handlePlaybackFailure?.(context, error);
         },
@@ -118,9 +153,14 @@ function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStart
             input.uiRuntime.onPlaybackStartFailure(error);
         },
         markProgramStarting: (program): ReturnType<PlaybackStartControllerDeps['markProgramStarting']> =>
-            markProgramStarting(input.playback.playbackState, program),
-        isProgramStillCurrent: (program): boolean =>
-            input.playback.playbackState.getCurrentProgramForPlayback() === program,
+            markProgramStarting(input.modules.scheduler, input.playback.playbackState, program),
+        isProgramStillCurrent: (program, programIdentityAtStart): boolean =>
+            isPlaybackStartProgramStillCurrent(
+                input.modules.scheduler,
+                input.playback.playbackState,
+                program,
+                programIdentityAtStart
+            ),
         handleProgramStartUiSideEffects: (program): void => {
             input.uiRuntime.onProgramStartUiSideEffects(program);
         },

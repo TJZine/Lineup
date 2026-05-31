@@ -49,6 +49,10 @@ describe('SubtitlePreferencesStore', () => {
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBe('en');
         expect(store.readSubtitleLanguageAndClean()).toBe('en');
 
+        store.writeSubtitleLanguage(' eng ');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBe('en');
+        expect(store.readSubtitleLanguageAndClean()).toBe('en');
+
         localStorage.setItem(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE, '   ');
         expect(store.readSubtitleLanguageAndClean()).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBeNull();

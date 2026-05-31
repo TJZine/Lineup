@@ -37,7 +37,7 @@ This does not require “everything in the checklist is complete.” It does req
 - remove or archive cleanup-only wording that is no longer useful
 - shrink overlapping docs further once the architecture is stable
 - promote the eval roadmap into a repeatable review/eval routine
-- refresh the mirrored `.agent/skills` set based on actual usage
+- keep the tracked `.agents/skills` set aligned with actual usage
 
 ## Current Readiness Snapshot (2026-03-08)
 
@@ -89,10 +89,10 @@ Immediate pre-Phase-2 actions:
 - track failures that indicate workflow/skill drift
 - use failures to improve prompts/skills/docs before adding more process
 
-### 4. Prune The Antigravity Mirror
+### 4. Prune Repo-Local Skills
 
-- remove mirrored global skills from `.agent/skills` if they are not actually useful in practice
-- keep parity only for the skills Antigravity meaningfully benefits from
+- remove repo-local skills from `.agents/skills` if they are not actually useful in practice
+- keep only the skills that materially improve Codex and Antigravity work in this repo
 
 ## Explicit Review Checkpoint
 
@@ -102,7 +102,7 @@ Status as of 2026-03-08: this checkpoint has already triggered and should now be
 
 That checkpoint must decide:
 
-- whether the allowlisted Antigravity mirror still needs every mirrored global skill
+- whether the tracked `.agents/skills` set still contains only skills that materially improve repo work
 - whether the risk-tiered orchestration policy can be tightened further
 - which cleanup-era skill wording should become steady-state invariant wording
 - whether clean-checkout verification and eval coverage are strong enough to let the repo remove cleanup-era wording without losing safety

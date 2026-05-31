@@ -19,7 +19,6 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         remainingMs: 60_000,
         scheduleIndex: 0,
         loopNumber: 0,
-        streamDescriptor: null,
         isCurrent: false,
         ...overrides,
     } as ScheduledProgram);
@@ -46,10 +45,12 @@ const makeSetup = (
         resetPlaybackFailureGuard: jest.fn(),
         tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
         tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
+        attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
         handlePlaybackFailure: jest.fn(),
         logPlaybackStartFailure: jest.fn(),
         markProgramStarting: jest.fn((program: ScheduledProgram) => ({
             programAtStart: program,
+            programIdentityAtStart: null,
             shouldResetAutoShowInfoBannerOnAbort: false,
         })),
         isProgramStillCurrent: jest.fn().mockReturnValue(true),
@@ -142,12 +143,57 @@ describe('PlaybackStartController', () => {
         expect(videoPlayer.play).toHaveBeenCalledTimes(1);
     });
 
+    it('suppresses stale in-flight start rejection after a newer program arrives', async () => {
+        const programA = makeProgram();
+        const programB = makeProgram({
+            scheduleIndex: 1,
+            scheduledStartTime: 60_000,
+            scheduledEndTime: 120_000,
+        });
+        let notifyFirstLoadStarted: () => void = () => undefined;
+        const firstLoadStarted = new Promise<void>((resolve) => {
+            notifyFirstLoadStarted = resolve;
+        });
+        let rejectFirstLoad: (error: Error) => void = () => undefined;
+        const firstLoad = new Promise<void>((_resolve, reject) => {
+            rejectFirstLoad = reject;
+        });
+        const videoPlayer: TestVideoPlayer = {
+            loadStream: jest.fn()
+                .mockImplementationOnce(async () => {
+                    notifyFirstLoadStarted();
+                    await firstLoad;
+                })
+                .mockResolvedValueOnce(undefined),
+            play: jest.fn().mockResolvedValue(undefined),
+        };
+        const { controller, deps } = makeSetup({
+            getVideoPlayer: jest.fn(() => videoPlayer),
+            resolveStreamForProgram: jest.fn()
+                .mockResolvedValueOnce({ url: 'https://example.invalid/a.m3u8' } as unknown as StreamDescriptor)
+                .mockResolvedValueOnce({ url: 'https://example.invalid/b.m3u8' } as unknown as StreamDescriptor),
+        });
+
+        const firstPromise = controller.handleProgramStart(programA);
+        await firstLoadStarted;
+        await controller.handleProgramStart(programB);
+        const staleError = new Error('stale direct load failed');
+        rejectFirstLoad(staleError);
+        await firstPromise;
+
+        expect(videoPlayer.play).toHaveBeenCalledTimes(1);
+        expect(deps.logPlaybackStartFailure).not.toHaveBeenCalledWith(staleError);
+        expect(deps.attemptTranscodeFallbackForCurrentProgram).not.toHaveBeenCalledWith('programStart');
+        expect(deps.handlePlaybackFailure).not.toHaveBeenCalledWith('programStart', staleError);
+    });
+
     it('clears the pending auto-show flag when an aborted start was carrying it', async () => {
         const program = makeProgram();
         const { controller, deps, videoPlayer } = makeSetup({
             resolveStreamForProgram: jest.fn().mockResolvedValue(null),
             markProgramStarting: jest.fn((currentProgram: ScheduledProgram) => ({
                 programAtStart: currentProgram,
+                programIdentityAtStart: null,
                 shouldResetAutoShowInfoBannerOnAbort: true,
             })),
         });
@@ -157,6 +203,30 @@ describe('PlaybackStartController', () => {
         expect(deps.clearAutoShowInfoBannerAfterAbortedStart).toHaveBeenCalledTimes(1);
         expect(videoPlayer.play).not.toHaveBeenCalled();
         expect(deps.handlePlaybackFailure).not.toHaveBeenCalled();
+    });
+
+    it('attempts transcode fallback before surfacing a playback start failure', async () => {
+        const loadError = new Error('direct load failed');
+        const { controller, deps, videoPlayer } = makeSetup();
+        (videoPlayer.loadStream as jest.Mock).mockRejectedValueOnce(loadError);
+        deps.attemptTranscodeFallbackForCurrentProgram.mockResolvedValueOnce(true);
+
+        await controller.handleProgramStart(makeProgram());
+
+        expect(deps.logPlaybackStartFailure).toHaveBeenCalledWith(loadError);
+        expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith('programStart');
+        expect(deps.handlePlaybackFailure).not.toHaveBeenCalled();
+    });
+
+    it('surfaces playback start failure when guarded transcode fallback does not apply', async () => {
+        const loadError = new Error('direct load failed');
+        const { controller, deps, videoPlayer } = makeSetup();
+        (videoPlayer.loadStream as jest.Mock).mockRejectedValueOnce(loadError);
+
+        await controller.handleProgramStart(makeProgram());
+
+        expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith('programStart');
+        expect(deps.handlePlaybackFailure).toHaveBeenCalledWith('programStart', loadError);
     });
 
 });

@@ -112,6 +112,39 @@ Pass conditions:
 - uses `explorer_fallback` / `monitor_fallback` only when primary spark roles are unavailable or constrained
 - avoids unnecessary worker fan-out, deep nesting, and unnecessary waiting
 
+### 8. Model-Role Routing And Cost Effectiveness
+
+Prompt shape:
+
+- present small planning, implementation, and review decisions where heavier surfaces are tempting but not always justified
+- require the operator to record ROLE / MODEL / REASONING_EFFORT, task family, tier, risk score, verification result, review finding counts, rework rounds, wall time, and observed token/credit/cost data when available
+- keep model identity and reasoning effort as prompt-driven/operator-recorded evidence, not mechanically verified telemetry
+
+Pass conditions:
+
+- ordinary Tier 2 planning uses `planner` on the `gpt-5.5` medium reasoning surface
+- Tier 3, hotspot, priority-exit, or unresolved-seam planning escalates to `planner_deep`
+- GPT-5.4 xhigh-style surfaces are used for plan critique, maintainability review, or challenge passes rather than default authoritative planning
+- routine bounded implementation uses `worker`; `worker_54_high` is reserved for explicitly eligible exact units with cheap direct verification and stop/escalation rules
+- normal correctness review uses `reviewer`, maintainability/code-health review uses `maintainability_reviewer`, and hotspot/boundary/security-adjacent review uses `architecture_reviewer`
+- no extra roles or sidecars are added without concrete evidence that they improve outcome quality
+
+### 9. Staged A/B Comparisons
+
+Comparison shape:
+
+- run exact implementation units with `worker_54_high` versus `worker`
+- run matched planning surfaces with `planner` medium versus `planner_deep` xhigh
+- run maintainability/code-health diffs with `maintainability_reviewer` versus general `reviewer`
+- run hotspot/boundary diffs with `architecture_reviewer` versus general `reviewer`
+
+Pass conditions:
+
+- compare accepted findings, blocking findings, rework rounds, verification outcomes, wall time, and observed cost/credit data
+- use the lighter role by default when quality is equivalent
+- justify the heavier role only when it materially improves accepted findings, reduces rework, or catches blocking risk the lighter role missed
+- keep raw transcripts and comparison artifacts local-only by default; track only short durable summaries when the result changes workflow policy
+
 ## Priority 4 Expansion Set
 
 Use the archived Priority 4 section and the P4 addendum in [`docs/agentic/historical-plan-corpus-review.md`](./historical-plan-corpus-review.md) to extend the eval surface when validating large-UI decomposition behavior.
@@ -239,6 +272,7 @@ Pass conditions:
 - In the baseline summary, record whether Codanna fallback was used and any deviations from fresh-session policy.
 - Capture what the agent missed and update workflow docs or skills only when the miss is recurring.
 - Run prompt `19-multi-agent-role-selection-and-delegation-discipline` whenever tracked multi-agent role guidance or `.codex/config.toml` role declarations change materially.
+- Run prompts `21-model-role-routing-cost-effectiveness`, `22-planner-escalation-and-plan-critique-boundaries`, and/or `23-reviewer-specialization-effectiveness` whenever tracked role/model routing, reasoning-effort guidance, or cost-effectiveness policy changes materially.
 - Keep eval prompt definitions tracked, but keep most eval baseline outputs local-only unless one is intentionally promoted as a durable reference.
 
 ## Promotion To Phase 2

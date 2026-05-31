@@ -6,17 +6,16 @@
 - workflow routing in [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../AGENTIC_DEV_WORKFLOW.md)
 - skill topology in [`docs/agentic/skill-strategy.md`](../../skill-strategy.md)
 - feature prompt routing in [`docs/agentic/session-prompts/feature-plan.md`](../../session-prompts/feature-plan.md), [`docs/agentic/session-prompts/feature-implement.md`](../../session-prompts/feature-implement.md), and [`docs/agentic/session-prompts/feature-review.md`](../../session-prompts/feature-review.md)
-- mirror allowlist in [`docs/agentic/skill-mirror-allowlist.txt`](../../skill-mirror-allowlist.txt)
-- mirror sync script in [`scripts/sync_agent_skills.sh`](../../../../scripts/sync_agent_skills.sh)
-- TV UI pairing rules in [`.codex/skills/ui-composition-patterns/SKILL.md`](../../../../.codex/skills/ui-composition-patterns/SKILL.md)
+- tracked skill topology in [`.agents/skills/`](../../../../.agents/skills/)
+- TV UI pairing rules in [`.agents/skills/ui-composition-patterns/SKILL.md`](../../../../.agents/skills/ui-composition-patterns/SKILL.md)
 
 ## Intent
 
-Test whether the workflow and prompt templates route UI requests to the correct global UI design skill, and whether Antigravity mirrors the correct global skills.
+Test whether the workflow and prompt templates route UI requests to the correct global UI design skill, and whether repo-local skills remain discoverable from the tracked `.agents/skills/` topology.
 
 ## Prompt
 
-Adversarially review the tracked repo workflow surfaces for skill routing and mirroring. Treat contradictions across tracked docs or prompt templates as failures, not as tie-breakers.
+Adversarially review the tracked repo workflow surfaces for skill routing and skill topology. Treat contradictions across tracked docs or prompt templates as failures, not as tie-breakers.
 
 1) Validate the routing boundary is explicit and non-overlapping:
    - `interface-design` is used for product interfaces (dashboards/admin/settings/tools/data-heavy UI)
@@ -24,14 +23,14 @@ Adversarially review the tracked repo workflow surfaces for skill routing and mi
    - ambiguity is treated as a stop condition / clarifying-question trigger, not a guess
    - every tracked routing surface agrees on that split; no tracked doc defaults all UI creation/redesign to `frontend-design`
 
-2) Validate the mirroring mechanism is correct and reproducible:
-   - `docs/agentic/skill-mirror-allowlist.txt` includes both `global:frontend-design` and `global:interface-design`
-   - `scripts/sync_agent_skills.sh` will fail loudly if a pinned global skill is missing
-   - the local skill mirror produced by the sync contains the expected frontend/interface design skill copies with `SKILL.md` and `LICENSE.txt`
-   - the verification flow does not leave tracked mirror churn behind (`git status --porcelain` stays clean for tracked files)
+2) Validate the skill topology is correct and reproducible:
+   - repo-local Lineup skills live under `.agents/skills/`
+   - the legacy singular-agent mirror and other obsolete repo-local skill-source directories are not treated as active repo skill sources
+   - global UI skills are referenced as global skills, not copied into the repo as Lineup-owned duplicates
+   - the verification flow does not leave tracked skill-topology churn behind (`git status --porcelain` stays clean for tracked files)
 
 3) Validate Lineup UI work still layers TV constraints correctly:
-   - `.codex/skills/ui-composition-patterns/SKILL.md` pairs with the correct global UI skill and still points to `docs/design/ui-design-language.md`
+   - `.agents/skills/ui-composition-patterns/SKILL.md` pairs with the correct global UI skill and still points to `docs/design/ui-design-language.md`
 
 Report findings ordered by severity. If you find a routing ambiguity, propose a concrete doc or prompt-template patch to remove it.
 
@@ -42,22 +41,20 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 
 ## Expected Codanna Behavior
 
-- run at least two targeted `search_documents` queries with concrete anchors for routing and mirroring surfaces
+- run at least two targeted `search_documents` queries with concrete anchors for routing and skill-topology surfaces
 - if the top Codanna hits do not include the target files, explicitly log Codanna as insufficient and fall back to `rg`
 
 ## Expected Evidence Commands
 
-- Codanna-first repo-doc discovery (example query): `skill mirror allowlist interface-design frontend-design`
+- Codanna-first repo-doc discovery (example query): `skill topology .agents/skills interface-design frontend-design`
 - Codanna-first routing query (example query): `feature-plan ui-composition-patterns interface-design frontend-design`
-- Fallback grep: `rg -n "\\b(frontend-design|interface-design)\\b" agents.md docs .codex/skills -S`
+- Fallback grep: `rg -n "\\b(frontend-design|interface-design)\\b" agents.md docs .agents/skills -S`
 - `sed -n '1,80p' agents.md`
 - `sed -n '20,60p' docs/AGENTIC_DEV_WORKFLOW.md`
 - `sed -n '70,95p' docs/agentic/skill-strategy.md`
-- `sed -n '1,120p' docs/agentic/skill-mirror-allowlist.txt`
-- `sed -n '1,140p' scripts/sync_agent_skills.sh`
-- `sed -n '1,60p' .codex/skills/ui-composition-patterns/SKILL.md`
-- prerequisite: refresh the local skill mirror once before running this eval; do not run `scripts/sync_agent_skills.sh` as part of the eval itself
-- confirm the refreshed local mirror contains the expected frontend/interface design skill copies with `SKILL.md` and `LICENSE.txt`
+- `git ls-files '.agents/skills/**/SKILL.md' | sort`
+- `test -z "$(git ls-files .agent)"`
+- `sed -n '1,60p' .agents/skills/ui-composition-patterns/SKILL.md`
 - `git status --porcelain` (must not show tracked changes introduced by the verification flow)
 
 ## Expected Verification
@@ -79,7 +76,7 @@ Report findings ordered by severity. If you find a routing ambiguity, propose a 
 ## Fail Conditions
 
 - any tracked workflow or prompt surface still routes all UI creation/redesign to `frontend-design` instead of the product-vs-marketing split
-- `frontend-design` or `interface-design` is missing from the mirror allowlist or from the refreshed local mirror
-- `.codex/skills/ui-composition-patterns/SKILL.md` still hard-codes `frontend-design` as the only pairing
+- `frontend-design` or `interface-design` is treated as a Lineup-owned repo-local duplicate instead of a global skill
+- `.agents/skills/ui-composition-patterns/SKILL.md` still hard-codes `frontend-design` as the only pairing
 - review omits the required `Evidence` section, or claims success without showing the evidence commands/tools and observed results
-- the eval depends on mutating local-only mirror output during the eval run, or treats local mirror artifacts as tracked deliverables
+- the eval depends on mutating local-only mirror output during the eval run, or treats the legacy singular-agent mirror or another obsolete repo-local skill-source directory as an active repo skill source

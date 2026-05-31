@@ -13,6 +13,7 @@ import type { ThemeName } from '../../../modules/ui/theme';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ModuleStatus, OrchestratorConfig } from '../../orchestrator/contracts/OrchestratorTypes';
+import type { PlaybackInfoSnapshot } from '../../orchestrator/runtime/OrchestratorPlaybackInfoSnapshot';
 import type { BlockingErrorOverlayAction } from '../chrome/AppBlockingErrorOverlayPresenter';
 import type { ToastInput } from '../../../shared/toast';
 import type { IDisposable } from '../../../utils/interfaces';
@@ -79,77 +80,7 @@ export interface AppShellSettingsRuntimePort {
     setTheme(theme: ThemeName): void;
 }
 
-export interface AppShellPlaybackInfoSnapshot {
-    channel: { id: string; number: number; name: string } | null;
-    program: {
-        itemKey: string;
-        title: string;
-        fullTitle: string;
-        type: string;
-        scheduledStartTime: number;
-        scheduledEndTime: number;
-        elapsedMs: number;
-        remainingMs: number;
-    } | null;
-    stream: {
-        protocol: string;
-        mimeType: string;
-        isDirectPlay: boolean;
-        isTranscoding: boolean;
-        container: string;
-        videoCodec: string;
-        audioCodec: string;
-        subtitleDelivery: string;
-        bitrate: number;
-        width: number;
-        height: number;
-        sessionId: string;
-        selectedAudio: {
-            id: string;
-            codec: string | null | undefined;
-            channels?: number;
-            language?: string;
-            title?: string;
-            default?: boolean;
-        } | null;
-        selectedSubtitle: {
-            id: string;
-            codec: string | null | undefined;
-            language?: string;
-            title?: string;
-            format?: string;
-            default?: boolean;
-        } | null;
-        directPlay?: {
-            allowed: boolean;
-            reasons: string[];
-        } | undefined;
-        audioFallback?: {
-            fromCodec: string;
-            toCodec: string;
-            reason: string;
-        } | undefined;
-        source?: {
-            container: string;
-            videoCodec: string;
-            audioCodec: string;
-            width: number;
-            height: number;
-            bitrate: number;
-        } | undefined;
-        transcodeRequest?: {
-            sessionId: string;
-            maxBitrate: number;
-            audioStreamId?: string;
-        } | undefined;
-        serverDecision?: {
-            videoDecision?: string;
-            audioDecision?: string;
-            subtitleDecision?: string;
-            decisionText?: string;
-        } | undefined;
-    } | null;
-}
+export type AppShellPlaybackInfoSnapshot = PlaybackInfoSnapshot;
 
 export interface AppShellDiagnosticsRuntimePort {
     toggleServerSelect(): void;

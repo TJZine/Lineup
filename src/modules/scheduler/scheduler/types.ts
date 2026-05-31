@@ -9,9 +9,6 @@ export type SchedulerPlaybackMode = Exclude<
     'random'
 >;
 
-import type { StreamDescriptor } from '../../player/types';
-export type { StreamDescriptor };
-
 export interface ScheduleConfig {
     channelId: string;
     anchorTime: number;
@@ -30,7 +27,6 @@ export interface ScheduledProgram {
     remainingMs: number;
     scheduleIndex: number;
     loopNumber: number;
-    streamDescriptor: StreamDescriptor | null;
     isCurrent: boolean;
 }
 

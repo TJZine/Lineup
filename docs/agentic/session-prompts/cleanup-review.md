@@ -2,10 +2,12 @@
 
 Use this prompt for adversarial review of a cleanup artifact from any orchestration tier.
 
+Run normal cleanup review with the read-only `reviewer` role. Route code-health, slop, file-shape, test-brittleness, or maintainability-only review to `maintainability_reviewer`; route hotspot, owner-seam, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contract, priority-exit, or security-adjacent architecture risk to `architecture_reviewer`.
+
 ## Read Order
 
-1. [`agents.md`](../../../agents.md)
-2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. [`agents.md`](../../../agents.md)
 3. the artifact being reviewed
 4. supporting standards that apply:
    - [`docs/agentic/plan-authoring-standard.md#universal-plan-core`](../plan-authoring-standard.md#universal-plan-core) and [`docs/agentic/plan-authoring-standard.md#cleanup-overlay`](../plan-authoring-standard.md#cleanup-overlay) for cleanup plan review

@@ -4,8 +4,7 @@
 import { INFO_BANNER_AUTO_HIDE_MS, PlayerOsdCoordinator } from '../PlayerOsdCoordinator';
 import type { IPlayerOsdOverlay } from '../interfaces';
 import type { INavigationManager } from '../../../navigation';
-import type { IVideoPlayer } from '../../../player';
-import type { AudioTrack, PlaybackState, SubtitleTrack } from '../../../player/types';
+import type { AudioTrack, IVideoPlayer, PlaybackState, SubtitleTrack } from '../../../player';
 import type { ChannelConfig } from '../../../scheduler/channel-manager';
 import type { ScheduledProgram } from '../../../scheduler/scheduler';
 import type { NowPlayingDisplayStore } from '../../../settings/NowPlayingDisplayStore';
@@ -61,7 +60,6 @@ const makeProgram = (): ScheduledProgram => ({
     remainingMs: 90_000,
     scheduleIndex: 0,
     loopNumber: 0,
-    streamDescriptor: null,
     isCurrent: true,
 });
 

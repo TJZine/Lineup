@@ -55,6 +55,11 @@ import {
 } from '../shared/plexUrl';
 import { createPlexConsoleLogger } from '../shared/plexLogging';
 import { enrichLibrarySectionCounts } from './LibraryCountEnrichment';
+import {
+    buildFetchRequestInit,
+    classifyFetchError,
+    classifyFetchResponse,
+} from './PlexLibraryFetchPolicy';
 
 // Re-export for consumers
 export { PlexLibraryError } from './PlexLibraryError';
@@ -219,16 +224,6 @@ const resolveRequestPolicy = (profile: PrivateRequestProfile = 'default'): {
         maxTimeoutRetries: PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES,
     };
 };
-
-function describeTopLevelJsonValue(value: unknown): string {
-    if (value === null) {
-        return 'null';
-    }
-    if (Array.isArray(value)) {
-        return 'an array';
-    }
-    return typeof value;
-}
 
 export class PlexLibrary implements IPlexLibrary {
     private readonly _config: PlexLibraryConfig;
@@ -1021,36 +1016,12 @@ export class PlexLibrary implements IPlexLibrary {
                     }
                     externalSignal.addEventListener('abort', onExternalAbort, { once: true });
                 }
-                const optionsWithoutSignal: RequestInit = { ...options };
-                delete (optionsWithoutSignal as { signal?: AbortSignal | null }).signal;
-
-                // Plex has started warning that `X-Plex-Container-Size` must be provided as a header.
-                // Lineup historically provides paging via query params; mirror those values as headers
-                // to avoid future 400s while keeping existing URL construction unchanged.
-                const pagingHeaders: Record<string, string> = {};
-                try {
-                    const u = new URL(url);
-                    const start = u.searchParams.get('X-Plex-Container-Start');
-                    const size = u.searchParams.get('X-Plex-Container-Size');
-                    if (start) pagingHeaders['X-Plex-Container-Start'] = start;
-                    if (size) pagingHeaders['X-Plex-Container-Size'] = size;
-                } catch {
-                    // Ignore invalid URLs; fetch will surface a more actionable error.
-                }
 
                 let response: Response;
                 try {
                     response = await fetchWithTimeout({
                         url,
-                        init: {
-                            ...optionsWithoutSignal,
-                            headers: {
-                                Accept: 'application/json',
-                                ...this._config.getAuthHeaders(),
-                                ...pagingHeaders,
-                                ...options.headers,
-                            },
-                        },
+                        init: buildFetchRequestInit(url, options, this._config.getAuthHeaders()),
                         timeoutMs: requestPolicy.timeoutMs,
                         upstreamSignal: externalSignal,
                     });
@@ -1060,214 +1031,117 @@ export class PlexLibrary implements IPlexLibrary {
                     }
                 }
 
-                // Handle 401 Unauthorized - emit event, no retry
-                if (response.status === 401) {
-                    this._emitter.emit('authExpired', undefined);
-                    throw new PlexLibraryError(
-                        AppErrorCode.AUTH_EXPIRED,
-                        'Authentication expired',
-                        401
-                    );
-                }
+                const responseOutcome = await classifyFetchResponse<T>(
+                    response,
+                    url,
+                    logger,
+                    (value) => this._redactUrlForLog(value)
+                );
 
-                // Handle 403 Forbidden - valid token but insufficient permissions
-                // (e.g. managed user profile lacks access to this library section)
-                if (response.status === 403) {
-                    throw new PlexLibraryError(
-                        AppErrorCode.ACCESS_DENIED,
-                        `Access denied: profile does not have permission for this resource (403)`,
-                        403
-                    );
-                }
-
-                // Handle 429 Rate Limited - backoff per Retry-After
-                if (response.status === 429) {
-                    if (rateLimitRetries >= requestPolicy.maxTimeoutRetries) {
+                switch (responseOutcome.kind) {
+                    case 'success':
+                        return responseOutcome.data;
+                    case 'authExpired':
+                        this._emitter.emit('authExpired', undefined);
                         throw new PlexLibraryError(
-                            AppErrorCode.RATE_LIMITED,
-                            'Rate limited after max retries',
-                            429
+                            AppErrorCode.AUTH_EXPIRED,
+                            'Authentication expired',
+                            401
                         );
-                    }
-                    rateLimitRetries++;
-
-                    const retryAfterHeader = response.headers.get('Retry-After');
-                    let retryAfter: number = PLEX_LIBRARY_CONSTANTS.DEFAULT_RATE_LIMIT_DELAY;
-                    if (retryAfterHeader) {
-                        const parsed = parseInt(retryAfterHeader, 10);
-                        if (!isNaN(parsed)) {
-                            retryAfter = Math.max(0, parsed);
-                        } else {
-                            // Try parsing as HTTP-date
-                            const date = Date.parse(retryAfterHeader);
-                            if (!isNaN(date)) {
-                                retryAfter = Math.max(0, Math.ceil((date - Date.now()) / 1000));
-                            }
+                    case 'accessDenied':
+                        throw new PlexLibraryError(
+                            AppErrorCode.ACCESS_DENIED,
+                            `Access denied: profile does not have permission for this resource (403)`,
+                            403
+                        );
+                    case 'rateLimited':
+                        if (rateLimitRetries >= requestPolicy.maxTimeoutRetries) {
+                            throw new PlexLibraryError(
+                                AppErrorCode.RATE_LIMITED,
+                                'Rate limited after max retries',
+                                429
+                            );
                         }
-                    }
-                    await this._delay(retryAfter * 1000);
-                    continue;
-                }
-
-                // Handle 404 Not Found - return null, log warning
-                if (response.status === 404) {
-                    logger.warn(`[PlexLibrary] 404 Not Found: ${this._redactUrlForLog(url)}`);
-                    return null;
-                }
-
-                // Handle 500+ Server Error - retry once after 2s delay
-                if (response.status >= 500) {
-                    if (!serverErrorRetried) {
-                        serverErrorRetried = true;
-                        logger.warn(`[PlexLibrary] Server error ${response.status}, retrying after 2s...`);
-                        await this._delay(PLEX_LIBRARY_CONSTANTS.SERVER_ERROR_RETRY_DELAY);
+                        rateLimitRetries++;
+                        await this._delay(responseOutcome.retryAfterMs);
                         continue;
-                    }
-                    throw new PlexLibraryError(
-                        AppErrorCode.SERVER_ERROR,
-                        `HTTP ${response.status}`,
-                        response.status
-                    );
-                }
-
-                // Handle other non-OK responses
-                if (!response.ok) {
-                    throw new PlexLibraryError(
-                        AppErrorCode.SERVER_ERROR,
-                        `HTTP ${response.status}`,
-                        response.status
-                    );
-                }
-
-                // Parse response with error handling
-                let data: T;
-                let text = '';
-                try {
-                    text = await response.text();
-
-                    if (!text || text.trim() === '') {
-                        throw new PlexLibraryError(
-                            AppErrorCode.PARSE_ERROR,
-                            `Empty response body from ${this._redactUrlForLog(url)}`
-                        );
-                    }
-
-                    data = JSON.parse(text) as T;
-
-                    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-                        throw new PlexLibraryError(
-                            AppErrorCode.PARSE_ERROR,
-                            `Invalid JSON response from ${this._redactUrlForLog(url)}: expected a top-level JSON object but received ${describeTopLevelJsonValue(data)}`
-                        );
-                    }
-                } catch (parseError) {
-                    const responseBodySnippet = redactSensitiveTokens(text.substring(0, 500));
-                    if (parseError instanceof PlexLibraryError) {
-                        logger.error(
-                            `[PlexLibrary] Parse error for ${this._redactUrlForLog(url)}:`,
-                            parseError,
-                            `Response body: ${responseBodySnippet}`
-                        );
-                        throw parseError;
-                    }
-
-                    logger.error(
-                        `[PlexLibrary] Parse error for ${this._redactUrlForLog(url)}:`,
-                        parseError,
-                        `Response body: ${responseBodySnippet}`
-                    );
-                    const message = parseError instanceof Error ? parseError.message : String(parseError);
-                    throw new PlexLibraryError(
-                        AppErrorCode.PARSE_ERROR,
-                        `Invalid JSON response from ${this._redactUrlForLog(url)}: ${message}`,
-                        undefined,
-                        {
-                            cause: parseError,
-                            context: {
-                                url: this._redactUrlForLog(url),
-                                responseBodySnippet,
-                            },
+                    case 'notFound':
+                        logger.warn(`[PlexLibrary] 404 Not Found: ${this._redactUrlForLog(url)}`);
+                        return null;
+                    case 'serverError':
+                        if (!serverErrorRetried) {
+                            serverErrorRetried = true;
+                            logger.warn(`[PlexLibrary] Server error ${responseOutcome.status}, retrying after 2s...`);
+                            await this._delay(PLEX_LIBRARY_CONSTANTS.SERVER_ERROR_RETRY_DELAY);
+                            continue;
                         }
-                    );
+                        throw new PlexLibraryError(
+                            AppErrorCode.SERVER_ERROR,
+                            `HTTP ${responseOutcome.status}`,
+                            responseOutcome.status
+                        );
+                    case 'httpError':
+                        throw new PlexLibraryError(
+                            AppErrorCode.SERVER_ERROR,
+                            `HTTP ${responseOutcome.status}`,
+                            responseOutcome.status
+                        );
                 }
-
-                // Empty MediaContainer is valid - no special handling needed
-
-                return data;
 
             } catch (error) {
-                if (externalAborted || options.signal?.aborted) {
-                    throw error;
-                }
-                // Handle timeout/abort errors - retry with exponential backoff
-                const errorName =
-                    typeof error === 'object' &&
-                    error !== null &&
-                    'name' in error &&
-                    typeof (error as { name?: unknown }).name === 'string'
-                        ? (error as { name: string }).name
-                        : '';
-                if (errorName === 'AbortError') {
-                    if (timeoutRetries < requestPolicy.maxTimeoutRetries) {
-                        const delay =
-                            requestPolicy.timeoutRetryDelays[timeoutRetries]
-                            ?? requestPolicy.timeoutRetryDelays[requestPolicy.timeoutRetryDelays.length - 1]
-                            ?? 4000;
-                        logger.warn(`[PlexLibrary] Network timeout, retry ${timeoutRetries + 1}/${requestPolicy.maxTimeoutRetries} after ${delay}ms`);
-                        timeoutRetries++;
-                        await this._delay(delay);
-                        continue;
-                    }
-                    throw new PlexLibraryError(
-                        AppErrorCode.NETWORK_TIMEOUT,
-                        'Network timeout after max retries',
-                        undefined,
-                        {
-                            cause: error,
-                            context: { url: this._redactUrlForLog(url) },
+                const errorOutcome = classifyFetchError(error, externalAborted, options.signal ?? null);
+
+                switch (errorOutcome.kind) {
+                    case 'externalAbort':
+                        throw errorOutcome.error;
+                    case 'timeout':
+                        if (timeoutRetries < requestPolicy.maxTimeoutRetries) {
+                            const delay =
+                                requestPolicy.timeoutRetryDelays[timeoutRetries]
+                                ?? requestPolicy.timeoutRetryDelays[requestPolicy.timeoutRetryDelays.length - 1]
+                                ?? 4000;
+                            logger.warn(`[PlexLibrary] Network timeout, retry ${timeoutRetries + 1}/${requestPolicy.maxTimeoutRetries} after ${delay}ms`);
+                            timeoutRetries++;
+                            await this._delay(delay);
+                            continue;
                         }
-                    );
+                        throw new PlexLibraryError(
+                            AppErrorCode.NETWORK_TIMEOUT,
+                            'Network timeout after max retries',
+                            undefined,
+                            {
+                                cause: errorOutcome.error,
+                                context: { url: this._redactUrlForLog(url) },
+                            }
+                        );
+                    case 'authOrAccessDenied':
+                    case 'libraryError':
+                        throw errorOutcome.error;
+                    case 'networkFailure':
+                        this._config.onServerUnreachable?.();
+                        throw new PlexLibraryError(
+                            AppErrorCode.SERVER_UNREACHABLE,
+                            redactSensitiveTokens(errorOutcome.error.message),
+                            undefined,
+                            {
+                                cause: errorOutcome.error,
+                                context: { url: this._redactUrlForLog(url) },
+                            }
+                        );
+                    case 'unknown':
+                        this._config.onServerUnreachable?.();
+                        throw new PlexLibraryError(
+                            AppErrorCode.SERVER_UNREACHABLE,
+                            errorOutcome.error instanceof Error
+                                ? redactSensitiveTokens(errorOutcome.error.message)
+                                : 'Unknown error',
+                            undefined,
+                            {
+                                cause: errorOutcome.error,
+                                context: { url: this._redactUrlForLog(url) },
+                            }
+                        );
                 }
-
-                // Don't retry auth or access-denied errors
-                if (
-                    error instanceof PlexLibraryError &&
-                    (error.code === AppErrorCode.AUTH_EXPIRED ||
-                        error.code === AppErrorCode.ACCESS_DENIED)
-                ) {
-                    throw error;
-                }
-
-                // Server unreachable (TypeError = fetch network failure) - trigger re-discovery
-                if (error instanceof TypeError) {
-                    this._config.onServerUnreachable?.();
-                    throw new PlexLibraryError(
-                        AppErrorCode.SERVER_UNREACHABLE,
-                        redactSensitiveTokens(error.message),
-                        undefined,
-                        {
-                            cause: error,
-                            context: { url: this._redactUrlForLog(url) },
-                        }
-                    );
-                }
-
-                // Re-throw PlexLibraryError as-is
-                if (error instanceof PlexLibraryError) {
-                    throw error;
-                }
-
-                // Unknown error - trigger re-discovery and throw
-                this._config.onServerUnreachable?.();
-                throw new PlexLibraryError(
-                    AppErrorCode.SERVER_UNREACHABLE,
-                    error instanceof Error ? redactSensitiveTokens(error.message) : 'Unknown error',
-                    undefined,
-                    {
-                        cause: error,
-                        context: { url: this._redactUrlForLog(url) },
-                    }
-                );
             }
         }
     }

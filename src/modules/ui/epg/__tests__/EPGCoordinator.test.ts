@@ -72,7 +72,6 @@ const baseProgram = (channelId: string, idx: number): ScheduledProgram =>
     remainingMs: 10_000,
     scheduleIndex: idx,
     loopNumber: 0,
-    streamDescriptor: null,
     isCurrent: false,
 } as ScheduledProgram);
 

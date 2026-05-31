@@ -30,6 +30,9 @@ export function getSubtitleDelivery(
         return 'sidecar';
     }
 
+    // Legacy contract value for a native-or-unknown/unhandled subtitle category:
+    // the selected subtitle is neither Lineup-renderable text nor known burn-in-required.
+    // This does not prove webOS or the HTML video element will render it.
     return 'embed';
 }
 

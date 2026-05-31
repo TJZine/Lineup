@@ -56,17 +56,17 @@ Read in this order before implementation or review:
 6. `docs/architecture/CURRENT_STATE.md`
 7. `docs/api/plex-integration.md`
 8. `docs/agentic/plan-authoring-standard.md`
-9. `.codex/skills/plex-integration-boundaries/SKILL.md`
-10. `.codex/skills/architecture-boundaries/SKILL.md`
-11. `.codex/skills/verification-strategy/SKILL.md`
-12. `.codex/skills/execution-plan-authoring/SKILL.md`
+9. `.agents/skills/plex-integration-boundaries/SKILL.md`
+10. `.agents/skills/architecture-boundaries/SKILL.md`
+11. `.agents/skills/verification-strategy/SKILL.md`
+12. `.agents/skills/execution-plan-authoring/SKILL.md`
 13. this plan
 14. source files named under `## Files In Scope`
 15. `git status --short --branch`
 
 Freshness gate: if any file in scope, `ARCHITECTURE_CLEANUP_CHECKLIST.md`, `docs/architecture/CURRENT_STATE.md`, or `docs/api/plex-integration.md` changed materially after this plan was written, refresh this plan before implementation.
 
-Do not load `.codex/skills/persistence-boundaries/SKILL.md` as routine startup reading. Load it only if implementation discovers a necessary credential/profile/channel persistence change, and treat that discovery as a stop/replan trigger unless the controller explicitly widens scope.
+Do not load `.agents/skills/persistence-boundaries/SKILL.md` as routine startup reading. Load it only if implementation discovers a necessary credential/profile/channel persistence change, and treat that discovery as a stop/replan trigger unless the controller explicitly widens scope.
 
 ## Required Skills
 

@@ -7,6 +7,7 @@ import {
     createPlexIdentityHeaders,
     createPlexIdentityMetadata,
 } from '../modules/plex/auth/config';
+import { emitBestEffortWarning } from '../utils/errors';
 
 type KeyMapEntry = readonly [number, PlatformRemoteButton];
 type ChromeToWebOsVersion = Readonly<{
@@ -114,14 +115,11 @@ function warnHeuristicPlatformVersion(chromeMajor: number, platformVersion: stri
         return;
     }
     didWarnHeuristicPlatformVersion = true;
-    try {
-        console.warn('[webOSPlatformServices] Derived platform version from Chrome major', {
-            chromeMajor,
-            platformVersion,
-        });
-    } catch {
-        // Best-effort diagnostics only.
-    }
+    emitBestEffortWarning('Derived webOS platform version from Chrome major', {
+        subsystem: 'webos-platform',
+        chromeMajor,
+        platformVersion,
+    });
 }
 
 function getChromeMajor(): number | null {

@@ -173,12 +173,15 @@ export async function fetchWithRetry(
     for (let attempt = 0; attempt < PLEX_AUTH_CONSTANTS.RETRY_ATTEMPTS; attempt++) {
         try {
             const controller = new AbortController();
-            const onAbort = (): void => {
+            const abortRequest = (reason?: unknown): void => {
                 try {
-                    controller.abort();
+                    controller.abort(reason);
                 } catch {
                     // ignore
                 }
+            };
+            const onAbort = (): void => {
+                abortRequest(readAbortReason(externalSignal));
             };
 
             if (externalSignal) {
@@ -189,7 +192,7 @@ export async function fetchWithRetry(
                 }
             }
 
-            const timeoutId = setTimeout(() => onAbort(), PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS);
+            const timeoutId = setTimeout(() => abortRequest(), PLEX_AUTH_CONSTANTS.REQUEST_TIMEOUT_MS);
 
             let response: Response;
             try {
@@ -207,7 +210,10 @@ export async function fetchWithRetry(
             handleResponseStatus(response);
             return response;
         } catch (error) {
-            if (externalSignal?.aborted && isAbortLikeError(error)) {
+            if (
+                externalSignal?.aborted &&
+                (isAbortLikeError(error) || error === readAbortReason(externalSignal))
+            ) {
                 throw error;
             }
             if (error instanceof PlexApiError && !error.retryable) {
@@ -222,4 +228,11 @@ export async function fetchWithRetry(
         }
     }
     throw lastError;
+}
+
+function readAbortReason(signal: AbortSignal | null): unknown {
+    if (!signal || !('reason' in signal)) {
+        return undefined;
+    }
+    return (signal as AbortSignal & { reason?: unknown }).reason;
 }

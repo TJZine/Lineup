@@ -269,7 +269,7 @@ Older plans refer to repo-specific workflow names that are no longer authoritati
 Do not keep:
 
 - `retune-workflow`
-- assumptions that `.agent/skills/...` is the canonical skill source
+- assumptions that the legacy singular-agent skill mirror is the canonical skill source
 - stale instructions that bypass `agents.md`, the document map, or the Codanna playbook
 
 ### 4. Over-specified implementation mechanics without freshness guards

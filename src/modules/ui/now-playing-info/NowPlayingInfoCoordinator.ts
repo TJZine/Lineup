@@ -6,8 +6,8 @@ import type { NowPlayingInfoViewModel } from './types';
 import type { NowPlayingInfoConfig } from './types';
 import { NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, NOW_PLAYING_INFO_DEFAULTS } from './constants';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
-import { type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
-import { formatAudioCodec } from '../../../utils/mediaFormat';
+import { buildPlaybackSummary, type PlaybackInfoSnapshotLike } from '../../../utils/playbackSummary';
+import { formatAudioCodec, formatAudioDetail } from '../../../utils/mediaFormat';
 import { extractHdrLabelFromPlexMedia } from '../../plex/stream/policy/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
 import { summarizeErrorForLog } from '../../../utils/errors';
@@ -297,7 +297,7 @@ export class NowPlayingInfoCoordinator {
         const badges = this.buildQualityBadges(item, details, contentRating);
         const metaLines = this.buildMetaLines(item, details);
         const actorHeadshots = this.buildActorHeadshots(details);
-        const playbackSummary = this.buildPlaybackModeSummary(this.deps.getPlaybackInfoSnapshot());
+        const playbackSummary = buildPlaybackSummary(this.deps.getPlaybackInfoSnapshot()).summary;
 
         const baseViewModel: NowPlayingInfoViewModel = {
             title,
@@ -507,46 +507,9 @@ export class NowPlayingInfoCoordinator {
             const audioCodec = formatAudioCodec(mediaInfo.audioCodec);
             if (audioCodec) badges.push(audioCodec);
         }
-        const audioDetail = this.formatAudioDetail(mediaInfo);
+        const audioDetail = formatAudioDetail(mediaInfo);
         if (audioDetail) badges.push(audioDetail);
         return badges;
-    }
-
-    private buildPlaybackModeSummary(snapshot: PlaybackInfoSnapshotLike | null | undefined): string | null {
-        const stream = snapshot?.stream;
-        if (!stream) return null;
-        const mode = stream.isDirectPlay
-            ? 'Direct Play'
-            : (stream.isTranscoding ? 'Transcode' : 'Stream');
-        return `Playback: ${mode}`;
-    }
-
-    private formatAudioDetail(
-        mediaInfo: ScheduledProgram['item']['mediaInfo'] | undefined
-    ): string | null {
-        if (!mediaInfo) return null;
-
-        if (typeof mediaInfo.audioChannels === 'number' && mediaInfo.audioChannels > 0) {
-            switch (mediaInfo.audioChannels) {
-                case 1:
-                    return '1.0';
-                case 2:
-                    return '2.0';
-                case 6:
-                    return '5.1';
-                case 8:
-                    return '7.1';
-                default:
-                    return `${mediaInfo.audioChannels}ch`;
-            }
-        }
-
-        if (mediaInfo.audioTrackTitle) {
-            const trimmed = mediaInfo.audioTrackTitle.trim();
-            return trimmed.length > 0 ? trimmed.slice(0, 24) : null;
-        }
-
-        return null;
     }
 
     private clearNowPlayingInfoDetails(): void {

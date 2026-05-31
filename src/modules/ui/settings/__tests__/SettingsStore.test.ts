@@ -188,13 +188,19 @@ describe('SettingsStore', () => {
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
     });
 
-    it('normalizes subtitle language by trimming/lowercasing and removes invalid values', () => {
+    it('normalizes subtitle language aliases and preserves values outside the UI option list', () => {
         localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, ' EN ');
         expect(store.readSubtitleLanguageValueAndClean(SUBTITLE_OPTIONS)).toBe(1);
 
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, ' eng ');
+        expect(store.readSubtitleLanguageValueAndClean(SUBTITLE_OPTIONS)).toBe(1);
+
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, 'Spanish');
+        expect(store.readSubtitleLanguageValueAndClean(SUBTITLE_OPTIONS)).toBe(2);
+
         localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, 'zz');
         expect(store.readSubtitleLanguageValueAndClean(SUBTITLE_OPTIONS)).toBe(0);
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBeNull();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBe('zz');
     });
 
     it('normalizes transcode quality and removes unknown persisted values', () => {

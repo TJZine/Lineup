@@ -439,7 +439,7 @@ export class ChannelManager implements IChannelManager {
      */
     async resolveChannelContent(
         channelId: string,
-        options?: { signal?: AbortSignal }
+        options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedChannelContent> {
         const channel = this._state.channels.get(channelId);
         if (!channel) {

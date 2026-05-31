@@ -171,6 +171,65 @@ describe('PlexAuth', () => {
             expect(headers['Accept']).toBe('application/json');
         });
 
+        it('aborts before requesting a PIN when the signal is already cancelled', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const controller = new AbortController();
+            controller.abort();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn();
+
+            await expect(auth.requestPin({ signal: controller.signal })).rejects.toMatchObject({
+                name: 'AbortError',
+            });
+            expect((globalThis as unknown as { fetch: jest.Mock }).fetch).not.toHaveBeenCalled();
+        });
+
+        it('passes the cancellation signal into the PIN request fetch path', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const controller = new AbortController();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        signal?.addEventListener(
+                            'abort',
+                            () => {
+                                const abortError = new Error('The operation was aborted.');
+                                abortError.name = 'AbortError';
+                                reject(abortError);
+                            },
+                            { once: true }
+                        );
+                    })
+            );
+
+            const request = auth.requestPin({ signal: controller.signal });
+            controller.abort();
+
+            await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+        });
+
+        it('rethrows the caller abort reason during PIN requests', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const controller = new AbortController();
+            const abortReason = new Error('user cancelled PIN flow');
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        signal?.addEventListener(
+                            'abort',
+                            () => reject((signal as AbortSignal & { reason?: unknown }).reason),
+                            { once: true }
+                        );
+                    })
+            );
+
+            const request = auth.requestPin({ signal: controller.signal });
+            controller.abort(abortReason);
+
+            await expect(request).rejects.toBe(abortReason);
+        });
+
         it('should throw SERVER_UNREACHABLE on connection failure', async () => {
             jest.useFakeTimers();
             try {
@@ -662,6 +721,65 @@ describe('PlexAuth', () => {
             }
         });
 
+        it('aborts token validation before fetching when the signal is already cancelled', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const controller = new AbortController();
+            controller.abort();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn();
+
+            await expect(auth.validateToken('cancelled-token', { signal: controller.signal })).rejects.toMatchObject({
+                name: 'AbortError',
+            });
+            expect((globalThis as unknown as { fetch: jest.Mock }).fetch).not.toHaveBeenCalled();
+        });
+
+        it('rethrows caller cancellation during token validation instead of treating it as a timeout', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const controller = new AbortController();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        signal?.addEventListener(
+                            'abort',
+                            () => {
+                                const abortError = new Error('The operation was aborted.');
+                                abortError.name = 'AbortError';
+                                reject(abortError);
+                            },
+                            { once: true }
+                        );
+                    })
+            );
+
+            const request = auth.validateToken('cancelled-token', { signal: controller.signal });
+            controller.abort();
+
+            await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+        });
+
+        it('rethrows the caller abort reason during token validation', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const controller = new AbortController();
+            const abortReason = new Error('user cancelled validation');
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options?: RequestInit) =>
+                    new Promise((_resolve, reject) => {
+                        const signal = options?.signal as AbortSignal | undefined;
+                        signal?.addEventListener(
+                            'abort',
+                            () => reject((signal as AbortSignal & { reason?: unknown }).reason),
+                            { once: true }
+                        );
+                    })
+            );
+
+            const request = auth.validateToken('cancelled-token', { signal: controller.signal });
+            controller.abort(abortReason);
+
+            await expect(request).rejects.toBe(abortReason);
+        });
+
         it('should throw NETWORK_TIMEOUT when token validation times out', async () => {
             jest.useFakeTimers();
             try {
@@ -777,6 +895,40 @@ describe('PlexAuth', () => {
 
             expect(headers[PLEX_TOKEN_HEADER]).toBe('my-secret-token');
             expect((headers as Record<string, string>)['x-plex-token']).toBeUndefined();
+        });
+    });
+
+    describe('getCurrentUser', () => {
+        it('returns an ownership clone with independent Date values', () => {
+            const auth = new PlexAuth(mockConfig);
+            const issuedAt = new Date('2026-01-15T12:00:00.000Z');
+            const expiresAt = new Date('2026-01-15T13:00:00.000Z');
+            const testToken: PlexAuthToken = {
+                ...createAuthToken('clone-token', 'clone-user'),
+                issuedAt,
+                expiresAt,
+            };
+
+            auth.storeCredentials(createAuthData(testToken));
+
+            const firstRead = auth.getCurrentUser();
+            expect(firstRead).not.toBeNull();
+            if (!firstRead) return;
+            expect(firstRead).not.toBe(testToken);
+            expect(firstRead.issuedAt).not.toBe(issuedAt);
+            expect(firstRead.expiresAt).not.toBe(expiresAt);
+
+            firstRead.username = 'mutated-user';
+            firstRead.issuedAt.setUTCFullYear(2030);
+            firstRead.expiresAt?.setUTCFullYear(2030);
+
+            const secondRead = auth.getCurrentUser();
+            expect(secondRead).toEqual(expect.objectContaining({
+                token: 'clone-token',
+                username: 'testuser',
+            }));
+            expect(secondRead?.issuedAt.toISOString()).toBe('2026-01-15T12:00:00.000Z');
+            expect(secondRead?.expiresAt?.toISOString()).toBe('2026-01-15T13:00:00.000Z');
         });
     });
 
@@ -1111,6 +1263,86 @@ describe('PlexAuth', () => {
                     version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
                     data: {
                         accountToken: null,
+                    },
+                })
+            );
+            const auth = new PlexAuth(mockConfig);
+
+            const result = auth.readStoredCredentialsAndClearCorruption();
+
+            expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-shape' });
+            expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
+        });
+
+        it('returns corrupted invalid-shape when persisted auth tokens are missing required credential fields', async () => {
+            const now = new Date().toISOString();
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        accountToken: {
+                            token: '',
+                            userId: 'user1',
+                            username: 'testuser',
+                            email: 'test@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now,
+                        },
+                        activeToken: {
+                            token: 'active-token',
+                            userId: 'user1',
+                            username: 'testuser',
+                            email: 'test@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now,
+                        },
+                        activeUserId: 'user1',
+                        selectedServerByUserId: {
+                            user1: { serverId: null, serverUri: null },
+                        },
+                    },
+                })
+            );
+            const auth = new PlexAuth(mockConfig);
+
+            const result = auth.readStoredCredentialsAndClearCorruption();
+
+            expect(result).toEqual({ kind: 'corrupted', reason: 'invalid-shape' });
+            expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
+        });
+
+        it('returns corrupted invalid-shape when persisted auth token metadata has an invalid thumb type', async () => {
+            const now = new Date().toISOString();
+            mockLocalStorage.setItem(
+                PLEX_AUTH_CONSTANTS.STORAGE_KEY,
+                JSON.stringify({
+                    version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
+                    data: {
+                        accountToken: {
+                            token: 'account-token',
+                            userId: 'user1',
+                            username: 'testuser',
+                            email: 'test@example.com',
+                            thumb: 42,
+                            expiresAt: null,
+                            issuedAt: now,
+                        },
+                        activeToken: {
+                            token: 'active-token',
+                            userId: 'user1',
+                            username: 'testuser',
+                            email: 'test@example.com',
+                            thumb: '',
+                            expiresAt: null,
+                            issuedAt: now,
+                        },
+                        activeUserId: 'user1',
+                        selectedServerByUserId: {
+                            user1: { serverId: null, serverUri: null },
+                        },
                     },
                 })
             );

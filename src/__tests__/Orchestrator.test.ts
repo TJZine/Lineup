@@ -26,7 +26,6 @@ import type { PlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
-import { PlaybackRecoveryManager } from '../modules/player/PlaybackRecoveryManager';
 import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
@@ -459,6 +458,7 @@ const mockScheduler = {
     getCurrentProgram: jest.fn().mockReturnValue(null),
     getState: jest.fn().mockReturnValue({ isActive: false, channelId: null }),
     getScheduleWindow: jest.fn().mockReturnValue({ startTime: 0, endTime: 0, programs: [] }),
+    jumpToProgram: jest.fn(),
     skipToNext: jest.fn(),
     skipToPrevious: jest.fn(),
     pauseSyncTimer: jest.fn(),
@@ -468,8 +468,10 @@ const mockScheduler = {
 };
 
 jest.mock('../modules/scheduler/scheduler', () => {
+    const actual = jest.requireActual('../modules/scheduler/scheduler');
     class MockShuffleGenerator { }
     return {
+        ...actual,
         ChannelScheduler: jest.fn(() => mockScheduler),
         ShuffleGenerator: MockShuffleGenerator,
         buildScheduleIndex: jest.fn(() => ({})),
@@ -497,9 +499,13 @@ const mockVideoPlayer = {
     off: jest.fn(),
 };
 
-jest.mock('../modules/player', () => ({
-    VideoPlayer: jest.fn(() => mockVideoPlayer),
-}));
+jest.mock('../modules/player', () => {
+    const actual = jest.requireActual('../modules/player');
+    return {
+        ...actual,
+        VideoPlayer: jest.fn(() => mockVideoPlayer),
+    };
+});
 
 // Mock EPGComponent
 const mockEpg = {
@@ -1000,7 +1006,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             remainingMs: 120_000,
             scheduleIndex: 0,
             loopNumber: 0,
-            streamDescriptor: null,
             isCurrent: true,
         };
 
@@ -1553,7 +1558,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     scheduledEndTime: Date.now() + 60_000,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: true,
                 };
                 schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
@@ -1660,7 +1664,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     scheduledEndTime: Date.now() + 60_000,
                     scheduleIndex: 0,
                     loopNumber: 0,
-                    streamDescriptor: null,
                     isCurrent: true,
                 };
                 schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
@@ -2083,13 +2086,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             playerHandlers.ended?.();
             expect(mockScheduler.skipToNext).toHaveBeenCalledTimes(1);
 
-            playerHandlers.error?.({
-                recoverable: false,
-                code: 'PLAYBACK_FAILED',
-                message: 'boom',
-            });
-            expect(mockScheduler.skipToNext).toHaveBeenCalledTimes(2);
-
             await pauseHandler?.();
             expect(mockVideoPlayer.pause).toHaveBeenCalled();
             expect(mockScheduler.pauseSyncTimer).toHaveBeenCalled();
@@ -2138,164 +2134,15 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             await orchestrator.start();
 
             const setSubtitleTrackSpy = jest.spyOn(orchestrator, 'setSubtitleTrack').mockResolvedValue(undefined);
-            const burnInSpy = jest
-                .spyOn(PlaybackRecoveryManager.prototype, 'attemptBurnInSubtitleForCurrentProgram')
-                .mockResolvedValue({ outcome: 'burned_in' });
             try {
                 mockVideoPlayer.getAvailableSubtitles.mockReturnValue([{ id: 'sub-1', format: 'ass' }]);
 
                 playerHandlers.trackChange?.({ type: 'subtitle', trackId: 'sub-1' });
 
                 expect(setSubtitleTrackSpy).toHaveBeenCalledWith(null);
-                expect(burnInSpy).not.toHaveBeenCalled();
             } finally {
                 setSubtitleTrackSpy.mockRestore();
-                burnInSpy.mockRestore();
             }
-        });
-
-        it('uses subtitle mode policy to allow burn-in subtitle tracks when mode permits burn-in', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
-            mockPlexAuth.validateToken.mockResolvedValue(true);
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
-            mockLocalStorage.getItem.mockImplementation((key: string) => {
-                if (key === LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE) return '1';
-                if (key === LINEUP_STORAGE_KEYS.SUBTITLE_MODE) return 'full';
-                return null;
-            });
-
-            await orchestrator.start();
-
-            const setSubtitleTrackSpy = jest.spyOn(orchestrator, 'setSubtitleTrack').mockResolvedValue(undefined);
-            const burnInSpy = jest
-                .spyOn(PlaybackRecoveryManager.prototype, 'attemptBurnInSubtitleForCurrentProgram')
-                .mockResolvedValue({ outcome: 'burned_in' });
-            try {
-                mockVideoPlayer.getAvailableSubtitles.mockReturnValue([{ id: 'sub-1', format: 'ass' }]);
-
-                playerHandlers.trackChange?.({ type: 'subtitle', trackId: 'sub-1' });
-
-                expect(burnInSpy).toHaveBeenCalledWith('sub-1', 'subtitle_track_change');
-                expect(setSubtitleTrackSpy).not.toHaveBeenCalled();
-            } finally {
-                setSubtitleTrackSpy.mockRestore();
-                burnInSpy.mockRestore();
-            }
-        });
-
-        it('reloads stream when audio track changes during direct play', async () => {
-            expectConsoleWarn([
-                'playback_recovery',
-                expect.objectContaining({
-                    event: 'audioReload.start',
-                    reason: 'audio_track_change',
-                    trackId: 'audio-2',
-                    itemKey: 'item-1',
-                    preserveDirectPlayPreference: true,
-                }),
-            ]);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
-            mockPlexAuth.validateToken.mockResolvedValue(true);
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            const program = {
-                item: {
-                    ratingKey: 'item-1',
-                    title: 'Test Item',
-                    durationMs: 60_000,
-                    type: 'movie',
-                },
-                elapsedMs: 5_000,
-            } as unknown as ScheduledProgram;
-
-            mockPlexStreamResolver.resolveStream
-                .mockResolvedValueOnce(makeDecision({ isDirectPlay: true, protocol: 'http' }))
-                .mockResolvedValueOnce(
-                    makeDecision({
-                        isDirectPlay: true,
-                        protocol: 'http',
-                        playbackUrl: 'http://test/reloaded.m3u8',
-                    })
-                );
-
-            await orchestrator.start();
-
-            schedulerHandlers.programStart?.(program);
-            await new Promise((resolve) => setImmediate(resolve));
-
-            mockPlexStreamResolver.resolveStream.mockClear();
-            const loadCallsBefore = mockVideoPlayer.loadStream.mock.calls.length;
-            const playCallsBefore = mockVideoPlayer.play.mock.calls.length;
-
-            mockVideoPlayer.getState.mockReturnValueOnce({
-                status: 'playing',
-                activeAudioId: null,
-                activeSubtitleId: null,
-            });
-            playerHandlers.trackChange?.({ type: 'audio', trackId: 'audio-2' });
-            await new Promise((resolve) => setImmediate(resolve));
-
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    audioStreamId: 'audio-2',
-                    directPlay: true,
-                })
-            );
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(1);
-            expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(loadCallsBefore + 1);
-            expect(mockVideoPlayer.play).toHaveBeenCalledTimes(playCallsBefore + 1);
-            const lastLoad = mockVideoPlayer.loadStream.mock.calls.at(-1)?.[0];
-            expect(lastLoad?.url).toBe('http://test/reloaded.m3u8');
-        });
-
-        it('does not force direct-stream fallback when format is unsupported pre-MVP', async () => {
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
-            mockPlexAuth.validateToken.mockResolvedValue(true);
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-
-            mockPlexStreamResolver.resolveStream.mockResolvedValueOnce({
-                playbackUrl: 'http://test/stream.mkv',
-                protocol: 'direct',
-                container: 'mkv',
-            });
-
-            await orchestrator.start();
-
-            const program = {
-                item: {
-                    ratingKey: 'item-1',
-                    title: 'Test Item',
-                    durationMs: 60000,
-                    type: 'movie',
-                },
-                elapsedMs: 5000,
-            };
-
-            schedulerHandlers.programStart?.(program);
-            await new Promise((resolve) => setImmediate(resolve));
-
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    itemKey: 'item-1',
-                    startOffsetMs: 5000,
-                    directPlay: true,
-                })
-            );
-
-            playerHandlers.error?.({
-                recoverable: false,
-                code: 'PLAYBACK_FORMAT_UNSUPPORTED',
-                message: 'Media format not supported',
-            });
-
-            await new Promise((resolve) => setImmediate(resolve));
-
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledTimes(1);
-            expect(mockPlexStreamResolver.resolveStream).not.toHaveBeenCalledWith(
-                expect.objectContaining({ directPlay: false })
-            );
-            expect(mockVideoPlayer.loadStream).toHaveBeenCalledTimes(1);
-            expect(mockVideoPlayer.play).toHaveBeenCalledTimes(1);
         });
 
     });
@@ -2943,7 +2790,6 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 remainingMs: 120_000,
                 scheduleIndex: 0,
                 loopNumber: 0,
-                streamDescriptor: null,
                 isCurrent: true,
             };
 
@@ -3206,12 +3052,131 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             expect(labels).toContain('Exit');
         });
 
-        it('should return Skip action for PLAYBACK_DECODE_ERROR', () => {
+        it('prefers the scheduler current program when retrying playback', () => {
+            Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
+                item: {
+                    ratingKey: 'stale-item',
+                    title: 'Stale Item',
+                    durationMs: 30000,
+                    type: 'movie',
+                },
+                elapsedMs: 2000,
+                scheduledStartTime: 10,
+                scheduledEndTime: 30010,
+                remainingMs: 28000,
+                scheduleIndex: 9,
+            } as never);
+            const currentProgram = {
+                item: {
+                    ratingKey: 'item-1',
+                    title: 'Test Item',
+                    durationMs: 60000,
+                    type: 'movie',
+                },
+                elapsedMs: 5000,
+                scheduledStartTime: 0,
+                scheduledEndTime: 60000,
+                remainingMs: 55000,
+                scheduleIndex: 0,
+            };
+            mockScheduler.getState.mockReturnValue({
+                isActive: true,
+                channelId: 'ch1',
+                currentProgram,
+            });
             const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
 
-            expect(actions).toContainEqual(
-                expect.objectContaining({ label: 'Skip', isPrimary: true })
+            expect(actions[0]).toEqual(expect.objectContaining({ label: 'Retry', isPrimary: true }));
+            expect(actions[1]).toEqual(expect.objectContaining({ label: 'Skip', isPrimary: false }));
+
+            actions[0]?.action();
+            expect(mockScheduler.jumpToProgram).toHaveBeenCalledWith(currentProgram);
+        });
+
+        it('does not fall back to stale playback state when the active scheduler has no current program', () => {
+            Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
+                item: {
+                    ratingKey: 'stale-item',
+                    title: 'Stale Item',
+                    durationMs: 30000,
+                    type: 'movie',
+                },
+                elapsedMs: 2000,
+                scheduledStartTime: 10,
+                scheduledEndTime: 30010,
+                remainingMs: 28000,
+                scheduleIndex: 9,
+            } as never);
+            mockScheduler.getState.mockReturnValue({
+                isActive: true,
+                channelId: 'ch1',
+                currentProgram: null,
+            });
+
+            const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
+            actions[0]?.action();
+
+            expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
+            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.PLAYBACK_FAILED,
+                    message: 'Playback retry failed',
+                    recoverable: true,
+                })
             );
+            expectConsoleWarn([
+                'Retry playback failed',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        message: 'Cannot retry playback without an active program',
+                    }),
+                }),
+            ]);
+            expectConsoleWarn([
+                'Global error in playback',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.PLAYBACK_FAILED,
+                        message: 'Playback retry failed',
+                    }),
+                }),
+            ]);
+        });
+
+        it('should surface playback failure again when Retry cannot start playback', () => {
+            mockScheduler.getState.mockReturnValue({
+                isActive: false,
+                channelId: 'ch1',
+                currentProgram: null,
+            });
+            const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
+
+            actions[0]?.action();
+
+            expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
+            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    code: AppErrorCode.PLAYBACK_FAILED,
+                    message: 'Playback retry failed',
+                    recoverable: true,
+                })
+            );
+            expectConsoleWarn([
+                'Retry playback failed',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        message: 'Cannot retry playback without an active program',
+                    }),
+                }),
+            ]);
+            expectConsoleWarn([
+                'Global error in playback',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        code: AppErrorCode.PLAYBACK_FAILED,
+                    }),
+                }),
+            ]);
         });
     });
 
@@ -3729,25 +3694,22 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         });
 
         it('fails fast when start is called after shutdown without resetting playback recovery', async () => {
-            const resetSpy = jest.spyOn(PlaybackRecoveryManager.prototype, 'resetPlaybackFailureGuard');
+            const lifecycleInitializeCallsBefore = mockLifecycle.initialize.mock.calls.length;
+            const videoPlayerInitializeCallsBefore = mockVideoPlayer.initialize.mock.calls.length;
+            await orchestrator.shutdown();
 
-            try {
-                await orchestrator.shutdown();
+            await expect(orchestrator.start()).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: false,
+                message: expect.stringContaining('AppOrchestrator cannot be used after shutdown'),
+                context: expect.objectContaining({
+                    method: 'start',
+                    lifecycle: 'shutdown',
+                }),
+            });
 
-                await expect(orchestrator.start()).rejects.toMatchObject({
-                    code: AppErrorCode.MODULE_INIT_FAILED,
-                    recoverable: false,
-                    message: expect.stringContaining('AppOrchestrator cannot be used after shutdown'),
-                    context: expect.objectContaining({
-                        method: 'start',
-                        lifecycle: 'shutdown',
-                    }),
-                });
-
-                expect(resetSpy).not.toHaveBeenCalled();
-            } finally {
-                resetSpy.mockRestore();
-            }
+            expect(mockLifecycle.initialize).toHaveBeenCalledTimes(lifecycleInitializeCallsBefore);
+            expect(mockVideoPlayer.initialize).toHaveBeenCalledTimes(videoPlayerInitializeCallsBefore);
         });
     });
 

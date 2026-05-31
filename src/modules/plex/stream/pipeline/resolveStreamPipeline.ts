@@ -1,5 +1,6 @@
 import { AppErrorCode } from '../../../../types/app-errors';
 import type { Hdr10FallbackMode } from '../../../settings/PlaybackSettingsStore';
+import type { PlaybackCapabilityProfile } from '../capabilities/PlaybackCapabilityProfile';
 import type { StreamResolverError } from '../contracts/interfaces';
 import {
     getDirectPlayDecision,
@@ -32,8 +33,7 @@ export interface ResolveStreamPipelineArgs {
     request: StreamRequest;
     sessionId: string;
     allowDirectPlayAudioFallback: boolean;
-    dtsPassthroughEnabled: boolean;
-    userAgent: string | null;
+    capabilityProfile: PlaybackCapabilityProfile;
     hdr10FallbackMode: Hdr10FallbackMode;
     createError: CreateResolverError;
     buildDirectPlayUrl: (
@@ -54,7 +54,6 @@ export interface ResolveStreamPipelineResult {
     subtitleStream: PlexStream | null;
     availableAudioStreams: PlexStream[];
     availableSubtitleStreams: PlexStream[];
-    forceHlsForDvNoHdr10BaseLayer: boolean;
     hdrFallbackReason: string | null;
 }
 
@@ -67,8 +66,7 @@ export function resolveStreamPipeline({
     request,
     sessionId,
     allowDirectPlayAudioFallback,
-    dtsPassthroughEnabled,
-    userAgent,
+    capabilityProfile,
     hdr10FallbackMode,
     createError,
     buildDirectPlayUrl,
@@ -157,9 +155,9 @@ export function resolveStreamPipeline({
 
     let directDecision = getDirectPlayDecision({
         media,
+        videoStream,
         audioCodecOverride: requestedAudioStream?.codec ?? null,
-        dtsPassthroughEnabled,
-        userAgent,
+        capabilityProfile,
     });
 
     let directPlayAudioStreamId: string | undefined = requestedAudioStream?.id;
@@ -178,9 +176,9 @@ export function resolveStreamPipeline({
         if (nonAudioReasons.length === 0) {
             const overridden = getDirectPlayDecision({
                 media,
+                videoStream,
                 audioCodecOverride: audioStream.codec,
-                dtsPassthroughEnabled,
-                userAgent,
+                capabilityProfile,
             });
             if (overridden.canDirect) {
                 directDecision = overridden;
@@ -196,12 +194,13 @@ export function resolveStreamPipeline({
     });
     const applyHdr10Fallback = hdrCompatibilityDecision.applyHdr10Fallback;
     const forceTranscodeForHdr10Fallback = hdrCompatibilityDecision.forceTranscodeForHdr10Fallback;
-    const forceHlsForDvNoHdr10BaseLayer = hdrCompatibilityDecision.forceHlsForDvNoHdr10BaseLayer;
+    const subtitleBurnInReason = getSubtitleBurnInReason(request.subtitleMode ?? 'none', subtitleStream);
+    const shouldBurnInSubtitles = subtitleBurnInReason !== 'none';
     const allowDirectPlay =
         directDecision.canDirect &&
         request.directPlay !== false &&
         !forceTranscodeForHdr10Fallback &&
-        !forceHlsForDvNoHdr10BaseLayer;
+        !shouldBurnInSubtitles;
 
     let playbackUrl: string;
     let protocol: 'hls' | 'http';
@@ -223,11 +222,7 @@ export function resolveStreamPipeline({
         if (shouldForceAudioStreamId && audioStream?.id) {
             options.audioStreamId = audioStream.id;
         }
-        const shouldBurnIn = shouldRequestBurnInSubtitles({
-            requestSubtitleMode: request.subtitleMode ?? 'none',
-            subtitle: subtitleStream,
-        });
-        if (shouldBurnIn && subtitleStream?.id) {
+        if (shouldBurnInSubtitles && subtitleStream?.id) {
             options.subtitleStreamId = subtitleStream.id;
             options.subtitleMode = 'burn';
             burnInEnabled = true;
@@ -272,6 +267,25 @@ export function resolveStreamPipeline({
 
     const subtitleDelivery =
         burnInEnabled && subtitleStream ? 'burn' : getSubtitleDelivery(subtitleStream, isTranscoding);
+    const hdr10FallbackInfo = hdrCompatibilityDecision.isDolbyVision || applyHdr10Fallback
+        ? {
+            mode: hdr10FallbackMode,
+            applied: applyHdr10Fallback,
+            reason: hdrCompatibilityDecision.fallbackReason,
+            debugWhy: hdrCompatibilityDecision.fallbackDebugWhy,
+            hideDolbyVision: applyHdr10Fallback,
+            forcedHls: forceTranscodeForHdr10Fallback,
+        } satisfies NonNullable<StreamDecision['hdr10Fallback']>
+        : null;
+    const subtitleBurnInInfo = shouldBurnInSubtitles
+        ? {
+            requested: true,
+            confirmed: false,
+            reason: subtitleBurnInReason,
+            ...(subtitleStream?.id ? { subtitleStreamId: subtitleStream.id } : {}),
+            subtitleMode: request.subtitleMode ?? 'none',
+        } satisfies NonNullable<StreamDecision['subtitleBurnIn']>
+        : null;
     const resolvedBaseUrl = ((): string | undefined => {
         try {
             return new URL(playbackUrl).origin;
@@ -319,13 +333,15 @@ export function resolveStreamPipeline({
                 ? []
                 : [
                     ...(request.directPlay === false ? ['direct_play_disabled_by_request'] : []),
-                    ...(applyHdr10Fallback && !allowDirectPlay
+                    ...(forceTranscodeForHdr10Fallback
                         ? [`hdr10_fallback_${hdrCompatibilityDecision.fallbackReason}`]
                         : []),
-                    ...(forceHlsForDvNoHdr10BaseLayer ? ['dv_profile_no_hdr10_base_layer'] : []),
+                    ...(shouldBurnInSubtitles ? [`subtitle_burn_in_${subtitleBurnInReason}`] : []),
                     ...directDecision.reasons,
                 ],
         },
+        ...(hdr10FallbackInfo ? { hdr10Fallback: hdr10FallbackInfo } : {}),
+        ...(subtitleBurnInInfo ? { subtitleBurnIn: subtitleBurnInInfo } : {}),
     };
 
     if (audioFallbackInfo) {
@@ -344,9 +360,21 @@ export function resolveStreamPipeline({
         subtitleStream,
         availableAudioStreams,
         availableSubtitleStreams,
-        forceHlsForDvNoHdr10BaseLayer,
-        hdrFallbackReason: hdrCompatibilityDecision.fallbackReason ?? null,
+        hdrFallbackReason:
+            hdrCompatibilityDecision.fallbackReason === 'none'
+                ? null
+                : hdrCompatibilityDecision.fallbackReason,
     };
+}
+
+function getSubtitleBurnInReason(
+    requestSubtitleMode: 'none' | 'burn',
+    subtitle: PlexStream | null
+): NonNullable<StreamDecision['subtitleBurnIn']>['reason'] {
+    if (!shouldRequestBurnInSubtitles({ requestSubtitleMode, subtitle })) {
+        return 'none';
+    }
+    return requestSubtitleMode === 'burn' ? 'requested' : 'format_required';
 }
 
 function findDefaultOrFirstStream(streams: PlexStream[], streamType: number): PlexStream | null {
