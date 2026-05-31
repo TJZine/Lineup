@@ -1368,6 +1368,38 @@ describe('PlexStreamResolver', () => {
             }));
         });
 
+        it('does not fail playback when clearing PMS part subtitle selection fails', async () => {
+            const mockItem = createMockMediaItem();
+            const config = createMockConfig({
+                getItem: jest.fn().mockResolvedValue(mockItem),
+            });
+            expectConsoleWarn([
+                'Failed to clear PMS part subtitle selection:',
+                expect.objectContaining({
+                    itemKey: '12345',
+                    partId: 'part-1',
+                    error: expect.objectContaining({
+                        code: AppErrorCode.TRANSCODE_FAILED,
+                    }),
+                }),
+            ]);
+            mockFetch.mockResolvedValueOnce({
+                ok: false,
+                status: 500,
+                text: async () => 'server error',
+            });
+            const resolver = new PlexStreamResolver(config);
+
+            await expect(resolver.resolveStream({
+                itemKey: '12345',
+                subtitleMode: 'none',
+            })).resolves.toMatchObject({
+                isDirectPlay: true,
+                subtitleDelivery: 'none',
+            });
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
         it('does not request burn-in when a text subtitle is selected but burn mode is not requested', async () => {
             const mockItem = createMockMediaItem({
                 container: 'avi',

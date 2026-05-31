@@ -184,20 +184,34 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             decision.source.hdr = hdrLabel;
         }
 
-        const shouldUpdatePartSubtitleSelection =
-            (decision.subtitleBurnIn?.requested === true && decision.transcodeRequest?.subtitleMode === 'burn') ||
-            request.subtitleMode === 'none';
-        if (shouldUpdatePartSubtitleSelection) {
-            await updatePlexPartSubtitleSelection({
+        const burnInSubtitleStreamId =
+            decision.transcodeRequest?.subtitleMode === 'burn' &&
+            typeof decision.transcodeRequest.subtitleStreamId === 'string'
+                ? decision.transcodeRequest.subtitleStreamId
+                : null;
+        const mustPersistBurnInSelection =
+            decision.subtitleBurnIn?.requested === true &&
+            burnInSubtitleStreamId !== null;
+        const shouldClearPartSubtitleSelection = request.subtitleMode === 'none';
+        const updatePartSubtitleSelection = (subtitleStreamId: string | null): Promise<void> =>
+            updatePlexPartSubtitleSelection({
                 partId: pipeline.part.id,
-                subtitleStreamId: decision.transcodeRequest?.subtitleMode === 'burn'
-                    ? decision.transcodeRequest.subtitleStreamId
-                    : null,
+                subtitleStreamId,
                 getServerUri: this._config.getServerUri,
                 getAuthHeaders: this._config.getAuthHeaders,
                 selectBaseUriForMixedContent: (serverUri) => this._selectBaseUriForMixedContent(serverUri),
                 throwIfAuthFailure: (response) => this._throwIfAuthFailure(response),
                 createError: (code, message, recoverable) => this._createError(code, message, recoverable),
+            });
+        if (mustPersistBurnInSelection) {
+            await updatePartSubtitleSelection(burnInSubtitleStreamId);
+        } else if (shouldClearPartSubtitleSelection) {
+            void updatePartSubtitleSelection(null).catch((error: unknown) => {
+                logPlexWarning('Failed to clear PMS part subtitle selection:', {
+                    itemKey: request.itemKey,
+                    partId: pipeline.part.id,
+                    error: summarizeErrorForLog(error),
+                });
             });
         }
 
