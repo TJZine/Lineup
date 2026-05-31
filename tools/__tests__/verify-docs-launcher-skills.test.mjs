@@ -202,3 +202,75 @@ test('checkRepoLocalLauncherSkillReadOrders rejects reversed linked markdown rea
         rmSync(tmpRoot, { recursive: true, force: true });
     }
 });
+
+test('checkRepoLocalLauncherSkillReadOrders rejects spoofed linked agents.md read destinations', async () => {
+    const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-launchers-'));
+    writeValidLauncherSkills(tmpRoot);
+    writeLauncherSkill(
+        tmpRoot,
+        'lineup-cleanup-plan',
+        [
+            'Read these files in order:',
+            '',
+            '1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md)',
+            '2. [`agents.md`](../../../docs/agentic/skill-strategy.md)',
+            '',
+        ],
+    );
+
+    const previousCwd = process.cwd();
+    try {
+        process.chdir(tmpRoot);
+
+        const { checkRepoLocalLauncherSkillReadOrders } = await import(verifyDocsUrl().href);
+
+        const errors = [];
+        checkRepoLocalLauncherSkillReadOrders(errors);
+
+        assert(
+            errors.some((message) =>
+                message.includes('must include agents.md and docs/AGENTIC_DEV_WORKFLOW.md in its read list')
+            ),
+            `Expected a missing canonical read-list error, got:\n${errors.map((message) => `- ${message}`).join('\n')}`,
+        );
+    } finally {
+        process.chdir(previousCwd);
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});
+
+test('checkRepoLocalLauncherSkillReadOrders rejects spoofed linked workflow read destinations', async () => {
+    const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-launchers-'));
+    writeValidLauncherSkills(tmpRoot);
+    writeLauncherSkill(
+        tmpRoot,
+        'lineup-cleanup-plan',
+        [
+            'Read these files in order:',
+            '',
+            '1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/agentic/skill-strategy.md)',
+            '2. [`agents.md`](../../../agents.md)',
+            '',
+        ],
+    );
+
+    const previousCwd = process.cwd();
+    try {
+        process.chdir(tmpRoot);
+
+        const { checkRepoLocalLauncherSkillReadOrders } = await import(verifyDocsUrl().href);
+
+        const errors = [];
+        checkRepoLocalLauncherSkillReadOrders(errors);
+
+        assert(
+            errors.some((message) =>
+                message.includes('must include agents.md and docs/AGENTIC_DEV_WORKFLOW.md in its read list')
+            ),
+            `Expected a missing canonical read-list error, got:\n${errors.map((message) => `- ${message}`).join('\n')}`,
+        );
+    } finally {
+        process.chdir(previousCwd);
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});

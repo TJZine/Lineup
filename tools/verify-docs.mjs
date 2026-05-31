@@ -999,15 +999,40 @@ function normalizeDocLines(content) {
 }
 
 function findTrackedAgentsReadIndex(normalizedLines) {
-    return normalizedLines.findIndex((line) =>
-        /^(?:\d+\.|-)\s+(?:\[\s*)?agents\.md(?:\s*\]\([^)]*\))?$/u.test(line)
-    );
+    return findTrackedReadListEntryIndex(normalizedLines, 'agents.md', 'agents.md');
 }
 
 function findTrackedWorkflowReadIndex(normalizedLines) {
-    return normalizedLines.findIndex((line) =>
-        /^(?:\d+\.|-)\s+(?:\[\s*)?docs\/agentic dev workflow\.md(?:\s*\]\([^)]*\))?$/u.test(line)
+    return findTrackedReadListEntryIndex(
+        normalizedLines,
+        'docs/agentic dev workflow.md',
+        'agentic dev workflow.md'
     );
+}
+
+function findTrackedReadListEntryIndex(normalizedLines, expectedLabel, expectedDestinationBasename) {
+    const listPrefix = String.raw`(?:\d+\.|-)\s+`;
+    const escapedLabel = escapeRegExp(expectedLabel);
+    const bareEntryPattern = new RegExp(String.raw`^${listPrefix}${escapedLabel}$`, 'u');
+    const linkedEntryPattern = new RegExp(String.raw`^${listPrefix}\[\s*${escapedLabel}\s*\]\(([^)]+)\)$`, 'u');
+
+    return normalizedLines.findIndex((line) => {
+        if (bareEntryPattern.test(line)) {
+            return true;
+        }
+
+        const linkedEntryMatch = linkedEntryPattern.exec(line);
+        if (linkedEntryMatch === null) {
+            return false;
+        }
+
+        return getMarkdownDestinationBasename(linkedEntryMatch[1]) === expectedDestinationBasename;
+    });
+}
+
+function getMarkdownDestinationBasename(destination) {
+    const normalizedDestination = destination.trim().split(/[?#]/u)[0]?.replace(/\/+$/u, '') ?? '';
+    return normalizedDestination.split('/').at(-1) ?? '';
 }
 
 function includesAllMarkers(content, markers) {

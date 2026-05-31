@@ -23,8 +23,14 @@ describe('audioCodecSupport', () => {
     it('matches supported codecs by canonical name or explicit alias', () => {
         expect(isSupportedAudioCodec('aac')).toBe(true);
         expect(isSupportedAudioCodec('eac3-joc')).toBe(true);
+        expect(isSupportedAudioCodec('eac3-joc', ['aac', 'ac3'])).toBe(false);
+        expect(isSupportedAudioCodec('pcm_s16le')).toBe(true);
+        expect(isSupportedAudioCodec('pcm_s24le')).toBe(true);
         expect(isSupportedAudioCodec('truehd')).toBe(false);
         expect(isSupportedAudioCodec('aac-bogus')).toBe(false);
         expect(isSupportedAudioCodec('mp3junk')).toBe(false);
+        expect(isSupportedAudioCodec('pcmbogus')).toBe(false);
+        expect(isSupportedAudioCodec('pcm-bogus')).toBe(false);
+        expect(isSupportedAudioCodec('pcm_s16le-bogus')).toBe(false);
     });
 });

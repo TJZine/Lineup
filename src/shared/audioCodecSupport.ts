@@ -19,6 +19,8 @@ const DTS_FAMILY_AUDIO_CODECS = [
     'dca-ma',
 ] as const;
 
+const PCM_SUBTYPE_AUDIO_CODEC_PATTERN = /^pcm_[a-z0-9]+(?:_[a-z0-9]+)*$/u;
+
 export function normalizeAudioCodec(value: string | null | undefined): string {
     return (value ?? '').trim().toLowerCase();
 }
@@ -36,6 +38,10 @@ export function isSupportedAudioCodec(
 ): boolean {
     const normalizedCodec = normalizeAudioCodec(codec);
     if (supportedCodecs.includes(normalizedCodec)) {
+        return true;
+    }
+
+    if (supportedCodecs.includes('pcm') && PCM_SUBTYPE_AUDIO_CODEC_PATTERN.test(normalizedCodec)) {
         return true;
     }
 
