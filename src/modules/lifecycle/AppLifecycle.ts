@@ -246,7 +246,7 @@ export class AppLifecycle implements IAppLifecycle {
         }
 
         // State is flushed before emitting the phase change contract.
-        await this._statePersistenceQueue.flush();
+        await this._flushPendingStateBestEffort();
 
         const from = this._phase;
         this._phase = phase;
@@ -321,7 +321,7 @@ export class AppLifecycle implements IAppLifecycle {
         this._emitter.emit('visibilityChange', { isVisible: false });
 
         // Backgrounding is a persistence boundary on TV platforms.
-        await this._statePersistenceQueue.flush();
+        await this._flushPendingStateBestEffort();
 
         await this._executeCallbacksWithTimeout(
             this._pauseCallbacks,
@@ -356,6 +356,14 @@ export class AppLifecycle implements IAppLifecycle {
             if (!this._isVisible) {
                 await this._transitionPhase('backgrounded');
             }
+        }
+    }
+
+    private async _flushPendingStateBestEffort(): Promise<void> {
+        try {
+            await this._statePersistenceQueue.flush();
+        } catch {
+            // Ordinary lifecycle transitions should continue after the queue emits a persistence warning.
         }
     }
 

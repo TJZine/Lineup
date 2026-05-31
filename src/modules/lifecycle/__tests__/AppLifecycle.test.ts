@@ -365,6 +365,29 @@ describe('AppLifecycle', () => {
             await expect(savePromise).rejects.toBe(saveError);
         });
 
+        it('keeps non-final phase transitions moving when a flush fails', async () => {
+            const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
+            const persistenceWarning = jest.fn();
+            mockStateManager.save.mockImplementation(() => {
+                throw saveError;
+            });
+            await lifecycle.initialize();
+            lifecycle.on('persistenceWarning', persistenceWarning);
+
+            const savePromise = lifecycle.saveState();
+
+            await expect(lifecycle.setPhaseAndWait('loading_data')).resolves.toBe(true);
+            await expect(savePromise).rejects.toBe(saveError);
+
+            expect(lifecycle.getPhase()).toBe('loading_data');
+            expect(persistenceWarning).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    isQuotaError: true,
+                    message: 'Persistent storage quota exceeded; save deferred',
+                })
+            );
+        });
+
         it('exposes the narrowed lifecycle public seam', () => {
             const lifecyclePublicSurface: Pick<
                 IAppLifecycle,
@@ -531,6 +554,36 @@ describe('AppLifecycle', () => {
             document.dispatchEvent(new Event('visibilitychange'));
             await lifecycle.waitForPendingTransition();
 
+            expect(lifecycle.getPhase()).toBe('backgrounded');
+        });
+
+        it('keeps pause callbacks and backgrounding alive when a flush fails', async () => {
+            const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
+            const pauseCallback = jest.fn();
+            const persistenceWarning = jest.fn();
+            mockStateManager.save.mockImplementation(() => {
+                throw saveError;
+            });
+            await lifecycle.initialize();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+            lifecycle.on('persistenceWarning', persistenceWarning);
+            lifecycle.onPause(pauseCallback);
+
+            const savePromise = lifecycle.saveState();
+
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            await lifecycle.waitForPendingTransition();
+
+            await expect(savePromise).rejects.toBe(saveError);
+            expect(pauseCallback).toHaveBeenCalledTimes(1);
+            expect(persistenceWarning).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    isQuotaError: true,
+                    message: 'Persistent storage quota exceeded; save deferred',
+                })
+            );
             expect(lifecycle.getPhase()).toBe('backgrounded');
         });
 
