@@ -23,6 +23,7 @@ export interface ServerSelectionCoordinatorDeps {
         snapshot: PersistedSelectedServerSnapshot
     ): Promise<SelectedServerPersistenceResult>;
     resumeStartupAfterSelection(options?: PlexDiscoverySignalOptions): Promise<SelectedServerStartupResumeResult>;
+    rollbackStartupAfterSelectionFailure(): void;
     getReadiness(): OrchestratorServerSelectionReadiness;
 }
 
@@ -44,6 +45,14 @@ export class ServerSelectionCoordinator {
     ): Promise<void> {
         try {
             await this._deps.restorePersistedSelectionSnapshot(snapshot);
+        } catch {
+            // Rollback is best-effort; preserve the original runtime-resume failure.
+        }
+    }
+
+    private _tryRollbackStartupAfterSelectionFailure(): void {
+        try {
+            this._deps.rollbackStartupAfterSelectionFailure();
         } catch {
             // Rollback is best-effort; preserve the original runtime-resume failure.
         }
@@ -99,7 +108,6 @@ export class ServerSelectionCoordinator {
         try {
             throwIfSelectionAborted(options?.signal);
             const startupResume = await this._deps.resumeStartupAfterSelection(options);
-            throwIfSelectionAborted(options?.signal);
             return {
                 kind: 'selected',
                 readiness: this._deps.getReadiness(),
@@ -109,6 +117,7 @@ export class ServerSelectionCoordinator {
         } catch (error) {
             this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
             await this._tryRestorePersistedSelectionSnapshot(persistedSelectionSnapshot);
+            this._tryRollbackStartupAfterSelectionFailure();
             throw error;
         }
     }

@@ -45,6 +45,7 @@ describe('ServerSelectionCoordinator', () => {
             persistSelection: jest.fn(async () => 'updated' as const),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'startup_pending' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -70,6 +71,7 @@ describe('ServerSelectionCoordinator', () => {
             persistSelection: jest.fn(async () => 'updated' as const),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -98,6 +100,7 @@ describe('ServerSelectionCoordinator', () => {
             persistSelection: jest.fn(async () => 'updated' as const),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -127,6 +130,7 @@ describe('ServerSelectionCoordinator', () => {
             persistSelection: jest.fn(async () => 'updated' as const),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -157,6 +161,7 @@ describe('ServerSelectionCoordinator', () => {
             persistSelection: jest.fn(async () => 'updated' as const),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -186,6 +191,7 @@ describe('ServerSelectionCoordinator', () => {
             }),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -213,6 +219,7 @@ describe('ServerSelectionCoordinator', () => {
             }),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -238,6 +245,7 @@ describe('ServerSelectionCoordinator', () => {
             persistSelection: jest.fn(async () => 'updated' as const),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -267,6 +275,7 @@ describe('ServerSelectionCoordinator', () => {
             }),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -291,6 +300,7 @@ describe('ServerSelectionCoordinator', () => {
             resumeStartupAfterSelection: jest.fn(async () => {
                 throw resumeError;
             }),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -375,6 +385,7 @@ describe('ServerSelectionCoordinator', () => {
                 }
                 return Promise.resolve(startupResumeSucceeded);
             }),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -448,6 +459,7 @@ describe('ServerSelectionCoordinator', () => {
             resumeStartupAfterSelection: jest.fn(async () => {
                 throw resumeError;
             }),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);
@@ -472,6 +484,7 @@ describe('ServerSelectionCoordinator', () => {
             persistSelection: jest.fn(async () => 'updated' as const),
             restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
             resumeStartupAfterSelection: jest.fn(async () => startupResume),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
             getReadiness: jest.fn(() => 'ready' as const),
         };
         const coordinator = new ServerSelectionCoordinator(deps);

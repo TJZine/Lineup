@@ -50,9 +50,10 @@ export class InitializationStartupQueue {
             return null;
         }
 
-        const owner = this._waiters.find(
+        const samePhaseWaiters = this._waiters.filter(
             (waiter) => !waiter.consumed && waiter.phase === phase
         );
+        const owner = samePhaseWaiters.find((waiter) => waiter.signal) ?? samePhaseWaiters[0];
         this._waiters.forEach((waiter) => {
             if (!waiter.consumed) {
                 waiter.consumed = true;

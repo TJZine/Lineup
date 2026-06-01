@@ -56,6 +56,7 @@ export class OrchestratorServerSelectionRuntime {
     private readonly _selectedServerPersistenceAdapter: SelectedServerPersistenceAdapter;
     private readonly _selectedServerRuntimeController: SelectedServerRuntimeController;
     private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;
+    private _serverSwapEpgRollbackPending = false;
 
     constructor(private readonly _deps: OrchestratorServerSelectionRuntimeDeps) {
         this._selectedServerPersistenceAdapter = new SelectedServerPersistenceAdapter({
@@ -122,6 +123,9 @@ export class OrchestratorServerSelectionRuntime {
                 options?: PlexDiscoverySignalOptions
             ): Promise<SelectedServerStartupResumeResult> =>
                 this._selectedServerRuntimeController.resumeStartupAfterSelection(options),
+            rollbackStartupAfterSelectionFailure: (): void => {
+                this._rollbackServerSwapEpgSideEffects();
+            },
             getReadiness: (): OrchestratorServerSelectionReadiness =>
                 (this._deps.isReady() ? 'ready' : 'startup_pending'),
         });
@@ -181,6 +185,7 @@ export class OrchestratorServerSelectionRuntime {
     private async _resumeStartupAfterSelectedServerChange(
         options?: PlexDiscoverySignalOptions
     ): Promise<SelectedServerStartupResumeResult> {
+        this._serverSwapEpgRollbackPending = false;
         const signal = options?.signal;
         const initCoordinator = this._deps.getInitializationCoordinator();
         if (!initCoordinator) {
@@ -208,43 +213,44 @@ export class OrchestratorServerSelectionRuntime {
 
             step = 'clearSelectedChannelScheduleSnapshot';
             throwIfSelectionAborted(signal);
+            this._serverSwapEpgRollbackPending = true;
             epgCoordinator.clearSelectedChannelScheduleSnapshot();
 
             step = 'clearScheduleCaches';
-            throwIfSelectionAborted(signal);
             epgCoordinator.clearScheduleCaches();
 
             if (epg) {
                 step = 'clearSchedules';
-                throwIfSelectionAborted(signal);
                 epg.clearSchedules();
             }
 
             step = 'primeEpgChannels';
-            throwIfSelectionAborted(signal);
             epgCoordinator.primeEpgChannels();
 
             step = 'refreshEpgSchedules';
-            throwIfSelectionAborted(signal);
             const refreshOptions = signal
                 ? { reason: 'server-swap', signal }
                 : { reason: 'server-swap' };
             const refreshResult = await captureRecoverableRuntimeResultAsync(
                 async () => epgCoordinator.refreshEpgSchedules(refreshOptions)
             );
-            throwIfSelectionAborted(signal);
             if (!refreshResult.ok) {
+                if (isSelectionAbortError(refreshResult.error, signal)) {
+                    throw refreshResult.error;
+                }
                 this._deps.reportError(
                     'orchestrator.serverSwap.refreshEpgSchedules',
                     'Post-selection EPG refresh failed',
                     refreshResult.error,
                     { step }
                 );
+                this._serverSwapEpgRollbackPending = false;
                 return {
                     startup: 'completed',
                     epgRefresh: { kind: 'failed', error: refreshResult.error },
                 };
             }
+            this._serverSwapEpgRollbackPending = false;
             return {
                 startup: 'completed',
                 epgRefresh: { kind: 'succeeded' },
@@ -261,5 +267,17 @@ export class OrchestratorServerSelectionRuntime {
             );
             throw error;
         }
+    }
+
+    private _rollbackServerSwapEpgSideEffects(): void {
+        if (!this._serverSwapEpgRollbackPending) {
+            return;
+        }
+        this._serverSwapEpgRollbackPending = false;
+        const epgCoordinator = this._deps.getEpgCoordinator();
+        const epg = this._deps.getEpg();
+        epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+        epgCoordinator?.clearScheduleCaches();
+        epg?.clearSchedules();
     }
 }
