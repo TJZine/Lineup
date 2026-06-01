@@ -14,7 +14,7 @@ export function isSelectionAbortError(
     if (!signal?.aborted) {
         return false;
     }
-    return error === readSelectionAbortReason(signal) || isAbortLikeError(error, signal);
+    return error === readSelectionAbortReason(signal) || isAbortLikeError(error);
 }
 
 function readSelectionAbortReason(signal: AbortSignal): unknown {

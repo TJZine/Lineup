@@ -22,6 +22,7 @@ import type { IEPGDebugRuntime } from '../debug/EPGDebugRuntime';
 import type {
     EpgChannelSwitchOptions,
     EpgGuideSelectionSnapshot,
+    EpgScheduleRefreshOptions,
     EpgUiStatus,
 } from './EPGCoordinatorContracts';
 
@@ -102,7 +103,7 @@ export class EPGCoordinator {
         });
     }
 
-    private _refreshEpgSchedulesBestEffort(options?: { reason?: string; debounceMs?: number }): void {
+    private _refreshEpgSchedulesBestEffort(options?: EpgScheduleRefreshOptions): void {
         void this.refreshEpgSchedules(options).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
             this._reportIssue('epg.refreshSchedulesBestEffortFailed', error, {
@@ -114,7 +115,7 @@ export class EPGCoordinator {
 
     private _refreshEpgSchedulesForRangeBestEffort(
         range: EpgVisibleRange,
-        options?: { reason?: string; debounceMs?: number }
+        options?: EpgScheduleRefreshOptions
     ): void {
         void this.refreshEpgSchedulesForRange(range, options).catch((error: unknown) => {
             if (isAbortLikeError(error)) return;
@@ -344,7 +345,7 @@ export class EPGCoordinator {
         epg.loadChannels(toEpgChannels(visible));
     }
 
-    async refreshEpgSchedules(options?: { reason?: string; debounceMs?: number }): Promise<void> {
+    async refreshEpgSchedules(options?: EpgScheduleRefreshOptions): Promise<void> {
         const epg = this.deps.getEpg();
         if (!epg) return;
         const epgState = epg.getState();
@@ -371,7 +372,7 @@ export class EPGCoordinator {
         channelEnd: number;
         timeStartMs: number;
         timeEndMs: number;
-    }, options?: { reason?: string; debounceMs?: number }): Promise<void> {
+    }, options?: EpgScheduleRefreshOptions): Promise<void> {
         return this._refreshController.refreshEpgSchedulesForRange(range, options);
     }
 

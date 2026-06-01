@@ -8,6 +8,20 @@ export type EpgGuideSelectionSnapshotSource =
     | 'resolved-immediate'
     | 'on-demand-materialized';
 
+export interface EpgScheduleRefreshOptions {
+    reason?: string;
+    debounceMs?: number;
+    signal?: AbortSignal | null;
+}
+
+export interface GuideSelectionSnapshotRequest {
+    channelId: string;
+    ratingKey: string;
+    scheduledStartTime: number;
+    scheduledEndTime: number;
+    selectedAt: number;
+}
+
 export interface EpgGuideSelectionSnapshot {
     channelId: string;
     ratingKey: string;

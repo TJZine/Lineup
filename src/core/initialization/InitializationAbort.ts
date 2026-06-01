@@ -18,7 +18,7 @@ export function isStartupAbortError(
     if (!signal?.aborted) {
         return false;
     }
-    return error === readStartupAbortReason(signal) || isAbortLikeError(error, signal);
+    return error === readStartupAbortReason(signal) || isAbortLikeError(error);
 }
 
 export function readStartupAbortReason(signal: AbortSignal): unknown {

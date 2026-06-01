@@ -363,6 +363,44 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(epg.loadScheduleForChannel).toHaveBeenCalled();
     });
 
+    it('aborts caller-canceled server-swap refreshes before schedules are applied', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        let capturedSignal: AbortSignal | null | undefined;
+        let resolveContent: ((value: ResolvedChannelContent) => void) | null = null;
+        const { runtime, channelManager, epg, deps } = createRuntime({
+            channelManager: {
+                resolveChannelContent: jest.fn((_id: string, options?: { signal?: AbortSignal | null }) => {
+                    capturedSignal = options?.signal;
+                    return new Promise<ResolvedChannelContent>((resolve) => {
+                        resolveContent = resolve;
+                    });
+                }),
+            },
+        });
+
+        const refresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'server-swap',
+            { signal: controller.signal }
+        );
+        await Promise.resolve();
+
+        expect(capturedSignal?.aborted).toBe(false);
+        controller.abort(abortReason);
+        (resolveContent as unknown as (value: ResolvedChannelContent) => void)(createResolvedContent('c1'));
+
+        await expect(refresh).rejects.toBe(abortReason);
+        expect(capturedSignal?.aborted).toBe(true);
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.anything()
+        );
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
+    });
+
     it('invalidates in-flight refresh work when no visible channels remain', async () => {
         const channel = makeChannel('c1', 1);
         let visibleChannels: ChannelConfig[] = [channel];

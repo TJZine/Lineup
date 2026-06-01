@@ -11,6 +11,12 @@ import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetup
 import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
 import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';
 
+export type ChannelSetupEpgRefreshOptions = {
+    reason?: string;
+    debounceMs?: number;
+    signal?: AbortSignal | null;
+};
+
 type BuildProgressReporter = (
     task: ChannelBuildProgress['task'],
     label: string,
@@ -26,7 +32,7 @@ export interface ChannelSetupBuildCommitterDeps {
     ensureEpgInitialized: () => Promise<void>;
     clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
-    refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }) => Promise<void>;
+    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<void>;
 }
 
 export interface ChannelSetupBuildCommitRequest {

@@ -304,6 +304,64 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(deps.reportError).not.toHaveBeenCalled();
     });
 
+    it('aborts pending server-swap EPG refresh without reporting rollback as a runtime failure', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const plexAuth = createPlexAuth();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        let releaseRefresh: (() => void) | null = null;
+        let capturedRefreshSignal: AbortSignal | null | undefined;
+        let markRefreshStarted: (() => void) | null = null;
+        const refreshStarted = new Promise<void>((resolve) => {
+            markRefreshStarted = resolve;
+        });
+        const epg = {
+            clearSchedules: jest.fn(),
+        } as unknown as jest.Mocked<IEPGComponent>;
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn((options?: { signal?: AbortSignal | null }) => {
+                capturedRefreshSignal = options?.signal;
+                markRefreshStarted?.();
+                return new Promise<void>((_resolve, reject) => {
+                    releaseRefresh = (): void => reject(abortReason);
+                    options?.signal?.addEventListener('abort', () => reject(abortReason), { once: true });
+                });
+            }),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const deps = createDeps({
+            getPlexAuth: jest.fn(() => plexAuth),
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+            getEpg: jest.fn(() => epg),
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        const selection = runtime.selectServer('server-1', { signal: controller.signal });
+        await refreshStarted;
+
+        expect(capturedRefreshSignal).toBe(controller.signal);
+        controller.abort(abortReason);
+        (releaseRefresh as unknown as () => void)();
+
+        await expect(selection).rejects.toBe(abortReason);
+        expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({
+            reason: 'server-swap',
+            signal: controller.signal,
+        });
+        expect(plexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith({
+            server: null,
+            connection: null,
+            storedServerId: 'old-server',
+        });
+        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials());
+        expect(deps.reportError).not.toHaveBeenCalled();
+    });
+
     it('returns failed EPG refresh status after clearing server-scoped schedule state', async () => {
         const plexDiscovery = createPlexDiscovery();
         const initCoordinator = createInitializationCoordinator();
@@ -369,6 +427,31 @@ describe('OrchestratorServerSelectionRuntime', () => {
             'orchestrator.serverSwap.runStartup',
             'Post-selection runtime swap failed',
             abortError,
+            { step: 'runStartup' }
+        );
+    });
+
+    it('reports non-abort startup failures that race with caller cancellation', async () => {
+        const controller = new AbortController();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const startupError = new Error('startup failed after abort');
+        initCoordinator.runStartup.mockImplementation(async () => {
+            controller.abort(new DOMException('server selection hidden', 'AbortError'));
+            throw startupError;
+        });
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1', { signal: controller.signal })).rejects.toBe(startupError);
+
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.serverSwap.runStartup',
+            'Post-selection runtime swap failed',
+            startupError,
             { step: 'runStartup' }
         );
     });

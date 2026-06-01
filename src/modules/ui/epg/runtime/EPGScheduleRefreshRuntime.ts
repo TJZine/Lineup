@@ -19,96 +19,26 @@ import { computeBackgroundWarmQueueCaps, partitionPrefetchChannels } from '../co
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
 import { EPGBackgroundWarmQueue } from './EPGBackgroundWarmQueue';
 import { EPGScheduleCacheStore } from './EPGScheduleCacheStore';
+import { throwIfEpgRefreshAborted } from './EPGRefreshAbort';
 import { toEpgScheduleWindow } from '../model/adapters';
-import type { EpgGuideSelectionSnapshot, EpgUiStatus } from '../coordinator/EPGCoordinatorContracts';
+import type {
+    EpgGuideSelectionSnapshot,
+    EpgUiStatus,
+    GuideSelectionSnapshotRequest,
+} from '../coordinator/EPGCoordinatorContracts';
+import type { EpgVisibleRange } from '../types';
+import type {
+    AppliedScheduleSource,
+    BackgroundDebugState,
+    RefreshMetrics,
+    RefreshPhase,
+    RefreshSession,
+    ScheduleCachePolicy,
+    SelectedRowSnapshotSeed,
+} from './EPGScheduleRefreshRuntimeTypes';
 
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
 const QA_003B_ISSUE_ID = 'QA-003b';
-
-type RangeRefreshRequest = {
-    channelStart: number;
-    channelEnd: number;
-    timeStartMs: number;
-    timeEndMs: number;
-};
-
-type BackgroundDebugState = {
-    refreshId: number;
-    rangeKey: string;
-    refreshStartedAt: number;
-    logCount: number;
-    immediateLoadedCount: number;
-    backgroundLoadedCount: number;
-    cacheHits: number;
-    cacheMisses: number;
-    firstVisibleScheduleReadyMs: number | null;
-};
-
-type AppliedScheduleSource =
-    | 'live-scheduler'
-    | 'schedule-cache'
-    | 'schedule-cache-stale'
-    | 'resolved-immediate'
-    | 'resolved-background';
-
-type SelectedRowSnapshotSeed = {
-    channelId: string;
-    source: 'resolved-immediate';
-    dayKey: number;
-    referenceTimeMs: number;
-    orderedItems: ResolvedChannelContent['items'];
-};
-
-type RefreshPhase = 'immediate' | 'background';
-type ScheduleCachePolicy = 'persist' | 'skip';
-
-type RefreshMetrics = {
-    cacheHits: number;
-    staleCacheHits: number;
-    cacheMisses: number;
-    inFlightSkipped: number;
-    alreadyLoaded: number;
-    liveScheduleHits: number;
-    immediateLoadedCount: number;
-    backgroundLoadedCount: number;
-    firstVisibleScheduleReadyMs: number | null;
-};
-
-type RefreshSession = {
-    refreshId: number;
-    reason: string;
-    refreshStartedAt: number;
-    range: RangeRefreshRequest;
-    epg: IEPGComponent;
-    channelManager: IChannelManager;
-    scheduler: IChannelScheduler | null;
-    startTime: number;
-    endTime: number;
-    rangeKey: string;
-    forceRefresh: boolean;
-    debugEnabled: boolean;
-    shuffler: ShuffleGenerator;
-    liveChannelId: string | null;
-    focusedChannelId: string | null;
-    visibleRangeIds: Set<string>;
-    immediateChannels: ChannelConfig[];
-    backgroundChannels: ChannelConfig[];
-    immediateConcurrency: number;
-    backgroundConcurrency: number;
-    inFlightKept: number;
-    inFlightAborted: number;
-    bufferedRange: { start: number; end: number };
-    backgroundRange: { start: number; end: number };
-    overscan: number;
-};
-
-export interface GuideSelectionSnapshotRequest {
-    channelId: string;
-    ratingKey: string;
-    scheduledStartTime: number;
-    scheduledEndTime: number;
-    selectedAt: number;
-}
 
 export interface EPGScheduleRefreshRuntimeDeps {
     getEpg: () => IEPGComponent | null;
@@ -303,22 +233,38 @@ export class EPGScheduleRefreshRuntime {
         await this._warmQueue.whenIdle();
     }
 
-    async refreshForRange(range: RangeRefreshRequest, reason: string): Promise<void> {
-        const session = this._createRefreshSession(range, reason);
+    async refreshForRange(
+        range: EpgVisibleRange,
+        reason: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<void> {
+        const signal = options?.signal ?? null;
+        throwIfEpgRefreshAborted(signal);
+        const session = this._createRefreshSession(range, reason, signal);
         if (!session) {
             return;
         }
+        const cleanup = this._bindRefreshAbort(session);
 
-        const metrics = this._createRefreshMetrics();
-        this._initializeBackgroundDebugState(session);
-        this._logRefreshStart(session);
-        await this._refreshImmediateChannels(session, metrics);
-        this._startBackgroundRefresh(session, metrics);
-        this._logRefreshResults(session, metrics);
-        this._restoreFocusAfterRefresh(session);
+        try {
+            const metrics = this._createRefreshMetrics();
+            this._initializeBackgroundDebugState(session);
+            this._logRefreshStart(session);
+            await this._refreshImmediateChannels(session, metrics);
+            throwIfEpgRefreshAborted(signal);
+            this._startBackgroundRefresh(session, metrics);
+            this._logRefreshResults(session, metrics);
+            this._restoreFocusAfterRefresh(session);
+        } finally {
+            cleanup();
+        }
     }
 
-    private _createRefreshSession(range: RangeRefreshRequest, reason: string): RefreshSession | null {
+    private _createRefreshSession(
+        range: EpgVisibleRange,
+        reason: string,
+        signal: AbortSignal | null
+    ): RefreshSession | null {
         const refreshStartedAt = Date.now();
         const epg = this._deps.getEpg();
         const channelManager = this._deps.getChannelManager();
@@ -400,6 +346,7 @@ export class EPGScheduleRefreshRuntime {
             reason,
             refreshStartedAt,
             range,
+            signal,
             epg,
             channelManager,
             scheduler,
@@ -501,6 +448,7 @@ export class EPGScheduleRefreshRuntime {
             materializationSeed?: ResolvedChannelContent['items'];
         }
     ): void {
+        if (!this._isRefreshSessionActive(session)) return;
         const phase = options?.phase ?? 'immediate';
         const shouldApplyToUi = phase !== 'background';
 
@@ -607,7 +555,7 @@ export class EPGScheduleRefreshRuntime {
                 if (schedulerState.isActive && schedulerState.channelId === channel.id) {
                     const liveWindow = session.scheduler.getScheduleWindow(session.startTime, session.endTime);
                     const liveSchedule = this._deps.cloneScheduleWindow(liveWindow);
-                    if (session.refreshId !== this._scheduleLoadToken) {
+                    if (!this._isRefreshSessionActive(session)) {
                         return;
                     }
                     this._applySchedule(session, metrics, channel.id, liveSchedule, {
@@ -628,7 +576,7 @@ export class EPGScheduleRefreshRuntime {
             const cached = session.forceRefresh ? null : this._cacheStore.getCachedSchedule(channel.id, session.rangeKey);
             if (cached) {
                 const cachedSchedule = this._deps.cloneScheduleWindow(cached.schedule);
-                if (session.refreshId !== this._scheduleLoadToken) {
+                if (!this._isRefreshSessionActive(session)) {
                     return;
                 }
                 if (cached.isStale) {
@@ -670,7 +618,7 @@ export class EPGScheduleRefreshRuntime {
                     : (await session.channelManager.resolveChannelContent(channel.id, {
                         signal: controller.signal,
                     })).items;
-            if (session.refreshId !== this._scheduleLoadToken) {
+            if (!this._isRefreshSessionActive(session)) {
                 return;
             }
             const active = this._inFlightByChannel.get(channel.id);
@@ -679,7 +627,7 @@ export class EPGScheduleRefreshRuntime {
             }
 
             const scheduleConfig = this._deps.buildDailyScheduleConfig(channel, items, session.startTime);
-            if (session.refreshId !== this._scheduleLoadToken) {
+            if (!this._isRefreshSessionActive(session)) {
                 return;
             }
             const index = buildScheduleIndex(scheduleConfig, session.shuffler);
@@ -689,7 +637,7 @@ export class EPGScheduleRefreshRuntime {
                 index,
                 scheduleConfig.anchorTime
             );
-            if (session.refreshId !== this._scheduleLoadToken) {
+            if (!this._isRefreshSessionActive(session)) {
                 return;
             }
             this._applySchedule(session, metrics, channel.id, { startTime: session.startTime, endTime: session.endTime, programs }, {
@@ -734,7 +682,7 @@ export class EPGScheduleRefreshRuntime {
     }
 
     private _startBackgroundRefresh(session: RefreshSession, metrics: RefreshMetrics): void {
-        if (session.refreshId !== this._scheduleLoadToken || session.backgroundChannels.length === 0) {
+        if (!this._isRefreshSessionActive(session) || session.backgroundChannels.length === 0) {
             return;
         }
 
@@ -785,12 +733,24 @@ export class EPGScheduleRefreshRuntime {
             : false;
 
         if (
-            session.refreshId === this._scheduleLoadToken &&
+            this._isRefreshSessionActive(session) &&
             session.epg.isVisible() &&
             (!focusedProgram || focusedIsPlaceholder || focusedIsInvalidProgram)
         ) {
             session.epg.focusNow();
         }
+    }
+
+    private _bindRefreshAbort(session: RefreshSession): () => void {
+        const signal = session.signal ?? null;
+        if (!signal) return () => undefined;
+        const onAbort = (): void => this._invalidateRefreshWork('external-abort', { abortInFlight: true });
+        signal.addEventListener('abort', onAbort, { once: true });
+        return () => signal.removeEventListener('abort', onAbort);
+    }
+
+    private _isRefreshSessionActive(session: RefreshSession): boolean {
+        return session.refreshId === this._scheduleLoadToken && !session.signal?.aborted;
     }
 
     private _reportIssue(

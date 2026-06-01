@@ -1379,6 +1379,34 @@ describe('InitializationCoordinator (Plex Home)', () => {
         );
     });
 
+    it('reports non-abort startup failures that race with caller cancellation', async () => {
+        const controller = new AbortController();
+        const startupError = new Error('channel load failed after abort');
+        const { coordinator, callbacks } = makeCoordinator({
+            channelManager: {
+                loadChannels: jest.fn().mockImplementation(async () => {
+                    controller.abort(new DOMException('server selection hidden', 'AbortError'));
+                    throw startupError;
+                }),
+                getCurrentChannel: jest.fn().mockReturnValue(null),
+                getAllChannels: jest.fn().mockReturnValue([]),
+            } as unknown as LegacyInitializationDependencies['channelManager'],
+        });
+
+        await expect(
+            coordinator.runStartup(STARTUP_PHASE.RESUME_RUNTIME_MODULES, { signal: controller.signal })
+        ).rejects.toBe(startupError);
+
+        expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.INITIALIZATION_FAILED,
+                message: 'channel load failed after abort',
+                recoverable: true,
+            },
+            'start'
+        );
+    });
+
     it('cancels a pending warmup timer when a rerun eagerly initializes EPG', async () => {
         jest.useFakeTimers();
         const epg = {

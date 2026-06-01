@@ -225,8 +225,11 @@ export class OrchestratorServerSelectionRuntime {
 
             step = 'refreshEpgSchedules';
             throwIfSelectionAborted(signal);
+            const refreshOptions = signal
+                ? { reason: 'server-swap', signal }
+                : { reason: 'server-swap' };
             const refreshResult = await captureRecoverableRuntimeResultAsync(
-                async () => epgCoordinator.refreshEpgSchedules({ reason: 'server-swap' })
+                async () => epgCoordinator.refreshEpgSchedules(refreshOptions)
             );
             throwIfSelectionAborted(signal);
             if (!refreshResult.ok) {
