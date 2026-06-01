@@ -2,7 +2,6 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import type { IDisposable } from '../../../utils/interfaces';
 import { AppErrorCode } from '../../../types/app-errors';
 import { fnv1a32Hex } from '../../../utils/hash';
-import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
 import type {
     IPlexLibrary,
     PlexLibraryConfig,
@@ -46,8 +45,8 @@ import {
     extractSearchHubMetadata,
     extractSearchHubs,
 } from './parsing/libraryResponsePayload';
+import { extractTagDirectoryEntries } from './parsing/tagDirectoryPayload';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './constants';
-import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import {
     applyXPlexTokenQueryParam,
     classifyPlexUrlOrigin,
@@ -56,20 +55,13 @@ import {
 import { createPlexConsoleLogger } from '../shared/plexLogging';
 import { enrichLibrarySectionCounts } from './LibraryCountEnrichment';
 import {
-    buildFetchRequestInit,
-    classifyFetchError,
-    classifyFetchResponse,
-} from './PlexLibraryFetchPolicy';
+    PlexLibraryRequestClient,
+    resolveRequestProfileForIntent,
+    type PlexLibraryRequestProfile,
+} from './PlexLibraryRequestClient';
 
 // Re-export for consumers
 export { PlexLibraryError } from './PlexLibraryError';
-
-const INTERACTIVE_REQUEST_POLICY = {
-    timeoutMs: 5000,
-    timeoutRetryDelays: [1000] as const,
-} as const;
-
-type PrivateRequestProfile = 'default' | 'interactive';
 
 type LibrarySectionsLookupSource =
     | { kind: 'available'; libraries: PlexLibrarySection[] }
@@ -94,103 +86,6 @@ interface MediaPaginationPage {
     totalSize?: number | null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function createTagDirectoryPayloadError(context: string, detail: string): PlexLibraryError {
-    return new PlexLibraryError(
-        AppErrorCode.PARSE_ERROR,
-        `Invalid ${context} payload: ${detail}`
-    );
-}
-
-function readOptionalTagDirectoryString(
-    entry: Record<string, unknown>,
-    property: 'fastKey' | 'thumb',
-    context: string
-): string | undefined {
-    const value = entry[property];
-    if (value === undefined) {
-        return undefined;
-    }
-    if (typeof value !== 'string') {
-        throw createTagDirectoryPayloadError(context, `${property} must be a string when present`);
-    }
-    return value;
-}
-
-function readOptionalTagDirectoryCount(entry: Record<string, unknown>, context: string): number | undefined {
-    const value = entry.count;
-    if (value === undefined) {
-        return undefined;
-    }
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-    }
-    if (typeof value === 'string' && value.trim() !== '') {
-        const parsed = Number(value);
-        if (Number.isFinite(parsed)) {
-            return parsed;
-        }
-    }
-    throw createTagDirectoryPayloadError(context, 'count must be a finite number or numeric string when present');
-}
-
-function normalizeSingletonTagDirectoryEntry(value: unknown, context: string): RawDirectoryTag {
-    if (!isRecord(value)) {
-        throw createTagDirectoryPayloadError(context, 'Directory must be an array or tag entry object');
-    }
-
-    const key = value.key;
-    if (typeof key !== 'string' && !(typeof key === 'number' && Number.isFinite(key))) {
-        throw createTagDirectoryPayloadError(context, 'Directory key must be a string or finite number');
-    }
-
-    const title = value.title;
-    if (typeof title !== 'string' || title.trim() === '') {
-        throw createTagDirectoryPayloadError(context, 'Directory title must be a non-empty string');
-    }
-
-    const entry: RawDirectoryTag = {
-        key: String(key),
-        title,
-    };
-    const count = readOptionalTagDirectoryCount(value, context);
-    if (count !== undefined) {
-        entry.count = count;
-    }
-    const fastKey = readOptionalTagDirectoryString(value, 'fastKey', context);
-    if (fastKey !== undefined) {
-        entry.fastKey = fastKey;
-    }
-    const thumb = readOptionalTagDirectoryString(value, 'thumb', context);
-    if (thumb !== undefined) {
-        entry.thumb = thumb;
-    }
-    return entry;
-}
-
-function extractTagDirectoryEntries(
-    response: PlexMediaContainer<RawDirectoryTag>,
-    context: string
-): RawDirectoryTag[] {
-    const mediaContainer = extractMediaContainer(response, context);
-    const directory = (mediaContainer as { Directory?: unknown }).Directory;
-
-    if (directory === undefined) {
-        return [];
-    }
-
-    if (Array.isArray(directory)) {
-        return directory.map((entry, index) =>
-            normalizeSingletonTagDirectoryEntry(entry, `${context} entry ${index}`)
-        );
-    }
-
-    return [normalizeSingletonTagDirectoryEntry(directory, context)];
-}
-
 interface MediaPaginationOptions<TResponse> {
     operationName: string;
     initialOffset: number;
@@ -202,34 +97,12 @@ interface MediaPaginationOptions<TResponse> {
     formatGuardContext: (state: MediaPaginationState) => string;
 }
 
-const resolveRequestProfileForIntent = (
-    intent: PlexLibraryRequestIntent | undefined
-): PrivateRequestProfile => (intent === 'preview' ? 'interactive' : 'default');
-
-const resolveRequestPolicy = (profile: PrivateRequestProfile = 'default'): {
-    timeoutMs: number;
-    timeoutRetryDelays: readonly number[];
-    maxTimeoutRetries: number;
-} => {
-    if (profile === 'interactive') {
-        return {
-            timeoutMs: INTERACTIVE_REQUEST_POLICY.timeoutMs,
-            timeoutRetryDelays: INTERACTIVE_REQUEST_POLICY.timeoutRetryDelays,
-            maxTimeoutRetries: INTERACTIVE_REQUEST_POLICY.timeoutRetryDelays.length,
-        };
-    }
-    return {
-        timeoutMs: PLEX_LIBRARY_CONSTANTS.REQUEST_TIMEOUT_MS,
-        timeoutRetryDelays: PLEX_LIBRARY_CONSTANTS.TIMEOUT_RETRY_DELAYS,
-        maxTimeoutRetries: PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES,
-    };
-};
-
 export class PlexLibrary implements IPlexLibrary {
     private readonly _config: PlexLibraryConfig;
     private readonly _emitter: EventEmitter<PlexLibraryEvents>;
     private readonly _state: PlexLibraryState;
     private readonly _logger: NonNullable<PlexLibraryConfig['logger']>;
+    private readonly _requestClient: PlexLibraryRequestClient;
 
     constructor(config: PlexLibraryConfig) {
         this._config = config;
@@ -240,6 +113,11 @@ export class PlexLibrary implements IPlexLibrary {
             isRefreshing: false,
             cacheScope: null,
         };
+        this._requestClient = new PlexLibraryRequestClient({
+            config,
+            logger: this._logger,
+            emitAuthExpired: (): void => this._emitter.emit('authExpired', undefined),
+        });
     }
 
     /**
@@ -265,10 +143,6 @@ export class PlexLibrary implements IPlexLibrary {
         }
         this._state.libraryCache.clear();
         this._state.cacheScope = nextScope;
-    }
-
-    private _redactUrlForLog(url: string): string {
-        return redactUrlForLog(url);
     }
 
     private async _fetchLibrarySectionsForLookup(
@@ -995,159 +869,9 @@ export class PlexLibrary implements IPlexLibrary {
     private async _fetchWithRetry<T>(
         url: string,
         options: RequestInit = {},
-        requestProfile: PrivateRequestProfile = 'default'
+        requestProfile: PlexLibraryRequestProfile = 'default'
     ): Promise<T | null> {
-        const logger = this._logger;
-        const requestPolicy = resolveRequestPolicy(requestProfile);
-        let timeoutRetries = 0;
-        let serverErrorRetried = false;
-        let rateLimitRetries = 0;
-
-        while (true) {
-            let externalAborted = false;
-            const externalSignal = options.signal ?? null;
-            try {
-                const onExternalAbort = (): void => {
-                    externalAborted = true;
-                };
-                if (externalSignal) {
-                    if (externalSignal.aborted) {
-                        externalAborted = true;
-                    }
-                    externalSignal.addEventListener('abort', onExternalAbort, { once: true });
-                }
-
-                let response: Response;
-                try {
-                    response = await fetchWithTimeout({
-                        url,
-                        init: buildFetchRequestInit(url, options, this._config.getAuthHeaders()),
-                        timeoutMs: requestPolicy.timeoutMs,
-                        upstreamSignal: externalSignal,
-                    });
-                } finally {
-                    if (externalSignal) {
-                        externalSignal.removeEventListener('abort', onExternalAbort);
-                    }
-                }
-
-                const responseOutcome = await classifyFetchResponse<T>(
-                    response,
-                    url,
-                    logger,
-                    (value) => this._redactUrlForLog(value)
-                );
-
-                switch (responseOutcome.kind) {
-                    case 'success':
-                        return responseOutcome.data;
-                    case 'authExpired':
-                        this._emitter.emit('authExpired', undefined);
-                        throw new PlexLibraryError(
-                            AppErrorCode.AUTH_EXPIRED,
-                            'Authentication expired',
-                            401
-                        );
-                    case 'accessDenied':
-                        throw new PlexLibraryError(
-                            AppErrorCode.ACCESS_DENIED,
-                            `Access denied: profile does not have permission for this resource (403)`,
-                            403
-                        );
-                    case 'rateLimited':
-                        if (rateLimitRetries >= requestPolicy.maxTimeoutRetries) {
-                            throw new PlexLibraryError(
-                                AppErrorCode.RATE_LIMITED,
-                                'Rate limited after max retries',
-                                429
-                            );
-                        }
-                        rateLimitRetries++;
-                        await this._delay(responseOutcome.retryAfterMs);
-                        continue;
-                    case 'notFound':
-                        logger.warn(`[PlexLibrary] 404 Not Found: ${this._redactUrlForLog(url)}`);
-                        return null;
-                    case 'serverError':
-                        if (!serverErrorRetried) {
-                            serverErrorRetried = true;
-                            logger.warn(`[PlexLibrary] Server error ${responseOutcome.status}, retrying after 2s...`);
-                            await this._delay(PLEX_LIBRARY_CONSTANTS.SERVER_ERROR_RETRY_DELAY);
-                            continue;
-                        }
-                        throw new PlexLibraryError(
-                            AppErrorCode.SERVER_ERROR,
-                            `HTTP ${responseOutcome.status}`,
-                            responseOutcome.status
-                        );
-                    case 'httpError':
-                        throw new PlexLibraryError(
-                            AppErrorCode.SERVER_ERROR,
-                            `HTTP ${responseOutcome.status}`,
-                            responseOutcome.status
-                        );
-                }
-
-            } catch (error) {
-                const errorOutcome = classifyFetchError(error, externalAborted, options.signal ?? null);
-
-                switch (errorOutcome.kind) {
-                    case 'externalAbort':
-                        throw errorOutcome.error;
-                    case 'timeout':
-                        if (timeoutRetries < requestPolicy.maxTimeoutRetries) {
-                            const delay =
-                                requestPolicy.timeoutRetryDelays[timeoutRetries]
-                                ?? requestPolicy.timeoutRetryDelays[requestPolicy.timeoutRetryDelays.length - 1]
-                                ?? 4000;
-                            logger.warn(`[PlexLibrary] Network timeout, retry ${timeoutRetries + 1}/${requestPolicy.maxTimeoutRetries} after ${delay}ms`);
-                            timeoutRetries++;
-                            await this._delay(delay);
-                            continue;
-                        }
-                        throw new PlexLibraryError(
-                            AppErrorCode.NETWORK_TIMEOUT,
-                            'Network timeout after max retries',
-                            undefined,
-                            {
-                                cause: errorOutcome.error,
-                                context: { url: this._redactUrlForLog(url) },
-                            }
-                        );
-                    case 'authOrAccessDenied':
-                    case 'libraryError':
-                        throw errorOutcome.error;
-                    case 'networkFailure':
-                        this._config.onServerUnreachable?.();
-                        throw new PlexLibraryError(
-                            AppErrorCode.SERVER_UNREACHABLE,
-                            redactSensitiveTokens(errorOutcome.error.message),
-                            undefined,
-                            {
-                                cause: errorOutcome.error,
-                                context: { url: this._redactUrlForLog(url) },
-                            }
-                        );
-                    case 'unknown':
-                        this._config.onServerUnreachable?.();
-                        throw new PlexLibraryError(
-                            AppErrorCode.SERVER_UNREACHABLE,
-                            errorOutcome.error instanceof Error
-                                ? redactSensitiveTokens(errorOutcome.error.message)
-                                : 'Unknown error',
-                            undefined,
-                            {
-                                cause: errorOutcome.error,
-                                context: { url: this._redactUrlForLog(url) },
-                            }
-                        );
-                }
-            }
-        }
-    }
-
-    private _delay(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
+        return this._requestClient.fetchWithRetry<T>(url, options, requestProfile);
     }
 
     /**

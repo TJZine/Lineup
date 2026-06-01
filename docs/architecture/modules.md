@@ -102,7 +102,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - shared utilities and domain-neutral constants used across features
 - `src/shared/toast.ts` owns the UI-neutral toast payload contract consumed by
-  runtime modules and re-exported by `src/modules/ui/toast/`
+  runtime modules; `src/core/app-shell/chrome/AppToastPresenter.ts` owns toast presentation
 - `src/shared/audioCodecSupport.ts` owns shared audio codec normalization plus
   the baseline webOS codec-support helpers consumed by player runtime and Plex
   stream compatibility policy
@@ -130,7 +130,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - app lifecycle phases
 - persistence coordination
 - error recovery and cleanup
-- owns the lifecycle-only `lineup_app_state` storage boundary via `src/modules/lifecycle/StateManager.ts`
+- owns the lifecycle-only `lineup_app_state` storage boundary via `src/modules/lifecycle/LifecycleStateStore.ts`
 
 ### `src/modules/navigation/`
 
@@ -169,13 +169,14 @@ This document is directory-oriented and lists file-level owners where the canoni
   `src/modules/scheduler/scheduler/programIdentity.ts` owns scheduled-program
   occurrence identity helpers for scheduler-aligned runtime callers outside
   the scheduler package.
-  `ScheduleCalculator.ts` keeps scheduler-specific injected shuffler wiring,
-  and `ContentSelectionPolicy.ts` keeps content-level random playback mode.
-- `src/modules/scheduler/channel-manager/ContentResolver.ts` remains the
-  source-resolution orchestration entrypoint; package-local collaborators own
-  source-result cache/coalescing (`SourceResolutionCache.ts`), item
-  mapping/media normalization (`ContentItemMapper.ts`), and selection policy
-  (`ContentSelectionPolicy.ts`)
+	  `ScheduleCalculator.ts` keeps scheduler-specific injected shuffler wiring,
+	  and `channel-manager/resolution/ContentSelectionPolicy.ts` keeps
+	  content-level random playback mode.
+- `src/modules/scheduler/channel-manager/resolution/ContentResolver.ts` remains the
+	  source-resolution orchestration entrypoint; package-local collaborators own
+	  source-result cache/coalescing (`resolution/SourceResolutionCache.ts`), item
+	  mapping/media normalization (`resolution/ContentItemMapper.ts`), and
+	  selection policy (`resolution/ContentSelectionPolicy.ts`)
 
 ### `src/modules/settings/`
 
@@ -288,9 +289,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/modules/scheduler/channel-manager/`
 
 - channel persistence ownership and normalization for channel manager
-- `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
+- `src/modules/scheduler/channel-manager/persistence/ChannelPersistenceStore.ts`
 - owns server/user-scoped channel key families (including selected/current channel state) configured by `src/core/orchestrator/storage/OrchestratorStorageContext.ts`
-- `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin consumer wrapper over `ChannelPersistenceStore`, not a separate storage owner
+- `src/modules/scheduler/channel-manager/persistence/ChannelRepository.ts` is a thin consumer wrapper over `ChannelPersistenceStore`, not a separate storage owner
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` is the public channel-domain API/state facade; package-local services own authoring/default shaping, import/export orchestration, manager-facing persistence coordination, resolved-content cache/clone policy, and retry timers without changing storage schema ownership.
 
 ### Direct-storage Exception Wraps (`P3-W3`, completed 2026-03-11)
@@ -328,7 +329,6 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/ui/audio-setup/`
 - `src/modules/ui/sleep-timer/`
 - `src/modules/ui/splash/`
-- `src/modules/ui/toast/`
 - `src/modules/ui/theme/`
 - `src/modules/ui/theme/` is the public owner of theme metadata (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`)
 - runtime theme state/control is app-shell-owned by `src/core/app-shell/runtime/AppThemeController.ts`

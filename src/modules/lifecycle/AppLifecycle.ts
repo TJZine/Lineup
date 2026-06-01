@@ -10,7 +10,7 @@ import type {
     LifecycleAppError,
 } from './types';
 import { AppErrorCode } from '../../types/app-errors';
-import { StateManager } from './StateManager';
+import { LifecycleStateStore } from './LifecycleStateStore';
 import { ErrorRecovery } from './ErrorRecovery';
 import { LifecycleConnectivityMonitor } from './LifecycleConnectivityMonitor';
 import { LifecycleMemoryMonitor } from './LifecycleMemoryMonitor';
@@ -27,7 +27,7 @@ import { createWebOsPlatformServices } from '../../platform';
 
 export class AppLifecycle implements IAppLifecycle {
     private readonly _emitter: EventEmitter<LifecycleEventMap>;
-    private readonly _stateManager: StateManager;
+    private readonly _lifecycleStateStore: LifecycleStateStore;
     private readonly _errorRecovery: ErrorRecovery;
     private readonly _statePersistenceQueue: LifecycleStatePersistenceQueue;
     private readonly _connectivityMonitor: LifecycleConnectivityMonitor;
@@ -53,16 +53,16 @@ export class AppLifecycle implements IAppLifecycle {
     private _shutdownStarted: boolean = false;
 
     constructor(
-        stateManager?: StateManager,
+        lifecycleStateStore?: LifecycleStateStore,
         errorRecovery?: ErrorRecovery,
         lifecycleService?: PlatformLifecycleService
     ) {
         this._emitter = new EventEmitter<LifecycleEventMap>();
-        this._stateManager = stateManager !== undefined ? stateManager : new StateManager();
+        this._lifecycleStateStore = lifecycleStateStore !== undefined ? lifecycleStateStore : new LifecycleStateStore();
         this._errorRecovery = errorRecovery !== undefined ? errorRecovery : new ErrorRecovery();
         this._lifecycleService = lifecycleService ?? createWebOsPlatformServices().lifecycle;
         this._statePersistenceQueue = new LifecycleStatePersistenceQueue({
-            stateManager: this._stateManager,
+            lifecycleStateStore: this._lifecycleStateStore,
             buildState: (): PersistentState => this._buildCurrentState(),
             emitPersistenceWarning: (warning): void => {
                 this._emitter.emit('persistenceWarning', warning);
@@ -114,7 +114,7 @@ export class AppLifecycle implements IAppLifecycle {
         this._memoryMonitor.startMonitoring();
         this._connectivityMonitor.startMonitoring();
 
-        const savedState = this._stateManager.load();
+        const savedState = this._lifecycleStateStore.load();
 
         // Auth is managed by PlexAuth storage; initialization settles in authenticating
         // before restored-state observers run so the phase contract is coherent.
@@ -246,7 +246,7 @@ export class AppLifecycle implements IAppLifecycle {
         }
 
         // State is flushed before emitting the phase change contract.
-        await this._statePersistenceQueue.flush();
+        await this._flushPendingStateBestEffort();
 
         const from = this._phase;
         this._phase = phase;
@@ -321,7 +321,7 @@ export class AppLifecycle implements IAppLifecycle {
         this._emitter.emit('visibilityChange', { isVisible: false });
 
         // Backgrounding is a persistence boundary on TV platforms.
-        await this._statePersistenceQueue.flush();
+        await this._flushPendingStateBestEffort();
 
         await this._executeCallbacksWithTimeout(
             this._pauseCallbacks,
@@ -356,6 +356,14 @@ export class AppLifecycle implements IAppLifecycle {
             if (!this._isVisible) {
                 await this._transitionPhase('backgrounded');
             }
+        }
+    }
+
+    private async _flushPendingStateBestEffort(): Promise<void> {
+        try {
+            await this._statePersistenceQueue.flush();
+        } catch {
+            // Ordinary lifecycle transitions should continue after the queue emits a persistence warning.
         }
     }
 
@@ -419,7 +427,7 @@ export class AppLifecycle implements IAppLifecycle {
 
     private _buildCurrentState(): PersistentState {
         const existingState =
-            this._stateManager.load() ?? this._stateManager.createDefaultState();
+            this._lifecycleStateStore.load() ?? this._lifecycleStateStore.createDefaultState();
 
         // Return lifecycle-owned state with updated timestamp.
         // Other modules own their own persistence boundaries and keys.

@@ -113,7 +113,7 @@ export class AppLazyScreenPortFactory {
         }
 
         return {
-            requestAuthPin: () => runtime.requestAuthPin(),
+            requestAuthPin: (options?: { signal?: AbortSignal | null }) => runtime.requestAuthPin(options),
             pollForPin: (pinId: number, options) => runtime.pollForPin(pinId, options),
             cancelPin: (pinId: number) => runtime.cancelPin(pinId),
             getNavigation: () => this.getNavigation(),
@@ -127,8 +127,11 @@ export class AppLazyScreenPortFactory {
         }
 
         return {
-            getHomeUsers: () => runtime.getHomeUsers(),
-            switchHomeUser: (userId: string, pin?: string) => runtime.switchHomeUser(userId, pin),
+            getHomeUsers: (options?: { signal?: AbortSignal | null }) => runtime.getHomeUsers(options),
+            switchHomeUser: (
+                userId: string,
+                options?: { pin?: string | null; signal?: AbortSignal | null }
+            ) => runtime.switchHomeUser(userId, options),
             useMainAccountProfile: () => runtime.useMainAccountProfile(),
             signOutPlex: () => runtime.signOutPlex(),
             getNavigation: () => this.getNavigation(),
@@ -142,7 +145,8 @@ export class AppLazyScreenPortFactory {
         }
 
         return {
-            discoverServers: (forceRefresh?: boolean) => runtime.discoverServers(forceRefresh),
+            discoverServers: (options?: { forceRefresh?: boolean; signal?: AbortSignal | null }) =>
+                runtime.discoverServers(options),
             selectServer: async (serverId: string): Promise<ServerSelectSelectionResult> => {
                 const result = await runtime.selectServer(serverId);
                 switch (result.kind) {

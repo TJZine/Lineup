@@ -410,7 +410,7 @@ describe('ProfileSelectScreen', () => {
 
         const modal = container.querySelector('.profile-pin-modal') as HTMLElement;
         expect(modal.style.display).toBe('none');
-        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', undefined);
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', { pin: null });
     });
 
     it('opens PIN modal with full focusable list', async () => {
@@ -532,7 +532,7 @@ describe('ProfileSelectScreen', () => {
         await settleScreen(screen);
 
         expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
-        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', '1234');
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', { pin: '1234' });
         expect(writeLastProfileIdSpy).toHaveBeenCalledWith('2');
         expect(nav.goTo).not.toHaveBeenCalledWith('server-select', { allowAutoConnect: true });
     });
@@ -616,7 +616,7 @@ describe('ProfileSelectScreen', () => {
         await settleScreen(screen);
 
         expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
-        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', '1234');
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', { pin: '1234' });
     });
 
     it('shows wrong PIN error styling and clears it after timeout', async () => {

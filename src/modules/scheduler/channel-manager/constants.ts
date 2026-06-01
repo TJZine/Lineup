@@ -1,17 +1,9 @@
-
-
-/** localStorage key for channel configurations */
 export const STORAGE_KEY = 'lineup_channels_v4';
 
-
-/** localStorage key for current channel ID */
 export const CURRENT_CHANNEL_KEY = 'lineup_current_channel_v4';
-
-
 
 /** Content cache TTL in milliseconds (1 hour per spec) */
 export const CACHE_TTL_MS = 60 * 60 * 1000;
-
 
 /** Default maximum channels used by setup wizard */
 export const DEFAULT_CHANNEL_SETUP_MAX = 200;

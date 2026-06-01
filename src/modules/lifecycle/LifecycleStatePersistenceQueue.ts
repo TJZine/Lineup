@@ -1,5 +1,5 @@
 import { TIMING_CONFIG } from './constants';
-import type { StateManager } from './StateManager';
+import type { LifecycleStateStore } from './LifecycleStateStore';
 import type { LifecycleEventMap, PersistentState } from './types';
 import { emitBestEffortWarning, summarizeErrorForLog } from '../../utils/errors';
 import { PersistenceWarningBackoffPolicy } from '../../utils/persistenceWarningBackoffPolicy';
@@ -10,13 +10,13 @@ type PendingSaveWaiter = {
 };
 
 export interface LifecycleStatePersistenceQueueDeps {
-    stateManager: StateManager;
+    lifecycleStateStore: LifecycleStateStore;
     buildState: () => PersistentState;
     emitPersistenceWarning: (warning: LifecycleEventMap['persistenceWarning']) => void;
 }
 
 export class LifecycleStatePersistenceQueue {
-    private readonly _stateManager: StateManager;
+    private readonly _lifecycleStateStore: LifecycleStateStore;
     private readonly _buildState: () => PersistentState;
     private readonly _emitPersistenceWarning: (warning: LifecycleEventMap['persistenceWarning']) => void;
     private _saveDebounceTimer: number | null = null;
@@ -25,7 +25,7 @@ export class LifecycleStatePersistenceQueue {
     private readonly _persistenceWarningPolicy = new PersistenceWarningBackoffPolicy();
 
     public constructor(deps: LifecycleStatePersistenceQueueDeps) {
-        this._stateManager = deps.stateManager;
+        this._lifecycleStateStore = deps.lifecycleStateStore;
         this._buildState = deps.buildState;
         this._emitPersistenceWarning = deps.emitPersistenceWarning;
     }
@@ -63,7 +63,7 @@ export class LifecycleStatePersistenceQueue {
         }
 
         try {
-            this._stateManager.save(this._pendingState);
+            this._lifecycleStateStore.save(this._pendingState);
             this._pendingState = null;
             this._persistenceWarningPolicy.resetQuotaBackoff();
             this._resolvePendingSaveWaiters();

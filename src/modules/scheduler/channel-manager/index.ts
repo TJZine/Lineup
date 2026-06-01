@@ -4,7 +4,7 @@ export type {
     ChannelCreateOptions,
     ChannelManagerConfig,
     IPlexLibraryMinimal,
-} from './interfaces';
+} from './contracts/interfaces';
 export type {
     ChannelConfig,
     ChannelCreateInput,
@@ -27,7 +27,7 @@ export type {
     ImportResult,
     ChannelManagerEventMap,
     ChannelUpdateInput,
-} from './types';
+} from './contracts/types';
 export {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,

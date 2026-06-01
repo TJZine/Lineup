@@ -1563,10 +1563,13 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
                 await new Promise((resolve) => setImmediate(resolve));
 
-                await orchestrator.switchHomeUser('user-2', '1234');
+                await orchestrator.switchHomeUser('user-2', { pin: '1234' });
 
                 expect(prepareForProfileSwitchAttemptSpy).toHaveBeenCalledTimes(1);
-                expect(mockPlexAuth.switchHomeUser).toHaveBeenCalledWith('user-2', { pin: '1234' });
+                expect(mockPlexAuth.switchHomeUser).toHaveBeenCalledWith('user-2', {
+                    pin: '1234',
+                    signal: null,
+                });
                 expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
                 expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
                 expect(mockVideoPlayer.stop).toHaveBeenCalled();

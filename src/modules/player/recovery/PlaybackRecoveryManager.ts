@@ -233,6 +233,12 @@ export class PlaybackRecoveryManager {
             this.resetPlaybackFailureGuard();
             return;
         }
+        if (
+            restoreOutcome.outcome === 'unavailable' &&
+            restoreOutcome.reason === 'program_changed'
+        ) {
+            return;
+        }
         this._pendingPlaybackFailureContext = {
             attemptedBurnIn,
             burnInRestoreOutcome: restoreOutcome,

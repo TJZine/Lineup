@@ -1,4 +1,4 @@
-import type { SafeLocalStorageMutationResult } from '../../../utils/storage';
+import type { SafeLocalStorageMutationResult } from '../../../../utils/storage';
 import { ChannelPersistenceStore } from './ChannelPersistenceStore';
 import { decodeStoredChannelConfigRecord } from './StoredChannelDataCodec';
 import {
@@ -6,8 +6,8 @@ import {
     MAX_CHANNEL_NUMBER,
     MIN_CHANNEL_NUMBER,
     STORAGE_KEY,
-} from './constants';
-import type { ChannelConfig, StoredChannelData } from './types';
+} from '../constants';
+import type { ChannelConfig, StoredChannelData } from '../contracts/types';
 
 export type LoadedChannelState = {
     data: StoredChannelData;

@@ -7,13 +7,11 @@ import {
     type NavigationChannelNumberPort,
 } from '../handlers/NavigationChannelNumberHandler';
 import type {
-    NavigationAuthPort,
     NavigationEpgPort,
     NavigationMiniGuideIntent,
     NavigationMiniGuidePort,
     NavigationPlayerOsdIntent,
     NavigationPlaybackPort,
-    NavigationVideoPlayerPort,
 } from '../contracts/NavigationFeaturePorts';
 import { createNavigationCoordinatorRuntimeServices } from '../coordinator/NavigationCoordinatorRuntimeServices';
 import {
@@ -68,6 +66,16 @@ type NavigationMiniGuideTestPort = NavigationMiniGuidePort & {
         handlePage: jest.Mock;
         handleSelect: jest.Mock;
     };
+};
+
+type NavigationVideoPlayerTestPort = {
+    play: jest.Mock<Promise<void>, []>;
+    pause: jest.Mock<void, []>;
+    seekRelative: jest.Mock<Promise<void>, [number]>;
+};
+
+type NavigationAuthTestPort = {
+    isAuthenticated: jest.Mock<boolean, []>;
 };
 
 type NavigationCoordinatorTestDeps = NavigationCoordinatorDeps & {
@@ -152,8 +160,8 @@ const makeKeyEvent = (
 });
 
 type NavigationCoordinatorTestOverrides = {
-    videoPlayer: NavigationVideoPlayerPort | null;
-    plexAuth: NavigationAuthPort | null;
+    videoPlayer: NavigationVideoPlayerTestPort | null;
+    plexAuth: NavigationAuthTestPort | null;
     stopPlayback: jest.Mock;
     pokePlayerOsd: jest.Mock;
     togglePlayerOsd: jest.Mock;
@@ -204,8 +212,8 @@ const setup = (
     handlers: HandlerMap;
     navigation: INavigationManager;
     epg: NavigationEpgPort;
-    videoPlayer: NavigationVideoPlayerPort;
-    plexAuth: NavigationAuthPort;
+    videoPlayer: NavigationVideoPlayerTestPort;
+    plexAuth: NavigationAuthTestPort;
     unsubs: Array<() => void>;
     disposeCalls: jest.Mock[];
 } => {
@@ -219,12 +227,12 @@ const setup = (
         focusNow: jest.fn(),
         hide: jest.fn(),
     };
-    const videoPlayer: NavigationVideoPlayerPort = {
+    const videoPlayer: NavigationVideoPlayerTestPort = {
         play: jest.fn().mockResolvedValue(undefined),
         pause: jest.fn(),
         seekRelative: jest.fn().mockResolvedValue(undefined),
     };
-    const plexAuth: NavigationAuthPort = {
+    const plexAuth: NavigationAuthTestPort = {
         isAuthenticated: jest.fn().mockReturnValue(true),
     };
 
@@ -287,8 +295,51 @@ const setup = (
     });
 
     const playback = {
-        videoPlayer: testDoubles.videoPlayer,
-        plexAuth: testDoubles.plexAuth,
+        isAuthenticatedForServerSelection: (): boolean => testDoubles.plexAuth?.isAuthenticated() ?? false,
+        playFromRemote: (): Promise<void> | null => {
+            if (!testDoubles.videoPlayer) {
+                return null;
+            }
+            try {
+                return testDoubles.videoPlayer.play();
+            } catch (error) {
+                return Promise.reject(error);
+            }
+        },
+        pauseFromRemote: (): boolean => {
+            if (!testDoubles.videoPlayer) {
+                return false;
+            }
+            testDoubles.videoPlayer.pause();
+            return true;
+        },
+        seekFromRemote: (deltaMs: number): Promise<void> | null => {
+            if (!testDoubles.videoPlayer) {
+                return null;
+            }
+            try {
+                return testDoubles.videoPlayer.seekRelative(deltaMs);
+            } catch (error) {
+                return Promise.reject(error);
+            }
+        },
+        pauseForScreenChange: (): boolean => {
+            if (!testDoubles.videoPlayer) {
+                return false;
+            }
+            testDoubles.videoPlayer.pause();
+            return true;
+        },
+        resumeForScreenChange: (): Promise<void> | null => {
+            if (!testDoubles.videoPlayer) {
+                return null;
+            }
+            try {
+                return testDoubles.videoPlayer.play();
+            } catch (error) {
+                return Promise.reject(error);
+            }
+        },
         stopPlayback: testDoubles.stopPlayback,
         getSeekIncrementMs: testDoubles.getSeekIncrementMs,
         isPlayerOsdVisible: testDoubles.isPlayerOsdVisible,
@@ -1182,7 +1233,7 @@ describe('NavigationCoordinator', () => {
         );
     });
 
-    it('reports a toast when resume playback throws synchronously on screen change', () => {
+    it('reports a toast when resume playback throws synchronously on screen change', async () => {
         const reportToast = jest.fn();
         const { handlers, deps, videoPlayer } = setup({ reportToast });
         (videoPlayer.play as jest.Mock).mockImplementationOnce(() => {
@@ -1192,6 +1243,7 @@ describe('NavigationCoordinator', () => {
         expect(() => {
             handlers.screenChange?.({ from: 'settings', to: 'player' });
         }).not.toThrow();
+        await Promise.resolve();
 
         expect(deps.events.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
             'navigation.resume_play',
@@ -1221,7 +1273,7 @@ describe('NavigationCoordinator', () => {
         );
     });
 
-    it('reports a toast when Play key playback throws synchronously', () => {
+    it('reports a toast when Play key playback throws synchronously', async () => {
         const reportToast = jest.fn();
         const { handlers, deps, videoPlayer } = setup({ reportToast });
         (videoPlayer.play as jest.Mock).mockImplementationOnce(() => {
@@ -1231,6 +1283,7 @@ describe('NavigationCoordinator', () => {
         expect(() => {
             handlers.keyPress?.(makeKeyEvent('play'));
         }).not.toThrow();
+        await Promise.resolve();
 
         expect(deps.events.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
             'navigation.remote_play',
@@ -1242,7 +1295,7 @@ describe('NavigationCoordinator', () => {
         );
     });
 
-    it('reports seek failures when rewind throws synchronously', () => {
+    it('reports seek failures when rewind throws synchronously', async () => {
         const { handlers, deps, videoPlayer } = setup();
         (videoPlayer.seekRelative as jest.Mock).mockImplementationOnce(() => {
             throw new Error('sync seek failed');
@@ -1251,6 +1304,7 @@ describe('NavigationCoordinator', () => {
         expect(() => {
             handlers.keyPress?.(makeKeyEvent('rewind'));
         }).not.toThrow();
+        await Promise.resolve();
 
         expect(deps.events.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
             'navigation.seek',

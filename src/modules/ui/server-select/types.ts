@@ -28,7 +28,7 @@ export type ServerSelectSelectionResult =
     };
 
 export interface ServerSelectScreenPorts {
-    discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
+    discoverServers(options?: { forceRefresh?: boolean; signal?: AbortSignal | null }): Promise<PlexServer[]>;
     selectServer(serverId: string): Promise<ServerSelectSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerScreenState(): ServerSelectDisplayState;

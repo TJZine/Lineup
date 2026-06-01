@@ -1,15 +1,15 @@
 export { TIMING_CONFIG } from '../../config/timing';
+import { STORAGE_QUOTA_EXCEEDED_MESSAGE } from '../../shared/persistenceMessages';
 
 export const STORAGE_CONFIG = {
     STATE_KEY: 'lineup_app_state',
     STATE_VERSION: 1,
-    // Removal-only quota cleanup helpers; lifecycle StateManager does not own their schemas or migrations.
+    // Removal-only quota cleanup helpers; the lifecycle state store does not own their schemas or migrations.
     CLEANUP_KEYS: [
         'lineup_focus_memory',
         'lineup_image_cache',
         'lineup_schedule_cache',
     ],
-    STORAGE_QUOTA_EXCEEDED: 'Storage full - some settings may not be saved',
 } as const;
 
 /**
@@ -45,7 +45,7 @@ export const ERROR_MESSAGES = {
     CONTENT_UNAVAILABLE: 'That content is unavailable right now',
     ACCESS_DENIED: 'This profile does not have access to that library',
     OUT_OF_MEMORY: 'App needs to restart',
-    STORAGE_QUOTA_EXCEEDED: 'Storage full - some settings may not be saved',
+    STORAGE_QUOTA_EXCEEDED: STORAGE_QUOTA_EXCEEDED_MESSAGE,
     PAGINATION_LIMIT_EXCEEDED: 'Unable to load all items from that library',
     MODULE_INIT_FAILED: 'App failed to start. Please try again',
     UNRECOVERABLE: 'A critical error occurred. Please restart the app',
@@ -67,7 +67,7 @@ export const VALID_PHASE_TRANSITIONS: Record<string, readonly string[]> = {
 } as const;
 
 /**
- * Package-internal migration registry consumed by StateManager only.
+ * Package-internal migration registry consumed by the lifecycle state store only.
  * Intentionally not re-exported from the lifecycle barrel; missing older-version
  * entries mean that persisted version is unsupported and load() returns null.
  */

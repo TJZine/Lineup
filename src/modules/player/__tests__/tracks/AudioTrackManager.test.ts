@@ -224,6 +224,23 @@ describe('AudioTrackManager', () => {
             expect(manager.getActiveTrackId()).toBe('track-dts');
         });
 
+        it('should reject malformed DTS-family prefixes even when passthrough is enabled', async () => {
+            readDtsPassthroughEnabledAndClean.mockReturnValue(true);
+            const videoEl = createMockVideoElement([
+                { id: 'track-aac', enabled: true },
+                { id: 'track-dts-bogus', enabled: false },
+            ]);
+            manager.initialize(videoEl);
+            manager.setTracks([
+                createMockTrack({ id: 'track-aac', codec: 'aac' }),
+                createMockTrack({ id: 'track-dts-bogus', codec: 'dtsbogus', default: false }),
+            ]);
+
+            await expect(manager.switchTrack('track-dts-bogus')).rejects.toMatchObject({
+                code: AppErrorCode.CODEC_UNSUPPORTED,
+            });
+        });
+
         it('should handle case-insensitive codec matching (AAC, EAC3)', async () => {
             const tracks = [
                 createMockTrack({ id: 'track-1', codec: 'AAC' }),

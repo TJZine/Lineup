@@ -1,4 +1,4 @@
-import { ChannelImportNormalizer } from '../ChannelImportNormalizer';
+import { ChannelImportNormalizer } from '../import-export/ChannelImportNormalizer';
 
 describe('ChannelImportNormalizer error formatting', () => {
     it('formats primitive import errors through the shared channel setup detail formatter', () => {

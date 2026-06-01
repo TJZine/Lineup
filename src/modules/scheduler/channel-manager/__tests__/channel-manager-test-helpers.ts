@@ -1,5 +1,5 @@
-import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { ChannelConfig, LibraryContentSource } from '../types';
+import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../contracts/interfaces';
+import type { ChannelConfig, LibraryContentSource } from '../contracts/types';
 
 export function createMockLibrary(): jest.Mocked<IPlexLibraryMinimal> {
     return {

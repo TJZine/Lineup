@@ -16,7 +16,7 @@ export interface IAppLifecycle {
 
     /**
      * Resolves when the latest debounced lifecycle state save flushes.
-     * Rejects with the error thrown by StateManager.save(), such as QuotaExceededError.
+     * Rejects with the error thrown by LifecycleStateStore.save(), such as QuotaExceededError.
      */
     saveState(): Promise<void>;
 

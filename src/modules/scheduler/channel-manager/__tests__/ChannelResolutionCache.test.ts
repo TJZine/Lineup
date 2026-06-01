@@ -1,5 +1,5 @@
-import { ChannelResolutionCache } from '../ChannelResolutionCache';
-import type { ResolvedChannelContent } from '../types';
+import { ChannelResolutionCache } from '../resolution/ChannelResolutionCache';
+import type { ResolvedChannelContent } from '../contracts/types';
 
 const createContent = (): ResolvedChannelContent => ({
     channelId: 'channel-1',

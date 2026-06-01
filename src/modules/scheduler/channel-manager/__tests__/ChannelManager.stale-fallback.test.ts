@@ -1,5 +1,5 @@
 import { ChannelManager } from '../ChannelManager';
-import type { IPlexLibraryMinimal } from '../interfaces';
+import type { IPlexLibraryMinimal } from '../contracts/interfaces';
 import { CACHE_TTL_MS } from '../constants';
 import { AppErrorCode } from '../../../../types/app-errors';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';

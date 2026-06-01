@@ -1,9 +1,9 @@
-import type { StoredChannelData } from '../types';
+import type { StoredChannelData } from '../contracts/types';
 import {
     decodeStoredChannelConfigRecord,
     decodeStoredChannelData,
     encodeStoredChannelData,
-} from '../StoredChannelDataCodec';
+} from '../persistence/StoredChannelDataCodec';
 
 describe('StoredChannelDataCodec', () => {
     it('returns null for malformed JSON', () => {

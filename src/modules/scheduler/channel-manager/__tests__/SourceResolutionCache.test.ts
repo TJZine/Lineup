@@ -1,5 +1,5 @@
-import { SourceResolutionCache } from '../SourceResolutionCache';
-import type { ChannelContentSource, ResolvedContentItem } from '../types';
+import { SourceResolutionCache } from '../resolution/SourceResolutionCache';
+import type { ChannelContentSource, ResolvedContentItem } from '../contracts/types';
 import { flushPromises } from '../../../../__tests__/helpers';
 
 type ResolveUncachedMock = jest.Mock<

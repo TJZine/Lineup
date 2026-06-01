@@ -1,7 +1,7 @@
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { Direction } from './interfaces';
 
-export type NavigationPlaybackOptionsSectionId = 'subtitles' | 'audio';
+export type NavigationPlaybackOptionsSectionId = 'audio' | 'subtitles';
 export type NavigationChannelSwitchOutcome = ChannelSwitchOutcome;
 
 export interface NavigationEpgPort {
@@ -14,24 +14,18 @@ export interface NavigationEpgPort {
     hide: () => void;
 }
 
-export interface NavigationVideoPlayerPort {
-    play: () => Promise<void>;
-    pause: () => void;
-    seekRelative: (deltaMs: number) => Promise<void>;
-}
-
-export interface NavigationAuthPort {
-    isAuthenticated: () => boolean;
-}
-
 export type NavigationPlayerOsdIntent =
     | { type: 'poke'; reason: 'play' | 'pause' | 'seek' }
     | { type: 'toggle' }
     | { type: 'hide' };
 
 export interface NavigationPlaybackPort {
-    videoPlayer: NavigationVideoPlayerPort | null;
-    plexAuth: NavigationAuthPort | null;
+    isAuthenticatedForServerSelection: () => boolean;
+    playFromRemote: () => Promise<void> | null;
+    pauseFromRemote: () => boolean;
+    seekFromRemote: (deltaMs: number) => Promise<void> | null;
+    pauseForScreenChange: () => boolean;
+    resumeForScreenChange: () => Promise<void> | null;
     stopPlayback: () => void;
     getSeekIncrementMs: () => number;
     isPlayerOsdVisible: () => boolean;

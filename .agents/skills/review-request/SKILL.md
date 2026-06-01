@@ -104,6 +104,12 @@ For every review, explicitly scan for:
 - architecture ownership drift, boundary leakage, hotspot growth, and new coupling
 - maintainability issues: misleading names, dead code, debug leftovers, unnecessary indirection, premature abstraction, harmful duplication
 - performance, async, lifecycle, cleanup, and resource-leak risks
+- primary-path vs side-effect criticality: non-critical cleanup, sync,
+  telemetry, cache, and external writes do not silently become blockers; ask
+  whether failure should be best-effort, retriable, or blocking by contract
+- parser/verifier acceptance-shape gaps: regexes, scanners, parser guards, and
+  policy matchers accept all documented valid forms and reject malformed near
+  misses; require regression coverage when these surfaces change
 - missing or weak tests, brittle tests, and insufficient verification
 - UX, accessibility, focus, and motion regressions when UI is touched
 - docs, checklist, plan, workflow, or generated artifact drift

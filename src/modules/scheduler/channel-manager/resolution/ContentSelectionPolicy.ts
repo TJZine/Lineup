@@ -3,9 +3,9 @@ import type {
     PlaybackMode,
     ResolvedContentItem,
     SortOrder,
-} from './types';
-import { shuffleWithSeed } from '../shared/prng';
-import { applyPlaybackOrdering } from '../shared/playbackOrdering';
+} from '../contracts/types';
+import { shuffleWithSeed } from '../../shared/prng';
+import { applyPlaybackOrdering } from '../../shared/playbackOrdering';
 
 export class ContentSelectionPolicy {
     applyFilters(items: ResolvedContentItem[], filters: ContentFilter[]): ResolvedContentItem[] {

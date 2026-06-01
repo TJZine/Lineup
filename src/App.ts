@@ -8,6 +8,7 @@ import type {
     AppShellServerSelectionRuntimePort,
     AppShellSettingsRuntimePort,
 } from './core/app-shell/runtime/AppShellRuntimeContracts';
+import type { AppOrchestratorRuntime } from './Orchestrator';
 import type { LifecycleAppError, AppPhase } from './modules/lifecycle/types';
 import type { INavigationManager } from './modules/navigation';
 import { createAppContainers, type AppContainerRefs } from './core/app-shell/chrome/AppContainerFactory';
@@ -281,7 +282,7 @@ export class App {
         }
     }
 
-    getOrchestrator(): AppShellOrchestratorRuntime | null {
+    getOrchestrator(): AppOrchestratorRuntime | null {
         return this._orchestrator;
     }
 

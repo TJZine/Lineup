@@ -41,6 +41,18 @@ function writeValidLauncherSkills(tmpRoot) {
     }
 }
 
+function writeLinkedLauncherSkills(tmpRoot) {
+    for (const skillName of launcherSkillNames) {
+        writeLauncherSkill(tmpRoot, skillName, [
+            'Read these files in order:',
+            '',
+            '1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md)',
+            '2. [`agents.md`](../../../agents.md)',
+            '',
+        ]);
+    }
+}
+
 test('checkRepoLocalLauncherSkillReadOrders rejects ignored entrypoint and document-map reads', async () => {
     const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-launchers-'));
     writeValidLauncherSkills(tmpRoot);
@@ -129,6 +141,133 @@ test('checkRepoLocalLauncherSkillReadOrders rejects reversed workflow and entryp
         assert(
             errors.some((message) => message.includes('canonical launcher bootstrap order')),
             `Expected a read-order error, got:\n${errors.map((message) => `- ${message}`).join('\n')}`,
+        );
+    } finally {
+        process.chdir(previousCwd);
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});
+
+test('checkRepoLocalLauncherSkillReadOrders accepts linked markdown read-order entries', async () => {
+    const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-launchers-'));
+    writeLinkedLauncherSkills(tmpRoot);
+
+    const previousCwd = process.cwd();
+    try {
+        process.chdir(tmpRoot);
+
+        const { checkRepoLocalLauncherSkillReadOrders } = await import(verifyDocsUrl().href);
+
+        const errors = [];
+        checkRepoLocalLauncherSkillReadOrders(errors);
+
+        assert.deepEqual(errors, []);
+    } finally {
+        process.chdir(previousCwd);
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});
+
+test('checkRepoLocalLauncherSkillReadOrders rejects reversed linked markdown read order', async () => {
+    const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-launchers-'));
+    writeValidLauncherSkills(tmpRoot);
+    writeLauncherSkill(
+        tmpRoot,
+        'lineup-cleanup-plan',
+        [
+            'Read these files in order:',
+            '',
+            '1. [`agents.md`](../../../agents.md)',
+            '2. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md)',
+            '3. [`docs/agentic/session-prompts/cleanup-plan.md`](../../../docs/agentic/session-prompts/cleanup-plan.md)',
+            '',
+        ],
+    );
+
+    const previousCwd = process.cwd();
+    try {
+        process.chdir(tmpRoot);
+
+        const { checkRepoLocalLauncherSkillReadOrders } = await import(verifyDocsUrl().href);
+
+        const errors = [];
+        checkRepoLocalLauncherSkillReadOrders(errors);
+
+        assert(
+            errors.some((message) => message.includes('canonical launcher bootstrap order')),
+            `Expected a read-order error, got:\n${errors.map((message) => `- ${message}`).join('\n')}`,
+        );
+    } finally {
+        process.chdir(previousCwd);
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});
+
+test('checkRepoLocalLauncherSkillReadOrders rejects spoofed linked agents.md read destinations', async () => {
+    const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-launchers-'));
+    writeValidLauncherSkills(tmpRoot);
+    writeLauncherSkill(
+        tmpRoot,
+        'lineup-cleanup-plan',
+        [
+            'Read these files in order:',
+            '',
+            '1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md)',
+            '2. [`agents.md`](../../../docs/agentic/skill-strategy.md)',
+            '',
+        ],
+    );
+
+    const previousCwd = process.cwd();
+    try {
+        process.chdir(tmpRoot);
+
+        const { checkRepoLocalLauncherSkillReadOrders } = await import(verifyDocsUrl().href);
+
+        const errors = [];
+        checkRepoLocalLauncherSkillReadOrders(errors);
+
+        assert(
+            errors.some((message) =>
+                message.includes('must include agents.md and docs/AGENTIC_DEV_WORKFLOW.md in its read list')
+            ),
+            `Expected a missing canonical read-list error, got:\n${errors.map((message) => `- ${message}`).join('\n')}`,
+        );
+    } finally {
+        process.chdir(previousCwd);
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});
+
+test('checkRepoLocalLauncherSkillReadOrders rejects spoofed linked workflow read destinations', async () => {
+    const tmpRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-docs-launchers-'));
+    writeValidLauncherSkills(tmpRoot);
+    writeLauncherSkill(
+        tmpRoot,
+        'lineup-cleanup-plan',
+        [
+            'Read these files in order:',
+            '',
+            '1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/agentic/skill-strategy.md)',
+            '2. [`agents.md`](../../../agents.md)',
+            '',
+        ],
+    );
+
+    const previousCwd = process.cwd();
+    try {
+        process.chdir(tmpRoot);
+
+        const { checkRepoLocalLauncherSkillReadOrders } = await import(verifyDocsUrl().href);
+
+        const errors = [];
+        checkRepoLocalLauncherSkillReadOrders(errors);
+
+        assert(
+            errors.some((message) =>
+                message.includes('must include agents.md and docs/AGENTIC_DEV_WORKFLOW.md in its read list')
+            ),
+            `Expected a missing canonical read-list error, got:\n${errors.map((message) => `- ${message}`).join('\n')}`,
         );
     } finally {
         process.chdir(previousCwd);

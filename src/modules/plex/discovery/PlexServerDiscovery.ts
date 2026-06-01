@@ -23,6 +23,12 @@ import { AppErrorCode } from '../../../types/app-errors';
 import { PlexApiError } from '../auth/plexAuthTransport';
 import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
 import { ServerSelectionStore } from './ServerSelectionStore';
+import {
+    awaitPlexDiscoverySnapshot,
+    clonePlexConnection,
+    clonePlexServers,
+    cloneSelectedPlexServer,
+} from './PlexDiscoverySnapshots';
 import { logPlexError, logPlexWarning } from '../shared/plexLogging';
 import { discoverPlexResourcesWithRequestPolicy } from './PlexResourceDiscoveryRequestPolicy';
 
@@ -58,17 +64,17 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         };
     }
 
-    public discoverServers(): Promise<PlexServer[]> {
+    public discoverServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]> {
         if (
             this._state.lastRefreshAt !== null &&
             this._state.servers.length > 0 &&
             Date.now() - this._state.lastRefreshAt < PLEX_DISCOVERY_CONSTANTS.SERVER_CACHE_DURATION_MS
         ) {
-            return Promise.resolve([...this._state.servers]);
+            return Promise.resolve(clonePlexServers(this._state.servers));
         }
 
         if (this._discoveryPromise) {
-            return this._discoveryPromise;
+            return awaitPlexDiscoverySnapshot(this._discoveryPromise, options?.signal ?? null);
         }
 
         const contextVersion = this._discoveryContextVersion;
@@ -79,7 +85,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         });
         this._discoveryPromise = discoveryPromise;
 
-        return discoveryPromise;
+        return awaitPlexDiscoverySnapshot(discoveryPromise, options?.signal ?? null);
     }
 
     private async _doDiscoverServers(contextVersion: number): Promise<PlexServer[]> {
@@ -93,13 +99,13 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             // Discovery can race with profile/storage-key switches. Ignore results
             // from stale contexts so they cannot overwrite the active user's state.
             if (contextVersion !== this._discoveryContextVersion) {
-                return [...this._state.servers];
+                return clonePlexServers(this._state.servers);
             }
 
             this._state.servers = servers;
             this._state.lastRefreshAt = Date.now();
 
-            return servers;
+            return clonePlexServers(servers);
         } catch (error) {
             if (error instanceof PlexApiError) {
                 logPlexError(
@@ -123,9 +129,9 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
     }
 
-    public async refreshServers(): Promise<PlexServer[]> {
+    public async refreshServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]> {
         this._state.lastRefreshAt = null;
-        return this.discoverServers();
+        return this.discoverServers(options);
     }
     public async testConnection(
         _server: PlexServer,
@@ -284,8 +290,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     public captureSelectedServerSnapshot(): PlexDiscoverySelectedServerSnapshot {
         return {
-            server: this._cloneSelectedServer(this._state.selectedServer, this._state.selectedConnection),
-            connection: this._cloneConnection(this._state.selectedConnection),
+            server: cloneSelectedPlexServer(this._state.selectedServer, this._state.selectedConnection),
+            connection: clonePlexConnection(this._state.selectedConnection),
             storedServerId: this._serverSelectionStore.readSelectedServerId(),
         };
     }
@@ -293,8 +299,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     public restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void {
         const previousServerId = this._state.selectedServer?.id ?? null;
         const previousConnectionUri = this._state.selectedConnection?.uri ?? null;
-        const nextConnection = this._cloneConnection(snapshot.connection);
-        const nextServer = this._cloneSelectedServer(snapshot.server, nextConnection);
+        const nextConnection = clonePlexConnection(snapshot.connection);
+        const nextServer = cloneSelectedPlexServer(snapshot.server, nextConnection);
 
         this._state.selectedServer = nextServer;
         this._state.selectedConnection = nextConnection;
@@ -316,11 +322,11 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     }
 
     public getSelectedServer(): PlexServer | null {
-        return this._state.selectedServer;
+        return cloneSelectedPlexServer(this._state.selectedServer, this._state.selectedConnection);
     }
 
     public getSelectedConnection(): PlexConnection | null {
-        return this._state.selectedConnection;
+        return clonePlexConnection(this._state.selectedConnection);
     }
 
     public getServerUri(): string | null {
@@ -337,7 +343,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
         for (const conn of server.connections) {
             if (conn.protocol === 'https' && !conn.relay) {
-                return conn;
+                return clonePlexConnection(conn);
             }
         }
         return null;
@@ -351,7 +357,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
         for (const conn of server.connections) {
             if (conn.relay) {
-                return conn;
+                return clonePlexConnection(conn);
             }
         }
         return null;
@@ -370,7 +376,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     }
 
     public getServers(): PlexServer[] {
-        return this._state.servers;
+        return clonePlexServers(this._state.servers);
     }
 
     public isConnected(): boolean {
@@ -475,25 +481,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
 
         return connections;
-    }
-
-    private _cloneConnection(connection: PlexConnection | null): PlexConnection | null {
-        return connection ? { ...connection } : null;
-    }
-
-    private _cloneSelectedServer(
-        server: PlexServer | null,
-        selectedConnection: PlexConnection | null
-    ): PlexServer | null {
-        if (!server) {
-            return null;
-        }
-
-        return {
-            ...server,
-            connections: server.connections.map((connection) => ({ ...connection })),
-            preferredConnection: selectedConnection ? { ...selectedConnection } : null,
-        };
     }
 
     private _normalizeConnectionUri(uri: string): string | null {

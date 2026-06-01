@@ -114,7 +114,7 @@ describe('ServerSelectRuntimeCoordinator', () => {
 
         expect(adapter.showContainer).toHaveBeenCalledTimes(1);
         expect(adapter.registerFocusables).toHaveBeenCalledTimes(1);
-        expect(ports.discoverServers).toHaveBeenCalledWith(false);
+        expect(ports.discoverServers).toHaveBeenCalledWith({ forceRefresh: false });
         expect(adapter.unregisterServerListFocusables).toHaveBeenCalledTimes(1);
         expect(adapter.replaceServerListChildren).toHaveBeenCalledTimes(1);
         expect(adapter.renderServers).toHaveBeenCalledWith(

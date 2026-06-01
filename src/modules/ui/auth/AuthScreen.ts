@@ -7,7 +7,7 @@ import type { ScreenError, ScreenStatus, ScreenTone } from '../types/screen-shel
 import { PLEX_LINK_QR_SVG } from './plexLinkQrSvg';
 
 export interface AuthScreenPorts {
-    requestAuthPin(): Promise<PlexPinRequest>;
+    requestAuthPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
     pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
     cancelPin(pinId: number): Promise<void>;
     getNavigation(): AuthScreenNavigationPort | null;

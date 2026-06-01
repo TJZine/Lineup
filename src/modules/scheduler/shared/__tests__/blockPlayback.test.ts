@@ -1,5 +1,5 @@
 import { applyBlockPlaybackMode } from '../blockPlayback';
-import type { ResolvedContentItem } from '../../channel-manager/types';
+import type { ResolvedContentItem } from '../../channel-manager/contracts/types';
 
 describe('blockPlayback', () => {
     describe('applyBlockPlaybackMode', () => {

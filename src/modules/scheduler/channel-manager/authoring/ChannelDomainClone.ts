@@ -3,7 +3,7 @@ import type {
     ChannelContentSource,
     ContentFilter,
     ManualContentItem,
-} from './types';
+} from '../contracts/types';
 
 export function cloneChannelForOwnership(channel: ChannelConfig): ChannelConfig {
     return clonePersistableChannel(channel);

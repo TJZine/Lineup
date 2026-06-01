@@ -1,9 +1,9 @@
 /**
- * @fileoverview Unit tests for StateManager.
- * @module modules/lifecycle/__tests__/StateManager.test
+ * @fileoverview Unit tests for LifecycleStateStore.
+ * @module modules/lifecycle/__tests__/LifecycleStateStore.test
  */
 
-import { StateManager } from '../StateManager';
+import { LifecycleStateStore } from '../LifecycleStateStore';
 import { PersistentState } from '../types';
 import { STORAGE_CONFIG } from '../constants';
 import {
@@ -24,12 +24,12 @@ const captureThrown = (operation: () => void): unknown => {
     throw new Error('Expected operation to throw');
 };
 
-describe('StateManager', () => {
-    let stateManager: StateManager;
+describe('LifecycleStateStore', () => {
+    let lifecycleStateStore: LifecycleStateStore;
 
     beforeEach(() => {
         resetMockLocalStorage();
-        stateManager = new StateManager();
+        lifecycleStateStore = new LifecycleStateStore();
     });
 
     afterEach(() => {
@@ -42,8 +42,8 @@ describe('StateManager', () => {
 
     describe('synchronous helper contract', () => {
         it('save returns synchronously', () => {
-            const state = stateManager.createDefaultState();
-            const result = stateManager.save(state);
+            const state = lifecycleStateStore.createDefaultState();
+            const result = lifecycleStateStore.save(state);
 
             expect(result).toBeUndefined();
         });
@@ -56,7 +56,7 @@ describe('StateManager', () => {
             };
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
-            const loaded = stateManager.load() as unknown as PersistentState | null;
+            const loaded = lifecycleStateStore.load() as unknown as PersistentState | null;
 
             expect(loaded).not.toBeNull();
             expect(loaded?.version).toBe(1);
@@ -65,7 +65,7 @@ describe('StateManager', () => {
         it('clear returns synchronously', () => {
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{}');
 
-            const result = stateManager.clear();
+            const result = lifecycleStateStore.clear();
 
             expect(result).toBeUndefined();
             expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
@@ -74,9 +74,9 @@ describe('StateManager', () => {
 
     describe('save', () => {
         it('should save state to localStorage', async () => {
-            const state = stateManager.createDefaultState();
+            const state = lifecycleStateStore.createDefaultState();
 
-            await stateManager.save(state);
+            await lifecycleStateStore.save(state);
 
             expect(localStorage.setItem).toHaveBeenCalledWith(
                 STORAGE_CONFIG.STATE_KEY,
@@ -88,9 +88,9 @@ describe('StateManager', () => {
         });
 
         it('should include version number in saved state', async () => {
-            const state = stateManager.createDefaultState();
+            const state = lifecycleStateStore.createDefaultState();
 
-            await stateManager.save(state);
+            await lifecycleStateStore.save(state);
 
             const saved = JSON.parse(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY) as string);
             expect(saved.version).toBe(STORAGE_CONFIG.STATE_VERSION);
@@ -98,7 +98,7 @@ describe('StateManager', () => {
         });
 
         it('should handle quota exceeded by cleaning up', async () => {
-            const state = stateManager.createDefaultState();
+            const state = lifecycleStateStore.createDefaultState();
 
             // First call throws QuotaExceededError, second succeeds
             const defaultSetItemImplementation = mockLocalStorage.setItem.getMockImplementation();
@@ -112,14 +112,14 @@ describe('StateManager', () => {
                 defaultSetItemImplementation?.(key, value);
             });
 
-            await stateManager.save(state);
+            await lifecycleStateStore.save(state);
 
             // Should have called setItem twice (first failed, retry succeeded)
             expect(localStorage.setItem).toHaveBeenCalledTimes(2);
         });
 
         it('should ignore cleanup remove failures during quota retry', () => {
-            const state = stateManager.createDefaultState();
+            const state = lifecycleStateStore.createDefaultState();
             const defaultSetItemImplementation = mockLocalStorage.setItem.getMockImplementation();
             let setCallCount = 0;
             mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
@@ -133,7 +133,7 @@ describe('StateManager', () => {
                 throw new DOMException('blocked', 'SecurityError');
             });
 
-            expect(() => stateManager.save(state)).not.toThrow();
+            expect(() => lifecycleStateStore.save(state)).not.toThrow();
 
             expect(localStorage.setItem).toHaveBeenCalledTimes(2);
             for (const key of STORAGE_CONFIG.CLEANUP_KEYS) {
@@ -143,12 +143,12 @@ describe('StateManager', () => {
         });
 
         it('should throw a quota error when cleanup retry cannot save state', () => {
-            const state = stateManager.createDefaultState();
+            const state = lifecycleStateStore.createDefaultState();
             mockLocalStorage.setItem.mockImplementation(() => {
                 throw new DOMException('Quota exceeded', 'QuotaExceededError');
             });
 
-            const thrown = captureThrown(() => stateManager.save(state));
+            const thrown = captureThrown(() => lifecycleStateStore.save(state));
 
             expect(thrown).toBeInstanceOf(DOMException);
             expect((thrown as DOMException).name).toBe('QuotaExceededError');
@@ -156,12 +156,12 @@ describe('StateManager', () => {
         });
 
         it('should throw an unavailable storage error when storage is blocked while saving', () => {
-            const state = stateManager.createDefaultState();
+            const state = lifecycleStateStore.createDefaultState();
             mockLocalStorage.setItem.mockImplementation(() => {
                 throw new DOMException('blocked', 'SecurityError');
             });
 
-            const thrown = captureThrown(() => stateManager.save(state));
+            const thrown = captureThrown(() => lifecycleStateStore.save(state));
 
             expect(thrown).toBeInstanceOf(DOMException);
             expect((thrown as DOMException).name).toBe('SecurityError');
@@ -179,14 +179,14 @@ describe('StateManager', () => {
             };
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
 
             expect(loaded).not.toBeNull();
             expect(loaded?.version).toBe(1);
         });
 
         it('should return null when no stored state', async () => {
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
             expect(loaded).toBeNull();
         });
 
@@ -195,27 +195,27 @@ describe('StateManager', () => {
                 throw new DOMException('blocked', 'SecurityError');
             });
 
-            expect(stateManager.load()).toBeNull();
+            expect(lifecycleStateStore.load()).toBeNull();
         });
 
         it('should return null for invalid JSON', async () => {
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{invalid json');
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
             expect(loaded).toBeNull();
         });
 
         it('should return null for invalid state format', async () => {
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{"foo": "bar"}');
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
             expect(loaded).toBeNull();
         });
 
         it('should handle missing version gracefully', async () => {
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{"plexAuth": null, "lastUpdated": 123}');
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
             expect(loaded).toBeNull();
         });
 
@@ -227,7 +227,7 @@ describe('StateManager', () => {
             };
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(oldState));
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
 
             expect(loaded).toBeNull();
         });
@@ -240,7 +240,7 @@ describe('StateManager', () => {
             };
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(futureState));
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
 
             expect(loaded).not.toBeNull();
             expect(loaded?.version).toBe(999);
@@ -255,7 +255,7 @@ describe('StateManager', () => {
             };
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
 
             expect(loaded).not.toHaveProperty('plexAuth');
             expect(loaded?.userPreferences).toEqual(state.userPreferences);
@@ -274,7 +274,7 @@ describe('StateManager', () => {
             };
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
 
             expect(loaded).not.toHaveProperty('plexAuth');
         });
@@ -287,9 +287,9 @@ describe('StateManager', () => {
             };
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
 
-            expect(loaded?.userPreferences).toEqual(stateManager.createDefaultState().userPreferences);
+            expect(loaded?.userPreferences).toEqual(lifecycleStateStore.createDefaultState().userPreferences);
         });
 
         it('should ignore legacy channel fields from older persisted payloads', async () => {
@@ -306,7 +306,7 @@ describe('StateManager', () => {
             };
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
 
             expect(loaded).not.toBeNull();
             if (!loaded) return;
@@ -319,10 +319,10 @@ describe('StateManager', () => {
             const state = { version: 1 };
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(state));
 
-            const loaded = await stateManager.load();
+            const loaded = await lifecycleStateStore.load();
 
             expect(loaded).not.toBeNull();
-            expect(loaded?.userPreferences).toEqual(stateManager.createDefaultState().userPreferences);
+            expect(loaded?.userPreferences).toEqual(lifecycleStateStore.createDefaultState().userPreferences);
         });
     });
 
@@ -330,7 +330,7 @@ describe('StateManager', () => {
         it('should remove stored state', async () => {
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{}');
 
-            await stateManager.clear();
+            await lifecycleStateStore.clear();
 
             expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
         });
@@ -340,14 +340,14 @@ describe('StateManager', () => {
                 throw new DOMException('blocked', 'SecurityError');
             });
 
-            expect(() => stateManager.clear()).not.toThrow();
+            expect(() => lifecycleStateStore.clear()).not.toThrow();
             expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
         });
     });
 
     describe('createDefaultState', () => {
         it('should create valid default state', () => {
-            const state = stateManager.createDefaultState();
+            const state = lifecycleStateStore.createDefaultState();
 
             expect(state.version).toBe(STORAGE_CONFIG.STATE_VERSION);
             expect(state.userPreferences).toBeDefined();

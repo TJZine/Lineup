@@ -1,9 +1,9 @@
 import { installMockLocalStorage, mockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { fnv1a32Uint } from '../../../../utils/hash';
-import { ChannelPersistenceStore } from '../ChannelPersistenceStore';
-import { ChannelRepository } from '../ChannelRepository';
+import { ChannelPersistenceStore } from '../persistence/ChannelPersistenceStore';
+import { ChannelRepository } from '../persistence/ChannelRepository';
 import { CURRENT_CHANNEL_KEY, MAX_CHANNEL_NUMBER, STORAGE_KEY } from '../constants';
-import type { StoredChannelData } from '../types';
+import type { StoredChannelData } from '../contracts/types';
 
 installMockLocalStorage();
 

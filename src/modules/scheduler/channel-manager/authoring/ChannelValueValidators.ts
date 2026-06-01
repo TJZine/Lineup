@@ -5,7 +5,7 @@ import type {
     FilterOperator,
     PlaybackMode,
     SortOrder,
-} from './types';
+} from '../contracts/types';
 
 const BUILD_STRATEGIES = [
     'collections',

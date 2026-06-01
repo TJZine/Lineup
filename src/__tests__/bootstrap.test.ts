@@ -143,6 +143,20 @@ const expectBootstrapFailureState = (module: BootstrapModule): void => {
 const readShellChromeCss = (): string =>
     fs.readFileSync(path.resolve(__dirname, '../styles/shell.chrome.css'), 'utf8');
 
+const createDeferred = <T,>(): {
+    promise: Promise<T>;
+    resolve: (value: T | PromiseLike<T>) => void;
+    reject: (reason?: unknown) => void;
+} => {
+    let resolve!: (value: T | PromiseLike<T>) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((promiseResolve, promiseReject) => {
+        resolve = promiseResolve;
+        reject = promiseReject;
+    });
+    return { promise, resolve, reject };
+};
+
 describe('bootstrap seam', () => {
     beforeEach(() => {
         jest.resetModules();
@@ -188,12 +202,70 @@ describe('bootstrap seam', () => {
         expect(shutdown).toHaveBeenCalledTimes(1);
     });
 
+    it('reuses an in-flight bootstrap call instead of creating duplicate Apps', async () => {
+        setDocumentReadyState('loading');
+        const startDeferred = createDeferred<void>();
+        const start = jest.fn(() => startDeferred.promise);
+        expectBootstrapStartLogs();
+        expectBootstrapStartedLogs();
+        expectBootstrapShutdownLogs();
+        expectBootstrapShutdownCompleteLogs();
+        const { module, shutdown } = await importBootstrapModule({
+            start,
+            autoDispatchDomReady: false,
+            expectLifecycleSuccess: false,
+        });
+
+        const firstBootstrap = module.bootstrap();
+        const secondBootstrap = module.bootstrap();
+
+        expect(firstBootstrap).toBe(secondBootstrap);
+        expect(start).toHaveBeenCalledTimes(1);
+
+        startDeferred.resolve();
+        await firstBootstrap;
+        await secondBootstrap;
+
+        await module.cleanup();
+        expect(shutdown).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits for pending bootstrap before cleanup shuts down the active App', async () => {
+        setDocumentReadyState('loading');
+        const startDeferred = createDeferred<void>();
+        const start = jest.fn(() => startDeferred.promise);
+        expectBootstrapStartLogs();
+        expectBootstrapStartedLogs();
+        expectBootstrapShutdownLogs();
+        expectBootstrapShutdownCompleteLogs();
+        const { module, shutdown } = await importBootstrapModule({
+            start,
+            autoDispatchDomReady: false,
+            expectLifecycleSuccess: false,
+        });
+
+        const bootstrapPromise = module.bootstrap();
+        const cleanupPromise = module.cleanup();
+
+        expect(start).toHaveBeenCalledTimes(1);
+        expect(shutdown).not.toHaveBeenCalled();
+
+        startDeferred.resolve();
+        await bootstrapPromise;
+        await cleanupPromise;
+
+        expect(shutdown).toHaveBeenCalledTimes(1);
+        expect(module.getLineupBootstrapStatus()).toEqual({
+            hasApp: false,
+            hasOrchestrator: false,
+            orchestrator: null,
+        });
+    });
+
     it('rejects from bootstrap() when App.start fails', async () => {
         const start = jest.fn().mockRejectedValue(new Error('start failed'));
         expectBootstrapStartLogs(2);
         expectBootstrapFailureLog();
-        expectBootstrapShutdownLogs();
-        expectBootstrapShutdownCompleteLogs();
         const { module } = await importBootstrapModule({
             start,
             autoDispatchDomReady: false,

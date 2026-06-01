@@ -211,7 +211,7 @@ const listTrackedSrcFiles = (): string[] => {
     })
         .split('\n')
         .map((line) => line.trim())
-        .filter(Boolean);
+        .filter((file) => file && fs.existsSync(toAbsolute(file)));
 };
 
 const isWholeSuiteFile = (file: string): boolean => {

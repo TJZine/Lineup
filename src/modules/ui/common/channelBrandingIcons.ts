@@ -1,4 +1,4 @@
-import type { BuildStrategy } from '../../scheduler/channel-manager/types';
+import type { BuildStrategy } from '../../scheduler/channel-manager/contracts/types';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 

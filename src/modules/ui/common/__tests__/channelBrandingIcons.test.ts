@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import type { BuildStrategy } from '../../../scheduler/channel-manager/types';
+import type { BuildStrategy } from '../../../scheduler/channel-manager/contracts/types';
 import { getChannelBrandingIcon, getAvailableStrategies } from '../channelBrandingIcons';
 
 const strategies: BuildStrategy[] = [

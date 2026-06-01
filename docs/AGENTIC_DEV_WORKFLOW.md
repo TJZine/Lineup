@@ -83,6 +83,13 @@ these regression categories before closeout:
 - contract drift: keep one public shape per operation, one owner for shared
   literal unions, public interface and concrete signatures aligned, and error
   wrapping/redaction behavior explicit
+- side-effect criticality: secondary sync, cleanup, telemetry, cache, and
+  remote-selection writes stay best-effort unless the documented contract says
+  they block the primary user action; failure handling and tests must prove the
+  chosen criticality
+- acceptance shape: regexes, parsers, verifiers, and policy matchers must cover
+  documented valid spellings plus malformed near-miss values, not just one
+  happy-path syntax or prefix
 - test debt: prefer public-seam behavior proof over private probes, no broad
   catch-all suites, no timer/DOM helpers that hide real lifecycle behavior
 - source signal: avoid restating comments, generated-looking scaffolding,

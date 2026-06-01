@@ -15,8 +15,8 @@ export interface OrchestratorPlexAuthRuntimeDeps {
 export class OrchestratorPlexAuthRuntime {
     constructor(private readonly _deps: OrchestratorPlexAuthRuntimeDeps) {}
 
-    async requestAuthPin(): Promise<PlexPinRequest> {
-        return this._withPlexAuth('requestAuthPin').requestPin();
+    async requestAuthPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {
+        return this._withPlexAuth('requestAuthPin').requestPin(options);
     }
 
     async pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {

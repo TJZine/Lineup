@@ -1,4 +1,4 @@
-import { ChannelRetryScheduler } from '../ChannelRetryScheduler';
+import { ChannelRetryScheduler } from '../resolution/ChannelRetryScheduler';
 import { createBaseChannel } from './channel-manager-test-helpers';
 
 describe('ChannelRetryScheduler', () => {

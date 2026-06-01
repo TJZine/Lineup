@@ -104,6 +104,7 @@ export interface LineupBootstrapStatus {
 }
 
 let app: LineupAppInstance | null = null;
+let bootstrapPromise: Promise<void> | null = null;
 let bootstrapInstalled = false;
 
 function handleDebugLoggingChanged(): void {
@@ -365,15 +366,47 @@ function describeElementRect(
     return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
 }
 
-async function bootstrap(): Promise<void> {
+function bootstrap(): Promise<void> {
+    if (bootstrapPromise) {
+        return bootstrapPromise;
+    }
+
     logLifecycle('[Lineup] Starting...');
-    app = new App();
-    syncWindowDebugApi(app);
-    await app.start();
-    logLifecycle('[Lineup] Started successfully');
+    const nextApp = new App();
+    app = nextApp;
+    syncWindowDebugApi(nextApp);
+
+    let currentBootstrapPromise: Promise<void> | null = null;
+    currentBootstrapPromise = (async (): Promise<void> => {
+        try {
+            await nextApp.start();
+            if (app !== nextApp) {
+                await nextApp.shutdown();
+                return;
+            }
+            logLifecycle('[Lineup] Started successfully');
+        } catch (error: unknown) {
+            if (app === nextApp) {
+                app = null;
+                syncWindowDebugApi(null);
+            }
+            throw error;
+        } finally {
+            if (bootstrapPromise === currentBootstrapPromise) {
+                bootstrapPromise = null;
+            }
+        }
+    })();
+    bootstrapPromise = currentBootstrapPromise;
+    return currentBootstrapPromise;
 }
 
 async function cleanup(): Promise<void> {
+    const pendingBootstrap = bootstrapPromise;
+    if (pendingBootstrap) {
+        await pendingBootstrap.catch(() => undefined);
+    }
+
     const currentApp = app;
     if (!currentApp) {
         syncWindowDebugApi(null);

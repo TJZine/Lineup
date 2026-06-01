@@ -1496,7 +1496,7 @@ describe('PlaybackRecoveryManager', () => {
             getState: jest.fn().mockReturnValue(makePlayerState({ status: 'playing' })),
             getCurrentTimeMs: jest.fn().mockReturnValue(12_345),
         } as unknown as IVideoPlayer;
-        const { manager, resolver, deps } = setup({
+        const { manager, resolver, deps, scheduler } = setup({
             getVideoPlayer: () => player,
             getCurrentProgramForPlayback: () => currentProgram,
             getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(currentProgram),
@@ -1513,15 +1513,8 @@ describe('PlaybackRecoveryManager', () => {
         expect(result).toEqual({ outcome: 'failed' });
         expect(player.loadStream).toHaveBeenCalledTimes(1);
         expect(player.play).not.toHaveBeenCalled();
-        expect(deps.handleGlobalError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                code: AppErrorCode.PLAYBACK_FAILED,
-                context: expect.objectContaining({
-                    burnInRestoreOutcome: { outcome: 'unavailable', reason: 'program_changed' },
-                }),
-            }),
-            'playback'
-        );
+        expect(scheduler.pauseSyncTimer).not.toHaveBeenCalled();
+        expect(deps.handleGlobalError).not.toHaveBeenCalled();
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
             'playbackRecovery.burnInReloadFailed',
@@ -1583,7 +1576,7 @@ describe('PlaybackRecoveryManager', () => {
             getState: jest.fn().mockReturnValue(makePlayerState({ status: 'playing' })),
             getCurrentTimeMs: jest.fn().mockReturnValue(12_345),
         } as unknown as IVideoPlayer;
-        const { manager, resolver, deps } = setup({
+        const { manager, resolver, deps, scheduler } = setup({
             getVideoPlayer: () => player,
             getCurrentProgramForPlayback: () => currentProgram,
             getCurrentProgramIdentityForPlayback: () => currentProgramIdentity,
@@ -1600,15 +1593,8 @@ describe('PlaybackRecoveryManager', () => {
         expect(result).toEqual({ outcome: 'failed' });
         expect(player.loadStream).toHaveBeenCalledTimes(1);
         expect(player.play).not.toHaveBeenCalled();
-        expect(deps.handleGlobalError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                code: AppErrorCode.PLAYBACK_FAILED,
-                context: expect.objectContaining({
-                    burnInRestoreOutcome: { outcome: 'unavailable', reason: 'program_changed' },
-                }),
-            }),
-            'playback'
-        );
+        expect(scheduler.pauseSyncTimer).not.toHaveBeenCalled();
+        expect(deps.handleGlobalError).not.toHaveBeenCalled();
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
             'playbackRecovery.burnInReloadFailed',

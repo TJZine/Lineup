@@ -14,8 +14,8 @@ const PROFILE_TIP_DEFAULT = 'Tip: Set a PIN on the admin profile to prevent unwa
 const PROFILE_TIP_WITH_RESTRICTED = `${PROFILE_TIP_DEFAULT} "Restricted" labels are informational only.`;
 
 export interface ProfileSelectScreenPorts {
-    getHomeUsers(): Promise<PlexHomeUser[]>;
-    switchHomeUser(userId: string, pin?: string): Promise<void>;
+    getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
+    switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
     useMainAccountProfile(): Promise<void>;
     signOutPlex(): Promise<void>;
     getNavigation(): INavigationManager | null;
@@ -493,7 +493,7 @@ export class ProfileSelectScreen {
         this._isSwitching = true;
         this._activeSwitchGeneration = generation;
         try {
-            await this._ports.switchHomeUser(userId, pin);
+            await this._ports.switchHomeUser(userId, { pin: pin ?? null });
             this.profileSessionStore.writeLastProfileId(userId);
             return true;
         } catch (error) {

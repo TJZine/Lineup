@@ -8,7 +8,7 @@
 
 import { EPGChannelList } from '../view/EPGChannelList';
 import type { ChannelConfig, EPGConfig } from '../types';
-import type { BuildStrategy } from '../../../scheduler/channel-manager/types';
+import type { BuildStrategy } from '../../../scheduler/channel-manager/contracts/types';
 
 describe('EPGChannelList', () => {
     const expandedAttribute = 'data-channel-name-expanded';

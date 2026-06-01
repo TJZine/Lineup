@@ -1,4 +1,4 @@
-import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from './interfaces';
+import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../contracts/interfaces';
 import type {
     ChannelContentSource,
     LibraryContentSource,
@@ -11,12 +11,12 @@ import type {
     ContentFilter,
     SortOrder,
     PlaybackMode,
-} from './types';
-import { PLEX_MEDIA_TYPES } from '../../plex/library/constants';
+} from '../contracts/types';
+import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
 import { ContentItemMapper } from './ContentItemMapper';
 import { ContentSelectionPolicy } from './ContentSelectionPolicy';
 import { SourceResolutionCache } from './SourceResolutionCache';
-import { isAbortLikeError } from '../../../utils/errors';
+import { isAbortLikeError } from '../../../../utils/errors';
 
 
 const CONTENT_RESOLVER_CACHE_TTL_MS = 5 * 60_000;

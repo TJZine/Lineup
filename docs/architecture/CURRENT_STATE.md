@@ -181,7 +181,7 @@ after this extraction.
 
 - `src/modules/lifecycle/`
 - owns lifecycle state, visibility, persistence coordination, and recovery concerns
-- `src/modules/lifecycle/StateManager.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations. The empty `MIGRATIONS` registry is package-internal lifecycle persistence policy, exported from `constants.ts` only for `StateManager` consumption, intentionally absent from the lifecycle barrel, and older persisted versions without an approved migration are rejected.
+- `src/modules/lifecycle/LifecycleStateStore.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations. The empty `MIGRATIONS` registry is package-internal lifecycle persistence policy, exported from `constants.ts` only for `LifecycleStateStore` consumption, intentionally absent from the lifecycle barrel, and older persisted versions without an approved migration are rejected.
 
 ### Navigation
 
@@ -253,31 +253,32 @@ after this extraction.
   such as playback recovery and orchestrator start/retry guards.
   `src/modules/scheduler/scheduler/ShuffleGenerator.ts` still adapts seeded
   shuffle for scheduler injection, `ScheduleCalculator.ts` keeps the
-  scheduler-specific injected shuffler seam, and
-  `ContentSelectionPolicy.ts` keeps content-level random playback mode.
+	  scheduler-specific injected shuffler seam, and
+	  `channel-manager/resolution/ContentSelectionPolicy.ts` keeps content-level
+	  random playback mode.
 - channel-domain persistence ownership (including selected/current channel
-  state) stays in `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`;
-  `src/modules/scheduler/channel-manager/ChannelRepository.ts` is a thin
-  consumer wrapper over that store, with server/user-scoped keys configured
-  through `src/core/orchestrator/storage/OrchestratorStorageContext.ts`
+	  state) stays in `src/modules/scheduler/channel-manager/persistence/ChannelPersistenceStore.ts`;
+	  `src/modules/scheduler/channel-manager/persistence/ChannelRepository.ts` is a thin
+	  consumer wrapper over that store, with server/user-scoped keys configured
+	  through `src/core/orchestrator/storage/OrchestratorStorageContext.ts`
 - `src/modules/scheduler/channel-manager/ChannelManager.ts` remains the public
-  channel-domain API/state owner, while package-local collaborators own focused
-  responsibilities: `ChannelAuthoringService.ts` owns authoring/default shaping,
-  `ChannelImportExportService.ts` owns import/export orchestration,
-  `ChannelPersistenceCoordinator.ts` owns manager-facing persistence
-  coordination, `ChannelResolutionCache.ts` owns resolved-content clone/stale
-  policy, `ChannelRetryScheduler.ts` owns retry timers, and
-  `ChannelPersistenceSaveQueue.ts` owns debounced save promise/timer/warning
-  orchestration through callbacks while delegating warning backoff timing to
-  `src/utils/persistenceWarningBackoffPolicy.ts`. `ChannelImportNormalizer.ts`
-  owns import payload validation and create-input shaping without mutating
-  manager state or changing persistence schema
-- `src/modules/scheduler/channel-manager/ContentResolver.ts` remains the
-  package-local source-resolution orchestration entrypoint consumed by
-  `ChannelManager`, while `SourceResolutionCache.ts` owns source-result
-  cache/in-flight coalescing, `ContentItemMapper.ts` owns Plex item mapping and
-  media metadata normalization, and `ContentSelectionPolicy.ts` owns filtering,
-  sorting, content-level random playback mode, and delegation to the shared
+	  channel-domain API/state owner, while package-local collaborators own focused
+	  responsibilities: `authoring/ChannelAuthoringService.ts` owns authoring/default shaping,
+	  `import-export/ChannelImportExportService.ts` owns import/export orchestration,
+	  `persistence/ChannelPersistenceCoordinator.ts` owns manager-facing persistence
+	  coordination, `resolution/ChannelResolutionCache.ts` owns resolved-content clone/stale
+	  policy, `resolution/ChannelRetryScheduler.ts` owns retry timers, and
+	  `persistence/ChannelPersistenceSaveQueue.ts` owns debounced save promise/timer/warning
+	  orchestration through callbacks while delegating warning backoff timing to
+	  `src/utils/persistenceWarningBackoffPolicy.ts`. `import-export/ChannelImportNormalizer.ts`
+	  owns import payload validation and create-input shaping without mutating
+	  manager state or changing persistence schema
+- `src/modules/scheduler/channel-manager/resolution/ContentResolver.ts` remains the
+	  package-local source-resolution orchestration entrypoint consumed by
+	  `ChannelManager`, while `resolution/SourceResolutionCache.ts` owns source-result
+	  cache/in-flight coalescing, `resolution/ContentItemMapper.ts` owns Plex item mapping and
+	  media metadata normalization, and `resolution/ContentSelectionPolicy.ts` owns filtering,
+	  sorting, content-level random playback mode, and delegation to the shared
   scheduler playback-ordering owner for common sequential/shuffle/block
   ordering
 
@@ -304,7 +305,7 @@ after this extraction.
 - `src/modules/debug/DebugOverridesStore.ts`
 - `src/modules/debug/IssueDiagnosticsStore.ts`
 - `src/modules/plex/discovery/ServerSelectionStore.ts`
-- `src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`
+- `src/modules/scheduler/channel-manager/persistence/ChannelPersistenceStore.ts`
 - `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`
 - `src/modules/plex/auth/PlexAuth.ts`
 - `src/modules/plex/auth/clientIdentifier.ts`
@@ -330,7 +331,7 @@ after this extraction.
 
 - `src/modules/ui/`
 - owns TV screens, overlays, shared primitives, and user-visible composition
-- toast presentation remains under `src/modules/ui/toast/`, while the UI-neutral toast payload contract lives in `src/shared/toast.ts`
+- `src/shared/toast.ts` owns the UI-neutral toast payload contract, and `src/core/app-shell/chrome/AppToastPresenter.ts` owns toast presentation; `src/modules/ui/` does not own a separate toast package.
 - `src/modules/ui/theme/` owns the public theme metadata contract (`ThemeName`, `DEFAULT_THEME`, `THEME_CLASSES`, `THEME_OPTIONS`); runtime theme state/control lives in app-shell ownership (`AppThemeController`), and `src/modules/ui/settings/` consumes theme callbacks through app-composed ports
 - `src/modules/ui/common/` owns cross-surface UI presentation helpers such as `appShellContainerIds`, `channelDisplay`, and the pure `formatTimecode` helper shared by overlay owners
 - `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/chrome/AppContainerFactory.ts` and consumed by app-shell/runtime wiring, including the bounded `runtime-chrome-host`; feature-owned mount container IDs such as EPG, player OSD, mini guide, channel badge, channel transition, and exit confirm remain with their feature modules even though `AppContainerFactory` may canonicalize their materialized DOM nodes at document scope

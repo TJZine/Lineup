@@ -1,5 +1,5 @@
-import type { AppErrorCode } from '../../../types/app-errors';
-import type { PlexMediaType } from '../../plex/shared/types';
+import type { AppErrorCode } from '../../../../types/app-errors';
+import type { PlexMediaType } from '../../../plex/shared/types';
 
 export type PlaybackMode =
     | 'sequential'  // Play in defined order, loop

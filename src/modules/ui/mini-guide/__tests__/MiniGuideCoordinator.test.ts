@@ -5,7 +5,7 @@ import { MiniGuideCoordinator } from '../MiniGuideCoordinator';
 import type { IMiniGuideOverlay } from '../interfaces';
 import type { IChannelManager, ChannelConfig } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram, ScheduleConfig } from '../../../scheduler/scheduler';
-import type { ResolvedChannelContent, ResolvedContentItem } from '../../../scheduler/channel-manager/types';
+import type { ResolvedChannelContent, ResolvedContentItem } from '../../../scheduler/channel-manager/contracts/types';
 import { createDeferred, type Deferred } from '../../../../__tests__/helpers';
 import { shouldApplyMiniGuideRowUpdate } from '../MiniGuideCoordinatorPolicies';
 

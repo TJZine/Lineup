@@ -1,4 +1,4 @@
-import { isValidContentSource } from '../ChannelContentSourceValidator';
+import { isValidContentSource } from '../authoring/ChannelContentSourceValidator';
 
 describe('ChannelContentSourceValidator', () => {
     it('accepts valid content sources', () => {

@@ -1,4 +1,4 @@
-import type { ChannelContentSource } from './types';
+import type { ChannelContentSource } from '../contracts/types';
 
 const MAX_CONTENT_SOURCE_DEPTH = 25;
 type ContentSourceRecord = Record<string, unknown> & { type?: unknown };

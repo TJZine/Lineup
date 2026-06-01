@@ -159,6 +159,26 @@ describe('playbackCompatibilityPolicy', () => {
             expect(decision.reasons).toContain('unsupported_audio_codec:truehd');
         });
 
+        it('allows explicit EAC3 aliases', () => {
+            const decision = getDirectPlayDecision({
+                media: createPolicyMedia({ audioCodec: 'eac3-joc' }),
+                capabilityProfile: createCapabilityProfile(),
+            });
+
+            expect(decision.canDirect).toBe(true);
+            expect(decision.reasons).toEqual([]);
+        });
+
+        it('blocks malformed supported-prefix audio codecs', () => {
+            const decision = getDirectPlayDecision({
+                media: createPolicyMedia({ audioCodec: 'aac-bogus' }),
+                capabilityProfile: createCapabilityProfile(),
+            });
+
+            expect(decision.canDirect).toBe(false);
+            expect(decision.reasons).toContain('unsupported_audio_codec:aac-bogus');
+        });
+
         it('blocks DTS when passthrough toggle is disabled', () => {
             const decision = getDirectPlayDecision({
                 media: createPolicyMedia({ audioCodec: 'dts' }),
@@ -187,6 +207,16 @@ describe('playbackCompatibilityPolicy', () => {
 
             expect(decision.canDirect).toBe(true);
             expect(decision.reasons).toEqual([]);
+        });
+
+        it('blocks malformed DTS-family prefixes even when passthrough is enabled', () => {
+            const decision = getDirectPlayDecision({
+                media: createPolicyMedia({ audioCodec: 'dtsbogus' }),
+                capabilityProfile: createCapabilityProfile(),
+            });
+
+            expect(decision.canDirect).toBe(false);
+            expect(decision.reasons).toContain('unsupported_audio_codec:dtsbogus');
         });
 
         it('normalizes audio codec casing and whitespace before compatibility checks', () => {
