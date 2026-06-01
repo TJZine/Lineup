@@ -1,4 +1,4 @@
-import type { ResolvedContentItem } from '../channel-manager/types';
+import type { ResolvedContentItem } from '../channel-manager/contracts/types';
 import { applyBlockPlaybackMode } from './blockPlayback';
 
 export type SharedPlaybackOrderingMode = 'sequential' | 'shuffle' | 'block';

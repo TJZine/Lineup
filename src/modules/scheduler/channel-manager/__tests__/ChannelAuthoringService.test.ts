@@ -1,8 +1,8 @@
 import { fnv1a32Uint } from '../../../../utils/hash';
 import { AppErrorCode } from '../../../../types/app-errors';
-import { ChannelAuthoringService } from '../ChannelAuthoringService';
+import { ChannelAuthoringService } from '../authoring/ChannelAuthoringService';
 import { CHANNEL_ERROR_MESSAGES, MAX_CHANNEL_NUMBER, MIN_CHANNEL_NUMBER } from '../constants';
-import type { ChannelCreateInput, ChannelUpdateInput } from '../types';
+import type { ChannelCreateInput, ChannelUpdateInput } from '../contracts/types';
 import {
     createBaseChannel,
     createMockContentSource,

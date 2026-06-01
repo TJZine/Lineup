@@ -1,6 +1,6 @@
 export { AppLifecycle } from './AppLifecycle';
 export { ErrorRecovery } from './ErrorRecovery';
-export { StateManager } from './StateManager';
+export { LifecycleStateStore } from './LifecycleStateStore';
 
 export type { IAppLifecycle } from './interfaces';
 

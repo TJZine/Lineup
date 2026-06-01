@@ -142,7 +142,7 @@ export class ServerSelectRuntimeCoordinator {
             this._adapter.addStatusSpinner();
             this._adapter.setControlsDisabled(true);
 
-            const servers = await this._ports.discoverServers(options.forceRefresh);
+            const servers = await this._ports.discoverServers({ forceRefresh: options.forceRefresh });
 
             if (!this._canUpdateUi(generation)) {
                 return;

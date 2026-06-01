@@ -1,11 +1,11 @@
 import { ChannelError, ChannelManager } from '../ChannelManager';
-import { ChannelPersistenceCoordinator } from '../ChannelPersistenceCoordinator';
-import { ChannelRepository } from '../ChannelRepository';
-import { ContentResolver } from '../ContentResolver';
-import type { IPlexLibraryMinimal } from '../interfaces';
+import { ChannelPersistenceCoordinator } from '../persistence/ChannelPersistenceCoordinator';
+import { ChannelRepository } from '../persistence/ChannelRepository';
+import { ContentResolver } from '../resolution/ContentResolver';
+import type { IPlexLibraryMinimal } from '../contracts/interfaces';
 import { TIMING_CONFIG } from '../../../../config/timing';
 import { AppErrorCode } from '../../../../types/app-errors';
-import { STORAGE_CONFIG } from '../../../lifecycle/constants';
+import { STORAGE_QUOTA_EXCEEDED_MESSAGE } from '../../../../shared/persistenceMessages';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
     installMockLocalStorage,
@@ -45,7 +45,7 @@ const expectPersistCurrentChannelWarning = (times: number = 1): void => {
         expect.objectContaining({
             name: 'ChannelError',
             code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+            message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
         }),
     ], { times });
 };
@@ -56,7 +56,7 @@ const expectDebouncedSaveQuotaWarning = (times: number = 1): void => {
         expect.objectContaining({
             name: 'ChannelError',
             code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+            message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
         }),
     ], { times });
 };
@@ -133,7 +133,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 expect.objectContaining({
                     name: 'ChannelError',
                     code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                    message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
                 }),
             ]);
             const warningHandler = jest.fn();
@@ -195,7 +195,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 expect.objectContaining({
                     code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
                     isQuotaError: true,
-                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                    message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
                 })
             );
         });
@@ -222,7 +222,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 expect.objectContaining({
                     code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
                     isQuotaError: true,
-                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                    message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
                 })
             );
         });
@@ -276,7 +276,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 expect.objectContaining({
                     code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
                     isQuotaError: true,
-                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                    message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
                 })
             );
             expect(warningHandler).toHaveBeenNthCalledWith(
@@ -284,7 +284,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 expect.objectContaining({
                     code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
                     isQuotaError: true,
-                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                    message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
                 })
             );
         });
@@ -610,7 +610,7 @@ describe('ChannelManager persistence and storage keys', () => {
                 expect.objectContaining({
                     code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
                     isQuotaError: true,
-                    message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                    message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
                 })
             );
         });

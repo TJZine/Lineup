@@ -1,5 +1,5 @@
-import { ContentSelectionPolicy } from '../ContentSelectionPolicy';
-import type { ContentFilter, ResolvedContentItem } from '../types';
+import { ContentSelectionPolicy } from '../resolution/ContentSelectionPolicy';
+import type { ContentFilter, ResolvedContentItem } from '../contracts/types';
 import { shuffleWithSeed } from '../../shared/prng';
 
 describe('ContentSelectionPolicy', () => {

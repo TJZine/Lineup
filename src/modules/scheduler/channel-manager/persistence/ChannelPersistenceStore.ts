@@ -4,9 +4,9 @@ import {
     safeLocalStorageRemove,
     safeLocalStorageRemoveWithResult,
     safeLocalStorageSetWithResult,
-} from '../../../utils/storage';
-import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
-import type { StoredChannelData } from './types';
+} from '../../../../utils/storage';
+import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from '../constants';
+import type { StoredChannelData } from '../contracts/types';
 import { decodeStoredChannelData, encodeStoredChannelData } from './StoredChannelDataCodec';
 
 export class ChannelPersistenceStore {

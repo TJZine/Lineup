@@ -1,4 +1,4 @@
-import { stripLegacySequentialVariant } from '../stripLegacySequentialVariant';
+import { stripLegacySequentialVariant } from '../import-export/stripLegacySequentialVariant';
 
 describe('stripLegacySequentialVariant', () => {
     it('returns non-object values unchanged', () => {

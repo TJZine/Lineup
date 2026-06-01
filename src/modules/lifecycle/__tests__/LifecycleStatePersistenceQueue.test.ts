@@ -4,13 +4,13 @@
 
 import { LifecycleStatePersistenceQueue } from '../LifecycleStatePersistenceQueue';
 import { TIMING_CONFIG } from '../constants';
-import type { StateManager } from '../StateManager';
+import type { LifecycleStateStore } from '../LifecycleStateStore';
 import type { PersistentState } from '../types';
 import { PersistenceWarningBackoffPolicy } from '../../../utils/persistenceWarningBackoffPolicy';
 
 describe('LifecycleStatePersistenceQueue', () => {
     let state: PersistentState;
-    let stateManager: jest.Mocked<Pick<StateManager, 'save'>>;
+    let lifecycleStateStore: jest.Mocked<Pick<LifecycleStateStore, 'save'>>;
     let buildState: jest.MockedFunction<() => PersistentState>;
     let emitPersistenceWarning: jest.MockedFunction<
         (arg: { message: string; isQuotaError: boolean; timestamp: number }) => void
@@ -29,7 +29,7 @@ describe('LifecycleStatePersistenceQueue', () => {
             },
             lastUpdated: 1,
         };
-        stateManager = {
+        lifecycleStateStore = {
             save: jest.fn(),
         };
         buildState = jest.fn(() => state);
@@ -44,7 +44,7 @@ describe('LifecycleStatePersistenceQueue', () => {
 
     function createQueue(): LifecycleStatePersistenceQueue {
         return new LifecycleStatePersistenceQueue({
-            stateManager: stateManager as unknown as StateManager,
+            lifecycleStateStore: lifecycleStateStore as unknown as LifecycleStateStore,
             buildState,
             emitPersistenceWarning,
         });
@@ -62,13 +62,13 @@ describe('LifecycleStatePersistenceQueue', () => {
         jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
         await expect(Promise.all([firstSave, secondSave])).resolves.toEqual([undefined, undefined]);
 
-        expect(stateManager.save).toHaveBeenCalledTimes(1);
-        expect(stateManager.save).toHaveBeenCalledWith(secondState);
+        expect(lifecycleStateStore.save).toHaveBeenCalledTimes(1);
+        expect(lifecycleStateStore.save).toHaveBeenCalledWith(secondState);
     });
 
     it('rejects pending waiters with the original persistence error', async () => {
         const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
-        stateManager.save.mockImplementation(() => {
+        lifecycleStateStore.save.mockImplementation(() => {
             throw saveError;
         });
         const queue = createQueue();
@@ -94,7 +94,7 @@ describe('LifecycleStatePersistenceQueue', () => {
             'resetQuotaBackoff'
         );
         const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
-        stateManager.save.mockImplementationOnce(() => {
+        lifecycleStateStore.save.mockImplementationOnce(() => {
             throw saveError;
         });
         const queue = createQueue();
@@ -120,7 +120,7 @@ describe('LifecycleStatePersistenceQueue', () => {
     it('does not let failed warning observers mask the original save failure', async () => {
         const saveError = new Error('save failed');
         const observerError = new Error('observer failed');
-        stateManager.save.mockImplementation(() => {
+        lifecycleStateStore.save.mockImplementation(() => {
             throw saveError;
         });
         emitPersistenceWarning.mockImplementation(() => {
@@ -147,7 +147,7 @@ describe('LifecycleStatePersistenceQueue', () => {
 
     it('rejects direct non-final flush calls with the original persistence error', async () => {
         const saveError = new Error('save failed');
-        stateManager.save.mockImplementation(() => {
+        lifecycleStateStore.save.mockImplementation(() => {
             throw saveError;
         });
         const queue = createQueue();
@@ -166,7 +166,7 @@ describe('LifecycleStatePersistenceQueue', () => {
 
     it('logs a final shutdown flush failure once while rejecting the pending save', async () => {
         const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
-        stateManager.save.mockImplementation(() => {
+        lifecycleStateStore.save.mockImplementation(() => {
             throw saveError;
         });
         const queue = createQueue();

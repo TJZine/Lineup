@@ -9,13 +9,14 @@ const MIN_PORT = 1;
 const MAX_PORT = 65535;
 
 export async function discoverPlexResourcesWithRequestPolicy(
-    headers: Record<string, string>
+    headers: Record<string, string>,
+    options?: { signal?: AbortSignal | null }
 ): Promise<PlexApiResource[]> {
     let lastUrl = '';
     try {
         const response = await fetchDiscoveryResponse(headers, (url) => {
             lastUrl = url;
-        });
+        }, options);
         return await parseResourcesResponse(response);
     } catch (error) {
         if (error instanceof PlexApiError) {

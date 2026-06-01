@@ -5,7 +5,7 @@
  */
 
 import { AppLifecycle } from '../AppLifecycle';
-import { StateManager } from '../StateManager';
+import { LifecycleStateStore } from '../LifecycleStateStore';
 import { ErrorRecovery } from '../ErrorRecovery';
 import { NETWORK_CHECK_PROBE_URL, TIMING_CONFIG } from '../constants';
 import { AppErrorCode } from '../../../types/app-errors';
@@ -16,15 +16,15 @@ import { createDeferred, expectConsoleWarn } from '../../../__tests__/helpers';
 
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
-    let mockStateManager: jest.Mocked<StateManager>;
+    let mockLifecycleStateStore: jest.Mocked<LifecycleStateStore>;
     let mockErrorRecovery: jest.Mocked<ErrorRecovery>;
     let addEventListenerSpy: jest.SpyInstance;
     let removeEventListenerSpy: jest.SpyInstance;
 
     beforeEach(() => {
         jest.useFakeTimers();
-        // Mock StateManager
-        mockStateManager = {
+        // Mock LifecycleStateStore
+        mockLifecycleStateStore = {
             save: jest.fn(),
             load: jest.fn().mockReturnValue(null),
             clear: jest.fn(),
@@ -33,7 +33,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             }),
-        } as unknown as jest.Mocked<StateManager>;
+        } as unknown as jest.Mocked<LifecycleStateStore>;
 
         // Mock ErrorRecovery
         mockErrorRecovery = {
@@ -78,7 +78,7 @@ describe('AppLifecycle', () => {
             configurable: true,
         });
 
-        lifecycle = new AppLifecycle(mockStateManager, mockErrorRecovery);
+        lifecycle = new AppLifecycle(mockLifecycleStateStore, mockErrorRecovery);
     });
 
     afterEach(() => {
@@ -88,7 +88,7 @@ describe('AppLifecycle', () => {
 
     describe('initialization', () => {
         it('should set phase to initializing then authenticating when no saved state', async () => {
-            mockStateManager.load.mockReturnValue(null);
+            mockLifecycleStateStore.load.mockReturnValue(null);
 
             await lifecycle.initialize();
 
@@ -101,7 +101,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockStateManager.load.mockReturnValue(savedState);
+            mockLifecycleStateStore.load.mockReturnValue(savedState);
 
             await lifecycle.initialize();
 
@@ -114,7 +114,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockStateManager.load.mockReturnValue(savedState);
+            mockLifecycleStateStore.load.mockReturnValue(savedState);
 
             const handler = jest.fn();
             lifecycle.on('stateRestored', handler);
@@ -130,7 +130,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockStateManager.load.mockReturnValue(savedState);
+            mockLifecycleStateStore.load.mockReturnValue(savedState);
 
             const eventOrder: string[] = [];
             lifecycle.on('phaseChange', ({ from, to }) => {
@@ -240,7 +240,7 @@ describe('AppLifecycle', () => {
         it('logs final pending-save flush failures during shutdown', async () => {
             const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
             let savePromise: Promise<void> | null = null;
-            mockStateManager.save.mockImplementation(() => {
+            mockLifecycleStateStore.save.mockImplementation(() => {
                 throw saveError;
             });
             await lifecycle.initialize();
@@ -276,7 +276,7 @@ describe('AppLifecycle', () => {
                 }),
             };
             const lifecycleWithService = new AppLifecycle(
-                mockStateManager,
+                mockLifecycleStateStore,
                 mockErrorRecovery,
                 lifecycleService
             );
@@ -307,7 +307,7 @@ describe('AppLifecycle', () => {
 
             await savePromise;
 
-            expect(mockStateManager.save).toHaveBeenCalled();
+            expect(mockLifecycleStateStore.save).toHaveBeenCalled();
         });
 
         it('keeps saveState pending until the debounced flush persists state', async () => {
@@ -326,13 +326,13 @@ describe('AppLifecycle', () => {
             jest.advanceTimersByTime(1);
             await savePromise;
 
-            expect(mockStateManager.save).toHaveBeenCalledTimes(1);
+            expect(mockLifecycleStateStore.save).toHaveBeenCalledTimes(1);
             expect(settled).toBe(true);
         });
 
         it('rejects saveState when the debounced persistence flush fails', async () => {
             const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
-            mockStateManager.save.mockImplementation(() => {
+            mockLifecycleStateStore.save.mockImplementation(() => {
                 throw saveError;
             });
             await lifecycle.initialize();
@@ -345,7 +345,7 @@ describe('AppLifecycle', () => {
 
         it('rejects saveState with the persistence error even when warning observers throw', async () => {
             const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
-            mockStateManager.save.mockImplementation(() => {
+            mockLifecycleStateStore.save.mockImplementation(() => {
                 throw saveError;
             });
             await lifecycle.initialize();
@@ -368,7 +368,7 @@ describe('AppLifecycle', () => {
         it('keeps non-final phase transitions moving when a flush fails', async () => {
             const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
             const persistenceWarning = jest.fn();
-            mockStateManager.save.mockImplementation(() => {
+            mockLifecycleStateStore.save.mockImplementation(() => {
                 throw saveError;
             });
             await lifecycle.initialize();
@@ -561,7 +561,7 @@ describe('AppLifecycle', () => {
             const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
             const pauseCallback = jest.fn();
             const persistenceWarning = jest.fn();
-            mockStateManager.save.mockImplementation(() => {
+            mockLifecycleStateStore.save.mockImplementation(() => {
                 throw saveError;
             });
             await lifecycle.initialize();

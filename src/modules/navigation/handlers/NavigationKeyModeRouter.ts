@@ -346,8 +346,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                     break;
                 }
                 const navigation = this.deps.navigation;
-                const plexAuth = this.deps.playback.plexAuth;
-                if (plexAuth && !plexAuth.isAuthenticated()) {
+                if (!this.deps.playback.isAuthenticatedForServerSelection()) {
                     navigation.goTo('auth');
                 } else {
                     navigation.goTo('server-select', { allowAutoConnect: false });
@@ -356,13 +355,13 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
             }
             case 'play':
                 {
-                    const player = this.deps.playback.videoPlayer;
-                    if (!player) {
+                    const playRequest = this.deps.playback.playFromRemote();
+                    if (!playRequest) {
                         break;
                     }
                     const playPromise = this.fireAndReport(
                         'remote_play',
-                        () => player.play(),
+                        () => playRequest,
                         '[Navigation] remote_play failed:',
                         'Unable to start playback'
                     );
@@ -375,32 +374,33 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
                 }
                 break;
             case 'pause':
-                this.deps.playback.videoPlayer?.pause();
-                this.deps.playback.requestPlayerOsdIntent({ type: 'poke', reason: 'pause' });
+                if (this.deps.playback.pauseFromRemote()) {
+                    this.deps.playback.requestPlayerOsdIntent({ type: 'poke', reason: 'pause' });
+                }
                 break;
             case 'rewind': {
-                const player = this.deps.playback.videoPlayer;
-                if (!player) {
+                const deltaMs = -this.deps.playback.getSeekIncrementMs();
+                const seekRequest = this.deps.playback.seekFromRemote(deltaMs);
+                if (!seekRequest) {
                     break;
                 }
-                const deltaMs = -this.deps.playback.getSeekIncrementMs();
                 void this.observeNonBlockingPromise(
                     'seek',
-                    () => player.seekRelative(deltaMs),
+                    () => seekRequest,
                     '[Navigation] seek failed:'
                 );
                 this.deps.playback.requestPlayerOsdIntent({ type: 'poke', reason: 'seek' });
                 break;
             }
             case 'fastforward': {
-                const player = this.deps.playback.videoPlayer;
-                if (!player) {
+                const deltaMs = this.deps.playback.getSeekIncrementMs();
+                const seekRequest = this.deps.playback.seekFromRemote(deltaMs);
+                if (!seekRequest) {
                     break;
                 }
-                const deltaMs = this.deps.playback.getSeekIncrementMs();
                 void this.observeNonBlockingPromise(
                     'seek',
-                    () => player.seekRelative(deltaMs),
+                    () => seekRequest,
                     '[Navigation] seek failed:'
                 );
                 this.deps.playback.requestPlayerOsdIntent({ type: 'poke', reason: 'seek' });

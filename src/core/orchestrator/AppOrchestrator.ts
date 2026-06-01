@@ -1065,8 +1065,8 @@ export class AppOrchestrator {
         };
     }
 
-    async requestAuthPin(): Promise<PlexPinRequest> {
-        return this._plexAuthRuntime.requestAuthPin();
+    async requestAuthPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {
+        return this._plexAuthRuntime.requestAuthPin(options);
     }
 
     async pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {
@@ -1077,7 +1077,7 @@ export class AppOrchestrator {
         await this._plexAuthRuntime.cancelPin(pinId);
     }
 
-    async getHomeUsers(): Promise<PlexHomeUser[]> {
+    async getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]> {
         this._assertNotShutdown('getHomeUsers');
         if (!this._plexAuth) {
             this._throwModuleInitPreconditionError('PlexAuth not initialized', {
@@ -1085,7 +1085,7 @@ export class AppOrchestrator {
                 dependency: 'PlexAuth',
             });
         }
-        return this._plexAuth.getHomeUsers();
+        return this._plexAuth.getHomeUsers(options);
     }
 
     getActiveUsername(): string | null {
@@ -1100,7 +1100,10 @@ export class AppOrchestrator {
         return this._initCoordinator;
     }
 
-    async switchHomeUser(userId: string, pin?: string): Promise<void> {
+    async switchHomeUser(
+        userId: string,
+        options?: { pin?: string | null; signal?: AbortSignal | null }
+    ): Promise<void> {
         this._assertNotShutdown('switchHomeUser');
         if (!this._plexAuth || !this._plexDiscovery) {
             const missingDependency = !this._plexAuth ? 'PlexAuth' : 'PlexServerDiscovery';
@@ -1115,7 +1118,10 @@ export class AppOrchestrator {
         cleanupController.prepareForProfileSwitchAttempt();
         initCoordinator.prepareForProfileSwitchAttempt();
         try {
-            await this._plexAuth.switchHomeUser(userId, { pin: pin ?? null });
+            await this._plexAuth.switchHomeUser(userId, {
+                pin: options?.pin ?? null,
+                signal: options?.signal ?? null,
+            });
         } catch (error) {
             initCoordinator.restorePendingServerResumeAfterProfileSwitchFailure();
             throw error;
@@ -1172,7 +1178,7 @@ export class AppOrchestrator {
     /**
      * Discover Plex servers (optionally forcing refresh).
      */
-    async discoverServers(forceRefresh: boolean = false): Promise<PlexServer[]> {
+    async discoverServers(options?: { forceRefresh?: boolean; signal?: AbortSignal | null }): Promise<PlexServer[]> {
         this._assertNotShutdown('discoverServers');
         if (!this._plexDiscovery) {
             this._throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
@@ -1180,10 +1186,10 @@ export class AppOrchestrator {
                 dependency: 'PlexServerDiscovery',
             });
         }
-        if (forceRefresh) {
-            return this._plexDiscovery.refreshServers();
+        if (options?.forceRefresh === true) {
+            return this._plexDiscovery.refreshServers({ signal: options.signal ?? null });
         }
-        return this._plexDiscovery.discoverServers();
+        return this._plexDiscovery.discoverServers({ signal: options?.signal ?? null });
     }
 
     async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {

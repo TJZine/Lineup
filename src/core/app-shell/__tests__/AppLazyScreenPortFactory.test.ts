@@ -182,19 +182,28 @@ describe('AppLazyScreenPortFactory', () => {
         expect(typeof serverPorts?.requestChannelSetupRerun).toBe('function');
         expect(typeof serverPorts?.getNavigation).toBe('function');
 
-        await authPorts?.requestAuthPin();
+        const authRequestController = new AbortController();
+        await authPorts?.requestAuthPin({ signal: authRequestController.signal });
         const authPollController = new AbortController();
         await authPorts?.pollForPin(123, { signal: authPollController.signal });
         await authPorts?.cancelPin(123);
         expect(authPorts?.getNavigation()).toBe(navigation);
 
-        await profilePorts?.getHomeUsers();
-        await profilePorts?.switchHomeUser('user-1', '4321');
+        const profileController = new AbortController();
+        await profilePorts?.getHomeUsers({ signal: profileController.signal });
+        await profilePorts?.switchHomeUser('user-1', {
+            pin: '4321',
+            signal: profileController.signal,
+        });
         await profilePorts?.useMainAccountProfile();
         await profilePorts?.signOutPlex();
         expect(profilePorts?.getNavigation()).toBe(navigation);
 
-        await serverPorts?.discoverServers(true);
+        const discoveryController = new AbortController();
+        await serverPorts?.discoverServers({
+            forceRefresh: true,
+            signal: discoveryController.signal,
+        });
         await expect(serverPorts?.selectServer('server-1')).resolves.toEqual({ kind: 'selected' });
         await serverPorts?.clearSelectedServer();
         expect(serverPorts?.getSelectedServerScreenState()).toEqual({
@@ -209,14 +218,20 @@ describe('AppLazyScreenPortFactory', () => {
         serverPorts?.requestChannelSetupRerun();
         expect(serverPorts?.getNavigation()).toBe(navigation);
 
-        expect(orchestrator.requestAuthPin).toHaveBeenCalledTimes(1);
+        expect(orchestrator.requestAuthPin).toHaveBeenCalledWith({ signal: authRequestController.signal });
         expect(orchestrator.pollForPin).toHaveBeenCalledWith(123, { signal: authPollController.signal });
         expect(orchestrator.cancelPin).toHaveBeenCalledWith(123);
-        expect(orchestrator.getHomeUsers).toHaveBeenCalledTimes(1);
-        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('user-1', '4321');
+        expect(orchestrator.getHomeUsers).toHaveBeenCalledWith({ signal: profileController.signal });
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('user-1', {
+            pin: '4321',
+            signal: profileController.signal,
+        });
         expect(orchestrator.useMainAccountProfile).toHaveBeenCalledTimes(1);
         expect(orchestrator.signOutPlex).toHaveBeenCalledTimes(1);
-        expect(orchestrator.discoverServers).toHaveBeenCalledWith(true);
+        expect(orchestrator.discoverServers).toHaveBeenCalledWith({
+            forceRefresh: true,
+            signal: discoveryController.signal,
+        });
         expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1');
         expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
         expect(orchestrator.getSelectedServerScreenState).toHaveBeenCalledTimes(1);

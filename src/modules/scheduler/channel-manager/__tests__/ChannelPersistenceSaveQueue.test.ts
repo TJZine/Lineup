@@ -1,7 +1,7 @@
 import { AppErrorCode } from '../../../../types/app-errors';
-import { STORAGE_CONFIG } from '../../../lifecycle/constants';
+import { STORAGE_QUOTA_EXCEEDED_MESSAGE } from '../../../../shared/persistenceMessages';
 import { PersistenceWarningBackoffPolicy } from '../../../../utils/persistenceWarningBackoffPolicy';
-import { ChannelPersistenceSaveQueue } from '../ChannelPersistenceSaveQueue';
+import { ChannelPersistenceSaveQueue } from '../persistence/ChannelPersistenceSaveQueue';
 
 const createDisposedError = (): Error =>
     Object.assign(new Error('ChannelManager disposed'), {
@@ -69,7 +69,7 @@ describe('ChannelPersistenceSaveQueue', () => {
 
         expect(shouldEmitSpy).toHaveBeenCalledWith(true);
         expect(emitPersistenceWarning).toHaveBeenCalledWith({
-            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+            message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
             code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
             isQuotaError: true,
             timestamp: 20_000,

@@ -1,9 +1,9 @@
 import { ChannelManager } from '../ChannelManager';
-import { ChannelRepository } from '../ChannelRepository';
-import { ContentResolver } from '../ContentResolver';
-import type { IPlexLibraryMinimal } from '../interfaces';
+import { ChannelRepository } from '../persistence/ChannelRepository';
+import { ContentResolver } from '../resolution/ContentResolver';
+import type { IPlexLibraryMinimal } from '../contracts/interfaces';
 import { AppErrorCode } from '../../../../types/app-errors';
-import { STORAGE_CONFIG } from '../../../lifecycle/constants';
+import { STORAGE_QUOTA_EXCEEDED_MESSAGE } from '../../../../shared/persistenceMessages';
 import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
     installMockLocalStorage,
@@ -27,7 +27,7 @@ const expectPersistCurrentChannelWarning = (times: number = 1): void => {
         expect.objectContaining({
             name: 'ChannelError',
             code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-            message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+            message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
         }),
     ], { times });
 };
@@ -210,7 +210,7 @@ describe('ChannelManager replaceAllChannels transactional persistence', () => {
             expect.objectContaining({
                 code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
                 isQuotaError: true,
-                message: STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
             })
         );
     });

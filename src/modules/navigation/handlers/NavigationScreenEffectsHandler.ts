@@ -39,7 +39,6 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
         this.repeats.stopEpgRepeat('screenChange');
         this.repeats.stopMiniGuideRepeat('screenChange');
         const epg = this.deps.epg;
-        const videoPlayer = this.deps.playback.videoPlayer;
         const navigation = this.deps.navigation;
 
         // Hide EPG when leaving guide.
@@ -77,16 +76,17 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
         // Pause playback when leaving player for settings/channel-edit.
         if (from === 'player' && (to === 'settings' || to === 'channel-edit')) {
             if (!this.deps.readKeepPlayingInSettings()) {
-                videoPlayer?.pause();
+                this.deps.playback.pauseForScreenChange();
             }
         }
 
         // Resume playback when returning to player.
         if (to === 'player' && from !== 'player') {
-            if (videoPlayer) {
+            const resumeRequest = this.deps.playback.resumeForScreenChange();
+            if (resumeRequest) {
                 this.fireAndReport(
                     'resume_play',
-                    () => videoPlayer.play(),
+                    () => resumeRequest,
                     '[Navigation] resume_play failed:',
                     'Playback failed to resume'
                 );

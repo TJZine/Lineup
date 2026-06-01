@@ -12,8 +12,8 @@ export type PlexServerSelectionResult =
     | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
 export interface IPlexServerDiscovery {
-    discoverServers(): Promise<PlexServer[]>;
-    refreshServers(): Promise<PlexServer[]>;
+    discoverServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]>;
+    refreshServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]>;
     initialize(): Promise<void>;
     setStorageKeys(selectedServerKey: string, serverHealthKey: string): void;
 

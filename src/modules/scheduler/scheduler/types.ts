@@ -2,10 +2,10 @@ export type {
     PlaybackMode,
     ResolvedContentItem,
     ResolvedChannelContent,
-} from '../channel-manager/types';
+} from '../channel-manager/contracts/types';
 
 export type SchedulerPlaybackMode = Exclude<
-    import('../channel-manager/types').PlaybackMode,
+    import('../channel-manager/contracts/types').PlaybackMode,
     'random'
 >;
 
@@ -13,14 +13,14 @@ export interface ScheduleConfig {
     channelId: string;
     anchorTime: number;
     /** Scheduler timelines continuously loop through this indexed content. */
-    content: import('../channel-manager/types').ResolvedContentItem[];
+    content: import('../channel-manager/contracts/types').ResolvedContentItem[];
     playbackMode: SchedulerPlaybackMode;
     shuffleSeed: number;
     blockSize?: number;
 }
 
 export interface ScheduledProgram {
-    item: import('../channel-manager/types').ResolvedContentItem;
+    item: import('../channel-manager/contracts/types').ResolvedContentItem;
     scheduledStartTime: number;
     scheduledEndTime: number;
     elapsedMs: number;
@@ -41,7 +41,7 @@ export interface ScheduleIndex {
     generatedAt: number;
     totalLoopDurationMs: number;
     itemStartOffsets: number[];
-    orderedItems: import('../channel-manager/types').ResolvedContentItem[];
+    orderedItems: import('../channel-manager/contracts/types').ResolvedContentItem[];
 }
 
 export interface SchedulerState {

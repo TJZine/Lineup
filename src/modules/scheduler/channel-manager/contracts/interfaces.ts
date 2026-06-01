@@ -7,9 +7,9 @@ import type {
     ChannelManagerEventMap,
     ChannelUpdateInput,
 } from './types';
-import type { PlexMediaFile } from '../../plex/library';
-import type { PlexMediaType } from '../../plex/shared/types';
-import type { IDisposable } from '../../../utils/interfaces';
+import type { PlexMediaFile } from '../../../plex/library';
+import type { PlexMediaType } from '../../../plex/shared/types';
+import type { IDisposable } from '../../../../utils/interfaces';
 
 export interface IChannelManager {
     /**

@@ -17,7 +17,8 @@ type DiscoveryAttemptOutcome =
 
 export async function fetchDiscoveryResponse(
     headers: Record<string, string>,
-    onAttemptUrl: (url: string) => void
+    onAttemptUrl: (url: string) => void,
+    options?: { signal?: AbortSignal | null }
 ): Promise<Response> {
     const variants = buildDiscoveryFetchVariants(headers);
     const maxAttempts = PLEX_DISCOVERY_CONSTANTS.MAX_DISCOVERY_ATTEMPTS;
@@ -30,7 +31,8 @@ export async function fetchDiscoveryResponse(
         const outcome = await fetchDiscoveryAttempt(
             variants,
             onAttemptUrl,
-            attempt < maxAttempts - 1
+            attempt < maxAttempts - 1,
+            options?.signal ?? null
         );
         lastUrl = outcome.lastUrl || lastUrl;
 
@@ -39,13 +41,13 @@ export async function fetchDiscoveryResponse(
                 response = outcome.response;
                 break;
             case 'rateLimited':
-                await delay(outcome.delayMs);
+                await delay(outcome.delayMs, options?.signal ?? null);
                 continue;
             case 'retryableServerFailure':
                 lastNonOkResponse = outcome.response;
                 lastError = outcome.error;
                 if (attempt < maxAttempts - 1) {
-                    await delay(PLEX_DISCOVERY_CONSTANTS.DISCOVERY_RETRY_BACKOFF_MS);
+                    await delay(PLEX_DISCOVERY_CONSTANTS.DISCOVERY_RETRY_BACKOFF_MS, options?.signal ?? null);
                 }
                 continue;
             case 'exhaustedWithError':
@@ -83,7 +85,8 @@ export async function fetchDiscoveryResponse(
 async function fetchDiscoveryAttempt(
     variants: DiscoveryFetchVariant[],
     onAttemptUrl: (url: string) => void,
-    canRetryRateLimit: boolean
+    canRetryRateLimit: boolean,
+    signal: AbortSignal | null
 ): Promise<DiscoveryAttemptOutcome> {
     let lastError: unknown = null;
     let lastNonOkResponse: Response | null = null;
@@ -95,7 +98,7 @@ async function fetchDiscoveryAttempt(
 
         let receivedResponse: Response;
         try {
-            receivedResponse = await fetchDiscoveryVariant(variant);
+            receivedResponse = await fetchDiscoveryVariant(variant, signal);
         } catch (error) {
             lastError = error;
             continue;
@@ -133,13 +136,23 @@ async function fetchDiscoveryAttempt(
     return { kind: 'exhaustedWithError', error: lastError, lastUrl };
 }
 
-async function fetchDiscoveryVariant(variant: DiscoveryFetchVariant): Promise<Response> {
+async function fetchDiscoveryVariant(variant: DiscoveryFetchVariant, upstreamSignal: AbortSignal | null): Promise<Response> {
     const controller = new AbortController();
+    const abortFromUpstream = (): void => {
+        controller.abort(upstreamSignal?.reason);
+    };
     const timeoutId = setTimeout(
         () => controller.abort(),
         PLEX_DISCOVERY_CONSTANTS.DISCOVERY_TIMEOUT_MS
     );
     try {
+        if (upstreamSignal) {
+            if (upstreamSignal.aborted) {
+                abortFromUpstream();
+            } else {
+                upstreamSignal.addEventListener('abort', abortFromUpstream, { once: true });
+            }
+        }
         const init: RequestInit = {
             method: 'GET',
             signal: controller.signal,
@@ -149,12 +162,29 @@ async function fetchDiscoveryVariant(variant: DiscoveryFetchVariant): Promise<Re
         }
         return await fetch(variant.url, init);
     } finally {
+        upstreamSignal?.removeEventListener('abort', abortFromUpstream);
         clearTimeout(timeoutId);
     }
 }
 
-function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
+function delay(ms: number, signal: AbortSignal | null): Promise<void> {
+    if (!signal) {
+        return new Promise((resolve) => {
+            setTimeout(resolve, ms);
+        });
+    }
+    if (signal.aborted) {
+        return Promise.reject(signal.reason);
+    }
+    return new Promise((resolve, reject) => {
+        const onAbort = (): void => {
+            clearTimeout(timeoutId);
+            reject(signal.reason);
+        };
+        const timeoutId = setTimeout(() => {
+            signal.removeEventListener('abort', onAbort);
+            resolve();
+        }, ms);
+        signal.addEventListener('abort', onAbort, { once: true });
     });
 }

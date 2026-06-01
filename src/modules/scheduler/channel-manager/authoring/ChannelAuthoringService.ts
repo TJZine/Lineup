@@ -1,6 +1,6 @@
-import { AppErrorCode } from '../../../types/app-errors';
-import { CHANNEL_ERROR_MESSAGES, MAX_CHANNELS, MAX_CHANNEL_NUMBER, MIN_CHANNEL_NUMBER } from './constants';
-import { ChannelError } from './ChannelErrors';
+import { AppErrorCode } from '../../../../types/app-errors';
+import { CHANNEL_ERROR_MESSAGES, MAX_CHANNELS, MAX_CHANNEL_NUMBER, MIN_CHANNEL_NUMBER } from '../constants';
+import { ChannelError } from '../ChannelErrors';
 import { isValidContentSource } from './ChannelContentSourceValidator';
 import { applyChannelSeedDefaults, isValidChannelSeed } from './ChannelSeedPolicy';
 import {
@@ -8,7 +8,7 @@ import {
     cloneContentFilters,
     cloneContentSource,
 } from './ChannelDomainClone';
-import type { ChannelConfig, ChannelContentSource, ChannelCreateInput, ChannelUpdateInput } from './types';
+import type { ChannelConfig, ChannelContentSource, ChannelCreateInput, ChannelUpdateInput } from '../contracts/types';
 
 type ChannelAuthoringServiceConfig = {
     generateId: () => string;

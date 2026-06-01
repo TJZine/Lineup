@@ -1,6 +1,6 @@
 import { ChannelImportNormalizer } from './ChannelImportNormalizer';
-import { clonePersistableChannel } from './ChannelDomainClone';
-import type { ChannelConfig, ChannelCreateInput, ImportResult } from './types';
+import { clonePersistableChannel } from '../authoring/ChannelDomainClone';
+import type { ChannelConfig, ChannelCreateInput, ImportResult } from '../contracts/types';
 
 type ChannelImportExportServiceConfig = {
     getAllChannels: () => ChannelConfig[];

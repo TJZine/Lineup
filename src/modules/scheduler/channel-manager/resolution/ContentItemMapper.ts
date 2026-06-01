@@ -1,6 +1,6 @@
-import type { PlexMediaItemMinimal } from './interfaces';
-import type { ResolvedContentItem } from './types';
-import { detectHdrLabel } from '../../plex/stream/policy/hdr';
+import type { PlexMediaItemMinimal } from '../contracts/interfaces';
+import type { ResolvedContentItem } from '../contracts/types';
+import { detectHdrLabel } from '../../../plex/stream/policy/hdr';
 
 type PlexStreamMinimal = NonNullable<
     NonNullable<

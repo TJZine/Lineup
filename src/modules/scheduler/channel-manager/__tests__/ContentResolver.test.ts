@@ -3,8 +3,8 @@
  * @module modules/scheduler/channel-manager/__tests__/ContentResolver.test
  */
 
-import { ContentResolver } from '../ContentResolver';
-import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
+import { ContentResolver } from '../resolution/ContentResolver';
+import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../contracts/interfaces';
 import type {
     LibraryContentSource,
     CollectionContentSource,
@@ -14,7 +14,7 @@ import type {
     MixedContentSource,
     ContentFilter,
     ResolvedContentItem,
-} from '../types';
+} from '../contracts/types';
 import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
 import type { PlexMediaFile, PlexStream } from '../../../plex/library';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
@@ -1525,7 +1525,7 @@ describe('ContentResolver', () => {
 
             expect(() => resolver.applyPlaybackMode(
                 items,
-                'invalid-mode' as unknown as import('../types').PlaybackMode,
+                'invalid-mode' as unknown as import('../contracts/types').PlaybackMode,
                 12345
             )).toThrow('Unknown content playback mode: invalid-mode');
         });

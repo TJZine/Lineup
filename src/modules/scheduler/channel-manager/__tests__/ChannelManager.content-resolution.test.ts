@@ -1,7 +1,7 @@
 import { ChannelManager } from '../ChannelManager';
-import { ContentResolver } from '../ContentResolver';
-import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../interfaces';
-import type { ResolvedContentItem } from '../types';
+import { ContentResolver } from '../resolution/ContentResolver';
+import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../contracts/interfaces';
+import type { ResolvedContentItem } from '../contracts/types';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
     installMockLocalStorage,

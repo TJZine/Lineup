@@ -1,4 +1,4 @@
-import type { ChannelContentSource, ResolvedContentItem } from './types';
+import type { ChannelContentSource, ResolvedContentItem } from '../contracts/types';
 
 const SOURCE_CACHE_TTL_MS = 5 * 60_000;
 const SOURCE_CACHE_MAX_ENTRIES = 24;

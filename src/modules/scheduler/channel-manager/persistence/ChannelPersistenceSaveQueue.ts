@@ -1,9 +1,9 @@
-import { TIMING_CONFIG } from '../../../config/timing';
-import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
-import { summarizeErrorForLog } from '../../../utils/errors';
-import { PersistenceWarningBackoffPolicy } from '../../../utils/persistenceWarningBackoffPolicy';
-import { STORAGE_CONFIG } from '../../lifecycle/constants';
-import type { ChannelManagerEventMap } from './types';
+import { TIMING_CONFIG } from '../../../../config/timing';
+import { AppErrorCode, getAppErrorCode } from '../../../../types/app-errors';
+import { summarizeErrorForLog } from '../../../../utils/errors';
+import { PersistenceWarningBackoffPolicy } from '../../../../utils/persistenceWarningBackoffPolicy';
+import { STORAGE_QUOTA_EXCEEDED_MESSAGE } from '../../../../shared/persistenceMessages';
+import type { ChannelManagerEventMap } from '../contracts/types';
 
 type PersistenceLogger = {
     warn: (message: string, ...args: unknown[]) => void;
@@ -175,7 +175,7 @@ export class ChannelPersistenceSaveQueue {
             : (this._getErrorCode(error) ?? AppErrorCode.UNKNOWN);
         this._emitPersistenceWarning({
             message: isQuotaError
-                ? STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED
+                ? STORAGE_QUOTA_EXCEEDED_MESSAGE
                 : 'Failed to persist channels; some changes may not be saved',
             code,
             isQuotaError,

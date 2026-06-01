@@ -20,7 +20,7 @@ Lineup's rule is simple: one storage namespace, one owner.
 
 ## Current Storage Owners
 
-- [`src/modules/lifecycle/StateManager.ts`](../../../src/modules/lifecycle/StateManager.ts)
+- [`src/modules/lifecycle/LifecycleStateStore.ts`](../../../src/modules/lifecycle/LifecycleStateStore.ts)
 - [`src/modules/settings/AudioSettingsStore.ts`](../../../src/modules/settings/AudioSettingsStore.ts) - owns audio toggles plus `lineup_audio_setup_complete`
 - [`src/modules/settings/DeveloperSettingsStore.ts`](../../../src/modules/settings/DeveloperSettingsStore.ts) - owns `debugLogging` and `subtitleDebugLogging`
 - [`src/modules/settings/PlaybackSettingsStore.ts`](../../../src/modules/settings/PlaybackSettingsStore.ts)
@@ -34,7 +34,7 @@ Lineup's rule is simple: one storage namespace, one owner.
 - [`src/modules/plex/auth/PlexAuth.ts`](../../../src/modules/plex/auth/PlexAuth.ts)
 - [`src/modules/plex/auth/clientIdentifier.ts`](../../../src/modules/plex/auth/clientIdentifier.ts)
 - [`src/modules/plex/discovery/ServerSelectionStore.ts`](../../../src/modules/plex/discovery/ServerSelectionStore.ts)
-- [`src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts`](../../../src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts)
+- [`src/modules/scheduler/channel-manager/persistence/ChannelPersistenceStore.ts`](../../../src/modules/scheduler/channel-manager/persistence/ChannelPersistenceStore.ts)
 - [`src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`](../../../src/core/channel-setup/persistence/ChannelSetupRecordStore.ts)
 - Shared storage helpers in [`src/utils/storage.ts`](../../../src/utils/storage.ts)
 

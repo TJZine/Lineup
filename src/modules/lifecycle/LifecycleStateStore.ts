@@ -15,7 +15,7 @@ import {
 
 type StorageMutationFailureReason = 'quota-exceeded' | 'unavailable';
 
-export class StateManager {
+export class LifecycleStateStore {
     private readonly _storageKey: string;
     private readonly _currentVersion: number;
 

@@ -5,7 +5,12 @@
 
 import { PlexServerDiscovery } from '../PlexServerDiscovery';
 import { PLEX_DISCOVERY_CONSTANTS } from '../constants';
-import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
+import {
+    createDeferred,
+    expectConsoleError,
+    expectConsoleWarn,
+    flushPromises,
+} from '../../../../__tests__/helpers';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import {
     createMockConnection,
@@ -64,6 +69,43 @@ describe('PlexServerDiscovery', () => {
             );
             expect(result).toHaveLength(1);
             expect(expectDefined(result[0], 'Expected discovered server')).toMatchObject({ id: 'srv1' });
+        });
+
+        it('returns defensive copies for discovered and cached server lists', async () => {
+            mockFetchJson([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Original Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'https://test:32400',
+                            protocol: 'https',
+                            address: 'test',
+                            port: 32400,
+                            local: false,
+                            relay: false,
+                        },
+                    ],
+                },
+            ]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            const discovered = await discovery.discoverServers();
+            expect(discovered).toHaveLength(1);
+            discovered[0]!.name = 'Mutated Server';
+            discovered[0]!.connections[0]!.uri = 'https://mutated:32400';
+
+            const cached = await discovery.discoverServers();
+            expect(cached[0]?.name).toBe('Original Server');
+            expect(cached[0]?.connections[0]?.uri).toBe('https://test:32400');
+
+            const stored = discovery.getServers();
+            stored.pop();
+            expect(discovery.getServers()).toHaveLength(1);
         });
 
         it('should only append token query params for trusted Plex cloud discovery origins', async () => {
@@ -237,7 +279,7 @@ describe('PlexServerDiscovery', () => {
             expect(expectDefined(result[0], 'Expected server resource')).toMatchObject({ id: 'srv1' });
         });
 
-        it('should return same promise for concurrent discovery calls', async () => {
+        it('should share concurrent discovery work while returning defensive result snapshots', async () => {
             const mockServers = [
                 {
                     clientIdentifier: 'srv1',
@@ -256,15 +298,49 @@ describe('PlexServerDiscovery', () => {
             const promise1 = discovery.discoverServers();
             const promise2 = discovery.discoverServers();
 
-            // Should be the exact same promise
-            expect(promise1).toBe(promise2);
-
             const result1 = await promise1;
             const result2 = await promise2;
 
-            // Results should be identical
-            expect(result1).toBe(result2);
-            // Should only have made one fetch call
+            expect(result1).toEqual(result2);
+            expect(result1).not.toBe(result2);
+            expect(fetch).toHaveBeenCalledTimes(1);
+        });
+
+        it('lets one caller cancel its wait without canceling shared discovery for other callers', async () => {
+            const resourcesDeferred = createDeferred<unknown[]>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options: RequestInit) => {
+                    options.signal?.addEventListener('abort', () => {
+                        resourcesDeferred.reject(new DOMException('The operation was aborted', 'AbortError'));
+                    });
+                    return resourcesDeferred.promise.then((body) => createMockFetchResponse(body));
+                }
+            );
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const controller = new AbortController();
+
+            const cancelableWait = discovery.discoverServers({ signal: controller.signal });
+            const sharedWait = discovery.discoverServers();
+
+            controller.abort(new DOMException('caller canceled', 'AbortError'));
+            await expect(cancelableWait).rejects.toMatchObject({ name: 'AbortError' });
+
+            resourcesDeferred.resolve([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Test Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [],
+                },
+            ]);
+            await flushPromises();
+
+            await expect(sharedWait).resolves.toEqual([
+                expect.objectContaining({ id: 'srv1', name: 'Test Server' }),
+            ]);
             expect(fetch).toHaveBeenCalledTimes(1);
         });
 
@@ -1010,6 +1086,53 @@ describe('PlexServerDiscovery', () => {
             expect(discovery.getSelectedServer()?.id).toBe('srv1');
             expect(discovery.getServerUri()).toBe('https://srv1:32400');
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
+        });
+
+        it('returns defensive copies for selected server and connection getters', async () => {
+            const discovery = new PlexServerDiscovery(mockConfig);
+            mockFetchJson([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Server One',
+                    sourceTitle: 'user',
+                    ownerId: 'owner',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' }),
+                        createMockConnection({
+                            uri: 'https://relay:32400',
+                            address: 'relay',
+                            relay: true,
+                        }),
+                    ],
+                },
+            ]);
+            await discovery.discoverServers();
+            jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
+                connection: createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' }),
+                authRequired: false,
+                authState: null,
+            });
+
+            await expect(discovery.selectServer('srv1')).resolves.toEqual({ kind: 'selected' });
+
+            const selectedServer = expectDefined(discovery.getSelectedServer(), 'Expected selected server');
+            const selectedConnection = expectDefined(discovery.getSelectedConnection(), 'Expected selected connection');
+            const httpsConnection = expectDefined(discovery.getHttpsConnection(), 'Expected HTTPS connection');
+            const relayConnection = expectDefined(discovery.getRelayConnection(), 'Expected relay connection');
+
+            selectedServer.name = 'Mutated Server';
+            selectedServer.connections[0]!.uri = 'https://mutated-server:32400';
+            selectedConnection.uri = 'https://mutated-selected:32400';
+            httpsConnection.uri = 'https://mutated-https:32400';
+            relayConnection.uri = 'https://mutated-relay:32400';
+
+            expect(discovery.getSelectedServer()?.name).toBe('Server One');
+            expect(discovery.getSelectedServer()?.connections[0]?.uri).toBe('https://srv1:32400');
+            expect(discovery.getSelectedConnection()?.uri).toBe('https://srv1:32400');
+            expect(discovery.getHttpsConnection()?.uri).toBe('https://srv1:32400');
+            expect(discovery.getRelayConnection()?.uri).toBe('https://relay:32400');
         });
 
         it('restores the previous selected-server snapshot and discovery storage key after a provisional switch', async () => {

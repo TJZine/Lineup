@@ -170,9 +170,9 @@ interface PlexDiscoverySelectedServerSnapshot {
 }
 
 interface IPlexServerDiscovery {
-  discoverServers(): Promise<PlexServer[]>;
+  discoverServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]>;
 
-  refreshServers(): Promise<PlexServer[]>;
+  refreshServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]>;
 
   initialize(): Promise<void>;
 
@@ -218,6 +218,8 @@ interface IPlexServerDiscovery {
   on(event: 'connectionChange', handler: (uri: string | null) => void): IDisposable;
 }
 ```
+
+Discovery list and selected-server getters return defensive snapshots. Callers may cancel their own wait with `AbortSignal` without canceling the shared in-flight discovery used by other callers.
 
 Discovery is endpoint-aware: plex.tv cloud resource discovery `401`/`403` remains an auth recovery failure, while a PMS identity-probe `403` means the active Plex profile lacks permission for that server and surfaces as `access_denied` instead of invalid stored credentials.
 Plex cloud discovery `5xx` responses surface as retryable `SERVER_ERROR` failures after discovery retry policy is exhausted; request failures without an HTTP response remain `SERVER_UNREACHABLE`.

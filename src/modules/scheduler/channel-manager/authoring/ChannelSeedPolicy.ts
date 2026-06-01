@@ -1,5 +1,5 @@
-import { fnv1a32Uint } from '../../../utils/hash';
-import type { ChannelConfig } from './types';
+import { fnv1a32Uint } from '../../../../utils/hash';
+import type { ChannelConfig } from '../contracts/types';
 
 type ChannelSeedField = 'shuffleSeed' | 'phaseSeed';
 

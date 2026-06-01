@@ -1,5 +1,5 @@
 import { installMockLocalStorage, mockLocalStorage } from '../../../../__tests__/mocks/localStorage';
-import { ChannelPersistenceStore } from '../ChannelPersistenceStore';
+import { ChannelPersistenceStore } from '../persistence/ChannelPersistenceStore';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from '../constants';
 
 installMockLocalStorage();

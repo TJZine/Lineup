@@ -4,12 +4,12 @@
  */
 
 import { ChannelError, ChannelManager } from '../ChannelManager';
-import type { IPlexLibraryMinimal } from '../interfaces';
+import type { IPlexLibraryMinimal } from '../contracts/interfaces';
 import type {
     ChannelConfig,
     ChannelCreateInput,
     ChannelUpdateInput,
-} from '../types';
+} from '../contracts/types';
 import { AppErrorCode } from '../../../../types/app-errors';
 import {
     installMockLocalStorage,

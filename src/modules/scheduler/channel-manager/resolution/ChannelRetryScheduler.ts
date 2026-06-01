@@ -1,5 +1,5 @@
-import { summarizeErrorForLog } from '../../../utils/errors';
-import type { ChannelConfig } from './types';
+import { summarizeErrorForLog } from '../../../../utils/errors';
+import type { ChannelConfig } from '../contracts/types';
 
 type ChannelRetrySchedulerLogger = {
     warn: (message: string, ...args: unknown[]) => void;

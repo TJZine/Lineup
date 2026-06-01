@@ -24,14 +24,14 @@ export interface AppShellNavigationRuntimePort {
 }
 
 export interface AppShellAuthRuntimePort {
-    requestAuthPin(): Promise<PlexPinRequest>;
+    requestAuthPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
     pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
     cancelPin(pinId: number): Promise<void>;
 }
 
 export interface AppShellProfileRuntimePort {
-    getHomeUsers(): Promise<PlexHomeUser[]>;
-    switchHomeUser(userId: string, pin?: string): Promise<void>;
+    getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
+    switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
     useMainAccountProfile(): Promise<void>;
     signOutPlex(): Promise<void>;
 }
@@ -57,7 +57,7 @@ export type AppShellServerSelectState = {
 };
 
 export interface AppShellServerSelectionRuntimePort {
-    discoverServers(forceRefresh?: boolean): Promise<PlexServer[]>;
+    discoverServers(options?: { forceRefresh?: boolean; signal?: AbortSignal | null }): Promise<PlexServer[]>;
     selectServer(serverId: string): Promise<AppShellServerSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerScreenState(): AppShellServerSelectState;

@@ -5,16 +5,16 @@
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
-import { ContentResolver } from './ContentResolver';
-import { ChannelAuthoringService, omitUndefinedChannelUpdates } from './ChannelAuthoringService';
-import { ChannelImportExportService } from './ChannelImportExportService';
-import { resolveChannelSeed } from './ChannelSeedPolicy';
-import { ChannelPersistenceCoordinator, normalizeStorageKey } from './ChannelPersistenceCoordinator';
-import { ChannelResolutionCache } from './ChannelResolutionCache';
-import { ChannelRetryScheduler } from './ChannelRetryScheduler';
-import { cloneChannelForOwnership } from './ChannelDomainClone';
+import { ContentResolver } from './resolution/ContentResolver';
+import { ChannelAuthoringService, omitUndefinedChannelUpdates } from './authoring/ChannelAuthoringService';
+import { ChannelImportExportService } from './import-export/ChannelImportExportService';
+import { resolveChannelSeed } from './authoring/ChannelSeedPolicy';
+import { ChannelPersistenceCoordinator, normalizeStorageKey } from './persistence/ChannelPersistenceCoordinator';
+import { ChannelResolutionCache } from './resolution/ChannelResolutionCache';
+import { ChannelRetryScheduler } from './resolution/ChannelRetryScheduler';
+import { cloneChannelForOwnership } from './authoring/ChannelDomainClone';
 import { ChannelError } from './ChannelErrors';
-import type { IChannelManager, ChannelCreateOptions, ChannelManagerConfig, IPlexLibraryMinimal } from './interfaces';
+import type { IChannelManager, ChannelCreateOptions, ChannelManagerConfig, IPlexLibraryMinimal } from './contracts/interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
     ChannelConfig,
@@ -26,7 +26,7 @@ import type {
     ChannelManagerEventMap,
     ChannelManagerState,
     ChannelUpdateInput,
-} from './types';
+} from './contracts/types';
 import {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,

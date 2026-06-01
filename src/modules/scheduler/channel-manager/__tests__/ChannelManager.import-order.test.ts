@@ -1,6 +1,6 @@
 import { ChannelManager } from '../ChannelManager';
-import { ChannelRepository } from '../ChannelRepository';
-import type { IPlexLibraryMinimal } from '../interfaces';
+import { ChannelRepository } from '../persistence/ChannelRepository';
+import type { IPlexLibraryMinimal } from '../contracts/interfaces';
 import { AppErrorCode } from '../../../../types/app-errors';
 import {
     installMockLocalStorage,

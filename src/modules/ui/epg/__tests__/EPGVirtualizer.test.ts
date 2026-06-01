@@ -2067,8 +2067,8 @@ describe('EPGVirtualizer', () => {
             jest.useFakeTimers();
             try {
                 const channelId = 'ch-ticker-disabled';
-                const start = gridAnchorTime;
-                const end = start + 20 * 60 * 1000;
+                const start = gridAnchorTime - 20 * 60 * 1000;
+                const end = gridAnchorTime + 20 * 60 * 1000;
 
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
@@ -2095,7 +2095,7 @@ describe('EPGVirtualizer', () => {
                 };
 
                 virtualizer.setChannelCount(1);
-                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 10 });
                 virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
                 const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
@@ -2294,14 +2294,6 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 110 });
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 100 });
 
-                const visibleCells = virtualizer as unknown as {
-                    visibleCells: Map<string, { textShiftPx: number }>;
-                };
-                const key = `${channelId}-${start}`;
-                const focusedCellData = visibleCells.visibleCells.get(key);
-                expect(focusedCellData).toBeDefined();
-                focusedCellData!.textShiftPx = 40;
-
                 virtualizer.setFocusedCell(channelId, start);
 
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
@@ -2316,8 +2308,8 @@ describe('EPGVirtualizer', () => {
             jest.useFakeTimers();
             try {
                 const channelId = 'ch-ticker-ready-tiny';
-                const start = gridAnchorTime;
-                const end = start + 20 * 60 * 1000;
+                const start = gridAnchorTime - 20 * 60 * 1000;
+                const end = gridAnchorTime + 20 * 60 * 1000;
 
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
@@ -2352,12 +2344,20 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 320 });
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
 
+                virtualizer.setFocusedCell(channelId, start, undefined, { syncTicker: false });
+
+                const focusedTitle = (container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement)
+                    .querySelector('.epg-cell-title') as HTMLElement;
+                const focusedTitleText = focusedTitle.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
+                Object.defineProperty(focusedTitle, 'scrollWidth', { configurable: true, value: 320 });
+                Object.defineProperty(focusedTitleText, 'scrollWidth', { configurable: true, value: 320 });
+                Object.defineProperty(focusedTitle, 'clientWidth', { configurable: true, value: 80 });
                 virtualizer.setFocusedCell(channelId, start);
 
-                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
-                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+                expect(focusedTitle.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
+                expect(focusedTitle.classList.contains('epg-cell-title-ticker-running')).toBe(false);
                 jest.advanceTimersByTime(899);
-                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+                expect(focusedTitle.classList.contains('epg-cell-title-ticker-running')).toBe(false);
             } finally {
                 jest.useRealTimers();
             }
@@ -2367,8 +2367,8 @@ describe('EPGVirtualizer', () => {
             jest.useFakeTimers();
             try {
                 const channelId = 'ch-ticker-clamp-only';
-                const start = gridAnchorTime;
-                const end = start + 20 * 60 * 1000;
+                const start = gridAnchorTime - 20 * 60 * 1000;
+                const end = gridAnchorTime + 20 * 60 * 1000;
 
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
@@ -2410,14 +2410,24 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(title, 'scrollHeight', { configurable: true, value: 60 });
                 Object.defineProperty(title, 'clientHeight', { configurable: true, value: 40 });
 
+                virtualizer.setFocusedCell(channelId, start, undefined, { syncTicker: false });
+                const focusedTitle = (container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement)
+                    .querySelector('.epg-cell-title') as HTMLElement;
+                Object.defineProperty(focusedTitle, 'scrollWidth', {
+                    configurable: true,
+                    get: () => focusedTitle.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY) ? 220 : 80,
+                });
+                Object.defineProperty(focusedTitle, 'clientWidth', { configurable: true, value: 80 });
+                Object.defineProperty(focusedTitle, 'scrollHeight', { configurable: true, value: 60 });
+                Object.defineProperty(focusedTitle, 'clientHeight', { configurable: true, value: 40 });
                 virtualizer.setFocusedCell(channelId, start);
 
-                expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
-                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
-                expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('140px');
+                expect(focusedTitle.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
+                expect(focusedTitle.classList.contains('epg-cell-title-ticker-running')).toBe(false);
+                expect(focusedTitle.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('140px');
 
                 jest.advanceTimersByTime(900);
-                expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(true);
+                expect(focusedTitle.classList.contains('epg-cell-title-ticker-running')).toBe(true);
             } finally {
                 jest.useRealTimers();
             }
@@ -2482,14 +2492,18 @@ describe('EPGVirtualizer', () => {
                 const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
                 virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
-                const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
-                const title = cell.querySelector('.epg-cell-title') as HTMLElement;
-                const subtitle = cell.querySelector('.epg-cell-subtitle') as HTMLElement;
+                virtualizer.setFocusedCell(channelId, start, undefined, { syncTicker: false });
+                const focusedCell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
+                const title = focusedCell.querySelector('.epg-cell-title') as HTMLElement;
+                const titleText = focusedCell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
+                const subtitle = focusedCell.querySelector('.epg-cell-subtitle') as HTMLElement;
+                const subtitleText = focusedCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE_TEXT}`) as HTMLElement;
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 320 });
+                Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 320 });
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
                 Object.defineProperty(subtitle, 'scrollWidth', { configurable: true, value: 360 });
+                Object.defineProperty(subtitleText, 'scrollWidth', { configurable: true, value: 360 });
                 Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 80 });
-
                 virtualizer.setFocusedCell(channelId, start);
 
                 expect(title.textContent).toBe(showTitle);
@@ -2809,11 +2823,13 @@ describe('EPGVirtualizer', () => {
                 const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
                 virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
+                virtualizer.setFocusedCell(channelId, start, undefined, { syncTicker: false });
                 const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
                 const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+                const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 88 });
+                Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 88 });
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
-
                 virtualizer.setFocusedCell(channelId, start);
 
                 expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
@@ -2856,7 +2872,7 @@ describe('EPGVirtualizer', () => {
                 };
 
                 virtualizer.setChannelCount(1);
-                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
+                const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 30 });
                 virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
                 const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
@@ -2864,15 +2880,6 @@ describe('EPGVirtualizer', () => {
 
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 300 });
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
-
-                const visibleCells = (virtualizer as unknown as {
-                    visibleCells: Map<string, { visibleWidthPx: number }>;
-                }).visibleCells;
-                const focusedCell = visibleCells.get(`${channelId}-${start}`);
-                if (!focusedCell) {
-                    throw new Error('Expected focused cell to exist in visibleCells');
-                }
-                focusedCell.visibleWidthPx = 0;
 
                 virtualizer.setFocusedCell(channelId, start);
 
@@ -2892,7 +2899,7 @@ describe('EPGVirtualizer', () => {
             jest.useFakeTimers();
             try {
                 const channelId = 'ch-right-clip-focused-ticker';
-                const start = gridAnchorTime;
+                const start = gridAnchorTime + 100 * 60 * 1000;
                 const end = start + 25 * 60 * 1000;
 
                 const schedule: ScheduleWindow = {
@@ -2926,17 +2933,8 @@ describe('EPGVirtualizer', () => {
                 const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
                 const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
 
-                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 75 });
+                Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 115 });
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
-
-                const visibleCells = (virtualizer as unknown as {
-                    visibleCells: Map<string, { visibleWidthPx: number }>;
-                }).visibleCells;
-                const focusedCell = visibleCells.get(`${channelId}-${start}`);
-                if (!focusedCell) {
-                    throw new Error('Expected focused cell to exist in visibleCells');
-                }
-                focusedCell.visibleWidthPx = 70;
 
                 virtualizer.setFocusedCell(channelId, start);
 

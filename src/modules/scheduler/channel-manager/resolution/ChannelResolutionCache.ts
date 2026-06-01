@@ -1,5 +1,5 @@
-import { CACHE_TTL_MS } from './constants';
-import type { ResolvedChannelContent, ResolvedContentItem } from './types';
+import { CACHE_TTL_MS } from '../constants';
+import type { ResolvedChannelContent, ResolvedContentItem } from '../contracts/types';
 
 export class ChannelResolutionCache {
     private readonly _resolvedContent = new Map<string, ResolvedChannelContent>();

@@ -1,16 +1,16 @@
-import { summarizeErrorForLog } from '../../../utils/errors';
-import { STORAGE_CONFIG } from '../../lifecycle/constants';
-import { AppErrorCode } from '../../../types/app-errors';
+import { summarizeErrorForLog } from '../../../../utils/errors';
+import { STORAGE_QUOTA_EXCEEDED_MESSAGE } from '../../../../shared/persistenceMessages';
+import { AppErrorCode } from '../../../../types/app-errors';
 import { ChannelPersistenceSaveQueue } from './ChannelPersistenceSaveQueue';
 import { ChannelRepository } from './ChannelRepository';
-import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from './constants';
-import { ChannelError } from './ChannelErrors';
+import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from '../constants';
+import { ChannelError } from '../ChannelErrors';
 import type {
     ChannelConfig,
     ChannelManagerEventMap,
     StoredChannelData,
-} from './types';
-import { clonePersistableChannel } from './ChannelDomainClone';
+} from '../contracts/types';
+import { clonePersistableChannel } from '../authoring/ChannelDomainClone';
 
 type ChannelPersistenceCoordinatorLogger = {
     warn: (message: string, ...args: unknown[]) => void;
@@ -131,7 +131,7 @@ export class ChannelPersistenceCoordinator {
         if (!writeResult.ok && writeResult.reason === 'quota-exceeded') {
             throw new ChannelError(
                 AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                STORAGE_QUOTA_EXCEEDED_MESSAGE,
                 true
             );
         }
@@ -150,7 +150,7 @@ export class ChannelPersistenceCoordinator {
             if (result.reason === 'quota-exceeded') {
                 throw new ChannelError(
                     AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                    STORAGE_CONFIG.STORAGE_QUOTA_EXCEEDED,
+                    STORAGE_QUOTA_EXCEEDED_MESSAGE,
                     true
                 );
             }

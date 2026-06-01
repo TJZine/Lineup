@@ -208,9 +208,42 @@ function buildNavigationPlaybackConfig(
     input: OrchestratorNavigationCoordinatorBuilderInput,
     deps: NavigationCoordinatorBuilderDeps
 ): NavigationPlaybackPort {
+    const runPlayerCommand = (
+        command: (player: NonNullable<typeof input.modules.videoPlayer>) => Promise<void>
+    ): Promise<void> | null => {
+        const player = input.modules.videoPlayer;
+        if (!player) {
+            return null;
+        }
+        try {
+            return command(player);
+        } catch (error) {
+            return Promise.reject(error);
+        }
+    };
+
     return {
-        videoPlayer: input.modules.videoPlayer,
-        plexAuth: input.modules.plexAuth,
+        isAuthenticatedForServerSelection: (): boolean => input.modules.plexAuth?.isAuthenticated() ?? false,
+        playFromRemote: (): Promise<void> | null => runPlayerCommand((player) => player.play()),
+        pauseFromRemote: (): boolean => {
+            const player = input.modules.videoPlayer;
+            if (!player) {
+                return false;
+            }
+            player.pause();
+            return true;
+        },
+        seekFromRemote: (deltaMs: number): Promise<void> | null =>
+            runPlayerCommand((player) => player.seekRelative(deltaMs)),
+        pauseForScreenChange: (): boolean => {
+            const player = input.modules.videoPlayer;
+            if (!player) {
+                return false;
+            }
+            player.pause();
+            return true;
+        },
+        resumeForScreenChange: (): Promise<void> | null => runPlayerCommand((player) => player.play()),
         stopPlayback: (): void => {
             input.playback.stopPlayback();
         },

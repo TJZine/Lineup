@@ -1,4 +1,4 @@
-import type { ResolvedContentItem } from '../channel-manager/types';
+import type { ResolvedContentItem } from '../channel-manager/contracts/types';
 
 export function getBlockGroupKey(item: ResolvedContentItem): string {
     return item.showThumb ?? item.showTitle ?? item.ratingKey;
