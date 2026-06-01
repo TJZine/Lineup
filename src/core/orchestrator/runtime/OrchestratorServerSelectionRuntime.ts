@@ -21,7 +21,10 @@ import {
 import {
     SelectedServerRuntimeController,
 } from '../../server-selection/SelectedServerRuntimeController';
-import { throwIfSelectionAborted } from '../../server-selection/ServerSelectionAbort';
+import {
+    isSelectionAbortError,
+    throwIfSelectionAborted,
+} from '../../server-selection/ServerSelectionAbort';
 import type {
     DiscoverySelectedServerSnapshot,
     OrchestratorServerSelectionReadiness,
@@ -190,7 +193,7 @@ export class OrchestratorServerSelectionRuntime {
 
         try {
             throwIfSelectionAborted(signal);
-            await initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+            await initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION, options);
             throwIfSelectionAborted(signal);
 
             const epgCoordinator = this._deps.getEpgCoordinator();
@@ -243,6 +246,9 @@ export class OrchestratorServerSelectionRuntime {
                 epgRefresh: { kind: 'succeeded' },
             };
         } catch (error) {
+            if (isSelectionAbortError(error, signal)) {
+                throw error;
+            }
             this._deps.reportError(
                 'orchestrator.serverSwap.runStartup',
                 'Post-selection runtime swap failed',

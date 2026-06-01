@@ -1,23 +1,27 @@
 import { isAbortLikeError } from '../../utils/errors';
 
-export function throwIfSelectionAborted(signal: AbortSignal | null | undefined): void {
+export interface StartupSignalOptions {
+    signal?: AbortSignal | null | undefined;
+}
+
+export function throwIfStartupAborted(signal: AbortSignal | null | undefined): void {
     if (!signal?.aborted) {
         return;
     }
-    throw readSelectionAbortReason(signal);
+    throw readStartupAbortReason(signal);
 }
 
-export function isSelectionAbortError(
+export function isStartupAbortError(
     error: unknown,
     signal: AbortSignal | null | undefined
 ): boolean {
     if (!signal?.aborted) {
         return false;
     }
-    return error === readSelectionAbortReason(signal) || isAbortLikeError(error, signal);
+    return error === readStartupAbortReason(signal) || isAbortLikeError(error, signal);
 }
 
-function readSelectionAbortReason(signal: AbortSignal): unknown {
+export function readStartupAbortReason(signal: AbortSignal): unknown {
     return signal.reason ?? createAbortError();
 }
 

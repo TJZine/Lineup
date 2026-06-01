@@ -27,6 +27,12 @@ import {
     applyServerConnectionPolicy,
     applyPostReadyRoutingPolicy,
 } from './InitializationStartupPolicy';
+import {
+    isStartupAbortError,
+    throwIfStartupAborted,
+    type StartupSignalOptions,
+} from './InitializationAbort';
+import { InitializationStartupQueue } from './InitializationStartupQueue';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
 import type { RecoverableAsyncFailureReporter } from '../orchestrator/runtime/OrchestratorRuntimeSeams';
 
@@ -149,12 +155,9 @@ export interface InitializationCallbacks {
 export class InitializationCoordinator {
     private static readonly EPG_WARMUP_DELAY_MS = 1500;
 
-    // Startup state
     private _startupInProgress = false;
-    private _startupQueuedPhase: StartupPhase | null = null;
-    private _startupQueuedWaiters: Array<{ resolve: () => void; reject: (err: unknown) => void }> = [];
+    private readonly _startupQueue = new InitializationStartupQueue();
 
-    // Resume listeners
     private _authResumeDisposable: IDisposable | null = null;
     private _serverResumeDisposable: IDisposable | null = null;
     private _profileResumeDisposable: IDisposable | null = null;
@@ -169,15 +172,12 @@ export class InitializationCoordinator {
         private readonly _callbacks: InitializationCallbacks
     ) { }
 
-    async runStartup(startPhase: StartupPhase): Promise<void> {
+    async runStartup(startPhase: StartupPhase, options?: StartupSignalOptions): Promise<void> {
+        const signal = options?.signal;
+        throwIfStartupAborted(signal);
         this._cancelEpgWarmup();
         if (this._startupInProgress) {
-            this._startupQueuedPhase = this._startupQueuedPhase === null
-                ? startPhase
-                : (Math.min(this._startupQueuedPhase, startPhase) as StartupPhase);
-            return new Promise((resolve, reject) => {
-                this._startupQueuedWaiters.push({ resolve, reject });
-            });
+            return this._startupQueue.queue(startPhase, signal);
         }
 
         this._startupInProgress = true;
@@ -188,62 +188,68 @@ export class InitializationCoordinator {
 
         try {
             while (true) {
+                throwIfStartupAborted(signal);
                 const willRunInitializePlaybackRuntime = phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES;
                 const shouldEagerlyInitEpgForPass = phaseToRun > STARTUP_PHASE.FULL_STARTUP;
+                throwIfStartupAborted(signal);
                 this._callbacks.state.setReady(false);
 
                 if (phaseToRun <= STARTUP_PHASE.FULL_STARTUP) {
-                    await this._initCoreInfrastructure();
+                    await this._initCoreInfrastructure(signal);
                 }
 
                 if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE) {
-                    const authValid = await this._validateAuthentication();
+                    const authValid = await this._validateAuthentication(signal);
                     if (!authValid) {
-                        if (this._startupQueuedPhase === null) {
+                        const queuedPhase = this._startupQueue.consumeQueuedPhase();
+                        if (queuedPhase === null) {
                             break;
                         }
-                        phaseToRun = this._startupQueuedPhase;
-                        this._startupQueuedPhase = null;
+                        phaseToRun = queuedPhase;
                         continue;
                     }
                 }
 
                 if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION) {
-                    const plexConnected = await this._connectPlexServer();
+                    const plexConnected = await this._connectPlexServer(signal);
                     if (!plexConnected) {
-                        if (this._startupQueuedPhase === null) {
+                        const queuedPhase = this._startupQueue.consumeQueuedPhase();
+                        if (queuedPhase === null) {
                             break;
                         }
-                        phaseToRun = this._startupQueuedPhase;
-                        this._startupQueuedPhase = null;
+                        phaseToRun = queuedPhase;
                         continue;
                     }
                 }
 
                 if (phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES) {
-                    await this._initializePlaybackRuntime();
-                    await this._ensureCorePlayerUiInitialized();
+                    await this._initializePlaybackRuntime(signal);
+                    await this._ensureCorePlayerUiInitialized(signal);
                 }
 
                 if (shouldEagerlyInitEpgForPass) {
                     await this._initializeEpg({
                         ensureCorePlayerUi: !willRunInitializePlaybackRuntime,
+                        signal,
                     });
                 }
 
-                if (this._startupQueuedPhase === null) {
+                throwIfStartupAborted(signal);
+                const queuedPhase = this._startupQueue.consumeQueuedPhase();
+                if (queuedPhase === null) {
                     shouldScheduleEpgWarmup = !shouldEagerlyInitEpgForPass;
                     shouldRunFinalReadyWork = true;
                     break;
                 }
-                phaseToRun = this._startupQueuedPhase;
-                this._startupQueuedPhase = null;
+                phaseToRun = queuedPhase;
             }
 
             if (shouldRunFinalReadyWork) {
+                throwIfStartupAborted(signal);
                 this._callbacks.state.setupEventWiring();
 
                 if (this._deps.modules.navigation) {
+                    throwIfStartupAborted(signal);
                     await applyPostReadyRoutingPolicy({
                         navigation: this._deps.modules.navigation,
                         channelManager: this._deps.modules.channelManager,
@@ -251,14 +257,18 @@ export class InitializationCoordinator {
                         shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
                         switchToChannel: this._callbacks.routing.switchToChannel,
                         openServerSelect: this._callbacks.routing.openServerSelect,
+                        signal,
                     });
                 }
 
+                throwIfStartupAborted(signal);
                 this._callbacks.state.setReady(true);
                 if (this._deps.modules.lifecycle) {
+                    throwIfStartupAborted(signal);
                     this._deps.modules.lifecycle.setPhase('ready');
                 }
 
+                throwIfStartupAborted(signal);
                 this.clearAuthResume();
                 this.clearServerResume();
                 this.clearProfileResume();
@@ -266,35 +276,24 @@ export class InitializationCoordinator {
         } catch (error: unknown) {
             caughtError = error;
             this._cancelEpgWarmup();
-            const message = error instanceof Error ? error.message : String(error);
-            // Avoid leaving stale resume listeners after a fatal startup error.
-            this.clearAuthResume();
-            this.clearServerResume();
-            this.clearProfileResume();
-            this._callbacks.errors.handleGlobalError(
-                {
-                    code: AppErrorCode.INITIALIZATION_FAILED,
-                    message,
-                    recoverable: true,
-                },
-                'start'
-            );
+            if (!isStartupAbortError(error, signal)) {
+                const message = error instanceof Error ? error.message : String(error);
+                // Avoid leaving stale resume listeners after a fatal startup error.
+                this.clearAuthResume();
+                this.clearServerResume();
+                this.clearProfileResume();
+                this._callbacks.errors.handleGlobalError(
+                    {
+                        code: AppErrorCode.INITIALIZATION_FAILED,
+                        message,
+                        recoverable: true,
+                    },
+                    'start'
+                );
+            }
         } finally {
             this._startupInProgress = false;
-            this._startupQueuedPhase = null;
-            const waiters = this._startupQueuedWaiters;
-            this._startupQueuedWaiters = [];
-            for (const waiter of waiters) {
-                try {
-                    if (caughtError) {
-                        waiter.reject(caughtError);
-                    } else {
-                        waiter.resolve();
-                    }
-                } catch {
-                    // Ignore waiter failures
-                }
-            }
+            this._startupQueue.settle(caughtError);
         }
 
         if (shouldScheduleEpgWarmup) {
@@ -366,18 +365,21 @@ export class InitializationCoordinator {
         await this.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
     }
 
-    private async _initCoreInfrastructure(): Promise<void> {
+    private async _initCoreInfrastructure(signal: AbortSignal | null | undefined): Promise<void> {
         const startTime = Date.now();
 
+        throwIfStartupAborted(signal);
         // EventEmitter is already ready (synchronous)
         this._callbacks.status.updateModuleStatus('event-emitter', 'ready', undefined, 0);
 
         const promises: Promise<void>[] = [];
 
         if (this._deps.modules.lifecycle) {
+            throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus('app-lifecycle', 'initializing');
             promises.push(
                 this._deps.modules.lifecycle.initialize().then(() => {
+                    throwIfStartupAborted(signal);
                     this._callbacks.status.updateModuleStatus(
                         'app-lifecycle',
                         'ready',
@@ -389,8 +391,10 @@ export class InitializationCoordinator {
         }
 
         if (this._deps.modules.navigation && this._config) {
+            throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus('navigation', 'initializing');
             this._deps.modules.navigation.initialize(this._config.navConfig);
+            throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus(
                 'navigation',
                 'ready',
@@ -400,13 +404,16 @@ export class InitializationCoordinator {
         }
 
         await Promise.all(promises);
+        throwIfStartupAborted(signal);
     }
 
-    private async _validateAuthentication(): Promise<boolean> {
+    private async _validateAuthentication(signal: AbortSignal | null | undefined): Promise<boolean> {
         const startTime = Date.now();
+        throwIfStartupAborted(signal);
         this._callbacks.status.updateModuleStatus('plex-auth', 'initializing');
 
         if (!this._deps.modules.plexAuth || !this._deps.modules.navigation) {
+            throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus(
                 'plex-auth',
                 'error',
@@ -431,12 +438,13 @@ export class InitializationCoordinator {
                 registerAuthResume: (): void => this._registerAuthResume(),
                 registerProfileResume: (): void => this._registerProfileResume(),
             },
+            signal,
         };
 
         return applyAuthValidationPolicy(authGateInputs);
     }
 
-    private async _connectPlexServer(): Promise<boolean> {
+    private async _connectPlexServer(signal: AbortSignal | null | undefined): Promise<boolean> {
         const startTime = Date.now();
 
         if (
@@ -459,12 +467,14 @@ export class InitializationCoordinator {
                 handlers: {
                     registerServerResume: () => this._registerServerResume(),
                 },
+                signal,
             });
         } catch (error) {
             if (!isPlexAuthRecoverable(error)) {
                 throw error;
             }
 
+            throwIfStartupAborted(signal);
             const moduleError = toRecoverableModuleStatusError(
                 error,
                 'Server discovery authentication failed during startup.'
@@ -475,26 +485,29 @@ export class InitializationCoordinator {
                 moduleError
             );
             this._registerAuthResume();
+            throwIfStartupAborted(signal);
             this._deps.modules.navigation.goTo('auth');
             this._callbacks.errors.handleGlobalError(moduleError, 'plex-server-discovery');
             return false;
         }
     }
 
-    private async _initializePlaybackRuntime(): Promise<void> {
+    private async _initializePlaybackRuntime(signal: AbortSignal | null | undefined): Promise<void> {
         const startTime = Date.now();
 
         // Channel Manager
         if (this._deps.modules.channelManager) {
             const channelManager = this._deps.modules.channelManager;
-            await this._initializeRuntimeModule('channel-manager', startTime, async () => {
+            await this._initializeRuntimeModule('channel-manager', startTime, signal, async () => {
                 await this._callbacks.serverStorage.configureChannelManagerStorage();
+                throwIfStartupAborted(signal);
                 await channelManager.loadChannels();
             });
         }
 
         // Channel Scheduler (no async init needed)
         if (this._deps.modules.scheduler) {
+            throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus(
                 'channel-scheduler',
                 'ready',
@@ -502,16 +515,18 @@ export class InitializationCoordinator {
                 Date.now() - startTime
             );
         } else {
+            throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus('channel-scheduler', 'disabled');
         }
 
         // Video Player
         if (this._deps.modules.videoPlayer && this._config) {
             const videoPlayer = this._deps.modules.videoPlayer;
-            await this._initializeRuntimeModule('video-player', startTime, async () => {
+            await this._initializeRuntimeModule('video-player', startTime, signal, async () => {
                 await videoPlayer.initialize({
                     ...this._config.playerConfig,
                 });
+                throwIfStartupAborted(signal);
                 // Request Media Session integration (once per app lifetime)
                 videoPlayer.requestMediaSession();
             });
@@ -519,35 +534,35 @@ export class InitializationCoordinator {
 
         if (this._deps.overlays.playerOsd && this._config) {
             const playerOsd = this._deps.overlays.playerOsd;
-            await this._initializeRuntimeModule('player-osd-ui', startTime, () => {
+            await this._initializeRuntimeModule('player-osd-ui', startTime, signal, () => {
                 playerOsd.initialize(this._config.playerOsdConfig);
             });
         }
 
         if (this._deps.overlays.channelNumberOverlay && this._config) {
             const channelNumberOverlay = this._deps.overlays.channelNumberOverlay;
-            await this._initializeRuntimeModule('channel-number-overlay-ui', startTime, () => {
+            await this._initializeRuntimeModule('channel-number-overlay-ui', startTime, signal, () => {
                 channelNumberOverlay.initialize(this._config.channelNumberOverlayConfig.containerId);
             });
         }
 
         if (this._deps.overlays.channelBadgeOverlay && this._config) {
             const channelBadgeOverlay = this._deps.overlays.channelBadgeOverlay;
-            await this._initializeRuntimeModule('channel-badge-ui', startTime, () => {
+            await this._initializeRuntimeModule('channel-badge-ui', startTime, signal, () => {
                 channelBadgeOverlay.initialize(this._config.channelBadgeConfig);
             });
         }
 
         if (this._deps.overlays.miniGuide && this._config) {
             const miniGuide = this._deps.overlays.miniGuide;
-            await this._initializeRuntimeModule('mini-guide-ui', startTime, () => {
+            await this._initializeRuntimeModule('mini-guide-ui', startTime, signal, () => {
                 miniGuide.initialize(this._config.miniGuideConfig);
             });
         }
 
         if (this._deps.overlays.channelTransition && this._config) {
             const channelTransition = this._deps.overlays.channelTransition;
-            await this._initializeRuntimeModule('channel-transition-ui', startTime, () => {
+            await this._initializeRuntimeModule('channel-transition-ui', startTime, signal, () => {
                 channelTransition.initialize(this._config.channelTransitionConfig);
             });
         }
@@ -557,38 +572,49 @@ export class InitializationCoordinator {
     private async _initializeRuntimeModule(
         moduleId: string,
         startTime: number,
+        signal: AbortSignal | null | undefined,
         initialize: () => void | Promise<void>
     ): Promise<void> {
+        throwIfStartupAborted(signal);
         this._callbacks.status.updateModuleStatus(moduleId, 'initializing');
         await initialize();
+        throwIfStartupAborted(signal);
         this._callbacks.status.updateModuleStatus(moduleId, 'ready', undefined, Date.now() - startTime);
     }
 
-    private async _initializeEpg(options?: { ensureCorePlayerUi?: boolean }): Promise<void> {
+    private async _initializeEpg(options?: {
+        ensureCorePlayerUi?: boolean;
+        signal?: AbortSignal | null | undefined;
+    }): Promise<void> {
         const ensureCorePlayerUi = options?.ensureCorePlayerUi ?? true;
+        const signal = options?.signal;
+        throwIfStartupAborted(signal);
         if (this._callbacks.status.getModuleStatus('epg-ui') === 'ready') {
             if (ensureCorePlayerUi) {
-                await this._ensureCorePlayerUiInitialized();
+                await this._ensureCorePlayerUiInitialized(signal);
             }
             return;
         }
         if (this._epgInitPromise) {
             await this._epgInitPromise;
+            throwIfStartupAborted(signal);
             if (ensureCorePlayerUi) {
-                await this._ensureCorePlayerUiInitialized();
+                await this._ensureCorePlayerUiInitialized(signal);
             }
             return;
         }
         if (!this._deps.modules.epg || !this._config) {
             if (ensureCorePlayerUi) {
-                await this._ensureCorePlayerUiInitialized();
+                await this._ensureCorePlayerUiInitialized(signal);
             }
             return;
         }
 
         const startTime = Date.now();
+        throwIfStartupAborted(signal);
         this._callbacks.status.updateModuleStatus('epg-ui', 'initializing');
         const init = async (): Promise<void> => {
+            throwIfStartupAborted(signal);
             const epgConfigWithResolver = buildEPGStartupConfig({
                 epgConfig: this._config.epgConfig,
                 plexLibrary: this._deps.modules.plexLibrary,
@@ -606,8 +632,10 @@ export class InitializationCoordinator {
             if (!epg) {
                 return;
             }
+            throwIfStartupAborted(signal);
             epg.initialize(epgConfigWithResolver);
             await this._deps.readiness.epg?.ensureReady();
+            throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus(
                 'epg-ui',
                 'ready',
@@ -630,12 +658,14 @@ export class InitializationCoordinator {
 
         await this._epgInitPromise;
         if (ensureCorePlayerUi) {
-            await this._ensureCorePlayerUiInitialized();
+            await this._ensureCorePlayerUiInitialized(signal);
         }
     }
 
-    private async _ensureCorePlayerUiInitialized(): Promise<void> {
+    private async _ensureCorePlayerUiInitialized(signal: AbortSignal | null | undefined): Promise<void> {
+        throwIfStartupAborted(signal);
         await this._deps.startupUiInitializer.ensureCorePlayerUiInitialized();
+        throwIfStartupAborted(signal);
     }
 
     private _cancelEpgWarmup(): void {

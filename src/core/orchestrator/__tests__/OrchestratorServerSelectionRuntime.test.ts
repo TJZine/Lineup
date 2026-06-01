@@ -160,14 +160,19 @@ describe('OrchestratorServerSelectionRuntime', () => {
             },
         });
 
-        expect(initCoordinator.runStartup).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+        expect(initCoordinator.runStartup).toHaveBeenCalledWith(
+            STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
+            undefined
+        );
         expect(epg.clearSchedules).not.toHaveBeenCalled();
     });
 
     it('passes caller discovery options through to Plex discovery selection', async () => {
         const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
         const deps = createDeps({
             getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
         });
         const runtime = new OrchestratorServerSelectionRuntime(deps);
         const options = { signal: new AbortController().signal };
@@ -183,6 +188,10 @@ describe('OrchestratorServerSelectionRuntime', () => {
         });
 
         expect(plexDiscovery.selectServer).toHaveBeenCalledWith('server-1', options);
+        expect(initCoordinator.runStartup).toHaveBeenCalledWith(
+            STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
+            options
+        );
     });
 
     it('skips selected-server startup resume when the initialization coordinator is unavailable', async () => {
@@ -276,7 +285,10 @@ describe('OrchestratorServerSelectionRuntime', () => {
             runtime.selectServer('server-1', { signal: controller.signal })
         ).rejects.toBe(abortReason);
 
-        expect(initCoordinator.runStartup).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+        expect(initCoordinator.runStartup).toHaveBeenCalledWith(
+            STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
+            { signal: controller.signal }
+        );
         expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).not.toHaveBeenCalled();
         expect(epgCoordinator.clearScheduleCaches).not.toHaveBeenCalled();
         expect(epg.clearSchedules).not.toHaveBeenCalled();
@@ -289,6 +301,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
         });
         expect(plexAuth.storeCredentials).toHaveBeenCalledTimes(2);
         expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials());
+        expect(deps.reportError).not.toHaveBeenCalled();
     });
 
     it('returns failed EPG refresh status after clearing server-scoped schedule state', async () => {
@@ -322,7 +335,10 @@ describe('OrchestratorServerSelectionRuntime', () => {
             },
         });
 
-        expect(initCoordinator.runStartup).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+        expect(initCoordinator.runStartup).toHaveBeenCalledWith(
+            STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
+            undefined
+        );
         expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).toHaveBeenCalledTimes(1);
         expect(epgCoordinator.clearScheduleCaches).toHaveBeenCalledTimes(1);
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
@@ -333,6 +349,27 @@ describe('OrchestratorServerSelectionRuntime', () => {
             'Post-selection EPG refresh failed',
             refreshError,
             { step: 'refreshEpgSchedules' }
+        );
+    });
+
+    it('reports startup abort-like failures when no caller signal requested cancellation', async () => {
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const abortError = new DOMException('internal startup abort', 'AbortError');
+        initCoordinator.runStartup.mockRejectedValue(abortError);
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1')).rejects.toBe(abortError);
+
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.serverSwap.runStartup',
+            'Post-selection runtime swap failed',
+            abortError,
+            { step: 'runStartup' }
         );
     });
 });
