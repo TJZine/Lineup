@@ -32,8 +32,11 @@ function countPackageIssues(packageEntry) {
     };
 }
 
-function validatePackageMap(packageMap) {
+function validatePackageMap(packageMap, expectedOpenIssueIds = null) {
     const assignedIssueIds = new Set();
+    const expectedIssueIdSet = expectedOpenIssueIds === null
+        ? null
+        : new Set(expectedOpenIssueIds);
     const totals = {
         total_open: 0,
         older_live_non_review: 0,
@@ -72,6 +75,16 @@ function validatePackageMap(packageMap) {
             `${packageEntry.package_id} recommended_execution_order must be an integer`
         );
         packageOrders.push(packageEntry.recommended_execution_order);
+        assert.match(
+            packageEntry.checklist_tokens.work_item,
+            new RegExp(`^P${packageEntry.recommended_execution_order}-W\\d+$`),
+            `${packageEntry.package_id} work_item checklist token must match recommended_execution_order`
+        );
+        assert.equal(
+            packageEntry.checklist_tokens.priority_exit,
+            `P${packageEntry.recommended_execution_order}-EXIT`,
+            `${packageEntry.package_id} priority_exit checklist token must match recommended_execution_order`
+        );
         assert.deepEqual(duplicateIds, [], `${packageEntry.package_id} must not duplicate issue ids`);
         assert.deepEqual(
             [...(packageEntry.includes_review_issue_ids ?? [])].sort(),
@@ -135,6 +148,13 @@ function validatePackageMap(packageMap) {
     assert.equal(packageMap.validation_details.total_open_issues, totals.total_open);
     assert.equal(packageMap.validation_details.assigned_open_issues, totals.total_open);
     assert.equal(packageMap.validation_details.assigned_open_issues, assignedIssueIds.size);
+    if (expectedIssueIdSet !== null) {
+        assert.deepEqual(
+            [...assignedIssueIds].sort(),
+            [...expectedIssueIdSet].sort(),
+            'assigned issue ids must match the expected open issue universe'
+        );
+    }
     assert.deepEqual(packageMap.validation_details.unassigned_issue_ids, []);
     assert.deepEqual(packageMap.validation_details.duplicate_assignments, []);
     assert.deepEqual(packageMap.validation_details.closed_audit_ids_included, []);
@@ -153,6 +173,45 @@ test('active cleanup package map count metadata matches package issue membership
 
 function clonePackageMap(packageMap) {
     return JSON.parse(JSON.stringify(packageMap));
+}
+
+function collectAssignedIssueIds(packageMap) {
+    return packageMap.packages.flatMap((packageEntry) => packageEntry.includes_issue_ids ?? []);
+}
+
+function recalculateFixtureMetadata(packageMap) {
+    const totals = {
+        total_open: 0,
+        older_live_non_review: 0,
+        fresh_review: 0,
+        fresh_non_review: 0,
+    };
+
+    for (const packageEntry of packageMap.packages) {
+        const actual = countPackageIssues(packageEntry);
+        const counts = {
+            total_open: actual.total_open,
+            older_live_non_review: actual.older_live_non_review,
+            fresh_review: actual.fresh_review,
+            fresh_non_review: actual.fresh_non_review,
+        };
+        packageEntry.includes_review_issue_ids = actual.review_issue_ids;
+        packageEntry.includes_fresh_non_review_issue_ids = actual.fresh_non_review_issue_ids;
+        packageEntry.estimated_backlog_size = { ...counts };
+        packageEntry.verified_package_size = {
+            ...packageEntry.verified_package_size,
+            ...counts,
+            by_detector: actual.by_detector,
+        };
+
+        for (const key of Object.keys(totals)) {
+            totals[key] += counts[key];
+        }
+    }
+
+    packageMap.verified_counts = totals;
+    packageMap.validation_details.total_open_issues = totals.total_open;
+    packageMap.validation_details.assigned_open_issues = new Set(collectAssignedIssueIds(packageMap)).size;
 }
 
 function createPackageEntry(packageId, order, issueIds) {
@@ -236,8 +295,17 @@ function createValidFixture() {
     };
 }
 
-test('active cleanup package map verifier rejects malformed self-consistent package maps', () => {
+test('active cleanup package map verifier rejects malformed package maps', () => {
     const cases = [
+        {
+            name: 'self-consistent missing expected open issue',
+            mutate: (fixture) => {
+                fixture.packages[0].includes_issue_ids = fixture.packages[0].includes_issue_ids.filter(
+                    (issueId) => issueId !== 'smells::src/example.ts::magic_number'
+                );
+                recalculateFixtureMetadata(fixture);
+            },
+        },
         {
             name: 'stale review id assigned to an active package',
             mutate: (fixture) => {
@@ -288,6 +356,12 @@ test('active cleanup package map verifier rejects malformed self-consistent pack
             },
         },
         {
+            name: 'checklist token drift from execution order',
+            mutate: (fixture) => {
+                fixture.packages[1].checklist_tokens.priority_exit = 'P1-EXIT';
+            },
+        },
+        {
             name: 'missing stale review metadata',
             mutate: (fixture) => {
                 delete fixture.validation_details.stale_review_issue_ids_removed;
@@ -297,9 +371,10 @@ test('active cleanup package map verifier rejects malformed self-consistent pack
 
     for (const { name, mutate } of cases) {
         const fixture = clonePackageMap(createValidFixture());
+        const expectedIssueIds = collectAssignedIssueIds(fixture);
         mutate(fixture);
         assert.throws(
-            () => validatePackageMap(fixture),
+            () => validatePackageMap(fixture, expectedIssueIds),
             undefined,
             name
         );
