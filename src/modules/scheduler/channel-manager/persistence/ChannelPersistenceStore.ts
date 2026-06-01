@@ -14,8 +14,8 @@ export class ChannelPersistenceStore {
     private _currentChannelKey: string;
 
     constructor(storageKey: string = STORAGE_KEY, currentChannelKey: string = CURRENT_CHANNEL_KEY) {
-        this._storageKey = STORAGE_KEY;
-        this._currentChannelKey = CURRENT_CHANNEL_KEY;
+        this._storageKey = storageKey;
+        this._currentChannelKey = currentChannelKey;
         this.setStorageKeys(storageKey, currentChannelKey);
     }
 

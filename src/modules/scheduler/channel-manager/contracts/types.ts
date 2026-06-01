@@ -55,11 +55,8 @@ interface BaseContentSource {
 
 export interface LibraryContentSource extends BaseContentSource {
     type: 'library';
-    /** Library section ID */
     libraryId: string;
-    /** Library type */
     libraryType: 'movie' | 'show';
-    /** Include already-watched content */
     includeWatched: boolean;
     /** Optional server-side filter parameters */
     libraryFilter?: Record<string, string | number>;
@@ -89,7 +86,6 @@ export interface PlaylistContentSource extends BaseContentSource {
 }
 
 export interface ManualContentItem {
-    /** Item ratingKey */
     ratingKey: string;
     /** Cached title for display */
     title: string;
@@ -104,9 +100,7 @@ export interface ManualContentSource extends BaseContentSource {
 
 export interface MixedContentSource extends BaseContentSource {
     type: 'mixed';
-    /** Component sources */
     sources: ChannelContentSource[];
-    /** How to combine sources */
     mixMode: 'interleave' | 'sequential';
 }
 
