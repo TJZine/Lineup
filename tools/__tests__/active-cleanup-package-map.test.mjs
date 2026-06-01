@@ -43,6 +43,12 @@ test('active cleanup package map count metadata matches package issue membership
     };
 
     assert.equal(packageMap.package_count, packageMap.packages.length);
+    assert.deepEqual(packageMap.validation, {
+        every_open_issue_assigned_once: true,
+        no_open_issue_unassigned: true,
+        no_issue_multiply_assigned: true,
+        no_reconciled_closed_issue_included: true,
+    });
 
     for (const packageEntry of packageMap.packages) {
         const actual = countPackageIssues(packageEntry);
@@ -112,5 +118,8 @@ test('active cleanup package map count metadata matches package issue membership
     assert.deepEqual(packageMap.verified_counts, totals);
     assert.equal(packageMap.validation_details.total_open_issues, totals.total_open);
     assert.equal(packageMap.validation_details.assigned_open_issues, totals.total_open);
+    assert.equal(packageMap.validation_details.assigned_open_issues, assignedIssueIds.size);
+    assert.deepEqual(packageMap.validation_details.unassigned_issue_ids, []);
     assert.deepEqual(packageMap.validation_details.duplicate_assignments, []);
+    assert.deepEqual(packageMap.validation_details.closed_audit_ids_included, []);
 });
