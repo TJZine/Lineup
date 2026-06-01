@@ -344,6 +344,110 @@ describe('PlexServerDiscovery', () => {
             expect(fetch).toHaveBeenCalledTimes(1);
         });
 
+        it('aborts the underlying discovery request when every active waiter cancels', async () => {
+            const abortReason = new DOMException('screen hidden', 'AbortError');
+            const fetchSignals: AbortSignal[] = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockImplementationOnce((_url: string, options: RequestInit) => {
+                    const fetchSignal = expectDefined<AbortSignal>(
+                        options.signal ?? null,
+                        'Expected discovery fetch signal'
+                    );
+                    fetchSignals.push(fetchSignal);
+                    return new Promise<Response>((_resolve, reject) => {
+                        fetchSignal.addEventListener(
+                            'abort',
+                            () => reject(fetchSignal.reason ?? new DOMException('Aborted', 'AbortError')),
+                            { once: true }
+                        );
+                    });
+                })
+                .mockResolvedValueOnce(createMockFetchResponse([
+                    {
+                        clientIdentifier: 'srv1',
+                        name: 'Test Server',
+                        sourceTitle: 'testuser',
+                        ownerId: 'owner1',
+                        owned: true,
+                        provides: 'server',
+                        connections: [],
+                    },
+                ]));
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const controller = new AbortController();
+
+            const cancelableWait = discovery.discoverServers({ signal: controller.signal });
+            await flushPromises();
+
+            controller.abort(abortReason);
+            const rediscoveryWait = discovery.discoverServers();
+
+            await expect(cancelableWait).rejects.toBe(abortReason);
+            const observedFetchSignal = expectDefined<AbortSignal>(
+                fetchSignals[0],
+                'Expected discovery fetch signal'
+            );
+            expect(observedFetchSignal.aborted).toBe(true);
+            expect(observedFetchSignal.reason).toBe(abortReason);
+
+            await expect(rediscoveryWait).resolves.toEqual([
+                expect.objectContaining({ id: 'srv1', name: 'Test Server' }),
+            ]);
+            expect(fetch).toHaveBeenCalledTimes(2);
+        });
+
+        it('keeps shared discovery alive when initialize is still waiting after a caller cancels', async () => {
+            const resourcesDeferred = createDeferred<unknown[]>();
+            const abortReason = new DOMException('screen hidden', 'AbortError');
+            let fetchSignal: AbortSignal | null = null;
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options: RequestInit) => {
+                    fetchSignal = options.signal ?? null;
+                    return new Promise((resolve, reject) => {
+                        fetchSignal?.addEventListener(
+                            'abort',
+                            () => reject(fetchSignal?.reason ?? new DOMException('Aborted', 'AbortError')),
+                            { once: true }
+                        );
+                        resourcesDeferred.promise.then(
+                            (body) => resolve(createMockFetchResponse(body)),
+                            reject
+                        );
+                    });
+                }
+            );
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const controller = new AbortController();
+
+            const cancelableWait = discovery.discoverServers({ signal: controller.signal });
+            await flushPromises();
+            const initializeWait = discovery.initialize();
+
+            controller.abort(abortReason);
+
+            await expect(cancelableWait).rejects.toBe(abortReason);
+            const observedFetchSignal = expectDefined<AbortSignal>(
+                fetchSignal,
+                'Expected discovery fetch signal'
+            );
+            expect(observedFetchSignal.aborted).toBe(false);
+
+            resourcesDeferred.resolve([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Test Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [],
+                },
+            ]);
+
+            await expect(initializeWait).resolves.toBeUndefined();
+            expect(fetch).toHaveBeenCalledTimes(1);
+        });
+
         it('should ignore stale in-flight discovery results after storage key switch', async () => {
             const firstResources = [
                 {

@@ -1758,7 +1758,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 listener?.('http://server.example');
                 await Promise.resolve();
 
-                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             } finally {
                 runStartupSpy.mockRestore();
             }
