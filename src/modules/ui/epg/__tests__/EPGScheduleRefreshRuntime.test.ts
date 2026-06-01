@@ -440,6 +440,39 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
     });
 
+    it('suppresses channel load failures caused by the internal invalidation abort reason', async () => {
+        const controller = new AbortController();
+        let capturedSignal: AbortSignal | null | undefined;
+        let rejectContent: ((reason?: unknown) => void) | null = null;
+        const { runtime, deps } = createRuntime({
+            channelManager: {
+                resolveChannelContent: jest.fn((_id: string, options?: { signal?: AbortSignal | null }) => {
+                    capturedSignal = options?.signal;
+                    return new Promise<ResolvedChannelContent>((_resolve, reject) => {
+                        rejectContent = reject;
+                    });
+                }),
+            },
+        });
+
+        const refresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'server-swap',
+            { signal: controller.signal }
+        );
+        await Promise.resolve();
+
+        controller.abort(new DOMException('server selection hidden', 'AbortError'));
+        (rejectContent as unknown as (reason?: unknown) => void)(capturedSignal?.reason);
+
+        await expect(refresh).rejects.toThrow('server selection hidden');
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleLoadFailed',
+            expect.anything()
+        );
+    });
+
     it('invalidates in-flight refresh work when no visible channels remain', async () => {
         const channel = makeChannel('c1', 1);
         let visibleChannels: ChannelConfig[] = [channel];

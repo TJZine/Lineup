@@ -103,6 +103,7 @@ export class OrchestratorServerSelectionRuntime {
                 serverId: string,
                 options?: PlexDiscoverySignalOptions
             ): Promise<PlexServerSelectionResult> => {
+                this._deps.getInitializationCoordinator()?.clearServerResume();
                 const plexDiscovery = this._requirePlexDiscovery('selectServer');
                 return plexDiscovery.selectServer(serverId, options);
             },

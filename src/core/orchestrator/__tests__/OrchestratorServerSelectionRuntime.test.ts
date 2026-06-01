@@ -53,6 +53,7 @@ const createPlexDiscovery = (): jest.Mocked<IPlexServerDiscovery> => ({
 
 const createInitializationCoordinator = (): jest.Mocked<InitializationCoordinator> => ({
     runStartup: jest.fn().mockResolvedValue(undefined),
+    clearServerResume: jest.fn(),
 } as unknown as jest.Mocked<InitializationCoordinator>);
 
 const createDeps = (
@@ -191,6 +192,24 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(initCoordinator.runStartup).toHaveBeenCalledWith(
             STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
             options
+        );
+    });
+
+    it('clears pending server resume listeners before mutating discovery selection', async () => {
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1')).resolves.toMatchObject({ kind: 'selected' });
+
+        expect(initCoordinator.clearServerResume).toHaveBeenCalledTimes(1);
+        expect(plexDiscovery.selectServer).toHaveBeenCalledTimes(1);
+        expect(initCoordinator.clearServerResume.mock.invocationCallOrder[0]).toBeLessThan(
+            plexDiscovery.selectServer.mock.invocationCallOrder[0] as number
         );
     });
 

@@ -1355,6 +1355,75 @@ describe('InitializationCoordinator (Plex Home)', () => {
         await expect(firstRun).resolves.toBeUndefined();
     });
 
+    it('cancels queued startup work when its caller aborts after the queued phase is consumed', async () => {
+        const abortReason = new DOMException('queued startup hidden', 'AbortError');
+        const controller = new AbortController();
+        let releaseAuthValidation: (() => void) | null = null;
+        let releaseEpgReady: (() => void) | null = null;
+        let markEpgReadyWaitStarted: (() => void) | null = null;
+        const epgReadyWaitStarted = new Promise<void>((resolve) => {
+            markEpgReadyWaitStarted = resolve;
+        });
+        const { coordinator, callbacks, deps } = makeCoordinator({
+            epg: {
+                initialize: jest.fn(),
+            } as unknown as LegacyInitializationDependencies['epg'],
+            epgReadiness: {
+                ensureReady: jest.fn(() =>
+                    new Promise<void>((resolve) => {
+                        releaseEpgReady = resolve;
+                        markEpgReadyWaitStarted?.();
+                    })
+                ),
+            } as unknown as LegacyInitializationDependencies['epgReadiness'],
+        });
+        const plexDiscovery = deps.plexDiscovery as unknown as {
+            initialize: jest.Mock;
+            isConnected: jest.Mock;
+        };
+        const plexAuth = deps.plexAuth as unknown as {
+            readStoredCredentialsAndClearCorruption: jest.Mock;
+            validateToken: jest.Mock;
+        };
+
+        plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
+            createStoredCredentials('active-token', 'account-token')
+        );
+        plexAuth.validateToken.mockImplementation(
+            () =>
+                new Promise<boolean>((resolve) => {
+                    releaseAuthValidation = (): void => resolve(true);
+                })
+        );
+        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.isConnected.mockReturnValue(true);
+
+        const firstRun = coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
+        for (let attempt = 0; attempt < 5 && !releaseAuthValidation; attempt += 1) {
+            await Promise.resolve();
+        }
+        expect(releaseAuthValidation).toBeTruthy();
+
+        const queuedRun = coordinator.runStartup(
+            STARTUP_PHASE.RESUME_EPG_ONLY,
+            { signal: controller.signal }
+        );
+        const firstRunExpectation = expect(firstRun).rejects.toBe(abortReason);
+        const queuedRunExpectation = expect(queuedRun).rejects.toBe(abortReason);
+
+        (releaseAuthValidation as unknown as () => void)();
+        await epgReadyWaitStarted;
+
+        controller.abort(abortReason);
+        (releaseEpgReady as unknown as () => void)();
+
+        await firstRunExpectation;
+        await queuedRunExpectation;
+        expect(callbacks.setupEventWiring).not.toHaveBeenCalled();
+        expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
+        expect(callbacks.handleGlobalError).not.toHaveBeenCalled();
+    });
+
     it('reports abort-like startup failures when no caller signal requested cancellation', async () => {
         const abortError = new DOMException('internal channel load abort', 'AbortError');
         const { coordinator, callbacks } = makeCoordinator({

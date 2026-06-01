@@ -3,9 +3,15 @@ import { readStartupAbortReason, throwIfStartupAborted } from './InitializationA
 
 type StartupQueuedWaiter = {
     phase: StartupPhase;
+    consumed: boolean;
     resolve: () => void;
     reject: (err: unknown) => void;
     onAbort?: (() => void) | undefined;
+    signal?: AbortSignal | null | undefined;
+};
+
+export type StartupQueuedWork = {
+    phase: StartupPhase;
     signal?: AbortSignal | null | undefined;
 };
 
@@ -24,7 +30,7 @@ export class InitializationStartupQueue {
             : (Math.min(this._queuedPhase, phase) as StartupPhase);
 
         return new Promise((resolve, reject) => {
-            const waiter: StartupQueuedWaiter = { phase, resolve, reject };
+            const waiter: StartupQueuedWaiter = { phase, consumed: false, resolve, reject };
             if (signal) {
                 waiter.onAbort = (): void => {
                     this._waiters = this._waiters.filter((queuedWaiter) => queuedWaiter !== waiter);
@@ -38,10 +44,23 @@ export class InitializationStartupQueue {
         });
     }
 
-    consumeQueuedPhase(): StartupPhase | null {
+    consumeQueuedWork(): StartupQueuedWork | null {
         const phase = this._queuedPhase;
-        this._queuedPhase = null;
-        return phase;
+        if (phase === null) {
+            return null;
+        }
+
+        const owner = this._waiters.find(
+            (waiter) => !waiter.consumed && waiter.phase === phase
+        );
+        this._waiters.forEach((waiter) => {
+            if (!waiter.consumed) {
+                waiter.consumed = true;
+            }
+        });
+        this._recomputeQueuedPhase();
+
+        return { phase, signal: owner?.signal };
     }
 
     settle(caughtError: unknown): void {
@@ -65,8 +84,11 @@ export class InitializationStartupQueue {
     }
 
     private _recomputeQueuedPhase(): void {
-        this._queuedPhase = this._waiters.length === 0
+        const pendingPhases = this._waiters
+            .filter((waiter) => !waiter.consumed)
+            .map((waiter) => waiter.phase);
+        this._queuedPhase = pendingPhases.length === 0
             ? null
-            : (Math.min(...this._waiters.map((waiter) => waiter.phase)) as StartupPhase);
+            : (Math.min(...pendingPhases) as StartupPhase);
     }
 }

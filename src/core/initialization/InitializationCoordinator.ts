@@ -173,11 +173,11 @@ export class InitializationCoordinator {
     ) { }
 
     async runStartup(startPhase: StartupPhase, options?: StartupSignalOptions): Promise<void> {
-        const signal = options?.signal;
-        throwIfStartupAborted(signal);
+        let activeSignal = options?.signal;
+        throwIfStartupAborted(activeSignal);
         this._cancelEpgWarmup();
         if (this._startupInProgress) {
-            return this._startupQueue.queue(startPhase, signal);
+            return this._startupQueue.queue(startPhase, activeSignal);
         }
 
         this._startupInProgress = true;
@@ -188,68 +188,67 @@ export class InitializationCoordinator {
 
         try {
             while (true) {
-                throwIfStartupAborted(signal);
+                throwIfStartupAborted(activeSignal);
                 const willRunInitializePlaybackRuntime = phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES;
                 const shouldEagerlyInitEpgForPass = phaseToRun > STARTUP_PHASE.FULL_STARTUP;
-                throwIfStartupAborted(signal);
+                throwIfStartupAborted(activeSignal);
                 this._callbacks.state.setReady(false);
 
                 if (phaseToRun <= STARTUP_PHASE.FULL_STARTUP) {
-                    await this._initCoreInfrastructure(signal);
+                    await this._initCoreInfrastructure(activeSignal);
                 }
 
                 if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE) {
-                    const authValid = await this._validateAuthentication(signal);
+                    const authValid = await this._validateAuthentication(activeSignal);
                     if (!authValid) {
-                        const queuedPhase = this._startupQueue.consumeQueuedPhase();
-                        if (queuedPhase === null) {
-                            break;
-                        }
-                        phaseToRun = queuedPhase;
+                        const queuedWork = this._startupQueue.consumeQueuedWork();
+                        if (queuedWork === null) break;
+                        phaseToRun = queuedWork.phase;
+                        activeSignal = queuedWork.signal;
                         continue;
                     }
                 }
 
                 if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION) {
-                    const plexConnected = await this._connectPlexServer(signal);
+                    const plexConnected = await this._connectPlexServer(activeSignal);
                     if (!plexConnected) {
-                        const queuedPhase = this._startupQueue.consumeQueuedPhase();
-                        if (queuedPhase === null) {
-                            break;
-                        }
-                        phaseToRun = queuedPhase;
+                        const queuedWork = this._startupQueue.consumeQueuedWork();
+                        if (queuedWork === null) break;
+                        phaseToRun = queuedWork.phase;
+                        activeSignal = queuedWork.signal;
                         continue;
                     }
                 }
 
                 if (phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES) {
-                    await this._initializePlaybackRuntime(signal);
-                    await this._ensureCorePlayerUiInitialized(signal);
+                    await this._initializePlaybackRuntime(activeSignal);
+                    await this._ensureCorePlayerUiInitialized(activeSignal);
                 }
 
                 if (shouldEagerlyInitEpgForPass) {
                     await this._initializeEpg({
                         ensureCorePlayerUi: !willRunInitializePlaybackRuntime,
-                        signal,
+                        signal: activeSignal,
                     });
                 }
 
-                throwIfStartupAborted(signal);
-                const queuedPhase = this._startupQueue.consumeQueuedPhase();
-                if (queuedPhase === null) {
+                throwIfStartupAborted(activeSignal);
+                const queuedWork = this._startupQueue.consumeQueuedWork();
+                if (queuedWork === null) {
                     shouldScheduleEpgWarmup = !shouldEagerlyInitEpgForPass;
                     shouldRunFinalReadyWork = true;
                     break;
                 }
-                phaseToRun = queuedPhase;
+                phaseToRun = queuedWork.phase;
+                activeSignal = queuedWork.signal;
             }
 
             if (shouldRunFinalReadyWork) {
-                throwIfStartupAborted(signal);
+                throwIfStartupAborted(activeSignal);
                 this._callbacks.state.setupEventWiring();
 
                 if (this._deps.modules.navigation) {
-                    throwIfStartupAborted(signal);
+                    throwIfStartupAborted(activeSignal);
                     await applyPostReadyRoutingPolicy({
                         navigation: this._deps.modules.navigation,
                         channelManager: this._deps.modules.channelManager,
@@ -257,18 +256,18 @@ export class InitializationCoordinator {
                         shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
                         switchToChannel: this._callbacks.routing.switchToChannel,
                         openServerSelect: this._callbacks.routing.openServerSelect,
-                        signal,
+                        signal: activeSignal,
                     });
                 }
 
-                throwIfStartupAborted(signal);
+                throwIfStartupAborted(activeSignal);
                 this._callbacks.state.setReady(true);
                 if (this._deps.modules.lifecycle) {
-                    throwIfStartupAborted(signal);
+                    throwIfStartupAborted(activeSignal);
                     this._deps.modules.lifecycle.setPhase('ready');
                 }
 
-                throwIfStartupAborted(signal);
+                throwIfStartupAborted(activeSignal);
                 this.clearAuthResume();
                 this.clearServerResume();
                 this.clearProfileResume();
@@ -276,7 +275,7 @@ export class InitializationCoordinator {
         } catch (error: unknown) {
             caughtError = error;
             this._cancelEpgWarmup();
-            if (!isStartupAbortError(error, signal)) {
+            if (!isStartupAbortError(error, activeSignal)) {
                 const message = error instanceof Error ? error.message : String(error);
                 // Avoid leaving stale resume listeners after a fatal startup error.
                 this.clearAuthResume();
