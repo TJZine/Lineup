@@ -547,6 +547,38 @@ describe('PlexServerDiscovery', () => {
             )).resolves.toBeNull();
         });
 
+        it('does not convert probe timeouts into caller cancellation when the caller aborts later', async () => {
+            jest.useFakeTimers();
+            try {
+                const controller = new AbortController();
+                const abortReason = new DOMException('caller cancelled after timeout', 'AbortError');
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                    (_url: string, options: RequestInit) => new Promise((_resolve, reject) => {
+                        const signal = options.signal as AbortSignal | undefined;
+                        signal?.addEventListener('abort', () => {
+                            controller.abort(abortReason);
+                            reject(new DOMException('probe timeout', 'AbortError'));
+                        }, { once: true });
+                    })
+                );
+                const discovery = new PlexServerDiscovery(mockConfig);
+                const mockServer = createMockServer();
+                const mockConnection = createMockConnection();
+
+                const request = discovery.testConnection(
+                    mockServer,
+                    mockConnection,
+                    { signal: controller.signal }
+                );
+                jest.advanceTimersByTime(PLEX_DISCOVERY_CONSTANTS.CONNECTION_TEST_TIMEOUT_MS);
+                await flushPromises();
+
+                await expect(request).resolves.toBeNull();
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('should timeout after the configured timeout', async () => {
             jest.useFakeTimers();
             try {

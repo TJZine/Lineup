@@ -141,11 +141,20 @@ async function fetchDiscoveryAttempt(
 
 async function fetchDiscoveryVariant(variant: DiscoveryFetchVariant, upstreamSignal: AbortSignal | null): Promise<Response> {
     const controller = new AbortController();
+    let abortSource: 'caller' | 'timeout' | null = null;
     const abortFromUpstream = (): void => {
-        controller.abort(upstreamSignal?.reason);
+        if (upstreamSignal && !controller.signal.aborted) {
+            abortSource = 'caller';
+            controller.abort(readAbortReason(upstreamSignal));
+        }
     };
     const timeoutId = setTimeout(
-        () => controller.abort(),
+        () => {
+            if (!controller.signal.aborted) {
+                abortSource = 'timeout';
+                controller.abort();
+            }
+        },
         PLEX_DISCOVERY_CONSTANTS.DISCOVERY_TIMEOUT_MS
     );
     try {
@@ -164,6 +173,9 @@ async function fetchDiscoveryVariant(variant: DiscoveryFetchVariant, upstreamSig
             init.headers = variant.headers;
         }
         return await fetch(variant.url, init);
+    } catch (error) {
+        throwIfCallerAbort(error, upstreamSignal, abortSource === 'caller');
+        throw error;
     } finally {
         upstreamSignal?.removeEventListener('abort', abortFromUpstream);
         clearTimeout(timeoutId);

@@ -17,13 +17,18 @@ export async function probePlexConnection(
     const startTime = Date.now();
     const callerSignal = request.signal ?? null;
     const controller = new AbortController();
+    let abortSource: 'caller' | 'timeout' | null = null;
     const abortFromCaller = (): void => {
-        if (callerSignal) {
+        if (callerSignal && !controller.signal.aborted) {
+            abortSource = 'caller';
             controller.abort(readAbortReason(callerSignal));
         }
     };
     const timeoutId = setTimeout(() => {
-        controller.abort();
+        if (!controller.signal.aborted) {
+            abortSource = 'timeout';
+            controller.abort();
+        }
     }, request.timeoutMs);
 
     try {
@@ -58,7 +63,7 @@ export async function probePlexConnection(
             outcome: 'reachable',
         };
     } catch (error) {
-        throwIfCallerAbort(error, callerSignal);
+        throwIfCallerAbort(error, callerSignal, abortSource === 'caller');
         return { connection: request.connection, outcome: 'unreachable' };
     } finally {
         callerSignal?.removeEventListener('abort', abortFromCaller);
