@@ -10,9 +10,9 @@
     "assignment_rule": "Each package owns one checklist work item and one matching priority-exit token, keyed by recommended_execution_order."
   },
   "verified_counts": {
-    "total_open": 216,
-    "older_live_non_review": 161,
-    "fresh_review": 41,
+    "total_open": 212,
+    "older_live_non_review": 159,
+    "fresh_review": 39,
     "fresh_non_review": 14
   },
   "validation": {
@@ -22,11 +22,16 @@
     "no_reconciled_closed_issue_included": true
   },
   "validation_details": {
-    "total_open_issues": 216,
-    "assigned_open_issues": 216,
+    "total_open_issues": 212,
+    "assigned_open_issues": 212,
     "unassigned_issue_ids": [],
     "duplicate_assignments": [],
-    "closed_audit_ids_included": []
+    "closed_audit_ids_included": [],
+    "stale_review_issue_ids_removed": [
+      "review::.::holistic::incomplete_migration::internal_orchestrator_barrel_drift",
+      "review::.::holistic::incomplete_migration::toast_string_back_compat_dead"
+    ],
+    "stale_review_reconciliation_date": "2026-06-01"
   },
   "package_count": 9,
   "packages": [
@@ -175,7 +180,6 @@
         "review::.::holistic::cross_module_architecture::lazy_screen_contracts_live_in_concrete_ui_files",
         "review::.::holistic::high_level_elegance::orchestrator_public_barrel_backflow",
         "review::.::holistic::high_level_elegance::types_package_role_drift",
-        "review::.::holistic::incomplete_migration::internal_orchestrator_barrel_drift",
         "review::.::holistic::mid_level_elegance::ui_owned_persistence_seams",
         "single_use::src/modules/ui/now-playing-info/styles.css",
         "smells::src/__tests__/App.test.ts::non_null_assert",
@@ -211,7 +215,6 @@
         "review::.::holistic::cross_module_architecture::lazy_screen_contracts_live_in_concrete_ui_files",
         "review::.::holistic::high_level_elegance::orchestrator_public_barrel_backflow",
         "review::.::holistic::high_level_elegance::types_package_role_drift",
-        "review::.::holistic::incomplete_migration::internal_orchestrator_barrel_drift",
         "review::.::holistic::mid_level_elegance::ui_owned_persistence_seams"
       ],
       "includes_fresh_non_review_issue_ids": [],
@@ -226,9 +229,9 @@
       "recommended_scope_boundary": "Keep this package on app-shell seams, shared UI overlays, settings/persistence assembly, and shared presentation helpers. Do not absorb auth/profile lifecycle behavior or EPG-specific runtime cleanup.",
       "recommended_execution_order": 2,
       "estimated_backlog_size": {
-        "total_open": 39,
+        "total_open": 38,
         "older_live_non_review": 33,
-        "fresh_review": 6,
+        "fresh_review": 5,
         "fresh_non_review": 0
       },
       "risk_level": "high",
@@ -247,14 +250,14 @@
       },
       "verified_package_size": {
         "package_name": "App-Shell, Shared UI, And Persistence Seams",
-        "total_open": 39,
+        "total_open": 38,
         "older_live_non_review": 33,
-        "fresh_review": 6,
+        "fresh_review": 5,
         "fresh_non_review": 0,
         "by_detector": {
           "structural": 15,
           "smells": 12,
-          "review": 6,
+          "review": 5,
           "facade": 4,
           "logs": 1,
           "single_use": 1
@@ -745,8 +748,8 @@
       },
       "verified_package_size": {
         "package_name": "EPG Runtime And Package Surfaces",
-        "total_open": 32,
-        "older_live_non_review": 23,
+        "total_open": 30,
+        "older_live_non_review": 21,
         "fresh_review": 5,
         "fresh_non_review": 4,
         "by_detector": {
@@ -779,13 +782,11 @@
         "flat_dirs::src",
         "review::.::holistic::ai_generated_debt::defensive_nonfatal_wrapper_sprawl",
         "review::.::holistic::ai_generated_debt::template_docblock_noise",
-        "review::.::holistic::incomplete_migration::toast_string_back_compat_dead",
         "smells::src/utils/EventEmitter.ts::console_error_no_throw"
       ],
       "includes_review_issue_ids": [
         "review::.::holistic::ai_generated_debt::defensive_nonfatal_wrapper_sprawl",
-        "review::.::holistic::ai_generated_debt::template_docblock_noise",
-        "review::.::holistic::incomplete_migration::toast_string_back_compat_dead"
+        "review::.::holistic::ai_generated_debt::template_docblock_noise"
       ],
       "includes_fresh_non_review_issue_ids": [],
       "entry_criteria": [
@@ -799,9 +800,9 @@
       "recommended_scope_boundary": "Keep this package on repo-wide template noise, defensive wrapper sprawl, dead compatibility shims, and other residue that does not belong to a single runtime domain owner.",
       "recommended_execution_order": 8,
       "estimated_backlog_size": {
-        "total_open": 5,
+        "total_open": 4,
         "older_live_non_review": 2,
-        "fresh_review": 3,
+        "fresh_review": 2,
         "fresh_non_review": 0
       },
       "risk_level": "medium",
@@ -819,12 +820,12 @@
       },
       "verified_package_size": {
         "package_name": "Shared Hygiene And Migration Residue",
-        "total_open": 5,
+        "total_open": 4,
         "older_live_non_review": 2,
-        "fresh_review": 3,
+        "fresh_review": 2,
         "fresh_non_review": 0,
         "by_detector": {
-          "review": 3,
+          "review": 2,
           "flat_dirs": 1,
           "smells": 1
         }
