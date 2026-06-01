@@ -314,7 +314,7 @@ export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicy
     throwIfStartupAborted(inputs.signal);
     inputs.updateModuleStatus('plex-server-discovery', 'initializing');
     try {
-        await inputs.plexDiscovery.initialize();
+        await inputs.plexDiscovery.initialize({ signal: inputs.signal ?? null });
         throwIfStartupAborted(inputs.signal);
     } catch (error) {
         if (isPlexAuthRecoverable(error)) {

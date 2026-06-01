@@ -178,7 +178,7 @@ interface IPlexServerDiscovery {
 
   refreshServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
 
-  initialize(): Promise<void>;
+  initialize(options?: PlexDiscoverySignalOptions): Promise<void>;
 
   setStorageKeys(selectedServerKey: string, serverHealthKey: string): void;
 

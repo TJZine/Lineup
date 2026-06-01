@@ -184,7 +184,7 @@ export class InitializationCoordinator {
         let phaseToRun: StartupPhase = startPhase;
         let caughtError: unknown = null;
         let shouldScheduleEpgWarmup = false;
-        let shouldRunFinalReadyWork = false;
+        let shouldEagerlyInitEpgForFinalReadyWork: boolean | null = null;
 
         try {
             while (true) {
@@ -235,15 +235,14 @@ export class InitializationCoordinator {
                 throwIfStartupAborted(activeSignal);
                 const queuedWork = this._startupQueue.consumeQueuedWork();
                 if (queuedWork === null) {
-                    shouldScheduleEpgWarmup = !shouldEagerlyInitEpgForPass;
-                    shouldRunFinalReadyWork = true;
+                    shouldEagerlyInitEpgForFinalReadyWork = shouldEagerlyInitEpgForPass;
                     break;
                 }
                 phaseToRun = queuedWork.phase;
                 activeSignal = queuedWork.signal;
             }
 
-            if (shouldRunFinalReadyWork) {
+            if (shouldEagerlyInitEpgForFinalReadyWork !== null) {
                 throwIfStartupAborted(activeSignal);
                 this._callbacks.state.setupEventWiring();
 
@@ -271,6 +270,7 @@ export class InitializationCoordinator {
                 this.clearAuthResume();
                 this.clearServerResume();
                 this.clearProfileResume();
+                shouldScheduleEpgWarmup = !shouldEagerlyInitEpgForFinalReadyWork;
             }
         } catch (error: unknown) {
             caughtError = error;

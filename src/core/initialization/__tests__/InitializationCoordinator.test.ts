@@ -1318,6 +1318,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         (releaseDiscoveryInitialize as unknown as () => void)();
 
         await expect(resume).rejects.toBe(abortReason);
+        expect(plexDiscovery.initialize).toHaveBeenCalledWith({ signal: controller.signal });
         expect(callbacks.setupEventWiring).not.toHaveBeenCalled();
         expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
         expect(callbacks.handleGlobalError).not.toHaveBeenCalled();
@@ -1593,6 +1594,51 @@ describe('InitializationCoordinator (Plex Home)', () => {
     });
 
 	    describe('post-ready routing policy', () => {
+        it('does not schedule deferred EPG warmup when full-startup final routing fails', async () => {
+            jest.useFakeTimers();
+            const epg = {
+                initialize: jest.fn(),
+            } as unknown as LegacyInitializationDependencies['epg'];
+            const epgReadiness = {
+                ensureReady: jest.fn(async () => undefined),
+            } as NonNullable<LegacyInitializationDependencies['epgReadiness']>;
+            const { coordinator, deps, callbacks } = makeCoordinator({
+                epg,
+                epgReadiness,
+                channelManager: {
+                    loadChannels: jest.fn().mockResolvedValue(undefined),
+                    getCurrentChannel: jest.fn().mockReturnValue({ id: 'current-channel-id' }),
+                    getAllChannels: jest.fn().mockReturnValue([]),
+                } as unknown as LegacyInitializationDependencies['channelManager'],
+            });
+            const plexAuth = deps.plexAuth as unknown as {
+                readStoredCredentialsAndClearCorruption: jest.Mock;
+                validateToken: jest.Mock;
+            };
+            const plexDiscovery = deps.plexDiscovery as unknown as {
+                initialize: jest.Mock;
+                isConnected: jest.Mock;
+            };
+
+            try {
+                plexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
+                    createStoredCredentials('active-token', 'account-token')
+                );
+                plexAuth.validateToken.mockResolvedValue(true);
+                plexDiscovery.initialize.mockResolvedValue(undefined);
+                plexDiscovery.isConnected.mockReturnValue(true);
+                (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
+
+                await expect(coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP)).rejects.toThrow('route failed');
+                await jest.advanceTimersByTimeAsync(1500);
+
+                expect((epg as unknown as { initialize: jest.Mock }).initialize).not.toHaveBeenCalled();
+                expect(epgReadiness.ensureReady).not.toHaveBeenCalled();
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
 	        it('routes to audio-setup when audio and channel setup are both required', async () => {
 	            const { coordinator, deps, callbacks } = makeCoordinator();
 	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };

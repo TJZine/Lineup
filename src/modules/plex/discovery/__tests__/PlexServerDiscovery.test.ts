@@ -1338,6 +1338,70 @@ describe('PlexServerDiscovery', () => {
             });
         });
 
+        it('aborts initialize restore before stale selected-state side effects are written', async () => {
+            mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, 'srv1');
+
+            const mockServers = [
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Test Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'https://test:32400',
+                            protocol: 'https',
+                            address: 'test',
+                            port: 32400,
+                            local: true,
+                            relay: false,
+                        },
+                    ],
+                },
+            ];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
+            });
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const controller = new AbortController();
+            const abortReason = new DOMException('startup cancelled during restore', 'AbortError');
+            const serverChanges: Array<unknown> = [];
+            const connectionChanges: Array<unknown> = [];
+            discovery.on('serverChange', (server) => {
+                serverChanges.push(server);
+            });
+            discovery.on('connectionChange', (uri) => {
+                connectionChanges.push(uri);
+            });
+            jest.spyOn(discovery, 'findFastestConnection').mockImplementation(async (server) => {
+                controller.abort(abortReason);
+                return {
+                    connection: {
+                        ...server.connections[0]!,
+                        latencyMs: 1,
+                    },
+                    authRequired: false,
+                    authState: null,
+                };
+            });
+
+            await expect(discovery.initialize({ signal: controller.signal })).rejects.toBe(abortReason);
+
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(discovery.getSelectedConnection()).toBeNull();
+            expect(serverChanges).toEqual([]);
+            expect(connectionChanges).toEqual([]);
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBeNull();
+        });
+
         it('does not revert to a stale pending server id on subsequent initialize after selecting a new server', async () => {
             mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, 'srvA');
 

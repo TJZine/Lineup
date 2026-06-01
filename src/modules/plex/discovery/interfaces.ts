@@ -18,7 +18,7 @@ export interface PlexDiscoverySignalOptions {
 export interface IPlexServerDiscovery {
     discoverServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
     refreshServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
-    initialize(): Promise<void>;
+    initialize(options?: PlexDiscoverySignalOptions): Promise<void>;
     setStorageKeys(selectedServerKey: string, serverHealthKey: string): void;
 
     /**

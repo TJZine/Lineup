@@ -32,8 +32,7 @@ function countPackageIssues(packageEntry) {
     };
 }
 
-test('active cleanup package map count metadata matches package issue membership', () => {
-    const packageMap = readPackageMap();
+function validatePackageMap(packageMap) {
     const assignedIssueIds = new Set();
     const totals = {
         total_open: 0,
@@ -49,7 +48,13 @@ test('active cleanup package map count metadata matches package issue membership
         no_issue_multiply_assigned: true,
         no_reconciled_closed_issue_included: true,
     });
+    assert.equal(
+        Array.isArray(packageMap.validation_details.stale_review_issue_ids_removed),
+        true,
+        'validation_details.stale_review_issue_ids_removed must be present'
+    );
 
+    const packageOrders = [];
     for (const packageEntry of packageMap.packages) {
         const actual = countPackageIssues(packageEntry);
         const issueIds = packageEntry.includes_issue_ids ?? [];
@@ -61,6 +66,12 @@ test('active cleanup package map count metadata matches package issue membership
             return false;
         });
 
+        assert.equal(
+            Number.isInteger(packageEntry.recommended_execution_order),
+            true,
+            `${packageEntry.package_id} recommended_execution_order must be an integer`
+        );
+        packageOrders.push(packageEntry.recommended_execution_order);
         assert.deepEqual(duplicateIds, [], `${packageEntry.package_id} must not duplicate issue ids`);
         assert.deepEqual(
             [...(packageEntry.includes_review_issue_ids ?? [])].sort(),
@@ -115,6 +126,11 @@ test('active cleanup package map count metadata matches package issue membership
         }
     }
 
+    assert.deepEqual(
+        [...packageOrders].sort((a, b) => a - b),
+        Array.from({ length: packageMap.package_count }, (_value, index) => index + 1),
+        'recommended_execution_order values must be contiguous with package_count'
+    );
     assert.deepEqual(packageMap.verified_counts, totals);
     assert.equal(packageMap.validation_details.total_open_issues, totals.total_open);
     assert.equal(packageMap.validation_details.assigned_open_issues, totals.total_open);
@@ -127,6 +143,165 @@ test('active cleanup package map count metadata matches package issue membership
             assignedIssueIds.has(issueId),
             false,
             `stale review issue ${issueId} must not be assigned to an active package`
+        );
+    }
+}
+
+test('active cleanup package map count metadata matches package issue membership', () => {
+    validatePackageMap(readPackageMap());
+});
+
+function clonePackageMap(packageMap) {
+    return JSON.parse(JSON.stringify(packageMap));
+}
+
+function createPackageEntry(packageId, order, issueIds) {
+    const entry = {
+        package_id: packageId,
+        package_name: packageId,
+        includes_issue_ids: issueIds,
+        includes_review_issue_ids: issueIds.filter((issueId) => issueId.startsWith('review::')),
+        includes_fresh_non_review_issue_ids: [],
+        recommended_execution_order: order,
+        estimated_backlog_size: {
+            total_open: 0,
+            older_live_non_review: 0,
+            fresh_review: 0,
+            fresh_non_review: 0,
+        },
+        checklist_tokens: {
+            work_item: `P${order}-W1`,
+            priority_exit: `P${order}-EXIT`,
+        },
+        verified_package_size: {
+            package_name: packageId,
+            total_open: 0,
+            older_live_non_review: 0,
+            fresh_review: 0,
+            fresh_non_review: 0,
+            by_detector: {},
+        },
+    };
+    const actual = countPackageIssues(entry);
+    const counts = {
+        total_open: actual.total_open,
+        older_live_non_review: actual.older_live_non_review,
+        fresh_review: actual.fresh_review,
+        fresh_non_review: actual.fresh_non_review,
+    };
+    entry.estimated_backlog_size = { ...counts };
+    entry.verified_package_size = {
+        ...entry.verified_package_size,
+        ...counts,
+        by_detector: actual.by_detector,
+    };
+    return entry;
+}
+
+function createValidFixture() {
+    const packages = [
+        createPackageEntry('pkg_one', 1, [
+            'review::.::holistic::type_safety::one',
+            'smells::src/example.ts::magic_number',
+        ]),
+        createPackageEntry('pkg_two', 2, [
+            'structural::src/other.ts',
+        ]),
+    ];
+    return {
+        package_count: packages.length,
+        validation: {
+            every_open_issue_assigned_once: true,
+            no_open_issue_unassigned: true,
+            no_issue_multiply_assigned: true,
+            no_reconciled_closed_issue_included: true,
+        },
+        validation_details: {
+            total_open_issues: 3,
+            assigned_open_issues: 3,
+            unassigned_issue_ids: [],
+            duplicate_assignments: [],
+            closed_audit_ids_included: [],
+            stale_review_issue_ids_removed: [
+                'review::.::holistic::type_safety::stale',
+            ],
+        },
+        verified_counts: {
+            total_open: 3,
+            older_live_non_review: 2,
+            fresh_review: 1,
+            fresh_non_review: 0,
+        },
+        packages,
+    };
+}
+
+test('active cleanup package map verifier rejects malformed self-consistent package maps', () => {
+    const cases = [
+        {
+            name: 'stale review id assigned to an active package',
+            mutate: (fixture) => {
+                const staleId = fixture.validation_details.stale_review_issue_ids_removed[0];
+                fixture.packages[0].includes_issue_ids.push(staleId);
+                fixture.packages[0].includes_review_issue_ids.push(staleId);
+                fixture.packages[0].estimated_backlog_size.total_open += 1;
+                fixture.packages[0].estimated_backlog_size.fresh_review += 1;
+                fixture.packages[0].verified_package_size.total_open += 1;
+                fixture.packages[0].verified_package_size.fresh_review += 1;
+                fixture.packages[0].verified_package_size.by_detector.review += 1;
+                fixture.verified_counts.total_open += 1;
+                fixture.verified_counts.fresh_review += 1;
+                fixture.validation_details.total_open_issues += 1;
+                fixture.validation_details.assigned_open_issues += 1;
+            },
+        },
+        {
+            name: 'malformed verified counts',
+            mutate: (fixture) => {
+                fixture.verified_counts.total_open += 1;
+                fixture.validation_details.total_open_issues += 1;
+                fixture.validation_details.assigned_open_issues += 1;
+            },
+        },
+        {
+            name: 'duplicate issue assignment',
+            mutate: (fixture) => {
+                const duplicateId = fixture.packages[0].includes_issue_ids[0];
+                fixture.packages[1].includes_issue_ids.push(duplicateId);
+                fixture.packages[1].includes_review_issue_ids.push(duplicateId);
+                fixture.packages[1].estimated_backlog_size.total_open += 1;
+                fixture.packages[1].estimated_backlog_size.fresh_review += 1;
+                fixture.packages[1].verified_package_size.total_open += 1;
+                fixture.packages[1].verified_package_size.fresh_review += 1;
+                fixture.packages[1].verified_package_size.by_detector.review =
+                    (fixture.packages[1].verified_package_size.by_detector.review ?? 0) + 1;
+                fixture.verified_counts.total_open += 1;
+                fixture.verified_counts.fresh_review += 1;
+                fixture.validation_details.total_open_issues += 1;
+                fixture.validation_details.assigned_open_issues += 1;
+            },
+        },
+        {
+            name: 'package-count execution-order hole',
+            mutate: (fixture) => {
+                fixture.packages[1].recommended_execution_order = 3;
+            },
+        },
+        {
+            name: 'missing stale review metadata',
+            mutate: (fixture) => {
+                delete fixture.validation_details.stale_review_issue_ids_removed;
+            },
+        },
+    ];
+
+    for (const { name, mutate } of cases) {
+        const fixture = clonePackageMap(createValidFixture());
+        mutate(fixture);
+        assert.throws(
+            () => validatePackageMap(fixture),
+            undefined,
+            name
         );
     }
 });
