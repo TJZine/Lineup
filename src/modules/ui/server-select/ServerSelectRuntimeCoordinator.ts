@@ -426,15 +426,11 @@ export class ServerSelectRuntimeCoordinator {
     }
 
     private _abortActiveLoad(): void {
-        if (!this._activeLoadAbortController?.signal.aborted) {
-            this._activeLoadAbortController?.abort();
-        }
+        this._activeLoadAbortController?.abort();
     }
 
     private _abortActiveSelection(): void {
-        if (!this._activeSelectAbortController?.signal.aborted) {
-            this._activeSelectAbortController?.abort();
-        }
+        this._activeSelectAbortController?.abort();
     }
 
     private _restoreFocus(generation: number): void {

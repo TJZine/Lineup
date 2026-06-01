@@ -95,6 +95,7 @@ async function fetchDiscoveryAttempt(
     let lastUrl = '';
 
     for (const variant of variants) {
+        throwIfAborted(signal);
         lastUrl = variant.url;
         onAttemptUrl(lastUrl);
 

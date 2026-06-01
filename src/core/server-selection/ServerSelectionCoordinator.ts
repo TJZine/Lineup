@@ -76,8 +76,15 @@ export class ServerSelectionCoordinator {
     ): Promise<OrchestratorServerSelectionResult> {
         throwIfSelectionAborted(options?.signal);
         const discoverySnapshot = this._deps.captureDiscoverySelectionSnapshot();
-        const selectionResult = await this._deps.selectServer(serverId, options);
+        let selectionResult: PlexServerSelectionResult;
+        try {
+            selectionResult = await this._deps.selectServer(serverId, options);
+        } catch (error) {
+            this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
+            throw error;
+        }
         if (selectionResult.kind !== 'selected') {
+            this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
             return {
                 kind: 'selection_failed',
                 reason:

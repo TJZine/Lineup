@@ -182,7 +182,7 @@ export class InitializationCoordinator {
 
         this._startupInProgress = true;
         let phaseToRun: StartupPhase = startPhase;
-        let caughtError: unknown = null;
+        let caughtError: unknown;
         let shouldScheduleEpgWarmup = false;
         let shouldEagerlyInitEpgForFinalReadyWork: boolean | null = null;
 
@@ -275,7 +275,8 @@ export class InitializationCoordinator {
         } catch (error: unknown) {
             caughtError = error;
             this._cancelEpgWarmup();
-            if (!isStartupAbortError(error, activeSignal)) {
+            if (isStartupAbortError(error, activeSignal)) shouldScheduleEpgWarmup = false;
+            else {
                 const message = error instanceof Error ? error.message : String(error);
                 // Avoid leaving stale resume listeners after a fatal startup error.
                 this.clearAuthResume();
@@ -298,9 +299,8 @@ export class InitializationCoordinator {
         if (shouldScheduleEpgWarmup) {
             this._scheduleEpgWarmup();
         }
-
         // Rethrow after cleanup so direct callers receive a rejected Promise
-        if (caughtError) {
+        if (caughtError !== undefined) {
             throw caughtError;
         }
     }

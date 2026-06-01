@@ -286,15 +286,18 @@ describe('ServerSelectRuntimeCoordinator', () => {
 
         const autoServer = makeServer('srv-auto', 'Saved Server');
         const autoSelection = createDeferred<ServerSelectSelectionResult>();
+        const autoSelectionStarted = createDeferred<void>();
         const autoPorts = createPorts({
             discoverServers: jest.fn().mockResolvedValue([autoServer]),
-            selectServer: jest.fn().mockReturnValue(autoSelection.promise),
+            selectServer: jest.fn().mockImplementation(() => {
+                autoSelectionStarted.resolve();
+                return autoSelection.promise;
+            }),
             getSelectedServerScreenState: jest.fn(() => makeScreenState({ selectedServerId: autoServer.id })),
         } as Partial<RuntimePorts>);
         const autoRuntime = createRuntime({ ports: autoPorts });
         autoRuntime.runtime.show({ allowAutoConnect: true });
-        await Promise.resolve();
-        await Promise.resolve();
+        await autoSelectionStarted.promise;
         const autoSelectSignal = autoPorts.selectServer.mock.calls[0]?.[1]?.signal;
         autoRuntime.runtime.hide();
         clearAdapterMocks(autoRuntime.adapter);

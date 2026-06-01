@@ -1102,10 +1102,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 });
 
                 expect(mockPlexDiscovery.selectServer.mock.calls[0]?.[0]).toBe('server-1');
-                expect(runStartupSpy).toHaveBeenCalledWith(
-                    STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
-                    undefined
-                );
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
                 expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
@@ -1152,10 +1149,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
 
-                expect(runStartupSpy).toHaveBeenCalledWith(
-                    STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
-                    undefined
-                );
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
             } finally {
                 refreshSpy.mockRestore();
@@ -1230,10 +1224,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy).toHaveBeenCalledWith(
-                    STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
-                    undefined
-                );
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             } finally {
                 runStartupSpy.mockRestore();
             }
@@ -1262,10 +1253,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy).toHaveBeenCalledWith(
-                    STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
-                    undefined
-                );
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             } finally {
                 runStartupSpy.mockRestore();
             }

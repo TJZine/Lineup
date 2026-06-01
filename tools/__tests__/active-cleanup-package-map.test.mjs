@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
+const REPO_ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const PACKAGE_MAP_PATH = path.join(REPO_ROOT, 'docs/architecture/active-cleanup-package-map.json');
 
 function readPackageMap() {

@@ -73,10 +73,10 @@ export class InitializationStartupQueue {
                 if (waiter.signal && waiter.onAbort) {
                     waiter.signal.removeEventListener('abort', waiter.onAbort);
                 }
-                if (caughtError) {
-                    waiter.reject(caughtError);
-                } else {
+                if (caughtError === undefined) {
                     waiter.resolve();
+                } else {
+                    waiter.reject(caughtError);
                 }
             } catch {
                 // Ignore waiter failures.

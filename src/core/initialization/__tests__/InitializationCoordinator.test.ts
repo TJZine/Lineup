@@ -1362,6 +1362,10 @@ describe('InitializationCoordinator (Plex Home)', () => {
         let releaseAuthValidation: (() => void) | null = null;
         let releaseEpgReady: (() => void) | null = null;
         let markEpgReadyWaitStarted: (() => void) | null = null;
+        let markValidateTokenStarted: (() => void) | null = null;
+        const validateTokenStarted = new Promise<void>((resolve) => {
+            markValidateTokenStarted = resolve;
+        });
         const epgReadyWaitStarted = new Promise<void>((resolve) => {
             markEpgReadyWaitStarted = resolve;
         });
@@ -1394,16 +1398,14 @@ describe('InitializationCoordinator (Plex Home)', () => {
             () =>
                 new Promise<boolean>((resolve) => {
                     releaseAuthValidation = (): void => resolve(true);
+                    markValidateTokenStarted?.();
                 })
         );
         plexDiscovery.initialize.mockResolvedValue(undefined);
         plexDiscovery.isConnected.mockReturnValue(true);
 
         const firstRun = coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
-        for (let attempt = 0; attempt < 5 && !releaseAuthValidation; attempt += 1) {
-            await Promise.resolve();
-        }
-        expect(releaseAuthValidation).toBeTruthy();
+        await validateTokenStarted;
 
         const queuedRun = coordinator.runStartup(
             STARTUP_PHASE.RESUME_EPG_ONLY,

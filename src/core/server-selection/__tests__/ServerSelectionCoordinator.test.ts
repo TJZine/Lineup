@@ -57,8 +57,34 @@ describe('ServerSelectionCoordinator', () => {
         expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
         expect(deps.persistSelection).not.toHaveBeenCalled();
         expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
-        expect(deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
         expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('restores discovery state when Plex selection rejects', async () => {
+        const selectionError = new Error('selection failed');
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => {
+                throw selectionError;
+            }),
+            getSelectedServerUri: jest.fn(() => null),
+            persistSelection: jest.fn(async () => 'updated' as const),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
+            getReadiness: jest.fn(() => 'startup_pending' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(coordinator.selectServer('server-1')).rejects.toBe(selectionError);
+
+        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.persistSelection).not.toHaveBeenCalled();
+        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
     });
 
     it('persists the selection, resumes startup, and returns the app-facing selected result', async () => {
