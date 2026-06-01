@@ -1,4 +1,7 @@
 import type {
+    PlexDiscoverySignalOptions,
+} from '../../modules/plex/discovery';
+import type {
     PersistedSelectedServerSnapshot,
     SelectedServerPersistenceResult,
     SelectedServerStartupResumeResult,
@@ -13,7 +16,7 @@ export interface SelectedServerRuntimeControllerDeps {
     restorePersistedSelectionSnapshot(
         snapshot: PersistedSelectedServerSnapshot
     ): Promise<SelectedServerPersistenceResult>;
-    resumeStartupAfterSelection(): Promise<SelectedServerStartupResumeResult>;
+    resumeStartupAfterSelection(options?: PlexDiscoverySignalOptions): Promise<SelectedServerStartupResumeResult>;
     clearDiscoverySelection(): void;
 }
 
@@ -37,8 +40,10 @@ export class SelectedServerRuntimeController {
         return this._deps.restorePersistedSelectionSnapshot(snapshot);
     }
 
-    async resumeStartupAfterSelection(): Promise<SelectedServerStartupResumeResult> {
-        return this._deps.resumeStartupAfterSelection();
+    async resumeStartupAfterSelection(
+        options?: PlexDiscoverySignalOptions
+    ): Promise<SelectedServerStartupResumeResult> {
+        return this._deps.resumeStartupAfterSelection(options);
     }
 
     async clearSelection(): Promise<SelectedServerPersistenceResult> {

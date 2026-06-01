@@ -21,6 +21,7 @@ import {
 import {
     SelectedServerRuntimeController,
 } from '../../server-selection/SelectedServerRuntimeController';
+import { throwIfSelectionAborted } from '../../server-selection/ServerSelectionAbort';
 import type {
     DiscoverySelectedServerSnapshot,
     OrchestratorServerSelectionReadiness,
@@ -69,8 +70,10 @@ export class OrchestratorServerSelectionRuntime {
                 snapshot: PersistedSelectedServerSnapshot
             ): Promise<SelectedServerPersistenceResult> =>
                 this._selectedServerPersistenceAdapter.restorePersistedSelectionSnapshot(snapshot),
-            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
-                this._resumeStartupAfterSelectedServerChange(),
+            resumeStartupAfterSelection: (
+                options?: PlexDiscoverySignalOptions
+            ): Promise<SelectedServerStartupResumeResult> =>
+                this._resumeStartupAfterSelectedServerChange(options),
             clearDiscoverySelection: (): void => {
                 const plexDiscovery = this._deps.getPlexDiscovery();
                 if (!plexDiscovery) {
@@ -111,8 +114,10 @@ export class OrchestratorServerSelectionRuntime {
                 snapshot: PersistedSelectedServerSnapshot
             ): Promise<SelectedServerPersistenceResult> =>
                 this._selectedServerRuntimeController.restorePersistedSelectionSnapshot(snapshot),
-            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
-                this._selectedServerRuntimeController.resumeStartupAfterSelection(),
+            resumeStartupAfterSelection: (
+                options?: PlexDiscoverySignalOptions
+            ): Promise<SelectedServerStartupResumeResult> =>
+                this._selectedServerRuntimeController.resumeStartupAfterSelection(options),
             getReadiness: (): OrchestratorServerSelectionReadiness =>
                 (this._deps.isReady() ? 'ready' : 'startup_pending'),
         });
@@ -169,7 +174,10 @@ export class OrchestratorServerSelectionRuntime {
         this._deps.getPlexDiscovery()?.restoreSelectedServerSnapshot(snapshot);
     }
 
-    private async _resumeStartupAfterSelectedServerChange(): Promise<SelectedServerStartupResumeResult> {
+    private async _resumeStartupAfterSelectedServerChange(
+        options?: PlexDiscoverySignalOptions
+    ): Promise<SelectedServerStartupResumeResult> {
+        const signal = options?.signal;
         const initCoordinator = this._deps.getInitializationCoordinator();
         if (!initCoordinator) {
             return {
@@ -181,7 +189,9 @@ export class OrchestratorServerSelectionRuntime {
         let step = 'runStartup';
 
         try {
+            throwIfSelectionAborted(signal);
             await initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+            throwIfSelectionAborted(signal);
 
             const epgCoordinator = this._deps.getEpgCoordinator();
             if (!epgCoordinator) {
@@ -193,23 +203,29 @@ export class OrchestratorServerSelectionRuntime {
             const epg = this._deps.getEpg();
 
             step = 'clearSelectedChannelScheduleSnapshot';
+            throwIfSelectionAborted(signal);
             epgCoordinator.clearSelectedChannelScheduleSnapshot();
 
             step = 'clearScheduleCaches';
+            throwIfSelectionAborted(signal);
             epgCoordinator.clearScheduleCaches();
 
             if (epg) {
                 step = 'clearSchedules';
+                throwIfSelectionAborted(signal);
                 epg.clearSchedules();
             }
 
             step = 'primeEpgChannels';
+            throwIfSelectionAborted(signal);
             epgCoordinator.primeEpgChannels();
 
             step = 'refreshEpgSchedules';
+            throwIfSelectionAborted(signal);
             const refreshResult = await captureRecoverableRuntimeResultAsync(
                 async () => epgCoordinator.refreshEpgSchedules({ reason: 'server-swap' })
             );
+            throwIfSelectionAborted(signal);
             if (!refreshResult.ok) {
                 this._deps.reportError(
                     'orchestrator.serverSwap.refreshEpgSchedules',

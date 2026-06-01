@@ -1,4 +1,5 @@
 import type { PlexDiscoverySignalOptions, PlexServerSelectionResult } from '../../modules/plex/discovery';
+import { throwIfSelectionAborted } from './ServerSelectionAbort';
 import type {
     DiscoverySelectedServerSnapshot,
     OrchestratorServerSelectionReadiness,
@@ -21,7 +22,7 @@ export interface ServerSelectionCoordinatorDeps {
     restorePersistedSelectionSnapshot(
         snapshot: PersistedSelectedServerSnapshot
     ): Promise<SelectedServerPersistenceResult>;
-    resumeStartupAfterSelection(): Promise<SelectedServerStartupResumeResult>;
+    resumeStartupAfterSelection(options?: PlexDiscoverySignalOptions): Promise<SelectedServerStartupResumeResult>;
     getReadiness(): OrchestratorServerSelectionReadiness;
 }
 
@@ -64,6 +65,7 @@ export class ServerSelectionCoordinator {
         serverId: string,
         options?: PlexDiscoverySignalOptions
     ): Promise<OrchestratorServerSelectionResult> {
+        throwIfSelectionAborted(options?.signal);
         const discoverySnapshot = this._deps.captureDiscoverySelectionSnapshot();
         const selectionResult = await this._deps.selectServer(serverId, options);
         if (selectionResult.kind !== 'selected') {
@@ -75,11 +77,18 @@ export class ServerSelectionCoordinator {
                         : selectionResult.reason,
             };
         }
+        try {
+            throwIfSelectionAborted(options?.signal);
+        } catch (error) {
+            this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
+            throw error;
+        }
 
         let persistedSelectionSnapshot: PersistedSelectedServerSnapshot;
         let persistedSelection: SelectedServerPersistenceResult;
         try {
             persistedSelectionSnapshot = await this._deps.capturePersistedSelectionSnapshot();
+            throwIfSelectionAborted(options?.signal);
             const selectedServerUri = this._deps.getSelectedServerUri();
             persistedSelection = await this._deps.persistSelection(serverId, selectedServerUri);
         } catch (error) {
@@ -88,7 +97,9 @@ export class ServerSelectionCoordinator {
         }
 
         try {
-            const startupResume = await this._deps.resumeStartupAfterSelection();
+            throwIfSelectionAborted(options?.signal);
+            const startupResume = await this._deps.resumeStartupAfterSelection(options);
+            throwIfSelectionAborted(options?.signal);
             return {
                 kind: 'selected',
                 readiness: this._deps.getReadiness(),

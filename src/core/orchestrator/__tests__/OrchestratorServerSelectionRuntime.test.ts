@@ -245,6 +245,52 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'server-swap' });
     });
 
+    it('stops server-swap EPG mutations when the caller aborts after startup resumes', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const plexAuth = createPlexAuth();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        initCoordinator.runStartup.mockImplementation(async () => {
+            controller.abort(abortReason);
+        });
+        const epg = {
+            clearSchedules: jest.fn(),
+        } as unknown as jest.Mocked<IEPGComponent>;
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const deps = createDeps({
+            getPlexAuth: jest.fn(() => plexAuth),
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+            getEpg: jest.fn(() => epg),
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(
+            runtime.selectServer('server-1', { signal: controller.signal })
+        ).rejects.toBe(abortReason);
+
+        expect(initCoordinator.runStartup).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+        expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).not.toHaveBeenCalled();
+        expect(epgCoordinator.clearScheduleCaches).not.toHaveBeenCalled();
+        expect(epg.clearSchedules).not.toHaveBeenCalled();
+        expect(epgCoordinator.primeEpgChannels).not.toHaveBeenCalled();
+        expect(epgCoordinator.refreshEpgSchedules).not.toHaveBeenCalled();
+        expect(plexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith({
+            server: null,
+            connection: null,
+            storedServerId: 'old-server',
+        });
+        expect(plexAuth.storeCredentials).toHaveBeenCalledTimes(2);
+        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials());
+    });
+
     it('returns failed EPG refresh status after clearing server-scoped schedule state', async () => {
         const plexDiscovery = createPlexDiscovery();
         const initCoordinator = createInitializationCoordinator();

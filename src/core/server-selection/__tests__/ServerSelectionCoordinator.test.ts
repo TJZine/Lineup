@@ -111,6 +111,93 @@ describe('ServerSelectionCoordinator', () => {
         });
 
         expect(deps.selectServer).toHaveBeenCalledWith('server-1', options);
+        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledWith(options);
+    });
+
+    it('rejects without side effects when the caller aborts before selection starts', async () => {
+        const abortReason = new DOMException('selection hidden', 'AbortError');
+        const controller = new AbortController();
+        controller.abort(abortReason);
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
+            getSelectedServerUri: jest.fn(() => 'http://example.com'),
+            persistSelection: jest.fn(async () => 'updated' as const),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(
+            coordinator.selectServer('server-1', { signal: controller.signal })
+        ).rejects.toBe(abortReason);
+
+        expect(deps.captureDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.selectServer).not.toHaveBeenCalled();
+        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.persistSelection).not.toHaveBeenCalled();
+        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+    });
+
+    it('rolls back discovery state when the caller aborts after Plex selection succeeds', async () => {
+        const abortReason = new DOMException('selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => {
+                controller.abort(abortReason);
+                return { kind: 'selected' as const };
+            }),
+            getSelectedServerUri: jest.fn(() => 'http://example.com'),
+            persistSelection: jest.fn(async () => 'updated' as const),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(
+            coordinator.selectServer('server-1', { signal: controller.signal })
+        ).rejects.toBe(abortReason);
+
+        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.persistSelection).not.toHaveBeenCalled();
+        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+    });
+
+    it('rolls back discovery and persisted state when the caller aborts after persistence', async () => {
+        const abortReason = new DOMException('selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
+            getSelectedServerUri: jest.fn(() => 'http://example.com'),
+            persistSelection: jest.fn(async () => {
+                controller.abort(abortReason);
+                return 'updated' as const;
+            }),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(
+            coordinator.selectServer('server-1', { signal: controller.signal })
+        ).rejects.toBe(abortReason);
+
+        expect(deps.persistSelection).toHaveBeenCalledWith('server-1', 'http://example.com');
+        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+        expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshot);
+        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
     });
 
     it('restores discovery runtime state without touching persisted selection when persistence rejects', async () => {
