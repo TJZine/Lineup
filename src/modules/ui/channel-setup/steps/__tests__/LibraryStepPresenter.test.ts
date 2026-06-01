@@ -14,7 +14,7 @@ import type { ChannelSetupSessionSnapshot } from '../../ChannelSetupSessionContr
 import { ChannelSetupFocusCoordinator } from '../../focus/ChannelSetupFocusCoordinator';
 import { createNavigationMock, makeLibrary } from '../../__tests__/channel-setup-test-helpers';
 import { LibraryStepPresenter } from '../LibraryStepPresenter';
-import type { StepRenderContext } from '../types';
+import type { StepRenderContext } from '../../stepContracts';
 
 const createContext = (): StepRenderContext => ({
     contentEl: document.createElement('div'),

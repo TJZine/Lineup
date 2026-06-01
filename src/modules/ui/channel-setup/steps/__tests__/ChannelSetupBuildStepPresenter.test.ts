@@ -4,7 +4,7 @@
 
 import { flushPromises } from '../../../../../__tests__/helpers';
 import { ChannelSetupBuildStepPresenter } from '../ChannelSetupBuildStepPresenter';
-import type { StepRenderContext } from '../types';
+import type { StepRenderContext } from '../../stepContracts';
 import type { ChannelSetupSessionSnapshot } from '../../ChannelSetupSessionContracts';
 import { DEFAULT_BUILD_RESULT, DEFAULT_REVIEW } from '../../__tests__/channel-setup-test-helpers';
 

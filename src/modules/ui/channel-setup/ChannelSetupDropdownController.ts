@@ -1,6 +1,6 @@
 import { createDropdownPopover } from '../common/CreateDropdownPopover';
 import type { INavigationManager } from '../../navigation/contracts/interfaces';
-import type { StrategyStepDropdownConfig } from './steps/types';
+import type { StrategyStepDropdownConfig } from './stepContracts';
 
 type ActiveDropdown = { destroy: () => void; dismiss: () => void };
 

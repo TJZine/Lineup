@@ -10,7 +10,7 @@ import type {
     SetupStrategyConfig,
 } from '../../../core/channel-setup/types';
 import type { PlexLibrarySection } from '../../plex/library';
-import type { SetupStrategyKey } from './steps/constants';
+import type { SetupStrategyKey } from './strategyConstants';
 
 type SetupStrategyStateItem = Pick<SetupStrategyConfig, 'enabled' | 'scope'>;
 

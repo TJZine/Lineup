@@ -11,7 +11,8 @@ import type {
 import type { ChannelSetupSessionController } from '../ChannelSetupSessionController';
 import { BuildProgressStepController } from './BuildProgressStepController';
 import { BuildReviewStepController } from './BuildReviewStepController';
-import type { BuildReviewStateSnapshot, StepRenderContext } from './types';
+import type { StepRenderContext } from '../stepContracts';
+import type { BuildReviewStateSnapshot } from './types';
 
 export class ChannelSetupBuildStepPresenter {
     private readonly _buildReviewStep = new BuildReviewStepController();

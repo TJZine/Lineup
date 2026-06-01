@@ -137,7 +137,6 @@ function assertManagedChildren(
 }
 
 export function createAppContainers(root: HTMLElement): AppContainerRefs {
-    // Video container
     const videoContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.VIDEO);
     videoContainer.className = 'video-container';
 
@@ -148,55 +147,42 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     assertManagedChildren(runtimeChromeHost, runtimeChromeChildren, 'AppContainerFactory runtime chrome host');
     reorderChildren(runtimeChromeHost, runtimeChromeChildren);
 
-    // EPG container
     const epgContainer = ensureCanonicalContainerDiv(root, EPG_CONTAINER_ID);
     epgContainer.className = 'epg-container';
 
-    // Now Playing Info overlay container
     const nowPlayingInfoContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.NOW_PLAYING_INFO);
 
-    // Playback Options modal container
     const playbackOptionsContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.PLAYBACK_OPTIONS);
 
-    // Exit confirmation modal container
     const exitConfirmContainer = ensureCanonicalContainerDiv(root, EXIT_CONFIRM_CONTAINER_ID);
 
-    // Splash container (startup screen)
     const splashContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.SPLASH);
     splashContainer.className = 'screen';
 
-    // Auth container (minimal screen)
     const authContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.AUTH);
     authContainer.className = 'screen';
 
-    // Profile select container (Plex Home)
     const profileSelectContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.PROFILE_SELECT);
     profileSelectContainer.className = 'screen';
 
-    // Server select container (minimal screen)
     const serverSelectContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.SERVER_SELECT);
     serverSelectContainer.className = 'screen';
 
-    // Channel setup container
     const channelSetupContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.CHANNEL_SETUP);
     channelSetupContainer.className = 'screen';
 
-    // Audio setup container
     const audioSetupContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.AUDIO_SETUP);
     audioSetupContainer.className = 'screen';
 
-    // Settings container
     const settingsContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.SETTINGS);
     settingsContainer.className = 'settings-screen';
 
-    // Error overlay container
     const errorOverlay = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY);
     errorOverlay.className = 'error-overlay hidden';
     errorOverlay.setAttribute('role', 'dialog');
     errorOverlay.setAttribute('aria-modal', 'true');
     errorOverlay.setAttribute('aria-label', 'Error');
 
-    // Dev Menu Container
     const devMenu = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.DEV_MENU);
     devMenu.style.position = 'absolute';
     devMenu.style.top = '50%';
@@ -208,7 +194,6 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     devMenu.style.display = 'none';
     devMenu.style.minWidth = '300px';
 
-    // Toast container (non-blocking warnings)
     const toastContainer = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.TOAST);
     toastContainer.className = 'app-toast';
     toastContainer.setAttribute('role', 'status');

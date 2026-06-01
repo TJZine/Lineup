@@ -6,9 +6,6 @@ import type {
 import type { ThemeName } from '../theme';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
 
-/**
- * Audio settings configuration.
- */
 export interface AudioSettings {
     /** Enable DTS passthrough for external receivers (requires webOS 23+) */
     dtsPassthrough: boolean;
@@ -16,9 +13,6 @@ export interface AudioSettings {
     directPlayAudioFallback: boolean;
 }
 
-/**
- * Playback settings configuration.
- */
 interface PlaybackSettings {
     /** Keep playback running when opening settings */
     keepPlayingInSettings: boolean;
@@ -28,11 +22,7 @@ interface PlaybackSettings {
     forceHdr10Fallback: boolean;
 }
 
-/**
- * Display settings configuration.
- */
 export interface DisplaySettings {
-    /** Color theme */
     theme: ThemeName;
     /** Now Playing Info overlay auto-hide timeout (ms) */
     nowPlayingInfoAutoHideMs: number;
@@ -44,21 +34,12 @@ export interface DisplaySettings {
     epgInfoBackgroundMode: 0 | 1 | 2;
 }
 
-/**
- * Developer/debug settings configuration.
- */
 export interface DeveloperSettings {
-    /** Enable verbose debug logging */
     debugLogging: boolean;
-    /** Enable verbose subtitle debug logging */
     subtitleDebugLogging: boolean;
-    /** Show FPS counter overlay */
     showFps: boolean;
 }
 
-/**
- * Subtitle settings configuration.
- */
 interface SubtitleSettings {
     /**
      * Subtitle handling mode.
@@ -74,17 +55,11 @@ interface SubtitleSettings {
     preferForced: boolean;
 }
 
-/**
- * Account settings configuration.
- */
 interface AccountSettings {
     /** Show profile picker on startup when Plex Home has multiple users */
     showProfilePickerOnStartup: boolean;
 }
 
-/**
- * Complete settings configuration.
- */
 export interface SettingsConfig {
     audio: AudioSettings;
     playback: PlaybackSettings;
@@ -94,9 +69,6 @@ export interface SettingsConfig {
     account: AccountSettings;
 }
 
-/**
- * Settings toggle item configuration.
- */
 export interface SettingsToggleConfig {
     id: string;
     label: string;
@@ -108,17 +80,11 @@ export interface SettingsToggleConfig {
     onChange: (value: boolean) => void;
 }
 
-/**
- * Settings select option configuration.
- */
 export interface SettingsSelectOption {
     label: string;
     value: number;
 }
 
-/**
- * Settings select item configuration.
- */
 export interface SettingsSelectConfig {
     id: string;
     label: string;
@@ -142,9 +108,6 @@ export type GuideSettingChange =
     | { key: 'pastItemsWindow'; value: EpgPastItemsWindow }
     | { key: 'infoBackgroundMode'; mode: 0 | 1 | 2 };
 
-/**
- * Settings category configuration.
- */
 export interface SettingsCategoryConfig {
     id: SettingsCategoryId;
     label: string;

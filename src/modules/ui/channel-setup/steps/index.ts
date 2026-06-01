@@ -3,7 +3,6 @@ export { StrategyStepController } from './StrategyStepController';
 export { BuildReviewStepController } from './BuildReviewStepController';
 export { BuildProgressStepController } from './BuildProgressStepController';
 export type {
-    StepRenderContext,
     LibraryStepDeps,
     StrategyStepStateSnapshot,
     StrategyStepDeps,
@@ -13,3 +12,7 @@ export type {
     BuildProgressDeps,
     BuildProgressUiRefs,
 } from './types';
+export type {
+    StepRenderContext,
+    StrategyStepDropdownConfig,
+} from '../stepContracts';

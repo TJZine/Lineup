@@ -29,7 +29,7 @@ import {
     MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS,
     type SetupStrategyKey,
-} from './steps/constants';
+} from './strategyConstants';
 import type { PlexLibrarySection } from '../../plex/library';
 
 export const strategySupportsMixedScope = (key: SetupStrategyKey): boolean =>

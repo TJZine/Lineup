@@ -1,5 +1,5 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
-import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../steps/constants';
+import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../strategyConstants';
 import type {
     ChannelSetupConfig,
     ChannelSetupRecord,

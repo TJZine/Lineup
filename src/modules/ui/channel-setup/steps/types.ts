@@ -9,17 +9,7 @@ import type {
     EstimateKey,
     StrategyStepMutableState,
 } from '../ChannelSetupSessionContracts';
-import type { SetupStrategyKey, StrategyCategoryKey } from './constants';
-
-export type { SetupStrategyKey, StrategyCategoryKey } from './constants';
-
-export interface StepRenderContext {
-    contentEl: HTMLElement;
-    stepEl: HTMLElement;
-    statusEl: HTMLElement;
-    detailEl: HTMLElement;
-    errorEl: HTMLElement;
-}
+import type { SetupStrategyKey, StrategyCategoryKey } from '../strategyConstants';
 
 export interface LibraryStepDeps {
     libraries: PlexLibrarySection[];
@@ -85,13 +75,6 @@ export interface StrategyStepDeps {
     detailText: string;
     schedulePreview: () => void;
     preloadReview: () => void;
-}
-
-export interface StrategyStepDropdownConfig {
-    anchorId: string;
-    options: Array<{ label: string; value: string }>;
-    currentValue: string;
-    onSelect: (value: string) => void;
 }
 
 export interface BuildReviewStateSnapshot {

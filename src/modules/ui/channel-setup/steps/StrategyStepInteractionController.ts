@@ -13,8 +13,8 @@ import {
     STRATEGY_CATEGORIES,
     type SetupStrategyKey,
     type StrategyCategoryKey,
-} from './constants';
-import type { StrategyStepDropdownConfig } from './types';
+} from '../strategyConstants';
+import type { StrategyStepDropdownConfig } from '../stepContracts';
 import type { RegisterStep2FocusOptions } from '../focus/types';
 import {
     getStrategyControlDescriptor,

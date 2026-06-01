@@ -4,7 +4,8 @@
 
 import { flushPromises } from '../../../../../__tests__/helpers';
 import { BuildProgressStepController } from '../BuildProgressStepController';
-import type { BuildProgressDeps, StepRenderContext } from '../types';
+import type { StepRenderContext } from '../../stepContracts';
+import type { BuildProgressDeps } from '../types';
 
 const createContext = (): StepRenderContext => {
     const contentEl = document.createElement('div');

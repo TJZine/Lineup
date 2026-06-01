@@ -9,13 +9,13 @@ import {
     DEFAULT_STRATEGY_PRIORITIES,
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
-} from './constants';
+    type SetupStrategyKey,
+    type StrategyCategoryKey,
+} from '../strategyConstants';
 import type {
-    SetupStrategyKey,
-    StepRenderContext,
-    StrategyCategoryKey,
     StrategyStepDeps,
 } from './types';
+import type { StepRenderContext } from '../stepContracts';
 import {
     getStrategyControlDescriptor,
     type StrategyControlDescriptor,

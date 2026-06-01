@@ -9,7 +9,8 @@ jest.mock('../../../../../utils/inlineSvg', () => ({
 import { setTrustedInlineSvg } from '../../../../../utils/inlineSvg';
 import { makeLibrary } from '../../__tests__/channel-setup-test-helpers';
 import { LibraryStepController } from '../LibraryStepController';
-import type { LibraryStepDeps, StepRenderContext } from '../types';
+import type { StepRenderContext } from '../../stepContracts';
+import type { LibraryStepDeps } from '../types';
 
 const createContext = (): StepRenderContext => ({
     contentEl: document.createElement('div'),

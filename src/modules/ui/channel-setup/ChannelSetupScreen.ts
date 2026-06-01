@@ -12,7 +12,7 @@ import { LibraryStepPresenter } from './steps/LibraryStepPresenter';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import type { ChannelSetupScreenPorts, ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
 import { ChannelSetupWorkflowPresenter } from './ChannelSetupWorkflowPresenter';
-import type { StepRenderContext } from './steps/types';
+import type { StepRenderContext } from './stepContracts';
 
 export class ChannelSetupScreen {
     private _container: HTMLElement;
