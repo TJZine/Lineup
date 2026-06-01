@@ -122,4 +122,11 @@ test('active cleanup package map count metadata matches package issue membership
     assert.deepEqual(packageMap.validation_details.unassigned_issue_ids, []);
     assert.deepEqual(packageMap.validation_details.duplicate_assignments, []);
     assert.deepEqual(packageMap.validation_details.closed_audit_ids_included, []);
+    for (const issueId of packageMap.validation_details.stale_review_issue_ids_removed ?? []) {
+        assert.equal(
+            assignedIssueIds.has(issueId),
+            false,
+            `stale review issue ${issueId} must not be assigned to an active package`
+        );
+    }
 });
