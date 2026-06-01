@@ -247,6 +247,52 @@ describe('fetchWithTimeout', () => {
         await requestRejection;
     });
 
+    it('preserves the upstream abort reason when both signals are set', async () => {
+        const optionsController = new AbortController();
+        const upstreamController = new AbortController();
+        const abortReason = new Error('upstream cancelled request');
+        mockFetch.mockImplementation((_url: string, options?: RequestInit) => {
+            return new Promise((_resolve, reject) => {
+                const signal = options?.signal as AbortSignal | undefined;
+                signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+            });
+        });
+
+        const request = fetchWithTimeout({
+            url: 'http://example.test/dual-signal-upstream-reason',
+            init: { method: 'GET', signal: optionsController.signal },
+            timeoutMs: 100_000,
+            upstreamSignal: upstreamController.signal,
+        });
+
+        upstreamController.abort(abortReason);
+
+        await expect(request).rejects.toBe(abortReason);
+    });
+
+    it('preserves the options abort reason when both signals are set', async () => {
+        const optionsController = new AbortController();
+        const upstreamController = new AbortController();
+        const abortReason = new Error('options cancelled request');
+        mockFetch.mockImplementation((_url: string, options?: RequestInit) => {
+            return new Promise((_resolve, reject) => {
+                const signal = options?.signal as AbortSignal | undefined;
+                signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+            });
+        });
+
+        const request = fetchWithTimeout({
+            url: 'http://example.test/dual-signal-options-reason',
+            init: { method: 'GET', signal: optionsController.signal },
+            timeoutMs: 100_000,
+            upstreamSignal: upstreamController.signal,
+        });
+
+        optionsController.abort(abortReason);
+
+        await expect(request).rejects.toBe(abortReason);
+    });
+
     it('removes merged abort listeners after a successful request', async () => {
         const optionsController = new AbortController();
         const upstreamController = new AbortController();

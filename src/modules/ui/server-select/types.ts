@@ -29,7 +29,7 @@ export type ServerSelectSelectionResult =
 
 export interface ServerSelectScreenPorts {
     discoverServers(options?: { forceRefresh?: boolean; signal?: AbortSignal | null }): Promise<PlexServer[]>;
-    selectServer(serverId: string): Promise<ServerSelectSelectionResult>;
+    selectServer(serverId: string, options?: { signal?: AbortSignal | null }): Promise<ServerSelectSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerScreenState(): ServerSelectDisplayState;
     requestChannelSetupRerun(): void;

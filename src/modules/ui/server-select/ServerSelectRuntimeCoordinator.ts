@@ -13,9 +13,11 @@ export class ServerSelectRuntimeCoordinator {
     private _isDestroyed = false;
     private _visibilityGeneration = 0;
     private _activeLoadGeneration: number | null = null;
+    private _activeLoadAbortController: AbortController | null = null;
     private _activeClearGeneration: number | null = null;
     private _isSelecting = false;
     private _activeSelectGeneration: number | null = null;
+    private _activeSelectAbortController: AbortController | null = null;
     private _lastDiscoveredServers: PlexServer[] = [];
     private _idlePromise: Promise<void> = Promise.resolve();
     private _resolveIdlePromise: (() => void) | null = null;
@@ -77,6 +79,8 @@ export class ServerSelectRuntimeCoordinator {
     }
 
     hide(): void {
+        this._abortActiveLoad();
+        this._abortActiveSelection();
         this._isVisible = false;
         this._visibilityGeneration += 1;
         this._adapter.unregisterFocusables();
@@ -126,6 +130,8 @@ export class ServerSelectRuntimeCoordinator {
         this._ensureIdlePromise();
         this._isLoading = true;
         this._activeLoadGeneration = generation;
+        this._activeLoadAbortController = new AbortController();
+        const signal = this._activeLoadAbortController.signal;
 
         try {
             this._adapter.unregisterServerListFocusables();
@@ -142,7 +148,7 @@ export class ServerSelectRuntimeCoordinator {
             this._adapter.addStatusSpinner();
             this._adapter.setControlsDisabled(true);
 
-            const servers = await this._ports.discoverServers({ forceRefresh: options.forceRefresh });
+            const servers = await this._ports.discoverServers({ forceRefresh: options.forceRefresh, signal });
 
             if (!this._canUpdateUi(generation)) {
                 return;
@@ -163,7 +169,7 @@ export class ServerSelectRuntimeCoordinator {
             if (options.autoSelect) {
                 if (savedId && servers.some(s => s.id === savedId)) {
                     try {
-                        const result = await this._ports.selectServer(savedId);
+                        const result = await this._ports.selectServer(savedId, { signal });
 
                         if (!this._canUpdateUi(generation)) {
                             return;
@@ -213,6 +219,7 @@ export class ServerSelectRuntimeCoordinator {
             if (this._activeLoadGeneration === generation) {
                 this._isLoading = false;
                 this._activeLoadGeneration = null;
+                this._activeLoadAbortController = null;
             }
 
             if (this._canUpdateUi(generation)) {
@@ -288,12 +295,15 @@ export class ServerSelectRuntimeCoordinator {
             this._ensureIdlePromise();
             this._isSelecting = true;
             this._activeSelectGeneration = generation;
+            this._activeSelectAbortController = new AbortController();
             this._adapter.setServerConnectButtonsDisabled(true);
             this._adapter.setClearButtonDisabled(true);
             this._adapter.clearError();
             this._adapter.setStatus(`Connecting to ${server.name}…`, '', 'loading');
             this._adapter.setDetail('');
-            const result = await this._ports.selectServer(server.id);
+            const result = await this._ports.selectServer(server.id, {
+                signal: this._activeSelectAbortController.signal,
+            });
 
             if (!this._canUpdateUi(generation) || this._activeSelectGeneration !== generation) {
                 return;
@@ -319,6 +329,7 @@ export class ServerSelectRuntimeCoordinator {
             if (this._activeSelectGeneration === generation) {
                 this._isSelecting = false;
                 this._activeSelectGeneration = null;
+                this._activeSelectAbortController = null;
             }
 
             const currentGeneration = this._visibilityGeneration;
@@ -412,6 +423,18 @@ export class ServerSelectRuntimeCoordinator {
 
     private _isLoadingCurrentGeneration(generation: number): boolean {
         return this._isLoading && this._activeLoadGeneration === generation;
+    }
+
+    private _abortActiveLoad(): void {
+        if (!this._activeLoadAbortController?.signal.aborted) {
+            this._activeLoadAbortController?.abort();
+        }
+    }
+
+    private _abortActiveSelection(): void {
+        if (!this._activeSelectAbortController?.signal.aborted) {
+            this._activeSelectAbortController?.abort();
+        }
     }
 
     private _restoreFocus(generation: number): void {

@@ -3,6 +3,7 @@ import { PlexApiError } from '../auth/plexAuthTransport';
 import type { PlexApiConnection, PlexApiResource } from './types';
 import { redactSensitiveTokens } from '../../../utils/redact';
 import { fetchDiscoveryResponse } from './PlexDiscoveryRequestExecutor';
+import { throwIfCallerAbort } from './PlexDiscoveryAbort';
 import { redactDiscoveryUrl } from './PlexDiscoveryResponsePolicy';
 
 const MIN_PORT = 1;
@@ -19,6 +20,7 @@ export async function discoverPlexResourcesWithRequestPolicy(
         }, options);
         return await parseResourcesResponse(response);
     } catch (error) {
+        throwIfCallerAbort(error, options?.signal ?? null);
         if (error instanceof PlexApiError) {
             throw error;
         }

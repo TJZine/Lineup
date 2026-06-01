@@ -1,4 +1,4 @@
-import type { PlexServerSelectionResult } from '../../modules/plex/discovery';
+import type { PlexDiscoverySignalOptions, PlexServerSelectionResult } from '../../modules/plex/discovery';
 import type {
     DiscoverySelectedServerSnapshot,
     OrchestratorServerSelectionReadiness,
@@ -12,7 +12,7 @@ export interface ServerSelectionCoordinatorDeps {
     captureDiscoverySelectionSnapshot(): DiscoverySelectedServerSnapshot;
     restoreDiscoverySelectionSnapshot(snapshot: DiscoverySelectedServerSnapshot): void;
     capturePersistedSelectionSnapshot(): Promise<PersistedSelectedServerSnapshot>;
-    selectServer(serverId: string): Promise<PlexServerSelectionResult>;
+    selectServer(serverId: string, options?: PlexDiscoverySignalOptions): Promise<PlexServerSelectionResult>;
     getSelectedServerUri(): string | null;
     persistSelection(
         serverId: string,
@@ -48,8 +48,11 @@ export class ServerSelectionCoordinator {
         }
     }
 
-    selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
-        const selection = this._selectionTail.then(() => this._selectServerTransaction(serverId));
+    selectServer(
+        serverId: string,
+        options?: PlexDiscoverySignalOptions
+    ): Promise<OrchestratorServerSelectionResult> {
+        const selection = this._selectionTail.then(() => this._selectServerTransaction(serverId, options));
         this._selectionTail = selection.then(
             () => undefined,
             () => undefined
@@ -58,10 +61,11 @@ export class ServerSelectionCoordinator {
     }
 
     private async _selectServerTransaction(
-        serverId: string
+        serverId: string,
+        options?: PlexDiscoverySignalOptions
     ): Promise<OrchestratorServerSelectionResult> {
         const discoverySnapshot = this._deps.captureDiscoverySelectionSnapshot();
-        const selectionResult = await this._deps.selectServer(serverId);
+        const selectionResult = await this._deps.selectServer(serverId, options);
         if (selectionResult.kind !== 'selected') {
             return {
                 kind: 'selection_failed',

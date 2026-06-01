@@ -88,6 +88,31 @@ describe('ServerSelectionCoordinator', () => {
         expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
     });
 
+    it('passes caller discovery options through the selection transaction', async () => {
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
+            getSelectedServerUri: jest.fn(() => 'http://example.com'),
+            persistSelection: jest.fn(async () => 'updated' as const),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            getReadiness: jest.fn(() => 'ready' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+        const options = { signal: new AbortController().signal };
+
+        await expect(coordinator.selectServer('server-1', options)).resolves.toEqual({
+            kind: 'selected',
+            readiness: 'ready',
+            persistedSelection: 'updated',
+            startupResume: startupResumeSucceeded,
+        });
+
+        expect(deps.selectServer).toHaveBeenCalledWith('server-1', options);
+    });
+
     it('restores discovery runtime state without touching persisted selection when persistence rejects', async () => {
         const persistenceError = new Error('persist failed');
         const deps = {
@@ -277,7 +302,7 @@ describe('ServerSelectionCoordinator', () => {
         await Promise.resolve();
 
         expect(deps.selectServer).toHaveBeenCalledTimes(1);
-        expect(deps.selectServer).toHaveBeenCalledWith('server-a');
+        expect(deps.selectServer.mock.calls[0]?.[0]).toBe('server-a');
 
         startupResumeDeferred.reject(resumeError);
         await expect(selectionA).rejects.toBe(resumeError);
@@ -292,7 +317,7 @@ describe('ServerSelectionCoordinator', () => {
             startupResume: startupResumeSucceeded,
         });
         expect(deps.selectServer).toHaveBeenCalledTimes(2);
-        expect(deps.selectServer).toHaveBeenNthCalledWith(2, 'server-b');
+        expect(deps.selectServer.mock.calls[1]?.[0]).toBe('server-b');
         expect(deps.persistSelection).toHaveBeenNthCalledWith(
             2,
             'server-b',

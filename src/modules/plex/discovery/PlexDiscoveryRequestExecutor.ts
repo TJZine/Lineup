@@ -3,6 +3,7 @@ import { PlexApiError } from '../auth/plexAuthTransport';
 import { redactSensitiveTokens } from '../../../utils/redact';
 import { PLEX_DISCOVERY_CONSTANTS } from './constants';
 import { buildDiscoveryFetchVariants, type DiscoveryFetchVariant } from './PlexDiscoveryFetchVariants';
+import { readAbortReason, throwIfAborted, throwIfCallerAbort } from './PlexDiscoveryAbort';
 import {
     getDiscoveryRateLimitDelayMs,
     handleResponseError,
@@ -28,6 +29,7 @@ export async function fetchDiscoveryResponse(
     let lastUrl = '';
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        throwIfAborted(options?.signal ?? null);
         const outcome = await fetchDiscoveryAttempt(
             variants,
             onAttemptUrl,
@@ -100,6 +102,7 @@ async function fetchDiscoveryAttempt(
         try {
             receivedResponse = await fetchDiscoveryVariant(variant, signal);
         } catch (error) {
+            throwIfCallerAbort(error, signal);
             lastError = error;
             continue;
         }
@@ -174,12 +177,12 @@ function delay(ms: number, signal: AbortSignal | null): Promise<void> {
         });
     }
     if (signal.aborted) {
-        return Promise.reject(signal.reason);
+        return Promise.reject(readAbortReason(signal));
     }
     return new Promise((resolve, reject) => {
         const onAbort = (): void => {
             clearTimeout(timeoutId);
-            reject(signal.reason);
+            reject(readAbortReason(signal));
         };
         const timeoutId = setTimeout(() => {
             signal.removeEventListener('abort', onAbort);

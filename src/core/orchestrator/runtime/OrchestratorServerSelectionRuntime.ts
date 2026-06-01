@@ -1,5 +1,6 @@
 import type { IPlexAuth } from '../../../modules/plex/auth';
 import type {
+    PlexDiscoverySignalOptions,
     IPlexServerDiscovery,
     PlexServerSelectionResult,
 } from '../../../modules/plex/discovery';
@@ -92,9 +93,12 @@ export class OrchestratorServerSelectionRuntime {
             },
             capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
                 this._selectedServerRuntimeController.capturePersistedSelectionSnapshot(),
-            selectServer: async (serverId: string): Promise<PlexServerSelectionResult> => {
+            selectServer: async (
+                serverId: string,
+                options?: PlexDiscoverySignalOptions
+            ): Promise<PlexServerSelectionResult> => {
                 const plexDiscovery = this._requirePlexDiscovery('selectServer');
-                return plexDiscovery.selectServer(serverId);
+                return plexDiscovery.selectServer(serverId, options);
             },
             getSelectedServerUri: (): string | null =>
                 this._deps.getPlexDiscovery()?.getServerUri() ?? null,
@@ -123,9 +127,12 @@ export class OrchestratorServerSelectionRuntime {
         return server ? server.id : null;
     }
 
-    async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
+    async selectServer(
+        serverId: string,
+        options?: PlexDiscoverySignalOptions
+    ): Promise<OrchestratorServerSelectionResult> {
         this._requirePlexDiscovery('selectServer');
-        return this._serverSelectionCoordinator.selectServer(serverId);
+        return this._serverSelectionCoordinator.selectServer(serverId, options);
     }
 
     async clearSelectedServer(): Promise<void> {

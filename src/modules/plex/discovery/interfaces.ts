@@ -11,9 +11,13 @@ export type PlexServerSelectionResult =
     | { kind: 'server_not_found' }
     | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
+export interface PlexDiscoverySignalOptions {
+    signal?: AbortSignal | null;
+}
+
 export interface IPlexServerDiscovery {
-    discoverServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]>;
-    refreshServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]>;
+    discoverServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
+    refreshServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
     initialize(): Promise<void>;
     setStorageKeys(selectedServerKey: string, serverHealthKey: string): void;
 
@@ -22,7 +26,8 @@ export interface IPlexServerDiscovery {
      */
     testConnection(
         server: PlexServer,
-        connection: PlexConnection
+        connection: PlexConnection,
+        options?: PlexDiscoverySignalOptions
     ): Promise<number | 'auth_required' | 'access_denied' | null>;
 
     /**
@@ -32,7 +37,7 @@ export interface IPlexServerDiscovery {
      * @returns Promise resolving to best connection info.
      * authRequired indicates whether any tested connection required auth.
      */
-    findFastestConnection(server: PlexServer): Promise<{
+    findFastestConnection(server: PlexServer, options?: PlexDiscoverySignalOptions): Promise<{
         connection: PlexConnection | null;
         authRequired: boolean;
         authState: 'auth_required' | 'access_denied' | null;
@@ -41,7 +46,7 @@ export interface IPlexServerDiscovery {
     /**
      * Persists the selection and reports a structured outcome instead of relying on side effects alone.
      */
-    selectServer(serverId: string): Promise<PlexServerSelectionResult>;
+    selectServer(serverId: string, options?: PlexDiscoverySignalOptions): Promise<PlexServerSelectionResult>;
     getSelectedServer(): PlexServer | null;
     getSelectedConnection(): PlexConnection | null;
     getServerUri(): string | null;

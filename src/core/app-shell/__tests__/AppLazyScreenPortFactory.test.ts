@@ -232,7 +232,7 @@ describe('AppLazyScreenPortFactory', () => {
             forceRefresh: true,
             signal: discoveryController.signal,
         });
-        expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1');
+        expect(orchestrator.selectServer.mock.calls[0]?.[0]).toBe('server-1');
         expect(orchestrator.clearSelectedServer).toHaveBeenCalledTimes(1);
         expect(orchestrator.getSelectedServerScreenState).toHaveBeenCalledTimes(1);
         expect(orchestrator.requestChannelSetupRerun).toHaveBeenCalledTimes(1);
@@ -257,7 +257,18 @@ describe('AppLazyScreenPortFactory', () => {
             kind: 'selection_failed',
             reason: 'auth_required',
         });
-        expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1');
+        expect(orchestrator.selectServer.mock.calls[0]?.[0]).toBe('server-1');
+    });
+
+    it('forwards server-select cancellation options to the orchestrator runtime', async (): Promise<void> => {
+        const orchestrator = makeOrchestrator();
+        const factory = createFactory(orchestrator);
+        const serverPorts = factory.createServerSelectScreenPorts();
+        const options = { signal: new AbortController().signal };
+
+        await expect(serverPorts?.selectServer('server-1', options)).resolves.toEqual({ kind: 'selected' });
+
+        expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1', options);
     });
 
     it('rejects unhandled server-select result kinds instead of treating them as selected', async (): Promise<void> => {
@@ -272,7 +283,7 @@ describe('AppLazyScreenPortFactory', () => {
         await expect(serverPorts?.selectServer('server-1')).rejects.toThrow(
             'Unhandled server selection result kind: selection_deferred'
         );
-        expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1');
+        expect(orchestrator.selectServer.mock.calls[0]?.[0]).toBe('server-1');
     });
 
     it('projects the full channel setup workflow port into the screen-only workflow contract', async (): Promise<void> => {

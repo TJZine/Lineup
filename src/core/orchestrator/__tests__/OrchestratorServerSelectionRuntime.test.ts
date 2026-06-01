@@ -164,6 +164,27 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(epg.clearSchedules).not.toHaveBeenCalled();
     });
 
+    it('passes caller discovery options through to Plex discovery selection', async () => {
+        const plexDiscovery = createPlexDiscovery();
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+        const options = { signal: new AbortController().signal };
+
+        await expect(runtime.selectServer('server-1', options)).resolves.toEqual({
+            kind: 'selected',
+            readiness: 'startup_pending',
+            persistedSelection: 'updated',
+            startupResume: {
+                startup: 'completed',
+                epgRefresh: { kind: 'skipped_no_coordinator' },
+            },
+        });
+
+        expect(plexDiscovery.selectServer).toHaveBeenCalledWith('server-1', options);
+    });
+
     it('skips selected-server startup resume when the initialization coordinator is unavailable', async () => {
         const plexDiscovery = createPlexDiscovery();
         const initCoordinator = createInitializationCoordinator();

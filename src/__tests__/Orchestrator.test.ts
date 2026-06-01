@@ -1101,7 +1101,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
 
-                expect(mockPlexDiscovery.selectServer).toHaveBeenCalledWith('server-1');
+                expect(mockPlexDiscovery.selectServer.mock.calls[0]?.[0]).toBe('server-1');
                 expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
                 expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();

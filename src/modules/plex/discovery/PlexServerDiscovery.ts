@@ -2,6 +2,7 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import { PLEX_DISCOVERY_CONSTANTS, DEFAULT_MIXED_CONTENT_CONFIG } from './constants';
 import {
     IPlexServerDiscovery,
+    PlexDiscoverySignalOptions,
     PlexServerSelectionResult,
     PlexServerDiscoveryConfig,
 } from './interfaces';
@@ -15,10 +16,8 @@ import {
     MixedContentConfig,
     PlexDiscoverySelectedServerSnapshot,
 } from './types';
-import {
-    findFastestConnectionProbe,
-    PlexConnectionProbeResult,
-} from './discoveryProbe';
+import { findFastestConnectionProbe } from './discoveryProbe';
+import type { PlexConnectionProbeResult } from './PlexConnectionProbeTypes';
 import { AppErrorCode } from '../../../types/app-errors';
 import { PlexApiError } from '../auth/plexAuthTransport';
 import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
@@ -31,6 +30,7 @@ import {
 } from './PlexDiscoverySnapshots';
 import { logPlexError, logPlexWarning } from '../shared/plexLogging';
 import { discoverPlexResourcesWithRequestPolicy } from './PlexResourceDiscoveryRequestPolicy';
+import { probePlexConnection } from './PlexConnectionProbeRequest';
 
 export { PlexApiError };
 
@@ -64,7 +64,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         };
     }
 
-    public discoverServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]> {
+    public discoverServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]> {
         if (
             this._state.lastRefreshAt !== null &&
             this._state.servers.length > 0 &&
@@ -129,60 +129,34 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
     }
 
-    public async refreshServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]> {
+    public async refreshServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]> {
         this._state.lastRefreshAt = null;
         return this.discoverServers(options);
     }
     public async testConnection(
         _server: PlexServer,
-        connection: PlexConnection
+        connection: PlexConnection,
+        options?: PlexDiscoverySignalOptions
     ): Promise<number | 'auth_required' | 'access_denied' | null> {
-        const probe = await this._probeConnection(connection);
+        const probe = await this._probeConnection(connection, options);
         return this._mapProbeToPublicTestResult(probe);
     }
 
-    private async _probeConnection(connection: PlexConnection): Promise<PlexConnectionProbeResult> {
-        const url = new URL(PLEX_DISCOVERY_CONSTANTS.IDENTITY_ENDPOINT, connection.uri).toString();
-        const headers = this._getAuthHeaders();
-        const startTime = Date.now();
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(function () {
-            controller.abort();
-        }, PLEX_DISCOVERY_CONSTANTS.CONNECTION_TEST_TIMEOUT_MS);
-
-        try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: headers,
-                signal: controller.signal,
-            });
-
-            clearTimeout(timeoutId);
-
-            if (response.status === 401) {
-                return { connection, outcome: 'auth_required' };
-            }
-            if (response.status === 403) {
-                return { connection, outcome: 'access_denied' };
-            }
-            if (!response.ok) {
-                return { connection, outcome: 'unreachable' };
-            }
-
-            const latency = Date.now() - startTime;
-            return {
-                connection: this._createConnectionWithLatency(connection, latency),
-                outcome: 'reachable',
-            };
-        } catch {
-            clearTimeout(timeoutId);
-            return { connection, outcome: 'unreachable' };
-        }
+    private async _probeConnection(
+        connection: PlexConnection,
+        options?: PlexDiscoverySignalOptions
+    ): Promise<PlexConnectionProbeResult> {
+        return probePlexConnection({
+            connection,
+            headers: this._getAuthHeaders(),
+            timeoutMs: PLEX_DISCOVERY_CONSTANTS.CONNECTION_TEST_TIMEOUT_MS,
+            signal: options?.signal ?? null,
+        });
     }
 
     public async findFastestConnection(
-        server: PlexServer
+        server: PlexServer,
+        options?: PlexDiscoverySignalOptions
     ): Promise<{
         connection: PlexConnection | null;
         authRequired: boolean;
@@ -191,7 +165,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         const probeSummary = await findFastestConnectionProbe({
             server,
             mixedContentConfig: this._mixedContentConfig,
-            probeConnection: (connection) => this._probeConnectionFromTestConnection(server, connection),
+            probeConnection: (connection) => this._probeConnectionFromTestConnection(server, connection, options),
+            signal: options?.signal ?? null,
         });
 
         return {
@@ -215,9 +190,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     private async _probeConnectionFromTestConnection(
         server: PlexServer,
-        connection: PlexConnection
+        connection: PlexConnection,
+        options?: PlexDiscoverySignalOptions
     ): Promise<PlexConnectionProbeResult> {
-        const publicResult = await this.testConnection(server, connection);
+        const publicResult = await this.testConnection(server, connection, options);
 
         if (typeof publicResult === 'number') {
             return {
@@ -249,14 +225,17 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         };
     }
 
-    public async selectServer(serverId: string): Promise<PlexServerSelectionResult> {
+    public async selectServer(
+        serverId: string,
+        options?: PlexDiscoverySignalOptions
+    ): Promise<PlexServerSelectionResult> {
         const server = this._findServerById(serverId);
 
         if (!server) {
             return { kind: 'server_not_found' };
         }
 
-        const { connection, authRequired, authState } = await this.findFastestConnection(server);
+        const { connection, authRequired, authState } = await this.findFastestConnection(server, options);
 
         if (!connection) {
             const reason = authState ?? (authRequired ? 'auth_required' : 'unreachable');

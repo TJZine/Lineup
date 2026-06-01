@@ -114,7 +114,10 @@ describe('ServerSelectRuntimeCoordinator', () => {
 
         expect(adapter.showContainer).toHaveBeenCalledTimes(1);
         expect(adapter.registerFocusables).toHaveBeenCalledTimes(1);
-        expect(ports.discoverServers).toHaveBeenCalledWith({ forceRefresh: false });
+        expect(ports.discoverServers).toHaveBeenCalledWith({
+            forceRefresh: false,
+            signal: expect.any(AbortSignal),
+        });
         expect(adapter.unregisterServerListFocusables).toHaveBeenCalledTimes(1);
         expect(adapter.replaceServerListChildren).toHaveBeenCalledTimes(1);
         expect(adapter.renderServers).toHaveBeenCalledWith(
@@ -141,7 +144,9 @@ describe('ServerSelectRuntimeCoordinator', () => {
         runtime.show({ allowAutoConnect: true });
         await runtime.whenIdle();
 
-        expect(ports.selectServer).toHaveBeenCalledWith('srv-1');
+        expect(ports.selectServer).toHaveBeenCalledWith('srv-1', {
+            signal: expect.any(AbortSignal),
+        });
         expect(adapter.setAutoConnectHintVisible).toHaveBeenCalledWith(true);
         expect(adapter.setAutoConnectHintVisible).toHaveBeenLastCalledWith(false);
         expect(adapter.setStatus).toHaveBeenCalledWith('Connected…', 'Continuing startup…', 'success');
@@ -246,9 +251,11 @@ describe('ServerSelectRuntimeCoordinator', () => {
         } as Partial<RuntimePorts>);
         const discoveryRuntime = createRuntime({ ports: discoveryPorts });
         discoveryRuntime.runtime.show({ allowAutoConnect: false });
+        const discoverySignal = discoveryPorts.discoverServers.mock.calls[0]?.[0]?.signal;
         discoveryRuntime.runtime.hide();
         clearAdapterMocks(discoveryRuntime.adapter);
 
+        expect(discoverySignal?.aborted).toBe(true);
         discovery.resolve([makeServer('srv-1', 'Server One')]);
         await discoveryRuntime.runtime.whenIdle();
 
@@ -264,9 +271,11 @@ describe('ServerSelectRuntimeCoordinator', () => {
         selectionRuntime.runtime.show({ allowAutoConnect: false });
         await selectionRuntime.runtime.whenIdle();
         selectionRuntime.runtime.selectServer(server);
+        const selectionSignal = selectionRuntime.ports.selectServer.mock.calls[0]?.[1]?.signal;
         selectionRuntime.runtime.hide();
         clearAdapterMocks(selectionRuntime.adapter);
 
+        expect(selectionSignal?.aborted).toBe(true);
         selection.resolve(selectedResult());
         await selectionRuntime.runtime.whenIdle();
 
@@ -274,6 +283,30 @@ describe('ServerSelectRuntimeCoordinator', () => {
         expect(selectionRuntime.adapter.setError).not.toHaveBeenCalled();
         expect(selectionRuntime.adapter.renderServers).not.toHaveBeenCalled();
         expect(selectionRuntime.adapter.restoreFocus).not.toHaveBeenCalled();
+
+        const autoServer = makeServer('srv-auto', 'Saved Server');
+        const autoSelection = createDeferred<ServerSelectSelectionResult>();
+        const autoPorts = createPorts({
+            discoverServers: jest.fn().mockResolvedValue([autoServer]),
+            selectServer: jest.fn().mockReturnValue(autoSelection.promise),
+            getSelectedServerScreenState: jest.fn(() => makeScreenState({ selectedServerId: autoServer.id })),
+        } as Partial<RuntimePorts>);
+        const autoRuntime = createRuntime({ ports: autoPorts });
+        autoRuntime.runtime.show({ allowAutoConnect: true });
+        await Promise.resolve();
+        await Promise.resolve();
+        const autoSelectSignal = autoPorts.selectServer.mock.calls[0]?.[1]?.signal;
+        autoRuntime.runtime.hide();
+        clearAdapterMocks(autoRuntime.adapter);
+
+        expect(autoSelectSignal?.aborted).toBe(true);
+        autoSelection.resolve(selectedResult());
+        await autoRuntime.runtime.whenIdle();
+
+        expect(autoRuntime.adapter.setStatus).not.toHaveBeenCalled();
+        expect(autoRuntime.adapter.setError).not.toHaveBeenCalled();
+        expect(autoRuntime.adapter.renderServers).not.toHaveBeenCalled();
+        expect(autoRuntime.adapter.restoreFocus).not.toHaveBeenCalled();
 
         const clear = createDeferred<void>();
         const clearRuntime = createRuntime({

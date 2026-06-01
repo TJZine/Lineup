@@ -147,8 +147,11 @@ export class AppLazyScreenPortFactory {
         return {
             discoverServers: (options?: { forceRefresh?: boolean; signal?: AbortSignal | null }) =>
                 runtime.discoverServers(options),
-            selectServer: async (serverId: string): Promise<ServerSelectSelectionResult> => {
-                const result = await runtime.selectServer(serverId);
+            selectServer: async (
+                serverId: string,
+                options?: { signal?: AbortSignal | null }
+            ): Promise<ServerSelectSelectionResult> => {
+                const result = await runtime.selectServer(serverId, options);
                 switch (result.kind) {
                     case 'selection_failed':
                         return { kind: 'selection_failed', reason: result.reason };

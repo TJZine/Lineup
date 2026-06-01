@@ -1,26 +1,19 @@
 import { logPlexWarning } from '../shared/plexLogging';
 import { MixedContentConfig, PlexConnection, PlexServer } from './types';
-
-export type PlexConnectionProbeAuthState = 'auth_required' | 'access_denied';
-export type PlexConnectionProbeOutcome = 'reachable' | PlexConnectionProbeAuthState | 'unreachable';
-
-export interface PlexConnectionProbeResult {
-    connection: PlexConnection;
-    outcome: PlexConnectionProbeOutcome;
-}
-
-export interface PlexFastestConnectionProbeResult {
-    selectedProbe: PlexConnectionProbeResult | null;
-    authRequired: boolean;
-    authState: PlexConnectionProbeAuthState | null;
-}
+import { throwIfAborted } from './PlexDiscoveryAbort';
+import type {
+    PlexConnectionProbeOutcome,
+    PlexConnectionProbeResult,
+    PlexFastestConnectionProbeResult,
+} from './PlexConnectionProbeTypes';
 
 export async function findFastestConnectionProbe(options: {
     server: PlexServer;
     mixedContentConfig: MixedContentConfig;
     probeConnection: (connection: PlexConnection) => Promise<PlexConnectionProbeResult>;
+    signal?: AbortSignal | null;
 }): Promise<PlexFastestConnectionProbeResult> {
-    const { server, mixedContentConfig, probeConnection } = options;
+    const { server, mixedContentConfig, probeConnection, signal = null } = options;
     const summary: PlexFastestConnectionProbeResult = {
         selectedProbe: null,
         authRequired: false,
@@ -29,6 +22,7 @@ export async function findFastestConnectionProbe(options: {
     const probeTiers = buildProbeTiers(server, mixedContentConfig);
 
     for (const tier of probeTiers) {
+        throwIfAborted(signal);
         const tierProbes = await Promise.all(tier.connections.map((connection) => probeConnection(connection)));
         const selectedProbe = pickFastestReachableProbe(tierProbes);
 

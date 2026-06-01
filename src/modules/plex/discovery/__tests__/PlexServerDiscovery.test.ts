@@ -510,6 +510,43 @@ describe('PlexServerDiscovery', () => {
             expect(result).toBe('access_denied');
         });
 
+        it('rethrows caller abort reasons during connection tests', async () => {
+            const controller = new AbortController();
+            const abortReason = new DOMException('caller cancelled probe', 'AbortError');
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                (_url: string, options: RequestInit) => new Promise((_resolve, reject) => {
+                    const signal = options.signal as AbortSignal | undefined;
+                    signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+                })
+            );
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer();
+            const mockConnection = createMockConnection();
+
+            const request = discovery.testConnection(mockServer, mockConnection, { signal: controller.signal });
+            controller.abort(abortReason);
+
+            await expect(request).rejects.toBe(abortReason);
+        });
+
+        it('does not convert non-abort probe failures into caller cancellation', async () => {
+            const controller = new AbortController();
+            const abortReason = new DOMException('caller cancelled after network failure', 'AbortError');
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(() => {
+                controller.abort(abortReason);
+                throw new Error('socket closed');
+            });
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const mockServer = createMockServer();
+            const mockConnection = createMockConnection();
+
+            await expect(discovery.testConnection(
+                mockServer,
+                mockConnection,
+                { signal: controller.signal }
+            )).resolves.toBeNull();
+        });
+
         it('should timeout after the configured timeout', async () => {
             jest.useFakeTimers();
             try {
@@ -738,9 +775,8 @@ describe('PlexServerDiscovery', () => {
 
             const result = await discovery.findFastestConnection(mockServer);
 
-            expect(testConnectionSpy).toHaveBeenNthCalledWith(
-                1,
-                mockServer,
+            expect(testConnectionSpy.mock.calls[0]?.[0]).toBe(mockServer);
+            expect(testConnectionSpy.mock.calls[0]?.[1]).toEqual(
                 expect.objectContaining({
                     uri: 'https://local-http:32400',
                     protocol: 'https',
@@ -748,7 +784,8 @@ describe('PlexServerDiscovery', () => {
                     relay: false,
                 })
             );
-            expect(testConnectionSpy).toHaveBeenNthCalledWith(2, mockServer, localHttpConnection);
+            expect(testConnectionSpy.mock.calls[1]?.[0]).toBe(mockServer);
+            expect(testConnectionSpy.mock.calls[1]?.[1]).toBe(localHttpConnection);
             expect(result.connection).toEqual(
                 expect.objectContaining({
                     uri: 'http://local-http:32400',

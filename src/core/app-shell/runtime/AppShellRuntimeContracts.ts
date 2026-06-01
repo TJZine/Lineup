@@ -58,7 +58,10 @@ export type AppShellServerSelectState = {
 
 export interface AppShellServerSelectionRuntimePort {
     discoverServers(options?: { forceRefresh?: boolean; signal?: AbortSignal | null }): Promise<PlexServer[]>;
-    selectServer(serverId: string): Promise<AppShellServerSelectionResult>;
+    selectServer(
+        serverId: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<AppShellServerSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerScreenState(): AppShellServerSelectState;
     requestChannelSetupRerun(): void;

@@ -1,5 +1,5 @@
 import { findFastestConnectionProbe } from '../discoveryProbe';
-import type { PlexConnectionProbeResult } from '../discoveryProbe';
+import type { PlexConnectionProbeResult } from '../PlexConnectionProbeTypes';
 import type { MixedContentConfig } from '../types';
 import { createMockConnection, createMockServer } from './discoveryTestUtils';
 
