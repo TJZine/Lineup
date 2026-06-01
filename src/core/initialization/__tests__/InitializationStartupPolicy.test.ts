@@ -101,7 +101,7 @@ describe('applyPostReadyRoutingPolicy', () => {
             'Initial channel switch failed for current-channel-id.'
         );
 
-        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('player');
+        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalledWith('player');
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
@@ -112,7 +112,7 @@ describe('applyPostReadyRoutingPolicy', () => {
             'Initial channel switch aborted for current-channel-id.'
         );
 
-        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('player');
+        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalledWith('player');
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 });

@@ -1,5 +1,3 @@
-import { isAbortLikeError } from '../../utils/errors';
-
 export interface StartupSignalOptions {
     signal?: AbortSignal | null | undefined;
 }
@@ -18,7 +16,7 @@ export function isStartupAbortError(
     if (!signal?.aborted) {
         return false;
     }
-    return error === readStartupAbortReason(signal) || isAbortLikeError(error);
+    return error === readStartupAbortReason(signal);
 }
 
 export function readStartupAbortReason(signal: AbortSignal): unknown {

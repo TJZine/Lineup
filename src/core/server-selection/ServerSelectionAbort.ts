@@ -1,5 +1,3 @@
-import { isAbortLikeError } from '../../utils/errors';
-
 export function throwIfSelectionAborted(signal: AbortSignal | null | undefined): void {
     if (!signal?.aborted) {
         return;
@@ -14,7 +12,7 @@ export function isSelectionAbortError(
     if (!signal?.aborted) {
         return false;
     }
-    return error === readSelectionAbortReason(signal) || isAbortLikeError(error);
+    return error === readSelectionAbortReason(signal);
 }
 
 function readSelectionAbortReason(signal: AbortSignal): unknown {

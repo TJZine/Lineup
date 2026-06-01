@@ -1423,6 +1423,11 @@ describe('InitializationCoordinator (Plex Home)', () => {
         expect(callbacks.setupEventWiring).not.toHaveBeenCalled();
         expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
         expect(callbacks.handleGlobalError).not.toHaveBeenCalled();
+        expect(
+            (callbacks.updateModuleStatus as jest.Mock).mock.calls.some(
+                ([id, status]) => id === 'epg-ui' && status === 'error'
+            )
+        ).toBe(false);
     });
 
     it('uses a same-phase queued waiter with a caller signal as the consumed startup owner', async () => {
@@ -1544,6 +1549,34 @@ describe('InitializationCoordinator (Plex Home)', () => {
             {
                 code: AppErrorCode.INITIALIZATION_FAILED,
                 message: 'channel load failed after abort',
+                recoverable: true,
+            },
+            'start'
+        );
+    });
+
+    it('reports internal abort-like startup failures that race with caller cancellation', async () => {
+        const controller = new AbortController();
+        const startupError = new DOMException('internal channel load abort after caller abort', 'AbortError');
+        const { coordinator, callbacks } = makeCoordinator({
+            channelManager: {
+                loadChannels: jest.fn().mockImplementation(async () => {
+                    controller.abort(new DOMException('server selection hidden', 'AbortError'));
+                    throw startupError;
+                }),
+                getCurrentChannel: jest.fn().mockReturnValue(null),
+                getAllChannels: jest.fn().mockReturnValue([]),
+            } as unknown as LegacyInitializationDependencies['channelManager'],
+        });
+
+        await expect(
+            coordinator.runStartup(STARTUP_PHASE.RESUME_RUNTIME_MODULES, { signal: controller.signal })
+        ).rejects.toBe(startupError);
+
+        expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
+            {
+                code: AppErrorCode.INITIALIZATION_FAILED,
+                message: 'internal channel load abort after caller abort',
                 recoverable: true,
             },
             'start'
@@ -1675,9 +1708,9 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            expect(navigation.replaceScreen).not.toHaveBeenCalled();
 	        });
 
-	        it('routes to player and switches to current channel when present', async () => {
-	            const currentChannel = { id: 'current-channel-id' };
-	            const { coordinator, deps, callbacks } = makeCoordinator({
+        it('routes to player and switches to current channel when present', async () => {
+            const currentChannel = { id: 'current-channel-id' };
+            const { coordinator, deps, callbacks } = makeCoordinator({
 	                channelManager: {
                     getCurrentChannel: jest.fn().mockReturnValue(currentChannel),
                     getAllChannels: jest.fn().mockReturnValue([]),
@@ -1690,6 +1723,34 @@ describe('InitializationCoordinator (Plex Home)', () => {
             expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
             expect(callbacks.switchToChannel).toHaveBeenCalledWith(currentChannel.id);
             expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+        });
+
+        it('does not route to player when caller cancellation wins during initial tune', async () => {
+            const abortReason = new DOMException('server selection hidden', 'AbortError');
+            const controller = new AbortController();
+            const currentChannel = { id: 'current-channel-id' };
+            const { coordinator, deps, callbacks } = makeCoordinator({
+                channelManager: {
+                    getCurrentChannel: jest.fn().mockReturnValue(currentChannel),
+                    getAllChannels: jest.fn().mockReturnValue([]),
+                } as unknown as LegacyInitializationDependencies['channelManager'],
+            });
+            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
+
+            (callbacks.switchToChannel as jest.Mock).mockImplementationOnce(async () => {
+                controller.abort(abortReason);
+                return 'switched';
+            });
+
+            await expect(
+                coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY, { signal: controller.signal })
+            ).rejects.toBe(abortReason);
+
+            expect(callbacks.switchToChannel).toHaveBeenCalledWith(currentChannel.id);
+            expect(navigation.replaceScreen).not.toHaveBeenCalledWith('player');
+            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
+            expect(callbacks.handleGlobalError).not.toHaveBeenCalled();
         });
 
         it('routes to player and switches to first channel when no current channel exists', async () => {
@@ -1772,10 +1833,10 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	                'Initial channel switch failed for current-channel-id.'
 	            );
 
-	            expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
-	            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
-	            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
-	            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');
+            expect(navigation.replaceScreen).not.toHaveBeenCalledWith('player');
+            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
+            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');
 	            expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
 	                expect.objectContaining({
 	                    code: 'INITIALIZATION_FAILED',
@@ -1805,10 +1866,10 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	                'Initial channel switch aborted for current-channel-id.'
 	            );
 
-	            expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
-	            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
-	            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
-	            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');
+            expect(navigation.replaceScreen).not.toHaveBeenCalledWith('player');
+            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
+            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');
 	            expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
 	                expect.objectContaining({
 	                    code: 'INITIALIZATION_FAILED',

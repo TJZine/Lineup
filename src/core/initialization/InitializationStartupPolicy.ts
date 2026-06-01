@@ -93,9 +93,6 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
         return;
     }
 
-    throwIfStartupAborted(inputs.signal);
-    inputs.navigation.replaceScreen('player');
-
     let channelToPlay = inputs.channelManager.getCurrentChannel();
 
     if (!channelToPlay) {
@@ -116,10 +113,12 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
         if (outcome === 'aborted') {
             throw new Error(`Initial channel switch aborted for ${channelToPlay.id}.`);
         }
+        inputs.navigation.replaceScreen('player');
         return;
     }
 
     throwIfStartupAborted(inputs.signal);
+    inputs.navigation.replaceScreen('player');
     inputs.openServerSelect();
 }
 

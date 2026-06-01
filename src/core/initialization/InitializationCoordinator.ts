@@ -644,6 +644,7 @@ export class InitializationCoordinator {
         };
         this._epgInitPromise = init()
             .catch((e) => {
+                if (isStartupAbortError(e, signal)) throw e;
                 this._callbacks.status.updateModuleStatus(
                     'epg-ui',
                     'error',

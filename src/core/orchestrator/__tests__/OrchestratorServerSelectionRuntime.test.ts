@@ -486,6 +486,54 @@ describe('OrchestratorServerSelectionRuntime', () => {
         );
     });
 
+    it('reports internal abort-like EPG refresh failures that race with caller cancellation', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const plexAuth = createPlexAuth();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const refreshError = new DOMException('internal EPG refresh abort', 'AbortError');
+        const epg = {
+            clearSchedules: jest.fn(),
+        } as unknown as jest.Mocked<IEPGComponent>;
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn(async () => {
+                controller.abort(abortReason);
+                throw refreshError;
+            }),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const deps = createDeps({
+            getPlexAuth: jest.fn(() => plexAuth),
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+            getEpg: jest.fn(() => epg),
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1', { signal: controller.signal })).resolves.toEqual({
+            kind: 'selected',
+            readiness: 'startup_pending',
+            persistedSelection: 'updated',
+            startupResume: {
+                startup: 'completed',
+                epgRefresh: { kind: 'failed', error: refreshError },
+            },
+        });
+
+        expect(plexDiscovery.restoreSelectedServerSnapshot).not.toHaveBeenCalled();
+        expect(plexAuth.storeCredentials).toHaveBeenCalledTimes(1);
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.serverSwap.refreshEpgSchedules',
+            'Post-selection EPG refresh failed',
+            refreshError,
+            { step: 'refreshEpgSchedules' }
+        );
+    });
+
     it('reports startup abort-like failures when no caller signal requested cancellation', async () => {
         const plexDiscovery = createPlexDiscovery();
         const initCoordinator = createInitializationCoordinator();
@@ -512,6 +560,31 @@ describe('OrchestratorServerSelectionRuntime', () => {
         const plexDiscovery = createPlexDiscovery();
         const initCoordinator = createInitializationCoordinator();
         const startupError = new Error('startup failed after abort');
+        initCoordinator.runStartup.mockImplementation(async () => {
+            controller.abort(new DOMException('server selection hidden', 'AbortError'));
+            throw startupError;
+        });
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1', { signal: controller.signal })).rejects.toBe(startupError);
+
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.serverSwap.runStartup',
+            'Post-selection runtime swap failed',
+            startupError,
+            { step: 'runStartup' }
+        );
+    });
+
+    it('reports internal abort-like startup failures that race with caller cancellation', async () => {
+        const controller = new AbortController();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const startupError = new DOMException('internal startup abort after caller abort', 'AbortError');
         initCoordinator.runStartup.mockImplementation(async () => {
             controller.abort(new DOMException('server selection hidden', 'AbortError'));
             throw startupError;
