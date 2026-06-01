@@ -19,7 +19,7 @@ import {
 } from '../EPGCellPresentation';
 import type { CellRenderData, ScheduledProgram } from '../../../types';
 
-const START_MS = new Date('2026-01-07T12:00:00Z').getTime();
+const START_MS = new Date(2026, 0, 7, 7, 0, 0, 0).getTime();
 type ProgramCellRenderData = Extract<CellRenderData, { kind: 'program' }>;
 type RenderedProgramCell = ProgramCellRenderData & { visibleWidthPx: number };
 
@@ -118,7 +118,7 @@ describe('EPGCellPresentation', () => {
             START_MS + 60 * 60_000
         );
         expect(timeLabel.isCompact).toBe(false);
-        expect(timeLabel.text).toContain('7:00');
+        expect(timeLabel.text).toBe('7:00 AM - 8:00 AM');
     });
 
     it('computes visible text shift and ticker overflow from stable inputs', () => {
