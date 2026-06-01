@@ -1268,6 +1268,52 @@ describe('EPGCoordinator', () => {
         expect(epg.focusNow).toHaveBeenCalled();
     });
 
+    it('refreshEpgSchedules forwards caller cancellation into production schedule loading', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const channel = makeChannel('c1', 1);
+        let capturedSignal: AbortSignal | null | undefined;
+        let resolveContent: ((value: ResolvedChannelContent) => void) | null = null;
+        let markResolveStarted: (() => void) | null = null;
+        const resolveStarted = new Promise<void>((resolve) => {
+            markResolveStarted = resolve;
+        });
+        const base = makeDeps().deps.getChannelManager()!;
+        const { deps, epg } = makeDeps({
+            getScheduler: () => null,
+            getChannelManager: () =>
+            ({
+                ...base,
+                getAllChannels: () => [channel],
+                getCurrentChannel: () => null,
+                resolveChannelContent: jest.fn((_id: string, options?: { signal?: AbortSignal | null }) => {
+                    capturedSignal = options?.signal;
+                    markResolveStarted?.();
+                    return new Promise<ResolvedChannelContent>((resolve) => {
+                        resolveContent = resolve;
+                    });
+                }),
+            } as IChannelManager),
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        const refresh = coordinator.refreshEpgSchedules({
+            reason: 'server-swap',
+            signal: controller.signal,
+        });
+        await resolveStarted;
+
+        expect(capturedSignal?.aborted).toBe(false);
+        controller.abort(abortReason);
+        (resolveContent as unknown as (value: ResolvedChannelContent) => void)({
+            items: [makeResolvedItem('c1', 0)],
+        } as ResolvedChannelContent);
+
+        await expect(refresh).rejects.toBe(abortReason);
+        expect(capturedSignal?.aborted).toBe(true);
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+    });
+
     it('refreshEpgSchedulesForRange loads schedules for scrolled-into channels', async () => {
         const manyChannels = Array.from({ length: 120 }, (_, i) => makeChannel(`c${i}`, i + 1));
         const base = makeDeps().deps.getChannelManager()!;

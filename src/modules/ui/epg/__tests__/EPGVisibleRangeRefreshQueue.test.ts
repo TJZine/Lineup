@@ -49,6 +49,47 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         expect(refreshFn).toHaveBeenCalledWith(range(2), 'library-filter');
     });
 
+    it('rebinds abort handling when a debounced request is coalesced', async () => {
+        jest.useFakeTimers();
+        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+        const firstController = new AbortController();
+        const secondController = new AbortController();
+        const firstReason = new DOMException('first request hidden', 'AbortError');
+        const secondReason = new DOMException('second request hidden', 'AbortError');
+
+        const first = queue.request(range(1), {
+            debounceMs: 50,
+            reason: 'visible-range',
+            signal: firstController.signal,
+        });
+        const second = queue.request(range(2), {
+            debounceMs: 50,
+            reason: 'library-filter',
+            signal: secondController.signal,
+        });
+        expect(first).toBe(second);
+
+        let settled = false;
+        void first.then(
+            () => {
+                settled = true;
+            },
+            () => {
+                settled = true;
+            }
+        );
+
+        firstController.abort(firstReason);
+        await Promise.resolve();
+        expect(settled).toBe(false);
+
+        secondController.abort(secondReason);
+        await expect(second).rejects.toBe(secondReason);
+        jest.advanceTimersByTime(50);
+        expect(refreshFn).not.toHaveBeenCalled();
+    });
+
     it('immediate refresh preempts armed debounce and settles pending debounced promise', async () => {
         jest.useFakeTimers();
         const refreshFn = jest.fn().mockResolvedValue(undefined);

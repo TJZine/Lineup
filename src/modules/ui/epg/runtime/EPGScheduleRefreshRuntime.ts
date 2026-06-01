@@ -646,7 +646,7 @@ export class EPGScheduleRefreshRuntime {
                 ...(phase === 'background' ? {} : { materializationSeed: items }),
             });
         } catch (error) {
-            if (isAbortLikeError(error, controller?.signal ?? undefined)) {
+            if (isAbortLikeError(error)) {
                 return;
             }
             if (session.debugEnabled) {

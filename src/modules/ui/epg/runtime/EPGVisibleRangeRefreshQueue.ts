@@ -54,6 +54,7 @@ export class EPGVisibleRangeRefreshQueue {
         this._pendingSignal = signal;
 
         if (this._timer) {
+            this._bindPendingAbort(signal);
             return this._pendingPromise ?? Promise.resolve();
         }
 

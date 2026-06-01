@@ -356,11 +356,15 @@ export class EPGCoordinator {
             timeEndMs: epgState.viewWindow.endTime,
         };
         const reason = options?.reason ?? 'manual';
+        const signal = options?.signal ?? null;
         if (options?.debounceMs !== undefined) {
-            await this.refreshEpgSchedulesForRange(range, { reason, debounceMs: options.debounceMs });
+            const refreshOptions = signal
+                ? { reason, debounceMs: options.debounceMs, signal }
+                : { reason, debounceMs: options.debounceMs };
+            await this.refreshEpgSchedulesForRange(range, refreshOptions);
             return;
         }
-        await this._refreshEpgSchedulesForRange(range, reason);
+        await this._refreshController.refreshEpgSchedulesForRangeNow(range, reason, signal);
     }
 
     refreshEpgScheduleForLiveChannel(): void {
@@ -464,13 +468,6 @@ export class EPGCoordinator {
 
     focusEpgOnCurrentChannel(): void {
         this._focusEpgOnCurrentChannel();
-    }
-
-    private async _refreshEpgSchedulesForRange(
-        range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
-        reason: string
-    ): Promise<void> {
-        await this._refreshController.refreshEpgSchedulesForRangeNow(range, reason);
     }
 
     private _focusEpgOnCurrentChannel(epgOverride?: IEPGComponent): void {

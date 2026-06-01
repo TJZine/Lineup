@@ -401,6 +401,45 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
     });
 
+    it('reports non-abort channel load failures that race with caller cancellation', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const loadError = new Error('resolver failed after abort');
+        const controller = new AbortController();
+        let rejectContent: ((reason?: unknown) => void) | null = null;
+        const { runtime, deps } = createRuntime({
+            channelManager: {
+                resolveChannelContent: jest.fn(() =>
+                    new Promise<ResolvedChannelContent>((_resolve, reject) => {
+                        rejectContent = reject;
+                    })
+                ),
+            },
+        });
+
+        const refresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'server-swap',
+            { signal: controller.signal }
+        );
+        await Promise.resolve();
+
+        controller.abort(abortReason);
+        (rejectContent as unknown as (reason?: unknown) => void)(loadError);
+
+        await expect(refresh).rejects.toBe(abortReason);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleLoadFailed',
+            expect.objectContaining({
+                channelId: 'c1',
+                phase: 'immediate',
+                safeError: expect.objectContaining({
+                    message: 'resolver failed after abort',
+                }),
+            })
+        );
+    });
+
     it('invalidates in-flight refresh work when no visible channels remain', async () => {
         const channel = makeChannel('c1', 1);
         let visibleChannels: ChannelConfig[] = [channel];
