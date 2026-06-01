@@ -57,7 +57,11 @@ export class PlexDiscoverySharedRequest<T> {
                 (value) => {
                     signal.removeEventListener('abort', onAbort);
                     releaseWaiter();
-                    resolve(createSnapshot(value));
+                    try {
+                        resolve(createSnapshot(value));
+                    } catch (error) {
+                        reject(error);
+                    }
                 },
                 (error: unknown) => {
                     signal.removeEventListener('abort', onAbort);

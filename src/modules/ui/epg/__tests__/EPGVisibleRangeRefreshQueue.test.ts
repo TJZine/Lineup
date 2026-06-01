@@ -279,4 +279,31 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         await expect(pending).resolves.toBeUndefined();
         expect(refreshFn).not.toHaveBeenCalled();
     });
+
+    it('cancelPendingRefresh() aborts an active debounced refresh batch', async () => {
+        jest.useFakeTimers();
+        let refreshSignal: AbortSignal | null = null;
+        const refreshFn = jest.fn(
+            (_range: EpgVisibleRange, _reason: string, signal?: AbortSignal | null) =>
+                new Promise<void>((_resolve, reject) => {
+                    refreshSignal = signal ?? null;
+                    signal?.addEventListener(
+                        'abort',
+                        () => reject(signal.reason),
+                        { once: true }
+                    );
+                })
+        );
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+
+        const pending = queue.request(range(1), { debounceMs: 50, reason: 'visible-range' });
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+
+        queue.cancelPendingRefresh();
+
+        const observedSignal = refreshSignal as AbortSignal | null;
+        expect(observedSignal?.aborted).toBe(true);
+        await expect(pending).resolves.toBeUndefined();
+    });
 });

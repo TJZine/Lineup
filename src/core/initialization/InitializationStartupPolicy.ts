@@ -185,7 +185,7 @@ async function maybeRouteToProfileSelect(inputs: AuthValidationPolicyInputs): Pr
 
     try {
         throwIfStartupAborted(inputs.signal);
-        const users = await inputs.plexAuth.getHomeUsers();
+        const users = await inputs.plexAuth.getHomeUsers({ signal: inputs.signal ?? null });
         throwIfStartupAborted(inputs.signal);
         if (users.length > 1) {
             inputs.handlers.registerProfileResume();
@@ -271,7 +271,8 @@ export async function applyAuthValidationPolicy(inputs: AuthValidationPolicyInpu
     try {
         throwIfStartupAborted(inputs.signal);
         const activeValid = await inputs.plexAuth.validateToken(
-            storedCredentials.activeToken.token
+            storedCredentials.activeToken.token,
+            { signal: inputs.signal ?? null }
         );
         throwIfStartupAborted(inputs.signal);
         if (activeValid) {
@@ -285,7 +286,8 @@ export async function applyAuthValidationPolicy(inputs: AuthValidationPolicyInpu
 
         throwIfStartupAborted(inputs.signal);
         const accountValid = await inputs.plexAuth.validateToken(
-            storedCredentials.accountToken.token
+            storedCredentials.accountToken.token,
+            { signal: inputs.signal ?? null }
         );
         throwIfStartupAborted(inputs.signal);
         if (!accountValid) {

@@ -19,12 +19,16 @@ export class EPGVisibleRangeRefreshQueue {
     private _pendingRange: EpgVisibleRange | null = null;
     private _pendingReason: string | null = null;
     private _pendingRequests: PendingRefreshRequest[] = [];
+    private _activeRefreshController: AbortController | null = null;
+    private _activePendingRequests: PendingRefreshRequest[] | null = null;
 
     constructor(private readonly _refreshFn: RefreshFn) { }
 
     cancelPendingRefresh(): void {
         const hadQueuedRefresh = this._timer !== null || this._pendingRange !== null;
-        if (!hadQueuedRefresh) {
+        const activeRefreshController = this._activeRefreshController;
+        const activePendingRequests = this._activePendingRequests;
+        if (!hadQueuedRefresh && !activeRefreshController && !activePendingRequests) {
             return;
         }
 
@@ -38,6 +42,18 @@ export class EPGVisibleRangeRefreshQueue {
         this._pendingReason = null;
 
         this._settlePendingRequests(pendingRequests, 'resolve');
+        if (activeRefreshController) {
+            activeRefreshController.abort();
+        }
+        if (activePendingRequests) {
+            this._settlePendingRequests(activePendingRequests, 'resolve');
+        }
+        if (this._activeRefreshController === activeRefreshController) {
+            this._activeRefreshController = null;
+        }
+        if (this._activePendingRequests === activePendingRequests) {
+            this._activePendingRequests = null;
+        }
     }
 
     request(range: EpgVisibleRange, options?: EpgScheduleRefreshOptions): Promise<void> {
@@ -76,9 +92,19 @@ export class EPGVisibleRangeRefreshQueue {
                 request.batchController = refreshController;
                 request.batchRequests = pendingRequests;
             }
+            this._activeRefreshController = refreshController;
+            this._activePendingRequests = pendingRequests;
             this._runRefresh(pending, pendingReason ?? 'visible-range', refreshController.signal)
                 .then(() => this._settlePendingRequests(pendingRequests, 'resolve'))
-                .catch((error: unknown) => this._settlePendingRequests(pendingRequests, 'reject', error));
+                .catch((error: unknown) => this._settlePendingRequests(pendingRequests, 'reject', error))
+                .finally(() => {
+                    if (this._activeRefreshController === refreshController) {
+                        this._activeRefreshController = null;
+                    }
+                    if (this._activePendingRequests === pendingRequests) {
+                        this._activePendingRequests = null;
+                    }
+                });
         }, debounceMs);
 
         return pendingPromise;

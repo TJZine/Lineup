@@ -101,7 +101,7 @@ describe('applyPostReadyRoutingPolicy', () => {
             'Initial channel switch failed for current-channel-id.'
         );
 
-        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalledWith('player');
+        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
@@ -112,7 +112,7 @@ describe('applyPostReadyRoutingPolicy', () => {
             'Initial channel switch aborted for current-channel-id.'
         );
 
-        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalledWith('player');
+        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 });
@@ -282,6 +282,19 @@ describe('applyAuthValidationPolicy', () => {
         });
     });
 
+    it('passes the startup signal into active token validation', async () => {
+        const controller = new AbortController();
+        const inputs = createInputs();
+        inputs.signal = controller.signal;
+
+        await expect(applyPolicy(inputs)).resolves.toBe(true);
+
+        expect(inputs.plexAuth.validateToken).toHaveBeenCalledWith(
+            'active-token',
+            { signal: controller.signal }
+        );
+    });
+
     it('falls back to auth resume for explicit auth failures', async () => {
         const error = { code: AppErrorCode.AUTH_INVALID };
         const inputs = createInputs({
@@ -383,6 +396,7 @@ describe('applyAuthValidationPolicy', () => {
     });
 
     it('normalizes to the validated account token before routing to profile-select', async () => {
+        const controller = new AbortController();
         const inputs = createInputs({
             validateToken: jest.fn()
                 .mockResolvedValueOnce(false)
@@ -391,8 +405,20 @@ describe('applyAuthValidationPolicy', () => {
                 createToken('account-token', 'account-user', 'account', 'account@example.com')
             ),
         });
+        inputs.signal = controller.signal;
 
         await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.plexAuth.validateToken).toHaveBeenNthCalledWith(
+            1,
+            'active-token',
+            { signal: controller.signal }
+        );
+        expect(inputs.plexAuth.validateToken).toHaveBeenNthCalledWith(
+            2,
+            'account-token',
+            { signal: controller.signal }
+        );
 
         expect(inputs.plexAuth.storeCredentials).toHaveBeenCalledWith({
             accountToken: {
@@ -427,6 +453,23 @@ describe('applyAuthValidationPolicy', () => {
             deviceKey: null,
         });
         expect(inputs.handlers.registerProfileResume).toHaveBeenCalledTimes(1);
+        expect(inputs.navigation.goTo).toHaveBeenCalledWith('profile-select');
+    });
+
+    it('passes the startup signal into profile selection user lookup', async () => {
+        const controller = new AbortController();
+        const inputs = createInputs({
+            getHomeUsers: jest.fn().mockResolvedValue([
+                { id: 'active-user', title: 'Active User', thumb: null, admin: true, protected: false },
+                { id: 'other-user', title: 'Other User', thumb: null, admin: false, protected: false },
+            ]),
+        });
+        inputs.signal = controller.signal;
+        inputs.navigation.getCurrentScreen.mockReturnValue('auth');
+
+        await expect(applyPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.plexAuth.getHomeUsers).toHaveBeenCalledWith({ signal: controller.signal });
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('profile-select');
     });
 

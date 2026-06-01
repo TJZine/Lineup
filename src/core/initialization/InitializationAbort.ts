@@ -1,3 +1,5 @@
+import { readAbortSignalReason } from '../../utils/abortSignalReason';
+
 export interface StartupSignalOptions {
     signal?: AbortSignal | null | undefined;
 }
@@ -20,14 +22,5 @@ export function isStartupAbortError(
 }
 
 export function readStartupAbortReason(signal: AbortSignal): unknown {
-    return signal.reason ?? createAbortError();
-}
-
-function createAbortError(): Error | DOMException {
-    if (typeof DOMException !== 'undefined') {
-        return new DOMException('Aborted', 'AbortError');
-    }
-    const error = new Error('Aborted');
-    error.name = 'AbortError';
-    return error;
+    return readAbortSignalReason(signal);
 }

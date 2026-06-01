@@ -1,5 +1,6 @@
 import { fetchWithTimeoutCore } from './fetchWithTimeoutCore';
 import type { FetchWithTimeoutCoreArgs } from './fetchWithTimeoutCore';
+import { readAbortSignalReason } from '../../../utils/abortSignalReason';
 
 export type FetchWithTimeoutArgs = FetchWithTimeoutCoreArgs;
 
@@ -27,14 +28,10 @@ function mergeAbortSignals(
     const controller = new AbortController();
     let cleanedUp = false;
 
-    function readAbortReason(signal: AbortSignal): unknown {
-        return signal.reason ?? new DOMException('Aborted', 'AbortError');
-    }
-
     function abortCombined(sourceSignal: AbortSignal): void {
         cleanup();
         try {
-            controller.abort(readAbortReason(sourceSignal));
+            controller.abort(readAbortSignalReason(sourceSignal));
         } catch {
             // Abort cleanup must remain fail-open.
         }

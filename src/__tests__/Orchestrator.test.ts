@@ -1879,7 +1879,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             await orchestrator.start();
 
-            expect(mockPlexAuth.validateToken).toHaveBeenCalledWith('valid-token');
+            expect(mockPlexAuth.validateToken).toHaveBeenCalledWith('valid-token', { signal: null });
             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
         });
 
@@ -1994,7 +1994,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             await orchestrator.start();
 
-            expect(mockPlexAuth.validateToken).toHaveBeenCalledWith('valid-token');
+            expect(mockPlexAuth.validateToken).toHaveBeenCalledWith('valid-token', { signal: null });
             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
             expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('auth');
         });

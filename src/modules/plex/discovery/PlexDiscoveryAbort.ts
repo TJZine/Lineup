@@ -1,7 +1,8 @@
 import { isAbortLikeError } from '../../../utils/errors';
+import { readAbortSignalReason } from '../../../utils/abortSignalReason';
 
 export function readAbortReason(signal: AbortSignal): unknown {
-    return signal.reason ?? createAbortError();
+    return readAbortSignalReason(signal);
 }
 
 export function throwIfAborted(signal: AbortSignal | null): void {
@@ -33,13 +34,4 @@ function isCallerAbort(
         return false;
     }
     return error === readAbortReason(signal) || (forwardedFromCaller && isAbortLikeError(error));
-}
-
-function createAbortError(): Error | DOMException {
-    if (typeof DOMException !== 'undefined') {
-        return new DOMException('Aborted', 'AbortError');
-    }
-    const error = new Error('Aborted');
-    error.name = 'AbortError';
-    return error;
 }

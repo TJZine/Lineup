@@ -415,7 +415,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             return;
         }
 
-        await this._doDiscoverServers(this._discoveryContextVersion, signal);
+        await this.discoverServers({ signal });
     }
 
     public setStorageKeys(selectedServerKey: string, serverHealthKey: string): void {

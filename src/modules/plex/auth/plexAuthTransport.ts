@@ -5,6 +5,7 @@ import { AppErrorCode } from '../../../types/app-errors';
 import { redactSensitiveTokens, safeStringifyForLog } from '../../../utils/redact';
 import { PLEX_TOKEN_HEADER } from '../shared/plexUrl';
 import { isAbortLikeError } from '../../../utils/errors';
+import { readOptionalAbortSignalReason } from '../../../utils/abortSignalReason';
 
 /**
  * Error class for Plex API errors.
@@ -181,7 +182,7 @@ export async function fetchWithRetry(
                 }
             };
             const onAbort = (): void => {
-                abortRequest(readAbortReason(externalSignal));
+                abortRequest(readOptionalAbortSignalReason(externalSignal));
             };
 
             if (externalSignal) {
@@ -212,7 +213,7 @@ export async function fetchWithRetry(
         } catch (error) {
             if (
                 externalSignal?.aborted &&
-                (isAbortLikeError(error) || error === readAbortReason(externalSignal))
+                (isAbortLikeError(error) || error === readOptionalAbortSignalReason(externalSignal))
             ) {
                 throw error;
             }
@@ -228,11 +229,4 @@ export async function fetchWithRetry(
         }
     }
     throw lastError;
-}
-
-function readAbortReason(signal: AbortSignal | null): unknown {
-    if (!signal || !('reason' in signal)) {
-        return undefined;
-    }
-    return (signal as AbortSignal & { reason?: unknown }).reason;
 }

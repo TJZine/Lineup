@@ -2,6 +2,7 @@ import { AppErrorCode } from '../../../types/app-errors';
 import { PLEX_AUTH_CONSTANTS } from './constants';
 import { PlexApiError } from './plexAuthTransport';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
+import { readAbortSignalReason } from '../../../utils/abortSignalReason';
 
 export type PlexHomeEndpointResult =
     | { kind: 'response'; response: Response; endpointIndex: number }
@@ -105,7 +106,7 @@ function throwIfAborted(signal: AbortSignal | null | undefined): void {
     if (!signal?.aborted) {
         return;
     }
-    throw signal.reason ?? new DOMException('Aborted', 'AbortError');
+    throw readAbortSignalReason(signal);
 }
 
 function sanitizePlexHomeErrorCause(cause: unknown): unknown {

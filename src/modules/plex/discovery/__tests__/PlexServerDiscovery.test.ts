@@ -448,6 +448,36 @@ describe('PlexServerDiscovery', () => {
             expect(fetch).toHaveBeenCalledTimes(1);
         });
 
+        it('lets discover callers join a cache-miss discovery started by initialize', async () => {
+            const resourcesDeferred = createDeferred<unknown[]>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => resourcesDeferred.promise.then((body) => createMockFetchResponse(body))
+            );
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            const initializeWait = discovery.initialize();
+            await flushPromises();
+            const discoverWait = discovery.discoverServers();
+
+            resourcesDeferred.resolve([
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Test Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [],
+                },
+            ]);
+
+            await expect(initializeWait).resolves.toBeUndefined();
+            await expect(discoverWait).resolves.toEqual([
+                expect.objectContaining({ id: 'srv1', name: 'Test Server' }),
+            ]);
+            expect(fetch).toHaveBeenCalledTimes(1);
+        });
+
         it('should ignore stale in-flight discovery results after storage key switch', async () => {
             const firstResources = [
                 {
