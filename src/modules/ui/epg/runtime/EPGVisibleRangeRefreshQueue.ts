@@ -14,21 +14,23 @@ type PendingRefreshRequest = {
     settled: boolean;
 };
 
+type ActiveRefreshBatch = {
+    controller: AbortController;
+    requests: PendingRefreshRequest[];
+};
+
 export class EPGVisibleRangeRefreshQueue {
     private _timer: ReturnType<typeof setTimeout> | null = null;
     private _pendingRange: EpgVisibleRange | null = null;
     private _pendingReason: string | null = null;
     private _pendingRequests: PendingRefreshRequest[] = [];
-    private _activeRefreshController: AbortController | null = null;
-    private _activePendingRequests: PendingRefreshRequest[] | null = null;
+    private _activeRefreshBatches = new Set<ActiveRefreshBatch>();
 
     constructor(private readonly _refreshFn: RefreshFn) { }
 
     cancelPendingRefresh(): void {
         const hadQueuedRefresh = this._timer !== null || this._pendingRange !== null;
-        const activeRefreshController = this._activeRefreshController;
-        const activePendingRequests = this._activePendingRequests;
-        if (!hadQueuedRefresh && !activeRefreshController && !activePendingRequests) {
+        if (!hadQueuedRefresh && this._activeRefreshBatches.size === 0) {
             return;
         }
 
@@ -42,17 +44,8 @@ export class EPGVisibleRangeRefreshQueue {
         this._pendingReason = null;
 
         this._settlePendingRequests(pendingRequests, 'resolve');
-        if (activeRefreshController) {
-            activeRefreshController.abort();
-        }
-        if (activePendingRequests) {
-            this._settlePendingRequests(activePendingRequests, 'resolve');
-        }
-        if (this._activeRefreshController === activeRefreshController) {
-            this._activeRefreshController = null;
-        }
-        if (this._activePendingRequests === activePendingRequests) {
-            this._activePendingRequests = null;
+        for (const batch of Array.from(this._activeRefreshBatches)) {
+            this._cancelActiveBatch(batch);
         }
     }
 
@@ -87,30 +80,17 @@ export class EPGVisibleRangeRefreshQueue {
                 return;
             }
 
-            const refreshController = new AbortController();
-            for (const request of pendingRequests) {
-                request.batchController = refreshController;
-                request.batchRequests = pendingRequests;
-            }
-            this._activeRefreshController = refreshController;
-            this._activePendingRequests = pendingRequests;
-            this._runRefresh(pending, pendingReason ?? 'visible-range', refreshController.signal)
+            const batch = this._createActiveBatch(pendingRequests);
+            this._runRefresh(pending, pendingReason ?? 'visible-range', batch.controller.signal)
                 .then(() => this._settlePendingRequests(pendingRequests, 'resolve'))
                 .catch((error: unknown) => this._settlePendingRequests(pendingRequests, 'reject', error))
-                .finally(() => {
-                    if (this._activeRefreshController === refreshController) {
-                        this._activeRefreshController = null;
-                    }
-                    if (this._activePendingRequests === pendingRequests) {
-                        this._activePendingRequests = null;
-                    }
-                });
+                .finally(() => this._finishActiveBatch(batch));
         }, debounceMs);
 
         return pendingPromise;
     }
 
-    private async _runImmediateAndPreemptQueued(
+    private _runImmediateAndPreemptQueued(
         range: EpgVisibleRange,
         reason: string,
         signal: AbortSignal | null
@@ -123,19 +103,31 @@ export class EPGVisibleRangeRefreshQueue {
         const pendingRequests = this._takePendingRequests();
         this._pendingRange = null;
         this._pendingReason = null;
+        const immediate = this._createRefreshRequest(signal);
+        const batchRequests = [...pendingRequests, immediate.request];
+        const batch = this._createActiveBatch(batchRequests);
 
-        try {
-            await this._runRefresh(range, reason, signal);
-            this._settlePendingRequests(pendingRequests, 'resolve');
-        } catch (error) {
-            this._settlePendingRequests(pendingRequests, 'reject', error);
-            throw error;
-        }
+        this._runRefresh(range, reason, batch.controller.signal)
+            .then(() => this._settlePendingRequests(batchRequests, 'resolve'))
+            .catch((error: unknown) => this._settlePendingRequests(batchRequests, 'reject', error))
+            .finally(() => this._finishActiveBatch(batch));
+
+        return immediate.promise;
     }
 
     private _createPendingRequest(signal: AbortSignal | null): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const request: PendingRefreshRequest = {
+        const { promise, request } = this._createRefreshRequest(signal);
+        this._pendingRequests.push(request);
+        return promise;
+    }
+
+    private _createRefreshRequest(signal: AbortSignal | null): {
+        promise: Promise<void>;
+        request: PendingRefreshRequest;
+    } {
+        let request!: PendingRefreshRequest;
+        const promise = new Promise<void>((resolve, reject) => {
+            request = {
                 resolve,
                 reject,
                 signal,
@@ -165,14 +157,42 @@ export class EPGVisibleRangeRefreshQueue {
                 signal.addEventListener('abort', onAbort, { once: true });
                 request.abortCleanup = (): void => signal.removeEventListener('abort', onAbort);
             }
-            this._pendingRequests.push(request);
         });
+        return { promise, request };
     }
 
     private _takePendingRequests(): PendingRefreshRequest[] {
         const pendingRequests = this._pendingRequests;
         this._pendingRequests = [];
         return pendingRequests;
+    }
+
+    private _createActiveBatch(requests: PendingRefreshRequest[]): ActiveRefreshBatch {
+        const controller = new AbortController();
+        const batch: ActiveRefreshBatch = {
+            controller,
+            requests,
+        };
+
+        for (const request of requests) {
+            request.batchController = controller;
+            request.batchRequests = requests;
+        }
+
+        this._activeRefreshBatches.add(batch);
+        return batch;
+    }
+
+    private _finishActiveBatch(batch: ActiveRefreshBatch): void {
+        if (!this._activeRefreshBatches.delete(batch)) {
+            return;
+        }
+    }
+
+    private _cancelActiveBatch(batch: ActiveRefreshBatch): void {
+        batch.controller.abort();
+        this._settlePendingRequests(batch.requests, 'resolve');
+        this._finishActiveBatch(batch);
     }
 
     private _settlePendingRequests(
