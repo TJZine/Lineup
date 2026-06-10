@@ -39,7 +39,7 @@ type Harness = {
     clearSelectedChannelScheduleSnapshot: jest.Mock<void, []>;
     ensureEpgInitialized: jest.Mock<Promise<void>, []>;
     primeEpgChannels: jest.Mock<void, []>;
-    refreshEpgSchedules: jest.Mock<Promise<void>, [{ reason?: string; debounceMs?: number }?]>;
+    refreshEpgSchedules: jest.Mock<Promise<void>, [{ reason?: string; debounceMs?: number; signal?: AbortSignal | null }?]>;
 };
 
 const createHarness = (): Harness => {
@@ -60,7 +60,7 @@ const createHarness = (): Harness => {
     const clearSelectedChannelScheduleSnapshot = jest.fn<void, []>();
     const ensureEpgInitialized = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
     const primeEpgChannels = jest.fn<void, []>();
-    const refreshEpgSchedules = jest.fn<Promise<void>, [{ reason?: string; debounceMs?: number }?]>().mockResolvedValue(undefined);
+    const refreshEpgSchedules = jest.fn<Promise<void>, [{ reason?: string; debounceMs?: number; signal?: AbortSignal | null }?]>().mockResolvedValue(undefined);
 
     const committer = new ChannelSetupBuildCommitter({
         plexLibrary: {} as IPlexLibrary,
@@ -363,6 +363,38 @@ describe('ChannelSetupBuildCommitter', () => {
         expect(clearOrder as number).toBeLessThan(ensureOrder as number);
         expect(ensureOrder as number).toBeLessThan(primeOrder as number);
         expect(primeOrder as number).toBeLessThan(refreshOrder as number);
-        expect(refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'channel-setup', debounceMs: 0 });
+        expect(refreshEpgSchedules).toHaveBeenCalledWith({
+            reason: 'channel-setup',
+            debounceMs: 0,
+            signal: null,
+        });
+    });
+
+    it('propagates post-commit EPG refresh aborts without marking refresh failure', async () => {
+        const { committer, refreshEpgSchedules } = createHarness();
+        const abortReason = new DOMException('build canceled', 'AbortError');
+        const controller = new AbortController();
+        refreshEpgSchedules.mockImplementationOnce(() => {
+            controller.abort(abortReason);
+            return Promise.reject(abortReason);
+        });
+
+        await expect(committer.commitBuild({
+            buildMode: 'replace',
+            existingChannels: [makeExisting(1)],
+            pendingToCreate: [makePending('One')],
+            skippedCount: 0,
+            reachedMaxChannels: false,
+            errorCount: 0,
+            diff: emptyDiff(),
+            signal: controller.signal,
+            reportProgress: (): void => undefined,
+        })).rejects.toBe(abortReason);
+
+        expect(refreshEpgSchedules).toHaveBeenCalledWith({
+            reason: 'channel-setup',
+            debounceMs: 0,
+            signal: controller.signal,
+        });
     });
 });

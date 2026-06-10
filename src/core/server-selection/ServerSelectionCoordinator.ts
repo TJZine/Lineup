@@ -1,4 +1,5 @@
-import type { PlexServerSelectionResult } from '../../modules/plex/discovery';
+import type { PlexDiscoverySignalOptions, PlexServerSelectionResult } from '../../modules/plex/discovery';
+import { throwIfSelectionAborted } from './ServerSelectionAbort';
 import type {
     DiscoverySelectedServerSnapshot,
     OrchestratorServerSelectionReadiness,
@@ -12,7 +13,7 @@ export interface ServerSelectionCoordinatorDeps {
     captureDiscoverySelectionSnapshot(): DiscoverySelectedServerSnapshot;
     restoreDiscoverySelectionSnapshot(snapshot: DiscoverySelectedServerSnapshot): void;
     capturePersistedSelectionSnapshot(): Promise<PersistedSelectedServerSnapshot>;
-    selectServer(serverId: string): Promise<PlexServerSelectionResult>;
+    selectServer(serverId: string, options?: PlexDiscoverySignalOptions): Promise<PlexServerSelectionResult>;
     getSelectedServerUri(): string | null;
     persistSelection(
         serverId: string,
@@ -21,7 +22,8 @@ export interface ServerSelectionCoordinatorDeps {
     restorePersistedSelectionSnapshot(
         snapshot: PersistedSelectedServerSnapshot
     ): Promise<SelectedServerPersistenceResult>;
-    resumeStartupAfterSelection(): Promise<SelectedServerStartupResumeResult>;
+    resumeStartupAfterSelection(options?: PlexDiscoverySignalOptions): Promise<SelectedServerStartupResumeResult>;
+    rollbackStartupAfterSelectionFailure(): void;
     getReadiness(): OrchestratorServerSelectionReadiness;
 }
 
@@ -48,8 +50,19 @@ export class ServerSelectionCoordinator {
         }
     }
 
-    selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
-        const selection = this._selectionTail.then(() => this._selectServerTransaction(serverId));
+    private _tryRollbackStartupAfterSelectionFailure(): void {
+        try {
+            this._deps.rollbackStartupAfterSelectionFailure();
+        } catch {
+            // Rollback is best-effort; preserve the original runtime-resume failure.
+        }
+    }
+
+    selectServer(
+        serverId: string,
+        options?: PlexDiscoverySignalOptions
+    ): Promise<OrchestratorServerSelectionResult> {
+        const selection = this._selectionTail.then(() => this._selectServerTransaction(serverId, options));
         this._selectionTail = selection.then(
             () => undefined,
             () => undefined
@@ -58,11 +71,20 @@ export class ServerSelectionCoordinator {
     }
 
     private async _selectServerTransaction(
-        serverId: string
+        serverId: string,
+        options?: PlexDiscoverySignalOptions
     ): Promise<OrchestratorServerSelectionResult> {
+        throwIfSelectionAborted(options?.signal);
         const discoverySnapshot = this._deps.captureDiscoverySelectionSnapshot();
-        const selectionResult = await this._deps.selectServer(serverId);
+        let selectionResult: PlexServerSelectionResult;
+        try {
+            selectionResult = await this._deps.selectServer(serverId, options);
+        } catch (error) {
+            this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
+            throw error;
+        }
         if (selectionResult.kind !== 'selected') {
+            this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
             return {
                 kind: 'selection_failed',
                 reason:
@@ -71,11 +93,18 @@ export class ServerSelectionCoordinator {
                         : selectionResult.reason,
             };
         }
+        try {
+            throwIfSelectionAborted(options?.signal);
+        } catch (error) {
+            this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
+            throw error;
+        }
 
         let persistedSelectionSnapshot: PersistedSelectedServerSnapshot;
         let persistedSelection: SelectedServerPersistenceResult;
         try {
             persistedSelectionSnapshot = await this._deps.capturePersistedSelectionSnapshot();
+            throwIfSelectionAborted(options?.signal);
             const selectedServerUri = this._deps.getSelectedServerUri();
             persistedSelection = await this._deps.persistSelection(serverId, selectedServerUri);
         } catch (error) {
@@ -84,7 +113,8 @@ export class ServerSelectionCoordinator {
         }
 
         try {
-            const startupResume = await this._deps.resumeStartupAfterSelection();
+            throwIfSelectionAborted(options?.signal);
+            const startupResume = await this._deps.resumeStartupAfterSelection(options);
             return {
                 kind: 'selected',
                 readiness: this._deps.getReadiness(),
@@ -94,6 +124,7 @@ export class ServerSelectionCoordinator {
         } catch (error) {
             this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
             await this._tryRestorePersistedSelectionSnapshot(persistedSelectionSnapshot);
+            this._tryRollbackStartupAfterSelectionFailure();
             throw error;
         }
     }

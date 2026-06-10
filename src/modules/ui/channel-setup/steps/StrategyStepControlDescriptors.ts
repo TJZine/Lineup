@@ -11,7 +11,7 @@ import {
     SERIES_BLOCK_PRESETS,
     SERIES_VARIANT_TYPE_OPTIONS,
     STEP2_CONTROL_IDS,
-} from './constants';
+} from '../strategyConstants';
 import type { StrategyStepStateSnapshot } from './types';
 
 export type StrategyControlValue = string | number;

@@ -15,10 +15,10 @@ import { ChannelSetupBuildStepPresenter } from './steps/ChannelSetupBuildStepPre
 import {
     SETUP_STRATEGY_KEYS,
     type SetupStrategyKey,
-} from './steps/constants';
+} from './strategyConstants';
 import { StrategyStepController } from './steps/StrategyStepController';
 import { StrategyStepInteractionController } from './steps/StrategyStepInteractionController';
-import type { StepRenderContext, StrategyStepDropdownConfig } from './steps/types';
+import type { StepRenderContext, StrategyStepDropdownConfig } from './stepContracts';
 
 const CHANNEL_LIMIT_PRESETS = [50, 100, 150, 200, 300, 400, 500];
 const MIN_ITEMS_PRESETS = [1, 5, 10, 20, 50];

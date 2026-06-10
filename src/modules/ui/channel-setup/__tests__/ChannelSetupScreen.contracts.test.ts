@@ -15,7 +15,7 @@ import {
     STEP2_CONTROL_IDS,
     STRATEGY_CATEGORIES,
     SETUP_STRATEGY_KEYS,
-} from '../steps/constants';
+} from '../strategyConstants';
 import {
     clickButton,
     createNavigationMock,

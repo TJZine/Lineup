@@ -16,9 +16,6 @@ export type ChannelConfig = EpgChannel;
 export type EPGUiStatus = EpgUiStatus;
 
 
-/**
- * EPG component configuration
- */
 export interface EPGConfig {
     containerId: string;
     visibleChannels: number;
@@ -36,9 +33,7 @@ export interface EPGConfig {
     /** Maximum auto-fit pixels per minute */
     maxPixelsPerMinute?: number;
     rowHeight: number;
-    /** Show current time indicator */
     showCurrentTimeIndicator: boolean;
-    /** Auto-scroll to current time on open */
     autoScrollToNow: boolean;
     onVisibleRangeChange?: (range: EpgVisibleRange) => void;
     /** Optional callback to resolve relative Plex thumb paths to absolute URLs, with optional size hints. */
@@ -51,7 +46,6 @@ export interface EPGConfig {
     isVideoPlaying?: () => boolean;
     layoutMode?: EpgLayoutMode;
     showNowWatchingBanner?: boolean;
-    /** Optional callback to fetch current channel + program info */
     getCurrentChannelInfo?: () => {
         channelNumber: number;
         channelName: string;
@@ -75,19 +69,13 @@ export interface EpgVisibleRange {
     timeEndMs: number;
 }
 
-/**
- * EPG component state (externally visible)
- */
 export interface EPGState {
     isVisible: boolean;
     focusedCell: EPGFocusPosition | null;
     scrollPosition: {
-        /** First visible channel index */
         channelOffset: number;
-        /** Minutes from schedule start */
         timeOffset: number;
     };
-    /** Visible window bounds */
     viewWindow: {
         startTime: number;
         endTime: number;
@@ -97,15 +85,10 @@ export interface EPGState {
     currentTime: number;
 }
 
-/**
- * EPG focus position
- */
 export type EPGFocusPosition =
     | {
         kind: 'program';
-        /** Channel row index */
         channelIndex: number;
-        /** Program index within channel */
         programIndex: number;
         program: ScheduledProgram;
         /** Focus time used for navigation reconciliation */
@@ -114,7 +97,6 @@ export type EPGFocusPosition =
     }
     | {
         kind: 'placeholder';
-        /** Channel row index */
         channelIndex: number;
         /** Placeholder entries are not tied to a program index */
         programIndex: -1;
@@ -128,45 +110,27 @@ export type EPGFocusPosition =
         cellElement: HTMLElement | null;
     };
 
-/**
- * EPG channel row data
- */
 export interface EPGChannelRow {
-    /** Channel config */
     channel: ChannelConfig;
-    /** Programs to display */
     programs: EPGProgramCell[];
 }
 
-/**
- * EPG program cell data
- */
 export interface EPGProgramCell {
     program: ScheduledProgram;
     left: number;
     width: number;
-    /** Extends beyond visible area */
     isPartial: boolean;
-    /** Currently airing */
     isCurrent: boolean;
     isFocused: boolean;
 }
 
-/**
- * Virtualized grid state for EPG
- */
 export interface VirtualizedGridState {
-    /** Currently rendered channel indices */
     visibleRows: number[];
     channelOffset: number;
-    /** Visible time window */
     visibleTimeRange: { start: number; end: number };
     recycledElements: Map<string, HTMLElement>;
 }
 
-/**
- * EPG events
- */
 export interface EPGEventMap {
     open: void;
     close: void;
@@ -183,12 +147,9 @@ export interface EPGEventMap {
  * Internal state for EPG component.
  */
 export interface EPGInternalState {
-    /** Whether EPG is initialized */
     isInitialized: boolean;
-    /** Whether EPG is visible */
     isVisible: boolean;
     channels: ChannelConfig[];
-    /** Schedule windows by channel ID */
     schedules: Map<string, ScheduleWindow>;
     scheduleLoadTimes: Map<string, number>;
     focusedCell: EPGFocusPosition | null;
@@ -201,7 +162,6 @@ export interface EPGInternalState {
     currentTime: number;
     /** Grid anchor time (start of schedule day) */
     gridAnchorTime: number;
-    /** Last render timestamp for throttling */
     lastRenderTime: number;
 }
 
@@ -218,9 +178,6 @@ export type EPGErrorType = Extract<
     | AppErrorCode.PARSE_ERROR
 >;
 
-/**
- * Cell render data for virtualization.
- */
 export type CellRenderData =
     | {
         kind: 'program';
@@ -257,23 +214,16 @@ export type CellRenderData =
         width: number;
         isPartial: boolean;
         isCurrent: boolean;
-        /** Placeholders are never past */
         isPast: boolean;
         isFocused: boolean;
-        /** Placeholders are visible-window cells, not buffer-only entries */
         isBufferOnly: boolean;
         /** See `program.textShiftPx` (placeholders usually 0). */
         textShiftPx: number;
         cellElement: HTMLElement | null;
     };
 
-/**
- * Time header slot data.
- */
 export interface TimeSlot {
-    /** Slot time (Unix ms) */
     time: number;
-    /** Display label (e.g., "12:30 PM") */
     label: string;
     left: number;
 }

@@ -8,7 +8,7 @@ import type {
     StrategyStepMutableState,
 } from '../../ChannelSetupSessionContracts';
 import { StrategyStepInteractionController } from '../StrategyStepInteractionController';
-import { STEP2_CONTROL_IDS } from '../constants';
+import { STEP2_CONTROL_IDS } from '../../strategyConstants';
 
 const createSnapshot = (
     overrides: Partial<ChannelSetupSessionSnapshot> = {}

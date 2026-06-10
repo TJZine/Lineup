@@ -3,7 +3,8 @@
  */
 
 import { BuildReviewStepController } from '../BuildReviewStepController';
-import type { BuildReviewDeps, StepRenderContext } from '../types';
+import type { StepRenderContext } from '../../stepContracts';
+import type { BuildReviewDeps } from '../types';
 
 const INTERNAL_SETUP_COPY_PATTERN =
     /\b(?:stop and re-plan|re-plan|planner|execution|cleanup|slice|blocked plan|plan blocked)\b|partial setup plan/i;

@@ -2,6 +2,7 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import { PLEX_DISCOVERY_CONSTANTS, DEFAULT_MIXED_CONTENT_CONFIG } from './constants';
 import {
     IPlexServerDiscovery,
+    PlexDiscoverySignalOptions,
     PlexServerSelectionResult,
     PlexServerDiscoveryConfig,
 } from './interfaces';
@@ -15,22 +16,22 @@ import {
     MixedContentConfig,
     PlexDiscoverySelectedServerSnapshot,
 } from './types';
-import {
-    findFastestConnectionProbe,
-    PlexConnectionProbeResult,
-} from './discoveryProbe';
+import { findFastestConnectionProbe } from './discoveryProbe';
+import { throwIfAborted, throwIfCallerAbort } from './PlexDiscoveryAbort';
+import type { PlexConnectionProbeResult } from './PlexConnectionProbeTypes';
 import { AppErrorCode } from '../../../types/app-errors';
 import { PlexApiError } from '../auth/plexAuthTransport';
 import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
 import { ServerSelectionStore } from './ServerSelectionStore';
 import {
-    awaitPlexDiscoverySnapshot,
     clonePlexConnection,
     clonePlexServers,
     cloneSelectedPlexServer,
 } from './PlexDiscoverySnapshots';
+import { PlexDiscoverySharedRequest } from './PlexDiscoverySharedRequest';
 import { logPlexError, logPlexWarning } from '../shared/plexLogging';
 import { discoverPlexResourcesWithRequestPolicy } from './PlexResourceDiscoveryRequestPolicy';
+import { probePlexConnection } from './PlexConnectionProbeRequest';
 
 export { PlexApiError };
 
@@ -40,7 +41,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _getAuthHeaders: () => Record<string, string>;
     private _mixedContentConfig: MixedContentConfig;
     private _serverSelectionStore: ServerSelectionStore;
-    private _discoveryPromise: Promise<PlexServer[]> | null = null;
+    private _discoveryRequest: PlexDiscoverySharedRequest<PlexServer[]> | null = null;
     private _discoveryContextVersion = 0;
     private _selectedServerStorageKey: string;
     private _serverHealthStorageKey: string;
@@ -64,7 +65,9 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         };
     }
 
-    public discoverServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]> {
+    public discoverServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]> {
+        const signal = options?.signal ?? null;
+        throwIfAborted(signal);
         if (
             this._state.lastRefreshAt !== null &&
             this._state.servers.length > 0 &&
@@ -73,28 +76,34 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             return Promise.resolve(clonePlexServers(this._state.servers));
         }
 
-        if (this._discoveryPromise) {
-            return awaitPlexDiscoverySnapshot(this._discoveryPromise, options?.signal ?? null);
+        if (this._discoveryRequest) {
+            return this._discoveryRequest.awaitSnapshot(signal, clonePlexServers);
         }
 
         const contextVersion = this._discoveryContextVersion;
-        const discoveryPromise = this._doDiscoverServers(contextVersion).finally(() => {
-            if (this._discoveryPromise === discoveryPromise) {
-                this._discoveryPromise = null;
-            }
-        });
-        this._discoveryPromise = discoveryPromise;
+        const discoveryAbortController = new AbortController();
+        let discoveryRequest: PlexDiscoverySharedRequest<PlexServer[]> | null = null;
+        const clearDiscoveryRequest = (): void => {
+            if (this._discoveryRequest === discoveryRequest) this._discoveryRequest = null;
+        };
+        const discoveryPromise = this._doDiscoverServers(contextVersion, discoveryAbortController.signal)
+            .finally(clearDiscoveryRequest);
+        discoveryRequest = new PlexDiscoverySharedRequest(discoveryPromise, discoveryAbortController, clearDiscoveryRequest);
+        this._discoveryRequest = discoveryRequest;
 
-        return awaitPlexDiscoverySnapshot(discoveryPromise, options?.signal ?? null);
+        return discoveryRequest.awaitSnapshot(signal, clonePlexServers);
     }
 
-    private async _doDiscoverServers(contextVersion: number): Promise<PlexServer[]> {
+    private async _doDiscoverServers(contextVersion: number, signal: AbortSignal | null = null): Promise<PlexServer[]> {
         this._state.isDiscovering = true;
 
         try {
+            throwIfAborted(signal);
             const headers = this._getAuthHeaders();
-            const resources = await discoverPlexResourcesWithRequestPolicy(headers);
+            const resources = await discoverPlexResourcesWithRequestPolicy(headers, { signal });
+            throwIfAborted(signal);
             const servers = this._parseResources(resources);
+            throwIfAborted(signal);
 
             // Discovery can race with profile/storage-key switches. Ignore results
             // from stale contexts so they cannot overwrite the active user's state.
@@ -107,6 +116,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
             return clonePlexServers(servers);
         } catch (error) {
+            throwIfCallerAbort(error, signal);
             if (error instanceof PlexApiError) {
                 logPlexError(
                     `[Discovery] Discovery failed (API Error): ${error.message}`
@@ -129,60 +139,34 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
     }
 
-    public async refreshServers(options?: { signal?: AbortSignal | null }): Promise<PlexServer[]> {
+    public async refreshServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]> {
         this._state.lastRefreshAt = null;
         return this.discoverServers(options);
     }
     public async testConnection(
         _server: PlexServer,
-        connection: PlexConnection
+        connection: PlexConnection,
+        options?: PlexDiscoverySignalOptions
     ): Promise<number | 'auth_required' | 'access_denied' | null> {
-        const probe = await this._probeConnection(connection);
+        const probe = await this._probeConnection(connection, options);
         return this._mapProbeToPublicTestResult(probe);
     }
 
-    private async _probeConnection(connection: PlexConnection): Promise<PlexConnectionProbeResult> {
-        const url = new URL(PLEX_DISCOVERY_CONSTANTS.IDENTITY_ENDPOINT, connection.uri).toString();
-        const headers = this._getAuthHeaders();
-        const startTime = Date.now();
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(function () {
-            controller.abort();
-        }, PLEX_DISCOVERY_CONSTANTS.CONNECTION_TEST_TIMEOUT_MS);
-
-        try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: headers,
-                signal: controller.signal,
-            });
-
-            clearTimeout(timeoutId);
-
-            if (response.status === 401) {
-                return { connection, outcome: 'auth_required' };
-            }
-            if (response.status === 403) {
-                return { connection, outcome: 'access_denied' };
-            }
-            if (!response.ok) {
-                return { connection, outcome: 'unreachable' };
-            }
-
-            const latency = Date.now() - startTime;
-            return {
-                connection: this._createConnectionWithLatency(connection, latency),
-                outcome: 'reachable',
-            };
-        } catch {
-            clearTimeout(timeoutId);
-            return { connection, outcome: 'unreachable' };
-        }
+    private async _probeConnection(
+        connection: PlexConnection,
+        options?: PlexDiscoverySignalOptions
+    ): Promise<PlexConnectionProbeResult> {
+        return probePlexConnection({
+            connection,
+            headers: this._getAuthHeaders(),
+            timeoutMs: PLEX_DISCOVERY_CONSTANTS.CONNECTION_TEST_TIMEOUT_MS,
+            signal: options?.signal ?? null,
+        });
     }
 
     public async findFastestConnection(
-        server: PlexServer
+        server: PlexServer,
+        options?: PlexDiscoverySignalOptions
     ): Promise<{
         connection: PlexConnection | null;
         authRequired: boolean;
@@ -191,7 +175,8 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         const probeSummary = await findFastestConnectionProbe({
             server,
             mixedContentConfig: this._mixedContentConfig,
-            probeConnection: (connection) => this._probeConnectionFromTestConnection(server, connection),
+            probeConnection: (connection) => this._probeConnectionFromTestConnection(server, connection, options),
+            signal: options?.signal ?? null,
         });
 
         return {
@@ -215,9 +200,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     private async _probeConnectionFromTestConnection(
         server: PlexServer,
-        connection: PlexConnection
+        connection: PlexConnection,
+        options?: PlexDiscoverySignalOptions
     ): Promise<PlexConnectionProbeResult> {
-        const publicResult = await this.testConnection(server, connection);
+        const publicResult = await this.testConnection(server, connection, options);
 
         if (typeof publicResult === 'number') {
             return {
@@ -249,14 +235,18 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         };
     }
 
-    public async selectServer(serverId: string): Promise<PlexServerSelectionResult> {
+    public async selectServer(
+        serverId: string,
+        options?: PlexDiscoverySignalOptions
+    ): Promise<PlexServerSelectionResult> {
         const server = this._findServerById(serverId);
 
         if (!server) {
             return { kind: 'server_not_found' };
         }
 
-        const { connection, authRequired, authState } = await this.findFastestConnection(server);
+        const { connection, authRequired, authState } = await this.findFastestConnection(server, options);
+        throwIfAborted(options?.signal ?? null);
 
         if (!connection) {
             const reason = authState ?? (authRequired ? 'auth_required' : 'unreachable');
@@ -398,11 +388,34 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return this._emitter.on(event, handler as (payload: unknown) => void);
     }
 
-    public async initialize(): Promise<void> {
+    public async initialize(options?: PlexDiscoverySignalOptions): Promise<void> {
+        const signal = options?.signal ?? null;
         const previousRefreshAt = this._state.lastRefreshAt;
-        await this.discoverServers();
+        await this._discoverServersForInitialize(signal);
+        throwIfAborted(signal);
         const refreshedDiscovery = this._state.lastRefreshAt !== previousRefreshAt;
-        await this._restoreSelectionAsync({ forceReselect: refreshedDiscovery });
+        await this._restoreSelectionAsync({
+            forceReselect: refreshedDiscovery,
+            signal,
+        });
+    }
+
+    private async _discoverServersForInitialize(signal: AbortSignal | null): Promise<void> {
+        throwIfAborted(signal);
+        if (
+            this._state.lastRefreshAt !== null &&
+            this._state.servers.length > 0 &&
+            Date.now() - this._state.lastRefreshAt < PLEX_DISCOVERY_CONSTANTS.SERVER_CACHE_DURATION_MS
+        ) {
+            return;
+        }
+
+        if (this._discoveryRequest) {
+            await this._discoveryRequest.awaitSnapshot(signal, clonePlexServers);
+            return;
+        }
+
+        await this.discoverServers({ signal });
     }
 
     public setStorageKeys(selectedServerKey: string, serverHealthKey: string): void {
@@ -417,7 +430,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         // Bump context to invalidate any in-flight discovery started under the
         // previous profile/user storage namespace.
         this._discoveryContextVersion += 1;
-        this._discoveryPromise = null;
+        this._discoveryRequest = null;
         this._selectedServerStorageKey = normalizedSelectedServerKey;
         this._serverHealthStorageKey = normalizedServerHealthKey;
         this._state.selectedServer = null;
@@ -530,7 +543,9 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return redactUrlForLog(url);
     }
 
-    private async _restoreSelectionAsync(options?: { forceReselect?: boolean }): Promise<void> {
+    private async _restoreSelectionAsync(options?: { forceReselect?: boolean; signal?: AbortSignal | null }): Promise<void> {
+        const signal = options?.signal ?? null;
+        throwIfAborted(signal);
         if (this._state.servers.length === 0) {
             return;
         }
@@ -542,6 +557,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             return;
         }
 
+        throwIfAborted(signal);
         if (
             options?.forceReselect !== true &&
             this._state.selectedServer?.id === savedServerId &&
@@ -550,6 +566,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             return;
         }
 
-        await this.selectServer(savedServerId);
+        await this.selectServer(savedServerId, { signal });
     }
 }

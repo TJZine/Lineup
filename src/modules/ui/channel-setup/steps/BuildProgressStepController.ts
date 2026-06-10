@@ -1,5 +1,6 @@
 import { isAbortLikeError } from '../../../../utils/errors';
-import type { BuildProgressDeps, StepRenderContext } from './types';
+import type { StepRenderContext } from '../stepContracts';
+import type { BuildProgressDeps } from './types';
 
 export class BuildProgressStepController {
     render(ctx: StepRenderContext, deps: BuildProgressDeps): void {

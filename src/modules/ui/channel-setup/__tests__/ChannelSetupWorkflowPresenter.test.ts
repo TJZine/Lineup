@@ -9,7 +9,7 @@ import type {
     StrategyStepMutableState,
 } from '../ChannelSetupSessionContracts';
 import { ChannelSetupWorkflowPresenter } from '../ChannelSetupWorkflowPresenter';
-import { STEP2_CONTROL_IDS } from '../steps/constants';
+import { STEP2_CONTROL_IDS } from '../strategyConstants';
 import { flushPromises } from '../../../../__tests__/helpers';
 import { createScreenPorts, DEFAULT_PREVIEW } from './channel-setup-test-helpers';
 

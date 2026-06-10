@@ -1,5 +1,6 @@
 import type { IPlexAuth } from '../../../modules/plex/auth';
 import type {
+    PlexDiscoverySignalOptions,
     IPlexServerDiscovery,
     PlexServerSelectionResult,
 } from '../../../modules/plex/discovery';
@@ -20,6 +21,10 @@ import {
 import {
     SelectedServerRuntimeController,
 } from '../../server-selection/SelectedServerRuntimeController';
+import {
+    isSelectionAbortError,
+    throwIfSelectionAborted,
+} from '../../server-selection/ServerSelectionAbort';
 import type {
     DiscoverySelectedServerSnapshot,
     OrchestratorServerSelectionReadiness,
@@ -51,6 +56,7 @@ export class OrchestratorServerSelectionRuntime {
     private readonly _selectedServerPersistenceAdapter: SelectedServerPersistenceAdapter;
     private readonly _selectedServerRuntimeController: SelectedServerRuntimeController;
     private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;
+    private _serverSwapEpgRollbackPending = false;
 
     constructor(private readonly _deps: OrchestratorServerSelectionRuntimeDeps) {
         this._selectedServerPersistenceAdapter = new SelectedServerPersistenceAdapter({
@@ -68,8 +74,10 @@ export class OrchestratorServerSelectionRuntime {
                 snapshot: PersistedSelectedServerSnapshot
             ): Promise<SelectedServerPersistenceResult> =>
                 this._selectedServerPersistenceAdapter.restorePersistedSelectionSnapshot(snapshot),
-            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
-                this._resumeStartupAfterSelectedServerChange(),
+            resumeStartupAfterSelection: (
+                options?: PlexDiscoverySignalOptions
+            ): Promise<SelectedServerStartupResumeResult> =>
+                this._resumeStartupAfterSelectedServerChange(options),
             clearDiscoverySelection: (): void => {
                 const plexDiscovery = this._deps.getPlexDiscovery();
                 if (!plexDiscovery) {
@@ -92,9 +100,13 @@ export class OrchestratorServerSelectionRuntime {
             },
             capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
                 this._selectedServerRuntimeController.capturePersistedSelectionSnapshot(),
-            selectServer: async (serverId: string): Promise<PlexServerSelectionResult> => {
+            selectServer: async (
+                serverId: string,
+                options?: PlexDiscoverySignalOptions
+            ): Promise<PlexServerSelectionResult> => {
+                this._deps.getInitializationCoordinator()?.clearServerResume();
                 const plexDiscovery = this._requirePlexDiscovery('selectServer');
-                return plexDiscovery.selectServer(serverId);
+                return plexDiscovery.selectServer(serverId, options);
             },
             getSelectedServerUri: (): string | null =>
                 this._deps.getPlexDiscovery()?.getServerUri() ?? null,
@@ -107,8 +119,13 @@ export class OrchestratorServerSelectionRuntime {
                 snapshot: PersistedSelectedServerSnapshot
             ): Promise<SelectedServerPersistenceResult> =>
                 this._selectedServerRuntimeController.restorePersistedSelectionSnapshot(snapshot),
-            resumeStartupAfterSelection: (): Promise<SelectedServerStartupResumeResult> =>
-                this._selectedServerRuntimeController.resumeStartupAfterSelection(),
+            resumeStartupAfterSelection: (
+                options?: PlexDiscoverySignalOptions
+            ): Promise<SelectedServerStartupResumeResult> =>
+                this._selectedServerRuntimeController.resumeStartupAfterSelection(options),
+            rollbackStartupAfterSelectionFailure: (): void => {
+                this._rollbackServerSwapEpgSideEffects();
+            },
             getReadiness: (): OrchestratorServerSelectionReadiness =>
                 (this._deps.isReady() ? 'ready' : 'startup_pending'),
         });
@@ -123,9 +140,12 @@ export class OrchestratorServerSelectionRuntime {
         return server ? server.id : null;
     }
 
-    async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
+    async selectServer(
+        serverId: string,
+        options?: PlexDiscoverySignalOptions
+    ): Promise<OrchestratorServerSelectionResult> {
         this._requirePlexDiscovery('selectServer');
-        return this._serverSelectionCoordinator.selectServer(serverId);
+        return this._serverSelectionCoordinator.selectServer(serverId, options);
     }
 
     async clearSelectedServer(): Promise<void> {
@@ -162,7 +182,11 @@ export class OrchestratorServerSelectionRuntime {
         this._deps.getPlexDiscovery()?.restoreSelectedServerSnapshot(snapshot);
     }
 
-    private async _resumeStartupAfterSelectedServerChange(): Promise<SelectedServerStartupResumeResult> {
+    private async _resumeStartupAfterSelectedServerChange(
+        options?: PlexDiscoverySignalOptions
+    ): Promise<SelectedServerStartupResumeResult> {
+        this._serverSwapEpgRollbackPending = false;
+        const signal = options?.signal;
         const initCoordinator = this._deps.getInitializationCoordinator();
         if (!initCoordinator) {
             return {
@@ -174,7 +198,9 @@ export class OrchestratorServerSelectionRuntime {
         let step = 'runStartup';
 
         try {
-            await initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+            throwIfSelectionAborted(signal);
+            await initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION, options);
+            throwIfSelectionAborted(signal);
 
             const epgCoordinator = this._deps.getEpgCoordinator();
             if (!epgCoordinator) {
@@ -186,6 +212,8 @@ export class OrchestratorServerSelectionRuntime {
             const epg = this._deps.getEpg();
 
             step = 'clearSelectedChannelScheduleSnapshot';
+            throwIfSelectionAborted(signal);
+            this._serverSwapEpgRollbackPending = true;
             epgCoordinator.clearSelectedChannelScheduleSnapshot();
 
             step = 'clearScheduleCaches';
@@ -200,26 +228,37 @@ export class OrchestratorServerSelectionRuntime {
             epgCoordinator.primeEpgChannels();
 
             step = 'refreshEpgSchedules';
+            const refreshOptions = signal
+                ? { reason: 'server-swap', signal }
+                : { reason: 'server-swap' };
             const refreshResult = await captureRecoverableRuntimeResultAsync(
-                async () => epgCoordinator.refreshEpgSchedules({ reason: 'server-swap' })
+                async () => epgCoordinator.refreshEpgSchedules(refreshOptions)
             );
             if (!refreshResult.ok) {
+                if (isSelectionAbortError(refreshResult.error, signal)) {
+                    throw refreshResult.error;
+                }
                 this._deps.reportError(
                     'orchestrator.serverSwap.refreshEpgSchedules',
                     'Post-selection EPG refresh failed',
                     refreshResult.error,
                     { step }
                 );
+                this._serverSwapEpgRollbackPending = false;
                 return {
                     startup: 'completed',
                     epgRefresh: { kind: 'failed', error: refreshResult.error },
                 };
             }
+            this._serverSwapEpgRollbackPending = false;
             return {
                 startup: 'completed',
                 epgRefresh: { kind: 'succeeded' },
             };
         } catch (error) {
+            if (isSelectionAbortError(error, signal)) {
+                throw error;
+            }
             this._deps.reportError(
                 'orchestrator.serverSwap.runStartup',
                 'Post-selection runtime swap failed',
@@ -228,5 +267,17 @@ export class OrchestratorServerSelectionRuntime {
             );
             throw error;
         }
+    }
+
+    private _rollbackServerSwapEpgSideEffects(): void {
+        if (!this._serverSwapEpgRollbackPending) {
+            return;
+        }
+        this._serverSwapEpgRollbackPending = false;
+        const epgCoordinator = this._deps.getEpgCoordinator();
+        const epg = this._deps.getEpg();
+        epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+        epgCoordinator?.clearScheduleCaches();
+        epg?.clearSchedules();
     }
 }

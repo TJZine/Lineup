@@ -28,10 +28,10 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         await queue.request(range(1), { debounceMs: 0, reason: 'manual' });
 
         expect(refreshFn).toHaveBeenCalledTimes(1);
-        expect(refreshFn).toHaveBeenCalledWith(range(1), 'manual');
+        expect(refreshFn).toHaveBeenCalledWith(range(1), 'manual', expect.any(AbortSignal));
     });
 
-    it('coalesces debounced requests and shares one pending promise', async () => {
+    it('coalesces debounced requests while giving each caller an isolated promise', async () => {
         jest.useFakeTimers();
         const refreshFn = jest.fn().mockResolvedValue(undefined);
         const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
@@ -39,14 +39,107 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         const first = queue.request(range(1), { debounceMs: 50, reason: 'visible-range' });
         const second = queue.request(range(2), { debounceMs: 50, reason: 'library-filter' });
 
-        expect(first).toBe(second);
+        expect(first).not.toBe(second);
         expect(refreshFn).not.toHaveBeenCalled();
 
         jest.advanceTimersByTime(50);
         await Promise.all([first, second]);
 
         expect(refreshFn).toHaveBeenCalledTimes(1);
-        expect(refreshFn).toHaveBeenCalledWith(range(2), 'library-filter');
+        expect(refreshFn).toHaveBeenCalledWith(range(2), 'library-filter', expect.any(AbortSignal));
+    });
+
+    it('isolates abort handling when a debounced request is coalesced', async () => {
+        jest.useFakeTimers();
+        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+        const firstController = new AbortController();
+        const secondController = new AbortController();
+        const firstReason = new DOMException('first request hidden', 'AbortError');
+        const secondReason = new DOMException('second request hidden', 'AbortError');
+
+        const first = queue.request(range(1), {
+            debounceMs: 50,
+            reason: 'visible-range',
+            signal: firstController.signal,
+        });
+        const second = queue.request(range(2), {
+            debounceMs: 50,
+            reason: 'library-filter',
+            signal: secondController.signal,
+        });
+
+        firstController.abort(firstReason);
+        await expect(first).rejects.toBe(firstReason);
+
+        jest.advanceTimersByTime(50);
+        await expect(second).resolves.toBeUndefined();
+        expect(refreshFn).toHaveBeenCalledTimes(1);
+        expect(refreshFn).toHaveBeenCalledWith(range(2), 'library-filter', expect.any(AbortSignal));
+
+        secondController.abort(secondReason);
+    });
+
+    it('cancels a debounced refresh when every queued caller aborts', async () => {
+        jest.useFakeTimers();
+        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+        const firstController = new AbortController();
+        const secondController = new AbortController();
+        const firstReason = new DOMException('first request hidden', 'AbortError');
+        const secondReason = new DOMException('second request hidden', 'AbortError');
+
+        const first = queue.request(range(1), {
+            debounceMs: 50,
+            reason: 'visible-range',
+            signal: firstController.signal,
+        });
+        const second = queue.request(range(2), {
+            debounceMs: 50,
+            reason: 'library-filter',
+            signal: secondController.signal,
+        });
+
+        firstController.abort(firstReason);
+        secondController.abort(secondReason);
+
+        await expect(first).rejects.toBe(firstReason);
+        await expect(second).rejects.toBe(secondReason);
+        jest.advanceTimersByTime(50);
+        expect(refreshFn).not.toHaveBeenCalled();
+    });
+
+    it('does not cancel an in-flight debounced refresh until every caller aborts', async () => {
+        jest.useFakeTimers();
+        const refresh = deferred();
+        const refreshFn = jest.fn().mockReturnValue(refresh.promise);
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+        const firstController = new AbortController();
+        const secondController = new AbortController();
+        const firstReason = new DOMException('first request hidden', 'AbortError');
+
+        const first = queue.request(range(1), {
+            debounceMs: 50,
+            reason: 'visible-range',
+            signal: firstController.signal,
+        });
+        const second = queue.request(range(2), {
+            debounceMs: 50,
+            reason: 'library-filter',
+            signal: secondController.signal,
+        });
+
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+        const refreshSignal = refreshFn.mock.calls[0]?.[2] as AbortSignal;
+
+        firstController.abort(firstReason);
+
+        await expect(first).rejects.toBe(firstReason);
+        expect(refreshSignal.aborted).toBe(false);
+
+        refresh.resolve();
+        await expect(second).resolves.toBeUndefined();
     });
 
     it('immediate refresh preempts armed debounce and settles pending debounced promise', async () => {
@@ -57,11 +150,11 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
         const debounced = queue.request(range(1), { debounceMs: 75, reason: 'visible-range' });
         const secondDebounced = queue.request(range(2), { debounceMs: 75, reason: 'visible-range' });
-        expect(debounced).toBe(secondDebounced);
+        expect(debounced).not.toBe(secondDebounced);
 
         const immediate = queue.request(range(3), { debounceMs: 0, reason: 'library-filter' });
         expect(refreshFn).toHaveBeenCalledTimes(1);
-        expect(refreshFn).toHaveBeenCalledWith(range(3), 'library-filter');
+        expect(refreshFn).toHaveBeenCalledWith(range(3), 'library-filter', expect.any(AbortSignal));
 
         jest.advanceTimersByTime(100);
         expect(refreshFn).toHaveBeenCalledTimes(1);
@@ -83,7 +176,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         const debounced = queue.request(range(1), { debounceMs: 75, reason: 'visible-range' });
         const immediate = queue.request(range(2), { debounceMs: 0, reason: 'manual' });
         expect(refreshFn).toHaveBeenCalledTimes(1);
-        expect(refreshFn).toHaveBeenCalledWith(range(2), 'manual');
+        expect(refreshFn).toHaveBeenCalledWith(range(2), 'manual', expect.any(AbortSignal));
 
         const queued = queue.request(range(3), { debounceMs: 50, reason: 'visible-range' });
 
@@ -100,7 +193,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         jest.advanceTimersByTime(50);
         await Promise.resolve();
         expect(refreshFn).toHaveBeenCalledTimes(2);
-        expect(refreshFn).toHaveBeenNthCalledWith(2, range(3), 'visible-range');
+        expect(refreshFn).toHaveBeenNthCalledWith(2, range(3), 'visible-range', expect.any(AbortSignal));
 
         queuedRefresh.resolve();
         await expect(queued).resolves.toBeUndefined();
@@ -125,8 +218,8 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
         const immediate = queue.request(range(2), { debounceMs: 0, reason: 'manual' });
         expect(immediate).not.toBe(debounced);
-        expect(refreshFn).toHaveBeenNthCalledWith(1, range(1), 'visible-range');
-        expect(refreshFn).toHaveBeenNthCalledWith(2, range(2), 'manual');
+        expect(refreshFn).toHaveBeenNthCalledWith(1, range(1), 'visible-range', expect.any(AbortSignal));
+        expect(refreshFn).toHaveBeenNthCalledWith(2, range(2), 'manual', expect.any(AbortSignal));
 
         let immediateSettled = false;
         void immediate.then(() => {
@@ -163,8 +256,8 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         jest.advanceTimersByTime(50);
         await Promise.resolve();
 
-        expect(refreshFn).toHaveBeenNthCalledWith(1, range(1), 'visible-range');
-        expect(refreshFn).toHaveBeenNthCalledWith(2, range(2), 'library-filter');
+        expect(refreshFn).toHaveBeenNthCalledWith(1, range(1), 'visible-range', expect.any(AbortSignal));
+        expect(refreshFn).toHaveBeenNthCalledWith(2, range(2), 'library-filter', expect.any(AbortSignal));
 
         firstRefresh.resolve();
         await expect(first).resolves.toBeUndefined();
@@ -185,5 +278,93 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
         await expect(pending).resolves.toBeUndefined();
         expect(refreshFn).not.toHaveBeenCalled();
+    });
+
+    it('cancelPendingRefresh() aborts an active debounced refresh batch', async () => {
+        jest.useFakeTimers();
+        let refreshSignal: AbortSignal | null = null;
+        const refreshFn = jest.fn(
+            (_range: EpgVisibleRange, _reason: string, signal?: AbortSignal | null) =>
+                new Promise<void>((_resolve, reject) => {
+                    refreshSignal = signal ?? null;
+                    signal?.addEventListener(
+                        'abort',
+                        () => reject(signal.reason),
+                        { once: true }
+                    );
+                })
+        );
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+
+        const pending = queue.request(range(1), { debounceMs: 50, reason: 'visible-range' });
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+
+        queue.cancelPendingRefresh();
+
+        const observedSignal = refreshSignal as AbortSignal | null;
+        expect(observedSignal?.aborted).toBe(true);
+        await expect(pending).resolves.toBeUndefined();
+    });
+
+    it('cancelPendingRefresh() aborts every overlapping active debounced refresh batch', async () => {
+        jest.useFakeTimers();
+        const refreshSignals: AbortSignal[] = [];
+        const refreshFn = jest.fn(
+            (_range: EpgVisibleRange, _reason: string, signal?: AbortSignal | null) =>
+                new Promise<void>((_resolve, reject) => {
+                    if (signal) {
+                        refreshSignals.push(signal);
+                        signal.addEventListener(
+                            'abort',
+                            () => reject(signal.reason),
+                            { once: true }
+                        );
+                    }
+                })
+        );
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+
+        const first = queue.request(range(1), { debounceMs: 50, reason: 'visible-range' });
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+
+        const second = queue.request(range(2), { debounceMs: 50, reason: 'library-filter' });
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+
+        expect(refreshFn).toHaveBeenCalledTimes(2);
+
+        queue.cancelPendingRefresh();
+
+        expect(refreshSignals).toHaveLength(2);
+        expect(refreshSignals.every((signal) => signal.aborted)).toBe(true);
+        await expect(first).resolves.toBeUndefined();
+        await expect(second).resolves.toBeUndefined();
+    });
+
+    it('cancelPendingRefresh() aborts an active immediate refresh batch', async () => {
+        let refreshSignal: AbortSignal | null = null;
+        const refreshFn = jest.fn(
+            (_range: EpgVisibleRange, _reason: string, signal?: AbortSignal | null) =>
+                new Promise<void>((_resolve, reject) => {
+                    refreshSignal = signal ?? null;
+                    signal?.addEventListener(
+                        'abort',
+                        () => reject(signal.reason),
+                        { once: true }
+                    );
+                })
+        );
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+
+        const immediate = queue.request(range(1), { debounceMs: 0, reason: 'manual' });
+        await Promise.resolve();
+
+        queue.cancelPendingRefresh();
+
+        const observedSignal = refreshSignal as AbortSignal | null;
+        expect(observedSignal?.aborted).toBe(true);
+        await expect(immediate).resolves.toBeUndefined();
     });
 });

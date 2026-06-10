@@ -3,7 +3,8 @@ import {
     formatChannelSetupWarningCopy,
 } from '../ChannelSetupUserCopy';
 import type { ChannelSetupReview } from '../../../../core/channel-setup/types';
-import type { BuildReviewDeps, StepRenderContext } from './types';
+import type { StepRenderContext } from '../stepContracts';
+import type { BuildReviewDeps } from './types';
 
 type ReviewEstimateKey = Exclude<keyof ChannelSetupReview['preview']['estimates'], 'total'>;
 

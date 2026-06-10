@@ -363,6 +363,116 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(epg.loadScheduleForChannel).toHaveBeenCalled();
     });
 
+    it('aborts caller-canceled server-swap refreshes before schedules are applied', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        let capturedSignal: AbortSignal | null | undefined;
+        let resolveContent: ((value: ResolvedChannelContent) => void) | null = null;
+        const { runtime, channelManager, epg, deps } = createRuntime({
+            channelManager: {
+                resolveChannelContent: jest.fn((_id: string, options?: { signal?: AbortSignal | null }) => {
+                    capturedSignal = options?.signal;
+                    return new Promise<ResolvedChannelContent>((resolve) => {
+                        resolveContent = resolve;
+                    });
+                }),
+            },
+        });
+
+        const refresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'server-swap',
+            { signal: controller.signal }
+        );
+        await Promise.resolve();
+
+        expect(capturedSignal?.aborted).toBe(false);
+        controller.abort(abortReason);
+        (resolveContent as unknown as (value: ResolvedChannelContent) => void)(createResolvedContent('c1'));
+
+        await expect(refresh).rejects.toBe(abortReason);
+        expect(capturedSignal?.aborted).toBe(true);
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.anything()
+        );
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports non-abort channel load failures that race with caller cancellation', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const loadError = new Error('resolver failed after abort');
+        const controller = new AbortController();
+        let rejectContent: ((reason?: unknown) => void) | null = null;
+        const { runtime, deps } = createRuntime({
+            channelManager: {
+                resolveChannelContent: jest.fn(() =>
+                    new Promise<ResolvedChannelContent>((_resolve, reject) => {
+                        rejectContent = reject;
+                    })
+                ),
+            },
+        });
+
+        const refresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'server-swap',
+            { signal: controller.signal }
+        );
+        await Promise.resolve();
+
+        controller.abort(abortReason);
+        (rejectContent as unknown as (reason?: unknown) => void)(loadError);
+
+        await expect(refresh).rejects.toBe(abortReason);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleLoadFailed',
+            expect.objectContaining({
+                channelId: 'c1',
+                phase: 'immediate',
+                safeError: expect.objectContaining({
+                    message: 'resolver failed after abort',
+                }),
+            })
+        );
+    });
+
+    it('suppresses channel load failures caused by the internal invalidation abort reason', async () => {
+        const controller = new AbortController();
+        let capturedSignal: AbortSignal | null | undefined;
+        let rejectContent: ((reason?: unknown) => void) | null = null;
+        const { runtime, deps } = createRuntime({
+            channelManager: {
+                resolveChannelContent: jest.fn((_id: string, options?: { signal?: AbortSignal | null }) => {
+                    capturedSignal = options?.signal;
+                    return new Promise<ResolvedChannelContent>((_resolve, reject) => {
+                        rejectContent = reject;
+                    });
+                }),
+            },
+        });
+
+        const refresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'server-swap',
+            { signal: controller.signal }
+        );
+        await Promise.resolve();
+
+        controller.abort(new DOMException('server selection hidden', 'AbortError'));
+        (rejectContent as unknown as (reason?: unknown) => void)(capturedSignal?.reason);
+
+        await expect(refresh).rejects.toThrow('server selection hidden');
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleLoadFailed',
+            expect.anything()
+        );
+    });
+
     it('invalidates in-flight refresh work when no visible channels remain', async () => {
         const channel = makeChannel('c1', 1);
         let visibleChannels: ChannelConfig[] = [channel];

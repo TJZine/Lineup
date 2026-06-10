@@ -1,5 +1,6 @@
 import { setTrustedInlineSvg } from '../../../../utils/inlineSvg';
-import type { LibraryStepDeps, StepRenderContext } from './types';
+import type { StepRenderContext } from '../stepContracts';
+import type { LibraryStepDeps } from './types';
 
 export class LibraryStepController {
     render(ctx: StepRenderContext, deps: LibraryStepDeps): void {

@@ -1,6 +1,8 @@
-export const STORAGE_KEY = 'lineup_channels_v4';
+import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 
-export const CURRENT_CHANNEL_KEY = 'lineup_current_channel_v4';
+export const STORAGE_KEY = LINEUP_STORAGE_KEYS.CHANNELS_REAL;
+
+export const CURRENT_CHANNEL_KEY = LINEUP_STORAGE_KEYS.CURRENT_CHANNEL;
 
 /** Content cache TTL in milliseconds (1 hour per spec) */
 export const CACHE_TTL_MS = 60 * 60 * 1000;

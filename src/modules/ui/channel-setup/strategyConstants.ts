@@ -3,15 +3,15 @@ import type {
     ChannelSetupConfig,
     SeriesOrderingConfig,
     SetupStrategyKey,
-} from '../../../../core/channel-setup/types';
+} from '../../../core/channel-setup/types';
 import {
     DEFAULT_MIN_ITEMS_PER_CHANNEL as CORE_DEFAULT_MIN_ITEMS_PER_CHANNEL,
     DEFAULT_STRATEGY_PRIORITIES as CORE_DEFAULT_STRATEGY_PRIORITIES,
     MIXED_SCOPE_STRATEGY_KEYS as CORE_MIXED_SCOPE_STRATEGY_KEYS,
     SETUP_STRATEGY_KEYS as CORE_SETUP_STRATEGY_KEYS,
-} from '../../../../core/channel-setup/constants';
+} from '../../../core/channel-setup/constants';
 
-export type { SetupStrategyKey } from '../../../../core/channel-setup/types';
+export type { SetupStrategyKey } from '../../../core/channel-setup/types';
 
 export const DEFAULT_MIN_ITEMS_PER_CHANNEL = CORE_DEFAULT_MIN_ITEMS_PER_CHANNEL;
 

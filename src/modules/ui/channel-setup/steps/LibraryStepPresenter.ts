@@ -2,7 +2,7 @@ import type { ChannelSetupFocusCoordinator } from '../focus/ChannelSetupFocusCoo
 import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
 import { ChannelSetupSessionController } from '../ChannelSetupSessionController';
 import { LibraryStepController } from './LibraryStepController';
-import type { StepRenderContext } from './types';
+import type { StepRenderContext } from '../stepContracts';
 
 const MOVIE_SVG = `
 <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true">

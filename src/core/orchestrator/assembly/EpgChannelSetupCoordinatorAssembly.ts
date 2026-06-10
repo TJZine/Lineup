@@ -2,6 +2,7 @@ import type { ChannelConfig, IChannelManager, ResolvedChannelContent } from '../
 import type { IChannelScheduler, ScheduleConfig } from '../../../modules/scheduler/scheduler';
 import type { IEPGComponent } from '../../../modules/ui/epg/interfaces';
 import { EPGCoordinator } from '../../../modules/ui/epg/coordinator/EPGCoordinator';
+import type { EpgScheduleRefreshOptions } from '../../../modules/ui/epg/coordinator/EPGCoordinatorContracts';
 import { withEpgVisibleRangeChangeBinding } from '../../../modules/ui/epg/component/EPGConfigBindings';
 import type { EPGConfig, EPGUiStatus, EpgVisibleRange } from '../../../modules/ui/epg/types';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
@@ -168,7 +169,7 @@ export function buildChannelSetupOwners(
             primeEpgChannels: (): void => {
                 epgCoordinator.primeEpgChannels();
             },
-            refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }): Promise<void> =>
+            refreshEpgSchedules: (options?: EpgScheduleRefreshOptions): Promise<void> =>
                 epgCoordinator.refreshEpgSchedules(options),
             clearRerunRequest: (): void => {
                 coordinator.clearRerunRequest();

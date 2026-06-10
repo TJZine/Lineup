@@ -1,3 +1,5 @@
+import { readOptionalAbortSignalReason } from '../../../utils/abortSignalReason';
+
 export interface FetchWithTimeoutCoreArgs {
     url: string;
     init: RequestInit;
@@ -20,7 +22,7 @@ export async function fetchWithTimeoutCore({
         }
     };
     const onAbort = (): void => {
-        abortRequest(readAbortReason(upstreamSignal));
+        abortRequest(readOptionalAbortSignalReason(upstreamSignal));
     };
 
     if (upstreamSignal) {
@@ -52,11 +54,4 @@ export async function fetchWithTimeoutCore({
             }
         }
     }
-}
-
-function readAbortReason(signal: AbortSignal | null): unknown {
-    if (!signal || !('reason' in signal)) {
-        return undefined;
-    }
-    return (signal as AbortSignal & { reason?: unknown }).reason;
 }

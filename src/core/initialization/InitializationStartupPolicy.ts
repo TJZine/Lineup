@@ -8,7 +8,9 @@ import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
 import type { ModuleStatus } from '../orchestrator/contracts/OrchestratorTypes';
+import { throwIfStartupAborted } from './InitializationAbort';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
+import type { StartupSignalOptions } from './InitializationAbort';
 
 type UpdateModuleStatus = (
     id: string,
@@ -32,7 +34,7 @@ export interface StartupResumeHandlers {
     registerProfileResume(): void;
 }
 
-export interface AuthValidationPolicyInputs {
+export interface AuthValidationPolicyInputs extends StartupSignalOptions {
     startTime: number;
     plexAuth: AuthValidationPlexAuth;
     navigation: AuthValidationNavigation;
@@ -43,7 +45,7 @@ export interface AuthValidationPolicyInputs {
     handlers: Pick<StartupResumeHandlers, 'registerAuthResume' | 'registerProfileResume'>;
 }
 
-export interface ServerConnectionPolicyInputs {
+export interface ServerConnectionPolicyInputs extends StartupSignalOptions {
     startTime: number;
     plexDiscovery: IPlexServerDiscovery;
     plexLibrary: IPlexLibrary;
@@ -53,7 +55,7 @@ export interface ServerConnectionPolicyInputs {
     handlers: Pick<StartupResumeHandlers, 'registerServerResume'>;
 }
 
-export interface PostReadyRoutingInputs {
+export interface PostReadyRoutingInputs extends StartupSignalOptions {
     navigation: Pick<INavigationManager, 'replaceScreen'>;
     channelManager: Pick<IChannelManager, 'getCurrentChannel' | 'getAllChannels'> | null;
     shouldRunAudioSetup: () => boolean;
@@ -68,25 +70,28 @@ type AuthStoredCredentials = Extract<
 >['credentials'];
 
 export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs): Promise<void> {
+    throwIfStartupAborted(inputs.signal);
     const shouldRunAudioSetup = inputs.shouldRunAudioSetup();
     const shouldRunSetup = inputs.shouldRunChannelSetup();
+    throwIfStartupAborted(inputs.signal);
 
     if (shouldRunAudioSetup && shouldRunSetup) {
+        throwIfStartupAborted(inputs.signal);
         inputs.navigation.replaceScreen('audio-setup');
         return;
     }
 
     if (shouldRunSetup) {
+        throwIfStartupAborted(inputs.signal);
         inputs.navigation.replaceScreen('channel-setup');
         return;
     }
 
     if (!inputs.channelManager) {
+        throwIfStartupAborted(inputs.signal);
         inputs.openServerSelect();
         return;
     }
-
-    inputs.navigation.replaceScreen('player');
 
     let channelToPlay = inputs.channelManager.getCurrentChannel();
 
@@ -99,16 +104,21 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
     }
 
     if (channelToPlay) {
+        throwIfStartupAborted(inputs.signal);
         const outcome = await inputs.switchToChannel(channelToPlay.id);
+        throwIfStartupAborted(inputs.signal);
         if (outcome === 'failed') {
             throw new Error(`Initial channel switch failed for ${channelToPlay.id}.`);
         }
         if (outcome === 'aborted') {
             throw new Error(`Initial channel switch aborted for ${channelToPlay.id}.`);
         }
+        inputs.navigation.replaceScreen('player');
         return;
     }
 
+    throwIfStartupAborted(inputs.signal);
+    inputs.navigation.replaceScreen('player');
     inputs.openServerSelect();
 }
 
@@ -136,6 +146,7 @@ function resolveValidatedToken<TToken extends AuthStoredCredentials['activeToken
 }
 
 function markAuthReady(inputs: AuthValidationPolicyInputs): void {
+    throwIfStartupAborted(inputs.signal);
     inputs.updateModuleStatus(
         'plex-auth',
         'ready',
@@ -144,22 +155,27 @@ function markAuthReady(inputs: AuthValidationPolicyInputs): void {
     );
 
     if (inputs.lifecycle) {
+        throwIfStartupAborted(inputs.signal);
         inputs.lifecycle.setPhase('loading_data');
     }
 }
 
 function routeToPendingAuth(inputs: AuthValidationPolicyInputs, error?: AppError): boolean {
+    throwIfStartupAborted(inputs.signal);
     if (error) {
         inputs.updateModuleStatus('plex-auth', 'pending', error);
     } else {
         inputs.updateModuleStatus('plex-auth', 'pending');
     }
+    throwIfStartupAborted(inputs.signal);
     inputs.handlers.registerAuthResume();
+    throwIfStartupAborted(inputs.signal);
     inputs.navigation.goTo('auth');
     return false;
 }
 
 async function maybeRouteToProfileSelect(inputs: AuthValidationPolicyInputs): Promise<boolean> {
+    throwIfStartupAborted(inputs.signal);
     const currentScreen = inputs.navigation.getCurrentScreen();
     const isAuthScreen = currentScreen === 'auth';
     const showPickerOnStartup = inputs.readShowProfilePickerOnStartup();
@@ -168,9 +184,12 @@ async function maybeRouteToProfileSelect(inputs: AuthValidationPolicyInputs): Pr
     }
 
     try {
-        const users = await inputs.plexAuth.getHomeUsers();
+        throwIfStartupAborted(inputs.signal);
+        const users = await inputs.plexAuth.getHomeUsers({ signal: inputs.signal ?? null });
+        throwIfStartupAborted(inputs.signal);
         if (users.length > 1) {
             inputs.handlers.registerProfileResume();
+            throwIfStartupAborted(inputs.signal);
             inputs.navigation.goTo('profile-select');
             return false;
         }
@@ -188,6 +207,7 @@ function persistValidatedActiveCredentials(
     inputs: AuthValidationPolicyInputs,
     storedCredentials: AuthStoredCredentials
 ): void {
+    throwIfStartupAborted(inputs.signal);
     const validatedActiveToken = resolveValidatedToken(
         inputs.plexAuth.getCurrentUser(),
         storedCredentials.activeToken
@@ -197,6 +217,7 @@ function persistValidatedActiveCredentials(
         ? validatedActiveToken
         : storedCredentials.accountToken;
 
+    throwIfStartupAborted(inputs.signal);
     inputs.plexAuth.storeCredentials({
         accountToken,
         activeToken: validatedActiveToken,
@@ -210,11 +231,13 @@ function persistValidatedAccountFallback(
     inputs: AuthValidationPolicyInputs,
     storedCredentials: AuthStoredCredentials
 ): void {
+    throwIfStartupAborted(inputs.signal);
     const validatedAccountToken = resolveValidatedToken(
         inputs.plexAuth.getCurrentUser(),
         storedCredentials.accountToken
     );
 
+    throwIfStartupAborted(inputs.signal);
     inputs.plexAuth.storeCredentials({
         accountToken: validatedAccountToken,
         activeToken: validatedAccountToken,
@@ -228,7 +251,9 @@ function persistValidatedAccountFallback(
 }
 
 export async function applyAuthValidationPolicy(inputs: AuthValidationPolicyInputs): Promise<boolean> {
+    throwIfStartupAborted(inputs.signal);
     const storedReadResult = inputs.plexAuth.readStoredCredentialsAndClearCorruption();
+    throwIfStartupAborted(inputs.signal);
     if (storedReadResult.kind === 'corrupted') {
         return routeToPendingAuth(inputs, {
             code: AppErrorCode.STORAGE_CORRUPTED,
@@ -244,26 +269,37 @@ export async function applyAuthValidationPolicy(inputs: AuthValidationPolicyInpu
     const storedCredentials = storedReadResult.credentials;
 
     try {
+        throwIfStartupAborted(inputs.signal);
         const activeValid = await inputs.plexAuth.validateToken(
-            storedCredentials.activeToken.token
+            storedCredentials.activeToken.token,
+            { signal: inputs.signal ?? null }
         );
+        throwIfStartupAborted(inputs.signal);
         if (activeValid) {
             persistValidatedActiveCredentials(inputs, storedCredentials);
+            throwIfStartupAborted(inputs.signal);
             inputs.configureDiscoveryStorage();
+            throwIfStartupAborted(inputs.signal);
             markAuthReady(inputs);
             return maybeRouteToProfileSelect(inputs);
         }
 
+        throwIfStartupAborted(inputs.signal);
         const accountValid = await inputs.plexAuth.validateToken(
-            storedCredentials.accountToken.token
+            storedCredentials.accountToken.token,
+            { signal: inputs.signal ?? null }
         );
+        throwIfStartupAborted(inputs.signal);
         if (!accountValid) {
             return routeToPendingAuth(inputs);
         }
 
         persistValidatedAccountFallback(inputs, storedCredentials);
+        throwIfStartupAborted(inputs.signal);
         markAuthReady(inputs);
+        throwIfStartupAborted(inputs.signal);
         inputs.handlers.registerProfileResume();
+        throwIfStartupAborted(inputs.signal);
         inputs.navigation.goTo('profile-select');
         return false;
     } catch (error) {
@@ -276,13 +312,16 @@ export async function applyAuthValidationPolicy(inputs: AuthValidationPolicyInpu
 }
 
 export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicyInputs): Promise<boolean> {
+    throwIfStartupAborted(inputs.signal);
     inputs.updateModuleStatus('plex-server-discovery', 'initializing');
     try {
-        await inputs.plexDiscovery.initialize();
+        await inputs.plexDiscovery.initialize({ signal: inputs.signal ?? null });
+        throwIfStartupAborted(inputs.signal);
     } catch (error) {
         if (isPlexAuthRecoverable(error)) {
             throw error;
         }
+        throwIfStartupAborted(inputs.signal);
         inputs.updateModuleStatus(
             'plex-server-discovery',
             'error',
@@ -294,16 +333,20 @@ export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicy
 
     const elapsedMs = Date.now() - inputs.startTime;
     const isConnected = inputs.plexDiscovery.isConnected();
+    throwIfStartupAborted(inputs.signal);
 
     if (!isConnected) {
         inputs.updateModuleStatus('plex-server-discovery', 'pending', undefined, elapsedMs);
         inputs.updateModuleStatus('plex-library', 'pending', undefined, elapsedMs);
         inputs.updateModuleStatus('plex-stream-resolver', 'pending', undefined, elapsedMs);
+        throwIfStartupAborted(inputs.signal);
         inputs.handlers.registerServerResume();
+        throwIfStartupAborted(inputs.signal);
         inputs.navigation.goTo('server-select');
         return false;
     }
 
+    throwIfStartupAborted(inputs.signal);
     inputs.updateModuleStatus('plex-server-discovery', 'ready', undefined, elapsedMs);
     inputs.updateModuleStatus('plex-library', 'ready', undefined, elapsedMs);
     inputs.updateModuleStatus('plex-stream-resolver', 'ready', undefined, elapsedMs);

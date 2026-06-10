@@ -364,7 +364,9 @@ describe('ServerSelectScreen', () => {
         const hint = container.querySelector('.server-autoconnect-hint') as HTMLElement | null;
         const status = container.querySelector('.screen-status') as HTMLElement | null;
 
-        expect(orchestrator.selectServer).toHaveBeenCalledWith('srv-1');
+        expect(orchestrator.selectServer).toHaveBeenCalledWith('srv-1', expect.objectContaining({
+            signal: expect.any(AbortSignal),
+        }));
         expect(hint?.classList.contains('visible')).toBe(false);
         expect(hint?.hasAttribute('hidden')).toBe(true);
         expect(status?.textContent).toContain('Connected…');

@@ -1101,8 +1101,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
 
-                expect(mockPlexDiscovery.selectServer).toHaveBeenCalledWith('server-1');
-                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+                expect(mockPlexDiscovery.selectServer.mock.calls[0]?.[0]).toBe('server-1');
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
                 expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
@@ -1149,7 +1149,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
 
-                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
                 expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
             } finally {
                 refreshSpy.mockRestore();
@@ -1224,7 +1224,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             } finally {
                 runStartupSpy.mockRestore();
             }
@@ -1253,7 +1253,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             } finally {
                 runStartupSpy.mockRestore();
             }
@@ -1758,7 +1758,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 listener?.('http://server.example');
                 await Promise.resolve();
 
-                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
             } finally {
                 runStartupSpy.mockRestore();
             }
@@ -1879,7 +1879,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             await orchestrator.start();
 
-            expect(mockPlexAuth.validateToken).toHaveBeenCalledWith('valid-token');
+            expect(mockPlexAuth.validateToken).toHaveBeenCalledWith('valid-token', { signal: null });
             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
         });
 
@@ -1994,7 +1994,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             await orchestrator.start();
 
-            expect(mockPlexAuth.validateToken).toHaveBeenCalledWith('valid-token');
+            expect(mockPlexAuth.validateToken).toHaveBeenCalledWith('valid-token', { signal: null });
             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
             expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('auth');
         });

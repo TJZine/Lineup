@@ -37,6 +37,7 @@ import {
     clonePlexAuthToken,
     normalizePlexAuthTokenDates,
 } from './plexAuthTokenOwnership';
+import { readAbortSignalReason } from '../../../utils/abortSignalReason';
 
 // Re-export for consumers
 export { PlexApiError } from './plexAuthTransport';
@@ -45,7 +46,7 @@ function throwIfAborted(signal: AbortSignal | null | undefined): void {
     if (!signal?.aborted) {
         return;
     }
-    throw signal.reason ?? new DOMException('Aborted', 'AbortError');
+    throw readAbortSignalReason(signal);
 }
 
 /**
@@ -702,7 +703,7 @@ export class PlexAuth implements IPlexAuth {
             };
             const onAbort = (): void => {
                 cleanup();
-                reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+                reject(signal ? readAbortSignalReason(signal) : undefined);
             };
             timeoutId = setTimeout(() => {
                 cleanup();

@@ -1,6 +1,7 @@
 export { PlexServerDiscovery, PlexApiError } from './PlexServerDiscovery';
 export type {
     IPlexServerDiscovery,
+    PlexDiscoverySignalOptions,
     PlexServerSelectionFailureReason,
     PlexServerSelectionResult,
     PlexServerDiscoveryConfig,

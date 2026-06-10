@@ -1192,8 +1192,11 @@ export class AppOrchestrator {
         return this._plexDiscovery.discoverServers({ signal: options?.signal ?? null });
     }
 
-    async selectServer(serverId: string): Promise<OrchestratorServerSelectionResult> {
-        return this._serverSelectionRuntime.selectServer(serverId);
+    async selectServer(
+        serverId: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<OrchestratorServerSelectionResult> {
+        return this._serverSelectionRuntime.selectServer(serverId, options);
     }
 
     async clearSelectedServer(): Promise<void> {

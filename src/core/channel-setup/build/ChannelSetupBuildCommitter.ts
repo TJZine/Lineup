@@ -10,6 +10,13 @@ import type { ChannelBuildProgress, ChannelBuildSummary, ChannelSetupConfig } fr
 import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetupPlanningTypes';
 import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
 import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';
+import { isAbortLikeError } from '../../../utils/errors';
+
+export type ChannelSetupEpgRefreshOptions = {
+    reason?: string;
+    debounceMs?: number;
+    signal?: AbortSignal | null;
+};
 
 type BuildProgressReporter = (
     task: ChannelBuildProgress['task'],
@@ -26,7 +33,7 @@ export interface ChannelSetupBuildCommitterDeps {
     ensureEpgInitialized: () => Promise<void>;
     clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
-    refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }) => Promise<void>;
+    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<void>;
 }
 
 export interface ChannelSetupBuildCommitRequest {
@@ -206,8 +213,15 @@ export class ChannelSetupBuildCommitter {
             this._deps.clearSelectedChannelScheduleSnapshot();
             await this._deps.ensureEpgInitialized();
             this._deps.primeEpgChannels();
-            await this._deps.refreshEpgSchedules({ reason: 'channel-setup', debounceMs: 0 });
+            await this._deps.refreshEpgSchedules({
+                reason: 'channel-setup',
+                debounceMs: 0,
+                signal: request.signal,
+            });
         } catch (error: unknown) {
+            if (isAbortLikeError(error, request.signal ?? undefined)) {
+                throw error;
+            }
             epgRefreshFailed = true;
             addWarning('[ChannelSetup] EPG refresh failed after commit', error);
             reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);

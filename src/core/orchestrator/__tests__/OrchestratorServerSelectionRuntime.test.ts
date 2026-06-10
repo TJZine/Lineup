@@ -53,6 +53,7 @@ const createPlexDiscovery = (): jest.Mocked<IPlexServerDiscovery> => ({
 
 const createInitializationCoordinator = (): jest.Mocked<InitializationCoordinator> => ({
     runStartup: jest.fn().mockResolvedValue(undefined),
+    clearServerResume: jest.fn(),
 } as unknown as jest.Mocked<InitializationCoordinator>);
 
 const createDeps = (
@@ -160,8 +161,56 @@ describe('OrchestratorServerSelectionRuntime', () => {
             },
         });
 
-        expect(initCoordinator.runStartup).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+        expect(initCoordinator.runStartup).toHaveBeenCalledWith(
+            STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
+            undefined
+        );
         expect(epg.clearSchedules).not.toHaveBeenCalled();
+    });
+
+    it('passes caller discovery options through to Plex discovery selection', async () => {
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+        const options = { signal: new AbortController().signal };
+
+        await expect(runtime.selectServer('server-1', options)).resolves.toEqual({
+            kind: 'selected',
+            readiness: 'startup_pending',
+            persistedSelection: 'updated',
+            startupResume: {
+                startup: 'completed',
+                epgRefresh: { kind: 'skipped_no_coordinator' },
+            },
+        });
+
+        expect(plexDiscovery.selectServer).toHaveBeenCalledWith('server-1', options);
+        expect(initCoordinator.runStartup).toHaveBeenCalledWith(
+            STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
+            options
+        );
+    });
+
+    it('clears pending server resume listeners before mutating discovery selection', async () => {
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1')).resolves.toMatchObject({ kind: 'selected' });
+
+        expect(initCoordinator.clearServerResume).toHaveBeenCalledTimes(1);
+        expect(plexDiscovery.selectServer).toHaveBeenCalledTimes(1);
+        expect(initCoordinator.clearServerResume.mock.invocationCallOrder[0]).toBeLessThan(
+            plexDiscovery.selectServer.mock.invocationCallOrder[0] as number
+        );
     });
 
     it('skips selected-server startup resume when the initialization coordinator is unavailable', async () => {
@@ -224,6 +273,123 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'server-swap' });
     });
 
+    it('stops server-swap EPG mutations when the caller aborts after startup resumes', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const plexAuth = createPlexAuth();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        initCoordinator.runStartup.mockImplementation(async () => {
+            controller.abort(abortReason);
+        });
+        const epg = {
+            clearSchedules: jest.fn(),
+        } as unknown as jest.Mocked<IEPGComponent>;
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const deps = createDeps({
+            getPlexAuth: jest.fn(() => plexAuth),
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+            getEpg: jest.fn(() => epg),
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(
+            runtime.selectServer('server-1', { signal: controller.signal })
+        ).rejects.toBe(abortReason);
+
+        expect(initCoordinator.runStartup).toHaveBeenCalledWith(
+            STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
+            { signal: controller.signal }
+        );
+        expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).not.toHaveBeenCalled();
+        expect(epgCoordinator.clearScheduleCaches).not.toHaveBeenCalled();
+        expect(epg.clearSchedules).not.toHaveBeenCalled();
+        expect(epgCoordinator.primeEpgChannels).not.toHaveBeenCalled();
+        expect(epgCoordinator.refreshEpgSchedules).not.toHaveBeenCalled();
+        expect(plexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith({
+            server: null,
+            connection: null,
+            storedServerId: 'old-server',
+        });
+        expect(plexAuth.storeCredentials).toHaveBeenCalledTimes(2);
+        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials());
+        expect(deps.reportError).not.toHaveBeenCalled();
+    });
+
+    it('aborts pending server-swap EPG refresh without reporting rollback as a runtime failure', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const plexAuth = createPlexAuth();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        let releaseRefresh: (() => void) | null = null;
+        let capturedRefreshSignal: AbortSignal | null | undefined;
+        let markRefreshStarted: (() => void) | null = null;
+        const refreshStarted = new Promise<void>((resolve) => {
+            markRefreshStarted = resolve;
+        });
+        const epg = {
+            clearSchedules: jest.fn(),
+        } as unknown as jest.Mocked<IEPGComponent>;
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn((options?: { signal?: AbortSignal | null }) => {
+                capturedRefreshSignal = options?.signal;
+                markRefreshStarted?.();
+                return new Promise<void>((_resolve, reject) => {
+                    releaseRefresh = (): void => reject(abortReason);
+                    options?.signal?.addEventListener('abort', () => reject(abortReason), { once: true });
+                });
+            }),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const deps = createDeps({
+            getPlexAuth: jest.fn(() => plexAuth),
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+            getEpg: jest.fn(() => epg),
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        const selection = runtime.selectServer('server-1', { signal: controller.signal });
+        await refreshStarted;
+
+        expect(capturedRefreshSignal).toBe(controller.signal);
+        controller.abort(abortReason);
+        (releaseRefresh as unknown as () => void)();
+
+        await expect(selection).rejects.toBe(abortReason);
+        expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({
+            reason: 'server-swap',
+            signal: controller.signal,
+        });
+        expect(plexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith({
+            server: null,
+            connection: null,
+            storedServerId: 'old-server',
+        });
+        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials());
+        expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).toHaveBeenCalledTimes(2);
+        expect(epgCoordinator.clearScheduleCaches).toHaveBeenCalledTimes(2);
+        expect(epg.clearSchedules).toHaveBeenCalledTimes(2);
+        expect(epgCoordinator.primeEpgChannels).toHaveBeenCalledTimes(1);
+        expect(
+            plexDiscovery.restoreSelectedServerSnapshot.mock.invocationCallOrder[0]
+        ).toBeLessThan(
+            epgCoordinator.clearSelectedChannelScheduleSnapshot.mock.invocationCallOrder[1] as number
+        );
+        expect(deps.reportError).not.toHaveBeenCalled();
+    });
+
     it('returns failed EPG refresh status after clearing server-scoped schedule state', async () => {
         const plexDiscovery = createPlexDiscovery();
         const initCoordinator = createInitializationCoordinator();
@@ -255,7 +421,10 @@ describe('OrchestratorServerSelectionRuntime', () => {
             },
         });
 
-        expect(initCoordinator.runStartup).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+        expect(initCoordinator.runStartup).toHaveBeenCalledWith(
+            STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
+            undefined
+        );
         expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).toHaveBeenCalledTimes(1);
         expect(epgCoordinator.clearScheduleCaches).toHaveBeenCalledTimes(1);
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
@@ -266,6 +435,173 @@ describe('OrchestratorServerSelectionRuntime', () => {
             'Post-selection EPG refresh failed',
             refreshError,
             { step: 'refreshEpgSchedules' }
+        );
+    });
+
+    it('reports a captured non-abort EPG refresh failure even when caller aborts before classification', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const plexAuth = createPlexAuth();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const refreshError = new Error('refresh failed before abort classification');
+        const epg = {
+            clearSchedules: jest.fn(),
+        } as unknown as jest.Mocked<IEPGComponent>;
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn(async () => {
+                controller.abort(abortReason);
+                throw refreshError;
+            }),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const deps = createDeps({
+            getPlexAuth: jest.fn(() => plexAuth),
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+            getEpg: jest.fn(() => epg),
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1', { signal: controller.signal })).resolves.toEqual({
+            kind: 'selected',
+            readiness: 'startup_pending',
+            persistedSelection: 'updated',
+            startupResume: {
+                startup: 'completed',
+                epgRefresh: { kind: 'failed', error: refreshError },
+            },
+        });
+
+        expect(plexDiscovery.restoreSelectedServerSnapshot).not.toHaveBeenCalled();
+        expect(plexAuth.storeCredentials).toHaveBeenCalledTimes(1);
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.serverSwap.refreshEpgSchedules',
+            'Post-selection EPG refresh failed',
+            refreshError,
+            { step: 'refreshEpgSchedules' }
+        );
+    });
+
+    it('reports internal abort-like EPG refresh failures that race with caller cancellation', async () => {
+        const abortReason = new DOMException('server selection hidden', 'AbortError');
+        const controller = new AbortController();
+        const plexAuth = createPlexAuth();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const refreshError = new DOMException('internal EPG refresh abort', 'AbortError');
+        const epg = {
+            clearSchedules: jest.fn(),
+        } as unknown as jest.Mocked<IEPGComponent>;
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn(async () => {
+                controller.abort(abortReason);
+                throw refreshError;
+            }),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const deps = createDeps({
+            getPlexAuth: jest.fn(() => plexAuth),
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+            getEpg: jest.fn(() => epg),
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1', { signal: controller.signal })).resolves.toEqual({
+            kind: 'selected',
+            readiness: 'startup_pending',
+            persistedSelection: 'updated',
+            startupResume: {
+                startup: 'completed',
+                epgRefresh: { kind: 'failed', error: refreshError },
+            },
+        });
+
+        expect(plexDiscovery.restoreSelectedServerSnapshot).not.toHaveBeenCalled();
+        expect(plexAuth.storeCredentials).toHaveBeenCalledTimes(1);
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.serverSwap.refreshEpgSchedules',
+            'Post-selection EPG refresh failed',
+            refreshError,
+            { step: 'refreshEpgSchedules' }
+        );
+    });
+
+    it('reports startup abort-like failures when no caller signal requested cancellation', async () => {
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const abortError = new DOMException('internal startup abort', 'AbortError');
+        initCoordinator.runStartup.mockRejectedValue(abortError);
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1')).rejects.toBe(abortError);
+
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.serverSwap.runStartup',
+            'Post-selection runtime swap failed',
+            abortError,
+            { step: 'runStartup' }
+        );
+    });
+
+    it('reports non-abort startup failures that race with caller cancellation', async () => {
+        const controller = new AbortController();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const startupError = new Error('startup failed after abort');
+        initCoordinator.runStartup.mockImplementation(async () => {
+            controller.abort(new DOMException('server selection hidden', 'AbortError'));
+            throw startupError;
+        });
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1', { signal: controller.signal })).rejects.toBe(startupError);
+
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.serverSwap.runStartup',
+            'Post-selection runtime swap failed',
+            startupError,
+            { step: 'runStartup' }
+        );
+    });
+
+    it('reports internal abort-like startup failures that race with caller cancellation', async () => {
+        const controller = new AbortController();
+        const plexDiscovery = createPlexDiscovery();
+        const initCoordinator = createInitializationCoordinator();
+        const startupError = new DOMException('internal startup abort after caller abort', 'AbortError');
+        initCoordinator.runStartup.mockImplementation(async () => {
+            controller.abort(new DOMException('server selection hidden', 'AbortError'));
+            throw startupError;
+        });
+        const deps = createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+            getInitializationCoordinator: jest.fn(() => initCoordinator),
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(deps);
+
+        await expect(runtime.selectServer('server-1', { signal: controller.signal })).rejects.toBe(startupError);
+
+        expect(deps.reportError).toHaveBeenCalledWith(
+            'orchestrator.serverSwap.runStartup',
+            'Post-selection runtime swap failed',
+            startupError,
+            { step: 'runStartup' }
         );
     });
 });

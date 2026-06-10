@@ -3,6 +3,7 @@ import { PlexApiError } from '../auth/plexAuthTransport';
 import { redactSensitiveTokens } from '../../../utils/redact';
 import { PLEX_DISCOVERY_CONSTANTS } from './constants';
 import { buildDiscoveryFetchVariants, type DiscoveryFetchVariant } from './PlexDiscoveryFetchVariants';
+import { readAbortReason, throwIfAborted, throwIfCallerAbort } from './PlexDiscoveryAbort';
 import {
     getDiscoveryRateLimitDelayMs,
     handleResponseError,
@@ -28,6 +29,7 @@ export async function fetchDiscoveryResponse(
     let lastUrl = '';
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        throwIfAborted(options?.signal ?? null);
         const outcome = await fetchDiscoveryAttempt(
             variants,
             onAttemptUrl,
@@ -93,6 +95,7 @@ async function fetchDiscoveryAttempt(
     let lastUrl = '';
 
     for (const variant of variants) {
+        throwIfAborted(signal);
         lastUrl = variant.url;
         onAttemptUrl(lastUrl);
 
@@ -100,6 +103,7 @@ async function fetchDiscoveryAttempt(
         try {
             receivedResponse = await fetchDiscoveryVariant(variant, signal);
         } catch (error) {
+            throwIfCallerAbort(error, signal);
             lastError = error;
             continue;
         }
@@ -138,11 +142,20 @@ async function fetchDiscoveryAttempt(
 
 async function fetchDiscoveryVariant(variant: DiscoveryFetchVariant, upstreamSignal: AbortSignal | null): Promise<Response> {
     const controller = new AbortController();
+    let abortSource: 'caller' | 'timeout' | null = null;
     const abortFromUpstream = (): void => {
-        controller.abort(upstreamSignal?.reason);
+        if (upstreamSignal && !controller.signal.aborted) {
+            abortSource = 'caller';
+            controller.abort(readAbortReason(upstreamSignal));
+        }
     };
     const timeoutId = setTimeout(
-        () => controller.abort(),
+        () => {
+            if (!controller.signal.aborted) {
+                abortSource = 'timeout';
+                controller.abort();
+            }
+        },
         PLEX_DISCOVERY_CONSTANTS.DISCOVERY_TIMEOUT_MS
     );
     try {
@@ -161,6 +174,9 @@ async function fetchDiscoveryVariant(variant: DiscoveryFetchVariant, upstreamSig
             init.headers = variant.headers;
         }
         return await fetch(variant.url, init);
+    } catch (error) {
+        throwIfCallerAbort(error, upstreamSignal, abortSource === 'caller');
+        throw error;
     } finally {
         upstreamSignal?.removeEventListener('abort', abortFromUpstream);
         clearTimeout(timeoutId);
@@ -174,12 +190,12 @@ function delay(ms: number, signal: AbortSignal | null): Promise<void> {
         });
     }
     if (signal.aborted) {
-        return Promise.reject(signal.reason);
+        return Promise.reject(readAbortReason(signal));
     }
     return new Promise((resolve, reject) => {
         const onAbort = (): void => {
             clearTimeout(timeoutId);
-            reject(signal.reason);
+            reject(readAbortReason(signal));
         };
         const timeoutId = setTimeout(() => {
             signal.removeEventListener('abort', onAbort);

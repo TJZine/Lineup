@@ -286,6 +286,31 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
         });
     });
 
+    it('does not convert non-abort response parsing failures into caller cancellation', async () => {
+        const controller = new AbortController();
+        const abortReason = new DOMException('caller cancelled after response', 'AbortError');
+        mockDiscoveryResponse({
+            ok: true,
+            status: 200,
+            headers: { get: () => 'application/json' },
+            text: async () => {
+                controller.abort(abortReason);
+                throw new Error('body stream failed after abort');
+            },
+        });
+
+        await expect(discoverPlexResourcesWithRequestPolicy(
+            discoveryHeaders,
+            { signal: controller.signal }
+        )).rejects.toMatchObject({
+            code: AppErrorCode.PARSE_ERROR,
+            message: 'Failed to read server discovery response body (content type: application/json)',
+            cause: expect.objectContaining({
+                message: 'body stream failed after abort',
+            }),
+        });
+    });
+
     it('throws the existing XML parsererror message for invalid XML responses', async () => {
         mockDiscoveryResponse(createTextResponse('<MediaContainer><Device></MediaContainer>', 'application/xml'));
 
@@ -306,5 +331,37 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
             code: AppErrorCode.PARSE_ERROR,
             message: 'Expected Response with text method for server discovery response',
         });
+    });
+
+    it('rethrows an already-aborted caller signal reason without fetching', async () => {
+        const abortReason = new DOMException('caller cancelled discovery', 'AbortError');
+        const controller = new AbortController();
+        controller.abort(abortReason);
+        const fetchMock = jest.fn();
+        (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+        await expect(discoverPlexResourcesWithRequestPolicy(
+            discoveryHeaders,
+            { signal: controller.signal }
+        )).rejects.toBe(abortReason);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('rethrows caller aborts during discovery fetches without trying more variants', async () => {
+        const controller = new AbortController();
+        const abortReason = new DOMException('caller cancelled discovery', 'AbortError');
+        const fetchMock = jest.fn().mockImplementation((_url: string, init?: RequestInit) =>
+            new Promise((_resolve, reject) => {
+                const signal = init?.signal as AbortSignal | undefined;
+                signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+            })
+        );
+        (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+        const request = discoverPlexResourcesWithRequestPolicy(discoveryHeaders, { signal: controller.signal });
+        controller.abort(abortReason);
+
+        await expect(request).rejects.toBe(abortReason);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 });

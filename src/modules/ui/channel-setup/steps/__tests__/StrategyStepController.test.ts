@@ -6,11 +6,11 @@ import { MAX_CHANNELS } from '../../../../scheduler/channel-manager/constants';
 import { createDefaultStrategyOrder, createDefaultStrategyState } from '../../ChannelSetupSessionState';
 import type { EstimateKey, StrategyStepMutableState } from '../../ChannelSetupSessionContracts';
 import { StrategyStepController } from '../StrategyStepController';
-import { STEP2_CONTROL_IDS } from '../constants';
+import { STEP2_CONTROL_IDS } from '../../strategyConstants';
 import { getStrategyControlDescriptor } from '../StrategyStepControlDescriptors';
+import type { StepRenderContext } from '../../stepContracts';
 import type {
     StrategyStepDeps,
-    StepRenderContext,
 } from '../types';
 
 const INTERNAL_SETUP_COPY_PATTERN =

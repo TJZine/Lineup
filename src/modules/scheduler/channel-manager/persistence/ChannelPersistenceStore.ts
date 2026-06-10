@@ -10,12 +10,10 @@ import type { StoredChannelData } from '../contracts/types';
 import { decodeStoredChannelData, encodeStoredChannelData } from './StoredChannelDataCodec';
 
 export class ChannelPersistenceStore {
-    private _storageKey: string;
-    private _currentChannelKey: string;
+    private _storageKey!: string;
+    private _currentChannelKey!: string;
 
     constructor(storageKey: string = STORAGE_KEY, currentChannelKey: string = CURRENT_CHANNEL_KEY) {
-        this._storageKey = STORAGE_KEY;
-        this._currentChannelKey = CURRENT_CHANNEL_KEY;
         this.setStorageKeys(storageKey, currentChannelKey);
     }
 

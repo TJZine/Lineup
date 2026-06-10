@@ -1,6 +1,7 @@
 import type { IPlexLibrary } from '../../../modules/plex/library';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 import type { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
+import type { ChannelSetupEpgRefreshOptions } from '../build/ChannelSetupBuildCommitter';
 import type { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
 import type { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
 import type { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
@@ -16,7 +17,7 @@ export interface LazyChannelSetupWorkflowPortOwnersDeps {
     ensureEpgInitialized: () => Promise<void>;
     clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
-    refreshEpgSchedules: (options?: { reason?: string; debounceMs?: number }) => Promise<void>;
+    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<void>;
     clearRerunRequest: () => void;
     getSelectedServerId: () => string | null;
     getExistingChannelCount: () => number;

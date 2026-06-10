@@ -1,25 +1,36 @@
 import type { EpgVisibleRange } from '../types';
+import type { EpgScheduleRefreshOptions } from '../coordinator/EPGCoordinatorContracts';
+import { readEpgRefreshAbortReason, throwIfEpgRefreshAborted } from './EPGRefreshAbort';
 
-interface QueueOptions {
-    reason?: string;
-    debounceMs?: number;
-}
+type RefreshFn = (range: EpgVisibleRange, reason: string, signal?: AbortSignal | null) => Promise<void>;
 
-type RefreshFn = (range: EpgVisibleRange, reason: string) => Promise<void>;
+type PendingRefreshRequest = {
+    resolve: () => void;
+    reject: (error: unknown) => void;
+    signal: AbortSignal | null;
+    abortCleanup: (() => void) | null;
+    batchController: AbortController | null;
+    batchRequests: PendingRefreshRequest[] | null;
+    settled: boolean;
+};
+
+type ActiveRefreshBatch = {
+    controller: AbortController;
+    requests: PendingRefreshRequest[];
+};
 
 export class EPGVisibleRangeRefreshQueue {
     private _timer: ReturnType<typeof setTimeout> | null = null;
     private _pendingRange: EpgVisibleRange | null = null;
     private _pendingReason: string | null = null;
-    private _pendingPromise: Promise<void> | null = null;
-    private _pendingResolve: (() => void) | null = null;
-    private _pendingReject: ((error: unknown) => void) | null = null;
+    private _pendingRequests: PendingRefreshRequest[] = [];
+    private _activeRefreshBatches = new Set<ActiveRefreshBatch>();
 
     constructor(private readonly _refreshFn: RefreshFn) { }
 
     cancelPendingRefresh(): void {
         const hadQueuedRefresh = this._timer !== null || this._pendingRange !== null;
-        if (!hadQueuedRefresh) {
+        if (!hadQueuedRefresh && this._activeRefreshBatches.size === 0) {
             return;
         }
 
@@ -28,89 +39,201 @@ export class EPGVisibleRangeRefreshQueue {
             this._timer = null;
         }
 
-        const resolvePending = this._pendingResolve;
+        const pendingRequests = this._takePendingRequests();
         this._pendingRange = null;
         this._pendingReason = null;
-        this._pendingPromise = null;
-        this._pendingResolve = null;
-        this._pendingReject = null;
 
-        resolvePending?.();
+        this._settlePendingRequests(pendingRequests, 'resolve');
+        for (const batch of Array.from(this._activeRefreshBatches)) {
+            this._cancelActiveBatch(batch);
+        }
     }
 
-    request(range: EpgVisibleRange, options?: QueueOptions): Promise<void> {
+    request(range: EpgVisibleRange, options?: EpgScheduleRefreshOptions): Promise<void> {
+        const signal = options?.signal ?? null;
+        throwIfEpgRefreshAborted(signal);
         const debounceMs = Math.max(0, options?.debounceMs ?? 80);
         const reason = options?.reason ?? 'visible-range';
 
         if (debounceMs === 0) {
-            return this._runImmediateAndPreemptQueued(range, reason);
+            return this._runImmediateAndPreemptQueued(range, reason, signal);
         }
 
         this._pendingRange = range;
         this._pendingReason = reason;
+        const pendingPromise = this._createPendingRequest(signal);
 
         if (this._timer) {
-            return this._pendingPromise ?? Promise.resolve();
-        }
-
-        if (!this._pendingPromise) {
-            this._pendingPromise = new Promise<void>((resolve, reject) => {
-                this._pendingResolve = resolve;
-                this._pendingReject = reject;
-            });
+            return pendingPromise;
         }
 
         this._timer = setTimeout(() => {
             this._timer = null;
             const pending = this._pendingRange;
             const pendingReason = this._pendingReason;
+            const pendingRequests = this._takePendingRequests();
             this._pendingRange = null;
             this._pendingReason = null;
-            this._pendingPromise = null;
-            const resolvePending = this._pendingResolve;
-            const rejectPending = this._pendingReject;
-            this._pendingResolve = null;
-            this._pendingReject = null;
 
             if (!pending) {
-                resolvePending?.();
+                this._settlePendingRequests(pendingRequests, 'resolve');
                 return;
             }
 
-            this._refreshFn(pending, pendingReason ?? 'visible-range')
-                .then(() => resolvePending?.())
-                .catch((error: unknown) => rejectPending?.(error));
+            const batch = this._createActiveBatch(pendingRequests);
+            this._runRefresh(pending, pendingReason ?? 'visible-range', batch.controller.signal)
+                .then(() => this._settlePendingRequests(pendingRequests, 'resolve'))
+                .catch((error: unknown) => this._settlePendingRequests(pendingRequests, 'reject', error))
+                .finally(() => this._finishActiveBatch(batch));
         }, debounceMs);
 
-        return this._pendingPromise ?? Promise.resolve();
+        return pendingPromise;
     }
 
-    private async _runImmediateAndPreemptQueued(
+    private _runImmediateAndPreemptQueued(
         range: EpgVisibleRange,
-        reason: string
+        reason: string,
+        signal: AbortSignal | null
     ): Promise<void> {
         if (this._timer) {
             clearTimeout(this._timer);
             this._timer = null;
         }
 
-        const pendingPromise = this._pendingPromise;
-        const resolvePending = this._pendingResolve;
-        const rejectPending = this._pendingReject;
-        this._pendingPromise = null;
-        this._pendingResolve = null;
-        this._pendingReject = null;
+        const pendingRequests = this._takePendingRequests();
         this._pendingRange = null;
         this._pendingReason = null;
+        const immediate = this._createRefreshRequest(signal);
+        const batchRequests = [...pendingRequests, immediate.request];
+        const batch = this._createActiveBatch(batchRequests);
 
-        try {
-            await this._refreshFn(range, reason);
-            resolvePending?.();
-        } catch (error) {
-            if (pendingPromise) {
-                rejectPending?.(error);
+        this._runRefresh(range, reason, batch.controller.signal)
+            .then(() => this._settlePendingRequests(batchRequests, 'resolve'))
+            .catch((error: unknown) => this._settlePendingRequests(batchRequests, 'reject', error))
+            .finally(() => this._finishActiveBatch(batch));
+
+        return immediate.promise;
+    }
+
+    private _createPendingRequest(signal: AbortSignal | null): Promise<void> {
+        const { promise, request } = this._createRefreshRequest(signal);
+        this._pendingRequests.push(request);
+        return promise;
+    }
+
+    private _createRefreshRequest(signal: AbortSignal | null): {
+        promise: Promise<void>;
+        request: PendingRefreshRequest;
+    } {
+        let request!: PendingRefreshRequest;
+        const promise = new Promise<void>((resolve, reject) => {
+            request = {
+                resolve,
+                reject,
+                signal,
+                abortCleanup: null,
+                batchController: null,
+                batchRequests: null,
+                settled: false,
+            };
+            if (signal) {
+                const onAbort = (): void => {
+                    const batchController = request.batchController;
+                    const batchRequests = request.batchRequests;
+                    this._rejectPendingRequest(request, readEpgRefreshAbortReason(signal));
+                    if (batchController && batchRequests?.every((pending) => pending.settled)) {
+                        batchController.abort(readEpgRefreshAbortReason(signal));
+                        return;
+                    }
+                    const wasQueued = this._pendingRequests.includes(request);
+                    this._pendingRequests = this._pendingRequests.filter((pending) => pending !== request);
+                    if (wasQueued && this._pendingRequests.length === 0 && this._timer) {
+                        clearTimeout(this._timer);
+                        this._timer = null;
+                        this._pendingRange = null;
+                        this._pendingReason = null;
+                    }
+                };
+                signal.addEventListener('abort', onAbort, { once: true });
+                request.abortCleanup = (): void => signal.removeEventListener('abort', onAbort);
             }
-            throw error;
+        });
+        return { promise, request };
+    }
+
+    private _takePendingRequests(): PendingRefreshRequest[] {
+        const pendingRequests = this._pendingRequests;
+        this._pendingRequests = [];
+        return pendingRequests;
+    }
+
+    private _createActiveBatch(requests: PendingRefreshRequest[]): ActiveRefreshBatch {
+        const controller = new AbortController();
+        const batch: ActiveRefreshBatch = {
+            controller,
+            requests,
+        };
+
+        for (const request of requests) {
+            request.batchController = controller;
+            request.batchRequests = requests;
         }
+
+        this._activeRefreshBatches.add(batch);
+        return batch;
+    }
+
+    private _finishActiveBatch(batch: ActiveRefreshBatch): void {
+        if (!this._activeRefreshBatches.delete(batch)) {
+            return;
+        }
+    }
+
+    private _cancelActiveBatch(batch: ActiveRefreshBatch): void {
+        batch.controller.abort();
+        this._settlePendingRequests(batch.requests, 'resolve');
+        this._finishActiveBatch(batch);
+    }
+
+    private _settlePendingRequests(
+        pendingRequests: PendingRefreshRequest[],
+        action: 'resolve' | 'reject',
+        error?: unknown
+    ): void {
+        for (const request of pendingRequests) {
+            if (request.settled) {
+                continue;
+            }
+            request.settled = true;
+            request.abortCleanup?.();
+            request.abortCleanup = null;
+            request.batchController = null;
+            request.batchRequests = null;
+            if (action === 'resolve') {
+                request.resolve();
+            } else {
+                request.reject(error);
+            }
+        }
+    }
+
+    private _rejectPendingRequest(request: PendingRefreshRequest, error: unknown): void {
+        if (request.settled) {
+            return;
+        }
+        request.settled = true;
+        request.abortCleanup?.();
+        request.abortCleanup = null;
+        request.batchController = null;
+        request.batchRequests = null;
+        request.reject(error);
+    }
+
+    private _runRefresh(
+        range: EpgVisibleRange,
+        reason: string,
+        signal: AbortSignal | null
+    ): Promise<void> {
+        return signal ? this._refreshFn(range, reason, signal) : this._refreshFn(range, reason);
     }
 }
