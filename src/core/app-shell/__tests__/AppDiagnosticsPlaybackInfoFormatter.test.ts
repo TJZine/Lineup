@@ -59,6 +59,7 @@ const createTranscodeSnapshot = (): AppShellPlaybackInfoSnapshot => ({
         },
         subtitleBurnIn: {
             requested: true,
+            confirmed: true,
             reason: 'requested',
             subtitleStreamId: 'subtitle-1',
             subtitleMode: 'burn',
@@ -78,7 +79,12 @@ const createTranscodeSnapshot = (): AppShellPlaybackInfoSnapshot => ({
         },
         transcodeRequest: {
             sessionId: 'session-1',
+            startOffsetMs: 65_000,
+            startOffsetSeconds: 65,
             maxBitrate: 20_000,
+            maxBitrateReason: 'explicit',
+            transcodeCompatMode: false,
+            transcodeQuality: null,
             audioStreamId: 'audio-1',
             hideDolbyVision: true,
             subtitleStreamId: 'subtitle-1',
@@ -124,7 +130,9 @@ describe('formatAppDiagnosticsPlaybackInfo', () => {
         expect(formatted.display).toContain(expectedRawJson);
         expect(formatted.summary).toContain('REQUEST (Lineup -> PMS)');
         expect(formatted.summary).toContain('HDR10 FB:  mode=smart applied=yes hideDV=yes forcedHLS=no reason=smart (letterbox_detected)');
-        expect(formatted.summary).toContain('Burn-in:   requested=yes reason=requested subtitle=subtitle-1 mode=burn');
+        expect(formatted.summary).toContain('Burn-in:   requested=yes confirmed=yes reason=requested subtitle=subtitle-1 mode=burn forces video transcode=yes');
+        expect(formatted.summary).toContain('Offset:  1:05 (PMS 65s)');
+        expect(formatted.summary).toContain('Max BR:  20.0 Mbps (explicit request)');
         expect(formatted.summary).toContain('PMS code:  1001');
         expect(formatted.summary).toContain('Hide DV: yes');
         expect(formatted.summary).toContain('SubID:   subtitle-1');

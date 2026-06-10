@@ -15,6 +15,21 @@ function createResponse(overrides: Partial<Response> & { bodyText?: string } = {
     } as unknown as Response;
 }
 
+function createTranscodeRequest(
+    overrides: Partial<NonNullable<StreamDecision['transcodeRequest']>> = {}
+): NonNullable<StreamDecision['transcodeRequest']> {
+    return {
+        sessionId: 'sess-1',
+        startOffsetMs: 0,
+        startOffsetSeconds: 0,
+        maxBitrate: 8000,
+        maxBitrateReason: 'explicit',
+        transcodeCompatMode: false,
+        transcodeQuality: null,
+        ...overrides,
+    } as NonNullable<StreamDecision['transcodeRequest']>;
+}
+
 describe('UniversalTranscodeDecisionClient', () => {
     let mockFetch: jest.Mock;
     let getAuthHeaders: jest.Mock<Record<string, string>, []>;
@@ -60,8 +75,10 @@ describe('UniversalTranscodeDecisionClient', () => {
                 '</MediaContainer>',
         }));
 
-        const request: NonNullable<StreamDecision['transcodeRequest']> = {
+        const request = createTranscodeRequest({
             sessionId: 'sess-1',
+            startOffsetMs: 65_432,
+            startOffsetSeconds: 65,
             maxBitrate: 20000,
             mediaIndex: 1,
             partIndex: 2,
@@ -69,13 +86,16 @@ describe('UniversalTranscodeDecisionClient', () => {
             subtitleStreamId: 'sub-1',
             subtitleMode: 'burn',
             hideDolbyVision: true,
-        };
+        });
 
         const result = await createClient().fetchDecision('/library/metadata/123', request);
 
         expect(getTranscodeUrl).toHaveBeenCalledWith('/library/metadata/123', {
             sessionId: 'sess-1',
+            startOffsetMs: 65_432,
             maxBitrate: 20000,
+            transcodeCompatMode: false,
+            transcodeQuality: null,
             mediaIndex: 1,
             partIndex: 2,
             audioStreamId: 'audio-1',
@@ -120,10 +140,7 @@ describe('UniversalTranscodeDecisionClient', () => {
                 '<TranscodeSession><Stream id="sub-1" streamType="3" decision="burn"></MediaContainer>',
         }));
 
-        const result = await createClient().fetchDecision('/library/metadata/123', {
-            sessionId: 'sess-1',
-            maxBitrate: 8000,
-        });
+        const result = await createClient().fetchDecision('/library/metadata/123', createTranscodeRequest());
 
         expect(result).toMatchObject({
             decisionCode: '2000',
@@ -146,19 +163,16 @@ describe('UniversalTranscodeDecisionClient', () => {
             throw authError;
         });
 
-        await expect(createClient().fetchDecision('/library/metadata/123', {
-            sessionId: 'sess-1',
-            maxBitrate: 8000,
-        })).rejects.toBe(authError);
+        await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest())).rejects.toBe(authError);
     });
 
     it('confirms burn only from the selected subtitle stream decision', () => {
-        const request: NonNullable<StreamDecision['transcodeRequest']> = {
+        const request = createTranscodeRequest({
             sessionId: 'sess-1',
             maxBitrate: 8000,
             subtitleStreamId: 'sub-1',
             subtitleMode: 'burn',
-        };
+        });
 
         expect(isSubtitleBurnConfirmedByServerDecision(request, {
             fetchedAt: 1,
@@ -224,7 +238,10 @@ describe('UniversalTranscodeDecisionClient', () => {
             },
             transcodeRequest: {
                 sessionId: 'sess-1',
+                startOffsetMs: 0,
+                startOffsetSeconds: 0,
                 maxBitrate: 8000,
+                maxBitrateReason: 'explicit',
                 subtitleStreamId: 'sub-1',
                 subtitleMode: 'burn',
             },
@@ -243,10 +260,8 @@ describe('UniversalTranscodeDecisionClient', () => {
     it('rejects non-ok decision responses', async () => {
         mockFetch.mockResolvedValue(createResponse({ ok: false, status: 500 }));
 
-        await expect(createClient().fetchDecision('/library/metadata/123', {
-            sessionId: 'sess-1',
-            maxBitrate: 8000,
-        })).rejects.toThrow('PMS decision request failed: 500');
+        await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest()))
+            .rejects.toThrow('PMS decision request failed: 500');
     });
 
     it('aborts the decision request after the configured timeout', async () => {
@@ -255,10 +270,7 @@ describe('UniversalTranscodeDecisionClient', () => {
             signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
         }));
 
-        const request = createClient().fetchDecision('/library/metadata/123', {
-            sessionId: 'sess-1',
-            maxBitrate: 8000,
-        });
+        const request = createClient().fetchDecision('/library/metadata/123', createTranscodeRequest());
         jest.advanceTimersByTime(4001);
 
         await expect(request).rejects.toMatchObject({ name: 'AbortError' });

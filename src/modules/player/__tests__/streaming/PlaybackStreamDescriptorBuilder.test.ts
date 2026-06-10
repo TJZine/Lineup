@@ -18,8 +18,27 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         ...overrides,
     } as ScheduledProgram);
 
-const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =>
-    ({
+type StreamDecisionFixture = Partial<Omit<StreamDecision, 'transcodeRequest'>> & {
+    transcodeRequest?: Partial<NonNullable<StreamDecision['transcodeRequest']>>;
+};
+
+const makeTranscodeRequest = (
+    overrides: Partial<NonNullable<StreamDecision['transcodeRequest']>> = {}
+): NonNullable<StreamDecision['transcodeRequest']> => {
+    return {
+        sessionId: 'sess-1',
+        startOffsetMs: 0,
+        startOffsetSeconds: 0,
+        maxBitrateReason: 'none',
+        transcodeCompatMode: false,
+        transcodeQuality: null,
+        ...overrides,
+    } as NonNullable<StreamDecision['transcodeRequest']>;
+};
+
+const makeDecision = (overrides: StreamDecisionFixture = {}): StreamDecision => {
+    const { transcodeRequest, ...decisionOverrides } = overrides;
+    return ({
         playbackUrl: 'https://relay.plex.tv/video/:/transcode/universal/start.m3u8?session=sess-1',
         protocol: 'hls',
         isDirectPlay: false,
@@ -39,8 +58,10 @@ const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =
         bitrate: 8000,
         availableSubtitleStreams: [],
         availableAudioStreams: [],
-        ...overrides,
+        ...(transcodeRequest ? { transcodeRequest: makeTranscodeRequest(transcodeRequest) } : {}),
+        ...decisionOverrides,
     } as StreamDecision);
+};
 
 const makeSubtitleStreams = (): PlexStream[] => [
     {

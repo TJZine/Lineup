@@ -30,7 +30,7 @@ export interface PlatformLifecycleService {
 export interface PlatformPlaybackService {
     applyStreamSource(
         videoElement: HTMLVideoElement,
-        stream: { protocol: 'hls' | 'dash' | 'direct'; url: string }
+        stream: { protocol: 'hls' | 'direct'; url: string }
     ): void;
 }
 

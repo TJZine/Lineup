@@ -249,6 +249,7 @@ export class PlaybackReloadController {
             this.deps.setCurrentStreamDecision(decision);
             this.deps.setCurrentStreamDescriptor(descriptor);
             this.deps.resetPlaybackFailureGuard();
+            this._stopPriorTranscodeSessionAfterCommit(context.currentDecision, decision, context.resolver);
             config.onSuccess?.(descriptorContext);
             return { outcome: config.successOutcome };
         } catch (error) {
@@ -299,5 +300,30 @@ export class PlaybackReloadController {
                 ? program.elapsedMs
                 : 0;
         return Math.max(0, Math.min(baseOffset, program.item.durationMs));
+    }
+
+    private _stopPriorTranscodeSessionAfterCommit(
+        priorDecision: StreamDecision | null,
+        nextDecision: StreamDecision,
+        resolver: IPlexStreamResolver
+    ): void {
+        if (
+            !priorDecision?.isTranscoding ||
+            !priorDecision.sessionId ||
+            priorDecision.sessionId === nextDecision.sessionId
+        ) {
+            return;
+        }
+
+        void resolver.stopTranscodeSession(priorDecision.sessionId).catch((error: unknown) => {
+            logPlaybackRecoveryError(
+                'reloadPriorTranscodeStop.failed',
+                {
+                    sessionId: priorDecision.sessionId,
+                    nextSessionId: nextDecision.sessionId,
+                },
+                error
+            );
+        });
     }
 }

@@ -1,4 +1,5 @@
 import { AppErrorCode, getAppErrorCode } from '../../../../types/app-errors';
+import type { TranscodeQualityOption } from '../../../../config/transcodeQuality';
 import type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType } from '../../shared/types';
 
 export type { PlexStream, PlexMediaPart, PlexMediaFile, PlexMediaType };
@@ -74,7 +75,7 @@ export interface StreamDecision {
     playbackUrl: string;
     /** Resolved Plex base origin used to build playback URLs for this decision. */
     resolvedBaseUrl?: string;
-    protocol: 'hls' | 'dash' | 'http';
+    protocol: 'hls' | 'http';
     isDirectPlay: boolean;
     /**
      * Legacy compatibility/session-lifecycle flag for Lineup-requested HLS sessions.
@@ -193,14 +194,30 @@ export interface PlexStreamDecision {
     decision?: string;
 }
 
-export type StreamDecisionTranscodeRequest = {
+type StreamDecisionTranscodeRequestBase = {
     sessionId: string;
-    maxBitrate: number;
+    startOffsetMs: number;
+    startOffsetSeconds: number;
+    transcodeCompatMode: boolean;
+    transcodeQuality: TranscodeQualityOption | null;
     mediaIndex?: number;
     partIndex?: number;
     audioStreamId?: string;
     hideDolbyVision?: true;
-} & (
+};
+
+type StreamDecisionTranscodeRequestBitrate =
+    | {
+        maxBitrate?: undefined;
+        maxBitrateReason: 'none';
+    }
+    | {
+        maxBitrate: number;
+        maxBitrateReason: 'explicit' | 'quality' | 'explicit_quality';
+    };
+
+export type StreamDecisionTranscodeRequest = StreamDecisionTranscodeRequestBase &
+    StreamDecisionTranscodeRequestBitrate & (
     | {
         subtitleStreamId?: undefined;
         subtitleMode?: undefined;
@@ -217,6 +234,8 @@ export type StreamDecisionTranscodeRequest = {
 export interface HlsOptions {
     /** Maximum bitrate in kbps */
     maxBitrate?: number;
+    /** Start offset in milliseconds for Plex's server-side HLS session. */
+    startOffsetMs?: number;
     /** Subtitle size (100 = normal) */
     subtitleSize?: number;
     /** Audio boost percentage */
@@ -239,4 +258,8 @@ export interface HlsOptions {
     sessionId?: string;
     /** When true, omit Dolby Vision decoder profiles from X-Plex-Client-Capabilities (capability hiding). */
     hideDolbyVision?: boolean;
+    /** Resolved compat-mode policy to replay the active HLS request for diagnostics. */
+    transcodeCompatMode?: boolean;
+    /** Resolved quality policy to replay the active HLS request for diagnostics. */
+    transcodeQuality?: TranscodeQualityOption | null;
 }

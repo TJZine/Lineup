@@ -343,7 +343,7 @@ describe('PlexStreamResolver', () => {
             expect(resolver.canDirectPlay(item)).toBe(true);
         });
 
-        it('should evaluate only the first media entry for canDirectPlay', () => {
+        it('uses the selected media policy for canDirectPlay instead of only the first media entry', () => {
             const first = createMockMediaItem({
                 container: 'avi',
                 videoCodec: 'mpeg2',
@@ -353,13 +353,15 @@ describe('PlexStreamResolver', () => {
                 container: 'mp4',
                 videoCodec: 'h264',
                 audioCodec: 'aac',
+                width: 3840,
+                height: 2160,
             });
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
 
             first.media = [getPrimaryMedia(first), getPrimaryMedia(second)];
 
-            expect(resolver.canDirectPlay(first)).toBe(false);
+            expect(resolver.canDirectPlay(first)).toBe(true);
         });
     });
 
@@ -1658,13 +1660,50 @@ describe('PlexStreamResolver', () => {
             expect(url).toContain('maxVideoBitrate=4000');
         });
 
-        it('should use default bitrate when not specified', () => {
+        it('does not cap video bitrate when no quality policy or request cap is specified', () => {
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
 
             const url = resolver.getTranscodeUrl('12345', {});
+            const parsed = new URL(url);
 
-            expect(url).toContain('maxVideoBitrate=20000');
+            expect(parsed.searchParams.has('maxVideoBitrate')).toBe(false);
+        });
+
+        it('serializes the server-side HLS offset in seconds', () => {
+            const config = createMockConfig();
+            const resolver = new PlexStreamResolver(config);
+
+            const url = resolver.getTranscodeUrl('12345', { startOffsetMs: 183_456 });
+            const parsed = new URL(url);
+
+            expect(parsed.searchParams.get('offset')).toBe('183');
+        });
+
+        it('propagates resolveStream start offsets into the active HLS request metadata', async () => {
+            const mockItem = createMockMediaItem({
+                container: 'avi',
+                videoCodec: 'mpeg4',
+                audioCodec: 'mp2',
+            });
+            const resolver = new PlexStreamResolver(
+                createMockConfig({ getItem: jest.fn().mockResolvedValue(mockItem) })
+            );
+
+            const decision = await resolver.resolveStream({
+                itemKey: '12345',
+                startOffsetMs: 183_456,
+                directPlay: false,
+            });
+            const parsed = new URL(decision.playbackUrl);
+
+            expect(parsed.searchParams.get('offset')).toBe('183');
+            expect(decision.transcodeRequest).toMatchObject({
+                startOffsetMs: 183_456,
+                startOffsetSeconds: 183,
+                transcodeCompatMode: false,
+                transcodeQuality: { storageValue: '' },
+            });
         });
 
         it('should honor provided sessionId for transcoder binding', () => {
@@ -1995,7 +2034,15 @@ describe('PlexStreamResolver', () => {
                     '<MediaContainer decisionCode="1000" decisionText="Transcode"><TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none" /></MediaContainer>',
             });
 
-            const result = await resolver.fetchUniversalTranscodeDecision('12345', { sessionId: 'sess-1', maxBitrate: 20000 });
+            const result = await resolver.fetchUniversalTranscodeDecision('12345', {
+                sessionId: 'sess-1',
+                startOffsetMs: 0,
+                startOffsetSeconds: 0,
+                maxBitrate: 20000,
+                maxBitrateReason: 'explicit',
+                transcodeCompatMode: false,
+                transcodeQuality: null,
+            });
 
             expect(mockFetch).toHaveBeenCalledWith(
                 expect.stringContaining('/video/:/transcode/universal/decision'),
@@ -2046,7 +2093,12 @@ describe('PlexStreamResolver', () => {
 
                 const result = await resolver.fetchUniversalTranscodeDecision('12345', {
                     sessionId: 'sess-1',
+                    startOffsetMs: 0,
+                    startOffsetSeconds: 0,
                     maxBitrate: 20000,
+                    maxBitrateReason: 'explicit',
+                    transcodeCompatMode: false,
+                    transcodeQuality: null,
                 });
 
                 expect(result?.decisionCode).toBe('1000');
@@ -2076,7 +2128,15 @@ describe('PlexStreamResolver', () => {
             });
 
             await expect(
-                resolver.fetchUniversalTranscodeDecision('12345', { sessionId: 'sess-1', maxBitrate: 20000 })
+                resolver.fetchUniversalTranscodeDecision('12345', {
+                    sessionId: 'sess-1',
+                    startOffsetMs: 0,
+                    startOffsetSeconds: 0,
+                    maxBitrate: 20000,
+                    maxBitrateReason: 'explicit',
+                    transcodeCompatMode: false,
+                    transcodeQuality: null,
+                })
             ).rejects.toMatchObject({
                 code: AppErrorCode.ACCESS_DENIED,
                 message: 'Access denied',

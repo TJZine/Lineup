@@ -74,6 +74,7 @@ const makeContext = (
     } as unknown as IVideoPlayer;
     const resolver: IPlexStreamResolver = {
         resolveStream: jest.fn().mockResolvedValue(makeDecision()),
+        stopTranscodeSession: jest.fn().mockResolvedValue(undefined),
     } as unknown as IPlexStreamResolver;
 
     return {
@@ -201,6 +202,49 @@ describe('PlaybackReloadController', () => {
         expect(context.player.loadStream).toHaveBeenCalledWith(descriptor);
         expect(context.player.play).toHaveBeenCalled();
         expect(resetPlaybackFailureGuard).toHaveBeenCalled();
+    });
+
+    it('stops the prior transcode session after a successful reload commits a new session', async () => {
+        expectPlaybackRecoveryStart('audioReload.start');
+        const nextDecision = makeDecision({ sessionId: 'sess-next' });
+        const resolver: IPlexStreamResolver = {
+            resolveStream: jest.fn().mockResolvedValue(nextDecision),
+            stopTranscodeSession: jest.fn().mockResolvedValue(undefined),
+        } as unknown as IPlexStreamResolver;
+        const context = makeContext({
+            resolver,
+            currentDecision: makeDecision({ sessionId: 'sess-prior' }),
+        });
+        const descriptor = { url: 'http://test/video.m3u8', protocol: 'hls' } as StreamDescriptor;
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => context.player,
+            getStreamResolver: (): IPlexStreamResolver => context.resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn().mockReturnValue(descriptor),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: false,
+            }),
+            shouldResumeAfterReload: true,
+        });
+
+        expect(result).toEqual({ outcome: 'reloaded' });
+        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-prior');
     });
 
     it('returns ignored when the active program changes before the resolved stream is applied', async () => {

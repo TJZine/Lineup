@@ -60,7 +60,14 @@ const createDecision = (): StreamDecision => ({
         height: 1080,
         bitrate: 8000,
     },
-    transcodeRequest: { sessionId: 'session-1', maxBitrate: 12000, audioStreamId: 'audio-1' },
+    transcodeRequest: {
+        sessionId: 'session-1',
+        startOffsetMs: 10_000,
+        startOffsetSeconds: 10,
+        maxBitrate: 12000,
+        maxBitrateReason: 'explicit',
+        audioStreamId: 'audio-1',
+    },
     serverDecision: {
         fetchedAt: 123,
         videoDecision: 'transcode',

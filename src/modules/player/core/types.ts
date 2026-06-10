@@ -90,7 +90,7 @@ export interface LocalSubtitleExtractionSuppression {
 
 export interface StreamDescriptor {
     url: string;
-    protocol: 'hls' | 'dash' | 'direct';
+    protocol: 'hls' | 'direct';
     mimeType: string;
     startPositionMs: number;
     mediaMetadata: MediaMetadata;

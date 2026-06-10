@@ -396,7 +396,7 @@ describe('resolveStreamPipeline', () => {
         });
     });
 
-    it('uses the resolved default transcode bitrate in the final decision', () => {
+    it('keeps uncapped original-quality HLS requests when no request maxBitrate is provided', () => {
         const item = createMockMediaItem({
             container: 'avi',
             videoCodec: 'mpeg4',
@@ -416,9 +416,45 @@ describe('resolveStreamPipeline', () => {
         });
 
         expect(result.decision.isTranscoding).toBe(true);
-        expect(result.decision.bitrate).toBe(20000);
+        expect(result.decision.bitrate).toBe(8000);
         expect(result.decision.transcodeRequest).toMatchObject({
-            maxBitrate: 20000,
+            startOffsetMs: 0,
+            startOffsetSeconds: 0,
+            maxBitrateReason: 'none',
+        });
+        expect(result.decision.transcodeRequest?.maxBitrate).toBeUndefined();
+    });
+
+    it('passes request start offset into HLS URL options and records the serialized offset', () => {
+        const item = createMockMediaItem({
+            container: 'avi',
+            videoCodec: 'mpeg4',
+            audioCodec: 'mp2',
+        });
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345', startOffsetMs: 183_456 },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            capabilityProfile: createCapabilityProfile(),
+            hdr10FallbackMode: 'off',
+            createError,
+            buildDirectPlayUrl: () => 'http://example.com/direct',
+            getTranscodeUrl: (_itemKey, options) => ({
+                url: 'http://example.com/transcode',
+                startOffsetMs: options.startOffsetMs ?? 0,
+                startOffsetSeconds: Math.floor((options.startOffsetMs ?? 0) / 1000),
+                maxBitrateReason: 'none',
+                transcodeCompatMode: false,
+                transcodeQuality: null,
+            }),
+        });
+
+        expect(result.decision.transcodeRequest).toMatchObject({
+            startOffsetMs: 183_456,
+            startOffsetSeconds: 183,
+            maxBitrateReason: 'none',
         });
     });
 

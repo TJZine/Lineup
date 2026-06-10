@@ -283,8 +283,7 @@ export class PlaybackRecoveryManager {
             throw new Error('Stream resolver not initialized');
         }
 
-        // Defensive: clamp elapsed time to valid bounds
-        const clampedOffset = Math.max(0, Math.min(program.elapsedMs, program.item.durationMs));
+        const clampedOffset = clampPlaybackOffsetMs(program.elapsedMs, program.item.durationMs);
 
         const decision: StreamDecision = await resolver.resolveStream({
             itemKey: program.item.ratingKey,
@@ -467,15 +466,6 @@ export class PlaybackRecoveryManager {
                 itemKey,
                 burnedInTrackId,
             }),
-            beforeResolve: async () => {
-                if (currentDecision.isTranscoding && currentDecision.sessionId) {
-                    try {
-                        await context.resolver.stopTranscodeSession(currentDecision.sessionId);
-                    } catch {
-                        // Best-effort cleanup; the recovery should still continue.
-                    }
-                }
-            },
             buildRequest: ({ itemKey, clampedOffset, player }) => {
                 const activeAudioId = this._readPlayerState(player)?.activeAudioId ?? null;
                 return {
@@ -674,4 +664,10 @@ export class PlaybackRecoveryManager {
         const result = await this._executeBurnInSubtitleRecovery(trackId, prepared);
         return result.outcome === 'failed' ? 'failed' : 'handled';
     }
+}
+
+function clampPlaybackOffsetMs(elapsedMs: number, durationMs: number): number {
+    const safeElapsedMs = Number.isFinite(elapsedMs) ? elapsedMs : 0;
+    const safeDurationMs = Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 0;
+    return Math.max(0, Math.min(safeElapsedMs, safeDurationMs));
 }

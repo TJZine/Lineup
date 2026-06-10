@@ -115,6 +115,10 @@ export function buildPlexClientCapabilities(input: PlexClientCapabilityPolicyInp
 export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): {
     url: string;
     compatMode: boolean;
+    startOffsetMs: number;
+    startOffsetSeconds: number;
+    maxBitrate?: number;
+    maxBitrateReason: 'none' | 'explicit' | 'quality' | 'explicit_quality';
 } {
     const metadataPath = input.metadataPath.trim();
     if (metadataPath.length === 0) {
@@ -129,17 +133,13 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
     }
 
     const sessionId = input.options.sessionId ?? '';
-    const maxBitrate = typeof input.options.maxBitrate === 'number'
-        ? input.options.maxBitrate
-        : DEFAULT_HLS_OPTIONS.maxBitrate;
-    const subtitleSize = typeof input.options.subtitleSize === 'number'
-        ? input.options.subtitleSize
-        : DEFAULT_HLS_OPTIONS.subtitleSize;
-    const audioBoost = typeof input.options.audioBoost === 'number'
-        ? input.options.audioBoost
-        : DEFAULT_HLS_OPTIONS.audioBoost;
-    const mediaIndex = typeof input.options.mediaIndex === 'number' ? input.options.mediaIndex : 0;
-    const partIndex = typeof input.options.partIndex === 'number' ? input.options.partIndex : 0;
+    const explicitMaxBitrate = normalizePositiveInteger(input.options.maxBitrate);
+    const startOffsetMs = normalizeNonNegativeInteger(input.options.startOffsetMs);
+    const startOffsetSeconds = Math.floor(startOffsetMs / 1000);
+    const subtitleSize = normalizeFiniteNumber(input.options.subtitleSize, DEFAULT_HLS_OPTIONS.subtitleSize);
+    const audioBoost = normalizeFiniteNumber(input.options.audioBoost, DEFAULT_HLS_OPTIONS.audioBoost);
+    const mediaIndex = normalizeNonNegativeInteger(input.options.mediaIndex);
+    const partIndex = normalizeNonNegativeInteger(input.options.partIndex);
     const subtitleStreamId = input.options.subtitleStreamId;
     const burnInEnabled =
         input.options.subtitleMode === 'burn' &&
@@ -151,9 +151,11 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
 
     const shouldApplyQualityOverride = Boolean(input.quality && input.quality.storageValue.length > 0);
     const qualityMaxBitrate = shouldApplyQualityOverride ? input.quality?.maxVideoBitrateKbps : undefined;
-    const effectiveMaxBitrate = typeof qualityMaxBitrate === 'number'
-        ? Math.min(maxBitrate, Math.max(1, Math.floor(qualityMaxBitrate)))
-        : maxBitrate;
+    const normalizedQualityMaxBitrate = normalizePositiveInteger(qualityMaxBitrate);
+    const maxBitrate = resolveMaxVideoBitrate({
+        explicitMaxBitrate,
+        qualityMaxBitrate: normalizedQualityMaxBitrate,
+    });
     const location = classifyPlexTranscodeLocation({
         baseUri: baseUrl.toString(),
         selectedConnection: input.selectedConnection,
@@ -165,7 +167,7 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
     params.set('mediaIndex', String(mediaIndex));
     params.set('partIndex', String(partIndex));
     params.set('protocol', 'hls');
-    params.set('offset', '0');
+    params.set('offset', String(startOffsetSeconds));
     applyPlexSessionQueryParams(params, sessionId);
     if (typeof input.options.audioStreamId === 'string' && input.options.audioStreamId.length > 0) {
         params.set('audioStreamID', input.options.audioStreamId);
@@ -175,7 +177,7 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
         compatMode: input.compatMode,
         subtitleSize,
         audioBoost,
-        effectiveMaxBitrate,
+        maxBitrate: maxBitrate.value,
         shouldApplyQualityOverride,
         videoResolution: input.quality?.videoResolution,
         location,
@@ -193,7 +195,55 @@ export function buildPlexTranscodeStartUrl(input: PlexTranscodeUrlPolicyInput): 
     return {
         url: url.toString(),
         compatMode: input.compatMode,
+        startOffsetMs,
+        startOffsetSeconds,
+        ...(typeof maxBitrate.value === 'number' ? { maxBitrate: maxBitrate.value } : {}),
+        maxBitrateReason: maxBitrate.reason,
     };
+}
+
+function resolveMaxVideoBitrate(input: {
+    explicitMaxBitrate: number | undefined;
+    qualityMaxBitrate: number | undefined;
+}): {
+    value?: number;
+    reason: 'none' | 'explicit' | 'quality' | 'explicit_quality';
+} {
+    const { explicitMaxBitrate, qualityMaxBitrate } = input;
+    if (typeof explicitMaxBitrate === 'number' && typeof qualityMaxBitrate === 'number') {
+        return {
+            value: Math.min(explicitMaxBitrate, qualityMaxBitrate),
+            reason: 'explicit_quality',
+        };
+    }
+    if (typeof explicitMaxBitrate === 'number') {
+        return { value: explicitMaxBitrate, reason: 'explicit' };
+    }
+    if (typeof qualityMaxBitrate === 'number') {
+        return { value: qualityMaxBitrate, reason: 'quality' };
+    }
+    return { reason: 'none' };
+}
+
+function normalizePositiveInteger(value: number | undefined): number | undefined {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return undefined;
+    }
+    return Math.max(1, Math.floor(value));
+}
+
+function normalizeNonNegativeInteger(value: number | undefined): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return 0;
+    }
+    return Math.max(0, Math.floor(value));
+}
+
+function normalizeFiniteNumber(value: number | undefined, fallback: number): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return fallback;
+    }
+    return value;
 }
 
 function applyTranscodeModeParams(
@@ -202,7 +252,7 @@ function applyTranscodeModeParams(
         compatMode: boolean;
         subtitleSize: number;
         audioBoost: number;
-        effectiveMaxBitrate: number;
+        maxBitrate: number | undefined;
         shouldApplyQualityOverride: boolean;
         videoResolution: string | undefined;
         location: 'lan' | 'wan' | null;
@@ -218,7 +268,7 @@ function applyTranscodeModeParams(
         params.set('directStreamAudio', '1');
         params.set('subtitleSize', String(input.subtitleSize));
         params.set('audioBoost', String(input.audioBoost));
-        params.set('maxVideoBitrate', String(input.effectiveMaxBitrate));
+        applyMaxVideoBitrateParam(params, input.maxBitrate);
         applyQualityResolutionParams(params, input.shouldApplyQualityOverride, input.videoResolution);
         applyLocationParam(params, input.location);
         params.set('addDebugOverlay', '0');
@@ -231,10 +281,21 @@ function applyTranscodeModeParams(
 
     params.set('directPlay', '0');
     params.set('directStream', '1');
-    params.set('maxVideoBitrate', String(input.effectiveMaxBitrate));
+    applyMaxVideoBitrateParam(params, input.maxBitrate);
     applyQualityResolutionParams(params, input.shouldApplyQualityOverride, input.videoResolution);
     applyLocationParam(params, input.location);
     applySubtitleParams(params, input.subtitle);
+}
+
+function applyMaxVideoBitrateParam(
+    params: URLSearchParams,
+    maxBitrate: number | undefined
+): void {
+    if (typeof maxBitrate !== 'number') {
+        return;
+    }
+
+    params.set('maxVideoBitrate', String(maxBitrate));
 }
 
 function buildPlexVideoDecoders(input: PlexClientCapabilityPolicyInput): string[] {

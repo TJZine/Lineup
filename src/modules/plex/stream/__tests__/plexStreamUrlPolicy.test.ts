@@ -17,12 +17,13 @@ const createTranscodeInput = (
 ): Parameters<typeof buildPlexTranscodeStartUrl>[0] => ({
     baseUri: 'http://192.168.1.100:32400',
     metadataPath: '/library/metadata/12345',
-    options: {
-        sessionId: 'sess-1',
-        maxBitrate: 4000,
-        mediaIndex: 1,
-        partIndex: 2,
-    },
+        options: {
+            sessionId: 'sess-1',
+            maxBitrate: 4000,
+            startOffsetMs: 123_456,
+            mediaIndex: 1,
+            partIndex: 2,
+        },
     compatMode: false,
     quality: {
         storageValue: '8000-1080p',
@@ -128,21 +129,28 @@ describe('plexStreamUrlPolicy', () => {
     });
 
     it('builds transcode query policy while preserving computed capability precedence', () => {
-        const { url } = buildPlexTranscodeStartUrl(createTranscodeInput({
+        const result = buildPlexTranscodeStartUrl(createTranscodeInput({
             options: {
                 sessionId: 'sess-1',
                 maxBitrate: 4000,
+                startOffsetMs: 183_000,
                 mediaIndex: 1,
                 partIndex: 2,
                 subtitleMode: 'burn',
                 subtitleStreamId: 'sub-1',
             },
         }));
+        const { url } = result;
 
         const parsed = new URL(url);
 
         expect(parsed.pathname).toBe('/video/:/transcode/universal/start.m3u8');
+        expect(result.startOffsetMs).toBe(183_000);
+        expect(result.startOffsetSeconds).toBe(183);
+        expect(result.maxBitrate).toBe(4000);
+        expect(result.maxBitrateReason).toBe('explicit_quality');
         expect(parsed.searchParams.get('path')).toBe('/library/metadata/12345');
+        expect(parsed.searchParams.get('offset')).toBe('183');
         expect(parsed.searchParams.get('session')).toBe('sess-1');
         expect(parsed.searchParams.get('X-Plex-Session-Identifier')).toBe('sess-1');
         expect(parsed.searchParams.get('mediaIndex')).toBe('1');
@@ -185,6 +193,67 @@ describe('plexStreamUrlPolicy', () => {
         expect(parsed.searchParams.get('directPlay')).toBe('0');
         expect(parsed.searchParams.get('directStream')).toBe('1');
         expect(parsed.searchParams.get('location')).toBe('lan');
+    });
+
+    it('omits maxVideoBitrate for original-quality HLS requests without an explicit cap', () => {
+        const result = buildPlexTranscodeStartUrl(createTranscodeInput({
+            options: {
+                sessionId: 'sess-1',
+                mediaIndex: 1,
+                partIndex: 2,
+            },
+            quality: null,
+        }));
+
+        const parsed = new URL(result.url);
+
+        expect(result.maxBitrate).toBeUndefined();
+        expect(result.maxBitrateReason).toBe('none');
+        expect(parsed.searchParams.has('maxVideoBitrate')).toBe(false);
+    });
+
+    it('normalizes non-finite numeric inputs before serializing Plex query params', () => {
+        const result = buildPlexTranscodeStartUrl(createTranscodeInput({
+            options: {
+                sessionId: 'sess-1',
+                maxBitrate: Number.NaN,
+                startOffsetMs: Number.NaN,
+                mediaIndex: Number.POSITIVE_INFINITY,
+                partIndex: Number.NEGATIVE_INFINITY,
+            },
+            quality: {
+                storageValue: 'bad-quality',
+                label: 'Bad quality',
+                maxVideoBitrateKbps: Number.NaN,
+            },
+        }));
+
+        const parsed = new URL(result.url);
+
+        expect(result.startOffsetMs).toBe(0);
+        expect(result.startOffsetSeconds).toBe(0);
+        expect(result.maxBitrate).toBeUndefined();
+        expect(result.maxBitrateReason).toBe('none');
+        expect(parsed.searchParams.get('offset')).toBe('0');
+        expect(parsed.searchParams.get('mediaIndex')).toBe('0');
+        expect(parsed.searchParams.get('partIndex')).toBe('0');
+        expect(parsed.searchParams.has('maxVideoBitrate')).toBe(false);
+    });
+
+    it('applies configured quality as the only cap when no request cap is provided', () => {
+        const result = buildPlexTranscodeStartUrl(createTranscodeInput({
+            options: {
+                sessionId: 'sess-1',
+                mediaIndex: 1,
+                partIndex: 2,
+            },
+        }));
+
+        const parsed = new URL(result.url);
+
+        expect(result.maxBitrate).toBe(8000);
+        expect(result.maxBitrateReason).toBe('quality');
+        expect(parsed.searchParams.get('maxVideoBitrate')).toBe('8000');
     });
 
     it('serializes client capabilities with stable decoder ordering', () => {

@@ -585,7 +585,14 @@ describe('App bootstrap smoke', () => {
                     bitrate: 8000,
                 },
                 audioFallback: { fromCodec: 'eac3', toCodec: 'aac', reason: 'compat' },
-                transcodeRequest: { sessionId: 'abc', maxBitrate: 10_000, audioStreamId: 'a1' },
+                transcodeRequest: {
+                    sessionId: 'abc',
+                    startOffsetMs: 30_000,
+                    startOffsetSeconds: 30,
+                    maxBitrate: 10_000,
+                    maxBitrateReason: 'explicit',
+                    audioStreamId: 'a1',
+                },
                 serverDecision: {
                     fetchedAt: Date.now(),
                     videoDecision: 'transcode',
@@ -687,7 +694,9 @@ describe('App bootstrap smoke', () => {
         await flushPromises();
 
         expect(refreshPlaybackInfoSnapshotSpy).toHaveBeenCalledTimes(2);
-        expect(playbackPre?.textContent ?? '').toMatch(/PMS:\s+\(decision not fetched; press Refresh again\)/);
+        expect(playbackPre?.textContent ?? '').toMatch(
+            /PMS:\s+\(decision not fetched; enable debug logging or use Now Playing debug refresh\)/
+        );
     });
 
     it('refresh handles missing stream and allows toggling the dev menu', async () => {
