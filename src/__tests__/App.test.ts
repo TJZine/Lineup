@@ -589,6 +589,8 @@ describe('App bootstrap smoke', () => {
                     sessionId: 'abc',
                     startOffsetMs: 30_000,
                     startOffsetSeconds: 30,
+                    transcodeCompatMode: false,
+                    transcodeQuality: null,
                     maxBitrate: 10_000,
                     maxBitrateReason: 'explicit',
                     audioStreamId: 'a1',
