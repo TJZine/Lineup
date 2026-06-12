@@ -7,6 +7,12 @@ import { createScreenShell } from '../common/ScreenShell';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 import type { ProfileSessionStore } from '../../settings/ProfileSessionStore';
+import {
+    createProfilePinBackspaceButton,
+    createProfilePinCancelButton,
+    createProfilePinDigitButton,
+} from './ProfilePinControls';
+import { renderProfilePinUserHeader } from './ProfilePinUserHeader';
 
 const PIN_LENGTH = 4;
 const PIN_MODAL_ID = 'profile-pin';
@@ -54,6 +60,7 @@ export class ProfileSelectScreen {
     private _isLoading: boolean = false;
 
     private _pinModal: HTMLElement;
+    private _pinUserEl: HTMLElement;
     private _pinPromptEl: HTMLElement;
     private _pinErrorEl: HTMLElement;
     private _pinSlotsWrapEl: HTMLElement;
@@ -156,6 +163,11 @@ export class ProfileSelectScreen {
         const modalCard = document.createElement('div');
         modalCard.className = 'profile-pin-card';
 
+        const userHeader = document.createElement('div');
+        userHeader.className = 'profile-pin-user';
+        modalCard.appendChild(userHeader);
+        this._pinUserEl = userHeader;
+
         const prompt = document.createElement('div');
         prompt.className = 'profile-pin-title';
         prompt.id = 'profile-pin-title';
@@ -181,36 +193,12 @@ export class ProfileSelectScreen {
         numpad.setAttribute('aria-label', 'PIN entry numpad');
 
         for (let digit = 1; digit <= 9; digit++) {
-            const button = document.createElement('button');
-            button.id = `btn-profile-pin-${digit}`;
-            button.className = 'profile-numpad-button';
-            button.textContent = String(digit);
-            button.setAttribute('aria-label', `Digit ${digit}`);
-            button.addEventListener('click', () => {
-                this._handlePinInput(String(digit));
-            });
-            numpad.appendChild(button);
+            numpad.appendChild(createProfilePinDigitButton(digit, (value) => this._handlePinInput(value)));
         }
 
-        const backspaceButton = document.createElement('button');
-        backspaceButton.id = 'btn-profile-pin-backspace';
-        backspaceButton.className = 'profile-numpad-button';
-        backspaceButton.textContent = 'Back';
-        backspaceButton.setAttribute('aria-label', 'Backspace');
-        backspaceButton.addEventListener('click', () => {
-            this._handlePinBackspace();
-        });
-        numpad.appendChild(backspaceButton);
+        numpad.appendChild(createProfilePinBackspaceButton(() => this._handlePinBackspace()));
 
-        const zeroButton = document.createElement('button');
-        zeroButton.id = 'btn-profile-pin-0';
-        zeroButton.className = 'profile-numpad-button';
-        zeroButton.textContent = '0';
-        zeroButton.setAttribute('aria-label', 'Digit 0');
-        zeroButton.addEventListener('click', () => {
-            this._handlePinInput('0');
-        });
-        numpad.appendChild(zeroButton);
+        numpad.appendChild(createProfilePinDigitButton(0, (value) => this._handlePinInput(value)));
 
         modalCard.appendChild(numpad);
 
@@ -223,13 +211,7 @@ export class ProfileSelectScreen {
         modalCard.appendChild(pinError);
         this._pinErrorEl = pinError;
 
-        const cancelButton = document.createElement('button');
-        cancelButton.id = 'btn-profile-pin-cancel';
-        cancelButton.className = 'screen-button secondary';
-        cancelButton.textContent = 'Cancel';
-        cancelButton.addEventListener('click', () => {
-            this._closePinModal();
-        });
+        const cancelButton = createProfilePinCancelButton(() => this._closePinModal());
         modalCard.appendChild(cancelButton);
 
         modal.appendChild(modalCard);
@@ -535,6 +517,7 @@ export class ProfileSelectScreen {
         this._renderPinSlots();
         this._pinErrorEl.textContent = '';
         this._pinPromptEl.textContent = `Enter PIN for ${user.title}`;
+        renderProfilePinUserHeader(this._pinUserEl, user);
 
         this._pinModal.style.display = 'flex';
         this._pinModal.classList.add('visible');
@@ -559,6 +542,7 @@ export class ProfileSelectScreen {
         this._isPinOpen = false;
         this._pinErrorEl.textContent = '';
         this._pinSlotsWrapEl.classList.remove('error');
+        this._pinUserEl.replaceChildren();
         this._renderPinSlots();
     }
 
