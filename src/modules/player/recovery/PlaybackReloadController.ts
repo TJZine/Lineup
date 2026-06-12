@@ -8,6 +8,7 @@ import {
 import { logPlaybackRecoveryError, logPlaybackRecoveryWarning } from '../../debug/PlayerConsoleLogger';
 import type { IVideoPlayer } from '../core/interfaces';
 import type { StreamDescriptor } from '../core/types';
+import { clampPlaybackOffsetMs } from './playbackRecoveryTiming';
 
 export type RecoveryReloadIgnoredReason =
     | 'recovery_in_progress'
@@ -249,7 +250,11 @@ export class PlaybackReloadController {
             this.deps.setCurrentStreamDecision(decision);
             this.deps.setCurrentStreamDescriptor(descriptor);
             this.deps.resetPlaybackFailureGuard();
-            config.onSuccess?.(descriptorContext);
+            try {
+                config.onSuccess?.(descriptorContext);
+            } finally {
+                this._stopPriorTranscodeSessionAfterCommit(context.currentDecision, decision, context.resolver);
+            }
             return { outcome: config.successOutcome };
         } catch (error) {
             teardownLoadedStreamIfStillActive(teardownDescriptor);
@@ -298,6 +303,37 @@ export class PlaybackReloadController {
             : Number.isFinite(program.elapsedMs)
                 ? program.elapsedMs
                 : 0;
-        return Math.max(0, Math.min(baseOffset, program.item.durationMs));
+        return clampPlaybackOffsetMs(baseOffset, program.item.durationMs);
+    }
+
+    private _stopPriorTranscodeSessionAfterCommit(
+        priorDecision: StreamDecision | null,
+        nextDecision: StreamDecision,
+        resolver: IPlexStreamResolver
+    ): void {
+        if (
+            !priorDecision?.isTranscoding ||
+            !priorDecision.sessionId ||
+            priorDecision.sessionId === nextDecision.sessionId
+        ) {
+            return;
+        }
+
+        const logStopError = (error: unknown): void => {
+            logPlaybackRecoveryError(
+                'reloadPriorTranscodeStop.failed',
+                {
+                    sessionId: priorDecision.sessionId,
+                    nextSessionId: nextDecision.sessionId,
+                },
+                error
+            );
+        };
+
+        try {
+            void Promise.resolve(resolver.stopTranscodeSession(priorDecision.sessionId)).catch(logStopError);
+        } catch (error: unknown) {
+            logStopError(error);
+        }
     }
 }

@@ -40,8 +40,13 @@ export class UniversalTranscodeDecisionClient {
     ): HlsOptions {
         const hlsOptions: HlsOptions = {
             sessionId: request.sessionId,
-            maxBitrate: request.maxBitrate,
+            startOffsetMs: request.startOffsetMs,
+            transcodeCompatMode: request.transcodeCompatMode,
+            transcodeQuality: request.transcodeQuality,
         };
+        if (typeof request.maxBitrate === 'number') {
+            hlsOptions.maxBitrate = request.maxBitrate;
+        }
         if (typeof request.mediaIndex === 'number') {
             hlsOptions.mediaIndex = request.mediaIndex;
         }

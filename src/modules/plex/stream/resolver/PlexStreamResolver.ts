@@ -29,6 +29,7 @@ import { detectHdrLabel } from '../policy/hdr';
 import type { PlatformIdentityService } from '../../../../platform';
 import { createPlatformIdentityService } from '../../../../platform';
 import { resolveStreamPipeline } from '../pipeline/resolveStreamPipeline';
+import type { TranscodeUrlResolution } from '../pipeline/resolveStreamPipeline';
 import {
     applyXPlexQueryParamsFromHeaders,
     applyXPlexTokenQueryParam,
@@ -44,6 +45,7 @@ import { logPlexWarning } from '../../shared/plexLogging';
 import { SubtitleStreamDebugProbeCoordinator } from '../diagnostics/SubtitleStreamDebugProbeCoordinator';
 import { applyServerDecisionToStreamDecision, UniversalTranscodeDecisionClient } from '../diagnostics/UniversalTranscodeDecisionClient';
 import { updatePlexPartSubtitleSelection } from './PlexPartSubtitleSelector';
+import { selectBestMedia } from '../policy/mediaSelectionPolicy';
 
 // Re-export types for consumers
 export { PlexStreamErrorCode } from '../contracts/types';
@@ -141,7 +143,7 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 applyHdr10Fallback,
                 capabilityProfile
             ),
-            getTranscodeUrl: (itemKey, options) => this._getTranscodeUrlWithProfile(itemKey, options, capabilityProfile),
+            getTranscodeUrl: (itemKey, options) => this._buildTranscodeUrlWithProfile(itemKey, options, capabilityProfile),
         });
 
         return this._finalizeResolvedStreamDecision({ request, pipeline, debugEnabled });
@@ -286,10 +288,9 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
     }
 
-
     /**
      * Check if a media item can be played directly without transcoding.
-     * Uses the first media version for the public interface.
+     * Uses the selected media policy for the public interface.
      * @param item - Media item to check
      * @returns true if direct play is supported
      */
@@ -298,11 +299,12 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             return false;
         }
 
-        const media = item.media[0];
-        if (!media) {
+        const selectedMedia = selectBestMedia(item.media);
+        if (!selectedMedia) {
             return false;
         }
-        const videoStream = media.parts[0]?.streams.find((stream) => stream.streamType === 1) ?? null;
+        const { media, partIndex } = selectedMedia;
+        const videoStream = media.parts[partIndex]?.streams.find((stream) => stream.streamType === 1) ?? null;
         const capabilityProfile = this._createPlaybackCapabilityProfile();
         return getDirectPlayDecision({
             media,
@@ -320,18 +322,18 @@ export class PlexStreamResolver implements IPlexStreamResolver {
      * @throws StreamResolverError synchronously when a transcode URL cannot be built.
      */
     getTranscodeUrl(itemKey: string, options: HlsOptions): string {
-        return this._getTranscodeUrlWithProfile(
+        return this._buildTranscodeUrlWithProfile(
             itemKey,
             options,
             this._createPlaybackCapabilityProfile()
-        );
+        ).url;
     }
 
-    private _getTranscodeUrlWithProfile(
+    private _buildTranscodeUrlWithProfile(
         itemKey: string,
         options: HlsOptions,
         capabilityProfile: PlaybackCapabilityProfile
-    ): string {
+    ): TranscodeUrlResolution {
         const serverUri = this._config.getServerUri();
         if (!serverUri) {
             throw this._createError(
@@ -352,14 +354,13 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             );
         }
 
-        const compatMode = this._config.playbackPolicyReader.readTranscodeCompatEnabledAndClean(false);
-        const quality = this._config.playbackPolicyReader.readTranscodeQualityOptionAndClean();
-        const authHeaders = this._config.getAuthHeaders();
+        const compatMode = options.transcodeCompatMode ??
+            this._config.playbackPolicyReader.readTranscodeCompatEnabledAndClean(false);
+        const quality = Object.prototype.hasOwnProperty.call(options, 'transcodeQuality')
+            ? options.transcodeQuality ?? null
+            : this._config.playbackPolicyReader.readTranscodeQualityOptionAndClean();
         const forcedProfileName = this._config.debugOverridesReader.readTranscodeProfileNameAndClean();
-        const defaultIdentityParams = this._identityService.getDefaultPlexIdentity(
-            this._config.clientIdentifier
-        );
-        const { url } = buildPlexTranscodeStartUrl({
+        const transcodeUrl = buildPlexTranscodeStartUrl({
             baseUri,
             metadataPath,
             options: {
@@ -374,28 +375,26 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 hideDolbyVision: options.hideDolbyVision === true,
                 capabilityProfile,
             }),
-            authHeaders,
+            authHeaders: this._config.getAuthHeaders(),
             forcedProfileName,
-            defaultIdentityParams,
+            defaultIdentityParams: this._identityService.getDefaultPlexIdentity(this._config.clientIdentifier),
         });
+        const { url } = transcodeUrl;
         try {
-            const shouldLogTranscodeDebug = this._isDebugLoggingEnabled();
-            if (!shouldLogTranscodeDebug) {
-                return url;
+            if (this._isDebugLoggingEnabled()) {
+                const debugUrl = new URL(url);
+                if (debugUrl.searchParams.has(PLEX_TOKEN_QUERY_PARAM)) {
+                    applyXPlexTokenQueryParam(debugUrl.searchParams, 'REDACTED');
+                }
+                logPlexWarning(
+                    `Transcode URL (compat=${compatMode ? '1' : '0'}):`,
+                    debugUrl.toString()
+                );
             }
-
-            const debugUrl = new URL(url);
-            if (debugUrl.searchParams.has(PLEX_TOKEN_QUERY_PARAM)) {
-                applyXPlexTokenQueryParam(debugUrl.searchParams, 'REDACTED');
-            }
-            logPlexWarning(
-                `Transcode URL (compat=${compatMode ? '1' : '0'}):`,
-                debugUrl.toString()
-            );
         } catch {
             // Ignore debug logging failures
         }
-        return url;
+        return { ...transcodeUrl, transcodeCompatMode: compatMode, transcodeQuality: quality };
     }
 
     async fetchUniversalTranscodeDecision(

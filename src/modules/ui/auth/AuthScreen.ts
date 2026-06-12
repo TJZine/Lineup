@@ -4,6 +4,7 @@ import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
 import { setTrustedInlineSvg } from '../../../utils/inlineSvg';
 import { createScreenShell } from '../common/ScreenShell';
 import type { ScreenError, ScreenStatus, ScreenTone } from '../types/screen-shell';
+import { createAuthPinLayout, renderAuthCountdownBadge, renderAuthPin, setAuthPinWaiting } from './AuthPinDisplay';
 import { PLEX_LINK_QR_SVG } from './plexLinkQrSvg';
 
 export interface AuthScreenPorts {
@@ -96,30 +97,11 @@ export class AuthScreen {
         shell.errorEl.setAttribute('role', 'alert');
         shell.errorEl.setAttribute('aria-live', 'assertive');
 
-        const qrWrap = document.createElement('div');
-        qrWrap.className = 'auth-qr';
-        qrWrap.style.display = 'none';
-
-        const qrCard = document.createElement('div');
-        qrCard.className = 'auth-qr-card';
-
-        qrWrap.appendChild(qrCard);
-        shell.contentEl.insertBefore(qrWrap, this._statusEl);
-        this._qrWrapEl = qrWrap;
-        this._qrCardEl = qrCard;
-
-        const pinLive = document.createElement('div');
-        pinLive.className = 'sr-only';
-        pinLive.setAttribute('aria-live', 'polite');
-        pinLive.setAttribute('aria-atomic', 'true');
-        shell.contentEl.insertBefore(pinLive, this._statusEl);
-        this._pinLiveEl = pinLive;
-
-        const pinBoxes = document.createElement('div');
-        pinBoxes.className = 'auth-pin-container';
-        pinBoxes.setAttribute('aria-hidden', 'true');
-        shell.contentEl.insertBefore(pinBoxes, this._statusEl);
-        this._pinBoxesEl = pinBoxes;
+        const pinLayout = createAuthPinLayout(shell.contentEl, this._statusEl);
+        this._qrWrapEl = pinLayout.qrWrapEl;
+        this._qrCardEl = pinLayout.qrCardEl;
+        this._pinLiveEl = pinLayout.pinLiveEl;
+        this._pinBoxesEl = pinLayout.pinBoxesEl;
 
         // Note: We cache action button references. If ScreenShell actions are ever re-rendered via shell.setActions(),
         // these references must be re-queried.
@@ -212,7 +194,7 @@ export class AuthScreen {
             this._activePinId = pin.id;
             this._activeCode = pin.code;
             this._expiresAt = pin.expiresAt;
-            this._renderPin(pin.code);
+            this._renderPin(pin.code, { idle: false });
             this._renderQr();
             this._startExpiryTimer();
             this._startPolling(pin);
@@ -232,6 +214,7 @@ export class AuthScreen {
         const abortController = new AbortController();
         this._pollAbortController = abortController;
         this._setStatus('Waiting for sign-in…', '', { tone: 'loading' });
+        setAuthPinWaiting(this._pinBoxesEl, true);
 
         try {
             const result = await this._ports.pollForPin(pin.id, { signal: abortController.signal });
@@ -243,8 +226,9 @@ export class AuthScreen {
             }
             this._stopExpiryTimer();
             this._setStatus('Signed in.', 'Continuing startup…', { tone: 'success' });
+            setAuthPinWaiting(this._pinBoxesEl, false);
             if (result.authToken) {
-                this._renderPin(this._activeCode || pin.code);
+                this._renderPin(this._activeCode || pin.code, { idle: false });
             }
             this._setButtons({ request: false, cancel: false, retry: false });
         } catch (error) {
@@ -255,6 +239,7 @@ export class AuthScreen {
                 this._pollAbortController = null;
             }
             this._stopExpiryTimer();
+            setAuthPinWaiting(this._pinBoxesEl, false);
             this._handleError(error, 'PIN polling failed.');
             this._setButtons({ request: true, cancel: false, retry: true });
         }
@@ -281,6 +266,7 @@ export class AuthScreen {
         this._activePinId = null;
         this._activeCode = null;
         this._expiresAt = null;
+        setAuthPinWaiting(this._pinBoxesEl, false);
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
         this._setStatus('Cancelled.', 'Request a new PIN to continue.', { tone: 'neutral' });
@@ -289,6 +275,7 @@ export class AuthScreen {
 
     private _restoreIdleState(): void {
         this._clearError();
+        setAuthPinWaiting(this._pinBoxesEl, false);
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
         this._detailEl.textContent = '';
@@ -385,16 +372,8 @@ export class AuthScreen {
         }
     }
 
-    private _renderPin(code: string): void {
-        this._pinLiveEl.textContent = `PIN code: ${code}`;
-        this._pinBoxesEl.replaceChildren();
-        for (const ch of code) {
-            const box = document.createElement('div');
-            box.className = 'auth-pin-character';
-            box.textContent = ch;
-            box.setAttribute('aria-hidden', 'true');
-            this._pinBoxesEl.appendChild(box);
-        }
+    private _renderPin(code: string, options?: { idle?: boolean }): void {
+        renderAuthPin(this._pinLiveEl, this._pinBoxesEl, code, options);
     }
 
     private _clearError(): void {
@@ -458,7 +437,7 @@ export class AuthScreen {
             return false;
         }
 
-        this._detailEl.textContent = `Expires in ${formatted}`;
+        renderAuthCountdownBadge(this._detailEl, remainingMs, formatted);
         this._setCountdownWarningVisible(remainingMs <= 120000);
         return true;
     }
@@ -503,6 +482,7 @@ export class AuthScreen {
         this._activePinId = null;
         this._activeCode = null;
         this._expiresAt = null;
+        setAuthPinWaiting(this._pinBoxesEl, false);
         this._renderPin('----');
         this._qrWrapEl.style.display = 'none';
         this._setStatus('Code expired.', 'Request a new PIN to continue.', { tone: 'warning' });

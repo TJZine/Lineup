@@ -20,6 +20,16 @@ import type {
 } from '../contracts/types';
 import { PlexStreamErrorCode } from '../contracts/types';
 
+export interface TranscodeUrlResolution {
+    url: string;
+    startOffsetMs: number;
+    startOffsetSeconds: number;
+    maxBitrate?: number;
+    maxBitrateReason: NonNullable<StreamDecision['transcodeRequest']>['maxBitrateReason'];
+    transcodeCompatMode: boolean;
+    transcodeQuality: NonNullable<StreamDecision['transcodeRequest']>['transcodeQuality'];
+}
+
 type CreateResolverError = (
     code: PlexStreamErrorCode,
     message: string,
@@ -42,7 +52,7 @@ export interface ResolveStreamPipelineArgs {
         directPlayAudioStreamId?: string,
         applyHdr10Fallback?: boolean
     ) => string;
-    getTranscodeUrl: (itemKey: string, options: HlsOptions) => string;
+    getTranscodeUrl: (itemKey: string, options: HlsOptions) => string | TranscodeUrlResolution;
 }
 
 export interface ResolveStreamPipelineResult {
@@ -82,9 +92,10 @@ export function resolveStreamPipeline({
         );
     }
 
+    const requestedTranscodeBitrate = normalizePositiveInteger(request.maxBitrate);
     const selectedMedia = request.subtitleStreamId
-        ? selectBestMediaWithSubtitleStream(item.media, request.subtitleStreamId, request.maxBitrate)
-        : selectBestMedia(item.media, request.maxBitrate);
+        ? selectBestMediaWithSubtitleStream(item.media, request.subtitleStreamId, requestedTranscodeBitrate)
+        : selectBestMedia(item.media, requestedTranscodeBitrate);
 
     if (request.subtitleStreamId && !selectedMedia) {
         throw createError(
@@ -136,8 +147,6 @@ export function resolveStreamPipeline({
         typeof request.audioStreamId === 'string'
             ? availableAudioStreams.find((stream) => stream.id === request.audioStreamId) ?? null
             : null;
-    const resolvedTranscodeBitrate =
-        typeof request.maxBitrate === 'number' ? request.maxBitrate : 20000;
     const audioStream = selectCompatibleAudioTrack(part.streams, request.audioStreamId);
     const shouldForceAudioStreamId = shouldForceTranscodeAudioStreamId(part.streams, request.audioStreamId);
     const defaultAudio = findDefaultOrFirstStream(part.streams, 2);
@@ -218,7 +227,13 @@ export function resolveStreamPipeline({
         videoCodec = media.videoCodec;
         audioCodec = normalizeResolvedCodec((requestedAudioStream ?? audioStream)?.codec ?? media.audioCodec);
     } else {
-        const options: HlsOptions = { maxBitrate: resolvedTranscodeBitrate, sessionId, mediaIndex, partIndex };
+        const options: HlsOptions = {
+            sessionId,
+            mediaIndex,
+            partIndex,
+            startOffsetMs: request.startOffsetMs ?? 0,
+            ...(typeof requestedTranscodeBitrate === 'number' ? { maxBitrate: requestedTranscodeBitrate } : {}),
+        };
         if (shouldForceAudioStreamId && audioStream?.id) {
             options.audioStreamId = audioStream.id;
         }
@@ -230,32 +245,38 @@ export function resolveStreamPipeline({
         if (applyHdr10Fallback) {
             options.hideDolbyVision = true;
         }
-        playbackUrl = getTranscodeUrl(request.itemKey, options);
+        const transcodeUrl = normalizeTranscodeUrlResolution(
+            getTranscodeUrl(request.itemKey, options),
+            options
+        );
+        playbackUrl = transcodeUrl.url;
         protocol = 'hls';
         isTranscoding = true;
         container = 'mpegts';
         videoCodec = 'h264';
         audioCodec = 'aac';
 
-        const transcodeRequestBase: {
-            sessionId: string;
-            maxBitrate: number;
-            mediaIndex: number;
-            partIndex: number;
-            audioStreamId?: string;
-            hideDolbyVision?: true;
-        } = {
+        const bitrateRequest = typeof transcodeUrl.maxBitrate === 'number'
+            ? {
+                maxBitrate: transcodeUrl.maxBitrate,
+                maxBitrateReason: transcodeUrl.maxBitrateReason as Exclude<
+                    NonNullable<StreamDecision['transcodeRequest']>['maxBitrateReason'],
+                    'none'
+                >,
+            }
+            : { maxBitrateReason: 'none' as const };
+        const transcodeRequestBase = {
             sessionId,
-            maxBitrate: resolvedTranscodeBitrate,
+            startOffsetMs: transcodeUrl.startOffsetMs,
+            startOffsetSeconds: transcodeUrl.startOffsetSeconds,
+            ...bitrateRequest,
+            transcodeCompatMode: transcodeUrl.transcodeCompatMode,
+            transcodeQuality: transcodeUrl.transcodeQuality,
             mediaIndex,
             partIndex,
-        };
-        if (options.hideDolbyVision === true) {
-            transcodeRequestBase.hideDolbyVision = true;
-        }
-        if (typeof options.audioStreamId === 'string') {
-            transcodeRequestBase.audioStreamId = options.audioStreamId;
-        }
+            ...(options.hideDolbyVision === true ? { hideDolbyVision: true as const } : {}),
+            ...(typeof options.audioStreamId === 'string' ? { audioStreamId: options.audioStreamId } : {}),
+        } satisfies Omit<NonNullable<StreamDecision['transcodeRequest']>, 'subtitleStreamId' | 'subtitleMode'>;
         transcodeRequestInfo = burnInEnabled && typeof options.subtitleStreamId === 'string'
             ? {
                 ...transcodeRequestBase,
@@ -314,7 +335,7 @@ export function resolveStreamPipeline({
         availableSubtitleStreams,
         width: media.width,
         height: media.height,
-        bitrate: isTranscoding ? resolvedTranscodeBitrate : media.bitrate,
+        bitrate: isTranscoding ? (transcodeRequestInfo?.maxBitrate ?? media.bitrate) : media.bitrate,
         source: {
             container: media.container,
             videoCodec: media.videoCodec,
@@ -365,6 +386,43 @@ export function resolveStreamPipeline({
                 ? null
                 : hdrCompatibilityDecision.fallbackReason,
     };
+}
+
+function normalizeTranscodeUrlResolution(
+    result: string | TranscodeUrlResolution,
+    options: HlsOptions
+): TranscodeUrlResolution {
+    if (typeof result !== 'string') {
+        return result;
+    }
+
+    const startOffsetMs = normalizeNonNegativeInteger(options.startOffsetMs);
+    const startOffsetSeconds = Math.floor(startOffsetMs / 1000);
+    const maxBitrate = normalizePositiveInteger(options.maxBitrate);
+    return {
+        url: result,
+        startOffsetMs,
+        startOffsetSeconds,
+        ...(typeof maxBitrate === 'number' ? { maxBitrate } : {}),
+        maxBitrateReason: typeof maxBitrate === 'number' ? 'explicit' : 'none',
+        transcodeCompatMode: options.transcodeCompatMode ?? false,
+        transcodeQuality: options.transcodeQuality ?? null,
+    };
+}
+
+function normalizePositiveInteger(value: number | undefined): number | undefined {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return undefined;
+    }
+    const normalized = Math.floor(value);
+    return normalized > 0 ? normalized : undefined;
+}
+
+function normalizeNonNegativeInteger(value: number | undefined): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return 0;
+    }
+    return Math.max(0, Math.floor(value));
 }
 
 function getSubtitleBurnInReason(

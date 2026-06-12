@@ -45,8 +45,27 @@ const makeLaterOccurrence = (program: ScheduledProgram): ScheduledProgram =>
         loopNumber: program.loopNumber,
     });
 
-const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =>
-    ({
+type StreamDecisionFixture = Partial<Omit<StreamDecision, 'transcodeRequest'>> & {
+    transcodeRequest?: Partial<NonNullable<StreamDecision['transcodeRequest']>>;
+};
+
+const makeTranscodeRequest = (
+    overrides: Partial<NonNullable<StreamDecision['transcodeRequest']>> = {}
+): NonNullable<StreamDecision['transcodeRequest']> => {
+    return {
+        sessionId: 'sess-1',
+        startOffsetMs: 0,
+        startOffsetSeconds: 0,
+        maxBitrateReason: 'none',
+        transcodeCompatMode: false,
+        transcodeQuality: null,
+        ...overrides,
+    } as NonNullable<StreamDecision['transcodeRequest']>;
+};
+
+const makeDecision = (overrides: StreamDecisionFixture = {}): StreamDecision => {
+    const { transcodeRequest, ...decisionOverrides } = overrides;
+    return ({
         playbackUrl: 'http://test/stream.m3u8',
         protocol: 'hls',
         isDirectPlay: false,
@@ -66,8 +85,10 @@ const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =
         bitrate: 8000,
         availableSubtitleStreams: [],
         availableAudioStreams: [],
-        ...overrides,
+        ...(transcodeRequest ? { transcodeRequest: makeTranscodeRequest(transcodeRequest) } : {}),
+        ...decisionOverrides,
     } as StreamDecision);
+};
 
 const makeSubtitleStreams = (): PlexStream[] => [
     {
@@ -109,6 +130,14 @@ const makePlayerState = (overrides: Partial<Record<string, unknown>> = {}): Reco
     errorInfo: null,
     ...overrides,
 });
+
+const firstInvocationOrder = (mock: jest.Mock): number => {
+    const order = mock.mock.invocationCallOrder[0];
+    if (typeof order !== 'number') {
+        throw new Error('Expected mock to have an invocation order');
+    }
+    return order;
+};
 
 const createLocalStorageMock = (): Storage => {
     let store: Record<string, string> = {};
@@ -1626,7 +1655,7 @@ describe('PlaybackRecoveryManager', () => {
         );
     });
 
-    it('waits for the transcode stop request before resolving the disable-burn-in reload', async () => {
+    it('stops the prior transcode session after resolving the disable-burn-in reload', async () => {
         expectPlaybackRecoveryWarn({
             event: 'disableBurnIn.start',
             reason: 'test',
@@ -1661,18 +1690,16 @@ describe('PlaybackRecoveryManager', () => {
             })
         );
 
-        const pending = manager.attemptDisableBurnInSubtitlesForCurrentProgram('test');
-        await Promise.resolve();
+        const result = await manager.attemptDisableBurnInSubtitlesForCurrentProgram('test');
 
-        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-burn');
-        expect(resolver.resolveStream).not.toHaveBeenCalled();
-
-        releaseStop();
-        await pending;
-
+        expect(result).toEqual({ outcome: 'disabled' });
         expect(resolver.resolveStream).toHaveBeenCalledWith(expect.objectContaining({
             subtitleMode: 'none',
         }));
+        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-burn');
+        expect(firstInvocationOrder(resolver.resolveStream as jest.Mock))
+            .toBeLessThan(firstInvocationOrder(resolver.stopTranscodeSession as jest.Mock));
+        releaseStop();
     });
 
     it('continues disable-burn-in recovery when stopping the prior transcode session fails', async () => {
@@ -1681,6 +1708,12 @@ describe('PlaybackRecoveryManager', () => {
             reason: 'test',
             itemKey: 'item-1',
             burnedInTrackId: 'burn-1',
+        });
+        expectPlaybackRecoveryError({
+            event: 'reloadPriorTranscodeStop.failed',
+            sessionId: 'sess-burn',
+            nextSessionId: 'sess-1',
+            safeError: expect.any(Object),
         });
         const { manager, resolver } = setup({
             getCurrentStreamDecision: () =>

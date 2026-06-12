@@ -13,6 +13,7 @@ import { PlaybackReloadController, type RecoveryAttemptResult, type RecoveryRelo
 import { PlaybackStreamDescriptorBuilder } from '../streaming/PlaybackStreamDescriptorBuilder';
 import { summarizePlaybackFailureDecision, summarizePlaybackFailureDescriptor, summarizePlaybackFailureReloadAttempt } from './PlaybackFailureDiagnostics';
 import { logPlaybackRecoveryError } from '../../debug/PlayerConsoleLogger';
+import { clampPlaybackOffsetMs } from './playbackRecoveryTiming';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -283,8 +284,7 @@ export class PlaybackRecoveryManager {
             throw new Error('Stream resolver not initialized');
         }
 
-        // Defensive: clamp elapsed time to valid bounds
-        const clampedOffset = Math.max(0, Math.min(program.elapsedMs, program.item.durationMs));
+        const clampedOffset = clampPlaybackOffsetMs(program.elapsedMs, program.item.durationMs);
 
         const decision: StreamDecision = await resolver.resolveStream({
             itemKey: program.item.ratingKey,
@@ -467,15 +467,6 @@ export class PlaybackRecoveryManager {
                 itemKey,
                 burnedInTrackId,
             }),
-            beforeResolve: async () => {
-                if (currentDecision.isTranscoding && currentDecision.sessionId) {
-                    try {
-                        await context.resolver.stopTranscodeSession(currentDecision.sessionId);
-                    } catch {
-                        // Best-effort cleanup; the recovery should still continue.
-                    }
-                }
-            },
             buildRequest: ({ itemKey, clampedOffset, player }) => {
                 const activeAudioId = this._readPlayerState(player)?.activeAudioId ?? null;
                 return {

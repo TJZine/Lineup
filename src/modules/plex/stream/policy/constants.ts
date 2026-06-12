@@ -57,7 +57,6 @@ export {
  * Default HLS options when not specified.
  */
 export const DEFAULT_HLS_OPTIONS = {
-    maxBitrate: 20000,
     subtitleSize: 100,
     audioBoost: 100,
 } as const;
@@ -71,7 +70,6 @@ export const DEFAULT_HLS_OPTIONS = {
 export const MIME_TYPES: Record<string, string> = {
     // Protocols
     hls: 'application/vnd.apple.mpegurl', // Preferred for native players
-    dash: 'application/dash+xml',
 
     // Video Containers
     mp4: 'video/mp4',

@@ -83,7 +83,7 @@ function appendPmsDecision(
             lines.push(`PMS code:  ${serverDecision.decisionCode}`);
         }
     } else if (!stream.isDirectPlay) {
-        lines.push('PMS:       (decision not fetched; press Refresh again)');
+        lines.push('PMS:       (decision not fetched; enable debug logging or use Now Playing debug refresh)');
     }
 }
 
@@ -118,7 +118,7 @@ function appendSubtitleBurnIn(
 
     const burn = stream.subtitleBurnIn;
     lines.push(
-        `Burn-in:   requested=${formatBool(burn.requested)} reason=${burn.reason} subtitle=${burn.subtitleStreamId ?? '(none)'} mode=${burn.subtitleMode ?? '(none)'}`
+        `Burn-in:   requested=${formatBool(burn.requested)} confirmed=${formatBool(burn.confirmed === true)} reason=${burn.reason} subtitle=${burn.subtitleStreamId ?? '(none)'} mode=${burn.subtitleMode ?? '(none)'} forces video transcode=${formatBool(burn.confirmed === true)}`
     );
 }
 
@@ -172,7 +172,8 @@ function appendRequestSection(
     lines.push('REQUEST (Lineup -> PMS)');
     lines.push('-'.repeat(60));
     lines.push(`Session: ${stream.transcodeRequest.sessionId}`);
-    lines.push(`Max BR:  ${formatKbps(stream.transcodeRequest.maxBitrate)}`);
+    lines.push(`Offset:  ${formatMilliseconds(stream.transcodeRequest.startOffsetMs)} (PMS ${stream.transcodeRequest.startOffsetSeconds}s)`);
+    lines.push(`Max BR:  ${formatOptionalKbps(stream.transcodeRequest.maxBitrate)} (${formatMaxBitrateReason(stream.transcodeRequest.maxBitrateReason)})`);
     lines.push(`AudioID: ${stream.transcodeRequest.audioStreamId ?? '(none)'}`);
     lines.push(`Hide DV: ${stream.transcodeRequest.hideDolbyVision === true ? 'yes' : 'no'}`);
     lines.push(`SubID:   ${stream.transcodeRequest.subtitleStreamId ?? '(none)'}`);
@@ -208,6 +209,26 @@ function formatKbps(kbps: number): string {
         return `${(kbps / 1000).toFixed(1)} Mbps`;
     }
     return `${kbps} kbps`;
+}
+
+function formatOptionalKbps(kbps: number | undefined): string {
+    if (typeof kbps !== 'number') {
+        return 'Original / uncapped';
+    }
+    return formatKbps(kbps);
+}
+
+function formatMaxBitrateReason(reason: string): string {
+    switch (reason) {
+        case 'explicit':
+            return 'explicit request';
+        case 'quality':
+            return 'quality setting';
+        case 'explicit_quality':
+            return 'explicit request + quality setting';
+        default:
+            return 'no cap';
+    }
 }
 
 function formatBool(value: boolean): string {

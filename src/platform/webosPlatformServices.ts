@@ -207,7 +207,7 @@ function bindRelaunch(handler: (event: Event) => void): () => void {
 
 function applyStreamSource(
     videoElement: HTMLVideoElement,
-    stream: { protocol: 'hls' | 'dash' | 'direct'; url: string }
+    stream: { protocol: 'hls' | 'direct'; url: string }
 ): void {
     videoElement.src = stream.url;
 }

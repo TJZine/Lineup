@@ -287,7 +287,7 @@ interface StreamDecision {
 
   resolvedBaseUrl?: string;
 
-  protocol: 'hls' | 'dash' | 'http';
+  protocol: 'hls' | 'http';
 
   isDirectPlay: boolean;
 
@@ -383,14 +383,30 @@ interface PlexStreamDecision {
   decision?: string;
 }
 
-type StreamDecisionTranscodeRequest = {
+type StreamDecisionTranscodeRequestBase = {
   sessionId: string;
-  maxBitrate: number;
+  startOffsetMs: number;
+  startOffsetSeconds: number;
+  transcodeCompatMode: boolean;
+  transcodeQuality: TranscodeQualityOption | null;
   mediaIndex?: number;
   partIndex?: number;
   audioStreamId?: string;
   hideDolbyVision?: true;
-} & (
+};
+
+type StreamDecisionTranscodeRequestBitrate =
+  | {
+      maxBitrate?: undefined;
+      maxBitrateReason: 'none';
+    }
+  | {
+      maxBitrate: number;
+      maxBitrateReason: 'explicit' | 'quality' | 'explicit_quality';
+    };
+
+type StreamDecisionTranscodeRequest = StreamDecisionTranscodeRequestBase &
+  StreamDecisionTranscodeRequestBitrate & (
   | {
       subtitleStreamId?: undefined;
       subtitleMode?: undefined;
@@ -401,6 +417,21 @@ type StreamDecisionTranscodeRequest = {
     }
 );
 ```
+
+Lineup currently resolves transcode/direct-stream sessions through Plex
+universal HLS only. DASH remains out of scope until it is deliberately validated
+for webOS playback.
+
+For HLS sessions, `startOffsetMs` is the clamped virtual-channel playback
+position Lineup requested and `startOffsetSeconds` is the integer value sent to
+PMS as the universal transcode `offset` parameter. Lineup still carries the
+same offset into the player descriptor because the HTML video element resets its
+local position during load.
+
+`maxBitrate` is optional. When absent, Lineup requests original/uncapped HLS and
+omits Plex `maxVideoBitrate`; PMS may still direct-stream/remux/transcode based
+on codecs, subtitles, and client capabilities. `maxBitrateReason` records why a
+cap was sent: explicit request, persisted quality setting, both, or no cap.
 
 `StreamDecision.isTranscoding` is a legacy compatibility/session-lifecycle
 flag for Lineup-requested HLS sessions. It remains `true` for request paths that
@@ -428,6 +459,11 @@ or PMS native embedded subtitle delivery rendered the subtitle.
 
 Current PMS playback URL policy is narrower than the Lineup delivery enum:
 
+- Transcode/direct-stream URLs are built as
+  `/video/:/transcode/universal/start.m3u8` with `protocol=hls`.
+- HLS URLs include the server-side `offset` derived from the clamped
+  `StreamRequest.startOffsetMs`; they do not start every virtual-channel
+  playback session from zero unless the clamped program offset is zero.
 - Burn-in requests send PMS `subtitles=burn` with the selected
   `subtitleStreamID`.
 - Before a burn-in HLS transcode starts, `PlexStreamResolver` also selects the
@@ -439,6 +475,9 @@ Current PMS playback URL policy is narrower than the Lineup delivery enum:
   `subtitleStreamID=0` before resolving the no-subtitle reload.
 - Non-burn HLS playback sends PMS `subtitles=none`, `subtitleStreamID=0`, and
   `subtitleFormat=none`; Lineup then handles eligible text subtitles locally.
+- HLS playback sends `maxVideoBitrate` only when a request cap or persisted
+  transcode quality setting explicitly asks for one. Original-quality/LAN
+  playback omits the cap.
 - Lineup does not currently request PMS native/HLS subtitle delivery modes such
   as `subtitles=sidecar`, `subtitles=embedded`, or `subtitles=segmented`.
 
