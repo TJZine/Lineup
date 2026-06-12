@@ -22,6 +22,8 @@ const createProgram = (): ScheduledProgram => ({
 } as ScheduledProgram);
 
 const createDecision = (): StreamDecision => ({
+    playbackUrl: 'http://test/stream.m3u8',
+    protocol: 'hls',
     isDirectPlay: false,
     isTranscoding: true,
     container: 'mpegts',
@@ -32,6 +34,9 @@ const createDecision = (): StreamDecision => ({
     width: 1280,
     height: 720,
     sessionId: 'session-1',
+    mediaIndex: 0,
+    partIndex: 0,
+    partKey: '/library/parts/1/1/file.mkv',
     selectedAudioStream: {
         id: 'audio-1',
         streamType: 2,
@@ -66,6 +71,8 @@ const createDecision = (): StreamDecision => ({
         startOffsetSeconds: 10,
         maxBitrate: 12000,
         maxBitrateReason: 'explicit',
+        transcodeCompatMode: false,
+        transcodeQuality: null,
         audioStreamId: 'audio-1',
     },
     serverDecision: {
@@ -74,7 +81,7 @@ const createDecision = (): StreamDecision => ({
         audioDecision: 'transcode',
         subtitleDecision: 'copy',
     },
-} as StreamDecision);
+});
 
 const createDescriptor = (): StreamDescriptor => ({
     protocol: 'hls',

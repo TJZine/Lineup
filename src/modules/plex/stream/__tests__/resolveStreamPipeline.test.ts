@@ -1,5 +1,6 @@
 import { resolveStreamPipeline } from '../pipeline/resolveStreamPipeline';
 import type { StreamResolverError } from '../contracts/interfaces';
+import type { HlsOptions } from '../contracts/types';
 import { createMockMediaItem } from './testUtils';
 import { AppErrorCode } from '../../../../types/app-errors';
 import {
@@ -431,6 +432,14 @@ describe('resolveStreamPipeline', () => {
             videoCodec: 'mpeg4',
             audioCodec: 'mp2',
         });
+        const getTranscodeUrl = jest.fn((_itemKey: string, options: HlsOptions) => ({
+            url: 'http://example.com/transcode',
+            startOffsetMs: options.startOffsetMs ?? 0,
+            startOffsetSeconds: Math.floor((options.startOffsetMs ?? 0) / 1000),
+            maxBitrateReason: 'none' as const,
+            transcodeCompatMode: false,
+            transcodeQuality: null,
+        }));
 
         const result = resolveStreamPipeline({
             item,
@@ -441,21 +450,53 @@ describe('resolveStreamPipeline', () => {
             hdr10FallbackMode: 'off',
             createError,
             buildDirectPlayUrl: () => 'http://example.com/direct',
-            getTranscodeUrl: (_itemKey, options) => ({
-                url: 'http://example.com/transcode',
-                startOffsetMs: options.startOffsetMs ?? 0,
-                startOffsetSeconds: Math.floor((options.startOffsetMs ?? 0) / 1000),
-                maxBitrateReason: 'none',
-                transcodeCompatMode: false,
-                transcodeQuality: null,
-            }),
+            getTranscodeUrl,
         });
 
+        expect(getTranscodeUrl).toHaveBeenCalledWith(
+            '12345',
+            expect.objectContaining({ startOffsetMs: 183_456 })
+        );
         expect(result.decision.transcodeRequest).toMatchObject({
             startOffsetMs: 183_456,
             startOffsetSeconds: 183,
             maxBitrateReason: 'none',
         });
+    });
+
+    it.each([
+        ['negative', -1],
+        ['zero', 0],
+        ['NaN', Number.NaN],
+        ['Infinity', Number.POSITIVE_INFINITY],
+    ])('drops %s request maxBitrate instead of forwarding a transcode cap', (_caseName, maxBitrate) => {
+        const item = createMockMediaItem({
+            container: 'avi',
+            videoCodec: 'mpeg4',
+            audioCodec: 'mp2',
+        });
+        const getTranscodeUrl = jest.fn(() => 'http://example.com/transcode');
+
+        const result = resolveStreamPipeline({
+            item,
+            request: { itemKey: '12345', maxBitrate },
+            sessionId: 'session-1',
+            allowDirectPlayAudioFallback: true,
+            capabilityProfile: createCapabilityProfile(),
+            hdr10FallbackMode: 'off',
+            createError,
+            buildDirectPlayUrl: () => 'http://example.com/direct',
+            getTranscodeUrl,
+        });
+
+        expect(getTranscodeUrl).toHaveBeenCalledWith(
+            '12345',
+            expect.not.objectContaining({ maxBitrate: expect.any(Number) })
+        );
+        expect(result.decision.transcodeRequest).toMatchObject({
+            maxBitrateReason: 'none',
+        });
+        expect(result.decision.transcodeRequest?.maxBitrate).toBeUndefined();
     });
 
     it('propagates synchronous StreamResolverError transcode URL failures unchanged', () => {

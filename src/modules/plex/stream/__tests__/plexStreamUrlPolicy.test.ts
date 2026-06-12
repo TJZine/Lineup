@@ -240,6 +240,51 @@ describe('plexStreamUrlPolicy', () => {
         expect(parsed.searchParams.has('maxVideoBitrate')).toBe(false);
     });
 
+    it.each([
+        ['negative request cap', -1],
+        ['zero request cap', 0],
+    ])('omits maxVideoBitrate for %s', (_caseName, maxBitrate) => {
+        const result = buildPlexTranscodeStartUrl(createTranscodeInput({
+            options: {
+                sessionId: 'sess-1',
+                maxBitrate,
+                mediaIndex: 1,
+                partIndex: 2,
+            },
+            quality: null,
+        }));
+
+        const parsed = new URL(result.url);
+
+        expect(result.maxBitrate).toBeUndefined();
+        expect(result.maxBitrateReason).toBe('none');
+        expect(parsed.searchParams.has('maxVideoBitrate')).toBe(false);
+    });
+
+    it.each([
+        ['negative quality cap', -1],
+        ['zero quality cap', 0],
+    ])('omits maxVideoBitrate for %s', (_caseName, maxVideoBitrateKbps) => {
+        const result = buildPlexTranscodeStartUrl(createTranscodeInput({
+            options: {
+                sessionId: 'sess-1',
+                mediaIndex: 1,
+                partIndex: 2,
+            },
+            quality: {
+                storageValue: 'bad-quality',
+                label: 'Bad quality',
+                maxVideoBitrateKbps,
+            },
+        }));
+
+        const parsed = new URL(result.url);
+
+        expect(result.maxBitrate).toBeUndefined();
+        expect(result.maxBitrateReason).toBe('none');
+        expect(parsed.searchParams.has('maxVideoBitrate')).toBe(false);
+    });
+
     it('applies configured quality as the only cap when no request cap is provided', () => {
         const result = buildPlexTranscodeStartUrl(createTranscodeInput({
             options: {

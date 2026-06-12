@@ -128,6 +128,29 @@ const expectPlaybackRecoveryFailed = (event: string): void => {
     ]);
 };
 
+const expectPriorTranscodeStopFailed = (
+    sessionId: string,
+    nextSessionId: string
+): void => {
+    expectConsoleError([
+        'playback_recovery',
+        expect.objectContaining({
+            event: 'reloadPriorTranscodeStop.failed',
+            sessionId,
+            nextSessionId,
+            safeError: expect.any(Object),
+        }),
+    ]);
+};
+
+const firstInvocationOrder = (mock: jest.Mock): number => {
+    const order = mock.mock.invocationCallOrder[0];
+    if (typeof order !== 'number') {
+        throw new Error('Expected mock to have an invocation order');
+    }
+    return order;
+};
+
 describe('PlaybackReloadController', () => {
     it('prepares reload context from the current program and player time', () => {
         const program = makeProgram({ elapsedMs: 10_000 });
@@ -216,6 +239,9 @@ describe('PlaybackReloadController', () => {
             currentDecision: makeDecision({ sessionId: 'sess-prior' }),
         });
         const descriptor = { url: 'http://test/video.m3u8', protocol: 'hls' } as StreamDescriptor;
+        const setCurrentStreamDecision = jest.fn();
+        const setCurrentStreamDescriptor = jest.fn();
+        const onSuccess = jest.fn();
         const controller = new PlaybackReloadController({
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
@@ -223,8 +249,8 @@ describe('PlaybackReloadController', () => {
             getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
                 context.programIdentity,
             getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
-            setCurrentStreamDecision: jest.fn(),
-            setCurrentStreamDescriptor: jest.fn(),
+            setCurrentStreamDecision,
+            setCurrentStreamDescriptor,
             buildStreamDescriptor: jest.fn().mockReturnValue(descriptor),
             resetPlaybackFailureGuard: jest.fn(),
         });
@@ -241,10 +267,268 @@ describe('PlaybackReloadController', () => {
                 directPlay: false,
             }),
             shouldResumeAfterReload: true,
+            onSuccess,
         });
 
         expect(result).toEqual({ outcome: 'reloaded' });
         expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-prior');
+        const stopOrder = firstInvocationOrder(resolver.stopTranscodeSession as jest.Mock);
+        expect(firstInvocationOrder(setCurrentStreamDecision)).toBeLessThan(stopOrder);
+        expect(firstInvocationOrder(setCurrentStreamDescriptor)).toBeLessThan(stopOrder);
+        expect(firstInvocationOrder(onSuccess)).toBeLessThan(stopOrder);
+    });
+
+    it('does not stop the prior transcode session when the prior and next session match', async () => {
+        expectPlaybackRecoveryStart('audioReload.start');
+        const nextDecision = makeDecision({ sessionId: 'sess-same' });
+        const resolver: IPlexStreamResolver = {
+            resolveStream: jest.fn().mockResolvedValue(nextDecision),
+            stopTranscodeSession: jest.fn().mockResolvedValue(undefined),
+        } as unknown as IPlexStreamResolver;
+        const context = makeContext({
+            resolver,
+            currentDecision: makeDecision({ sessionId: 'sess-same' }),
+        });
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => context.player,
+            getStreamResolver: (): IPlexStreamResolver => context.resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn().mockReturnValue({ url: 'http://test/video.m3u8' } as StreamDescriptor),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: false,
+            }),
+        });
+
+        expect(result).toEqual({ outcome: 'reloaded' });
+        expect(resolver.stopTranscodeSession).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        [
+            'not transcoding',
+            (): StreamDecision => makeDecision({ isTranscoding: false, sessionId: 'sess-prior' }),
+        ],
+        [
+            'missing session id',
+            (): StreamDecision => {
+                const decision = makeDecision();
+                delete (decision as { sessionId?: string }).sessionId;
+                return decision;
+            },
+        ],
+    ])(
+        'does not stop the prior transcode session when the prior decision is %s',
+        async (_caseName, createPriorDecision) => {
+            expectPlaybackRecoveryStart('audioReload.start');
+            const resolver: IPlexStreamResolver = {
+                resolveStream: jest.fn().mockResolvedValue(makeDecision({ sessionId: 'sess-next' })),
+                stopTranscodeSession: jest.fn().mockResolvedValue(undefined),
+            } as unknown as IPlexStreamResolver;
+            const context = makeContext({
+                resolver,
+                currentDecision: createPriorDecision(),
+            });
+            const controller = new PlaybackReloadController({
+                getVideoPlayer: (): IVideoPlayer => context.player,
+                getStreamResolver: (): IPlexStreamResolver => context.resolver,
+                getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+                getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                    context.programIdentity,
+                getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+                setCurrentStreamDecision: jest.fn(),
+                setCurrentStreamDescriptor: jest.fn(),
+                buildStreamDescriptor: jest.fn().mockReturnValue({ url: 'http://test/video.m3u8' } as StreamDescriptor),
+                resetPlaybackFailureGuard: jest.fn(),
+            });
+
+            const result = await controller.executeReload({
+                context,
+                successOutcome: 'reloaded',
+                startEvent: 'audioReload.start',
+                abortedEvent: 'audioReload.aborted',
+                failedEvent: 'audioReload.failed',
+                buildRequest: ({ itemKey, clampedOffset }) => ({
+                    itemKey,
+                    startOffsetMs: clampedOffset,
+                    directPlay: false,
+                }),
+            });
+
+            expect(result).toEqual({ outcome: 'reloaded' });
+            expect(resolver.stopTranscodeSession).not.toHaveBeenCalled();
+        }
+    );
+
+    it('does not stop the prior transcode session when reload fails before commit', async () => {
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectPlaybackRecoveryFailed('audioReload.failed');
+        const resolver: IPlexStreamResolver = {
+            resolveStream: jest.fn().mockRejectedValue(new Error('resolve failed')),
+            stopTranscodeSession: jest.fn().mockResolvedValue(undefined),
+        } as unknown as IPlexStreamResolver;
+        const context = makeContext({
+            resolver,
+            currentDecision: makeDecision({ sessionId: 'sess-prior' }),
+        });
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => context.player,
+            getStreamResolver: (): IPlexStreamResolver => context.resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn(),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: false,
+            }),
+        });
+
+        expect(result).toEqual({ outcome: 'failed' });
+        expect(resolver.stopTranscodeSession).not.toHaveBeenCalled();
+    });
+
+    it('continues a committed reload when stopping the prior transcode session rejects', async () => {
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectPriorTranscodeStopFailed('sess-prior', 'sess-next');
+        const resolver: IPlexStreamResolver = {
+            resolveStream: jest.fn().mockResolvedValue(makeDecision({ sessionId: 'sess-next' })),
+            stopTranscodeSession: jest.fn().mockRejectedValue(new Error('stop failed')),
+        } as unknown as IPlexStreamResolver;
+        const context = makeContext({
+            resolver,
+            currentDecision: makeDecision({ sessionId: 'sess-prior' }),
+        });
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => context.player,
+            getStreamResolver: (): IPlexStreamResolver => context.resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn().mockReturnValue({ url: 'http://test/video.m3u8' } as StreamDescriptor),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: false,
+            }),
+        });
+        await Promise.resolve();
+
+        expect(result).toEqual({ outcome: 'reloaded' });
+        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-prior');
+    });
+
+    it('continues a committed reload when stopping the prior transcode session throws synchronously', async () => {
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectPriorTranscodeStopFailed('sess-prior', 'sess-next');
+        const resolver: IPlexStreamResolver = {
+            resolveStream: jest.fn().mockResolvedValue(makeDecision({ sessionId: 'sess-next' })),
+            stopTranscodeSession: jest.fn(() => {
+                throw new Error('sync stop failed');
+            }),
+        } as unknown as IPlexStreamResolver;
+        const context = makeContext({
+            resolver,
+            currentDecision: makeDecision({ sessionId: 'sess-prior' }),
+        });
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => context.player,
+            getStreamResolver: (): IPlexStreamResolver => context.resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                context.programIdentity,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn().mockReturnValue({ url: 'http://test/video.m3u8' } as StreamDescriptor),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey, clampedOffset }) => ({
+                itemKey,
+                startOffsetMs: clampedOffset,
+                directPlay: false,
+            }),
+        });
+
+        expect(result).toEqual({ outcome: 'reloaded' });
+        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-prior');
+    });
+
+    it('clamps reload offsets with non-finite program durations to zero', () => {
+        const program = makeProgram({
+            item: {
+                ...makeProgram().item,
+                durationMs: Number.NaN,
+            } as ScheduledProgram['item'],
+            elapsedMs: 10_000,
+        });
+        const player: IVideoPlayer = {
+            getCurrentTimeMs: jest.fn().mockReturnValue(15_000),
+        } as unknown as IVideoPlayer;
+        const resolver: IPlexStreamResolver = {} as IPlexStreamResolver;
+        const controller = new PlaybackReloadController({
+            getVideoPlayer: (): IVideoPlayer => player,
+            getStreamResolver: (): IPlexStreamResolver => resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
+                makeProgramIdentity(program),
+            getCurrentStreamDecision: (): null => null,
+            setCurrentStreamDecision: jest.fn(),
+            setCurrentStreamDescriptor: jest.fn(),
+            buildStreamDescriptor: jest.fn(),
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+
+        const result = controller.prepareReload('reload_reason');
+
+        expect(result).toEqual(expect.objectContaining({ clampedOffset: 0 }));
     });
 
     it('returns ignored when the active program changes before the resolved stream is applied', async () => {

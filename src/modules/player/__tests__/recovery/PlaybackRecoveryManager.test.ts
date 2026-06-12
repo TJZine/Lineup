@@ -131,6 +131,14 @@ const makePlayerState = (overrides: Partial<Record<string, unknown>> = {}): Reco
     ...overrides,
 });
 
+const firstInvocationOrder = (mock: jest.Mock): number => {
+    const order = mock.mock.invocationCallOrder[0];
+    if (typeof order !== 'number') {
+        throw new Error('Expected mock to have an invocation order');
+    }
+    return order;
+};
+
 const createLocalStorageMock = (): Storage => {
     let store: Record<string, string> = {};
     return {
@@ -1689,6 +1697,8 @@ describe('PlaybackRecoveryManager', () => {
             subtitleMode: 'none',
         }));
         expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-burn');
+        expect(firstInvocationOrder(resolver.resolveStream as jest.Mock))
+            .toBeLessThan(firstInvocationOrder(resolver.stopTranscodeSession as jest.Mock));
         releaseStop();
     });
 

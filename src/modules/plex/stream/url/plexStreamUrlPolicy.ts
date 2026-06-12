@@ -229,7 +229,8 @@ function normalizePositiveInteger(value: number | undefined): number | undefined
     if (typeof value !== 'number' || !Number.isFinite(value)) {
         return undefined;
     }
-    return Math.max(1, Math.floor(value));
+    const normalized = Math.floor(value);
+    return normalized > 0 ? normalized : undefined;
 }
 
 function normalizeNonNegativeInteger(value: number | undefined): number {

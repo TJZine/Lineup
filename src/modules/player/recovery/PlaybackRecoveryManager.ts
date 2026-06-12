@@ -13,6 +13,7 @@ import { PlaybackReloadController, type RecoveryAttemptResult, type RecoveryRelo
 import { PlaybackStreamDescriptorBuilder } from '../streaming/PlaybackStreamDescriptorBuilder';
 import { summarizePlaybackFailureDecision, summarizePlaybackFailureDescriptor, summarizePlaybackFailureReloadAttempt } from './PlaybackFailureDiagnostics';
 import { logPlaybackRecoveryError } from '../../debug/PlayerConsoleLogger';
+import { clampPlaybackOffsetMs } from './playbackRecoveryTiming';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -664,10 +665,4 @@ export class PlaybackRecoveryManager {
         const result = await this._executeBurnInSubtitleRecovery(trackId, prepared);
         return result.outcome === 'failed' ? 'failed' : 'handled';
     }
-}
-
-function clampPlaybackOffsetMs(elapsedMs: number, durationMs: number): number {
-    const safeElapsedMs = Number.isFinite(elapsedMs) ? elapsedMs : 0;
-    const safeDurationMs = Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 0;
-    return Math.max(0, Math.min(safeElapsedMs, safeDurationMs));
 }

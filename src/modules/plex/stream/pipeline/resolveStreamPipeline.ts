@@ -92,9 +92,10 @@ export function resolveStreamPipeline({
         );
     }
 
+    const requestedTranscodeBitrate = normalizePositiveInteger(request.maxBitrate);
     const selectedMedia = request.subtitleStreamId
-        ? selectBestMediaWithSubtitleStream(item.media, request.subtitleStreamId, request.maxBitrate)
-        : selectBestMedia(item.media, request.maxBitrate);
+        ? selectBestMediaWithSubtitleStream(item.media, request.subtitleStreamId, requestedTranscodeBitrate)
+        : selectBestMedia(item.media, requestedTranscodeBitrate);
 
     if (request.subtitleStreamId && !selectedMedia) {
         throw createError(
@@ -146,8 +147,6 @@ export function resolveStreamPipeline({
         typeof request.audioStreamId === 'string'
             ? availableAudioStreams.find((stream) => stream.id === request.audioStreamId) ?? null
             : null;
-    const requestedTranscodeBitrate =
-        typeof request.maxBitrate === 'number' ? Math.max(1, Math.floor(request.maxBitrate)) : undefined;
     const audioStream = selectCompatibleAudioTrack(part.streams, request.audioStreamId);
     const shouldForceAudioStreamId = shouldForceTranscodeAudioStreamId(part.streams, request.audioStreamId);
     const defaultAudio = findDefaultOrFirstStream(part.streams, 2);
@@ -415,7 +414,8 @@ function normalizePositiveInteger(value: number | undefined): number | undefined
     if (typeof value !== 'number' || !Number.isFinite(value)) {
         return undefined;
     }
-    return Math.max(1, Math.floor(value));
+    const normalized = Math.floor(value);
+    return normalized > 0 ? normalized : undefined;
 }
 
 function normalizeNonNegativeInteger(value: number | undefined): number {
