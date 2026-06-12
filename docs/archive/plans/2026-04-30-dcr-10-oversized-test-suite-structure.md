@@ -1,6 +1,6 @@
 # DCR-10 Oversized Test Suite Structure Policy Plan
 
-**Plan Status:** active
+**Plan Status:** completed
 **Task family:** cleanup/refactor
 **Cleanup subtype:** checklist-linked
 
