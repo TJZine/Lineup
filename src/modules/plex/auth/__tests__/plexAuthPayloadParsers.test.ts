@@ -157,6 +157,28 @@ describe('plexAuthPayloadParsers', () => {
             });
         });
 
+        it('uses explicit profile-switch fallbacks when Plex omits account-style fields', () => {
+            const token = parseUserResponse(
+                {
+                    id: 'profile-2',
+                    thumb: 'https://plex.tv/profile.jpg',
+                },
+                'profile-token',
+                {
+                    usernameFallback: 'Kids',
+                    emailFallback: 'account@example.com',
+                }
+            );
+
+            expect(token).toMatchObject({
+                token: 'profile-token',
+                userId: 'profile-2',
+                username: 'Kids',
+                email: 'account@example.com',
+                thumb: 'https://plex.tv/profile.jpg',
+            });
+        });
+
         it.each([
             ['non-object payload', null],
             ['array payload', []],

@@ -416,7 +416,10 @@ export class PlexAuth implements IPlexAuth {
             pin: options?.pin,
             signal: options?.signal ?? null,
         });
-        const userToken = await this._fetchUserProfile(parsed.authToken, options?.signal ?? null);
+        const userToken = await this._fetchUserProfile(parsed.authToken, options?.signal ?? null, {
+            usernameFallback: userId,
+            emailFallback: accountToken.email,
+        });
 
         if (
             this._credentialsEpoch !== epoch ||
@@ -511,7 +514,8 @@ export class PlexAuth implements IPlexAuth {
 
     private async _fetchUserProfile(
         token: string,
-        signal: AbortSignal | null = null
+        signal: AbortSignal | null = null,
+        fallback?: { usernameFallback?: string | null; emailFallback?: string | null }
     ): Promise<PlexAuthToken> {
         throwIfAborted(signal);
         const url = PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.USER_ENDPOINT;
@@ -523,7 +527,7 @@ export class PlexAuth implements IPlexAuth {
         });
         throwIfAborted(signal);
         const data = await response.json();
-        const user = parseUserResponse(data, token);
+        const user = parseUserResponse(data, token, fallback);
         throwIfAborted(signal);
         return user;
     }

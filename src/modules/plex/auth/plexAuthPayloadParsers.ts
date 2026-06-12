@@ -9,6 +9,11 @@ export type PlexResponsePayload =
     | { kind: 'text'; data: string }
     | { kind: 'empty' };
 
+export interface ParseUserResponseOptions {
+    usernameFallback?: string | null;
+    emailFallback?: string | null;
+}
+
 const PREFERRED_SUBTITLE_LANGUAGE_KEYS = [
     'preferredSubtitleLanguage',
     'subtitleLanguage',
@@ -83,12 +88,21 @@ export function parsePinResponse(
  */
 export function parseUserResponse(
     data: unknown,
-    token: string
+    token: string,
+    options?: ParseUserResponseOptions
 ): PlexAuthToken {
     const payload = requireRecord(data, 'User response');
     const userId = requireUserId(payload['id'], 'Plex user id');
-    const username = requireNonEmptyString(payload['username'], 'Plex username');
-    const email = requireNonEmptyString(payload['email'], 'Plex user email');
+    const username = requireNonEmptyStringWithFallback(
+        payload['username'],
+        options?.usernameFallback,
+        'Plex username'
+    );
+    const email = requireNonEmptyStringWithFallback(
+        payload['email'],
+        options?.emailFallback,
+        'Plex user email'
+    );
     const thumbValue = payload['thumb'];
     const thumb = typeof thumbValue === 'string' ? thumbValue : '';
     const preferredSubtitleLanguage = extractPreferredSubtitleLanguage(payload);
@@ -193,6 +207,27 @@ function requireFiniteNumber(value: unknown, label: string): number {
 function requireNonEmptyString(value: unknown, label: string): string {
     if (typeof value === 'string' && value.trim().length > 0) {
         return value.trim();
+    }
+
+    throw new PlexApiError(
+        AppErrorCode.PARSE_ERROR,
+        `${label} was missing or invalid`,
+        undefined,
+        false
+    );
+}
+
+function requireNonEmptyStringWithFallback(
+    value: unknown,
+    fallback: string | null | undefined,
+    label: string
+): string {
+    if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+    }
+
+    if (typeof fallback === 'string' && fallback.trim().length > 0) {
+        return fallback.trim();
     }
 
     throw new PlexApiError(
