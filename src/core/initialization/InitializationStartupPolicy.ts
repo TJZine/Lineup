@@ -108,7 +108,8 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
         const outcome = await inputs.switchToChannel(channelToPlay.id);
         throwIfStartupAborted(inputs.signal);
         if (outcome === 'failed') {
-            throw new Error(`Initial channel switch failed for ${channelToPlay.id}.`);
+            inputs.navigation.replaceScreen('channel-setup');
+            return;
         }
         if (outcome === 'aborted') {
             throw new Error(`Initial channel switch aborted for ${channelToPlay.id}.`);
@@ -118,7 +119,6 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
     }
 
     throwIfStartupAborted(inputs.signal);
-    inputs.navigation.replaceScreen('player');
     inputs.openServerSelect();
 }
 

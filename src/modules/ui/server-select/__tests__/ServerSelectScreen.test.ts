@@ -320,6 +320,26 @@ describe('ServerSelectScreen', () => {
         expect(status.textContent).toContain('Select a server from the list.');
     });
 
+    it('shows a status message instead of no-oping when rerun setup has no selected server', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = createBodyAppendedTestContainer();
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+
+        await settleScreen(screen);
+
+        const setupButton = container.querySelector('#btn-server-setup') as HTMLButtonElement | null;
+        expect(setupButton).not.toBeNull();
+
+        setupButton?.click();
+
+        expect(orchestrator.requestChannelSetupRerun).not.toHaveBeenCalled();
+        expect(container.querySelector('.screen-status')?.textContent).toContain('Select a server first.');
+    });
+
     it('shows auto-connect hint only when explicitly requested', async () => {
         const orchestrator = createOrchestratorStub();
         const container = createBodyAppendedTestContainer();

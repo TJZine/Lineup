@@ -41,6 +41,7 @@ const createPlexAuth = (): jest.Mocked<IPlexAuth> => ({
 const createPlexDiscovery = (): jest.Mocked<IPlexServerDiscovery> => ({
     selectServer: jest.fn().mockResolvedValue({ kind: 'selected' }),
     getServerUri: jest.fn(() => 'http://next.example'),
+    getSelectedConnection: jest.fn(() => ({ uri: 'http://next.example' })),
     clearSelection: jest.fn(),
     captureSelectedServerSnapshot: jest.fn(() => ({
         server: null,
@@ -74,6 +75,17 @@ const createDeps = (
 } as jest.Mocked<OrchestratorServerSelectionRuntimeDeps>);
 
 describe('OrchestratorServerSelectionRuntime', () => {
+    it('does not report a selected server id without an active selected connection', () => {
+        const discovery = createPlexDiscovery();
+        discovery.getSelectedServer.mockReturnValue({ id: 'server-1' } as never);
+        discovery.getSelectedConnection.mockReturnValue(null);
+        const runtime = new OrchestratorServerSelectionRuntime(createDeps({
+            getPlexDiscovery: jest.fn(() => discovery),
+        }));
+
+        expect(runtime.getSelectedServerId()).toBeNull();
+    });
+
     it('uses the typed discovery precondition when discovery disappears during selection', async () => {
         const discovery = {
             captureSelectedServerSnapshot: jest.fn(() => ({

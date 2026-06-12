@@ -357,6 +357,7 @@ const mockPlexDiscovery = {
     initialize: jest.fn().mockResolvedValue(undefined),
     isConnected: jest.fn().mockReturnValue(true),
     getSelectedServer: jest.fn().mockReturnValue(null),
+    getSelectedConnection: jest.fn().mockReturnValue({ uri: 'http://localhost:32400' }),
     getServerUri: jest.fn().mockReturnValue('http://localhost:32400'),
     captureSelectedServerSnapshot: jest.fn().mockReturnValue({
         server: null,
@@ -634,6 +635,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         mockPlexDiscovery.getSelectedServer.mockReset();
         mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+        mockPlexDiscovery.getSelectedConnection.mockReset();
+        mockPlexDiscovery.getSelectedConnection.mockReturnValue({ uri: 'http://localhost:32400' });
         mockPlexDiscovery.getServerUri.mockReset();
         mockPlexDiscovery.getServerUri.mockReturnValue(null);
         mockPlexDiscovery.captureSelectedServerSnapshot.mockReset();
@@ -2227,13 +2230,14 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             const cases: Array<{
                 outcome: 'failed' | 'aborted' | 'switched';
                 expectedError: RegExp | null;
+                expectedScreen: 'channel-setup' | 'player' | null;
             }> = [
-                { outcome: 'failed', expectedError: /Initial channel switch failed for ch1/ },
-                { outcome: 'aborted', expectedError: /Initial channel switch aborted for ch1/ },
-                { outcome: 'switched', expectedError: null },
+                { outcome: 'failed', expectedError: null, expectedScreen: 'channel-setup' },
+                { outcome: 'aborted', expectedError: /Initial channel switch aborted for ch1/, expectedScreen: null },
+                { outcome: 'switched', expectedError: null, expectedScreen: 'player' },
             ];
 
-            for (const { outcome, expectedError } of cases) {
+            for (const { outcome, expectedError, expectedScreen } of cases) {
                 const localOrchestrator = createOrchestrator();
                 await localOrchestrator.initialize(mockConfig);
                 mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
@@ -2264,6 +2268,9 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                         await expect(localOrchestrator.start()).rejects.toThrow(expectedError);
                     } else {
                         await expect(localOrchestrator.start()).resolves.toBeUndefined();
+                        if (expectedScreen) {
+                            expect(mockNavigation.replaceScreen).toHaveBeenCalledWith(expectedScreen);
+                        }
                     }
                 } finally {
                     switchSpy.mockRestore();

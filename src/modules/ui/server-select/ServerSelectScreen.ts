@@ -79,6 +79,10 @@ export class ServerSelectScreen implements ServerSelectRuntimeScreenAdapter {
                     variant: 'secondary',
                     onSelect: (): void => {
                         this.clearError();
+                        if (!this._ports.getSelectedServerScreenState().selectedServerId) {
+                            this.setStatus('Select a server first.', 'Setup can be re-run after a server is connected.', 'warning');
+                            return;
+                        }
                         this._ports.requestChannelSetupRerun();
                     },
                 },

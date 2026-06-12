@@ -1772,7 +1772,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             expect(callbacks.openServerSelect).not.toHaveBeenCalled();
         });
 
-	        it('routes to player and opens server select when no channels exist', async () => {
+	        it('opens server select when no channels exist', async () => {
 	            const { coordinator, deps, callbacks } = makeCoordinator({
 	                channelManager: {
                     getCurrentChannel: jest.fn().mockReturnValue(null),
@@ -1783,7 +1783,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
             await coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
 
-            expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
+            expect(navigation.replaceScreen).not.toHaveBeenCalledWith('player');
             expect(callbacks.switchToChannel).not.toHaveBeenCalled();
             expect(callbacks.openServerSelect).toHaveBeenCalled();
 	        });
@@ -1816,7 +1816,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            );
 	        });
 
-	        it('does not publish ready or open server select when the initial tune fails', async () => {
+	        it('keeps startup ready and routes to channel setup when the initial tune fails', async () => {
 	            const lifecycle = {
 	                setPhase: jest.fn(),
 	            } as unknown as LegacyInitializationDependencies['lifecycle'];
@@ -1831,22 +1831,14 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
 	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce('failed');
 
-	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).rejects.toThrow(
-	                'Initial channel switch failed for current-channel-id.'
-	            );
+	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).resolves.toBeUndefined();
 
-            expect(navigation.replaceScreen).not.toHaveBeenCalledWith('player');
-            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
-            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
-            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');
-	            expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
-	                expect.objectContaining({
-	                    code: 'INITIALIZATION_FAILED',
-	                    message: 'Initial channel switch failed for current-channel-id.',
-	                    recoverable: true,
-	                }),
-	                'start'
-	            );
+	            expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+	            expect(navigation.replaceScreen).not.toHaveBeenCalledWith('player');
+	            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+	            expect(callbacks.setReady).toHaveBeenCalledWith(true);
+	            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).toHaveBeenCalledWith('ready');
+	            expect(callbacks.handleGlobalError).not.toHaveBeenCalled();
 	        });
 
 	        it('does not publish ready or open server select when the initial tune aborts', async () => {

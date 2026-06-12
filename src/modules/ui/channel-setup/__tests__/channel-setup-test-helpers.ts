@@ -156,7 +156,7 @@ export const createScreenPorts = (
     overrides: Partial<ChannelSetupScreenPorts> = {}
 ): ChannelSetupScreenPorts => ({
     getNavigation: jest.fn(() => null),
-    getSelectedServerId: jest.fn(() => null),
+    getSelectedServerId: jest.fn(() => 'server-1'),
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn(),
     openEPG: jest.fn(),

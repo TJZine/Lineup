@@ -2124,7 +2124,7 @@ describe('ChannelSetupScreen', () => {
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            getSelectedServerId: jest.fn(() => null),
+            getSelectedServerId: jest.fn(() => 'server-1'),
         });
 
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
@@ -2151,6 +2151,25 @@ describe('ChannelSetupScreen', () => {
             )
         ).toBe(false);
         expect(nav.emitKeyPress('down').handled).toBeFalsy();
+    });
+
+    it('returns to server selection instead of loading libraries without a selected server', async () => {
+        const container = createBodyAppendedTestContainer();
+        const getLibrariesForSetup = jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]);
+        const openServerSelect = jest.fn();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup,
+            getSelectedServerId: jest.fn(() => null),
+            openServerSelect,
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+
+        expect(getLibrariesForSetup).not.toHaveBeenCalled();
+        expect(openServerSelect).toHaveBeenCalledTimes(1);
+        expect(container.textContent ?? '').toContain('Select a server.');
     });
 
     it('applies Expand Lineup values only after successful build completion', async () => {
@@ -2220,11 +2239,14 @@ describe('ChannelSetupScreen', () => {
 
     it('shows no-server-selected error when entering build without server id', async () => {
         const container = createBodyAppendedTestContainer();
+        const getSelectedServerId = jest.fn()
+            .mockReturnValueOnce('server-1')
+            .mockReturnValue(null);
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            getSelectedServerId: jest.fn(() => null),
+            getSelectedServerId,
         });
 
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
@@ -2240,11 +2262,14 @@ describe('ChannelSetupScreen', () => {
 
     it('returns to Step 2 when backing out of build progress with no server selected', async () => {
         const container = createBodyAppendedTestContainer();
+        const getSelectedServerId = jest.fn()
+            .mockReturnValueOnce('server-1')
+            .mockReturnValue(null);
 
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            getSelectedServerId: jest.fn(() => null),
+            getSelectedServerId,
         });
 
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));

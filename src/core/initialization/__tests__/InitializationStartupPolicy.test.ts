@@ -94,14 +94,12 @@ describe('applyPostReadyRoutingPolicy', () => {
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
-    it('rejects without opening server select when the startup tune fails', async () => {
+    it('routes to channel setup when the startup tune fails', async () => {
         const inputs = createInputs('failed');
 
-        await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toThrow(
-            'Initial channel switch failed for current-channel-id.'
-        );
+        await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
 
-        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
+        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
@@ -114,6 +112,20 @@ describe('applyPostReadyRoutingPolicy', () => {
 
         expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
+    });
+
+    it('opens server select without routing to player when no channels exist', async () => {
+        const inputs = createInputs('switched');
+        inputs.channelManager = {
+            getCurrentChannel: jest.fn().mockReturnValue(null),
+            getAllChannels: jest.fn().mockReturnValue([]),
+        };
+
+        await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
+
+        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
+        expect(inputs.switchToChannel).not.toHaveBeenCalled();
+        expect(inputs.openServerSelect).toHaveBeenCalledTimes(1);
     });
 });
 
