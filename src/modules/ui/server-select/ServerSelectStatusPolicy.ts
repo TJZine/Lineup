@@ -69,6 +69,7 @@ export class ServerSelectStatusPolicy {
     ): string {
         const ownership = server.owned ? 'Owned' : `Shared by ${server.sourceTitle}`;
         const health = healthMap[server.id];
+        const connectionQuality = this.formatConnectionQuality(health);
 
         let lastInfo: string;
         if (typeof health?.testedAt !== 'number') {
@@ -79,7 +80,28 @@ export class ServerSelectStatusPolicy {
             lastInfo = `Last checked: ${this.formatRelativeTime(health.testedAt)}`;
         }
 
-        return `${ownership} • ${lastInfo}`;
+        return `${ownership} • ${connectionQuality} • ${lastInfo}`;
+    }
+
+    formatConnectionQuality(
+        health: ServerSelectDisplayState['serverHealth'][string]
+    ): string {
+        if (health?.status !== 'ok') {
+            return 'Connection not verified';
+        }
+        if (health.type === 'relay') {
+            return 'Connected via Plex Relay - limited quality';
+        }
+        if (health.type === 'local' && health.protocol === 'http') {
+            return 'Connected over local HTTP - secure connection unavailable';
+        }
+        if (health.type === 'local') {
+            return 'Connected directly (local)';
+        }
+        if (health.type === 'remote') {
+            return 'Connected remotely';
+        }
+        return 'Connection type unknown';
     }
 
     private formatRelativeTime(timestamp: number): string {

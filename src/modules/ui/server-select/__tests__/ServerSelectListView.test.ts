@@ -126,6 +126,58 @@ describe('renderServerSelectList', () => {
         expect(pills[6]?.classList.contains('unknown')).toBe(true);
     });
 
+    it('surfaces degraded relay and local HTTP connection quality in server rows', () => {
+        const listEl = document.createElement('div');
+        const servers = [
+            makeServer('local-https', 'Local HTTPS'),
+            makeServer('remote', 'Remote HTTPS'),
+            makeServer('relay', 'Relay Server'),
+            makeServer('local-http', 'Local HTTP'),
+        ];
+
+        renderServerSelectList(
+            listEl,
+            servers,
+            makeScreenState({
+                serverHealth: {
+                    'local-https': { status: 'ok', type: 'local', protocol: 'https', latencyMs: 30 },
+                    remote: { status: 'ok', type: 'remote', protocol: 'https', latencyMs: 60 },
+                    relay: { status: 'ok', type: 'relay', protocol: 'https', latencyMs: 70 },
+                    'local-http': { status: 'ok', type: 'local', protocol: 'http', latencyMs: 40 },
+                },
+            }),
+            createOptions({
+                buildServerMeta: (server, healthMap) => {
+                    const health = healthMap[server.id];
+                    if (health?.type === 'relay') return 'Connected via Plex Relay - limited quality';
+                    if (health?.type === 'local' && health.protocol === 'http') {
+                        return 'Connected over local HTTP - secure connection unavailable';
+                    }
+                    if (health?.type === 'local') return 'Connected directly (local)';
+                    return 'Connected remotely';
+                },
+            })
+        );
+
+        const pills = Array.from(listEl.querySelectorAll<HTMLElement>('.server-status-pill'));
+        const metas = Array.from(listEl.querySelectorAll<HTMLElement>('.server-meta'));
+
+        expect(pills.map((pill) => pill.textContent)).toEqual([
+            'OK • 30ms',
+            'OK • 60ms',
+            'Relay - limited quality',
+            'Local HTTP - insecure',
+        ]);
+        expect(pills[2]?.classList.contains('connection-degraded')).toBe(true);
+        expect(pills[3]?.classList.contains('connection-degraded')).toBe(true);
+        expect(metas.map((meta) => meta.textContent)).toEqual([
+            'Connected directly (local)',
+            'Connected remotely',
+            'Connected via Plex Relay - limited quality',
+            'Connected over local HTTP - secure connection unavailable',
+        ]);
+    });
+
     it('marks the saved server active and uses Connected or Reconnect labels from health state', () => {
         const listEl = document.createElement('div');
         const server = makeServer('saved', 'Saved Server');

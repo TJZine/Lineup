@@ -5,6 +5,7 @@ import type { ServerSelectScreenNavigationPort } from '../../navigation';
 export type ServerSelectHealthRecord = {
     status?: string;
     type?: string;
+    protocol?: 'http' | 'https';
     latencyMs?: number;
     testedAt?: number;
 };

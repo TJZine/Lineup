@@ -168,6 +168,33 @@ describe('ServerSelectScreen', () => {
         expect(pill.classList.contains('latency-slow')).toBe(true);
     });
 
+    it('renders relay and local HTTP as degraded connection states', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = createBodyAppendedTestContainer();
+
+        orchestrator.discoverServers.mockResolvedValue([
+            makeServer('relay', 'Relay Server'),
+            makeServer('local-http', 'Local HTTP Server'),
+        ]);
+
+        setServerSelectState(orchestrator, {
+            serverHealth: {
+                relay: { status: 'ok', type: 'relay', protocol: 'https', latencyMs: 80, testedAt: Date.now() },
+                'local-http': { status: 'ok', type: 'local', protocol: 'http', latencyMs: 30, testedAt: Date.now() },
+            },
+        });
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await settleScreen(screen);
+
+        const text = container.textContent ?? '';
+        expect(text).toContain('Relay - limited quality');
+        expect(text).toContain('Connected via Plex Relay - limited quality');
+        expect(text).toContain('Local HTTP - insecure');
+        expect(text).toContain('Connected over local HTTP - secure connection unavailable');
+    });
+
     it('applies very-slow class for >=500ms latency', async () => {
         const orchestrator = createOrchestratorStub();
         const container = createBodyAppendedTestContainer();
