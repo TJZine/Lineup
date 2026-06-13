@@ -4,7 +4,18 @@ import type { ChannelConfig, IChannelManager, PlaybackMode, ResolvedChannelConte
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow, SchedulerState } from '../../../scheduler/scheduler';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import type { EPGConfig } from '../types';
+import type { EpgScheduleRefreshResult } from '../coordinator/EPGCoordinatorContracts';
 import { flushPromises } from '../../../../__tests__/helpers';
+
+const SKIPPED_REFRESH_RESULT: EpgScheduleRefreshResult = {
+    readiness: 'skipped',
+    attemptedChannelCount: 0,
+    immediateReadyChannelCount: 0,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: false,
+};
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -171,7 +182,7 @@ describe('EPGRefreshController', () => {
     it('runs guide-setting refresh follow-through without owning guide-selection invalidation', async () => {
         const { deps, epg } = makeDeps();
         const controller = new EPGRefreshController(deps);
-        const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(undefined);
+        const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
         controller.handleGuideSettingRefreshChange({ key: 'guideDensity', density: 'wide' });
         await flushPromises();
@@ -241,7 +252,7 @@ describe('EPGRefreshController', () => {
     it('resets list position and triggers refresh on library-filter changes', async () => {
         const { deps, epg } = makeDeps();
         const controller = new EPGRefreshController(deps);
-        const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(undefined);
+        const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
         controller.handleLibraryFilterRefreshChange();
         await flushPromises();
@@ -274,7 +285,7 @@ describe('EPGRefreshController', () => {
         (epg.isVisible as jest.Mock).mockReturnValue(false);
 
         const controller = new EPGRefreshController(deps);
-        const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(undefined);
+        const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
         controller.handleLibraryFilterRefreshChange();
         await flushPromises();

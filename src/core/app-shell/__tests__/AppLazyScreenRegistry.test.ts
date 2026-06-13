@@ -118,7 +118,7 @@ const makePortFactory = (): PortFactoryLike => ({
             getNavigation: jest.fn().mockReturnValue(null),
             getSelectedServerId: jest.fn().mockReturnValue(null),
             openServerSelect: jest.fn(),
-            switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
+            switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('switched'),
             openEPG: jest.fn(),
         },
     })),

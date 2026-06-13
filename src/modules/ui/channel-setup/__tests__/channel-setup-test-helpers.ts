@@ -80,6 +80,7 @@ export const DEFAULT_BUILD_RESULT: ChannelBuildSummary = {
     reachedMaxChannels: false,
     errorCount: 0,
     canceled: false,
+    initialChannelNumber: 1,
     lastTask: 'done',
 };
 
@@ -158,7 +159,7 @@ export const createScreenPorts = (
     getNavigation: jest.fn(() => null),
     getSelectedServerId: jest.fn(() => 'server-1'),
     openServerSelect: jest.fn(),
-    switchToChannelByNumber: jest.fn(),
+    switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('switched'),
     openEPG: jest.fn(),
     ...overrides,
 });

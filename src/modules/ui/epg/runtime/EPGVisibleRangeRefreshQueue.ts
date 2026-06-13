@@ -1,11 +1,11 @@
 import type { EpgVisibleRange } from '../types';
-import type { EpgScheduleRefreshOptions } from '../coordinator/EPGCoordinatorContracts';
+import type { EpgScheduleRefreshOptions, EpgScheduleRefreshResult } from '../coordinator/EPGCoordinatorContracts';
 import { readEpgRefreshAbortReason, throwIfEpgRefreshAborted } from './EPGRefreshAbort';
 
-type RefreshFn = (range: EpgVisibleRange, reason: string, signal?: AbortSignal | null) => Promise<void>;
+type RefreshFn = (range: EpgVisibleRange, reason: string, signal?: AbortSignal | null) => Promise<EpgScheduleRefreshResult>;
 
 type PendingRefreshRequest = {
-    resolve: () => void;
+    resolve: (result: EpgScheduleRefreshResult) => void;
     reject: (error: unknown) => void;
     signal: AbortSignal | null;
     abortCleanup: (() => void) | null;
@@ -43,13 +43,13 @@ export class EPGVisibleRangeRefreshQueue {
         this._pendingRange = null;
         this._pendingReason = null;
 
-        this._settlePendingRequests(pendingRequests, 'resolve');
+        this._settlePendingRequests(pendingRequests, 'resolve', skippedEpgScheduleRefreshResult());
         for (const batch of Array.from(this._activeRefreshBatches)) {
             this._cancelActiveBatch(batch);
         }
     }
 
-    request(range: EpgVisibleRange, options?: EpgScheduleRefreshOptions): Promise<void> {
+    request(range: EpgVisibleRange, options?: EpgScheduleRefreshOptions): Promise<EpgScheduleRefreshResult> {
         const signal = options?.signal ?? null;
         throwIfEpgRefreshAborted(signal);
         const debounceMs = Math.max(0, options?.debounceMs ?? 80);
@@ -76,13 +76,13 @@ export class EPGVisibleRangeRefreshQueue {
             this._pendingReason = null;
 
             if (!pending) {
-                this._settlePendingRequests(pendingRequests, 'resolve');
+                this._settlePendingRequests(pendingRequests, 'resolve', skippedEpgScheduleRefreshResult());
                 return;
             }
 
             const batch = this._createActiveBatch(pendingRequests);
             this._runRefresh(pending, pendingReason ?? 'visible-range', batch.controller.signal)
-                .then(() => this._settlePendingRequests(pendingRequests, 'resolve'))
+                .then((result) => this._settlePendingRequests(pendingRequests, 'resolve', result))
                 .catch((error: unknown) => this._settlePendingRequests(pendingRequests, 'reject', error))
                 .finally(() => this._finishActiveBatch(batch));
         }, debounceMs);
@@ -94,7 +94,7 @@ export class EPGVisibleRangeRefreshQueue {
         range: EpgVisibleRange,
         reason: string,
         signal: AbortSignal | null
-    ): Promise<void> {
+    ): Promise<EpgScheduleRefreshResult> {
         if (this._timer) {
             clearTimeout(this._timer);
             this._timer = null;
@@ -108,25 +108,25 @@ export class EPGVisibleRangeRefreshQueue {
         const batch = this._createActiveBatch(batchRequests);
 
         this._runRefresh(range, reason, batch.controller.signal)
-            .then(() => this._settlePendingRequests(batchRequests, 'resolve'))
+            .then((result) => this._settlePendingRequests(batchRequests, 'resolve', result))
             .catch((error: unknown) => this._settlePendingRequests(batchRequests, 'reject', error))
             .finally(() => this._finishActiveBatch(batch));
 
         return immediate.promise;
     }
 
-    private _createPendingRequest(signal: AbortSignal | null): Promise<void> {
+    private _createPendingRequest(signal: AbortSignal | null): Promise<EpgScheduleRefreshResult> {
         const { promise, request } = this._createRefreshRequest(signal);
         this._pendingRequests.push(request);
         return promise;
     }
 
     private _createRefreshRequest(signal: AbortSignal | null): {
-        promise: Promise<void>;
+        promise: Promise<EpgScheduleRefreshResult>;
         request: PendingRefreshRequest;
     } {
         let request!: PendingRefreshRequest;
-        const promise = new Promise<void>((resolve, reject) => {
+        const promise = new Promise<EpgScheduleRefreshResult>((resolve, reject) => {
             request = {
                 resolve,
                 reject,
@@ -191,14 +191,14 @@ export class EPGVisibleRangeRefreshQueue {
 
     private _cancelActiveBatch(batch: ActiveRefreshBatch): void {
         batch.controller.abort();
-        this._settlePendingRequests(batch.requests, 'resolve');
+        this._settlePendingRequests(batch.requests, 'resolve', skippedEpgScheduleRefreshResult());
         this._finishActiveBatch(batch);
     }
 
     private _settlePendingRequests(
         pendingRequests: PendingRefreshRequest[],
         action: 'resolve' | 'reject',
-        error?: unknown
+        value?: EpgScheduleRefreshResult | unknown
     ): void {
         for (const request of pendingRequests) {
             if (request.settled) {
@@ -210,9 +210,9 @@ export class EPGVisibleRangeRefreshQueue {
             request.batchController = null;
             request.batchRequests = null;
             if (action === 'resolve') {
-                request.resolve();
+                request.resolve(value as EpgScheduleRefreshResult);
             } else {
-                request.reject(error);
+                request.reject(value);
             }
         }
     }
@@ -233,7 +233,19 @@ export class EPGVisibleRangeRefreshQueue {
         range: EpgVisibleRange,
         reason: string,
         signal: AbortSignal | null
-    ): Promise<void> {
+    ): Promise<EpgScheduleRefreshResult> {
         return signal ? this._refreshFn(range, reason, signal) : this._refreshFn(range, reason);
     }
+}
+
+function skippedEpgScheduleRefreshResult(): EpgScheduleRefreshResult {
+    return {
+        readiness: 'skipped',
+        attemptedChannelCount: 0,
+        immediateReadyChannelCount: 0,
+        backgroundQueuedChannelCount: 0,
+        failedChannelCount: 0,
+        staleCacheChannelCount: 0,
+        firstVisibleScheduleReady: false,
+    };
 }

@@ -24,6 +24,7 @@ import type {
     EpgChannelSwitchOptions,
     EpgGuideSelectionSnapshot,
     EpgScheduleRefreshOptions,
+    EpgScheduleRefreshResult,
     EpgUiStatus,
 } from './EPGCoordinatorContracts';
 
@@ -346,26 +347,8 @@ export class EPGCoordinator {
         epg.loadChannels(toEpgChannels(visible));
     }
 
-    async refreshEpgSchedules(options?: EpgScheduleRefreshOptions): Promise<void> {
-        const epg = this.deps.getEpg();
-        if (!epg) return;
-        const epgState = epg.getState();
-        const range = {
-            channelStart: epgState.viewWindow.startChannelIndex,
-            channelEnd: epgState.viewWindow.endChannelIndex,
-            timeStartMs: epgState.viewWindow.startTime,
-            timeEndMs: epgState.viewWindow.endTime,
-        };
-        const reason = options?.reason ?? 'manual';
-        const signal = options?.signal ?? null;
-        if (options?.debounceMs !== undefined) {
-            const refreshOptions = signal
-                ? { reason, debounceMs: options.debounceMs, signal }
-                : { reason, debounceMs: options.debounceMs };
-            await this.refreshEpgSchedulesForRange(range, refreshOptions);
-            return;
-        }
-        await this._refreshController.refreshEpgSchedulesForRangeNow(range, reason, signal);
+    async refreshEpgSchedules(options?: EpgScheduleRefreshOptions): Promise<EpgScheduleRefreshResult> {
+        return this._refreshController.refreshEpgSchedules(options);
     }
 
     refreshEpgScheduleForLiveChannel(): void {
@@ -377,7 +360,7 @@ export class EPGCoordinator {
         channelEnd: number;
         timeStartMs: number;
         timeEndMs: number;
-    }, options?: EpgScheduleRefreshOptions): Promise<void> {
+    }, options?: EpgScheduleRefreshOptions): Promise<EpgScheduleRefreshResult> {
         return this._refreshController.refreshEpgSchedulesForRange(range, options);
     }
 

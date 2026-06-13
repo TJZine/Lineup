@@ -5,7 +5,7 @@ import type { ChannelSetupEpgRefreshOptions } from '../build/ChannelSetupBuildCo
 import type { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
 import type { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
 import type { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
-import type { ChannelSetupCompletionResult } from '../types';
+import type { ChannelSetupCompletionResult, ChannelSetupGuideRefreshSummary } from '../types';
 import type { ChannelSetupWorkflowPortOwners } from './createChannelSetupWorkflowPort';
 import { summarizeErrorForLog } from '../../../utils/errors';
 
@@ -17,7 +17,7 @@ export interface LazyChannelSetupWorkflowPortOwnersDeps {
     ensureEpgInitialized: () => Promise<void>;
     clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
-    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<void>;
+    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<ChannelSetupGuideRefreshSummary>;
     clearRerunRequest: () => void;
     getSelectedServerId: () => string | null;
     getExistingChannelCount: () => number;

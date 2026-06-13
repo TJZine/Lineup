@@ -1,7 +1,18 @@
 import { EPGVisibleRangeRefreshQueue } from '../runtime/EPGVisibleRangeRefreshQueue';
+import type { EpgScheduleRefreshResult } from '../coordinator/EPGCoordinatorContracts';
 import type { EpgVisibleRange } from '../types';
 
 describe('EPGVisibleRangeRefreshQueue', () => {
+    const SKIPPED_REFRESH_RESULT: EpgScheduleRefreshResult = {
+        readiness: 'skipped',
+        attemptedChannelCount: 0,
+        immediateReadyChannelCount: 0,
+        backgroundQueuedChannelCount: 0,
+        failedChannelCount: 0,
+        staleCacheChannelCount: 0,
+        firstVisibleScheduleReady: false,
+    };
+
     const range = (id: number): EpgVisibleRange => ({
         channelStart: id,
         channelEnd: id + 1,
@@ -9,10 +20,12 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         timeEndMs: (id * 1000) + 500,
     });
 
-    const deferred = (): { promise: Promise<void>; resolve: () => void } => {
+    const deferred = (): { promise: Promise<EpgScheduleRefreshResult>; resolve: () => void } => {
         let resolve!: () => void;
-        const promise = new Promise<void>((innerResolve) => {
-            resolve = innerResolve;
+        const promise = new Promise<EpgScheduleRefreshResult>((innerResolve) => {
+            resolve = (): void => {
+                innerResolve(SKIPPED_REFRESH_RESULT);
+            };
         });
         return { promise, resolve };
     };
@@ -22,7 +35,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
     });
 
     it('runs immediate refresh when debounce is zero', async () => {
-        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const refreshFn = jest.fn().mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
 
         await queue.request(range(1), { debounceMs: 0, reason: 'manual' });
@@ -33,7 +46,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
     it('coalesces debounced requests while giving each caller an isolated promise', async () => {
         jest.useFakeTimers();
-        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const refreshFn = jest.fn().mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
 
         const first = queue.request(range(1), { debounceMs: 50, reason: 'visible-range' });
@@ -51,7 +64,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
     it('isolates abort handling when a debounced request is coalesced', async () => {
         jest.useFakeTimers();
-        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const refreshFn = jest.fn().mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
         const firstController = new AbortController();
         const secondController = new AbortController();
@@ -73,7 +86,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         await expect(first).rejects.toBe(firstReason);
 
         jest.advanceTimersByTime(50);
-        await expect(second).resolves.toBeUndefined();
+        await expect(second).resolves.toEqual(SKIPPED_REFRESH_RESULT);
         expect(refreshFn).toHaveBeenCalledTimes(1);
         expect(refreshFn).toHaveBeenCalledWith(range(2), 'library-filter', expect.any(AbortSignal));
 
@@ -82,7 +95,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
     it('cancels a debounced refresh when every queued caller aborts', async () => {
         jest.useFakeTimers();
-        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const refreshFn = jest.fn().mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
         const firstController = new AbortController();
         const secondController = new AbortController();
@@ -139,12 +152,12 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         expect(refreshSignal.aborted).toBe(false);
 
         refresh.resolve();
-        await expect(second).resolves.toBeUndefined();
+        await expect(second).resolves.toEqual(SKIPPED_REFRESH_RESULT);
     });
 
     it('immediate refresh preempts armed debounce and settles pending debounced promise', async () => {
         jest.useFakeTimers();
-        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const refreshFn = jest.fn().mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
         const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
 
@@ -196,9 +209,9 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         expect(refreshFn).toHaveBeenNthCalledWith(2, range(3), 'visible-range', expect.any(AbortSignal));
 
         queuedRefresh.resolve();
-        await expect(queued).resolves.toBeUndefined();
-        await expect(immediate).resolves.toBeUndefined();
-        await expect(debounced).resolves.toBeUndefined();
+        await expect(queued).resolves.toEqual(SKIPPED_REFRESH_RESULT);
+        await expect(immediate).resolves.toEqual(SKIPPED_REFRESH_RESULT);
+        await expect(debounced).resolves.toEqual(SKIPPED_REFRESH_RESULT);
     });
 
     it('awaits the immediate refresh when a debounced refresh is already in flight', async () => {
@@ -231,8 +244,8 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         expect(immediateSettled).toBe(false);
 
         immediateRefresh.resolve();
-        await expect(immediate).resolves.toBeUndefined();
-        await expect(debounced).resolves.toBeUndefined();
+        await expect(immediate).resolves.toEqual(SKIPPED_REFRESH_RESULT);
+        await expect(debounced).resolves.toEqual(SKIPPED_REFRESH_RESULT);
     });
 
     it('creates a fresh promise for debounced requests queued while a refresh is already running', async () => {
@@ -260,15 +273,15 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         expect(refreshFn).toHaveBeenNthCalledWith(2, range(2), 'library-filter', expect.any(AbortSignal));
 
         firstRefresh.resolve();
-        await expect(first).resolves.toBeUndefined();
+        await expect(first).resolves.toEqual(SKIPPED_REFRESH_RESULT);
 
         secondRefresh.resolve();
-        await expect(second).resolves.toBeUndefined();
+        await expect(second).resolves.toEqual(SKIPPED_REFRESH_RESULT);
     });
 
     it('cancelPendingRefresh() resolves the queued promise and suppresses the scheduled refresh', async () => {
         jest.useFakeTimers();
-        const refreshFn = jest.fn().mockResolvedValue(undefined);
+        const refreshFn = jest.fn().mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
 
         const pending = queue.request(range(1), { debounceMs: 50, reason: 'visible-range' });
@@ -276,7 +289,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
         jest.advanceTimersByTime(50);
 
-        await expect(pending).resolves.toBeUndefined();
+        await expect(pending).resolves.toEqual(SKIPPED_REFRESH_RESULT);
         expect(refreshFn).not.toHaveBeenCalled();
     });
 
@@ -285,7 +298,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         let refreshSignal: AbortSignal | null = null;
         const refreshFn = jest.fn(
             (_range: EpgVisibleRange, _reason: string, signal?: AbortSignal | null) =>
-                new Promise<void>((_resolve, reject) => {
+                new Promise<EpgScheduleRefreshResult>((_resolve, reject) => {
                     refreshSignal = signal ?? null;
                     signal?.addEventListener(
                         'abort',
@@ -304,7 +317,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
         const observedSignal = refreshSignal as AbortSignal | null;
         expect(observedSignal?.aborted).toBe(true);
-        await expect(pending).resolves.toBeUndefined();
+        await expect(pending).resolves.toEqual(SKIPPED_REFRESH_RESULT);
     });
 
     it('cancelPendingRefresh() aborts every overlapping active debounced refresh batch', async () => {
@@ -312,7 +325,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         const refreshSignals: AbortSignal[] = [];
         const refreshFn = jest.fn(
             (_range: EpgVisibleRange, _reason: string, signal?: AbortSignal | null) =>
-                new Promise<void>((_resolve, reject) => {
+                new Promise<EpgScheduleRefreshResult>((_resolve, reject) => {
                     if (signal) {
                         refreshSignals.push(signal);
                         signal.addEventListener(
@@ -339,15 +352,15 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
         expect(refreshSignals).toHaveLength(2);
         expect(refreshSignals.every((signal) => signal.aborted)).toBe(true);
-        await expect(first).resolves.toBeUndefined();
-        await expect(second).resolves.toBeUndefined();
+        await expect(first).resolves.toEqual(SKIPPED_REFRESH_RESULT);
+        await expect(second).resolves.toEqual(SKIPPED_REFRESH_RESULT);
     });
 
     it('cancelPendingRefresh() aborts an active immediate refresh batch', async () => {
         let refreshSignal: AbortSignal | null = null;
         const refreshFn = jest.fn(
             (_range: EpgVisibleRange, _reason: string, signal?: AbortSignal | null) =>
-                new Promise<void>((_resolve, reject) => {
+                new Promise<EpgScheduleRefreshResult>((_resolve, reject) => {
                     refreshSignal = signal ?? null;
                     signal?.addEventListener(
                         'abort',
@@ -365,6 +378,6 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
         const observedSignal = refreshSignal as AbortSignal | null;
         expect(observedSignal?.aborted).toBe(true);
-        await expect(immediate).resolves.toBeUndefined();
+        await expect(immediate).resolves.toEqual(SKIPPED_REFRESH_RESULT);
     });
 });

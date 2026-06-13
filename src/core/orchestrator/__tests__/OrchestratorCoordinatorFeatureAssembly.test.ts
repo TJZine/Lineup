@@ -236,7 +236,15 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         const epgCoordinator = {
             clearSelectedChannelScheduleSnapshot: jest.fn(),
             primeEpgChannels: jest.fn(),
-            refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
+            refreshEpgSchedules: jest.fn().mockResolvedValue({
+                readiness: 'ready',
+                attemptedChannelCount: 1,
+                immediateReadyChannelCount: 1,
+                backgroundQueuedChannelCount: 0,
+                failedChannelCount: 0,
+                staleCacheChannelCount: 0,
+                firstVisibleScheduleReady: true,
+            }),
         };
 
         const owners = buildChannelSetupOwners(input, epgCoordinator as never);
@@ -291,7 +299,15 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         await expect(buildCommitterArgs.ensureEpgInitialized()).resolves.toBeUndefined();
         buildCommitterArgs.clearSelectedChannelScheduleSnapshot();
         buildCommitterArgs.primeEpgChannels();
-        await expect(buildCommitterArgs.refreshEpgSchedules({ reason: 'rerun' })).resolves.toBeUndefined();
+        await expect(buildCommitterArgs.refreshEpgSchedules({ reason: 'rerun' })).resolves.toEqual({
+            readiness: 'ready',
+            attemptedChannelCount: 1,
+            immediateReadyChannelCount: 1,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 0,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: true,
+        });
 
         expect(input.init.ensureEpgInitialized).toHaveBeenCalledTimes(1);
         expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).toHaveBeenCalledTimes(1);

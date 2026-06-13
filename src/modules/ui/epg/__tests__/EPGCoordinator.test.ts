@@ -23,7 +23,19 @@ import {
     partitionPrefetchChannels,
 } from '../coordinator/EPGCoordinatorPolicies';
 import * as EPGCoordinatorPolicies from '../coordinator/EPGCoordinatorPolicies';
+import type { EpgScheduleRefreshResult } from '../coordinator/EPGCoordinatorContracts';
+import { EPGRefreshController } from '../coordinator/EPGRefreshController';
 import { flushPromises as flushPromiseRounds } from '../../../../__tests__/helpers';
+
+const SKIPPED_REFRESH_RESULT: EpgScheduleRefreshResult = {
+    readiness: 'skipped',
+    attemptedChannelCount: 0,
+    immediateReadyChannelCount: 0,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: false,
+};
 
 const flushPromises = async (rounds = 8): Promise<void> => {
     await flushPromiseRounds(rounds);
@@ -313,8 +325,10 @@ describe('EPGCoordinator', () => {
 
     it('openEPG primes and queues an immediate refresh after show when ready', async () => {
         const { deps, epg } = makeDeps();
+        const refreshSpy = jest
+            .spyOn(EPGRefreshController.prototype, 'refreshEpgSchedulesForRange')
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const coordinator = new EPGCoordinator(deps);
-        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedulesForRange').mockResolvedValue(undefined);
 
         coordinator.openEPG();
 
@@ -327,7 +341,7 @@ describe('EPGCoordinator', () => {
                 timeStartMs: 0,
                 timeEndMs: 0,
             },
-            { reason: 'manual', debounceMs: 0 }
+            { reason: 'manual', debounceMs: 0, signal: null }
         );
         expect((epg.show as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
             refreshSpy.mock.invocationCallOrder[0] as number
@@ -353,8 +367,10 @@ describe('EPGCoordinator', () => {
                 currentTime: 60_000,
             });
         });
+        const refreshSpy = jest
+            .spyOn(EPGRefreshController.prototype, 'refreshEpgSchedulesForRange')
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const coordinator = new EPGCoordinator(deps);
-        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedulesForRange').mockResolvedValue(undefined);
 
         coordinator.openEPG();
 
@@ -365,7 +381,7 @@ describe('EPGCoordinator', () => {
                 timeStartMs: postShowRange.startTime,
                 timeEndMs: postShowRange.endTime,
             },
-            { reason: 'manual', debounceMs: 0 }
+            { reason: 'manual', debounceMs: 0, signal: null }
         );
     });
 
@@ -1227,7 +1243,7 @@ describe('EPGCoordinator', () => {
 	    it('preseeds current channel schedule when scheduler is active and channel is visible', () => {
 	        const { deps, epg } = makeDeps();
 	        const coordinator = new EPGCoordinator(deps);
-	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
 	        coordinator.openEPG();
 
@@ -1244,7 +1260,7 @@ describe('EPGCoordinator', () => {
 	            getScheduler: () => scheduler,
 	        });
 	        const coordinator = new EPGCoordinator(deps);
-	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
         coordinator.openEPG();
 
@@ -1271,7 +1287,7 @@ describe('EPGCoordinator', () => {
             } as IChannelManager),
 	        });
 	        const coordinator = new EPGCoordinator(deps);
-	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
         coordinator.openEPG();
 
@@ -2769,7 +2785,7 @@ describe('EPGCoordinator', () => {
         const coordinator = new EPGCoordinator(deps);
         const refreshSpy = jest
             .spyOn(coordinator, 'refreshEpgSchedulesForRange')
-            .mockResolvedValue(undefined);
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const range = {
             channelStart: 1,
             channelEnd: 4,
@@ -2823,7 +2839,7 @@ describe('EPGCoordinator', () => {
         const coordinator = new EPGCoordinator(deps);
         const refreshSpy = jest
             .spyOn(coordinator, 'refreshEpgSchedulesForRange')
-            .mockResolvedValue(undefined);
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const range = {
             channelStart: 1,
             channelEnd: 4,

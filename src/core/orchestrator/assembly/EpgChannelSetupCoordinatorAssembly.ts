@@ -186,7 +186,7 @@ export function buildChannelSetupOwners(
             primeEpgChannels: (): void => {
                 epgCoordinator.primeEpgChannels();
             },
-            refreshEpgSchedules: (options?: EpgScheduleRefreshOptions): Promise<void> =>
+            refreshEpgSchedules: (options?: EpgScheduleRefreshOptions) =>
                 epgCoordinator.refreshEpgSchedules(options),
             clearRerunRequest: (): void => {
                 coordinator.clearRerunRequest();

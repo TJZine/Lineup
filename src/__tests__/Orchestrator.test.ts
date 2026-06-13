@@ -13,6 +13,7 @@ import {
     NowPlayingInfoCoordinator,
 } from '../modules/ui/now-playing-info';
 import { EPGCoordinator } from '../modules/ui/epg';
+import type { EpgScheduleRefreshResult } from '../modules/ui/epg/coordinator/EPGCoordinatorContracts';
 import type { INavigationManager } from '../modules/navigation';
 import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
@@ -38,6 +39,16 @@ import {
     resetMockLocalStorage,
     restoreOriginalLocalStorage,
 } from './mocks/localStorage';
+
+const READY_EPG_REFRESH_RESULT: EpgScheduleRefreshResult = {
+    readiness: 'ready',
+    attemptedChannelCount: 1,
+    immediateReadyChannelCount: 1,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: true,
+};
 
 installMockLocalStorage();
 
@@ -1089,7 +1100,7 @@ describe('AppOrchestrator', () => {
             const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
-                .mockResolvedValue(undefined);
+                .mockResolvedValue(READY_EPG_REFRESH_RESULT);
             const runStartupSpy = jest
                 .spyOn(InitializationCoordinator.prototype, 'runStartup')
                 .mockResolvedValue(undefined);
@@ -1521,6 +1532,7 @@ describe('AppOrchestrator', () => {
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockImplementation(async () => {
                     epgRefreshSequence.push('refreshEpgSchedules');
+                    return READY_EPG_REFRESH_RESULT;
                 });
             const nowSpy = jest.spyOn(Date, 'now');
             try {

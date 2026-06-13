@@ -41,6 +41,16 @@ export interface ChannelSetupConfig {
 
 export type ChannelSetupContext = 'first-time' | 'existing' | 'unknown';
 
+export interface ChannelSetupGuideRefreshSummary {
+    readiness: 'skipped' | 'ready' | 'partial' | 'failed';
+    attemptedChannelCount: number;
+    immediateReadyChannelCount: number;
+    backgroundQueuedChannelCount: number;
+    failedChannelCount: number;
+    staleCacheChannelCount: number;
+    firstVisibleScheduleReady: boolean;
+}
+
 export interface ChannelBuildSummary {
     created: number;
     skipped: number;
@@ -49,6 +59,8 @@ export interface ChannelBuildSummary {
     canceled: boolean;
     blockedMessage?: string;
     warnings?: string[];
+    guideRefresh?: ChannelSetupGuideRefreshSummary;
+    initialChannelNumber?: number;
     lastTask?: ChannelBuildProgress['task'] | 'init';
 }
 

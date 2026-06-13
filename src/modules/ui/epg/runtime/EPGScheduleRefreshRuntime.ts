@@ -22,6 +22,7 @@ import { EPGScheduleCacheStore } from './EPGScheduleCacheStore';
 import { throwIfEpgRefreshAborted } from './EPGRefreshAbort';
 import { toEpgScheduleWindow } from '../model/adapters';
 import type {
+    EpgScheduleRefreshResult,
     EpgGuideSelectionSnapshot,
     EpgUiStatus,
     GuideSelectionSnapshotRequest,
@@ -237,12 +238,12 @@ export class EPGScheduleRefreshRuntime {
         range: EpgVisibleRange,
         reason: string,
         options?: { signal?: AbortSignal | null }
-    ): Promise<void> {
+    ): Promise<EpgScheduleRefreshResult> {
         const signal = options?.signal ?? null;
         throwIfEpgRefreshAborted(signal);
         const session = this._createRefreshSession(range, reason, signal);
         if (!session) {
-            return;
+            return skippedEpgScheduleRefreshResult();
         }
         const cleanup = this._bindRefreshAbort(session);
 
@@ -255,6 +256,7 @@ export class EPGScheduleRefreshRuntime {
             this._startBackgroundRefresh(session, metrics);
             this._logRefreshResults(session, metrics);
             this._restoreFocusAfterRefresh(session);
+            return this._buildRefreshResult(session, metrics);
         } finally {
             cleanup();
         }
@@ -386,8 +388,11 @@ export class EPGScheduleRefreshRuntime {
             inFlightSkipped: 0,
             alreadyLoaded: 0,
             liveScheduleHits: 0,
+            immediateReadyChannelIds: new Set<string>(),
+            backgroundLoadedChannelIds: new Set<string>(),
             immediateLoadedCount: 0,
             backgroundLoadedCount: 0,
+            failedChannelCount: 0,
             firstVisibleScheduleReadyMs: null,
         };
     }
@@ -453,9 +458,9 @@ export class EPGScheduleRefreshRuntime {
         const shouldApplyToUi = phase !== 'background';
 
         if (phase === 'background') {
-            metrics.backgroundLoadedCount += 1;
+            metrics.backgroundLoadedCount = metrics.backgroundLoadedChannelIds.add(channelId).size;
         } else {
-            metrics.immediateLoadedCount += 1;
+            metrics.immediateLoadedCount = metrics.immediateReadyChannelIds.add(channelId).size;
         }
 
         if (shouldApplyToUi) {
@@ -658,6 +663,7 @@ export class EPGScheduleRefreshRuntime {
                     error: summarizeErrorForLog(error),
                 });
             }
+            metrics.failedChannelCount += 1;
             this._reportChannelLoadFailure(session, channel.id, phase, error);
         } finally {
             if (controller) {
@@ -717,6 +723,7 @@ export class EPGScheduleRefreshRuntime {
             liveScheduleHits: metrics.liveScheduleHits,
             immediateLoadedCount: metrics.immediateLoadedCount,
             backgroundLoadedCount: metrics.backgroundLoadedCount,
+            failedChannelCount: metrics.failedChannelCount,
             firstVisibleScheduleReadyMs: metrics.firstVisibleScheduleReadyMs,
             immediateCount: session.immediateChannels.length,
             backgroundQueuedCount: session.backgroundChannels.length,
@@ -724,6 +731,23 @@ export class EPGScheduleRefreshRuntime {
             cacheSize: this._cacheStore.getSize(),
             cacheMaxEntries: this._cacheStore.getMaxEntries(),
         });
+    }
+
+    private _buildRefreshResult(session: RefreshSession, metrics: RefreshMetrics): EpgScheduleRefreshResult {
+        const immediateReadyChannelCount = metrics.immediateReadyChannelIds.size + metrics.alreadyLoaded;
+        const attemptedChannelCount = session.immediateChannels.length;
+        const readiness = attemptedChannelCount === 0 ? 'skipped' : immediateReadyChannelCount === 0
+            ? 'failed'
+            : metrics.failedChannelCount > 0 ? 'partial' : 'ready';
+        return {
+            readiness,
+            attemptedChannelCount,
+            immediateReadyChannelCount,
+            backgroundQueuedChannelCount: session.backgroundChannels.length,
+            failedChannelCount: metrics.failedChannelCount,
+            staleCacheChannelCount: metrics.staleCacheHits,
+            firstVisibleScheduleReady: metrics.firstVisibleScheduleReadyMs !== null,
+        };
     }
 
     private _restoreFocusAfterRefresh(session: RefreshSession): void {
@@ -840,4 +864,16 @@ export class EPGScheduleRefreshRuntime {
         }
         return { kept, aborted };
     }
+}
+
+function skippedEpgScheduleRefreshResult(): EpgScheduleRefreshResult {
+    return {
+        readiness: 'skipped',
+        attemptedChannelCount: 0,
+        immediateReadyChannelCount: 0,
+        backgroundQueuedChannelCount: 0,
+        failedChannelCount: 0,
+        staleCacheChannelCount: 0,
+        firstVisibleScheduleReady: false,
+    };
 }

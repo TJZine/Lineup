@@ -18,6 +18,7 @@ import type { BlockingErrorOverlayAction } from '../chrome/AppBlockingErrorOverl
 import type { ToastInput } from '../../../shared/toast';
 import type { IDisposable } from '../../../utils/interfaces';
 import type { AppErrorCode } from '../../../types/app-errors';
+import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;
@@ -87,7 +88,7 @@ export interface AppShellChannelSetupRuntimePort {
     getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort;
     getSelectedServerId(): string | null;
     openServerSelect(): void;
-    switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
+    switchToChannelByNumberWithOutcome(number: number, options?: { signal?: AbortSignal }): Promise<ChannelSwitchOutcome>;
     openEPG(): void;
 }
 

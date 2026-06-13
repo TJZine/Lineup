@@ -726,7 +726,7 @@ export class AppOrchestrator {
                 switchToNextChannel: (): void => this._channelSwitchRuntime.switchToNextChannel(),
                 switchToPreviousChannel: (): void => this._channelSwitchRuntime.switchToPreviousChannel(),
                 switchToChannelByNumberWithOutcome: (n: number): Promise<ChannelSwitchOutcome> =>
-                    this._switchToChannelByNumberWithOutcome(n),
+                    this.switchToChannelByNumberWithOutcome(n),
                 toggleEPG: (): void => this.toggleEPG(),
                 onOverlayVisibilityChange: (visible: boolean): void => {
                     this._requireOverlayRuntimePolicyController().handleOverlayVisibilityChange(visible);
@@ -1251,7 +1251,7 @@ export class AppOrchestrator {
         await this._channelSwitchRuntime.switchToChannelByNumber(number, options);
     }
 
-    private async _switchToChannelByNumberWithOutcome(
+    async switchToChannelByNumberWithOutcome(
         number: number,
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSwitchOutcome> {

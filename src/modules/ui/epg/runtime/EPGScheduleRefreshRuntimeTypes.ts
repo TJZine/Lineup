@@ -44,8 +44,11 @@ export type RefreshMetrics = {
     inFlightSkipped: number;
     alreadyLoaded: number;
     liveScheduleHits: number;
+    immediateReadyChannelIds: Set<string>;
+    backgroundLoadedChannelIds: Set<string>;
     immediateLoadedCount: number;
     backgroundLoadedCount: number;
+    failedChannelCount: number;
     firstVisibleScheduleReadyMs: number | null;
 };
 
