@@ -152,26 +152,95 @@ describe('applyServerConnectionPolicy', () => {
         },
     });
 
-    it('surfaces saved-server restore failure while routing to server-select', async () => {
-        const inputs = createInputs({
-            kind: 'selection_failed',
-            serverId: 'missing-srv',
-            reason: 'server_not_found',
-        });
+    it.each([
+        {
+            reason: 'server_not_found' as const,
+            expectedCode: AppErrorCode.SERVER_UNREACHABLE,
+            expectedMessage: 'Saved Plex server is no longer available.',
+        },
+        {
+            reason: 'unreachable' as const,
+            expectedCode: AppErrorCode.SERVER_UNREACHABLE,
+            expectedMessage: 'Saved Plex server is unreachable.',
+        },
+        {
+            reason: 'auth_required' as const,
+            expectedCode: AppErrorCode.AUTH_REQUIRED,
+            expectedMessage: 'Saved Plex server requires authentication.',
+        },
+        {
+            reason: 'access_denied' as const,
+            expectedCode: AppErrorCode.ACCESS_DENIED,
+            expectedMessage: 'Saved Plex server access was denied.',
+        },
+    ])(
+        'surfaces saved-server $reason as a typed startup blocker while routing to server-select',
+        async ({ reason, expectedCode, expectedMessage }) => {
+            const inputs = createInputs({
+                kind: 'selection_failed',
+                serverId: 'saved-srv',
+                reason,
+            });
 
-        await expect(applyServerConnectionPolicy(inputs)).resolves.toBe(false);
+            await expect(applyServerConnectionPolicy(inputs)).resolves.toBe(false);
 
-        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-library', 'pending', {
-            code: AppErrorCode.SERVER_UNREACHABLE,
-            message: 'Saved Plex server is no longer available.',
-            recoverable: true,
-            context: {
-                serverId: 'missing-srv',
-                reason: 'server_not_found',
-            },
-        }, expect.any(Number));
-        expect(inputs.handlers.registerServerResume).toHaveBeenCalledTimes(1);
-        expect(inputs.navigation.goTo).toHaveBeenCalledWith('server-select');
+            const expectedError = {
+                code: expectedCode,
+                message: expectedMessage,
+                recoverable: true,
+                context: {
+                    serverId: 'saved-srv',
+                    reason,
+                },
+            };
+            expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-server-discovery',
+                'pending',
+                undefined,
+                expect.any(Number)
+            );
+            expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-library',
+                'pending',
+                expectedError,
+                expect.any(Number)
+            );
+            expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-stream-resolver',
+                'pending',
+                expectedError,
+                expect.any(Number)
+            );
+            expect(inputs.handlers.registerServerResume).toHaveBeenCalledTimes(1);
+            expect(inputs.navigation.goTo).toHaveBeenCalledWith('server-select');
+        }
+    );
+
+    it('marks Plex server modules ready without server-select routing after saved-server restore succeeds', async () => {
+        const inputs = createInputs({ kind: 'selected', serverId: 'saved-srv' }, true);
+
+        await expect(applyServerConnectionPolicy(inputs)).resolves.toBe(true);
+
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+            'plex-server-discovery',
+            'ready',
+            undefined,
+            expect.any(Number)
+        );
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+            'plex-library',
+            'ready',
+            undefined,
+            expect.any(Number)
+        );
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+            'plex-stream-resolver',
+            'ready',
+            undefined,
+            expect.any(Number)
+        );
+        expect(inputs.handlers.registerServerResume).not.toHaveBeenCalled();
+        expect(inputs.navigation.goTo).not.toHaveBeenCalled();
     });
 });
 
