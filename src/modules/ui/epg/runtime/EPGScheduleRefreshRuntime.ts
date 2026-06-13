@@ -19,6 +19,7 @@ import { computeBackgroundWarmQueueCaps, partitionPrefetchChannels } from '../co
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
 import { EPGBackgroundWarmQueue } from './EPGBackgroundWarmQueue';
 import { EPGScheduleCacheStore } from './EPGScheduleCacheStore';
+import { buildRefreshResult, createRefreshMetrics, markFastReadyChannel } from './EPGScheduleRefreshMetrics';
 import { throwIfEpgRefreshAborted } from './EPGRefreshAbort';
 import { toEpgScheduleWindow } from '../model/adapters';
 import type {
@@ -248,7 +249,7 @@ export class EPGScheduleRefreshRuntime {
         const cleanup = this._bindRefreshAbort(session);
 
         try {
-            const metrics = this._createRefreshMetrics();
+            const metrics = createRefreshMetrics();
             this._initializeBackgroundDebugState(session);
             this._logRefreshStart(session);
             await this._refreshImmediateChannels(session, metrics);
@@ -256,7 +257,7 @@ export class EPGScheduleRefreshRuntime {
             this._startBackgroundRefresh(session, metrics);
             this._logRefreshResults(session, metrics);
             this._restoreFocusAfterRefresh(session);
-            return this._buildRefreshResult(session, metrics);
+            return buildRefreshResult(session, metrics);
         } finally {
             cleanup();
         }
@@ -377,23 +378,6 @@ export class EPGScheduleRefreshRuntime {
             bufferedRange: partitioned.bufferedRange,
             backgroundRange: partitioned.backgroundRange,
             overscan: partitioned.overscan,
-        };
-    }
-
-    private _createRefreshMetrics(): RefreshMetrics {
-        return {
-            cacheHits: 0,
-            staleCacheHits: 0,
-            cacheMisses: 0,
-            inFlightSkipped: 0,
-            alreadyLoaded: 0,
-            liveScheduleHits: 0,
-            immediateReadyChannelIds: new Set<string>(),
-            backgroundLoadedChannelIds: new Set<string>(),
-            immediateLoadedCount: 0,
-            backgroundLoadedCount: 0,
-            failedChannelCount: 0,
-            firstVisibleScheduleReadyMs: null,
         };
     }
 
@@ -575,6 +559,7 @@ export class EPGScheduleRefreshRuntime {
 
             if (!session.forceRefresh && this._cacheStore.isScheduleLoadedForRange(channel.id, session.rangeKey)) {
                 metrics.alreadyLoaded += 1;
+                markFastReadyChannel(session, metrics, channel.id, phase);
                 return;
             }
 
@@ -604,6 +589,7 @@ export class EPGScheduleRefreshRuntime {
             const existing = this._inFlightByChannel.get(channel.id);
             if (existing && existing.rangeKey === session.rangeKey) {
                 metrics.inFlightSkipped += 1;
+                markFastReadyChannel(session, metrics, channel.id, phase);
                 return;
             }
             if (existing) {
@@ -731,23 +717,6 @@ export class EPGScheduleRefreshRuntime {
             cacheSize: this._cacheStore.getSize(),
             cacheMaxEntries: this._cacheStore.getMaxEntries(),
         });
-    }
-
-    private _buildRefreshResult(session: RefreshSession, metrics: RefreshMetrics): EpgScheduleRefreshResult {
-        const immediateReadyChannelCount = metrics.immediateReadyChannelIds.size + metrics.alreadyLoaded;
-        const attemptedChannelCount = session.immediateChannels.length;
-        const readiness = attemptedChannelCount === 0 ? 'skipped' : immediateReadyChannelCount === 0
-            ? 'failed'
-            : metrics.failedChannelCount > 0 ? 'partial' : 'ready';
-        return {
-            readiness,
-            attemptedChannelCount,
-            immediateReadyChannelCount,
-            backgroundQueuedChannelCount: session.backgroundChannels.length,
-            failedChannelCount: metrics.failedChannelCount,
-            staleCacheChannelCount: metrics.staleCacheHits,
-            firstVisibleScheduleReady: metrics.firstVisibleScheduleReadyMs !== null,
-        };
     }
 
     private _restoreFocusAfterRefresh(session: RefreshSession): void {

@@ -1,4 +1,5 @@
 import type { ModuleRuntimeStatus } from '../../../../core/module-status';
+export type { EpgScheduleRefreshReadiness, EpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
 import type { ResolvedContentItem } from '../../../scheduler/channel-manager';
 
 export type EpgUiStatus = ModuleRuntimeStatus | undefined;
@@ -12,18 +13,6 @@ export interface EpgScheduleRefreshOptions {
     reason?: string;
     debounceMs?: number;
     signal?: AbortSignal | null;
-}
-
-export type EpgScheduleRefreshReadiness = 'skipped' | 'ready' | 'partial' | 'failed';
-
-export interface EpgScheduleRefreshResult {
-    readiness: EpgScheduleRefreshReadiness;
-    attemptedChannelCount: number;
-    immediateReadyChannelCount: number;
-    backgroundQueuedChannelCount: number;
-    failedChannelCount: number;
-    staleCacheChannelCount: number;
-    firstVisibleScheduleReady: boolean;
 }
 
 export interface GuideSelectionSnapshotRequest {

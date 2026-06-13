@@ -615,6 +615,70 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
     });
 
+    it('counts already-loaded visible channels as ready refresh results', async () => {
+        const { runtime } = createRuntime();
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        const result = await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(result).toEqual({
+            readiness: 'ready',
+            attemptedChannelCount: 1,
+            immediateReadyChannelCount: 1,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 0,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: true,
+        });
+    });
+
+    it('counts coalesced visible in-flight refreshes as ready refresh results', async () => {
+        let resolveContent: ((value: ResolvedChannelContent) => void) | null = null;
+        const { runtime, channelManager } = createRuntime({
+            channelManager: {
+                resolveChannelContent: jest.fn((channelId: string) =>
+                    new Promise<ResolvedChannelContent>((resolve) => {
+                        resolveContent = (): void => resolve(createResolvedContent(channelId));
+                    })
+                ),
+            },
+        });
+
+        const firstRefresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        await Promise.resolve();
+        const coalescedRefresh = await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(coalescedRefresh).toEqual({
+            readiness: 'ready',
+            attemptedChannelCount: 1,
+            immediateReadyChannelCount: 1,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 0,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: true,
+        });
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
+
+        if (!resolveContent) {
+            throw new Error('Expected first refresh to remain in flight');
+        }
+        const releaseFirstRefresh = resolveContent as () => void;
+        releaseFirstRefresh();
+        await firstRefresh;
+    });
+
     it('does not apply schedules or refocus after aborting an active refresh', async () => {
         let runtimeUnderTest: EPGScheduleRefreshRuntime | null = null;
         const { runtime, epg } = createRuntime({

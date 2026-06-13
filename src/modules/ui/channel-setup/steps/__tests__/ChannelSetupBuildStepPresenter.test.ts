@@ -121,7 +121,7 @@ const createDeps = (
             getNavigation: jest.fn(() => null),
             getSelectedServerId: jest.fn(() => 'server-1'),
             openServerSelect: jest.fn(),
-            switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('switched'),
+            switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
             openEPG: jest.fn(),
         },
         getPreferredFocusId: jest.fn(() => null),
@@ -392,16 +392,19 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect(deps.screenPorts.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(1);
         expect(deps.screenPorts.openEPG).toHaveBeenCalledTimes(1);
         const switchOrder = deps.screenPorts.switchToChannelByNumberWithOutcome.mock.invocationCallOrder[0];
+        const replaceOrder = replaceScreen.mock.invocationCallOrder[0];
         const epgOrder = deps.screenPorts.openEPG.mock.invocationCallOrder[0];
         expect(switchOrder).toBeDefined();
+        expect(replaceOrder).toBeDefined();
         expect(epgOrder).toBeDefined();
-        if (switchOrder === undefined || epgOrder === undefined) {
-            throw new Error('Expected switch and EPG calls to be recorded');
+        if (switchOrder === undefined || replaceOrder === undefined || epgOrder === undefined) {
+            throw new Error('Expected switch, navigation, and EPG calls to be recorded');
         }
-        expect(switchOrder).toBeLessThan(epgOrder);
+        expect(switchOrder).toBeLessThan(replaceOrder);
+        expect(replaceOrder).toBeLessThan(epgOrder);
     });
 
-    it('uses the build-selected initial channel for Done and suppresses EPG when switch fails or aborts', async () => {
+    it('uses the build-selected initial channel for Done and stays on setup when switch fails', async () => {
         const ctx = createContext();
         document.body.appendChild(ctx.contentEl);
         const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
@@ -411,8 +414,16 @@ describe('ChannelSetupBuildStepPresenter', () => {
                 result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0, initialChannelNumber: 42 },
             }),
         });
+        const replaceScreen = jest.fn();
+        (deps.screenPorts.getNavigation as jest.Mock).mockReturnValue({
+            replaceScreen,
+            setFocus: jest.fn(),
+        });
 
-        deps.screenPorts.switchToChannelByNumberWithOutcome.mockResolvedValueOnce('failed');
+        deps.screenPorts.switchToChannelByNumberWithOutcome.mockResolvedValueOnce({
+            kind: 'failed',
+            reason: 'content_unavailable',
+        });
         new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
         await flushPromises();
 
@@ -420,14 +431,37 @@ describe('ChannelSetupBuildStepPresenter', () => {
         await flushPromises();
 
         expect(deps.screenPorts.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(42);
+        expect(replaceScreen).not.toHaveBeenCalled();
         expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
         expect(ctx.errorEl.textContent).toBe('Channels were created, but channel 42 could not start.');
+    });
 
-        deps.screenPorts.switchToChannelByNumberWithOutcome.mockResolvedValueOnce('aborted');
+    it('uses the build-selected initial channel for Done and shows canceled copy when switch aborts', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0, initialChannelNumber: 42 },
+            }),
+        });
+        const replaceScreen = jest.fn();
+        (deps.screenPorts.getNavigation as jest.Mock).mockReturnValue({
+            replaceScreen,
+            setFocus: jest.fn(),
+        });
+
+        deps.screenPorts.switchToChannelByNumberWithOutcome.mockResolvedValueOnce({ kind: 'aborted' });
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
         (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
         await flushPromises();
 
+        expect(deps.screenPorts.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(42);
+        expect(replaceScreen).not.toHaveBeenCalled();
         expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
-        expect(ctx.errorEl.textContent).toBe('Channels were created, but channel 42 could not start.');
+        expect(ctx.errorEl.textContent).toBe('Channels were created, but playback start was canceled.');
     });
 });

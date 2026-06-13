@@ -197,8 +197,18 @@ export class EPGVisibleRangeRefreshQueue {
 
     private _settlePendingRequests(
         pendingRequests: PendingRefreshRequest[],
+        action: 'resolve',
+        value: EpgScheduleRefreshResult
+    ): void;
+    private _settlePendingRequests(
+        pendingRequests: PendingRefreshRequest[],
+        action: 'reject',
+        value?: unknown
+    ): void;
+    private _settlePendingRequests(
+        pendingRequests: PendingRefreshRequest[],
         action: 'resolve' | 'reject',
-        value?: EpgScheduleRefreshResult | unknown
+        value?: unknown
     ): void {
         for (const request of pendingRequests) {
             if (request.settled) {

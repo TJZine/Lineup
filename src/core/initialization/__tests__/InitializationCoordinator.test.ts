@@ -197,7 +197,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             getSelectedServerId: jest.fn().mockReturnValue(null),
             shouldRunAudioSetup: jest.fn().mockReturnValue(false),
             shouldRunChannelSetup: jest.fn().mockReturnValue(false),
-            switchToChannel: jest.fn(),
+            switchToChannel: jest.fn().mockResolvedValue({ kind: 'switched' }),
             openServerSelect: jest.fn(),
             buildPlexResourceUrl: jest.fn(),
         };
@@ -1745,7 +1745,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
             (callbacks.switchToChannel as jest.Mock).mockImplementationOnce(async () => {
                 controller.abort(abortReason);
-                return 'switched';
+                return { kind: 'switched' };
             });
 
             await expect(
@@ -1787,9 +1787,9 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
             await coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
 
-            expect(navigation.replaceScreen).not.toHaveBeenCalledWith('player');
+            expect(navigation.replaceScreen).not.toHaveBeenCalled();
             expect(callbacks.switchToChannel).not.toHaveBeenCalled();
-            expect(callbacks.openServerSelect).toHaveBeenCalled();
+            expect(callbacks.openServerSelect).toHaveBeenCalledTimes(1);
 	        });
 
 	        it('does not publish ready or ready lifecycle phase when post-ready routing throws', async () => {
@@ -1833,7 +1833,10 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            });
 	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
-	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce('failed');
+	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce({
+                kind: 'failed',
+                reason: 'missing_channel',
+            });
 
 	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).resolves.toBeUndefined();
 
@@ -1858,7 +1861,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            });
 	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
-	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce('aborted');
+	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce({ kind: 'aborted' });
 
 	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).rejects.toThrow(
 	                'Initial channel switch aborted for current-channel-id.'

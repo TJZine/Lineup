@@ -1,4 +1,5 @@
 import type { INavigationManager } from '../../modules/navigation';
+import type { ChannelSetupRerunRequestResult } from './types';
 
 export interface ChannelSetupRerunControllerDeps {
     navigation: INavigationManager;
@@ -7,10 +8,6 @@ export interface ChannelSetupRerunControllerDeps {
     getChannelCount: () => number;
     hasSetupRecord: (serverId: string) => boolean;
 }
-
-export type ChannelSetupRerunRequestResult =
-    | { ok: true; serverId: string }
-    | { ok: false; reason: 'missing-selected-server' };
 
 export class ChannelSetupRerunController {
     private _channelSetupRerunRequested = false;

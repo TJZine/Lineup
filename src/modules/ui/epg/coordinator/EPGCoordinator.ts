@@ -3,6 +3,7 @@ import type { IEPGComponent } from '../interfaces';
 import type { ChannelConfig as EpgChannel, EPGConfig, EpgVisibleRange, ScheduledProgram as EpgScheduledProgram } from '../types';
 import type { GuideSettingChange } from '../../settings/types';
 import type { ChannelSwitchOutcome } from '../../../../types/channelSwitch';
+import { isChannelSwitchFailed } from '../../../../types/channelSwitch';
 import type { IChannelManager, ChannelConfig as SchedulerChannelConfig, ResolvedChannelContent } from '../../../scheduler/channel-manager';
 import type {
     IChannelScheduler,
@@ -528,11 +529,12 @@ export class EPGCoordinator {
             channelId,
             snapshot ? { guideSelectionSnapshot: snapshot } : undefined
         );
-        if (outcome === 'failed') {
+        if (isChannelSwitchFailed(outcome)) {
             this._reportIssue('epg.switchToChannelFailed', new Error('Guide channel switch failed'), {
                 channelId,
                 ratingKey: program.item.ratingKey,
                 selectedAt,
+                reason: outcome.reason,
             });
         }
     }

@@ -134,7 +134,7 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createChannelSetupWorkflowPortFixture()),
     getSelectedServerId: jest.fn().mockReturnValue('server-1'),
     openServerSelect: jest.fn(),
-    switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('switched'),
+    switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
     openEPG: jest.fn(),
     requestChannelSetupRerun: jest.fn(() => ({ ok: true as const, serverId: 'server-1' })),
     setSubtitleTrack: jest.fn().mockResolvedValue(undefined),

@@ -226,7 +226,7 @@ const makeDeps = (
         } satisfies ScheduleConfig),
         getPreserveFocusOnOpen: () => false,
         setLastChannelChangeSourceToGuide: jest.fn(),
-        switchToChannel: jest.fn().mockResolvedValue('switched'),
+        switchToChannel: jest.fn().mockResolvedValue({ kind: 'switched' }),
         onVisibilityChange: jest.fn(),
         reportEpgInitWarning: jest.fn(),
         epgPreferencesStore,
@@ -1955,7 +1955,7 @@ describe('EPGCoordinator', () => {
             scrollToChannel: jest.fn(),
             focusChannel: jest.fn(),
         } as unknown as IEPGComponent;
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const setSource = jest.fn();
         const deps = makeDeps({
             getEpg: () => epg,
@@ -2119,7 +2119,7 @@ describe('EPGCoordinator', () => {
         } as unknown as IEPGComponent;
         const deps = makeDeps({
             getEpg: () => epg,
-            switchToChannel: jest.fn().mockResolvedValue('failed'),
+            switchToChannel: jest.fn().mockResolvedValue({ kind: 'failed', reason: 'content_unavailable' }),
         }).deps;
         const coordinator = new EPGCoordinator(deps);
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
@@ -2179,7 +2179,7 @@ describe('EPGCoordinator', () => {
         } as unknown as IEPGComponent;
         const deps = makeDeps({
             getEpg: () => epg,
-            switchToChannel: jest.fn().mockResolvedValue('aborted'),
+            switchToChannel: jest.fn().mockResolvedValue({ kind: 'aborted' }),
         }).deps;
         const coordinator = new EPGCoordinator(deps);
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
@@ -2374,7 +2374,7 @@ describe('EPGCoordinator', () => {
             scrollToChannel: jest.fn(),
             focusChannel: jest.fn(),
         } as unknown as IEPGComponent;
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const setSource = jest.fn();
         const deps = makeDeps({
             getEpg: () => epg,
@@ -2401,7 +2401,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('passes a resolved-immediate selected-row snapshot into guide-initiated tune', async () => {
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const { deps, epg } = makeDeps({ switchToChannel });
         const coordinator = new EPGCoordinator(deps);
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
@@ -2456,7 +2456,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('re-materializes a cache-only selected row before guide-initiated tune', async () => {
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => [makeResolvedItem(channelId, 0)]);
         const channels = Array.from({ length: 20 }, (_, index) => makeChannel(`c${index}`, index + 1));
         const base = makeDeps().deps.getChannelManager()!;
@@ -2519,7 +2519,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('falls back to direct tune when guide snapshot materialization fails', async () => {
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const resolveChannelItemsForSchedule = jest.fn(async () => {
             throw new Error('snapshot materialization failed');
         });
@@ -2583,7 +2583,7 @@ describe('EPGCoordinator', () => {
                 })
             )
             .mockImplementationOnce(async (channelId: string) => makeResolvedItems(channelId));
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const channels = [makeChannel('c0', 1), makeChannel('c1', 2)];
         const { deps, epg } = makeDeps({
             switchToChannel,
@@ -2664,7 +2664,7 @@ describe('EPGCoordinator', () => {
                     resolveSelection = resolve;
                 })
             );
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const { deps, epg } = makeDeps({
             switchToChannel,
             getChannelManager: () => ({
@@ -2708,7 +2708,7 @@ describe('EPGCoordinator', () => {
                     resolveSelection = resolve;
                 })
             );
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const { deps, epg } = makeDeps({
             switchToChannel,
             getChannelManager: () => ({

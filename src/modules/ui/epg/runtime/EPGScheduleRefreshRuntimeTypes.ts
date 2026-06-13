@@ -45,7 +45,9 @@ export type RefreshMetrics = {
     alreadyLoaded: number;
     liveScheduleHits: number;
     immediateReadyChannelIds: Set<string>;
+    immediateFastReadyChannelIds: Set<string>;
     backgroundLoadedChannelIds: Set<string>;
+    backgroundFastReadyChannelIds: Set<string>;
     immediateLoadedCount: number;
     backgroundLoadedCount: number;
     failedChannelCount: number;

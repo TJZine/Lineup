@@ -1,4 +1,5 @@
 import { AppErrorCode } from '../../../types/app-errors';
+import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { IAppLifecycle } from '../../../modules/lifecycle';
 import type { INavigationManager } from '../../../modules/navigation';
 import type {
@@ -70,7 +71,7 @@ describe('applyPostReadyRoutingPolicy', () => {
     type PostReadyRoutingPolicyTestInputs = Parameters<typeof applyPostReadyRoutingPolicy>[0];
 
     const createInputs = (
-        switchOutcome: 'switched' | 'failed' | 'aborted' = 'switched'
+        switchOutcome: ChannelSwitchOutcome = { kind: 'switched' }
     ): PostReadyRoutingPolicyTestInputs => ({
         navigation: {
             replaceScreen: jest.fn(),
@@ -86,7 +87,7 @@ describe('applyPostReadyRoutingPolicy', () => {
     });
 
     it('routes to player and completes when the startup tune switches', async () => {
-        const inputs = createInputs('switched');
+        const inputs = createInputs({ kind: 'switched' });
 
         await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
 
@@ -95,8 +96,8 @@ describe('applyPostReadyRoutingPolicy', () => {
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
-    it('routes to channel setup when the startup tune fails', async () => {
-        const inputs = createInputs('failed');
+    it('routes to channel setup when the startup tune cannot find the channel', async () => {
+        const inputs = createInputs({ kind: 'failed', reason: 'missing_channel' });
 
         await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
 
@@ -104,8 +105,17 @@ describe('applyPostReadyRoutingPolicy', () => {
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
+    it('does not force channel setup when the startup tune fails transiently', async () => {
+        const inputs = createInputs({ kind: 'failed', reason: 'content_unavailable' });
+
+        await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
+
+        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
+        expect(inputs.openServerSelect).not.toHaveBeenCalled();
+    });
+
     it('rejects without opening server select when the startup tune aborts', async () => {
-        const inputs = createInputs('aborted');
+        const inputs = createInputs({ kind: 'aborted' });
 
         await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toThrow(
             'Initial channel switch aborted for current-channel-id.'
@@ -116,7 +126,7 @@ describe('applyPostReadyRoutingPolicy', () => {
     });
 
     it('opens server select without routing to player when no channels exist', async () => {
-        const inputs = createInputs('switched');
+        const inputs = createInputs({ kind: 'switched' });
         inputs.channelManager = {
             getCurrentChannel: jest.fn().mockReturnValue(null),
             getAllChannels: jest.fn().mockReturnValue([]),

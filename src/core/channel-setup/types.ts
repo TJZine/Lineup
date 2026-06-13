@@ -1,3 +1,5 @@
+import type { EpgScheduleRefreshResult } from '../../shared/epgRefresh';
+
 export type SetupStrategyKey =
     | 'collections'
     | 'playlists'
@@ -41,15 +43,11 @@ export interface ChannelSetupConfig {
 
 export type ChannelSetupContext = 'first-time' | 'existing' | 'unknown';
 
-export interface ChannelSetupGuideRefreshSummary {
-    readiness: 'skipped' | 'ready' | 'partial' | 'failed';
-    attemptedChannelCount: number;
-    immediateReadyChannelCount: number;
-    backgroundQueuedChannelCount: number;
-    failedChannelCount: number;
-    staleCacheChannelCount: number;
-    firstVisibleScheduleReady: boolean;
-}
+export type ChannelSetupRerunRequestResult =
+    | { ok: true; serverId: string }
+    | { ok: false; reason: 'missing-selected-server' };
+
+export type ChannelSetupGuideRefreshSummary = EpgScheduleRefreshResult;
 
 export interface ChannelBuildSummary {
     created: number;

@@ -50,7 +50,7 @@ describe('OrchestratorChannelSwitchRuntime', () => {
         });
         const runtime = new OrchestratorChannelSwitchRuntime(deps);
 
-        await expect(runtime.switchToChannelWithOutcome('channel-1')).resolves.toBe('failed');
+        await expect(runtime.switchToChannelWithOutcome('channel-1')).resolves.toEqual(expect.objectContaining({ kind: 'failed' }));
 
         expect(channelTuning.switchToChannel).toHaveBeenCalledWith('channel-1', undefined);
         expect(deps.reportError).toHaveBeenCalledWith(
@@ -70,7 +70,7 @@ describe('OrchestratorChannelSwitchRuntime', () => {
         });
         const runtime = new OrchestratorChannelSwitchRuntime(deps);
 
-        await expect(runtime.switchToChannelWithOutcome('channel-1')).resolves.toBe('aborted');
+        await expect(runtime.switchToChannelWithOutcome('channel-1')).resolves.toEqual({ kind: 'aborted' });
 
         expect(deps.reportError).not.toHaveBeenCalled();
     });
@@ -85,7 +85,7 @@ describe('OrchestratorChannelSwitchRuntime', () => {
         });
         const runtime = new OrchestratorChannelSwitchRuntime(deps);
 
-        await expect(runtime.switchToChannelByNumberWithOutcome(7)).resolves.toBe('failed');
+        await expect(runtime.switchToChannelByNumberWithOutcome(7)).resolves.toEqual(expect.objectContaining({ kind: 'failed' }));
 
         expect(channelTuning.switchToChannelByNumber).toHaveBeenCalledWith(7, undefined);
         expect(deps.reportError).toHaveBeenCalledWith(
@@ -105,7 +105,7 @@ describe('OrchestratorChannelSwitchRuntime', () => {
         });
         const runtime = new OrchestratorChannelSwitchRuntime(deps);
 
-        await expect(runtime.switchToChannelByNumberWithOutcome(7)).resolves.toBe('aborted');
+        await expect(runtime.switchToChannelByNumberWithOutcome(7)).resolves.toEqual({ kind: 'aborted' });
 
         expect(channelTuning.switchToChannelByNumber).toHaveBeenCalledWith(7, undefined);
         expect(deps.reportError).not.toHaveBeenCalled();

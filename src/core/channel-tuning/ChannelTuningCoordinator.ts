@@ -16,8 +16,8 @@ import type { AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnostics
 import { isAbortLikeError, summarizeErrorForLog } from '../../utils/errors';
 import { redactSensitiveTokens } from '../../utils/redact';
 import type { GuideSelectionSnapshot } from './GuideSelectionSnapshot';
-
 export type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+import { CHANNEL_SWITCH_OUTCOME } from '../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 
 export interface ChannelTuningCoordinatorDeps {
@@ -99,7 +99,7 @@ export class ChannelTuningCoordinator {
         options?: ChannelSwitchOptions
     ): Promise<ChannelSwitchOutcome> {
         if (options?.signal?.aborted) {
-            return 'aborted';
+            return CHANNEL_SWITCH_OUTCOME.aborted;
         }
 
         const channelManager = this.deps.getChannelManager();
@@ -122,7 +122,7 @@ export class ChannelTuningCoordinator {
                 'switchToChannel',
                 { channelId }
             );
-            return 'failed';
+            return CHANNEL_SWITCH_OUTCOME.failed('missing_dependencies');
         }
 
         const request = this._createSwitchRequest(channelId, options);
@@ -193,7 +193,7 @@ export class ChannelTuningCoordinator {
                 request = null;
 
                 if (current.options?.signal?.aborted) {
-                    current.resolve('aborted');
+                    current.resolve(CHANNEL_SWITCH_OUTCOME.aborted);
                     request = this._takePendingSwitch();
                     continue;
                 }
@@ -240,7 +240,7 @@ export class ChannelTuningCoordinator {
     ): Promise<ChannelSwitchOutcome> {
         const signal = options?.signal;
         if (signal?.aborted) {
-            return 'aborted';
+            return CHANNEL_SWITCH_OUTCOME.aborted;
         }
 
         // New channel = new playback attempt; unblock any prior fast-fail guard.
@@ -260,7 +260,7 @@ export class ChannelTuningCoordinator {
                     'switchToChannel',
                     { channelId }
                 );
-                return 'failed';
+                return CHANNEL_SWITCH_OUTCOME.failed('missing_channel');
             }
 
             const snapshotValidationReferenceTimeMs = Date.now();
@@ -311,7 +311,7 @@ export class ChannelTuningCoordinator {
                     });
                 } catch (error: unknown) {
                     if (isAbortLikeError(error, signal)) {
-                        return 'aborted';
+                        return CHANNEL_SWITCH_OUTCOME.aborted;
                     }
 
                     this._reportHandledUnknownError(
@@ -330,12 +330,12 @@ export class ChannelTuningCoordinator {
                         'switchToChannel',
                         { channelId }
                     );
-                    return 'failed';
+                    return CHANNEL_SWITCH_OUTCOME.failed('content_unavailable');
                 }
             }
 
             if (signal?.aborted) {
-                return 'aborted';
+                return CHANNEL_SWITCH_OUTCOME.aborted;
             }
 
             // Only stop player after successful content resolution
@@ -446,7 +446,7 @@ export class ChannelTuningCoordinator {
                         }
                     );
                 }
-                return 'failed';
+                return CHANNEL_SWITCH_OUTCOME.failed('playback_start_failed');
             }
 
             channelManager.setCurrentChannel(channelId);
@@ -472,7 +472,7 @@ export class ChannelTuningCoordinator {
                     { channelId }
                 );
             }
-            return 'switched';
+            return CHANNEL_SWITCH_OUTCOME.switched;
         } finally {
             if (!didRequestProgramStart && this.deps.getPendingNowPlayingChannelId() === channelId) {
                 this.deps.setPendingNowPlayingChannelId(null);
@@ -485,7 +485,7 @@ export class ChannelTuningCoordinator {
         options?: { signal?: AbortSignal }
     ): Promise<ChannelSwitchOutcome> {
         if (options?.signal?.aborted) {
-            return 'aborted';
+            return CHANNEL_SWITCH_OUTCOME.aborted;
         }
 
         const channelManager = this.deps.getChannelManager();
@@ -504,7 +504,7 @@ export class ChannelTuningCoordinator {
                 'switchToChannelByNumber',
                 { attemptedChannelNumber: number }
             );
-            return 'failed';
+            return CHANNEL_SWITCH_OUTCOME.failed('missing_dependencies');
         }
 
         const channel = channelManager.getChannelByNumber(number);
@@ -523,14 +523,14 @@ export class ChannelTuningCoordinator {
                 'switchToChannelByNumber',
                 { attemptedChannelNumber: number }
             );
-            return 'failed';
+            return CHANNEL_SWITCH_OUTCOME.failed('missing_channel');
         }
 
         try {
             return await this.switchToChannel(channel.id, options);
         } catch (error: unknown) {
             if (isAbortLikeError(error, options?.signal)) {
-                return 'aborted';
+                return CHANNEL_SWITCH_OUTCOME.aborted;
             }
             this._reportHandledUnknownError(
                 'channelTuning.switchByNumberFailed',
@@ -547,7 +547,7 @@ export class ChannelTuningCoordinator {
                 'switchToChannelByNumber',
                 { attemptedChannelNumber: number }
             );
-            return 'failed';
+            return CHANNEL_SWITCH_OUTCOME.failed('content_unavailable');
         }
     }
 

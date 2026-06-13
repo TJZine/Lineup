@@ -14,6 +14,7 @@ import {
 } from '../modules/ui/now-playing-info';
 import { EPGCoordinator } from '../modules/ui/epg';
 import type { EpgScheduleRefreshResult } from '../modules/ui/epg/coordinator/EPGCoordinatorContracts';
+import type { ChannelSwitchOutcome } from '../types/channelSwitch';
 import type { INavigationManager } from '../modules/navigation';
 import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
@@ -1439,6 +1440,7 @@ describe('AppOrchestrator', () => {
                 serverUri: 'http://example',
             };
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
+            Reflect.set(orchestrator as object, '_lastChannelChangeSource', 'guide');
 
             try {
                 await orchestrator.clearSelectedServer();
@@ -1458,6 +1460,7 @@ describe('AppOrchestrator', () => {
                 expect(clearScheduleCachesSpy).toHaveBeenCalledTimes(1);
                 expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+                expect(Reflect.get(orchestrator as object, '_lastChannelChangeSource')).toBeNull();
             } finally {
                 clearSelectedSnapshotSpy.mockRestore();
                 clearScheduleCachesSpy.mockRestore();
@@ -2310,13 +2313,26 @@ describe('AppOrchestrator', () => {
 
         it('carries ID-based switch outcomes through the public startup contract', async () => {
             const cases: Array<{
-                outcome: 'failed' | 'aborted' | 'switched';
+                outcome: ChannelSwitchOutcome;
                 expectedError: RegExp | null;
                 expectedScreen: 'channel-setup' | 'player' | null;
             }> = [
-                { outcome: 'failed', expectedError: null, expectedScreen: 'channel-setup' },
-                { outcome: 'aborted', expectedError: /Initial channel switch aborted for ch1/, expectedScreen: null },
-                { outcome: 'switched', expectedError: null, expectedScreen: 'player' },
+                {
+                    outcome: { kind: 'failed', reason: 'missing_channel' },
+                    expectedError: null,
+                    expectedScreen: 'channel-setup',
+                },
+                {
+                    outcome: { kind: 'failed', reason: 'content_unavailable' },
+                    expectedError: null,
+                    expectedScreen: null,
+                },
+                {
+                    outcome: { kind: 'aborted' },
+                    expectedError: /Initial channel switch aborted for ch1/,
+                    expectedScreen: null,
+                },
+                { outcome: { kind: 'switched' }, expectedError: null, expectedScreen: 'player' },
             ];
 
             for (const { outcome, expectedError, expectedScreen } of cases) {
@@ -2336,6 +2352,7 @@ describe('AppOrchestrator', () => {
                 const switchSpy = jest
                     .spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel')
                     .mockResolvedValueOnce(outcome);
+                mockNavigation.replaceScreen.mockClear();
 
                 try {
                     if (expectedError) {
@@ -2352,6 +2369,8 @@ describe('AppOrchestrator', () => {
                         await expect(localOrchestrator.start()).resolves.toBeUndefined();
                         if (expectedScreen) {
                             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith(expectedScreen);
+                        } else {
+                            expect(mockNavigation.replaceScreen).not.toHaveBeenCalled();
                         }
                     }
                 } finally {
@@ -3987,8 +4006,9 @@ describe('AppOrchestrator', () => {
         it('returns null and reports when Plex resource URL accessor dependencies throw', () => {
             const reportError = jest.fn();
 
-            mockPlexDiscovery.getServerUri.mockImplementation(() => {
-                throw new Error('server uri failed');
+            mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400?X-Plex-Token=base-secret');
+            mockPlexAuth.getAuthHeaders.mockImplementation(() => {
+                throw new Error('auth headers failed');
             });
             Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
                 reportIssue: jest.fn(),
@@ -4000,21 +4020,24 @@ describe('AppOrchestrator', () => {
                     Reflect.get(
                         orchestrator as object,
                         '_buildPlexResourceUrl'
-                    ).call(orchestrator, '/library/metadata/1/thumb')
+                    ).call(orchestrator, '/library/metadata/1/thumb?X-Plex-Token=path-secret')
                 ).toBeNull();
                 expect(reportError).toHaveBeenCalledWith(
                     'orchestrator.plexResourceUrl.build',
                     'buildPlexResourceUrlWithAuth failed',
                     expect.objectContaining({
-                        message: 'server uri failed',
+                        message: 'auth headers failed',
                     }),
                     expect.objectContaining({
-                        pathOrUrl: '/library/metadata/1/thumb',
+                        pathOrUrl: '/library/metadata/1/thumb?X-Plex-Token=REDACTED',
+                        baseUri: 'http://localhost:32400?X-Plex-Token=REDACTED',
                     })
                 );
             } finally {
                 mockPlexDiscovery.getServerUri.mockReset();
                 mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
+                mockPlexAuth.getAuthHeaders.mockReset();
+                mockPlexAuth.getAuthHeaders.mockReturnValue({ 'X-Plex-Token': 'mock-token' });
             }
         });
     });

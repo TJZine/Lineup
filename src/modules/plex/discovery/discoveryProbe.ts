@@ -109,7 +109,17 @@ function runLimitedConnectionProbes(
                 const connection = connections[index];
                 nextIndex += 1;
                 activeCount += 1;
-                Promise.resolve(probeConnection(connection!))
+
+                let probeResult: Promise<PlexConnectionProbeResult> | PlexConnectionProbeResult;
+                try {
+                    probeResult = probeConnection(connection!);
+                } catch (error: unknown) {
+                    activeCount -= 1;
+                    settleReject(error);
+                    return;
+                }
+
+                Promise.resolve(probeResult)
                     .then((result) => {
                         results[index] = result;
                     })

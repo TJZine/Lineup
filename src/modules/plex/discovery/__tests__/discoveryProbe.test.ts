@@ -313,6 +313,33 @@ describe('discoveryProbe', () => {
         expect(result.selectedProbe?.outcome).toBe('reachable');
     });
 
+    it('rejects and stops launching probes when a probe throws synchronously', async () => {
+        const connections = Array.from({ length: PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS + 2 }, (_, index) =>
+            createMockConnection({
+                uri: `https://192.168.1.${index + 30}:32400`,
+                address: `192.168.1.${index + 30}`,
+                local: true,
+                relay: false,
+            })
+        );
+        const server = createMockServer({ connections });
+        const failure = new Error('probe exploded');
+        const probeConnection = jest.fn((connection) => {
+            if (connection === connections[1]) {
+                throw failure;
+            }
+            return new Promise<PlexConnectionProbeResult>(() => undefined);
+        });
+
+        await expect(findFastestConnectionProbe({
+            server,
+            mixedContentConfig: defaultMixedContentConfig,
+            probeConnection,
+        })).rejects.toBe(failure);
+
+        expect(probeConnection).toHaveBeenCalledTimes(2);
+    });
+
     it('does not launch pending probes after abort', async () => {
         const connections = Array.from({ length: PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS + 2 }, (_, index) =>
             createMockConnection({

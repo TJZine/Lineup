@@ -3,6 +3,11 @@ import type {
     ChannelSetupGuideRefreshSummary,
 } from '../../../../core/channel-setup/types';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import {
+    isChannelSwitchAborted,
+    isChannelSwitchFailed,
+    isChannelSwitchSuccessful,
+} from '../../../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../../../types/channelSwitch';
 import { renderCappedWarnings } from '../../common/render/renderCappedWarnings';
 import { formatChannelSetupUserCopy } from '../ChannelSetupUserCopy';
@@ -218,11 +223,6 @@ export class ChannelSetupBuildStepPresenter {
             },
             onDone: () => {
                 const initialChannelNumber = this._lastInitialChannelNumber;
-                const nav = deps.screenPorts.getNavigation();
-                if (nav) {
-                    nav.replaceScreen('player');
-                }
-
                 if (initialChannelNumber === null) {
                     ctx.errorEl.textContent = 'Channels were created, but no starting channel is available.';
                     return;
@@ -414,12 +414,17 @@ export class ChannelSetupBuildStepPresenter {
         initialChannelNumber: number,
         deps: { screenPorts: ChannelSetupScreenPorts }
     ): void {
-        if (outcome === 'switched') {
+        if (isChannelSwitchSuccessful(outcome)) {
+            deps.screenPorts.getNavigation()?.replaceScreen('player');
             deps.screenPorts.openEPG();
             return;
         }
-        if (outcome === 'failed') {
+        if (isChannelSwitchFailed(outcome)) {
             ctx.errorEl.textContent = `Channels were created, but channel ${initialChannelNumber} could not start.`;
+            return;
+        }
+        if (isChannelSwitchAborted(outcome)) {
+            ctx.errorEl.textContent = 'Channels were created, but playback start was canceled.';
         }
     }
 

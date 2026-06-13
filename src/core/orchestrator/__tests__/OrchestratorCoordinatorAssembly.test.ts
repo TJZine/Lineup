@@ -144,7 +144,7 @@ const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput 
     },
     actions: {
         switchToChannel: async () => undefined,
-        switchToChannelWithOutcome: async () => 'switched',
+        switchToChannelWithOutcome: async () => ({ kind: 'switched' }),
         switchToNextChannel: jest.fn(),
         switchToPreviousChannel: jest.fn(),
         switchToChannelByNumberWithOutcome: async (): Promise<never> => {

@@ -2,6 +2,7 @@ import type { IChannelManager } from '../../../modules/scheduler/channel-manager
 import type { IVideoPlayer } from '../../../modules/player';
 import type { IChannelScheduler } from '../../../modules/scheduler/scheduler';
 import { isAbortLikeError } from '../../../utils/errors';
+import { CHANNEL_SWITCH_OUTCOME } from '../../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type {
     ChannelSwitchOptions,
@@ -40,21 +41,21 @@ export class OrchestratorChannelSwitchRuntime {
         const channelTuning = this._deps.getChannelTuning();
         if (!channelTuning) {
             this._logMissingChannelTuningDependencies('switchToChannel');
-            return 'failed';
+            return CHANNEL_SWITCH_OUTCOME.failed('missing_dependencies');
         }
 
         try {
             return await channelTuning.switchToChannel(channelId, options);
         } catch (error: unknown) {
             if (isAbortLikeError(error, options?.signal)) {
-                return 'aborted';
+                return CHANNEL_SWITCH_OUTCOME.aborted;
             }
             this._deps.reportError(
                 'orchestrator.channelSwitch.idOutcome',
                 'switchToChannelWithOutcome failed',
                 error
             );
-            return 'failed';
+            return CHANNEL_SWITCH_OUTCOME.failed('content_unavailable');
         }
     }
 
@@ -80,21 +81,21 @@ export class OrchestratorChannelSwitchRuntime {
         const channelTuning = this._deps.getChannelTuning();
         if (!channelTuning) {
             this._logMissingChannelTuningDependencies('switchToChannelByNumberWithOutcome');
-            return 'failed';
+            return CHANNEL_SWITCH_OUTCOME.failed('missing_dependencies');
         }
 
         try {
             return await channelTuning.switchToChannelByNumber(number, options);
         } catch (error: unknown) {
             if (isAbortLikeError(error, options?.signal)) {
-                return 'aborted';
+                return CHANNEL_SWITCH_OUTCOME.aborted;
             }
             this._deps.reportError(
                 'orchestrator.channelSwitch.byNumberOutcome',
                 'switchToChannelByNumberWithOutcome failed',
                 error
             );
-            return 'failed';
+            return CHANNEL_SWITCH_OUTCOME.failed('content_unavailable');
         }
     }
 

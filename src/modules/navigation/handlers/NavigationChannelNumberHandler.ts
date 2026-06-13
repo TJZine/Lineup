@@ -1,4 +1,5 @@
 import { isAbortLikeError } from '../../../utils/errors';
+import { isChannelSwitchSuccessful } from '../../../types/channelSwitch';
 import type {
     NavigationChannelSwitchingPort,
     NavigationEpgPort,
@@ -17,7 +18,7 @@ export class NavigationChannelNumberHandler implements NavigationChannelNumberHa
         this.deps.channelSwitching.setLastChannelChangeSourceNumber();
         try {
             const outcome = await this.deps.channelSwitching.switchToChannelByNumber(channelNumber);
-            if (outcome !== 'switched') {
+            if (!isChannelSwitchSuccessful(outcome)) {
                 return;
             }
             if (this.deps.epg?.isVisible()) {

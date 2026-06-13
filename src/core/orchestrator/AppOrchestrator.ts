@@ -122,15 +122,12 @@ import type {
     ChannelNumberOverlayInitPort,
 } from './contracts/OverlayPorts';
 import type { OrchestratorPlaybackStateAccessors } from './runtime/OrchestratorPlaybackStateAccessors';
-import {
-    createPlaybackInfoSnapshot,
-    type PlaybackInfoSnapshot,
-} from './runtime/OrchestratorPlaybackInfoSnapshot';
+import { createPlaybackInfoSnapshot, type PlaybackInfoSnapshot } from './runtime/OrchestratorPlaybackInfoSnapshot';
 import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinator';
 import { createChannelSetupWorkflowPort } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
 import type { ChannelSetupWorkflowPortOwners } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
-import type { ChannelSetupRerunRequestResult } from '../channel-setup/ChannelSetupRerunController';
+import type { ChannelSetupRerunRequestResult } from '../channel-setup/types';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { IssueDiagnosticsStore, type AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
@@ -1857,6 +1854,7 @@ export class AppOrchestrator {
         this._currentStreamDecision = null;
         this._pendingNowPlayingChannelId = null;
         this._shouldAutoShowInfoBannerOnNextPlay = false;
+        this._lastChannelChangeSource = null;
     }
 
     private _buildPlexResourceUrl(pathOrUrl: string): string | null {

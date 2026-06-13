@@ -1,5 +1,6 @@
 import type { AppError, IAppLifecycle } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../types/app-errors';
+import { isChannelSwitchAborted, isChannelSwitchFailed, isChannelSwitchSuccessful } from '../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { INavigationManager } from '../../modules/navigation';
 import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
@@ -133,14 +134,16 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
         throwIfStartupAborted(inputs.signal);
         const outcome = await inputs.switchToChannel(channelToPlay.id);
         throwIfStartupAborted(inputs.signal);
-        if (outcome === 'failed') {
+        if (isChannelSwitchFailed(outcome) && outcome.reason === 'missing_channel') {
             inputs.navigation.replaceScreen('channel-setup');
             return;
         }
-        if (outcome === 'aborted') {
+        if (isChannelSwitchAborted(outcome)) {
             throw new Error(`Initial channel switch aborted for ${channelToPlay.id}.`);
         }
-        inputs.navigation.replaceScreen('player');
+        if (isChannelSwitchSuccessful(outcome)) {
+            inputs.navigation.replaceScreen('player');
+        }
         return;
     }
 

@@ -180,10 +180,10 @@ const makeDeps = (
         },
         actions: {
             switchToChannel: jest.fn().mockResolvedValue(undefined),
-            switchToChannelWithOutcome: jest.fn().mockResolvedValue('switched'),
+            switchToChannelWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
             switchToNextChannel: jest.fn(),
             switchToPreviousChannel: jest.fn(),
-            switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue('failed'),
+            switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'failed', reason: 'content_unavailable' }),
             toggleEPG: jest.fn(),
             onOverlayVisibilityChange: jest.fn(),
             onChannelTransitionActivityChange: jest.fn(),
