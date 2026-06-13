@@ -16,7 +16,7 @@ describe('AppShellRuntimeContracts boundaries', () => {
         expect(source).not.toMatch(/from ['"].*orchestrator\/OrchestratorTypes['"]/);
     });
 
-    it('does not expose the core server-selection result through the app-shell port', () => {
+    it('preserves server-selection result details without importing the core result type', () => {
         const source = readFileSync(
             path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
             'utf8'
@@ -25,6 +25,9 @@ describe('AppShellRuntimeContracts boundaries', () => {
         expect(source).not.toMatch(/from ['"].*server-selection\/ServerSelectionTypes['"]/);
         expect(source).not.toContain('OrchestratorServerSelectionResult');
         expect(source).toContain('AppShellServerSelectionResult');
+        expect(source).toContain('readiness');
+        expect(source).toContain('persistedSelection');
+        expect(source).toContain('startupResume');
     });
 
     it('does not expose diagnostics on the channel setup screen runtime port', () => {
@@ -66,8 +69,6 @@ describe('AppShellRuntimeContracts boundaries', () => {
         expect(match?.[0]).toBeDefined();
         expect(match?.[0]).not.toContain(selectedServerStorageGetter);
         expect(match?.[0]).not.toContain(serverHealthStorageGetter);
-        expect(match?.[0]).not.toContain('ready' + 'ness');
-        expect(match?.[0]).not.toContain('persisted' + 'Selection');
         expect(match?.[0]).toContain('getSelectedServerScreenState(): AppShellServerSelectState');
     });
 });

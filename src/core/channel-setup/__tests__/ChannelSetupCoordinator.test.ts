@@ -149,10 +149,23 @@ describe('ChannelSetupCoordinator', () => {
             updatedAt: 2,
         }));
 
-        coordinator.requestChannelSetupRerun();
+        expect(coordinator.requestChannelSetupRerun()).toEqual({
+            ok: true,
+            serverId: 'server-9',
+        });
 
         expect(storage.has('lineup_channel_setup_v3:server-9:user-1')).toBe(false);
         expect(navigationGoTo).toHaveBeenCalledWith('channel-setup');
+    });
+
+    it('requestChannelSetupRerun reports missing selected server instead of no-oping silently', () => {
+        const { coordinator, navigationGoTo } = createCoordinator({ selectedServerId: null });
+
+        expect(coordinator.requestChannelSetupRerun()).toEqual({
+            ok: false,
+            reason: 'missing-selected-server',
+        });
+        expect(navigationGoTo).not.toHaveBeenCalled();
     });
 
     it('shouldRunChannelSetup returns true with no channels', () => {

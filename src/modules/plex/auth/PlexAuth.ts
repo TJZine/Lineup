@@ -328,7 +328,7 @@ export class PlexAuth implements IPlexAuth {
      * Store credentials to localStorage.
      * @param auth - Auth data to store
      */
-    public storeCredentials(auth: PlexAuthData): void {
+    public storeCredentials(auth: PlexAuthData, options?: { emitAuthChange?: boolean }): void {
         const stored: StoredAuthData = {
             version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
             data: auth,
@@ -340,7 +340,9 @@ export class PlexAuth implements IPlexAuth {
         this._state.activeToken = clonePlexAuthToken(auth.activeToken);
         this._state.activeUserId = auth.activeUserId;
         this._state.isValidated = true;
-        this._emitter.emit('authChange', true);
+        if (options?.emitAuthChange !== false) {
+            this._emitter.emit('authChange', true);
+        }
     }
 
     /**

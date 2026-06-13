@@ -31,7 +31,18 @@ const makeScreenState = (
     ...overrides,
 });
 
-const selectedResult = (): ServerSelectSelectionResult => ({ kind: 'selected' });
+const selectedResult = (
+    overrides: Partial<Extract<ServerSelectSelectionResult, { kind: 'selected' }>> = {}
+): ServerSelectSelectionResult => ({
+    kind: 'selected',
+    readiness: 'startup_pending',
+    persistedSelection: 'updated',
+    startupResume: {
+        startup: 'completed',
+        epgRefresh: { kind: 'succeeded' },
+    },
+    ...overrides,
+});
 
 const createAdapter = (): RuntimeAdapter => ({
     showContainer: jest.fn(),
@@ -132,11 +143,16 @@ describe('ServerSelectRuntimeCoordinator', () => {
         await expect(runtime.whenIdle()).resolves.toBeUndefined();
     });
 
-    it('auto-connects a saved server without rendering fallback selection state', async () => {
+    it('auto-connects a saved server with selected-result detail', async () => {
         const servers = [makeServer('srv-1', 'Server One')];
         const ports = createPorts({
             discoverServers: jest.fn().mockResolvedValue(servers),
-            selectServer: jest.fn().mockResolvedValue(selectedResult()),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                startupResume: {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
+                },
+            })),
             getSelectedServerScreenState: jest.fn(() => makeScreenState({ selectedServerId: 'srv-1' })),
         } as Partial<RuntimePorts>);
         const { runtime, adapter } = createRuntime({ ports });
@@ -149,7 +165,11 @@ describe('ServerSelectRuntimeCoordinator', () => {
         });
         expect(adapter.setAutoConnectHintVisible).toHaveBeenCalledWith(true);
         expect(adapter.setAutoConnectHintVisible).toHaveBeenLastCalledWith(false);
-        expect(adapter.setStatus).toHaveBeenCalledWith('Connected…', 'Continuing startup…', 'success');
+        expect(adapter.setStatus).toHaveBeenCalledWith(
+            'Connected…',
+            'Connected, but guide refresh needs retry.',
+            'warning'
+        );
         expect(adapter.renderServers).not.toHaveBeenCalled();
     });
 
@@ -178,6 +198,53 @@ describe('ServerSelectRuntimeCoordinator', () => {
         );
         expect(adapter.setAutoConnectHintVisible).toHaveBeenLastCalledWith(false);
         expect(adapter.setServerConnectButtonsDisabled).not.toHaveBeenCalledWith(true);
+    });
+
+    it('surfaces degraded successful selection details instead of generic success', async () => {
+        const server = makeServer('srv-1', 'Server One');
+        const ports = createPorts({
+            discoverServers: jest.fn().mockResolvedValue([server]),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                persistedSelection: 'skipped_missing_credentials',
+            })),
+        } as Partial<RuntimePorts>);
+        const { runtime, adapter } = createRuntime({ ports });
+
+        runtime.show({ allowAutoConnect: false });
+        await runtime.whenIdle();
+        runtime.selectServer(server);
+        await runtime.whenIdle();
+
+        expect(adapter.setStatus).toHaveBeenLastCalledWith(
+            'Connected to Server One.',
+            'Connected, but saved-server preference was not updated because credentials are unavailable.',
+            'success'
+        );
+    });
+
+    it('uses warning tone when selection succeeds but guide refresh fails', async () => {
+        const server = makeServer('srv-1', 'Server One');
+        const ports = createPorts({
+            discoverServers: jest.fn().mockResolvedValue([server]),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                startupResume: {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
+                },
+            })),
+        } as Partial<RuntimePorts>);
+        const { runtime, adapter } = createRuntime({ ports });
+
+        runtime.show({ allowAutoConnect: false });
+        await runtime.whenIdle();
+        runtime.selectServer(server);
+        await runtime.whenIdle();
+
+        expect(adapter.setStatus).toHaveBeenLastCalledWith(
+            'Connected to Server One.',
+            'Connected, but guide refresh needs retry.',
+            'warning'
+        );
     });
 
     it('ignores concurrent manual selection and keeps clear disabled until visible work settles', async () => {

@@ -13,6 +13,7 @@ import { PLEX_AUTH_CONSTANTS } from '../../../modules/plex/auth/constants';
 import {
     applyAuthValidationPolicy,
     applyPostReadyRoutingPolicy,
+    applyServerConnectionPolicy,
     type AuthValidationPolicyInputs,
 } from '../InitializationStartupPolicy';
 
@@ -126,6 +127,51 @@ describe('applyPostReadyRoutingPolicy', () => {
         expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
         expect(inputs.switchToChannel).not.toHaveBeenCalled();
         expect(inputs.openServerSelect).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('applyServerConnectionPolicy', () => {
+    const createInputs = (
+        initializeResult: Awaited<ReturnType<Parameters<typeof applyServerConnectionPolicy>[0]['plexDiscovery']['initialize']>>,
+        isConnected = false
+    ): Parameters<typeof applyServerConnectionPolicy>[0] => ({
+        startTime: Date.now(),
+        signal: null,
+        plexDiscovery: {
+            initialize: jest.fn().mockResolvedValue(initializeResult),
+            isConnected: jest.fn().mockReturnValue(isConnected),
+        } as unknown as Parameters<typeof applyServerConnectionPolicy>[0]['plexDiscovery'],
+        plexLibrary: {} as Parameters<typeof applyServerConnectionPolicy>[0]['plexLibrary'],
+        plexStreamResolver: {} as Parameters<typeof applyServerConnectionPolicy>[0]['plexStreamResolver'],
+        navigation: {
+            goTo: jest.fn(),
+        } as unknown as Parameters<typeof applyServerConnectionPolicy>[0]['navigation'],
+        updateModuleStatus: jest.fn(),
+        handlers: {
+            registerServerResume: jest.fn(),
+        },
+    });
+
+    it('surfaces saved-server restore failure while routing to server-select', async () => {
+        const inputs = createInputs({
+            kind: 'selection_failed',
+            serverId: 'missing-srv',
+            reason: 'server_not_found',
+        });
+
+        await expect(applyServerConnectionPolicy(inputs)).resolves.toBe(false);
+
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-library', 'pending', {
+            code: AppErrorCode.SERVER_UNREACHABLE,
+            message: 'Saved Plex server is no longer available.',
+            recoverable: true,
+            context: {
+                serverId: 'missing-srv',
+                reason: 'server_not_found',
+            },
+        }, expect.any(Number));
+        expect(inputs.handlers.registerServerResume).toHaveBeenCalledTimes(1);
+        expect(inputs.navigation.goTo).toHaveBeenCalledWith('server-select');
     });
 });
 

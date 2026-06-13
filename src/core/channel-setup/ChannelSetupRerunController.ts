@@ -8,19 +8,24 @@ export interface ChannelSetupRerunControllerDeps {
     hasSetupRecord: (serverId: string) => boolean;
 }
 
+export type ChannelSetupRerunRequestResult =
+    | { ok: true; serverId: string }
+    | { ok: false; reason: 'missing-selected-server' };
+
 export class ChannelSetupRerunController {
     private _channelSetupRerunRequested = false;
 
     constructor(private readonly _deps: ChannelSetupRerunControllerDeps) {}
 
-    requestChannelSetupRerun(): void {
+    requestChannelSetupRerun(): ChannelSetupRerunRequestResult {
         const serverId = this._deps.getSelectedServerId();
         if (!serverId) {
-            return;
+            return { ok: false, reason: 'missing-selected-server' };
         }
         this._deps.clearSetupRecord(serverId);
         this._channelSetupRerunRequested = true;
         this._deps.navigation.goTo('channel-setup');
+        return { ok: true, serverId };
     }
 
     clearRerunRequest(): void {

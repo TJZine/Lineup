@@ -43,7 +43,23 @@ export type AppShellServerSelectionResult =
     }
     | {
         kind: 'selected';
+        readiness: 'ready' | 'startup_pending';
+        persistedSelection:
+            | 'updated'
+            | 'skipped_missing_credentials'
+            | 'skipped_corrupted_credentials';
+        startupResume: {
+            startup: 'completed' | 'skipped_no_coordinator';
+            epgRefresh:
+                | { kind: 'succeeded' }
+                | { kind: 'failed'; error: unknown }
+                | { kind: 'skipped_no_coordinator' };
+        };
     };
+
+export type AppShellChannelSetupRerunRequestResult =
+    | { ok: true; serverId: string }
+    | { ok: false; reason: 'missing-selected-server' };
 
 export type AppShellServerHealthStatus = ServerHealthStatus;
 
@@ -64,7 +80,7 @@ export interface AppShellServerSelectionRuntimePort {
     ): Promise<AppShellServerSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerScreenState(): AppShellServerSelectState;
-    requestChannelSetupRerun(): void;
+    requestChannelSetupRerun(): AppShellChannelSetupRerunRequestResult;
 }
 
 export interface AppShellChannelSetupRuntimePort {

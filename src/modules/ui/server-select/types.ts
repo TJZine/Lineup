@@ -25,13 +25,29 @@ export type ServerSelectSelectionResult =
     }
     | {
         kind: 'selected';
+        readiness: 'ready' | 'startup_pending';
+        persistedSelection:
+            | 'updated'
+            | 'skipped_missing_credentials'
+            | 'skipped_corrupted_credentials';
+        startupResume: {
+            startup: 'completed' | 'skipped_no_coordinator';
+            epgRefresh:
+                | { kind: 'succeeded' }
+                | { kind: 'failed'; error: unknown }
+                | { kind: 'skipped_no_coordinator' };
+        };
     };
+
+export type ServerSelectRerunSetupResult =
+    | { ok: true; serverId: string }
+    | { ok: false; reason: 'missing-selected-server' };
 
 export interface ServerSelectScreenPorts {
     discoverServers(options?: { forceRefresh?: boolean; signal?: AbortSignal | null }): Promise<PlexServer[]>;
     selectServer(serverId: string, options?: { signal?: AbortSignal | null }): Promise<ServerSelectSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerScreenState(): ServerSelectDisplayState;
-    requestChannelSetupRerun(): void;
+    requestChannelSetupRerun(): ServerSelectRerunSetupResult;
     getNavigation(): ServerSelectScreenNavigationPort | null;
 }

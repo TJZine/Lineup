@@ -156,7 +156,12 @@ export class AppLazyScreenPortFactory {
                     case 'selection_failed':
                         return { kind: 'selection_failed', reason: result.reason };
                     case 'selected':
-                        return { kind: 'selected' };
+                        return {
+                            kind: 'selected',
+                            readiness: result.readiness,
+                            persistedSelection: result.persistedSelection,
+                            startupResume: result.startupResume,
+                        };
                     default:
                         return assertUnhandledServerSelectionResult(result);
                 }

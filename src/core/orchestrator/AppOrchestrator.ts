@@ -98,6 +98,8 @@ import { PlaybackRuntimeController } from './priority-one/PlaybackRuntimeControl
 import type {
     OrchestratorServerSelectionResult,
 } from '../server-selection/ServerSelectionTypes';
+import { clearIdentityScopedRuntimeState } from './runtime/clearIdentityScopedRuntimeState';
+import { buildPlexResourceUrlSafely } from './runtime/buildPlexResourceUrlSafely';
 import type {
     ModuleStatus,
     OrchestratorConfig,
@@ -128,6 +130,7 @@ import { ChannelSetupCoordinator } from '../channel-setup/ChannelSetupCoordinato
 import { createChannelSetupWorkflowPort } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
 import type { ChannelSetupWorkflowPortOwners } from '../channel-setup/workflow/createChannelSetupWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../channel-setup/workflow/ChannelSetupWorkflowPort';
+import type { ChannelSetupRerunRequestResult } from '../channel-setup/ChannelSetupRerunController';
 import { NowPlayingDebugManager } from '../../modules/debug/NowPlayingDebugManager';
 import { DebugOverridesStore } from '../../modules/debug/DebugOverridesStore';
 import { IssueDiagnosticsStore, type AppendIssueDiagnostic } from '../../modules/debug/IssueDiagnosticsStore';
@@ -142,9 +145,6 @@ import type { IDisposable } from '../../utils/interfaces';
 import { getRecoveryActions as getRecoveryActionsHelper } from '../error-recovery/RecoveryActions';
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from '../error-recovery/LifecycleErrorAdapter';
 import type { ErrorRecoveryAction } from '../error-recovery/types';
-import {
-    buildPlexResourceUrlWithAuth,
-} from '../../modules/plex/shared/plexUrl';
 import type { ToastInput } from '../../shared/toast';
 import type { PlatformServices } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
@@ -1133,6 +1133,7 @@ export class AppOrchestrator {
         // Finalize only after the profile mutation succeeds. Failed profile switches
         // keep the previous active profile, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
+        this._clearIdentityScopedRuntimeState({ resetPlayback: false });
         await this._resumeStartupAfterProfileSwitch(initCoordinator);
     }
 
@@ -1159,6 +1160,7 @@ export class AppOrchestrator {
         // Finalize only after logout succeeds. Failed logout leaves the active profile
         // unchanged, so channel/stream identity should remain intact.
         cleanupController.finalizeProfileSwitch();
+        this._clearIdentityScopedRuntimeState({ resetPlayback: false });
         await this._resumeStartupAfterProfileSwitch(initCoordinator);
     }
 
@@ -1172,6 +1174,7 @@ export class AppOrchestrator {
         }
         await this._plexAuth.clearCredentials();
         this._plexDiscovery?.clearSelection();
+        this._clearIdentityScopedRuntimeState({ resetPlayback: true });
         await this._configureChannelManagerStorageForSelectedServer();
         if (this._initCoordinator) {
             await this._initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
@@ -1206,6 +1209,7 @@ export class AppOrchestrator {
 
     async clearSelectedServer(): Promise<void> {
         await this._serverSelectionRuntime.clearSelectedServer();
+        this._clearIdentityScopedRuntimeState({ resetPlayback: true });
         await this._configureChannelManagerStorageForSelectedServer();
     }
 
@@ -1218,9 +1222,9 @@ export class AppOrchestrator {
         return this._channelSetupWorkflowPort;
     }
 
-    requestChannelSetupRerun(): void {
+    requestChannelSetupRerun(): ChannelSetupRerunRequestResult {
         this._assertNotShutdown('requestChannelSetupRerun');
-        this._requireChannelSetupCoordinator().requestChannelSetupRerun();
+        return this._requireChannelSetupCoordinator().requestChannelSetupRerun();
     }
 
     async switchToChannel(
@@ -1243,10 +1247,6 @@ export class AppOrchestrator {
         return this._channelSwitchRuntime.switchToChannelWithOutcome(channelId, options);
     }
 
-    /**
-     * Switch to a channel by its number.
-     * @param number - Channel number
-     */
     async switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void> {
         await this._channelSwitchRuntime.switchToChannelByNumber(number, options);
     }
@@ -1837,30 +1837,34 @@ export class AppOrchestrator {
         this._videoPlayer?.stop();
     }
 
-    private _buildPlexResourceUrl(pathOrUrl: string): string | null {
-        let baseUri: string | null = null;
-        let headers: Record<string, string> = {};
-        const buildResult = captureRecoverableRuntimeResult(
-            () => {
-                baseUri = this._plexDiscovery?.getServerUri() ?? null;
-                headers = this._plexAuth?.getAuthHeaders() ?? {};
-                return buildPlexResourceUrlWithAuth(baseUri, pathOrUrl, headers);
-            }
-        );
-        if (!buildResult.ok) {
-            this._warnRecoverableRuntimeError(
-                'orchestrator.plexResourceUrl.build',
-                'buildPlexResourceUrlWithAuth failed',
-                buildResult.error,
-                {
-                    pathOrUrl: summarizeErrorForLog(pathOrUrl),
-                    baseUri: summarizeErrorForLog(baseUri),
-                }
-            );
-            return null;
-        }
+    private _clearIdentityScopedRuntimeState(options: { resetPlayback: boolean }): void {
+        clearIdentityScopedRuntimeState({
+            stopPlayback: (): void => this._stopPlayback(),
+            unloadCurrentChannel: (): void => this._scheduler?.unloadChannel(),
+            clearPlaybackState: (): void => this._clearPlaybackIdentityState(),
+            clearChannelManagerRuntimeState: (): void => this._channelManager?.clearRuntimeState(),
+            clearEpgScheduleState: (): void => {
+                this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+                this._epgCoordinator?.clearScheduleCaches();
+                this._epg?.clearSchedules();
+            },
+        }, options);
+    }
 
-        return buildResult.value;
+    private _clearPlaybackIdentityState(): void {
+        this._currentProgramForPlayback = null;
+        this._currentStreamDescriptor = null;
+        this._currentStreamDecision = null;
+        this._pendingNowPlayingChannelId = null;
+        this._shouldAutoShowInfoBannerOnNextPlay = false;
+    }
+
+    private _buildPlexResourceUrl(pathOrUrl: string): string | null {
+        return buildPlexResourceUrlSafely({
+            getServerUri: (): string | null => this._plexDiscovery?.getServerUri() ?? null,
+            getAuthHeaders: (): Record<string, string> => this._plexAuth?.getAuthHeaders() ?? {},
+            reportError: (event, message, error, data) => this._warnRecoverableRuntimeError(event, message, error, data),
+        }, pathOrUrl);
     }
 
     private _getMimeType(decision: StreamDecision): string {
@@ -1871,7 +1875,6 @@ export class AppOrchestrator {
             const mime = MIME_TYPES[decision.container];
             if (mime) return mime;
         }
-        // Fallback
         return 'video/mp4';
     }
 

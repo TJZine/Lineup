@@ -1,7 +1,10 @@
 import type { INavigationManager } from '../../modules/navigation';
 import type { ChannelSetupBuildScratchStore } from './build/ChannelSetupBuildScratchStore';
 import { ChannelSetupRecordStore } from './persistence/ChannelSetupRecordStore';
-import { ChannelSetupRerunController } from './ChannelSetupRerunController';
+import {
+    ChannelSetupRerunController,
+    type ChannelSetupRerunRequestResult,
+} from './ChannelSetupRerunController';
 
 export interface ChannelSetupCoordinatorDeps {
     navigation: INavigationManager;
@@ -28,8 +31,8 @@ export class ChannelSetupCoordinator {
         });
     }
 
-    requestChannelSetupRerun(): void {
-        this._rerunController.requestChannelSetupRerun();
+    requestChannelSetupRerun(): ChannelSetupRerunRequestResult {
+        return this._rerunController.requestChannelSetupRerun();
     }
 
     clearRerunRequest(): void {

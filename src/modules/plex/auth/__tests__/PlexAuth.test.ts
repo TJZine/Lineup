@@ -1014,6 +1014,18 @@ describe('PlexAuth', () => {
             expect(handler).toHaveBeenNthCalledWith(2, false);
         });
 
+        it('can persist credential metadata without emitting authChange', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const handler = jest.fn();
+            auth.on('authChange', handler);
+
+            const testToken = createAuthToken('metadata-only-token');
+            auth.storeCredentials(createAuthData(testToken), { emitAuthChange: false });
+
+            expect(auth.isAuthenticated()).toBe(true);
+            expect(handler).not.toHaveBeenCalled();
+        });
+
         it('should allow unsubscribing from events', async () => {
             const auth = new PlexAuth(mockConfig);
             const handler = jest.fn();

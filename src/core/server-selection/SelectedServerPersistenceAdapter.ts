@@ -10,7 +10,7 @@ import type {
 export interface SelectedServerCredentialsPort {
     getActiveUserId(): string | null;
     readStoredCredentialsAndClearCorruption(): PlexStoredCredentialsReadResult;
-    storeCredentials(auth: PlexAuthData): void;
+    storeCredentials(auth: PlexAuthData, options?: { emitAuthChange?: boolean }): void;
 }
 
 export interface SelectedServerPersistenceAdapterDeps {
@@ -44,13 +44,16 @@ export class SelectedServerPersistenceAdapter {
             ...(credentials.selectedServerByUserId ?? {}),
         };
         selectedServerByUserId[activeUserId] = { serverId, serverUri };
-        port.storeCredentials({
-            accountToken: credentials.accountToken,
-            activeToken: credentials.activeToken,
-            activeUserId,
-            selectedServerByUserId,
-            deviceKey: credentials.deviceKey ?? null,
-        });
+        port.storeCredentials(
+            {
+                accountToken: credentials.accountToken,
+                activeToken: credentials.activeToken,
+                activeUserId,
+                selectedServerByUserId,
+                deviceKey: credentials.deviceKey ?? null,
+            },
+            { emitAuthChange: false }
+        );
         return 'updated';
     }
 

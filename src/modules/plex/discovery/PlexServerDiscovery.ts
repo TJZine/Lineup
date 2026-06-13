@@ -3,6 +3,7 @@ import { PLEX_DISCOVERY_CONSTANTS, DEFAULT_MIXED_CONTENT_CONFIG } from './consta
 import {
     IPlexServerDiscovery,
     PlexDiscoverySignalOptions,
+    PlexSavedServerRestoreResult,
     PlexServerSelectionResult,
     PlexServerDiscoveryConfig,
 } from './interfaces';
@@ -32,6 +33,7 @@ import { PlexDiscoverySharedRequest } from './PlexDiscoverySharedRequest';
 import { logPlexError, logPlexWarning } from '../shared/plexLogging';
 import { discoverPlexResourcesWithRequestPolicy } from './PlexResourceDiscoveryRequestPolicy';
 import { probePlexConnection } from './PlexConnectionProbeRequest';
+import { restoreSavedPlexServerSelection } from './PlexSavedServerRestore';
 
 export { PlexApiError };
 
@@ -388,13 +390,13 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return this._emitter.on(event, handler as (payload: unknown) => void);
     }
 
-    public async initialize(options?: PlexDiscoverySignalOptions): Promise<void> {
+    public async initialize(options?: PlexDiscoverySignalOptions): Promise<PlexSavedServerRestoreResult> {
         const signal = options?.signal ?? null;
         const previousRefreshAt = this._state.lastRefreshAt;
         await this._discoverServersForInitialize(signal);
         throwIfAborted(signal);
         const refreshedDiscovery = this._state.lastRefreshAt !== previousRefreshAt;
-        await this._restoreSelectionAsync({
+        return this._restoreSelectionAsync({
             forceReselect: refreshedDiscovery,
             signal,
         });
@@ -543,29 +545,21 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return redactUrlForLog(url);
     }
 
-    private async _restoreSelectionAsync(options?: { forceReselect?: boolean; signal?: AbortSignal | null }): Promise<void> {
+    private async _restoreSelectionAsync(
+        options?: { forceReselect?: boolean; signal?: AbortSignal | null }
+    ): Promise<PlexSavedServerRestoreResult> {
         const signal = options?.signal ?? null;
         throwIfAborted(signal);
-        if (this._state.servers.length === 0) {
-            return;
-        }
-
-        // Storage at initialize-time is the source of truth.
-        const savedServerId = this._serverSelectionStore.readSelectedServerIdAndClean();
-
-        if (!savedServerId) {
-            return;
-        }
-
-        throwIfAborted(signal);
-        if (
-            options?.forceReselect !== true &&
-            this._state.selectedServer?.id === savedServerId &&
-            this._state.selectedConnection !== null
-        ) {
-            return;
-        }
-
-        await this.selectServer(savedServerId, { signal });
+        return restoreSavedPlexServerSelection({
+            hasDiscoveredServers: (): boolean => this._state.servers.length > 0,
+            readSavedServerId: (): string | null => this._serverSelectionStore.readSelectedServerIdAndClean(),
+            clearSavedServerId: (): void => this._serverSelectionStore.clearSelectedServerId(),
+            isSavedServerAlreadySelected: (serverId): boolean =>
+                options?.forceReselect !== true &&
+                this._state.selectedServer?.id === serverId &&
+                this._state.selectedConnection !== null,
+            selectSavedServer: (serverId, restoreOptions): Promise<PlexServerSelectionResult> =>
+                this.selectServer(serverId, restoreOptions),
+        }, { signal });
     }
 }

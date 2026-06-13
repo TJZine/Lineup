@@ -1,7 +1,3 @@
-/**
- * Manages virtual TV channel CRUD, content resolution, and persistence.
- */
-
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
@@ -195,6 +191,7 @@ export class ChannelManager implements IChannelManager {
     };
 
     private _state: ChannelManagerState;
+    private _isRuntimeStateCleared = false;
 
     constructor(config: ChannelManagerConfig) {
         this._emitter = new EventEmitter<ChannelManagerEventMap>();
@@ -252,11 +249,18 @@ export class ChannelManager implements IChannelManager {
             );
         }
         this._persistence.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
+        this.clearRuntimeState();
+    }
+
+    clearRuntimeState(): void {
+        this._retryScheduler.cancelAll();
+        this._persistence.supersedePendingSave();
         this._contentResolver.clearCaches();
-        this._state.channels.clear();
         this._resolutionCache.clear();
+        this._state.channels.clear();
         this._state.channelOrder = [];
         this._state.currentChannelId = null;
+        this._isRuntimeStateCleared = true;
     }
 
     /**
@@ -300,6 +304,7 @@ export class ChannelManager implements IChannelManager {
         this._resolutionCache.clear();
         this._state.channelOrder = nextChannelOrder;
         this._state.currentChannelId = nextCurrentChannelId;
+        this._isRuntimeStateCleared = false;
 
         if (this._state.currentChannelId) {
             this._persistence.persistCurrentChannelIdBestEffort(this._state.currentChannelId);
@@ -558,25 +563,16 @@ export class ChannelManager implements IChannelManager {
         return channel ? cloneChannelForOwnership(channel) : null;
     }
 
-    /**
-     * Export all channels as JSON string.
-     */
     exportChannels(): string {
         return this._importExport.exportChannels();
     }
 
-    /**
-     * Import channels from JSON string.
-     */
     async importChannels(data: string): Promise<ImportResult> {
         return this._importExport.importChannels(data);
     }
 
-
-    /**
-     * Flush any pending debounced save immediately.
-     */
     flushSaves(): Promise<void> {
+        if (this._isRuntimeStateCleared) return Promise.resolve();
         try {
             this._persistence.flush(this._getPersistableState());
             return Promise.resolve();
@@ -592,14 +588,13 @@ export class ChannelManager implements IChannelManager {
         this._emitter.removeAllListeners();
     }
 
-    /**
-     * Queues a debounced persistence write through the channel repository/store boundary.
-     */
     saveChannels(): Promise<void> {
+        if (this._isRuntimeStateCleared) return Promise.resolve();
         return this._persistence.save(this._getPersistableState());
     }
 
     private _queueSave(): void {
+        this._isRuntimeStateCleared = false;
         this._persistence.queueSave(this._getPersistableState());
     }
 
@@ -632,9 +627,6 @@ export class ChannelManager implements IChannelManager {
         }
     }
 
-    /**
-     * Load channels through the channel repository/store boundary.
-     */
     async loadChannels(): Promise<void> {
         try {
             const normalized = this._persistence.loadNormalized();
@@ -657,6 +649,7 @@ export class ChannelManager implements IChannelManager {
 
             this._state.channelOrder = data.channelOrder;
             this._state.currentChannelId = data.currentChannelId;
+            this._isRuntimeStateCleared = false;
 
             // Persist normalized/migrated channel records once.
             if (didMutateFromNormalization) {
@@ -667,10 +660,6 @@ export class ChannelManager implements IChannelManager {
         }
     }
 
-
-    /**
-     * Subscribe to channel manager events.
-     */
     on<K extends keyof ChannelManagerEventMap>(
         event: K,
         handler: (payload: ChannelManagerEventMap[K]) => void

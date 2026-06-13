@@ -98,6 +98,19 @@ const createChannelSetupWorkflowPortFixture = (): jest.Mocked<ChannelSetupWorkfl
     }),
 });
 
+const makeSelectedServerResult = (): Extract<
+    Awaited<ReturnType<MockRuntimeOrchestrator['selectServer']>>,
+    { kind: 'selected' }
+> => ({
+    kind: 'selected',
+    readiness: 'startup_pending',
+    persistedSelection: 'updated',
+    startupResume: {
+        startup: 'completed',
+        epgRefresh: { kind: 'succeeded' },
+    },
+});
+
 const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     requestAuthPin: jest.fn().mockResolvedValue({ id: 1 }),
     pollForPin: jest.fn().mockResolvedValue({ id: 1, authToken: 'token' }),
@@ -107,9 +120,7 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
     signOutPlex: jest.fn().mockResolvedValue(undefined),
     discoverServers: jest.fn().mockResolvedValue([]),
-    selectServer: jest.fn().mockResolvedValue({
-        kind: 'selected',
-    }),
+    selectServer: jest.fn().mockResolvedValue(makeSelectedServerResult()),
     clearSelectedServer: jest.fn().mockResolvedValue(undefined),
     getSelectedServerScreenState: jest.fn().mockReturnValue({
         selectedServerId: 'server-1',
@@ -125,7 +136,7 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     openServerSelect: jest.fn(),
     switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
     openEPG: jest.fn(),
-    requestChannelSetupRerun: jest.fn(),
+    requestChannelSetupRerun: jest.fn(() => ({ ok: true as const, serverId: 'server-1' })),
     setSubtitleTrack: jest.fn().mockResolvedValue(undefined),
     onGuideSettingChange: jest.fn(),
     getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
@@ -208,7 +219,7 @@ describe('AppLazyScreenPortFactory', () => {
             forceRefresh: true,
             signal: discoveryController.signal,
         });
-        await expect(serverPorts?.selectServer('server-1')).resolves.toEqual({ kind: 'selected' });
+        await expect(serverPorts?.selectServer('server-1')).resolves.toEqual(makeSelectedServerResult());
         await serverPorts?.clearSelectedServer();
         expect(serverPorts?.getSelectedServerScreenState()).toEqual({
             selectedServerId: 'server-1',
@@ -270,7 +281,7 @@ describe('AppLazyScreenPortFactory', () => {
         const serverPorts = factory.createServerSelectScreenPorts();
         const options = { signal: new AbortController().signal };
 
-        await expect(serverPorts?.selectServer('server-1', options)).resolves.toEqual({ kind: 'selected' });
+        await expect(serverPorts?.selectServer('server-1', options)).resolves.toEqual(makeSelectedServerResult());
 
         expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1', options);
     });

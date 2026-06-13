@@ -3,7 +3,7 @@ import { AppErrorCode } from '../../types/app-errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { INavigationManager } from '../../modules/navigation';
 import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
-import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
+import type { IPlexServerDiscovery, PlexSavedServerRestoreResult } from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
@@ -68,6 +68,32 @@ type AuthStoredCredentials = Extract<
     Awaited<ReturnType<AuthValidationPlexAuth['readStoredCredentialsAndClearCorruption']>>,
     { kind: 'available' }
 >['credentials'];
+
+function createSavedServerRestoreError(restoreResult: PlexSavedServerRestoreResult): AppError | undefined {
+    if (restoreResult.kind !== 'selection_failed') {
+        return undefined;
+    }
+    const message = restoreResult.reason === 'server_not_found'
+        ? 'Saved Plex server is no longer available.'
+        : restoreResult.reason === 'auth_required'
+            ? 'Saved Plex server requires authentication.'
+            : restoreResult.reason === 'access_denied'
+                ? 'Saved Plex server access was denied.'
+                : 'Saved Plex server is unreachable.';
+    return {
+        code: restoreResult.reason === 'auth_required'
+            ? AppErrorCode.AUTH_REQUIRED
+            : restoreResult.reason === 'access_denied'
+                ? AppErrorCode.ACCESS_DENIED
+                : AppErrorCode.SERVER_UNREACHABLE,
+        message,
+        recoverable: true,
+        context: {
+            serverId: restoreResult.serverId,
+            reason: restoreResult.reason,
+        },
+    };
+}
 
 export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs): Promise<void> {
     throwIfStartupAborted(inputs.signal);
@@ -314,8 +340,9 @@ export async function applyAuthValidationPolicy(inputs: AuthValidationPolicyInpu
 export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicyInputs): Promise<boolean> {
     throwIfStartupAborted(inputs.signal);
     inputs.updateModuleStatus('plex-server-discovery', 'initializing');
+    let savedServerRestore: PlexSavedServerRestoreResult;
     try {
-        await inputs.plexDiscovery.initialize({ signal: inputs.signal ?? null });
+        savedServerRestore = await inputs.plexDiscovery.initialize({ signal: inputs.signal ?? null });
         throwIfStartupAborted(inputs.signal);
     } catch (error) {
         if (isPlexAuthRecoverable(error)) {
@@ -336,9 +363,10 @@ export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicy
     throwIfStartupAborted(inputs.signal);
 
     if (!isConnected) {
+        const restoreError = createSavedServerRestoreError(savedServerRestore);
         inputs.updateModuleStatus('plex-server-discovery', 'pending', undefined, elapsedMs);
-        inputs.updateModuleStatus('plex-library', 'pending', undefined, elapsedMs);
-        inputs.updateModuleStatus('plex-stream-resolver', 'pending', undefined, elapsedMs);
+        inputs.updateModuleStatus('plex-library', 'pending', restoreError, elapsedMs);
+        inputs.updateModuleStatus('plex-stream-resolver', 'pending', restoreError, elapsedMs);
         throwIfStartupAborted(inputs.signal);
         inputs.handlers.registerServerResume();
         throwIfStartupAborted(inputs.signal);

@@ -33,7 +33,7 @@ interface IPlexAuth {
   getAccountUserId(): string | null;
   logoutActiveUser(): Promise<void>;
   readStoredCredentialsAndClearCorruption(): PlexStoredCredentialsReadResult;
-  storeCredentials(auth: PlexAuthData): void;
+  storeCredentials(auth: PlexAuthData, options?: { emitAuthChange?: boolean }): void;
   clearCredentials(): void;
   isAuthenticated(): boolean;
   getCurrentUser(): PlexAuthToken | null;
@@ -163,6 +163,17 @@ type PlexServerSelectionResult =
   | { kind: 'server_not_found' }
   | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
+type PlexSavedServerRestoreResult =
+  | { kind: 'skipped_no_servers' }
+  | { kind: 'skipped_no_saved_server' }
+  | { kind: 'already_selected'; serverId: string }
+  | { kind: 'selected'; serverId: string }
+  | {
+      kind: 'selection_failed';
+      serverId: string;
+      reason: 'server_not_found' | PlexServerSelectionFailureReason;
+    };
+
 interface PlexDiscoverySelectedServerSnapshot {
   server: PlexServer | null;
   connection: PlexConnection | null;
@@ -178,7 +189,7 @@ interface IPlexServerDiscovery {
 
   refreshServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
 
-  initialize(options?: PlexDiscoverySignalOptions): Promise<void>;
+  initialize(options?: PlexDiscoverySignalOptions): Promise<PlexSavedServerRestoreResult>;
 
   setStorageKeys(selectedServerKey: string, serverHealthKey: string): void;
 
@@ -224,7 +235,7 @@ interface IPlexServerDiscovery {
 }
 ```
 
-Discovery list and selected-server getters return defensive snapshots. Callers may cancel their own discovery wait with `AbortSignal` without canceling the shared in-flight discovery used by other callers. Connection probes and selected-server selection accept caller cancellation signals and rethrow the caller's raw abort reason instead of converting explicit cancellation into an unreachable-server result.
+Discovery list and selected-server getters return defensive snapshots. Startup initialization returns a saved-server restore result so callers can distinguish no saved server, already selected, restored selection, stale saved-server ids, and unreachable/access-denied saved servers. Callers may cancel their own discovery wait with `AbortSignal` without canceling the shared in-flight discovery used by other callers. Connection probes and selected-server selection accept caller cancellation signals and rethrow the caller's raw abort reason instead of converting explicit cancellation into an unreachable-server result.
 
 Discovery is endpoint-aware: plex.tv cloud resource discovery `401`/`403` remains an auth recovery failure, while a PMS identity-probe `403` means the active Plex profile lacks permission for that server and surfaces as `access_denied` instead of invalid stored credentials.
 Plex cloud discovery `5xx` responses surface as retryable `SERVER_ERROR` failures after discovery retry policy is exhausted; request failures without an HTTP response remain `SERVER_UNREACHABLE`.

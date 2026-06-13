@@ -32,6 +32,12 @@ export interface IChannelManager {
 
     getAllChannels(): ChannelConfig[];
 
+    /**
+     * Clears in-memory channel identity and resolver caches without changing the
+     * active persistence keys or deleting persisted channel data.
+     */
+    clearRuntimeState(): void;
+
     getChannelByNumber(number: number): ChannelConfig | null;
 
     /**

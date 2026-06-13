@@ -41,6 +41,7 @@ const createPlexAuth = (): jest.Mocked<IPlexAuth> => ({
 const createPlexDiscovery = (): jest.Mocked<IPlexServerDiscovery> => ({
     selectServer: jest.fn().mockResolvedValue({ kind: 'selected' }),
     getServerUri: jest.fn(() => 'http://next.example'),
+    isConnected: jest.fn(() => true),
     getSelectedConnection: jest.fn(() => ({ uri: 'http://next.example' })),
     clearSelection: jest.fn(),
     captureSelectedServerSnapshot: jest.fn(() => ({
@@ -331,7 +332,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
             storedServerId: 'old-server',
         });
         expect(plexAuth.storeCredentials).toHaveBeenCalledTimes(2);
-        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials());
+        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials(), { emitAuthChange: false });
         expect(deps.reportError).not.toHaveBeenCalled();
     });
 
@@ -389,7 +390,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
             connection: null,
             storedServerId: 'old-server',
         });
-        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials());
+        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials(), { emitAuthChange: false });
         expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).toHaveBeenCalledTimes(2);
         expect(epgCoordinator.clearScheduleCaches).toHaveBeenCalledTimes(2);
         expect(epg.clearSchedules).toHaveBeenCalledTimes(2);

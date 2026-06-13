@@ -44,11 +44,21 @@ const makeServer = (id: string, name: string, owned = true): PlexServer => ({
     preferredConnection: null,
 });
 
-const makeSelectedServerResult = (): Extract<
+const makeSelectedServerResult = (overrides: Partial<Extract<
+    Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>,
+    { kind: 'selected' }
+>> = {}): Extract<
     Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>,
     { kind: 'selected' }
 > => ({
     kind: 'selected' as const,
+    readiness: 'startup_pending',
+    persistedSelection: 'updated',
+    startupResume: {
+        startup: 'completed',
+        epgRefresh: { kind: 'succeeded' },
+    },
+    ...overrides,
 });
 
 const makeServerSelectState = (
@@ -68,7 +78,7 @@ const setServerSelectState = (
 
 const createOrchestratorStub = (): ServerSelectScreenHarness => {
     const navigation = createNavigationStub();
-    const requestChannelSetupRerun = jest.fn();
+    const requestChannelSetupRerun = jest.fn(() => ({ ok: true as const, serverId: 'srv-1' }));
     return {
         navigation,
         getNavigation: jest.fn(() => navigation),

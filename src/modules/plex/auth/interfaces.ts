@@ -169,7 +169,7 @@ export interface IPlexAuth {
     /**
      * Persist credentials to localStorage and update in-memory auth state synchronously.
      */
-    storeCredentials(auth: PlexAuthData): void;
+    storeCredentials(auth: PlexAuthData, options?: { emitAuthChange?: boolean }): void;
 
     /**
      * Clear persisted credentials and in-memory auth state synchronously.

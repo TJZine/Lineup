@@ -136,7 +136,7 @@ export class OrchestratorServerSelectionRuntime {
         if (!plexDiscovery) {
             return null;
         }
-        if (!plexDiscovery.getSelectedConnection()) {
+        if (!plexDiscovery.isConnected() || !plexDiscovery.getSelectedConnection()) {
             return null;
         }
         const server = plexDiscovery.getSelectedServer();

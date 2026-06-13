@@ -45,7 +45,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused owner for lazy-screen port assembly at the app-shell boundary
 - builds screen-specific port contracts for deferred screens while delegating runtime operations through app-shell-owned runtime port contracts (`AppShellRuntimeContracts`)
-- owns the app-shell/server-select narrowing of selected-server results to `{ kind: 'selected' }` or `{ kind: 'selection_failed'; reason }`; selected-server readiness, persistence, and startup-resume details remain behind the core server-selection/orchestrator result
+- owns the app-shell/server-select projection of selected-server results; success preserves readiness, persistence, and startup-resume details in the app-shell-owned contract without importing the core `OrchestratorServerSelectionResult`
 - owns the channel-setup screen's selected-server projection as runtime state (`getSelectedServerId`) only; channel setup UI must not construct `ServerSelectionStore` or consume selected-server storage-key getters
 - keeps `src/App.ts` at composition wiring by replacing the previous inline lazy-screen runtime object-literal assembly
 
@@ -319,6 +319,8 @@ after this extraction.
 - `src/modules/debug/DebugOverridesStore.ts` is the canonical owner for the `lineup_debug_epg` flag
 - `src/modules/settings/EpgPreferencesStore.ts` owns global EPG display preferences plus the server/user-scoped selected-library filter key family configured by `OrchestratorStorageContext`; selected-library filter reads/writes fail closed when that scope is unavailable
 - `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts` owns only the persisted setup-record family `lineup_channel_setup_v3:${serverId}:${activeUserId}` and returns typed completion persistence results instead of treating durable writes as void side effects
+- `src/modules/plex/auth/PlexAuth.ts` owns credential persistence events; selected-server metadata persistence uses `storeCredentials(..., { emitAuthChange: false })` so server-map writes do not impersonate token/profile auth mutations
+- `src/core/orchestrator/AppOrchestrator.ts` owns the shared identity-scoped runtime reset path after successful selected-server clear, sign-out, and profile switch; the path clears in-memory ChannelManager state, EPG schedule caches/rows, and playback identity state where applicable without deleting persisted channel data
 - `src/core/channel-setup/build/ChannelSetupBuildScratchStore.ts` owns temporary Channel Setup build-key lifecycle (`lineup_channels_build_tmp_v1:*`, `lineup_current_channel_build_tmp_v1:*`)
 - `src/core/channel-setup/config/normalizeChannelSetupConfig.ts` owns public setup-config normalization for planning, build execution, persistence, and UI session hydration; callers import the canonical config owner directly.
 - `src/core/channel-setup/workflow/ChannelSetupScreenWorkflowPort.ts` owns the screen-facing workflow contract derived from the full workflow port without planner diagnostics

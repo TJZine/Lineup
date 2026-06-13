@@ -83,7 +83,10 @@ export class ServerSelectScreen implements ServerSelectRuntimeScreenAdapter {
                             this.setStatus('Select a server first.', 'Setup can be re-run after a server is connected.', 'warning');
                             return;
                         }
-                        this._ports.requestChannelSetupRerun();
+                        const result = this._ports.requestChannelSetupRerun();
+                        if (!result.ok) {
+                            this.setStatus('Select a server first.', 'Setup can be re-run after a server is connected.', 'warning');
+                        }
                     },
                 },
                 {

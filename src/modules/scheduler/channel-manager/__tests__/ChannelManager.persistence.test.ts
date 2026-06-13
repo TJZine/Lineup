@@ -154,6 +154,39 @@ describe('ChannelManager persistence and storage keys', () => {
                 })
             );
         });
+
+        it('does not overwrite previous scope channels after runtime clear and key switch', async () => {
+            const persistedChannel = createBaseChannel({
+                id: 'persisted-channel',
+                name: 'Persisted Channel',
+                contentSource: createMockContentSource('persisted-lib'),
+            });
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
+                channels: [persistedChannel],
+                channelOrder: [persistedChannel.id],
+                currentChannelId: persistedChannel.id,
+                savedAt: Date.now(),
+            }));
+            await manager.createChannel({
+                name: 'Unsaved Runtime Channel',
+                contentSource: createMockContentSource('runtime-lib'),
+            });
+
+            manager.clearRuntimeState();
+            manager.setStorageKeys('lineup_channels_next_scope', 'lineup_current_channel_next_scope');
+            await manager.flushSaves();
+            await settleSaveDebounce();
+
+            const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
+                channels?: Array<{ id?: string }>;
+                channelOrder?: string[];
+                currentChannelId?: string | null;
+            };
+            expect(persisted.channels?.map((channel) => channel.id)).toEqual(['persisted-channel']);
+            expect(persisted.channelOrder).toEqual(['persisted-channel']);
+            expect(persisted.currentChannelId).toBe('persisted-channel');
+            expect(mockLocalStorage.getItem('lineup_channels_next_scope')).toBeNull();
+        });
     });
 
     describe('current-channel persistence', () => {
