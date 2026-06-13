@@ -12,7 +12,12 @@ import { ChannelSetupRecordStore } from '../../channel-setup/persistence/Channel
 import type { ChannelSetupWorkflowPortOwners } from '../../channel-setup/workflow/createChannelSetupWorkflowPort';
 import { createLazyChannelSetupWorkflowPortOwners } from '../../channel-setup/workflow/LazyChannelSetupWorkflowPortOwners';
 import type { GuideSelectionSnapshot } from '../../channel-tuning';
-import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../../../utils/storage';
+import {
+    safeLocalStorageGet,
+    safeLocalStorageRemove,
+    safeLocalStorageRemoveWithResult,
+    safeLocalStorageSetWithResult,
+} from '../../../utils/storage';
 import type {
     OrchestratorChannelSetupBuilderInput,
     OrchestratorCoordinatorAssemblyInput,
@@ -75,7 +80,11 @@ export function buildChannelSetupInput(
             channelManager: input.modules.channelManager,
         },
         schedule: {
+            getActiveUserId: input.schedule.getActiveUserId,
             getSelectedServerId: input.schedule.getSelectedServerId,
+        },
+        diagnostics: {
+            appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
         },
     };
 }
@@ -140,8 +149,16 @@ export function buildChannelSetupOwners(
 ): ChannelSetupOwners {
     const recordStore = new ChannelSetupRecordStore({
         storageGet: safeLocalStorageGet,
-        storageSet: safeLocalStorageSet,
-        storageRemove: safeLocalStorageRemove,
+        storageSet: safeLocalStorageSetWithResult,
+        storageRemove: safeLocalStorageRemoveWithResult,
+        getActiveUserId: input.schedule.getActiveUserId,
+        appendDiagnostic: (event): void => {
+            input.diagnostics.appendIssueDiagnostic(
+                'channel-setup-record',
+                'channel-setup.record.persistence',
+                event
+            );
+        },
     });
     const buildScratchStore = new ChannelSetupBuildScratchStore({
         storageRemove: safeLocalStorageRemove,

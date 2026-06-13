@@ -69,12 +69,12 @@ describe('ChannelSetupBuildScratchStore', () => {
         });
         localStorage.setItem('lineup_channels_build_tmp_v1:abc', '1');
         localStorage.setItem('lineup_current_channel_build_tmp_v1:def', '2');
-        localStorage.setItem('lineup_channel_setup_v2:server-1', 'keep');
+        localStorage.setItem('lineup_channel_setup_v3:server-1:user-1', 'keep');
 
         store.cleanupStaleBuildKeys();
 
         expect(localStorage.getItem('lineup_channels_build_tmp_v1:abc')).toBeNull();
         expect(localStorage.getItem('lineup_current_channel_build_tmp_v1:def')).toBeNull();
-        expect(localStorage.getItem('lineup_channel_setup_v2:server-1')).toBe('keep');
+        expect(localStorage.getItem('lineup_channel_setup_v3:server-1:user-1')).toBe('keep');
     });
 });

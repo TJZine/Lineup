@@ -134,6 +134,7 @@ const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput 
         lastChannelChangeSource: () => null,
         setLastChannelChangeSource: jest.fn(),
         setActiveScheduleDayKey: jest.fn(),
+        getActiveUserId: () => 'user-1',
         getSelectedServerId: () => null,
         getLocalMidnightMs: (timeMs) => timeMs,
         getLocalDayKey: () => 0,
@@ -254,7 +255,11 @@ describe('createOrchestratorCoordinators', () => {
                 channelManager: deps.modules.channelManager,
             },
             schedule: {
+                getActiveUserId: deps.schedule.getActiveUserId,
                 getSelectedServerId: deps.schedule.getSelectedServerId,
+            },
+            diagnostics: {
+                appendIssueDiagnostic: deps.diagnostics.appendIssueDiagnostic,
             },
         });
         expect(channelSetupInput).not.toHaveProperty('overlays');

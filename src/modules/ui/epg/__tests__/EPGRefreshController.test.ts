@@ -181,6 +181,41 @@ describe('EPGRefreshController', () => {
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
     });
 
+    it('diagnoses selected-library filter cleanup persistence failure while resolving live rows', () => {
+        const current = { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' };
+        const visiblePeer = { ...makeChannel('c2', 2), sourceLibraryId: 'lib2', sourceLibraryName: 'TV' };
+        const epgPreferencesStore = new EpgPreferencesStore();
+        jest.spyOn(epgPreferencesStore, 'readScheduleRangeSnapshotAndClean').mockReturnValue({
+            pastItemsWindowSetting: 'auto',
+            tabsEnabled: true,
+            selectedLibraryId: 'missing-lib',
+        });
+        jest.spyOn(epgPreferencesStore, 'writeSelectedLibraryId').mockReturnValue({
+            ok: false,
+            reason: 'unavailable',
+        });
+        const { deps, epg } = makeDeps({
+            epgPreferencesStore,
+            channelManager: {
+                getAllChannels: jest.fn(() => [current, visiblePeer]),
+                getCurrentChannel: jest.fn(() => current),
+            } as Partial<IChannelManager>,
+            scheduler: {
+                getState: jest.fn(() => makeSchedulerState(current.id, true)),
+                getScheduleWindow: jest.fn(() => makeScheduleWindow(`${current.id}-0`)),
+            } as Partial<IChannelScheduler>,
+        });
+        const controller = new EPGRefreshController(deps);
+
+        controller.preseedCurrentChannelSchedule(epg);
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
+            reason: 'unavailable',
+            requestedLibraryId: null,
+            source: 'normalize-invalid-library-filter',
+        });
+    });
+
     it('reports best-effort refresh failures through package diagnostics', async () => {
         const { deps } = makeDeps();
         const controller = new EPGRefreshController(deps);

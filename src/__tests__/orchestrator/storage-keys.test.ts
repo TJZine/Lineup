@@ -7,16 +7,19 @@ describe('OrchestratorStorageContext', () => {
         context: OrchestratorStorageContext;
         setDiscoveryStorageKeys: jest.Mock;
         setChannelManagerStorageKeys: jest.Mock;
+        setEpgLibraryFilterScope: jest.Mock;
     } => {
         const setDiscoveryStorageKeys = jest.fn();
         const setChannelManagerStorageKeys = jest.fn();
+        const setEpgLibraryFilterScope = jest.fn();
         const context = new OrchestratorStorageContext({
             getActiveUserId: (): string | null => input.userId,
             getSelectedServerId: (): string | null => input.serverId,
             setDiscoveryStorageKeys,
             setChannelManagerStorageKeys,
+            setEpgLibraryFilterScope,
         });
-        return { context, setDiscoveryStorageKeys, setChannelManagerStorageKeys };
+        return { context, setDiscoveryStorageKeys, setChannelManagerStorageKeys, setEpgLibraryFilterScope };
     };
 
     it('namespaces selected server and health keys by active user when present', () => {
@@ -45,26 +48,41 @@ describe('OrchestratorStorageContext', () => {
     });
 
     it('scopes channel manager storage keys by selected server and active user', () => {
-        const { context, setChannelManagerStorageKeys } = createContext({ userId: 'user-1', serverId: 'server-1' });
+        const { context, setChannelManagerStorageKeys, setEpgLibraryFilterScope } = createContext({
+            userId: 'user-1',
+            serverId: 'server-1',
+        });
         context.configureChannelManagerStorageForSelectedServer();
         expect(setChannelManagerStorageKeys).toHaveBeenCalledWith(
             `${LINEUP_STORAGE_KEYS.CHANNELS_SERVER}:server-1:user-1`,
             `${LINEUP_STORAGE_KEYS.CURRENT_CHANNEL}:server-1:user-1`
         );
+        expect(setEpgLibraryFilterScope).toHaveBeenCalledWith({
+            serverId: 'server-1',
+            userId: 'user-1',
+        });
     });
 
     it('uses server-scoped channel manager keys when user id is unavailable', () => {
-        const { context, setChannelManagerStorageKeys } = createContext({ userId: null, serverId: 'server-1' });
+        const { context, setChannelManagerStorageKeys, setEpgLibraryFilterScope } = createContext({
+            userId: null,
+            serverId: 'server-1',
+        });
         context.configureChannelManagerStorageForSelectedServer();
         expect(setChannelManagerStorageKeys).toHaveBeenCalledWith(
             `${LINEUP_STORAGE_KEYS.CHANNELS_SERVER}:server-1`,
             `${LINEUP_STORAGE_KEYS.CURRENT_CHANNEL}:server-1`
         );
+        expect(setEpgLibraryFilterScope).toHaveBeenCalledWith(null);
     });
 
     it('does not configure channel manager storage keys when no server is selected', () => {
-        const { context, setChannelManagerStorageKeys } = createContext({ userId: 'user-1', serverId: null });
+        const { context, setChannelManagerStorageKeys, setEpgLibraryFilterScope } = createContext({
+            userId: 'user-1',
+            serverId: null,
+        });
         context.configureChannelManagerStorageForSelectedServer();
         expect(setChannelManagerStorageKeys).not.toHaveBeenCalled();
+        expect(setEpgLibraryFilterScope).toHaveBeenCalledWith(null);
     });
 });

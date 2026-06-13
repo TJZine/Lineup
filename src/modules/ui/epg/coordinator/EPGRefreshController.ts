@@ -22,6 +22,7 @@ import {
     computeEpgScheduleRangeMs,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
+import { reportLibraryFilterPersistenceResult } from './EPGLibraryFilterPersistenceDiagnostics';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
 import { toEpgScheduleWindow } from '../model/adapters';
 import type { EPGConfig } from '../types';
@@ -158,7 +159,12 @@ export class EPGRefreshController {
             this._deps.epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
         if (shouldClearPersistedSelection) {
-            this._deps.epgPreferencesStore.writeSelectedLibraryId(null);
+            reportLibraryFilterPersistenceResult(
+                this._deps.appendIssueDiagnostic,
+                this._deps.epgPreferencesStore.writeSelectedLibraryId(null),
+                null,
+                'normalize-invalid-library-filter'
+            );
         }
         return { selectedId, shouldFilter };
     }

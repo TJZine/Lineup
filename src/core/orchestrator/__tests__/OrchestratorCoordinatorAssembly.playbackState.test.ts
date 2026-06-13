@@ -172,6 +172,7 @@ const makeDeps = (
             lastChannelChangeSource: jest.fn().mockReturnValue(null),
             setLastChannelChangeSource: jest.fn(),
             setActiveScheduleDayKey: jest.fn(),
+            getActiveUserId: jest.fn().mockReturnValue('user-1'),
             getSelectedServerId: jest.fn().mockReturnValue('server-1'),
             getLocalMidnightMs: jest.fn().mockReturnValue(0),
             getLocalDayKey: jest.fn().mockReturnValue(0),

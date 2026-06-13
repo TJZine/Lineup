@@ -116,3 +116,16 @@ export interface ChannelSetupRecord extends ChannelSetupConfig {
     createdAt: number;
     updatedAt: number;
 }
+
+export type ChannelSetupCompletionFailureReason =
+    | 'quota-exceeded'
+    | 'unavailable'
+    | 'missing-active-user';
+
+export type ChannelSetupCompletionResult =
+    | { ok: true; record: ChannelSetupRecord }
+    | {
+        ok: false;
+        reason: ChannelSetupCompletionFailureReason;
+        message: string;
+    };

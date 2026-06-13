@@ -10,6 +10,7 @@ export interface OrchestratorStorageContextDeps {
     getSelectedServerId: () => string | null;
     setDiscoveryStorageKeys: (selectedKey: string, healthKey: string) => void;
     setChannelManagerStorageKeys: (channelsKey: string, currentChannelKey: string) => void;
+    setEpgLibraryFilterScope: (scope: { serverId: string; userId: string } | null) => void;
 }
 
 export class OrchestratorStorageContext {
@@ -47,6 +48,7 @@ export class OrchestratorStorageContext {
     configureChannelManagerStorageForSelectedServer(): void {
         const serverId = this._deps.getSelectedServerId();
         if (!serverId) {
+            this._deps.setEpgLibraryFilterScope(null);
             return;
         }
 
@@ -59,5 +61,6 @@ export class OrchestratorStorageContext {
             : `${LINEUP_STORAGE_KEYS.CURRENT_CHANNEL}:${serverId}`;
 
         this._deps.setChannelManagerStorageKeys(channelsKey, currentKey);
+        this._deps.setEpgLibraryFilterScope(userId ? { serverId, userId } : null);
     }
 }

@@ -131,6 +131,7 @@ export interface OrchestratorCoordinatorAssemblyInput {
         lastChannelChangeSource: () => 'remote' | 'number' | 'guide' | null;
         setLastChannelChangeSource: (source: 'remote' | 'number' | 'guide' | null) => void;
         setActiveScheduleDayKey: (dayKey: number) => void;
+        getActiveUserId: () => string | null;
         getSelectedServerId: () => string | null;
         getLocalMidnightMs: (timeMs: number) => number;
         getLocalDayKey: (timeMs: number) => number;
@@ -211,7 +212,8 @@ export interface OrchestratorEpgCoordinatorBuilderInput {
 export interface OrchestratorChannelSetupBuilderInput {
     init: OrchestratorCoordinatorAssemblyInput['init'];
     modules: Pick<CoordinatorModules, 'navigation' | 'plexLibrary' | 'channelManager'>;
-    schedule: Pick<CoordinatorSchedule, 'getSelectedServerId'>;
+    schedule: Pick<CoordinatorSchedule, 'getActiveUserId' | 'getSelectedServerId'>;
+    diagnostics: Pick<OrchestratorCoordinatorAssemblyInput['diagnostics'], 'appendIssueDiagnostic'>;
 }
 
 export interface OrchestratorPlaybackRecoveryBuilderInput {

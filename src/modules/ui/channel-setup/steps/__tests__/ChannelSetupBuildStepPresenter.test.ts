@@ -211,6 +211,27 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect(deps.focus.unregisterAll).toHaveBeenCalled();
     });
 
+    it('uses degraded success copy when setup completion cannot be saved', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0 },
+                bookkeepingError: 'Device storage is full.',
+            }),
+        });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        expect(ctx.statusEl.textContent).toBe('Channels created; setup save needed.');
+        expect(ctx.errorEl.textContent).toBe(
+            'Channels were created, but setup completion could not be saved: Device storage is full.'
+        );
+    });
+
     it('renders blocked build outcomes with user-safe recovery copy', async () => {
         const ctx = createContext();
         document.body.appendChild(ctx.contentEl);

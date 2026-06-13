@@ -356,6 +356,9 @@ export class AppOrchestrator {
             setChannelManagerStorageKeys: (channelsKey: string, currentChannelKey: string): void => {
                 this._channelManager?.setStorageKeys(channelsKey, currentChannelKey);
             },
+            setEpgLibraryFilterScope: (scope): void => {
+                this._epgPreferencesStore.setLibraryFilterScope(scope);
+            },
         });
         this._playbackStateAccessors = {
             getCurrentProgramForPlayback: (): ScheduledProgram | null =>
@@ -701,6 +704,7 @@ export class AppOrchestrator {
                 setActiveScheduleDayKey: (dayKey: number): void => {
                     this._scheduleDayRolloverController?.setActiveScheduleDayKey(dayKey);
                 },
+                getActiveUserId: (): string | null => this._getActiveUserId(),
                 getSelectedServerId: (): string | null => this._serverSelectionRuntime.getSelectedServerId(),
                 getLocalMidnightMs: (timeMs: number): number => this._schedulePolicy.getLocalMidnightMs(timeMs),
                 getLocalDayKey: (timeMs: number): number => this._schedulePolicy.getLocalDayKey(timeMs),
@@ -1168,6 +1172,7 @@ export class AppOrchestrator {
         }
         await this._plexAuth.clearCredentials();
         this._plexDiscovery?.clearSelection();
+        await this._configureChannelManagerStorageForSelectedServer();
         if (this._initCoordinator) {
             await this._initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         } else {
@@ -1201,6 +1206,7 @@ export class AppOrchestrator {
 
     async clearSelectedServer(): Promise<void> {
         await this._serverSelectionRuntime.clearSelectedServer();
+        await this._configureChannelManagerStorageForSelectedServer();
     }
 
     private async _resumeStartupAfterProfileSwitch(initCoordinator: InitializationCoordinator): Promise<void> {

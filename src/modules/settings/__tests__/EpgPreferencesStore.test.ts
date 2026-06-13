@@ -31,11 +31,43 @@ describe('EpgPreferencesStore', () => {
     });
 
     it('reads/writes library filter with trim/remove normalization', () => {
+        store.setLibraryFilterScope({ serverId: 'server-1', userId: 'user-1' });
         expect(store.writeSelectedLibraryId('  lib-1 ')).toEqual({ ok: true });
         expect(store.readSelectedLibraryIdAndClean()).toBe('lib-1');
 
         expect(store.writeSelectedLibraryId(' ')).toEqual({ ok: true });
         expect(store.readSelectedLibraryIdAndClean()).toBeNull();
+        expect(localStorage.getItem(`${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`)).toBeNull();
+    });
+
+    it('fails closed for library filter reads and writes without selected server and active user scope', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'global-lib');
+
+        expect(store.readSelectedLibraryIdAndClean()).toBeNull();
+        expect(store.writeSelectedLibraryId('lib-1')).toEqual({
+            ok: false,
+            reason: 'unavailable',
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('global-lib');
+    });
+
+    it('scopes library filter by selected server and active user without affecting global display preferences', () => {
+        store.setLibraryFilterScope({ serverId: 'server-a', userId: 'user-a' });
+        expect(store.writeSelectedLibraryId('lib-a')).toEqual({ ok: true });
+        expect(store.writeGuideDensity('wide')).toEqual({ ok: true });
+
+        store.setLibraryFilterScope({ serverId: 'server-b', userId: 'user-a' });
+        expect(store.readSelectedLibraryIdAndClean()).toBeNull();
+        expect(store.writeSelectedLibraryId('lib-b')).toEqual({ ok: true });
+        expect(store.readGuideDensityAndClean()).toBe('wide');
+
+        store.setLibraryFilterScope({ serverId: 'server-a', userId: 'user-b' });
+        expect(store.readSelectedLibraryIdAndClean()).toBeNull();
+
+        store.setLibraryFilterScope({ serverId: 'server-a', userId: 'user-a' });
+        expect(store.readSelectedLibraryIdAndClean()).toBe('lib-a');
+        expect(localStorage.getItem(`${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-a:user-a`)).toBe('lib-a');
+        expect(localStorage.getItem(`${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-b:user-a`)).toBe('lib-b');
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
     });
 
@@ -59,16 +91,18 @@ describe('EpgPreferencesStore', () => {
     });
 
     it('removes blank stored library filters when reading', () => {
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, '');
+        store.setLibraryFilterScope({ serverId: 'server-1', userId: 'user-1' });
+        localStorage.setItem(`${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`, '');
 
         expect(store.readSelectedLibraryIdAndClean()).toBeNull();
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+        expect(localStorage.getItem(`${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`)).toBeNull();
     });
 
     it('returns normalized schedule-range snapshots from storage-backed preferences', () => {
+        store.setLibraryFilterScope({ serverId: 'server-1', userId: 'user-1' });
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'bad-value');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, '   ');
+        localStorage.setItem(`${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`, '   ');
 
         expect(store.readScheduleRangeSnapshotAndClean()).toEqual({
             pastItemsWindowSetting: 'auto',
@@ -76,7 +110,7 @@ describe('EpgPreferencesStore', () => {
             selectedLibraryId: null,
         });
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBeNull();
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+        expect(localStorage.getItem(`${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`)).toBeNull();
     });
 
     it('round-trips the canonical past-items storage values', () => {
@@ -87,6 +121,7 @@ describe('EpgPreferencesStore', () => {
     });
 
     it('returns unavailable when storage writes are blocked', () => {
+        store.setLibraryFilterScope({ serverId: 'server-1', userId: 'user-1' });
         const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
             throw new DOMException('blocked', 'SecurityError');
         });

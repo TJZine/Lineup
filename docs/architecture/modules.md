@@ -235,6 +235,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/settings/PlaybackSettingsStore.ts`
 - EPG settings storage ownership
 - `src/modules/settings/EpgPreferencesStore.ts`
+- owns global EPG display preferences plus the selected-library filter scoped by
+  selected server and active Plex profile; selected-library reads/writes fail
+  closed when scope is unavailable
 - now-playing display settings storage ownership
 - `src/modules/settings/NowPlayingDisplayStore.ts`
 - profile session storage ownership
@@ -276,7 +279,7 @@ This document is directory-oriented and lists file-level owners where the canoni
   screen-facing workflow contract derived from the full workflow port without
   diagnostics
 - `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`
-- owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
+- owns only the persisted setup-record family `lineup_channel_setup_v3:${serverId}:${activeUserId}` and returns typed setup-completion persistence results
 - `src/core/channel-setup/build/ChannelSetupBuildScratchStore.ts`
 - owns temporary Channel Setup build-key cleanup for `lineup_channels_build_tmp_v1:*`
   and `lineup_current_channel_build_tmp_v1:*`

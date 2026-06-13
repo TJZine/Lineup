@@ -83,6 +83,7 @@ const readScheduleRange = (deps: EPGCoordinatorDeps): { startTime: number; endTi
     );
 
 const FIXED_FAKE_NOW = new Date('2026-01-01T12:00:00.000Z');
+const EPG_LIBRARY_FILTER_TEST_KEY = `${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`;
 
 const useDeterministicFakeTimers = (): void => {
     jest.useFakeTimers();
@@ -136,6 +137,7 @@ const makeDeps = (
     overrides: Partial<EPGCoordinatorDeps> = {}
 ): { deps: EPGCoordinatorDeps; epg: IEPGComponent; channelManager: IChannelManager; scheduler: IChannelScheduler } => {
     const epgPreferencesStore = new EpgPreferencesStore();
+    epgPreferencesStore.setLibraryFilterScope({ serverId: 'server-1', userId: 'user-1' });
     const epg: IEPGComponent = {
         show: jest.fn(),
         hide: jest.fn(),
@@ -553,7 +555,7 @@ describe('EPGCoordinator', () => {
 
     it('primeEpgChannels applies filtering when tabs enabled and selected', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             {
@@ -602,7 +604,7 @@ describe('EPGCoordinator', () => {
 
     it('primeEpgChannels forces 3h for movie library filters even when default density is detailed', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'movie-lib');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'movie-lib');
 
         const allChannels: ChannelConfig[] = [
             {
@@ -646,7 +648,7 @@ describe('EPGCoordinator', () => {
     it('primeEpgChannels forces 2h for show library filters even when density is wide', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'show-lib');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'show-lib');
 
         const allChannels: ChannelConfig[] = [
             {
@@ -692,7 +694,7 @@ describe('EPGCoordinator', () => {
         jest.spyOn(Date, 'now').mockReturnValue(now);
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'show-lib');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'show-lib');
 
         const channels = [
             {
@@ -827,7 +829,7 @@ describe('EPGCoordinator', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         const getRange = (selectedLibraryId: string, channels: ChannelConfig[]): { startTime: number; endTime: number } | null => {
-            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, selectedLibraryId);
+            localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, selectedLibraryId);
             const base = makeDeps().deps.getChannelManager()!;
             const { deps } = makeDeps({
                 getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
@@ -940,7 +942,7 @@ describe('EPGCoordinator', () => {
 
     it('primeEpgChannels preserves a valid persisted filter when tabs are disabled', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -958,13 +960,13 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBe('lib1');
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
     it('primeEpgChannels preserves a valid persisted filter when only one library remains', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -982,13 +984,13 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBe('lib1');
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
     it('primeEpgChannels clears an invalid persisted filter through explicit runtime-owner cleanup', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'missing-lib');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'missing-lib');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1019,13 +1021,44 @@ describe('EPGCoordinator', () => {
         );
         expect(writeSelectedLibraryIdSpy).toHaveBeenCalledTimes(1);
         expect(writeSelectedLibraryIdSpy).toHaveBeenCalledWith(null);
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBeNull();
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
+    });
+
+    it('primeEpgChannels diagnoses selected-library filter cleanup persistence failure', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'missing-lib');
+
+        const allChannels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib2', sourceLibraryName: 'TV' },
+        ];
+
+        const { deps } = makeDeps({
+            getChannelManager: () =>
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
+        });
+        jest.spyOn(deps.epgPreferencesStore, 'writeSelectedLibraryId').mockReturnValue({
+            ok: false,
+            reason: 'unavailable',
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
+            reason: 'unavailable',
+            requestedLibraryId: null,
+            source: 'prime-epg-channels',
+        });
     });
 
     it('primeEpgChannels preserves a valid persisted filter when tabs are enabled and multiple libraries remain', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1043,7 +1076,7 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBe('lib1');
         expect(epg.loadChannels).toHaveBeenCalledWith([
             expect.objectContaining({ id: 'c1' }),
         ]);
@@ -1052,7 +1085,7 @@ describe('EPGCoordinator', () => {
     it('does not clear stored library filter during schedule range computations', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1068,7 +1101,7 @@ describe('EPGCoordinator', () => {
         });
         readScheduleRange(deps);
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBe('lib1');
     });
 
     it('primeEpgChannels applies layout mode and now watching settings from storage', () => {
@@ -1221,7 +1254,7 @@ describe('EPGCoordinator', () => {
 
 	    it('does not preseed when current channel is filtered out', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib2');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib2');
 
         const channels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1688,7 +1721,7 @@ describe('EPGCoordinator', () => {
 
     it('refreshEpgSchedules uses filtered channels', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const channels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1715,7 +1748,7 @@ describe('EPGCoordinator', () => {
 
     it('refreshEpgSchedulesForRange uses filtered channels', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const channels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -2709,6 +2742,26 @@ describe('EPGCoordinator', () => {
         expect(epg.scrollToChannel).toHaveBeenCalledWith(0);
         expect(epg.focusChannel).toHaveBeenCalledWith(0);
         expect(epg.loadScheduleForChannel).toHaveBeenCalled();
+    });
+
+    it('library filter change diagnoses selected-library filter persistence failure', async () => {
+        const { deps, epg } = makeDeps();
+        jest.spyOn(deps.epgPreferencesStore, 'writeSelectedLibraryId').mockReturnValue({
+            ok: false,
+            reason: 'quota-exceeded',
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.wireEpgEvents();
+
+        const filterHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'libraryFilterChanged')?.[1];
+        filterHandler?.({ libraryId: 'lib1' });
+        await flushPromises();
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
+            reason: 'quota-exceeded',
+            requestedLibraryId: 'lib1',
+        });
     });
 
     it('handleVisibleRangeChange delegates refresh with visible-range reason', async () => {

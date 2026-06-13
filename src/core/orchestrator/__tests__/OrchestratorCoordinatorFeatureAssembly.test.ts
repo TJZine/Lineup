@@ -5,7 +5,10 @@ import type {
     OrchestratorNavigationCoordinatorBuilderInput,
 } from '../assembly/OrchestratorCoordinatorContracts';
 
-const recordStoreInstance = { kind: 'record-store', markSetupComplete: jest.fn() };
+const recordStoreInstance = {
+    kind: 'record-store',
+    markSetupComplete: jest.fn(() => ({ ok: true, record: { serverId: 'server-1' } })),
+};
 const scratchStoreInstance = { kind: 'scratch-store' };
 const planningServiceInstance = {
     kind: 'planning-service',
@@ -145,6 +148,7 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
             lastChannelChangeSource: jest.fn(() => null),
             setLastChannelChangeSource: jest.fn(),
             setActiveScheduleDayKey: jest.fn(),
+            getActiveUserId: jest.fn(() => 'user-1'),
             getSelectedServerId: jest.fn(() => 'server-1'),
             getLocalMidnightMs: jest.fn(() => 0),
             getLocalDayKey: jest.fn(() => 0),
@@ -241,6 +245,14 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         expect(ChannelSetupBuildScratchStore).toHaveBeenCalledTimes(1);
         expect(ChannelSetupPlanningService).not.toHaveBeenCalled();
         expect(ChannelSetupBuildExecutor).not.toHaveBeenCalled();
+        const recordStoreArgs = (ChannelSetupRecordStore as jest.Mock).mock.calls[0]?.[0];
+        expect(recordStoreArgs.getActiveUserId()).toBe('user-1');
+        recordStoreArgs.appendDiagnostic({ reason: 'invalid-json', serverId: 'server-1' });
+        expect(input.diagnostics.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'channel-setup-record',
+            'channel-setup.record.persistence',
+            { reason: 'invalid-json', serverId: 'server-1' }
+        );
         expect(owners).toEqual({
             coordinator: coordinatorInstance,
             portOwners: {

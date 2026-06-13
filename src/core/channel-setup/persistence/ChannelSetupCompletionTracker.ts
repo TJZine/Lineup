@@ -1,4 +1,4 @@
-import type { ChannelSetupConfig } from '../types';
+import type { ChannelSetupCompletionResult, ChannelSetupConfig } from '../types';
 import type { ChannelSetupRecordStore } from './ChannelSetupRecordStore';
 
 export interface ChannelSetupCompletionTrackerDeps {
@@ -9,8 +9,11 @@ export interface ChannelSetupCompletionTrackerDeps {
 export class ChannelSetupCompletionTracker {
     constructor(private readonly _deps: ChannelSetupCompletionTrackerDeps) {}
 
-    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): void {
-        this._deps.recordStore.markSetupComplete(serverId, setupConfig);
-        this._deps.clearRerunRequest();
+    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): ChannelSetupCompletionResult {
+        const result = this._deps.recordStore.markSetupComplete(serverId, setupConfig);
+        if (result.ok) {
+            this._deps.clearRerunRequest();
+        }
+        return result;
     }
 }

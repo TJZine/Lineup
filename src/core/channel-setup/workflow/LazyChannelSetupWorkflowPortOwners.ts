@@ -5,7 +5,7 @@ import type { ChannelSetupEpgRefreshOptions } from '../build/ChannelSetupBuildCo
 import type { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
 import type { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
 import type { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
-import type { ChannelSetupRecord } from '../types';
+import type { ChannelSetupCompletionResult } from '../types';
 import type { ChannelSetupWorkflowPortOwners } from './createChannelSetupWorkflowPort';
 import { summarizeErrorForLog } from '../../../utils/errors';
 
@@ -118,10 +118,12 @@ export function createLazyChannelSetupWorkflowPortOwners(
         },
         recordStore: deps.recordStore,
         completionTracker: {
-            markSetupComplete: (serverId, setupConfig): ChannelSetupRecord => {
-                const record = deps.recordStore.markSetupComplete(serverId, setupConfig);
-                deps.clearRerunRequest();
-                return record;
+            markSetupComplete: (serverId, setupConfig): ChannelSetupCompletionResult => {
+                const result = deps.recordStore.markSetupComplete(serverId, setupConfig);
+                if (result.ok) {
+                    deps.clearRerunRequest();
+                }
+                return result;
             },
         },
         getSelectedServerId: deps.getSelectedServerId,

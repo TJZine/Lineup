@@ -125,7 +125,7 @@ describe('storage helpers', () => {
     it('safeLocalStorageRemoveByPrefixes removes only matching keys', () => {
         localStorage.setItem('lineup_channels_build_tmp_v1:a', '1');
         localStorage.setItem('lineup_current_channel_build_tmp_v1:b', '1');
-        localStorage.setItem('lineup_channel_setup_v2:server-1', 'keep');
+        localStorage.setItem('lineup_channel_setup_v3:server-1:user-1', 'keep');
 
         const removed = safeLocalStorageRemoveByPrefixes([
             'lineup_channels_build_tmp_v1:',
@@ -138,7 +138,7 @@ describe('storage helpers', () => {
         ]);
         expect(localStorage.getItem('lineup_channels_build_tmp_v1:a')).toBe(null);
         expect(localStorage.getItem('lineup_current_channel_build_tmp_v1:b')).toBe(null);
-        expect(localStorage.getItem('lineup_channel_setup_v2:server-1')).toBe('keep');
+        expect(localStorage.getItem('lineup_channel_setup_v3:server-1:user-1')).toBe('keep');
     });
 
     it('safeLocalStorageRemoveByPrefixes returns empty list when storage access throws', () => {

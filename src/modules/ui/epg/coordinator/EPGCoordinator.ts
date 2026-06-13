@@ -15,6 +15,7 @@ import {
     computeNormalizedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
+import { reportLibraryFilterPersistenceResult } from './EPGLibraryFilterPersistenceDiagnostics';
 import { countLibraryTypeVotes } from './EPGLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
 import { toEpgChannels } from '../model/adapters';
@@ -325,7 +326,7 @@ export class EPGCoordinator {
             this._epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
         if (shouldClearPersistedSelection) {
-            this._epgPreferencesStore.writeSelectedLibraryId(null);
+            reportLibraryFilterPersistenceResult(this.deps.appendIssueDiagnostic, this._epgPreferencesStore.writeSelectedLibraryId(null), null, 'prime-epg-channels');
         }
 
         // Tabs (only show if enabled; EPGComponent will hide if <=1 library)
@@ -423,7 +424,7 @@ export class EPGCoordinator {
         epg.on('channelSelected', handler);
 
         const onFilter = (payload: { libraryId: string | null }): void => {
-            this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
+            reportLibraryFilterPersistenceResult(this.deps.appendIssueDiagnostic, this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null), payload.libraryId ?? null);
 
             this._invalidateGuideSelection('library-filter');
             this._refreshController.handleLibraryFilterRefreshChange();
@@ -482,7 +483,7 @@ export class EPGCoordinator {
             this._epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
         if (shouldClearPersistedSelection) {
-            this._epgPreferencesStore.writeSelectedLibraryId(null);
+            reportLibraryFilterPersistenceResult(this.deps.appendIssueDiagnostic, this._epgPreferencesStore.writeSelectedLibraryId(null), null, 'focus-current-channel');
         }
         const channels = selectVisibleChannelsForLibraryFilter(all, selectedId, shouldFilter);
         const index = channels.findIndex((channel) => channel.id === current.id);

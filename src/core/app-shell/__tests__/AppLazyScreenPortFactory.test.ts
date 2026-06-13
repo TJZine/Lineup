@@ -5,6 +5,7 @@ import {
 } from '../deferred-screens/AppLazyScreenPortFactory';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
+import type { ChannelSetupCompletionResult } from '../../channel-setup/types';
 
 type MockRuntimeOrchestrator = {
     requestAuthPin: jest.Mock;
@@ -81,7 +82,10 @@ const createScreenWorkflowPort = (): jest.Mocked<ChannelSetupScreenWorkflowPort>
         canceled: false,
         lastTask: 'done',
     })),
-    markSetupComplete: jest.fn((_serverId, _setupConfig) => {}),
+    markSetupComplete: jest.fn((_serverId, _setupConfig) => ({
+        ok: true,
+        record: { serverId: _serverId },
+    } as ChannelSetupCompletionResult)),
 });
 
 const createChannelSetupWorkflowPortFixture = (): jest.Mocked<ChannelSetupWorkflowPort> => ({

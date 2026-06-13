@@ -9,7 +9,7 @@ import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../
 import type { AppRuntimeEngineLoader } from '../core/app-shell/runtime/AppRuntimeEngineLoader';
 import type { AppShellOrchestratorRuntime } from '../core/app-shell/runtime/AppShellRuntimeContracts';
 import { AppThemeController } from '../core/app-shell/runtime/AppThemeController';
-import type { ChannelSetupConfig } from '../core/channel-setup/types';
+import type { ChannelSetupCompletionResult, ChannelSetupConfig } from '../core/channel-setup/types';
 import type { ChannelSetupWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
@@ -348,7 +348,10 @@ describe('App bootstrap smoke', () => {
             canceled: false,
             lastTask: 'done',
         })),
-        markSetupComplete: jest.fn((_serverId, _setupConfig) => {}),
+        markSetupComplete: jest.fn((_serverId, _setupConfig) => ({
+            ok: true,
+            record: { serverId: _serverId },
+        } as ChannelSetupCompletionResult)),
     });
 
     afterEach(async () => {

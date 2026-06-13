@@ -25,6 +25,7 @@ import { ChannelTuningCoordinator } from '../core/channel-tuning';
 import type { PlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
+import { EpgPreferencesStore } from '../modules/settings/EpgPreferencesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
@@ -601,7 +602,7 @@ describe('AppOrchestrator', () => {
     };
     let pauseHandler: (() => void | Promise<void>) | null;
     let resumeHandler: (() => void | Promise<void>) | null;
-const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrator => {
+    const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrator => {
         const instance = new AppOrchestrator(platformServices);
         ownedOrchestrators.add(instance);
         return instance;
@@ -1431,6 +1432,25 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             }));
         });
 
+        it('clears selected-library filter scope after selected-server clear', async () => {
+            await orchestrator.initialize(mockConfig);
+            const storedCredentials = createStoredCredentials('valid-token');
+            if (storedCredentials.kind !== 'available') {
+                throw new Error('Expected available stored credentials in test setup');
+            }
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
+            const scopeSpy = jest.spyOn(EpgPreferencesStore.prototype, 'setLibraryFilterScope');
+            scopeSpy.mockClear();
+
+            try {
+                await orchestrator.clearSelectedServer();
+
+                expect(scopeSpy).toHaveBeenLastCalledWith(null);
+            } finally {
+                scopeSpy.mockRestore();
+            }
+        });
+
         it('propagates selected-server clear persistence failures without clearing discovery selection', async () => {
             const persistenceError = new Error('store failed');
             await orchestrator.initialize(mockConfig);
@@ -1441,6 +1461,22 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
             expect(mockPlexDiscovery.clearSelection).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Plex sign-out storage scope', () => {
+        it('clears selected-library filter scope after sign-out clears identity', async () => {
+            await orchestrator.initialize(mockConfig);
+            const scopeSpy = jest.spyOn(EpgPreferencesStore.prototype, 'setLibraryFilterScope');
+            scopeSpy.mockClear();
+
+            try {
+                await orchestrator.signOutPlex();
+
+                expect(scopeSpy).toHaveBeenLastCalledWith(null);
+            } finally {
+                scopeSpy.mockRestore();
+            }
         });
     });
 
@@ -1896,7 +1932,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
             mockChannelManager.getAllChannels.mockReturnValue([]);
             mockLocalStorage.getItem.mockImplementation((key: string) => {
-                if (key === 'lineup_channel_setup_v2:server-1') return null;
+                if (key === 'lineup_channel_setup_v3:server-1:user-1') return null;
                 if (key === 'lineup_channels_server_v1:server-1:user-1') return null;
                 return null;
             });
@@ -2010,7 +2046,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockChannelManager.getAllChannels.mockReturnValue([]);
             mockLocalStorage.getItem.mockImplementation((key: string) => {
                 if (key === 'lineup_audio_setup_complete') return '1';
-                if (key === 'lineup_channel_setup_v2:server-1') return null;
+                if (key === 'lineup_channel_setup_v3:server-1:user-1') return null;
                 if (key === 'lineup_channels_server_v1:server-1:user-1') return null;
                 return null;
             });
@@ -2481,7 +2517,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             orchestrator.requestChannelSetupRerun();
 
             expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
-                'lineup_channel_setup_v2:server-3'
+                'lineup_channel_setup_v3:server-3:user-1'
             );
             expect(mockNavigation.goTo).toHaveBeenCalledWith('channel-setup');
         });

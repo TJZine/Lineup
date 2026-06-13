@@ -3,6 +3,7 @@ import type { ChannelSetupPlanDiagnosticsResult } from '../planning/ChannelSetup
 import type {
     ChannelBuildProgress,
     ChannelBuildSummary,
+    ChannelSetupCompletionResult,
     ChannelSetupConfig,
     ChannelSetupContext,
     ChannelSetupPreview,
@@ -44,5 +45,5 @@ export interface ChannelSetupWorkflowPort {
         config: ChannelSetupConfig,
         options?: { signal?: AbortSignal; onProgress?: (p: ChannelBuildProgress) => void }
     ): Promise<ChannelBuildSummary>;
-    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): void;
+    markSetupComplete(serverId: string, setupConfig: ChannelSetupConfig): ChannelSetupCompletionResult;
 }

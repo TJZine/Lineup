@@ -360,7 +360,9 @@ export class ChannelSetupBuildStepPresenter {
             return;
         }
 
-        ctx.statusEl.textContent = 'Channels ready.';
+        ctx.statusEl.textContent = outcome.bookkeepingError
+            ? 'Channels created; setup save needed.'
+            : 'Channels ready.';
         taskLabel.textContent = 'Complete';
         detailLabel.textContent = `Created ${outcome.result.created} channels. Skipped ${outcome.result.skipped}.`;
         barFill.style.width = '100%';
