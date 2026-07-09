@@ -300,8 +300,8 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             'Tracked role intent:',
             '',
             '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role by default; use `planner_deep` for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning',
-            '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_54_high` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify',
-            '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_54_high` for a bounded exact cheap-to-verify subunit',
+            '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_terra` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify',
+            '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_terra` for a bounded exact cheap-to-verify subunit',
             '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role for normal review, with `maintainability_reviewer` for maintainability-only review and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review',
             '',
             '## Routing (Authoritative)',
@@ -324,8 +324,8 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '1. confirm the current repo is Lineup',
             '2. load [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) and [`agents.md`](../../../agents.md)',
             '3. load the matching file in this directory',
-            '4. use the tracked role that matches the launcher intent (`planner` for default planning, `planner_deep` for deep Tier 3/hotspot/boundary planning, `worker` for default implementation, `worker_54_high` only when an approved execution packet declares eligibility, `reviewer` for normal review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review)',
-            '   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker_54_high',
+            '4. use the tracked role that matches the launcher intent (`planner` for default planning, `planner_deep` for deep Tier 3/hotspot/boundary planning, `worker` for default implementation, `worker_terra` only when an approved execution packet declares eligibility, `reviewer` for normal review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review)',
+            '   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker_terra',
             '',
         ].join('\n')
     );
@@ -483,7 +483,7 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
             '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
-            '- Use `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, `worker_54_high` only for approved bounded exact cheap-to-verify execution units, `reviewer` for normal adversarial review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review.',
+            '- Use `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, `worker_terra` only for approved bounded exact cheap-to-verify execution units, `reviewer` for normal adversarial review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review.',
             '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
             '',
         ].join('\n')
@@ -692,9 +692,9 @@ export function writeValidCodexRoleConfigFixture(
             'description = "Worker"',
             'config_file = "agents/worker.toml"',
             '',
-            '[agents.worker_54_high]',
+            '[agents.worker_terra]',
             'description = "Cost-optimized write-capable implementer for approved, bounded, exact, cheap-to-verify execution units only."',
-            'config_file = "agents/worker-54-high.toml"',
+            'config_file = "agents/worker-terra.toml"',
             '',
             '[agents.cleanup_worker]',
             'description = "Cleanup-loop-specific implementer for approved Tier 3 cleanup-loop implementation passes."',
@@ -789,13 +789,13 @@ export function writeValidCodexRoleConfigFixture(
     writeRepoFile(repoRoot, '.codex/agents/worker.toml', `model = "${CODEX_MODEL_DEFAULT}"\n`);
     writeRepoFile(
         repoRoot,
-        '.codex/agents/worker-54-high.toml',
+        '.codex/agents/worker-terra.toml',
         [
             `model = "${CODEX_MODEL_DEFAULT}"`,
             'model_reasoning_effort = "high"',
             'developer_instructions = """',
             'Own only approved, bounded, exact, cheap-to-verify execution units.',
-            'Use this role when the plan or CURRENT_EXECUTION_PACKET explicitly declares worker_54_high eligibility.',
+            'Use this role when the plan or CURRENT_EXECUTION_PACKET explicitly declares worker_terra eligibility.',
             'Stop and escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure that needs diagnosis.',
             '"""',
             '',

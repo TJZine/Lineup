@@ -97,7 +97,7 @@ const requiredCodexAgentRoles = [
     'planner',
     'planner_deep',
     'worker',
-    'worker_54_high',
+    'worker_terra',
     'cleanup_worker',
     'monitor',
     'monitor_fallback',
@@ -154,7 +154,7 @@ const requiredCodexRoleContracts = new Map([
         },
     ],
     [
-        'worker_54_high',
+        'worker_terra',
         {
             requiredMarkers: [
                 'approved, bounded, exact, cheap-to-verify execution units',
@@ -209,7 +209,7 @@ const requiredCodexRoleContracts = new Map([
 const requiredCodexRoleDescriptionMarkers = new Map([
     ['cleanup_worker', ['cleanup-loop-specific implementer', 'approved tier 3 cleanup-loop implementation passes']],
     ['planner_deep', ['deep planning writer', 'tier 3', 'not product-code implementation']],
-    ['worker_54_high', ['cost-optimized write-capable implementer', 'approved', 'cheap-to-verify']],
+    ['worker_terra', ['cost-optimized write-capable implementer', 'approved', 'cheap-to-verify']],
     ['maintainability_reviewer', ['read-only reviewer', 'code-health', 'no style-only blocking']],
     ['architecture_reviewer', ['read-only reviewer', 'hotspots', 'security-adjacent architecture risk']],
 ]);
@@ -657,8 +657,8 @@ function checkSessionPromptReadme(errors) {
     const hasWorkerRoleIntent = normalizedLines.some(
         (line) => includesAllMarkers(line, ['cleanup-implement.md', 'feature-implement.md', 'worker role'])
     );
-    const hasWorker54RoleIntent = normalizedLines.some(
-        (line) => includesAllMarkers(line, ['worker 54 high', 'current execution packet', 'cheap to verify'])
+    const hasWorkerTerraRoleIntent = normalizedLines.some(
+        (line) => includesAllMarkers(line, ['worker terra', 'current execution packet', 'cheap to verify'])
     );
     const hasCleanupWorkerRoleIntent = normalizedLines.some(
         (line) => includesAllMarkers(line, ['cleanup-loop.md', 'cleanup worker', 'implementation passes'])
@@ -683,13 +683,13 @@ function checkSessionPromptReadme(errors) {
         !hasPlannerRoleIntent ||
         !hasPlannerDeepRoleIntent ||
         !hasWorkerRoleIntent ||
-        !hasWorker54RoleIntent ||
+        !hasWorkerTerraRoleIntent ||
         !hasCleanupWorkerRoleIntent ||
         !hasReviewerRoleIntent ||
         !hasSpecializedReviewerRoleIntent
     ) {
         errors.push(
-            'Session prompt README must keep the tracked role intent explicit: planner/planner_deep for planning launchers, worker/worker_54_high for eligible implementers, cleanup_worker for Tier 3 cleanup-loop implementation passes, reviewer plus specialized read-only reviewer roles for review launchers.'
+            'Session prompt README must keep the tracked role intent explicit: planner/planner_deep for planning launchers, worker/worker_terra for eligible implementers, cleanup_worker for Tier 3 cleanup-loop implementation passes, reviewer plus specialized read-only reviewer roles for review launchers.'
         );
     }
 }
@@ -1555,7 +1555,7 @@ function checkCleanupExecutionUnitContracts(errors) {
             'completed checklist-linked execution unit closes the final planned',
             'large-package execution should review coherent retirement batches',
             'tracked write-capable planner role',
-            'use planner for bounded planning artifacts, planner deep for tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, cleanup worker for tier 3 cleanup-loop implementation write passes, worker for general implementation outside that loop, worker 54 high only for approved bounded exact cheap-to-verify execution units, reviewer for normal adversarial review, maintainability reviewer for maintainability-only review, and architecture reviewer for hotspot/boundary/security-adjacent architecture review',
+            'use planner for bounded planning artifacts, planner deep for tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, cleanup worker for tier 3 cleanup-loop implementation write passes, worker for general implementation outside that loop, worker terra only for approved bounded exact cheap-to-verify execution units, reviewer for normal adversarial review, maintainability reviewer for maintainability-only review, and architecture reviewer for hotspot/boundary/security-adjacent architecture review',
             'for tier 3 cleanup-loop implementation passes, use the tracked cleanup worker role instead of worker',
             'planner is the authoritative plan author until it finishes, explicitly blocks, fails, or is abandoned',
             'long wait, a direct status check, and a follow-up wait',
@@ -1613,8 +1613,8 @@ function checkCleanupExecutionUnitContracts(errors) {
             'execution waves',
             'coverage ledger',
             'large-package execution should review coherent retirement batches',
-            'route tier 3 cleanup-loop.md implementation passes through the tracked cleanup worker role only unless an approved execution packet explicitly names worker 54 high',
-            'cleanup-loop is the exception: tier 3 cleanup implementation inside that loop routes to cleanup worker while tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker 54 high',
+            'route tier 3 cleanup-loop.md implementation passes through the tracked cleanup worker role only unless an approved execution packet explicitly names worker terra',
+            'cleanup-loop is the exception: tier 3 cleanup implementation inside that loop routes to cleanup worker while tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker terra',
         ];
 
         for (const marker of requiredReadmeMarkers) {

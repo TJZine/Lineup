@@ -59,7 +59,7 @@ When tracked docs conflict, use this order:
 - catch debt early through verification, review, and evals
 - preserve cleanup-era lessons as steady-state feature/refactor gates, not only
   cleanup-loop ceremony
-- keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `worker` for general implementation, `worker_54_high` only for approved bounded exact cheap-to-verify execution units, one cleanup-loop-specific `cleanup_worker` exception for approved Tier 3 cleanup-loop implementation passes, `reviewer` for normal read-only review, `maintainability_reviewer` for code-health maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review
+- keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `worker` for general Sol implementation, `worker_terra` only for approved bounded exact cheap-to-verify lower-cost execution units, one cleanup-loop-specific `cleanup_worker` exception for approved Tier 3 cleanup-loop implementation passes, `reviewer` for normal read-only review, `maintainability_reviewer` for code-health maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review
 - enforce production file-shape baselines with `npm run verify:maintainability` so oversized production files do not grow without reviewed rationale and a decomposition or revisit trigger
 
 ## Steady-State Debt Guardrails
@@ -169,16 +169,16 @@ unless that exception record exists.
    - do not defer, no-code, or split-follow-up cleanup/refactor work because the fix is large; those dispositions require current-source proof that the issue no longer applies, the intended shape already exists, or an explicit unapproved boundary requires stop/replan with one final owner
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - use repo-local `execution-plan-authoring` as the authoritative planner skill for Lineup serious plans
-   - use tracked `planner` (`gpt-5.5 medium`) by default for serious planning
-   - use `planner_deep` (`gpt-5.5 xhigh`) for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning; it may write planning artifacts but must not implement product code
-   - a direct `gpt-5.5 high` planner override is allowed only as an escalation state for ambiguous Tier 2 or moderate architecture-risk planning when `planner_deep` would be disproportionate
+   - use tracked `planner` (`gpt-5.6-sol medium`) by default for serious planning
+   - use `planner_deep` (`gpt-5.6-sol xhigh`) for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning; it may write planning artifacts but must not implement product code
+   - a direct `gpt-5.6-sol high` planner override is allowed only as an escalation state for ambiguous Tier 2 or moderate architecture-risk planning when `planner_deep` would be disproportionate
    - use repo-local `verification-strategy` to choose the proof mode before freezing verification commands or deciding whether new tests are needed
    - serious tracked plans must be decision-complete at the seam, scope, ownership, and verification level without turning into pseudo-code master plans
    - serious tracked plans should freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk
    - serious tracked plans must record explicit stop-and-replan conditions under the seam gate or an adjacent replan block; implementers should not invent replan policy mid-run
    - when a weaker or cheaper implementer needs extra current-unit detail, emit a bounded current-unit execution packet rather than bloating the master plan
-   - when using a bounded current-unit execution packet, include `IMPLEMENTER_ROLE_ELIGIBILITY`; cleanup packets may list `worker_54_high | worker | cleanup_worker`, while feature packets may list `worker_54_high | worker`
-   - use `worker_54_high` only for approved, bounded, exact, cheap-to-verify execution units; it must stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis
+   - when using a bounded current-unit execution packet, include `IMPLEMENTER_ROLE_ELIGIBILITY`; cleanup packets may list `worker_terra | worker | cleanup_worker`, while feature packets may list `worker_terra | worker`
+   - use `worker_terra` only for approved, bounded, exact, cheap-to-verify execution units; it must stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
    - every serious tracked plan must classify the verification strategy for the current execution surface as one of:
@@ -225,7 +225,7 @@ unless that exception record exists.
    - split large UI/runtime classes by owner: DOM rendering, focus/navigation,
      async workflow, persistence, platform/domain policy, and diagnostics
      should not quietly accumulate in one class
-   - keep `worker` as the default implementer and `cleanup_worker` as the Tier 3 cleanup-loop default; do not route unresolved seams, broad cleanup/refactor judgment, ambiguous debugging, or verification diagnosis to `worker_54_high`
+   - keep `worker` as the default implementer and `cleanup_worker` as the Tier 3 cleanup-loop default; do not route unresolved seams, broad cleanup/refactor judgment, ambiguous debugging, or verification diagnosis to `worker_terra`
 8. Verify based on risk.
    - use repo-local `closeout-verification` before claiming work is complete, staged, committed, pushed, PR-ready, or handed off
    - run `npm run verify:maintainability` when production source files are added, removed, renamed, or changed in a way that could affect file-shape baselines

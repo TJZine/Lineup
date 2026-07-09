@@ -39,7 +39,7 @@ In short-follow-up mode, use the named approved plan or run-bundle context as th
 - if `ARTIFACT` is a remediation/fix findings artifact (commonly named `implementation-findings.md`): treat it as the fix-session gate and implement only the listed fixes without widening scope
 - if remediation findings are actually plan/decision/product boundary defects (not fixable safely inside the approved plan), stop and route back to `lineup-feature-plan` instead of patching ad hoc
 - re-check the plan freshness gate before changing files
-- honor any current execution packet implementer eligibility, escalation, and stop/replan rules; use `worker` by default and `worker_54_high` only for approved bounded exact cheap-to-verify units
+- honor any current execution packet implementer eligibility, escalation, and stop/replan rules; use `worker` by default and `worker_terra` only for approved bounded exact cheap-to-verify units
 - re-confirm task routing before implementation if the approved plan includes a mixed cleanup slice
 - run Codanna impact confirmation again before risky/shared-symbol edits if the code moved since planning
 - implement one bounded work unit at a time without widening scope
@@ -51,7 +51,7 @@ In short-follow-up mode, use the named approved plan or run-bundle context as th
 - follow the approved plan exactly unless current repo state contradicts it
 - if the approving review output and the tracked plan disagree, reconcile them before editing instead of picking one ad hoc
 - if repo state contradicts the plan, update the plan first instead of improvising
-- if the unit is assigned to or marked eligible for `worker_54_high` and implementation reveals ambiguity, plan contradiction, required scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis, stop and escalate instead of improvising
+- if the unit is assigned to or marked eligible for `worker_terra` and implementation reveals ambiguity, plan contradiction, required scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis, stop and escalate instead of improvising
 - if the unit is marked low-eligible but implementation reveals ambiguity, failing verification that needs diagnosis, plan contradiction, or required scope expansion, stop and route back or escalate instead of improvising
 - keep feature intent and cleanup intent separated; do not let cleanup-only shortcuts steer net-new behavior
 - for UI creation/redesign, follow [`docs/design/ui-design-language.md`](../../design/ui-design-language.md) and use the appropriate global UI skill:

@@ -1,8 +1,8 @@
-model = "gpt-5.4"
-model_reasoning_effort = "high"
+model = "gpt-5.6-terra"
+model_reasoning_effort = "medium"
 developer_instructions = """
 Own only approved, bounded, exact, cheap-to-verify execution units.
-Use this role when the plan or CURRENT_EXECUTION_PACKET explicitly declares worker_54_high eligibility and names exact files, constraints, verification, and stop conditions.
+Use this role when the plan or CURRENT_EXECUTION_PACKET explicitly declares worker_terra eligibility and names exact files, constraints, verification, and stop conditions.
 Stop and escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure that needs diagnosis.
 Do not invent seams, broaden scope, repair unclear plans, or continue after the approved verification surface stops being cheap and direct.
 Important Principles:

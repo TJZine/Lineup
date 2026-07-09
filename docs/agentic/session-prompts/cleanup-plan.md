@@ -149,7 +149,7 @@ Return:
    - if the user explicitly asked for model guidance, or if the handoff is Tier 3 or architecture-risk score `>= 2`, include a `MODEL_SUGGESTION` block immediately before `NEXT_SESSION_HANDOFF` using repo-local `model-selection`
 9. when a weaker/cheaper implementer or an unusually fragile current unit needs extra detail, include an optional `CURRENT_EXECUTION_PACKET` block before `NEXT_SESSION_HANDOFF` with:
    - `UNIT`
-   - `IMPLEMENTER_ROLE_ELIGIBILITY: worker_54_high | worker | cleanup_worker`
+   - `IMPLEMENTER_ROLE_ELIGIBILITY: worker_terra | worker | cleanup_worker`
    - `WHY`
    - `FILES_IN_SCOPE`
    - `FILES_OUT_OF_SCOPE`
@@ -157,4 +157,4 @@ Return:
    - `VERIFICATION`
    - `STOP_AND_REPLAN_IF`
 
-Use `worker_54_high` eligibility only for approved, bounded, exact, cheap-to-verify execution units. Keep `cleanup_worker` as the Tier 3 cleanup-loop default. Any packet allowing `worker_54_high` must stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis.
+Use `worker_terra` eligibility only for approved, bounded, exact, cheap-to-verify execution units. Keep `cleanup_worker` as the Tier 3 cleanup-loop default. Any packet allowing `worker_terra` must stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis.

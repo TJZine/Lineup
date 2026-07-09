@@ -2,7 +2,7 @@
 
 Schema-Version: 1
 Profile-Status: explicit
-Last-Updated: 2026-05-20
+Last-Updated: 2026-07-09
 Repo-Name: Lineup
 Default-Branch: main
 Profile-Scope: review-suggestion-adjudication and pr-commit-review
@@ -149,7 +149,7 @@ Preferred roles when available:
 - reviewer: normal correctness/regression/security/test review
 - maintainability_reviewer: code-health, file-shape, brittle tests, slop, unnecessary indirection, harmful duplication
 - architecture_reviewer: hotspots, owner seams, Plex/persistence/navigation/platform/control-plane risk
-- worker_54_high: exact, bounded, testable fixes with no unresolved owner/product/architecture decision
+- worker_terra: lower-cost exact, bounded, testable fixes with no unresolved owner/product/architecture decision
 - worker: ambiguous or high-risk implementation/fix work
 - cleanup_worker: only for approved Tier 3 cleanup-loop execution units
 - docs_researcher: official docs/API/framework behavior checks
@@ -160,10 +160,10 @@ Fallback rule:
 
 ## Model Policy
 
-- Use GPT-5.4 high/xhigh as a first-class option for exact bounded implementation and maintainability review when roles support it.
-- Use GPT-5.5 medium for normal ambiguous planning/implementation/review.
-- Use GPT-5.5 high/xhigh for architecture, security, hotspot, priority-exit, long-context, or hard debugging/research tasks.
-- Do not default every review subagent to GPT-5.5 high.
+- Use GPT-5.6 Terra medium through `worker_terra` for explicitly eligible exact, bounded, cheap-to-verify implementation.
+- Use GPT-5.6 Sol medium for normal planning and implementation.
+- Use GPT-5.6 Sol high/xhigh for architecture, security, hotspot, priority-exit, long-context, or hard debugging/review tasks.
+- Do not default every review subagent to GPT-5.6 Sol high; use the tracked reviewer specialization that matches the risk surface.
 
 ## Pure Docs / Assets Exclusion Rule
 
