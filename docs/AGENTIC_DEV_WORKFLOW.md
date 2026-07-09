@@ -105,6 +105,15 @@ names one owner, the reason, verification, and a removal or revisit trigger.
 Reviewers should treat newly introduced guardrail violations as regressions
 unless that exception record exists.
 
+## Subagent Transparency
+
+When dispatching a subagent, record the selected role and its
+`.codex/agents/<role>.toml` path. At task closeout, list each role used with
+the `model` and `model_reasoning_effort` read from that TOML. The child role's
+`CONFIGURED ROLE` opening line is a visible confirmation of the selected role;
+the TOML remains the authoritative configuration and avoids duplicating model
+names in prompts or workflow docs.
+
 ## Default Workflow
 
 1. Start with the relevant process skills.
