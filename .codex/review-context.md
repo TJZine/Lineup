@@ -46,7 +46,7 @@ Current truth:
 - `docs/api/plex-integration.md`
 - `.codex/config.toml`
 - `.codex/agents/*.toml`
-- `.codex/skills/**`
+- `.agents/skills/**`
 - `docs/agentic/session-prompts/**`
 
 Historical/reference only:
@@ -60,7 +60,7 @@ Do not treat these as pure docs/assets:
 - `agents.md`
 - `.codex/config.toml`
 - `.codex/agents/**`
-- `.codex/skills/**`
+- `.agents/skills/**`
 - `docs/AGENTIC_DEV_WORKFLOW.md`
 - `docs/agentic/**`
 - `ARCHITECTURE_CLEANUP_CHECKLIST.md`
