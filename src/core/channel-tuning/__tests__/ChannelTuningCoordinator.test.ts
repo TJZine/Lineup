@@ -606,7 +606,10 @@ describe('ChannelTuningCoordinator', () => {
         });
         deps.getPendingNowPlayingChannelId.mockReturnValue('ch1');
 
-        await expect(coordinator.switchToChannel('ch1')).resolves.toEqual(expect.objectContaining({ kind: 'failed' }));
+        await expect(coordinator.switchToChannel('ch1')).resolves.toEqual({
+            kind: 'failed',
+            reason: 'playback_start_failed',
+        });
 
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -675,7 +678,10 @@ describe('ChannelTuningCoordinator', () => {
         const { coordinator, deps, channelManager } = createCoordinator();
         channelManager.getChannelByNumber.mockReturnValue(null);
 
-        await expect(coordinator.switchToChannelByNumber(999)).resolves.toEqual(expect.objectContaining({ kind: 'failed' }));
+        await expect(coordinator.switchToChannelByNumber(999)).resolves.toEqual({
+            kind: 'failed',
+            reason: 'missing_channel',
+        });
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
@@ -722,7 +728,10 @@ describe('ChannelTuningCoordinator', () => {
             recoverable: false,
         });
 
-        await expect(coordinator.switchToChannel('ch1')).resolves.toEqual(expect.objectContaining({ kind: 'failed' }));
+        await expect(coordinator.switchToChannel('ch1')).resolves.toEqual({
+            kind: 'failed',
+            reason: 'content_unavailable',
+        });
 
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -744,7 +753,10 @@ describe('ChannelTuningCoordinator', () => {
         const { coordinator, deps } = createCoordinator();
         jest.spyOn(coordinator, 'switchToChannel').mockRejectedValueOnce(new Error('switch failed'));
 
-        await expect(coordinator.switchToChannelByNumber(1)).resolves.toEqual(expect.objectContaining({ kind: 'failed' }));
+        await expect(coordinator.switchToChannelByNumber(1)).resolves.toEqual({
+            kind: 'failed',
+            reason: 'content_unavailable',
+        });
 
         expect(deps.handleGlobalError).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -830,7 +842,10 @@ describe('ChannelTuningCoordinator', () => {
             throw new Error('unload failed');
         });
 
-        await expect(coordinator.switchToChannel('ch1')).resolves.toEqual(expect.objectContaining({ kind: 'failed' }));
+        await expect(coordinator.switchToChannel('ch1')).resolves.toEqual({
+            kind: 'failed',
+            reason: 'playback_start_failed',
+        });
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',

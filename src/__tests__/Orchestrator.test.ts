@@ -1440,8 +1440,6 @@ describe('AppOrchestrator', () => {
                 serverUri: 'http://example',
             };
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
-            Reflect.set(orchestrator as object, '_lastChannelChangeSource', 'guide');
-
             try {
                 await orchestrator.clearSelectedServer();
 
@@ -1460,11 +1458,66 @@ describe('AppOrchestrator', () => {
                 expect(clearScheduleCachesSpy).toHaveBeenCalledTimes(1);
                 expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
-                expect(Reflect.get(orchestrator as object, '_lastChannelChangeSource')).toBeNull();
             } finally {
                 clearSelectedSnapshotSpy.mockRestore();
                 clearScheduleCachesSpy.mockRestore();
             }
+        });
+
+        it('clears guide-origin focus preservation after selected-server clear', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
+                createStoredCredentials('valid-token')
+            );
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            await orchestrator.start();
+
+            const epgOnCalls = mockEpg.on.mock.calls as unknown as Array<[
+                string,
+                (payload: {
+                    channel: typeof mockChannel;
+                    program: ScheduledProgram;
+                }) => void,
+            ]>;
+            const channelSelected = epgOnCalls.find(
+                ([event]) => event === 'channelSelected'
+            )?.[1];
+            expect(channelSelected).toBeDefined();
+
+            const now = Date.now();
+            channelSelected?.({
+                channel: mockChannel,
+                program: {
+                    item: {
+                        ratingKey: 'guide-program',
+                        type: 'movie',
+                        title: 'Guide Program',
+                        fullTitle: 'Guide Program',
+                        durationMs: 60_000,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: now - 1_000,
+                    scheduledEndTime: now + 59_000,
+                    elapsedMs: 1_000,
+                    remainingMs: 59_000,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    isCurrent: true,
+                },
+            });
+            await Promise.resolve();
+
+            mockEpg.show.mockClear();
+            orchestrator.openEPG();
+            expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: true });
+
+            await orchestrator.clearSelectedServer();
+
+            mockEpg.show.mockClear();
+            orchestrator.openEPG();
+            expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: false });
         });
 
         it('clears selected-library filter scope after selected-server clear', async () => {
