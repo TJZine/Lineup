@@ -1507,7 +1507,6 @@ describe('AppOrchestrator', () => {
                     isCurrent: true,
                 },
             });
-            await Promise.resolve();
 
             mockEpg.show.mockClear();
             orchestrator.openEPG();
