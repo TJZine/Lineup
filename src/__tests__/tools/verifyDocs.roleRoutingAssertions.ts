@@ -1,5 +1,6 @@
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { parse as parseToml } from 'smol-toml';
 
 import {
     type VerifyDocsTestContext,
@@ -273,8 +274,9 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
             path.join(process.cwd(), '.codex/agents/worker-luna.toml'),
             'utf8'
         );
-        expect(workerLunaConfig).toContain('model = "gpt-5.6-luna"');
-        expect(workerLunaConfig).toContain('model_reasoning_effort = "xhigh"');
+        const parsedWorkerLunaConfig = parseToml(workerLunaConfig);
+        expect(parsedWorkerLunaConfig.model).toBe('gpt-5.6-luna');
+        expect(parsedWorkerLunaConfig.model_reasoning_effort).toBe('xhigh');
     });
 
     it('fails when the session prompt README drops the explicit planner/worker/reviewer role mapping', () => {
