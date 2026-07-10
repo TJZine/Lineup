@@ -5,9 +5,10 @@ import type { ChannelSetupEpgRefreshOptions } from '../build/ChannelSetupBuildCo
 import type { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
 import type { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
 import type { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
-import type { ChannelSetupCompletionResult, ChannelSetupGuideRefreshSummary } from '../types';
+import type { ChannelSetupCompletionResult } from '../types';
 import type { ChannelSetupWorkflowPortOwners } from './createChannelSetupWorkflowPort';
 import { summarizeErrorForLog } from '../../../utils/errors';
+import type { EpgScheduleRefreshResult } from '../../../shared/epgRefresh';
 
 export interface LazyChannelSetupWorkflowPortOwnersDeps {
     plexLibrary: IPlexLibrary;
@@ -17,7 +18,7 @@ export interface LazyChannelSetupWorkflowPortOwnersDeps {
     ensureEpgInitialized: () => Promise<void>;
     clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
-    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<ChannelSetupGuideRefreshSummary>;
+    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<EpgScheduleRefreshResult>;
     clearRerunRequest: () => void;
     getSelectedServerId: () => string | null;
     getExistingChannelCount: () => number;

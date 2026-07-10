@@ -294,6 +294,26 @@ describe('ChannelSetupBuildStepPresenter', () => {
                 created: 2,
                 skipped: 0,
                 guideRefresh: {
+                    readiness: 'failed',
+                    failure: { kind: 'thrown', stage: 'ensure_initialized' },
+                },
+            },
+        });
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        expect(ctx.statusEl.textContent).toBe('Channels created; guide refresh failed.');
+        expect(ctx.errorEl.textContent).toBe(
+            'Guide data could not be refreshed. Open the guide again after schedules finish loading.'
+        );
+
+        deps.session.beginBuild.mockResolvedValueOnce({
+            kind: 'success',
+            result: {
+                ...DEFAULT_BUILD_RESULT,
+                created: 2,
+                skipped: 0,
+                guideRefresh: {
                     readiness: 'skipped',
                     attemptedChannelCount: 0,
                     immediateReadyChannelCount: 0,

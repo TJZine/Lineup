@@ -5,7 +5,8 @@
 import { ChannelSetupBuildCommitter } from '../build/ChannelSetupBuildCommitter';
 import type { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
 import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetupPlanningTypes';
-import type { ChannelBuildProgress, ChannelSetupGuideRefreshSummary } from '../types';
+import type { ChannelBuildProgress } from '../types';
+import type { EpgScheduleRefreshResult } from '../../../shared/epgRefresh';
 import type {
     IChannelManager,
     ChannelConfig,
@@ -40,12 +41,12 @@ type Harness = {
     ensureEpgInitialized: jest.Mock<Promise<void>, []>;
     primeEpgChannels: jest.Mock<void, []>;
     refreshEpgSchedules: jest.Mock<
-        Promise<ChannelSetupGuideRefreshSummary>,
+        Promise<EpgScheduleRefreshResult>,
         [{ reason?: string; debounceMs?: number; signal?: AbortSignal | null }?]
     >;
 };
 
-const READY_GUIDE_REFRESH: ChannelSetupGuideRefreshSummary = {
+const READY_GUIDE_REFRESH: EpgScheduleRefreshResult = {
     readiness: 'ready',
     attemptedChannelCount: 1,
     immediateReadyChannelCount: 1,
@@ -74,7 +75,7 @@ const createHarness = (): Harness => {
     const ensureEpgInitialized = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
     const primeEpgChannels = jest.fn<void, []>();
     const refreshEpgSchedules = jest.fn<
-        Promise<ChannelSetupGuideRefreshSummary>,
+        Promise<EpgScheduleRefreshResult>,
         [{ reason?: string; debounceMs?: number; signal?: AbortSignal | null }?]
     >().mockResolvedValue(READY_GUIDE_REFRESH);
 
@@ -333,15 +334,39 @@ describe('ChannelSetupBuildCommitter', () => {
         expect(result.epgRefreshFailed).toBe(false);
     });
 
-    it('keeps final done detail when EPG refresh throws after commit', async () => {
-        const { committer, refreshEpgSchedules } = createHarness();
-        refreshEpgSchedules.mockRejectedValueOnce(new Error('refresh failed'));
+    it.each([
+        {
+            stage: 'ensure_initialized' as const,
+            fail: (harness: Harness): void => {
+                harness.ensureEpgInitialized.mockRejectedValueOnce(new Error('ensure failed'));
+            },
+            message: 'ensure failed',
+        },
+        {
+            stage: 'prime_channels' as const,
+            fail: (harness: Harness): void => {
+                harness.primeEpgChannels.mockImplementationOnce(() => {
+                    throw new Error('prime failed');
+                });
+            },
+            message: 'prime failed',
+        },
+        {
+            stage: 'refresh_schedules' as const,
+            fail: (harness: Harness): void => {
+                harness.refreshEpgSchedules.mockRejectedValueOnce(new Error('refresh failed'));
+            },
+            message: 'refresh failed',
+        },
+    ])('reports a non-fabricated $stage guide failure for multi-channel builds', async ({ stage, fail, message }) => {
+        const harness = createHarness();
+        fail(harness);
         const progress: ProgressEvent[] = [];
 
-        const result = await committer.commitBuild({
+        const result = await harness.committer.commitBuild({
             buildMode: 'replace',
             existingChannels: [makeExisting(1)],
-            pendingToCreate: [makePending('One')],
+            pendingToCreate: [makePending('One'), makePending('Two'), makePending('Three')],
             skippedCount: 0,
             reachedMaxChannels: false,
             errorCount: 0,
@@ -360,29 +385,26 @@ describe('ChannelSetupBuildCommitter', () => {
 
         expect(result.summary.lastTask).toBe('done');
         expect(result.summary.warnings).toEqual([
-            '[ChannelSetup] EPG refresh failed after commit: refresh failed',
+            `[ChannelSetup] EPG refresh failed after commit: ${message}`,
         ]);
         expect(result.summary.guideRefresh).toEqual({
             readiness: 'failed',
-            attemptedChannelCount: 1,
-            immediateReadyChannelCount: 0,
-            backgroundQueuedChannelCount: 0,
-            failedChannelCount: 1,
-            staleCacheChannelCount: 0,
-            firstVisibleScheduleReady: false,
+            failure: { kind: 'thrown', stage },
         });
+        expect(result.summary.guideRefresh).not.toHaveProperty('attemptedChannelCount');
+        expect(result.summary.guideRefresh).not.toHaveProperty('failedChannelCount');
         expect(progress.at(-1)).toEqual({
             task: 'done',
             label: 'Done!',
-            detail: 'Built 1 channels (guide refresh failed)',
-            current: 1,
-            total: 1,
+            detail: 'Built 3 channels (guide refresh failed)',
+            current: 3,
+            total: 3,
         });
     });
 
     it('surfaces degraded guide refresh readiness without treating the channel commit as failed', async () => {
         const { committer, refreshEpgSchedules } = createHarness();
-        const partialGuideRefresh: ChannelSetupGuideRefreshSummary = {
+        const partialGuideRefresh: EpgScheduleRefreshResult = {
             readiness: 'partial',
             attemptedChannelCount: 2,
             immediateReadyChannelCount: 1,
@@ -414,7 +436,7 @@ describe('ChannelSetupBuildCommitter', () => {
 
     it('surfaces skipped guide refresh readiness as degraded after commit', async () => {
         const { committer, refreshEpgSchedules } = createHarness();
-        const skippedGuideRefresh: ChannelSetupGuideRefreshSummary = {
+        const skippedGuideRefresh: EpgScheduleRefreshResult = {
             readiness: 'skipped',
             attemptedChannelCount: 0,
             immediateReadyChannelCount: 0,

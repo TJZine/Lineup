@@ -47,7 +47,21 @@ export type ChannelSetupRerunRequestResult =
     | { ok: true; serverId: string }
     | { ok: false; reason: 'missing-selected-server' };
 
-export type ChannelSetupGuideRefreshSummary = EpgScheduleRefreshResult;
+export type ChannelSetupGuideRefreshFailureStage =
+    | 'prepare'
+    | 'ensure_initialized'
+    | 'prime_channels'
+    | 'refresh_schedules';
+
+export type ChannelSetupGuideRefreshSummary =
+    | EpgScheduleRefreshResult
+    | {
+        readiness: 'failed';
+        failure: {
+            kind: 'thrown';
+            stage: ChannelSetupGuideRefreshFailureStage;
+        };
+    };
 
 export interface ChannelBuildSummary {
     created: number;

@@ -10,12 +10,13 @@ import type {
     ChannelBuildProgress,
     ChannelBuildSummary,
     ChannelSetupConfig,
-    ChannelSetupGuideRefreshSummary,
+    ChannelSetupGuideRefreshFailureStage,
 } from '../types';
 import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetupPlanningTypes';
 import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
 import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';
 import { isAbortLikeError } from '../../../utils/errors';
+import type { EpgScheduleRefreshResult } from '../../../shared/epgRefresh';
 
 export type ChannelSetupEpgRefreshOptions = {
     reason?: string;
@@ -38,7 +39,7 @@ export interface ChannelSetupBuildCommitterDeps {
     ensureEpgInitialized: () => Promise<void>;
     clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
-    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<ChannelSetupGuideRefreshSummary>;
+    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<EpgScheduleRefreshResult>;
 }
 
 export interface ChannelSetupBuildCommitRequest {
@@ -218,10 +219,14 @@ export class ChannelSetupBuildCommitter {
 
         reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
         summary.lastTask = 'refresh_epg';
+        let refreshStage: ChannelSetupGuideRefreshFailureStage = 'prepare';
         try {
             this._deps.clearSelectedChannelScheduleSnapshot();
+            refreshStage = 'ensure_initialized';
             await this._deps.ensureEpgInitialized();
+            refreshStage = 'prime_channels';
             this._deps.primeEpgChannels();
+            refreshStage = 'refresh_schedules';
             const guideRefresh = await this._deps.refreshEpgSchedules({
                 reason: 'channel-setup',
                 debounceMs: 0,
@@ -239,12 +244,10 @@ export class ChannelSetupBuildCommitter {
             epgRefreshFailed = true;
             summary.guideRefresh = {
                 readiness: 'failed',
-                attemptedChannelCount: finalChannels.length,
-                immediateReadyChannelCount: 0,
-                backgroundQueuedChannelCount: 0,
-                failedChannelCount: finalChannels.length,
-                staleCacheChannelCount: 0,
-                firstVisibleScheduleReady: false,
+                failure: {
+                    kind: 'thrown',
+                    stage: refreshStage,
+                },
             };
             addWarning('[ChannelSetup] EPG refresh failed after commit', error);
             reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);
