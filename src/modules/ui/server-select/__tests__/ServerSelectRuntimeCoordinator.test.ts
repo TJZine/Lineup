@@ -314,6 +314,40 @@ describe('ServerSelectRuntimeCoordinator', () => {
         );
     });
 
+    it('does not warn when guide refresh ownership moved to a newer request', async () => {
+        const server = makeServer('srv-1', 'Server One');
+        const ports = createPorts({
+            discoverServers: jest.fn().mockResolvedValue([server]),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                startupResume: {
+                    startup: 'completed',
+                    epgRefresh: {
+                        kind: 'superseded',
+                        result: {
+                            ...READY_EPG_REFRESH,
+                            readiness: 'superseded',
+                            attemptedChannelCount: 0,
+                            immediateReadyChannelCount: 0,
+                            firstVisibleScheduleReady: false,
+                        },
+                    },
+                },
+            })),
+        } as Partial<RuntimePorts>);
+        const { runtime, adapter } = createRuntime({ ports });
+
+        runtime.show({ allowAutoConnect: false });
+        await runtime.whenIdle();
+        runtime.selectServer(server);
+        await runtime.whenIdle();
+
+        expect(adapter.setStatus).toHaveBeenLastCalledWith(
+            'Connected to Server One.',
+            'Connected; guide refresh continued with a newer request.',
+            'success'
+        );
+    });
+
     it('ignores concurrent manual selection and keeps clear disabled until visible work settles', async () => {
         const server = makeServer('srv-1', 'Server One');
         const selection = createDeferred<ServerSelectSelectionResult>();

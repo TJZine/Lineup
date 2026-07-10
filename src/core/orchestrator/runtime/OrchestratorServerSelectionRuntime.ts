@@ -36,6 +36,29 @@ import type {
 import {
     captureRecoverableRuntimeResultAsync,
 } from './OrchestratorRecoverableRuntimeResult';
+import type {
+    EpgScheduleRefreshOutcome,
+    EpgScheduleRefreshResult,
+} from '../../../shared/epgRefresh';
+
+function toEpgScheduleRefreshOutcome(result: EpgScheduleRefreshResult): EpgScheduleRefreshOutcome {
+    switch (result.readiness) {
+        case 'ready':
+            return { kind: 'succeeded', result: { ...result, readiness: result.readiness } };
+        case 'superseded':
+            return { kind: 'superseded', result: { ...result, readiness: result.readiness } };
+        case 'skipped':
+        case 'partial':
+        case 'failed':
+            return { kind: 'degraded', result: { ...result, readiness: result.readiness } };
+        default:
+            return assertUnhandledEpgRefreshReadiness(result.readiness);
+    }
+}
+
+function assertUnhandledEpgRefreshReadiness(readiness: never): never {
+    throw new Error(`Unhandled EPG refresh readiness: ${String(readiness)}`);
+}
 
 export interface OrchestratorServerSelectionRuntimeDeps {
     assertNotShutdown(method: string): void;
@@ -254,18 +277,9 @@ export class OrchestratorServerSelectionRuntime {
                 };
             }
             this._serverSwapEpgRollbackPending = false;
-            const epgRefresh = refreshResult.value.readiness === 'ready'
-                ? {
-                    kind: 'succeeded' as const,
-                    result: { ...refreshResult.value, readiness: refreshResult.value.readiness },
-                }
-                : {
-                    kind: 'degraded' as const,
-                    result: { ...refreshResult.value, readiness: refreshResult.value.readiness },
-                };
             return {
                 startup: 'completed',
-                epgRefresh,
+                epgRefresh: toEpgScheduleRefreshOutcome(refreshResult.value),
             };
         } catch (error) {
             if (isSelectionAbortError(error, signal)) {

@@ -466,6 +466,34 @@ describe('ChannelSetupBuildCommitter', () => {
         expect(result.epgRefreshFailed).toBe(true);
     });
 
+    it('does not report intentional guide refresh supersession as a setup failure', async () => {
+        const { committer, refreshEpgSchedules } = createHarness();
+        const supersededGuideRefresh: EpgScheduleRefreshResult = {
+            ...READY_GUIDE_REFRESH,
+            readiness: 'superseded',
+            attemptedChannelCount: 0,
+            immediateReadyChannelCount: 0,
+            firstVisibleScheduleReady: false,
+        };
+        refreshEpgSchedules.mockResolvedValueOnce(supersededGuideRefresh);
+
+        const result = await committer.commitBuild({
+            buildMode: 'replace',
+            existingChannels: [makeExisting(1)],
+            pendingToCreate: [makePending('One')],
+            skippedCount: 0,
+            reachedMaxChannels: false,
+            errorCount: 0,
+            diff: emptyDiff(),
+            signal: null,
+            reportProgress: (): void => undefined,
+        });
+
+        expect(result.summary.guideRefresh).toEqual(supersededGuideRefresh);
+        expect(result.summary.warnings).toBeUndefined();
+        expect(result.epgRefreshFailed).toBe(false);
+    });
+
     it('runs post-commit EPG refresh in the required order', async () => {
         const {
             committer,

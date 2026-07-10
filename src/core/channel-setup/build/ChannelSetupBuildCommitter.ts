@@ -233,7 +233,7 @@ export class ChannelSetupBuildCommitter {
                 signal: request.signal,
             });
             summary.guideRefresh = guideRefresh;
-            if (guideRefresh.readiness !== 'ready') {
+            if (guideRefresh.readiness !== 'ready' && guideRefresh.readiness !== 'superseded') {
                 epgRefreshFailed = true;
                 addWarning('[ChannelSetup] EPG refresh completed with degraded guide readiness', guideRefresh);
             }

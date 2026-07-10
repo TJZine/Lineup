@@ -38,7 +38,10 @@ import type {
     ScheduleCachePolicy,
     SelectedRowSnapshotSeed,
 } from './EPGScheduleRefreshRuntimeTypes';
-import { createSkippedEpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
+import {
+    createSkippedEpgScheduleRefreshResult,
+    createSupersededEpgScheduleRefreshResult,
+} from '../../../../shared/epgRefresh';
 
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
 const QA_003B_ISSUE_ID = 'QA-003b';
@@ -255,6 +258,9 @@ export class EPGScheduleRefreshRuntime {
             this._logRefreshStart(session);
             await this._refreshImmediateChannels(session, metrics);
             throwIfEpgRefreshAborted(signal);
+            if (!this._isRefreshSessionActive(session)) {
+                return createSupersededEpgScheduleRefreshResult();
+            }
             this._startBackgroundRefresh(session, metrics);
             this._logRefreshResults(session, metrics);
             this._restoreFocusAfterRefresh(session);

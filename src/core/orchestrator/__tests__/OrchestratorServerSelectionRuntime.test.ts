@@ -343,6 +343,32 @@ describe('OrchestratorServerSelectionRuntime', () => {
         });
     });
 
+    it('preserves intentional EPG supersession without classifying it as degraded', async () => {
+        const refreshResult: EpgScheduleRefreshResult = {
+            ...READY_EPG_REFRESH,
+            readiness: 'superseded',
+            attemptedChannelCount: 0,
+            immediateReadyChannelCount: 0,
+            firstVisibleScheduleReady: false,
+        };
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn().mockResolvedValue(refreshResult),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const runtime = new OrchestratorServerSelectionRuntime(createDeps({
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        }));
+
+        await expect(runtime.selectServer('server-1')).resolves.toMatchObject({
+            kind: 'selected',
+            startupResume: {
+                epgRefresh: { kind: 'superseded', result: refreshResult },
+            },
+        });
+    });
+
     it('stops server-swap EPG mutations when the caller aborts after startup resumes', async () => {
         const abortReason = new DOMException('server selection hidden', 'AbortError');
         const controller = new AbortController();

@@ -638,7 +638,16 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
     });
 
-    it('aborts an overlapping same-range load and reports ready only after the current schedule applies', async () => {
+    it.each([
+        {
+            label: 'same-range',
+            nextRange: { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+        },
+        {
+            label: 'different-range',
+            nextRange: { channelStart: 0, channelEnd: 0, timeStartMs: 60_000, timeEndMs: 120_000 },
+        },
+    ])('reports a superseded $label load and only applies the current schedule', async ({ nextRange }) => {
         const pendingLoads: Array<{
             resolve: (value: ResolvedChannelContent) => void;
             signal: AbortSignal | null | undefined;
@@ -662,7 +671,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
         await Promise.resolve();
         const secondRefresh = runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            nextRange,
             'visible-range'
         );
         await Promise.resolve();
@@ -675,7 +684,15 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(epg.focusNow).not.toHaveBeenCalled();
 
         const firstResult = await firstRefresh;
-        expect(firstResult.readiness).toBe('failed');
+        expect(firstResult).toEqual({
+            readiness: 'superseded',
+            attemptedChannelCount: 0,
+            immediateReadyChannelCount: 0,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 0,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: false,
+        });
         expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
 
         pendingLoads[1]?.resolve(createResolvedContent('c1'));
@@ -694,7 +711,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(epg.focusNow).toHaveBeenCalledTimes(1);
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            nextRange,
             'visible-range'
         );
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);

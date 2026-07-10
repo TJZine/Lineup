@@ -19,6 +19,9 @@ export function getSelectedServerStatusDetail(
     if (result.startupResume.epgRefresh.kind === 'failed') {
         return 'Connected, but guide refresh needs retry.';
     }
+    if (result.startupResume.epgRefresh.kind === 'superseded') {
+        return 'Connected; guide refresh continued with a newer request.';
+    }
     if (result.startupResume.epgRefresh.kind === 'degraded') {
         const refreshResult = result.startupResume.epgRefresh.result;
         switch (refreshResult.readiness) {
