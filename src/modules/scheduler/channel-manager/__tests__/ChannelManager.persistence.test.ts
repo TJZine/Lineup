@@ -129,7 +129,7 @@ describe('ChannelManager persistence and storage keys', () => {
 
         it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
             expectConsoleWarn([
-                'ChannelManager.setStorageKeys failed while flushing pending saves',
+                'ChannelManager.clearRuntimeState failed while flushing pending saves',
                 expect.objectContaining({
                     name: 'ChannelError',
                     code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
@@ -155,7 +155,7 @@ describe('ChannelManager persistence and storage keys', () => {
             );
         });
 
-        it('does not overwrite previous scope channels after runtime clear and key switch', async () => {
+        it('flushes a queued mutation to the previous scope before runtime clear and key switch', async () => {
             const persistedChannel = createBaseChannel({
                 id: 'persisted-channel',
                 name: 'Persisted Channel',
@@ -167,7 +167,8 @@ describe('ChannelManager persistence and storage keys', () => {
                 currentChannelId: persistedChannel.id,
                 savedAt: Date.now(),
             }));
-            await manager.createChannel({
+            await manager.loadChannels();
+            const unsavedChannel = await manager.createChannel({
                 name: 'Unsaved Runtime Channel',
                 contentSource: createMockContentSource('runtime-lib'),
             });
@@ -182,8 +183,11 @@ describe('ChannelManager persistence and storage keys', () => {
                 channelOrder?: string[];
                 currentChannelId?: string | null;
             };
-            expect(persisted.channels?.map((channel) => channel.id)).toEqual(['persisted-channel']);
-            expect(persisted.channelOrder).toEqual(['persisted-channel']);
+            expect(persisted.channels?.map((channel) => channel.id)).toEqual([
+                'persisted-channel',
+                unsavedChannel.id,
+            ]);
+            expect(persisted.channelOrder).toEqual(['persisted-channel', unsavedChannel.id]);
             expect(persisted.currentChannelId).toBe('persisted-channel');
             expect(mockLocalStorage.getItem('lineup_channels_next_scope')).toBeNull();
         });

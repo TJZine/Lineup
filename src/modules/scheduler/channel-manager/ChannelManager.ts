@@ -239,21 +239,20 @@ export class ChannelManager implements IChannelManager {
     setStorageKeys(storageKey: string, currentChannelKey: string): void {
         const normalizedStorageKey = normalizeStorageKey(storageKey, STORAGE_KEY);
         const normalizedCurrentChannelKey = normalizeStorageKey(currentChannelKey, CURRENT_CHANNEL_KEY);
+        this.clearRuntimeState();
+        this._persistence.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
+    }
+
+    clearRuntimeState(): void {
         this._retryScheduler.cancelAll();
         try {
             this._persistence.flush(this._getPersistableState());
         } catch (error) {
             this._persistence.reportFailure(
-                'ChannelManager.setStorageKeys failed while flushing pending saves',
+                'ChannelManager.clearRuntimeState failed while flushing pending saves',
                 error
             );
         }
-        this._persistence.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
-        this.clearRuntimeState();
-    }
-
-    clearRuntimeState(): void {
-        this._retryScheduler.cancelAll();
         this._persistence.supersedePendingSave();
         this._contentResolver.clearCaches();
         this._resolutionCache.clear();
