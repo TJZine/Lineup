@@ -1,52 +1,16 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const requiredRoles = [
-    'explorer',
-    'explorer_fallback',
-    'reviewer',
-    'maintainability_reviewer',
-    'architecture_reviewer',
-    'docs_researcher',
-    'planner',
-    'planner_deep',
-    'worker',
-    'worker_luna',
-    'cleanup_worker',
-    'monitor',
-    'monitor_fallback',
-];
+import { CODEX_ROLE_CONTRACTS } from '../codex-role-contracts.mjs';
 
-const roleConfigFiles = new Map([
-    ['explorer', 'agents/explorer.toml'],
-    ['explorer_fallback', 'agents/explorer-fallback.toml'],
-    ['reviewer', 'agents/reviewer.toml'],
-    ['maintainability_reviewer', 'agents/maintainability-reviewer.toml'],
-    ['architecture_reviewer', 'agents/architecture-reviewer.toml'],
-    ['docs_researcher', 'agents/docs-researcher.toml'],
-    ['planner', 'agents/planner.toml'],
-    ['planner_deep', 'agents/planner-deep.toml'],
-    ['worker', 'agents/worker.toml'],
-    ['worker_luna', 'agents/worker-luna.toml'],
-    ['cleanup_worker', 'agents/cleanup-worker.toml'],
-    ['monitor', 'agents/monitor.toml'],
-    ['monitor_fallback', 'agents/monitor-fallback.toml'],
-]);
-
-const readOnlyRoles = new Set([
-    'explorer',
-    'explorer_fallback',
-    'reviewer',
-    'maintainability_reviewer',
-    'architecture_reviewer',
-    'docs_researcher',
-    'monitor',
-    'monitor_fallback',
-]);
+const requiredRoles = CODEX_ROLE_CONTRACTS.map(({ role }) => role);
+const roleConfigFiles = new Map(CODEX_ROLE_CONTRACTS.map(({ role, configFile }) => [role, configFile]));
+const readOnlyRoles = new Set(CODEX_ROLE_CONTRACTS.filter(({ readOnly }) => readOnly).map(({ role }) => role));
+const roleModels = new Map(CODEX_ROLE_CONTRACTS.map(({ role, supportedModels }) => [role, supportedModels[0]]));
 
 const roleDescriptionMarkers = new Map([
     ['maintainability_reviewer', 'read-only reviewer code-health no style-only blocking'],
@@ -107,9 +71,16 @@ const roleContractMarkers = new Map([
 ]);
 
 let verifierImportCounter = 0;
+const GIT_TIMEOUT_MS = 5_000;
+const GIT_MAX_BUFFER_BYTES = 1024 * 1024;
 
 function git(cwd, args) {
-    execFileSync('git', args, { cwd, stdio: 'ignore' });
+    execFileSync('git', args, {
+        cwd,
+        stdio: 'ignore',
+        timeout: GIT_TIMEOUT_MS,
+        maxBuffer: GIT_MAX_BUFFER_BYTES,
+    });
 }
 
 function configuredRoleInstruction(role) {
@@ -118,7 +89,7 @@ function configuredRoleInstruction(role) {
 
 function roleConfigContent(role) {
     return [
-        'model = "test-model"',
+        `model = "${roleModels.get(role)}"`,
         'model_reasoning_effort = "medium"',
         ...(readOnlyRoles.has(role) ? ['sandbox_mode = "read-only"'] : []),
         'developer_instructions = """',
@@ -230,6 +201,68 @@ test('checkTrackedCodexRoleConfig rejects targeted role-config contract mutation
             expected: 'Codex role config is missing exact CONFIGURED ROLE marker for worker_luna',
         },
         {
+            name: 'configured-role marker spoofed by a comment',
+            relativePath: '.codex/agents/worker-luna.toml',
+            mutate: (content) => {
+                const marker = configuredRoleInstruction('worker_luna');
+                return `${content.replace(marker, 'Execute the approved worker_luna unit.')}\n# ${marker}\n`;
+            },
+            expected: 'Codex role config is missing exact CONFIGURED ROLE marker for worker_luna',
+        },
+        {
+            name: 'malformed tracked config',
+            relativePath: '.codex/config.toml',
+            mutate: (content) => content.replace('max_depth = 1', 'max_depth = 1\nmax_depth = 1'),
+            expected: 'Invalid TOML syntax in .codex/config.toml:',
+        },
+        {
+            name: 'malformed role config',
+            relativePath: '.codex/agents/worker.toml',
+            mutate: (content) => content.replace(
+                'model = "gpt-5.6-sol"',
+                'model = "gpt-5.6-sol"\nmodel = "gpt-5.6-sol"',
+            ),
+            expected: 'Invalid TOML syntax in .codex/agents/worker.toml:',
+        },
+        {
+            name: 'unsupported model',
+            relativePath: '.codex/agents/worker.toml',
+            mutate: (content) => content.replace('gpt-5.6-sol', 'gpt-unknown'),
+            expected: 'Codex role config uses unsupported model "gpt-unknown"',
+        },
+        {
+            name: 'unsupported effort',
+            relativePath: '.codex/agents/worker.toml',
+            mutate: (content) => content.replace('model_reasoning_effort = "medium"', 'model_reasoning_effort = "ultra"'),
+            expected: 'Codex role config uses unsupported model_reasoning_effort "ultra"',
+        },
+        {
+            name: 'invalid model type',
+            relativePath: '.codex/agents/worker.toml',
+            mutate: (content) => content.replace('model = "gpt-5.6-sol"', 'model = 56'),
+            expected: 'Codex role config model must be a string',
+        },
+        {
+            name: 'invalid effort type',
+            relativePath: '.codex/agents/worker.toml',
+            mutate: (content) => content.replace('model_reasoning_effort = "medium"', 'model_reasoning_effort = ["medium"]'),
+            expected: 'Codex role config model_reasoning_effort must be a string',
+        },
+        {
+            name: 'unsupported role and model combination',
+            relativePath: '.codex/agents/planner.toml',
+            mutate: (content) => content.replace('gpt-5.6-sol', 'gpt-5.6-luna'),
+            expected: 'Codex role planner does not support model "gpt-5.6-luna"',
+        },
+        {
+            name: 'unsupported model and effort combination',
+            relativePath: '.codex/agents/worker-luna.toml',
+            mutate: (content) => content
+                .replace('gpt-5.6-luna', 'gpt-5.4-mini')
+                .replace('model_reasoning_effort = "medium"', 'model_reasoning_effort = "xhigh"'),
+            expected: 'Codex role config does not support model/effort combination "gpt-5.4-mini"/"xhigh"',
+        },
+        {
             name: 'retired role in tracked config',
             relativePath: '.codex/config.toml',
             mutate: (content) => `${content}\n[agents.worker_54_high]\ndescription = "Retired role"\n`,
@@ -238,7 +271,7 @@ test('checkTrackedCodexRoleConfig rejects targeted role-config contract mutation
         {
             name: 'retired role in agent instructions',
             relativePath: '.codex/agents/worker.toml',
-            mutate: (content) => `${content}Do not delegate this unit to worker_terra.\n`,
+            mutate: (content) => content.replace('\n"""\n', '\nDo not delegate this unit to worker_terra.\n"""\n'),
             expected: 'Codex role config must not mention retired role worker_terra',
         },
         {
@@ -287,5 +320,62 @@ test('checkTrackedCodexRoleConfig rejects targeted role-config contract mutation
         } finally {
             rmSync(tmpRoot, { recursive: true, force: true });
         }
+    }
+});
+
+test('checkTrackedCodexRoleConfig accepts equivalent TOML syntax and supported tuning alternatives', async () => {
+    const tmpRoot = createFixture();
+    try {
+        const configPath = path.join(tmpRoot, '.codex/config.toml');
+        writeFileSync(
+            configPath,
+            `${readFileSync(configPath, 'utf8')
+                .replace('max_depth = 1', 'max_depth = 1 # conservative nesting')
+                .replace('config_file = "agents/worker.toml"', "config_file = 'agents/worker.toml'")}\n# worker_terra is retired\n`,
+            'utf8',
+        );
+
+        const plannerPath = path.join(tmpRoot, '.codex/agents/planner.toml');
+        writeFileSync(
+            plannerPath,
+            readFileSync(plannerPath, 'utf8')
+                .replace('gpt-5.6-sol', 'gpt-5.5')
+                .replace('model_reasoning_effort = "medium"', 'model_reasoning_effort = "max"')
+                .replaceAll('"""', "'''"),
+            'utf8',
+        );
+
+        const workerLunaPath = path.join(tmpRoot, '.codex/agents/worker-luna.toml');
+        writeFileSync(
+            workerLunaPath,
+            readFileSync(workerLunaPath, 'utf8').replace('gpt-5.6-luna', 'gpt-5.4-mini'),
+            'utf8',
+        );
+
+        const errors = await checkTrackedRoleConfig(tmpRoot);
+        assert.deepEqual(errors, [], `Expected equivalent TOML and supported alternatives to pass, got:\n${errors.join('\n')}`);
+    } finally {
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});
+
+test('checkTrackedCodexRoleConfig rejects a symlinked role config that escapes .codex/agents', async () => {
+    const tmpRoot = createFixture();
+    try {
+        const escapedPath = path.join(tmpRoot, 'escaped-worker.toml');
+        writeFileSync(escapedPath, roleConfigContent('worker'), 'utf8');
+        const workerPath = path.join(tmpRoot, '.codex/agents/worker.toml');
+        rmSync(workerPath);
+        symlinkSync('../../escaped-worker.toml', workerPath);
+
+        const errors = await checkTrackedRoleConfig(tmpRoot);
+        assert(
+            errors.some((message) => message.includes(
+                'Codex role config_file entries must use agents/*.toml (under .codex/agents): role=worker',
+            )),
+            `Expected symlink escape rejection, got:\n${errors.join('\n')}`,
+        );
+    } finally {
+        rmSync(tmpRoot, { recursive: true, force: true });
     }
 });

@@ -1,8 +1,16 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { parse as parseToml } from 'smol-toml';
 
+import {
+    CODEX_ROLE_CONTRACTS,
+    isSupportedModelEffortCombination,
+    RETIRED_CODEX_AGENT_ROLES,
+    SUPPORTED_CODEX_MODELS,
+    SUPPORTED_CODEX_REASONING_EFFORTS,
+} from './codex-role-contracts.mjs';
 import {
     ACTIVE_PLAN_MARKER,
     buildChecklistPlanPathMessages,
@@ -87,40 +95,21 @@ const trackedLocalOnlyPrefixAllowlist = ['docs/runs/_template/'];
 const literalLocalOnlyPatternAllowlist = new Set([
     // Reserved for true tracked-file exceptions where an exact local-only artifact path must be shown verbatim.
 ]);
-const requiredCodexRoleConfigFiles = new Map([
-    ['explorer', 'agents/explorer.toml'],
-    ['explorer_fallback', 'agents/explorer-fallback.toml'],
-    ['reviewer', 'agents/reviewer.toml'],
-    ['maintainability_reviewer', 'agents/maintainability-reviewer.toml'],
-    ['architecture_reviewer', 'agents/architecture-reviewer.toml'],
-    ['docs_researcher', 'agents/docs-researcher.toml'],
-    ['planner', 'agents/planner.toml'],
-    ['planner_deep', 'agents/planner-deep.toml'],
-    ['worker', 'agents/worker.toml'],
-    ['worker_luna', 'agents/worker-luna.toml'],
-    ['cleanup_worker', 'agents/cleanup-worker.toml'],
-    ['monitor', 'agents/monitor.toml'],
-    ['monitor_fallback', 'agents/monitor-fallback.toml'],
-]);
+const requiredCodexRoleConfigFiles = new Map(
+    CODEX_ROLE_CONTRACTS.map(({ role, configFile }) => [role, configFile])
+);
+const codexRoleContractByRole = new Map(CODEX_ROLE_CONTRACTS.map((contract) => [contract.role, contract]));
 const requiredCodexAgentRoles = Array.from(requiredCodexRoleConfigFiles.keys());
-const retiredCodexAgentRoles = ['worker_54_high', 'worker_terra'];
+const retiredCodexAgentRoles = RETIRED_CODEX_AGENT_ROLES;
 const currentCodexRoleGuidanceFiles = [
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic/skill-strategy.md',
     'docs/agentic/session-prompts/README.md',
     '.agents/skills/bounded-worker-execution/SKILL.md',
     '.agents/skills/model-selection/SKILL.md',
+    ...EXPECTED_SESSION_PROMPT_FILES.map((fileName) => `docs/agentic/session-prompts/${fileName}`),
 ];
-const readOnlyCodexAgentRoles = [
-    'explorer',
-    'explorer_fallback',
-    'reviewer',
-    'maintainability_reviewer',
-    'architecture_reviewer',
-    'docs_researcher',
-    'monitor',
-    'monitor_fallback',
-];
+const readOnlyCodexAgentRoles = CODEX_ROLE_CONTRACTS.filter(({ readOnly }) => readOnly).map(({ role }) => role);
 const codexRoleWorkflowMarkerFiles = [
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic/skill-strategy.md',
@@ -137,91 +126,16 @@ const repoLocalLauncherSkillReadOrderFiles = [
     '.agents/skills/lineup-workflow-harness-review/SKILL.md',
     '.agents/skills/repo-production-review/SKILL.md',
 ];
-const requiredCodexRoleContracts = new Map([
-    [
-        'planner',
-        {
-            requiredMarkers: [
-                'own bounded planning work',
-                'not product-code implementation',
-                'planning artifacts',
-                'execution-ready handoffs',
-                'leave implementation to the worker role',
-            ],
-        },
-    ],
-    [
-        'planner_deep',
-        {
-            requiredMarkers: [
-                'deep planning work',
-                'tier 3',
-                'unresolved architecture/product seam',
-                'do not implement product code',
-                'planning artifacts',
-            ],
-        },
-    ],
-    [
-        'worker_luna',
-        {
-            requiredMarkers: [
-                'approved, bounded, exact, cheap-to-verify execution units',
-                'current execution packet',
-                'stop and escalate on ambiguity',
-                'plan contradiction',
-                'verification failure that needs diagnosis',
-            ],
-        },
-    ],
-    [
-        'maintainability_reviewer',
-        {
-            requiredMarkers: [
-                'code-health',
-                'slop',
-                'file shape',
-                'test brittleness',
-                'unnecessary indirection',
-                'do not block on style-only preferences',
-                'do not edit files',
-            ],
-        },
-    ],
-    [
-        'architecture_reviewer',
-        {
-            requiredMarkers: [
-                'hotspots',
-                'owner seams',
-                'cross-module coupling',
-                'public contracts',
-                'priority-exit',
-                'security-adjacent architecture risk',
-                'do not edit files',
-            ],
-        },
-    ],
-    [
-        'cleanup_worker',
-        {
-            requiredMarkers: [
-                'bounded cleanup-loop implementation write scope',
-                'smallest defensible cleanup change',
-                'approved execution unit',
-                'tier 3 cleanup-loop implementation passes',
-                'leave general implementation routing to the worker role',
-            ],
-        },
-    ],
-]);
-const requiredCodexRoleDescriptionMarkers = new Map([
-    ['cleanup_worker', ['cleanup-loop-specific implementer', 'approved tier 3 cleanup-loop implementation passes']],
-    ['planner_deep', ['deep planning writer', 'tier 3', 'not product-code implementation']],
-    ['worker_luna', ['cost-optimized write-capable implementer', 'approved', 'cheap-to-verify']],
-    ['maintainability_reviewer', ['read-only reviewer', 'code-health', 'no style-only blocking']],
-    ['architecture_reviewer', ['read-only reviewer', 'hotspots', 'security-adjacent architecture risk']],
-]);
+const requiredCodexRoleContracts = new Map(
+    CODEX_ROLE_CONTRACTS.filter(({ instructionMarkers }) => instructionMarkers !== undefined).map(
+        ({ role, instructionMarkers }) => [role, { requiredMarkers: instructionMarkers }]
+    )
+);
+const requiredCodexRoleDescriptionMarkers = new Map(
+    CODEX_ROLE_CONTRACTS.filter(({ descriptionMarkers }) => descriptionMarkers !== undefined).map(
+        ({ role, descriptionMarkers }) => [role, descriptionMarkers]
+    )
+);
 
 function recordFsError(errors, operation, targetPath, error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -1770,55 +1684,58 @@ function isCodexRoleWorkflowTracked(errors) {
     return foundConfig && foundAgents;
 }
 
-function parseCodexRoleConfig(configContent) {
+function isTomlTable(value) {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseTrackedToml(relativePath, content, errors) {
+    try {
+        return parseToml(content);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        errors.push(`Invalid TOML syntax in ${relativePath}: ${message}`);
+        return null;
+    }
+}
+
+function parseCodexRoleConfig(configRelativePath, configContent, errors) {
+    const parsedConfig = parseTrackedToml(configRelativePath, configContent, errors);
     const declaredRoles = new Set();
     const roleConfigFiles = new Map();
-    const roleSections = new Map();
-    let currentRole = null;
-    let currentSection = null;
+    const roleDescriptions = new Map();
     let maxDepth = null;
 
-    for (const rawLine of configContent.split(/\r?\n/u)) {
-        const line = rawLine.trim();
+    if (parsedConfig === null) {
+        return { declaredRoles, roleConfigFiles, roleDescriptions, maxDepth, parsedConfig };
+    }
 
-        const sectionMatch = line.match(/^\[([^\]]+)\]$/u);
-        if (sectionMatch !== null) {
-            currentSection = sectionMatch[1];
-        }
+    if (!isTomlTable(parsedConfig.agents)) {
+        errors.push('Tracked Codex role config must define an [agents] TOML table');
+        return { declaredRoles, roleConfigFiles, roleDescriptions, maxDepth, parsedConfig };
+    }
 
-        const roleMatch = line.match(/^\[agents\.([a-z0-9_]+)\]$/u);
-        if (roleMatch !== null) {
-            currentRole = roleMatch[1];
-            declaredRoles.add(currentRole);
-            roleSections.set(currentRole, []);
+    const agents = parsedConfig.agents;
+    maxDepth = agents.max_depth;
+    for (const [role, declaration] of Object.entries(agents)) {
+        if (!isTomlTable(declaration)) {
             continue;
         }
 
-        if (sectionMatch !== null) {
-            currentRole = null;
-            continue;
+        declaredRoles.add(role);
+        if (typeof declaration.config_file === 'string') {
+            roleConfigFiles.set(role, declaration.config_file);
+        } else if (Object.hasOwn(declaration, 'config_file')) {
+            errors.push(`Codex role ${role} config_file must be a string in .codex/config.toml`);
         }
 
-        if (currentSection === 'agents') {
-            const maxDepthMatch = line.match(/^max_depth\s*=\s*(\d+)$/u);
-            if (maxDepthMatch !== null) {
-                maxDepth = Number.parseInt(maxDepthMatch[1], 10);
-            }
-        }
-
-        if (currentRole === null) {
-            continue;
-        }
-
-        roleSections.get(currentRole)?.push(line);
-
-        const configFileMatch = line.match(/^config_file\s*=\s*"([^"]+)"$/u);
-        if (configFileMatch !== null) {
-            roleConfigFiles.set(currentRole, configFileMatch[1]);
+        if (typeof declaration.description === 'string') {
+            roleDescriptions.set(role, declaration.description);
+        } else if (Object.hasOwn(declaration, 'description')) {
+            errors.push(`Codex role ${role} description must be a string in .codex/config.toml`);
         }
     }
 
-    return { declaredRoles, roleConfigFiles, roleSections, maxDepth };
+    return { declaredRoles, roleConfigFiles, roleDescriptions, maxDepth, parsedConfig };
 }
 
 export function checkTrackedCodexRoleConfig(errors) {
@@ -1847,9 +1764,17 @@ export function checkTrackedCodexRoleConfig(errors) {
         errors.push(`Tracked Codex role config is not tracked by git: ${configRelativePath}`);
     }
 
-    const { declaredRoles, roleConfigFiles, roleSections, maxDepth } = parseCodexRoleConfig(configContent);
+    const { declaredRoles, roleConfigFiles, roleDescriptions, maxDepth, parsedConfig } = parseCodexRoleConfig(
+        configRelativePath,
+        configContent,
+        errors
+    );
+    if (parsedConfig === null) {
+        return;
+    }
+
     for (const retiredRole of retiredCodexAgentRoles) {
-        if (configContent.includes(retiredRole)) {
+        if (declaredRoles.has(retiredRole)) {
             errors.push(
                 `Tracked Codex role config must not mention retired role ${retiredRole}: ${configRelativePath}`
             );
@@ -1881,14 +1806,14 @@ export function checkTrackedCodexRoleConfig(errors) {
         }
     }
 
-    if (maxDepth !== 1) {
+    if (typeof maxDepth !== 'number' || !Number.isInteger(maxDepth) || maxDepth !== 1) {
         errors.push('Tracked Codex role config must set agents.max_depth = 1 to preserve conservative nesting');
     }
 
     for (const [role, markers] of requiredCodexRoleDescriptionMarkers.entries()) {
-        const normalizedRoleSection = normalizeDocText((roleSections.get(role) ?? []).join('\n'));
+        const normalizedRoleDescription = normalizeDocText(roleDescriptions.get(role) ?? '');
         for (const marker of markers) {
-            if (!normalizedRoleSection.includes(marker)) {
+            if (!normalizedRoleDescription.includes(marker)) {
                 errors.push(
                     `Codex role declaration is missing required ${role} scope marker (${marker}) in .codex/config.toml`
                 );
@@ -1900,6 +1825,7 @@ export function checkTrackedCodexRoleConfig(errors) {
     const untrackedRoleConfigPaths = new Set();
     const invalidRoleConfigFiles = [];
     const roleConfigContents = new Map();
+    const codexAgentsRoot = path.resolve(repoRoot, '.codex', 'agents');
     for (const [role, configFile] of roleConfigFiles.entries()) {
         // Hard-fail malformed or path-traversal config_file entries. The tracked workflow
         // assumes role configs live under `.codex/agents/*.toml`.
@@ -1909,8 +1835,24 @@ export function checkTrackedCodexRoleConfig(errors) {
         }
 
         const relativePath = `.codex/${configFile}`;
-        if (!existsSync(path.join(repoRoot, relativePath))) {
+        const fullPath = path.resolve(repoRoot, relativePath);
+        if (!existsSync(fullPath)) {
             missingRoleConfigPaths.add(relativePath);
+            continue;
+        }
+
+        try {
+            const resolvedAgentsRoot = realpathSync(codexAgentsRoot);
+            const resolvedConfigPath = realpathSync(fullPath);
+            if (
+                resolvedConfigPath !== resolvedAgentsRoot &&
+                !resolvedConfigPath.startsWith(`${resolvedAgentsRoot}${path.sep}`)
+            ) {
+                invalidRoleConfigFiles.push({ role, configFile });
+                continue;
+            }
+        } catch (error) {
+            recordFsError(errors, 'resolve Codex role config path', relativePath, error);
             continue;
         }
 
@@ -1920,7 +1862,13 @@ export function checkTrackedCodexRoleConfig(errors) {
 
         const roleConfigContent = readRepoFile(relativePath, errors);
         if (roleConfigContent !== null) {
-            roleConfigContents.set(role, { relativePath, content: roleConfigContent });
+            const parsedRoleConfig = parseTrackedToml(relativePath, roleConfigContent, errors);
+            if (parsedRoleConfig !== null) {
+                roleConfigContents.set(role, {
+                    relativePath,
+                    parsed: parsedRoleConfig,
+                });
+            }
         }
     }
 
@@ -1939,22 +1887,62 @@ export function checkTrackedCodexRoleConfig(errors) {
     }
 
     for (const [role, roleConfig] of roleConfigContents.entries()) {
+        const developerInstructions = roleConfig.parsed.developer_instructions;
         const configuredRoleMarkerPattern = new RegExp(
             `^Begin your first assistant response with \`CONFIGURED ROLE: ${role}\` on its own line\\.`,
             'mu'
         );
-        if (!configuredRoleMarkerPattern.test(roleConfig.content)) {
+        if (typeof developerInstructions !== 'string') {
+            errors.push(`Codex role config must set developer_instructions to a string: ${roleConfig.relativePath}`);
+        } else if (!configuredRoleMarkerPattern.test(developerInstructions)) {
             errors.push(
                 `Codex role config is missing exact CONFIGURED ROLE marker for ${role}: ${roleConfig.relativePath}`
             );
         }
 
         for (const retiredRole of retiredCodexAgentRoles) {
-            if (roleConfig.content.includes(retiredRole)) {
+            if (typeof developerInstructions === 'string' && developerInstructions.includes(retiredRole)) {
                 errors.push(
                     `Codex role config must not mention retired role ${retiredRole}: ${roleConfig.relativePath}`
                 );
             }
+        }
+
+        const model = roleConfig.parsed.model;
+        const reasoningEffort = roleConfig.parsed.model_reasoning_effort;
+        if (typeof model !== 'string') {
+            errors.push(`Codex role config model must be a string: ${roleConfig.relativePath}`);
+        } else if (!SUPPORTED_CODEX_MODELS.has(model)) {
+            errors.push(`Codex role config uses unsupported model "${model}": ${roleConfig.relativePath}`);
+        }
+
+        if (typeof reasoningEffort !== 'string') {
+            errors.push(`Codex role config model_reasoning_effort must be a string: ${roleConfig.relativePath}`);
+        } else if (!SUPPORTED_CODEX_REASONING_EFFORTS.has(reasoningEffort)) {
+            errors.push(
+                `Codex role config uses unsupported model_reasoning_effort "${reasoningEffort}": ${roleConfig.relativePath}`
+            );
+        }
+
+        const roleContract = codexRoleContractByRole.get(role);
+        if (
+            typeof model === 'string' &&
+            SUPPORTED_CODEX_MODELS.has(model) &&
+            roleContract !== undefined &&
+            !roleContract.supportedModels.includes(model)
+        ) {
+            errors.push(`Codex role ${role} does not support model "${model}": ${roleConfig.relativePath}`);
+        }
+        if (
+            typeof model === 'string' &&
+            typeof reasoningEffort === 'string' &&
+            SUPPORTED_CODEX_MODELS.has(model) &&
+            SUPPORTED_CODEX_REASONING_EFFORTS.has(reasoningEffort) &&
+            !isSupportedModelEffortCombination(model, reasoningEffort)
+        ) {
+            errors.push(
+                `Codex role config does not support model/effort combination "${model}"/"${reasoningEffort}": ${roleConfig.relativePath}`
+            );
         }
     }
 
@@ -1964,7 +1952,7 @@ export function checkTrackedCodexRoleConfig(errors) {
             continue;
         }
 
-        if (!/^sandbox_mode\s*=\s*"read-only"$/mu.test(roleConfig.content)) {
+        if (roleConfig.parsed.sandbox_mode !== 'read-only') {
             errors.push(`Read-only Codex role config must set sandbox_mode = "read-only": ${roleConfig.relativePath}`);
         }
     }
@@ -1975,15 +1963,10 @@ export function checkTrackedCodexRoleConfig(errors) {
             continue;
         }
 
-        const normalizedRoleConfig = normalizeDocText(roleConfig.content);
-
-        for (const requiredLinePattern of contract.requiredLinePatterns ?? []) {
-            if (!requiredLinePattern.pattern.test(roleConfig.content)) {
-                errors.push(
-                    `Codex role config is missing required ${role} contract line (${requiredLinePattern.label}): ${roleConfig.relativePath}`
-                );
-            }
-        }
+        const developerInstructions = roleConfig.parsed.developer_instructions;
+        const normalizedRoleConfig = normalizeDocText(
+            typeof developerInstructions === 'string' ? developerInstructions : ''
+        );
 
         for (const requiredMarker of contract.requiredMarkers ?? []) {
             if (!normalizedRoleConfig.includes(requiredMarker)) {

@@ -222,14 +222,9 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         expect(result.stdout).toContain('Documentation verification passed.');
     });
 
-    it('keeps the worker_luna fixture aligned with the tracked role model policy', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
-
-        writeValidCodexRoleConfigFixture(repoRoot);
-
+    it('keeps the tracked worker_luna role aligned with the tracked role model policy', () => {
         const workerLunaConfig = readFileSync(
-            path.join(repoRoot, '.codex/agents/worker-luna.toml'),
+            path.join(process.cwd(), '.codex/agents/worker-luna.toml'),
             'utf8'
         );
         expect(workerLunaConfig).toContain('model = "gpt-5.6-luna"');
@@ -395,6 +390,41 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         expect(result.stderr).toContain(
             'Current Codex role guidance must not mention retired role worker_54_high: docs/agentic/session-prompts/README.md'
         );
+    });
+
+    it('scans every active launcher from the session-prompt manifest for retired roles', () => {
+        const activeLaunchers = [
+            'cleanup-plan.md',
+            'cleanup-implement.md',
+            'cleanup-review.md',
+            'cleanup-loop.md',
+            'feature-plan.md',
+            'feature-implement.md',
+            'feature-review.md',
+            'workflow-harness-review.md',
+        ];
+
+        for (const launcher of activeLaunchers) {
+            const repoRoot = createRepoFixture();
+            tempRoots.push(repoRoot);
+            writeRoleWorkflowClaimFixture(repoRoot);
+            writeValidCodexRoleConfigFixture(repoRoot);
+
+            const relativePath = `docs/agentic/session-prompts/${launcher}`;
+            const launcherPath = path.join(repoRoot, relativePath);
+            writeFileSync(
+                launcherPath,
+                `${readFileSync(launcherPath, 'utf8')}\nUse worker_terra for this launcher.\n`,
+                'utf8'
+            );
+            runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
+            const result = runVerifier(repoRoot);
+            expect(result.status).toBe(1);
+            expect(result.stderr).toContain(
+                `Current Codex role guidance must not mention retired role worker_terra: ${relativePath}`
+            );
+        }
     });
 
     it('fails when tracked codex config redeclares retired worker_54_high', () => {
