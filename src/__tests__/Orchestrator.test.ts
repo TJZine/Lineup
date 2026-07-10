@@ -1717,6 +1717,87 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('continues profile-switch startup and reports when identity cleanup fails', async () => {
+            await orchestrator.initialize(mockConfig);
+            const cleanupError = new Error('channel cleanup failed');
+            const reportError = jest.fn();
+            const resumeStartupAfterProfileSwitchSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                .mockResolvedValue(undefined);
+            mockChannelManager.clearRuntimeState.mockImplementationOnce(() => {
+                throw cleanupError;
+            });
+            Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
+                reportIssue: jest.fn(),
+                reportError,
+            });
+
+            try {
+                await expect(orchestrator.switchHomeUser('user-2')).resolves.toBeUndefined();
+
+                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
+                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
+                expect(reportError).toHaveBeenCalledWith(
+                    'orchestrator.identityScopedRuntimeState.clearChannelManagerRuntimeState',
+                    'Identity-scoped runtime cleanup step failed: clearChannelManagerRuntimeState',
+                    cleanupError,
+                    { step: 'clearChannelManagerRuntimeState' }
+                );
+            } finally {
+                resumeStartupAfterProfileSwitchSpy.mockRestore();
+            }
+        });
+
+        it('clears guide-origin focus preservation after a profile switch', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
+                createStoredCredentials('valid-token')
+            );
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            await orchestrator.start();
+            const resumeStartupAfterProfileSwitchSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                .mockResolvedValue(undefined);
+            const now = Date.now();
+            mockEpgEvents.emit('channelSelected', {
+                channel: mockChannel,
+                program: {
+                    item: {
+                        ratingKey: 'profile-guide-program',
+                        type: 'movie',
+                        title: 'Profile Guide Program',
+                        fullTitle: 'Profile Guide Program',
+                        durationMs: 60_000,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: now - 1_000,
+                    scheduledEndTime: now + 59_000,
+                    elapsedMs: 1_000,
+                    remainingMs: 59_000,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    isCurrent: true,
+                },
+            });
+
+            try {
+                mockEpg.show.mockClear();
+                orchestrator.openEPG();
+                expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: true });
+
+                await orchestrator.switchHomeUser('user-2');
+
+                mockEpg.show.mockClear();
+                orchestrator.openEPG();
+                expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: false });
+            } finally {
+                resumeStartupAfterProfileSwitchSpy.mockRestore();
+            }
+        });
+
         it('reports PlexServerDiscovery as the missing dependency when profile switching runs without discovery', async () => {
             await orchestrator.initialize(mockConfig);
 

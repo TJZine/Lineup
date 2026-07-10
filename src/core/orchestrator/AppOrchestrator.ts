@@ -1127,8 +1127,7 @@ export class AppOrchestrator {
             initCoordinator.restorePendingServerResumeAfterProfileSwitchFailure();
             throw error;
         }
-        // Finalize only after the profile mutation succeeds. Failed profile switches
-        // keep the previous active profile, so channel/stream identity should remain intact.
+        // Failed profile switches keep the previous identity, so cleanup starts only after success.
         cleanupController.finalizeProfileSwitch();
         this._clearIdentityScopedRuntimeState({ resetPlayback: false });
         await this._resumeStartupAfterProfileSwitch(initCoordinator);
@@ -1845,6 +1844,7 @@ export class AppOrchestrator {
                 this._epgCoordinator?.clearScheduleCaches();
                 this._epg?.clearSchedules();
             },
+            reportFailure: this._warnRecoverableRuntimeError.bind(this),
         }, options);
     }
 
