@@ -39,7 +39,7 @@ Start at `0` and add `+1` for each:
   - if asked: use tracked `planner` (`gpt-5.6-sol medium`), tracked `worker` (`gpt-5.6-sol medium`), and tracked `reviewer` (`gpt-5.6-sol high`) when concrete roles are needed
   - planning default: tracked `planner` (`gpt-5.6-sol medium`)
   - implementation default: tracked `worker` (`gpt-5.6-sol medium`)
-  - use `worker_luna` (`gpt-5.6-luna xhigh`) only when the approved `CURRENT_EXECUTION_PACKET` explicitly declares `IMPLEMENTER_ROLE_ELIGIBILITY: worker_luna` and the unit is exact, bounded, and cheap to verify
+  - use `worker_luna` (`gpt-5.6-luna xhigh`) only when the approved `CURRENT_EXECUTION_PACKET` declares `IMPLEMENTER_ROLE_ELIGIBILITY` as exactly `worker_luna` or as an eligibility set containing the exact `worker_luna` role token (for example, `worker_luna | worker | cleanup_worker`), and the unit is exact, bounded, and cheap to verify
   - for tiny read-heavy sidecars, `gpt-5.6-luna low|medium` is acceptable when speed/cost matters more than deep reasoning
 - Score `2-3`
   - include `MODEL_SUGGESTION`

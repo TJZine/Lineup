@@ -107,15 +107,16 @@ unless that exception record exists.
 
 ## Subagent Transparency
 
-When dispatching a subagent, locate the selected role in `.codex/config.toml`,
-read its exact `config_file` value, and resolve that value beneath `.codex/`.
-Record the resolved path in the worker packet and use that same path at task
-closeout when reporting the role, `model`, and `model_reasoning_effort` read
-from the TOML. For example, `worker_luna` resolves to
-`.codex/agents/worker-luna.toml`. Never derive a config filename from the role
-identifier. The child role's `CONFIGURED ROLE` opening line is a visible
-confirmation of the selected role; the mapped TOML remains authoritative and
-avoids duplicating model names in prompts or workflow docs.
+At [dispatch](#multi-agent-usage-optional), locate the selected role in
+`.codex/config.toml`, read its exact `config_file` value, and resolve that value
+beneath `.codex/`. Record the resolved path in the worker packet. At
+[closeout](#session-handoffs), use that same resolved path to report the role,
+`model`, and `model_reasoning_effort` read from the TOML. For example,
+`worker_luna` resolves to `.codex/agents/worker-luna.toml`. Never derive a
+config filename from the role identifier. The child role's `CONFIGURED ROLE`
+opening line is a visible confirmation of the selected role; the mapped TOML
+remains authoritative and avoids duplicating model names in prompts or workflow
+docs.
 
 ## Default Workflow
 
@@ -181,9 +182,9 @@ avoids duplicating model names in prompts or workflow docs.
    - do not defer, no-code, or split-follow-up cleanup/refactor work because the fix is large; those dispositions require current-source proof that the issue no longer applies, the intended shape already exists, or an explicit unapproved boundary requires stop/replan with one final owner
    - for serious tracked plans, follow [`docs/agentic/plan-authoring-standard.md`](./agentic/plan-authoring-standard.md)
    - use repo-local `execution-plan-authoring` as the authoritative planner skill for Lineup serious plans
-   - use tracked `planner` (`gpt-5.6-sol medium`) by default for serious planning
-   - use `planner_deep` (`gpt-5.6-sol xhigh`) for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning; it may write planning artifacts but must not implement product code
-   - a direct `gpt-5.6-sol high` planner override is allowed only as an escalation state for ambiguous Tier 2 or moderate architecture-risk planning when `planner_deep` would be disproportionate
+   - use the tracked `planner` role by default for serious planning
+   - use the tracked `planner_deep` role for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning; it may write planning artifacts but must not implement product code
+   - a direct model override is allowed only as an escalation state for ambiguous Tier 2 or moderate architecture-risk planning when `planner_deep` would be disproportionate; record the reason in the worker packet and report the effective model settings from the resolved TOML at closeout
    - use repo-local `verification-strategy` to choose the proof mode before freezing verification commands or deciding whether new tests are needed
    - serious tracked plans must be decision-complete at the seam, scope, ownership, and verification level without turning into pseudo-code master plans
    - serious tracked plans should freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk
