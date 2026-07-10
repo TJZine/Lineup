@@ -195,6 +195,12 @@ test('checkTrackedCodexRoleConfig rejects targeted role-config contract mutation
             expected: 'Codex role worker_luna must use config_file="agents/worker-luna.toml"',
         },
         {
+            name: 'unexpected role declaration',
+            relativePath: '.codex/config.toml',
+            mutate: (content) => `${content}\n[agents.unapproved_worker]\ndescription = "Unapproved worker"\n`,
+            expected: 'Unexpected Codex agent role declarations in .codex/config.toml: unapproved_worker',
+        },
+        {
             name: 'missing exact configured-role marker',
             relativePath: '.codex/agents/worker-luna.toml',
             mutate: (content) => content.replace('CONFIGURED ROLE: worker_luna', 'CONFIGURED ROLE: worker'),
@@ -278,6 +284,21 @@ test('checkTrackedCodexRoleConfig rejects targeted role-config contract mutation
             name: 'read-only enforcement',
             relativePath: '.codex/agents/reviewer.toml',
             mutate: (content) => content.replace('sandbox_mode = "read-only"\n', ''),
+            expected: 'Read-only Codex role config must set sandbox_mode = "read-only"',
+        },
+        {
+            name: 'write-capable role permission mismatch',
+            relativePath: '.codex/agents/worker.toml',
+            mutate: (content) => content.replace(
+                'model_reasoning_effort = "medium"\n',
+                'model_reasoning_effort = "medium"\nsandbox_mode = "read-only"\n',
+            ),
+            expected: 'Write-capable Codex role config must not declare sandbox_mode',
+        },
+        {
+            name: 'elevated sandbox mode',
+            relativePath: '.codex/agents/reviewer.toml',
+            mutate: (content) => content.replace('sandbox_mode = "read-only"', 'sandbox_mode = "danger-full-access"'),
             expected: 'Read-only Codex role config must set sandbox_mode = "read-only"',
         },
         {
@@ -371,9 +392,74 @@ test('checkTrackedCodexRoleConfig rejects a symlinked role config that escapes .
         const errors = await checkTrackedRoleConfig(tmpRoot);
         assert(
             errors.some((message) => message.includes(
-                'Codex role config_file entries must use agents/*.toml (under .codex/agents): role=worker',
+                'Codex role config must be a regular, non-symlink file: .codex/agents/worker.toml',
             )),
             `Expected symlink escape rejection, got:\n${errors.join('\n')}`,
+        );
+    } finally {
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});
+
+test('checkTrackedCodexRoleConfig rejects a primary config symlink that escapes .codex', async () => {
+    const tmpRoot = createFixture();
+    try {
+        const configPath = path.join(tmpRoot, '.codex/config.toml');
+        const escapedPath = path.join(tmpRoot, 'escaped-config.toml');
+        writeFileSync(escapedPath, readFileSync(configPath, 'utf8'), 'utf8');
+        rmSync(configPath);
+        symlinkSync('../escaped-config.toml', configPath);
+
+        const errors = await checkTrackedRoleConfig(tmpRoot);
+        assert(
+            errors.some((message) => message.includes(
+                'Tracked Codex role config must be a regular, non-symlink file: .codex/config.toml',
+            )),
+            `Expected primary symlink rejection, got:\n${errors.join('\n')}`,
+        );
+    } finally {
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});
+
+test('checkTrackedCodexRoleConfig rejects a role symlink to an internal untracked target', async () => {
+    const tmpRoot = createFixture();
+    try {
+        const agentsDir = path.join(tmpRoot, '.codex/agents');
+        const targetPath = path.join(agentsDir, 'untracked-worker.toml');
+        writeFileSync(targetPath, roleConfigContent('worker'), 'utf8');
+        const workerPath = path.join(agentsDir, 'worker.toml');
+        rmSync(workerPath);
+        symlinkSync('untracked-worker.toml', workerPath);
+
+        const errors = await checkTrackedRoleConfig(tmpRoot);
+        assert(
+            errors.some((message) => message.includes(
+                'Codex role config must be a regular, non-symlink file: .codex/agents/worker.toml',
+            )),
+            `Expected internal untracked symlink rejection, got:\n${errors.join('\n')}`,
+        );
+    } finally {
+        rmSync(tmpRoot, { recursive: true, force: true });
+    }
+});
+
+test('checkTrackedCodexRoleConfig rejects special files without reading them', async () => {
+    const tmpRoot = createFixture();
+    try {
+        const workerPath = path.join(tmpRoot, '.codex/agents/worker.toml');
+        rmSync(workerPath);
+        execFileSync('mkfifo', [workerPath], {
+            timeout: GIT_TIMEOUT_MS,
+            maxBuffer: GIT_MAX_BUFFER_BYTES,
+        });
+
+        const errors = await checkTrackedRoleConfig(tmpRoot);
+        assert(
+            errors.some((message) => message.includes(
+                'Codex role config must be a regular, non-symlink file: .codex/agents/worker.toml',
+            )),
+            `Expected special-file rejection, got:\n${errors.join('\n')}`,
         );
     } finally {
         rmSync(tmpRoot, { recursive: true, force: true });

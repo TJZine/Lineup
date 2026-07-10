@@ -739,6 +739,75 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         );
     });
 
+    it('fails when tracked codex config declares an unexpected role', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        const configPath = path.join(repoRoot, '.codex/config.toml');
+        writeFileSync(
+            configPath,
+            `${readFileSync(configPath, 'utf8')}\n[agents.unapproved_worker]\ndescription = "Unapproved worker"\n`,
+            'utf8'
+        );
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Unexpected Codex agent role declarations in .codex/config.toml: unapproved_worker'
+        );
+    });
+
+    it('fails when a write-capable codex role declares sandbox_mode', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        const workerPath = path.join(repoRoot, '.codex/agents/worker.toml');
+        writeFileSync(
+            workerPath,
+            readFileSync(workerPath, 'utf8').replace(
+                'model_reasoning_effort = "medium"\n',
+                'model_reasoning_effort = "medium"\nsandbox_mode = "read-only"\n'
+            ),
+            'utf8'
+        );
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Write-capable Codex role config must not declare sandbox_mode: .codex/agents/worker.toml'
+        );
+    });
+
+    it('fails when a read-only codex role requests an elevated sandbox_mode', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        const reviewerPath = path.join(repoRoot, '.codex/agents/reviewer.toml');
+        writeFileSync(
+            reviewerPath,
+            readFileSync(reviewerPath, 'utf8').replace(
+                'sandbox_mode = "read-only"',
+                'sandbox_mode = "danger-full-access"'
+            ),
+            'utf8'
+        );
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Read-only Codex role config must set sandbox_mode = "read-only": .codex/agents/reviewer.toml'
+        );
+    });
+
     it('fails when tracked codex config allows deeper nested agent spawning than repo policy', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);

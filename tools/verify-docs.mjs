@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parse as parseToml } from 'smol-toml';
@@ -109,7 +109,6 @@ const currentCodexRoleGuidanceFiles = [
     '.agents/skills/model-selection/SKILL.md',
     ...EXPECTED_SESSION_PROMPT_FILES.map((fileName) => `docs/agentic/session-prompts/${fileName}`),
 ];
-const readOnlyCodexAgentRoles = CODEX_ROLE_CONTRACTS.filter(({ readOnly }) => readOnly).map(({ role }) => role);
 const codexRoleWorkflowMarkerFiles = [
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic/skill-strategy.md',
@@ -1729,6 +1728,24 @@ function parseTrackedToml(relativePath, content, errors) {
     }
 }
 
+function inspectRegularConfigFile(relativePath, errors, label) {
+    const fullPath = path.resolve(repoRoot, relativePath);
+    try {
+        const stats = lstatSync(fullPath);
+        if (stats.isSymbolicLink() || !stats.isFile()) {
+            errors.push(`${label} must be a regular, non-symlink file: ${relativePath}`);
+            return { exists: true, valid: false, fullPath };
+        }
+        return { exists: true, valid: true, fullPath };
+    } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+            return { exists: false, valid: false, fullPath };
+        }
+        recordFsError(errors, 'inspect config file', relativePath, error);
+        return { exists: true, valid: false, fullPath };
+    }
+}
+
 function parseCodexRoleConfig(configRelativePath, configContent, errors) {
     const parsedConfig = parseTrackedToml(configRelativePath, configContent, errors);
     const declaredRoles = new Set();
@@ -1771,16 +1788,36 @@ function parseCodexRoleConfig(configRelativePath, configContent, errors) {
 
 export function checkTrackedCodexRoleConfig(errors) {
     const configRelativePath = '.codex/config.toml';
-    const configFullPath = path.join(repoRoot, configRelativePath);
     const workflowTracked = isCodexRoleWorkflowTracked(errors);
-    const configExists = existsSync(configFullPath);
+    const configInspection = inspectRegularConfigFile(
+        configRelativePath,
+        errors,
+        'Tracked Codex role config'
+    );
 
-    if (!workflowTracked && !configExists) {
+    if (!workflowTracked && !configInspection.exists) {
         return;
     }
 
-    if (!configExists) {
+    if (!configInspection.exists) {
         errors.push(`Missing tracked Codex role config: ${configRelativePath}`);
+        return;
+    }
+    if (!configInspection.valid) {
+        return;
+    }
+
+    let resolvedRepoRoot;
+    try {
+        resolvedRepoRoot = realpathSync(repoRoot);
+        const resolvedConfigPath = realpathSync(configInspection.fullPath);
+        const expectedConfigPath = path.join(resolvedRepoRoot, '.codex', 'config.toml');
+        if (resolvedConfigPath !== expectedConfigPath) {
+            errors.push(`Tracked Codex role config must resolve within repository .codex: ${configRelativePath}`);
+            return;
+        }
+    } catch (error) {
+        recordFsError(errors, 'resolve tracked Codex role config path', configRelativePath, error);
         return;
     }
 
@@ -1817,6 +1854,13 @@ export function checkTrackedCodexRoleConfig(errors) {
         errors.push(
             `Missing required Codex agent role declarations in .codex/config.toml: ${missingRoles.join(', ')}`
         );
+    }
+
+    const unexpectedRoles = Array.from(declaredRoles)
+        .filter((role) => !codexRoleContractByRole.has(role))
+        .sort();
+    if (unexpectedRoles.length > 0) {
+        errors.push(`Unexpected Codex agent role declarations in .codex/config.toml: ${unexpectedRoles.join(', ')}`);
     }
 
     const rolesMissingConfigFiles = requiredCodexAgentRoles.filter(
@@ -1856,7 +1900,7 @@ export function checkTrackedCodexRoleConfig(errors) {
     const untrackedRoleConfigPaths = new Set();
     const invalidRoleConfigFiles = [];
     const roleConfigContents = new Map();
-    const codexAgentsRoot = path.resolve(repoRoot, '.codex', 'agents');
+    const expectedCodexAgentsRoot = path.join(resolvedRepoRoot, '.codex', 'agents');
     for (const [role, configFile] of roleConfigFiles.entries()) {
         // Hard-fail malformed or path-traversal config_file entries. The tracked workflow
         // assumes role configs live under `.codex/agents/*.toml`.
@@ -1866,18 +1910,24 @@ export function checkTrackedCodexRoleConfig(errors) {
         }
 
         const relativePath = `.codex/${configFile}`;
-        const fullPath = path.resolve(repoRoot, relativePath);
-        if (!existsSync(fullPath)) {
+        const roleConfigInspection = inspectRegularConfigFile(
+            relativePath,
+            errors,
+            'Codex role config'
+        );
+        if (!roleConfigInspection.exists) {
             missingRoleConfigPaths.add(relativePath);
+            continue;
+        }
+        if (!roleConfigInspection.valid) {
             continue;
         }
 
         try {
-            const resolvedAgentsRoot = realpathSync(codexAgentsRoot);
-            const resolvedConfigPath = realpathSync(fullPath);
+            const resolvedConfigPath = realpathSync(roleConfigInspection.fullPath);
             if (
-                resolvedConfigPath !== resolvedAgentsRoot &&
-                !resolvedConfigPath.startsWith(`${resolvedAgentsRoot}${path.sep}`)
+                resolvedConfigPath !== expectedCodexAgentsRoot &&
+                !resolvedConfigPath.startsWith(`${expectedCodexAgentsRoot}${path.sep}`)
             ) {
                 invalidRoleConfigFiles.push({ role, configFile });
                 continue;
@@ -1977,14 +2027,16 @@ export function checkTrackedCodexRoleConfig(errors) {
         }
     }
 
-    for (const role of readOnlyCodexAgentRoles) {
-        const roleConfig = roleConfigContents.get(role);
+    for (const roleContract of CODEX_ROLE_CONTRACTS) {
+        const roleConfig = roleConfigContents.get(roleContract.role);
         if (roleConfig === undefined) {
             continue;
         }
 
-        if (roleConfig.parsed.sandbox_mode !== 'read-only') {
+        if (roleContract.readOnly && roleConfig.parsed.sandbox_mode !== 'read-only') {
             errors.push(`Read-only Codex role config must set sandbox_mode = "read-only": ${roleConfig.relativePath}`);
+        } else if (!roleContract.readOnly && Object.hasOwn(roleConfig.parsed, 'sandbox_mode')) {
+            errors.push(`Write-capable Codex role config must not declare sandbox_mode: ${roleConfig.relativePath}`);
         }
     }
 
