@@ -59,7 +59,7 @@ When tracked docs conflict, use this order:
 - catch debt early through verification, review, and evals
 - preserve cleanup-era lessons as steady-state feature/refactor gates, not only
   cleanup-loop ceremony
-- keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `worker` for general Sol implementation, `worker_terra` only for approved bounded exact cheap-to-verify lower-cost execution units, one cleanup-loop-specific `cleanup_worker` exception for approved Tier 3 cleanup-loop implementation passes, `reviewer` for normal read-only review, `maintainability_reviewer` for code-health maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review
+- keep the tracked role catalog conservative: `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `worker` for general Sol implementation, `worker_luna` only for approved bounded exact cheap-to-verify lower-cost execution units, one cleanup-loop-specific `cleanup_worker` exception for approved Tier 3 cleanup-loop implementation passes, `reviewer` for normal read-only review, `maintainability_reviewer` for code-health maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review
 - enforce production file-shape baselines with `npm run verify:maintainability` so oversized production files do not grow without reviewed rationale and a decomposition or revisit trigger
 
 ## Steady-State Debt Guardrails
@@ -111,8 +111,8 @@ When dispatching a subagent, locate the selected role in `.codex/config.toml`,
 read its exact `config_file` value, and resolve that value beneath `.codex/`.
 Record the resolved path in the worker packet and use that same path at task
 closeout when reporting the role, `model`, and `model_reasoning_effort` read
-from the TOML. For example, `worker_terra` resolves to
-`.codex/agents/worker-terra.toml`. Never derive a config filename from the role
+from the TOML. For example, `worker_luna` resolves to
+`.codex/agents/worker-luna.toml`. Never derive a config filename from the role
 identifier. The child role's `CONFIGURED ROLE` opening line is a visible
 confirmation of the selected role; the mapped TOML remains authoritative and
 avoids duplicating model names in prompts or workflow docs.
@@ -189,8 +189,8 @@ avoids duplicating model names in prompts or workflow docs.
    - serious tracked plans should freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk
    - serious tracked plans must record explicit stop-and-replan conditions under the seam gate or an adjacent replan block; implementers should not invent replan policy mid-run
    - when a weaker or cheaper implementer needs extra current-unit detail, emit a bounded current-unit execution packet rather than bloating the master plan
-   - when using a bounded current-unit execution packet, include `IMPLEMENTER_ROLE_ELIGIBILITY`; cleanup packets may list `worker_terra | worker | cleanup_worker`, while feature packets may list `worker_terra | worker`
-   - use `worker_terra` only for approved, bounded, exact, cheap-to-verify execution units; it must stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis
+   - when using a bounded current-unit execution packet, include `IMPLEMENTER_ROLE_ELIGIBILITY`; cleanup packets may list `worker_luna | worker | cleanup_worker`, while feature packets may list `worker_luna | worker`
+   - use `worker_luna` only for approved, bounded, exact, cheap-to-verify execution units; it must stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
    - every serious tracked plan must classify the verification strategy for the current execution surface as one of:
@@ -237,7 +237,7 @@ avoids duplicating model names in prompts or workflow docs.
    - split large UI/runtime classes by owner: DOM rendering, focus/navigation,
      async workflow, persistence, platform/domain policy, and diagnostics
      should not quietly accumulate in one class
-   - keep `worker` as the default implementer and `cleanup_worker` as the Tier 3 cleanup-loop default; do not route unresolved seams, broad cleanup/refactor judgment, ambiguous debugging, or verification diagnosis to `worker_terra`
+   - keep `worker` as the default implementer and `cleanup_worker` as the Tier 3 cleanup-loop default; do not route unresolved seams, broad cleanup/refactor judgment, ambiguous debugging, or verification diagnosis to `worker_luna`
 8. Verify based on risk.
    - use repo-local `closeout-verification` before claiming work is complete, staged, committed, pushed, PR-ready, or handed off
    - run `npm run verify:maintainability` when production source files are added, removed, renamed, or changed in a way that could affect file-shape baselines

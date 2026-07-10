@@ -222,13 +222,13 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         expect(result.stdout).toContain('Documentation verification passed.');
     });
 
-    it('keeps the worker_terra fixture aligned with the tracked role model policy', () => {
+    it('keeps the worker_luna fixture aligned with the tracked role model policy', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
         writeValidCodexRoleConfigFixture(repoRoot);
-        const content = readFileSync(path.join(repoRoot, '.codex/agents/worker-terra.toml'), 'utf8');
-        expect(content).toContain('model = "gpt-5.6-terra"');
-        expect(content).toContain('model_reasoning_effort = "medium"');
+        const content = readFileSync(path.join(repoRoot, '.codex/agents/worker-luna.toml'), 'utf8');
+        expect(content).toContain('model = "gpt-5.6-luna"');
+        expect(content).toContain('model_reasoning_effort = "xhigh"');
     });
 
     it('fails when the session prompt README drops the explicit planner/worker/reviewer role mapping', () => {
@@ -241,8 +241,8 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
                 'Tracked role intent:',
                 '',
                 '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role by default; use `planner_deep` for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning',
-                '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_terra` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify',
-                '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_terra` for a bounded exact cheap-to-verify subunit',
+                '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_luna` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify',
+                '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_luna` for a bounded exact cheap-to-verify subunit',
                 '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role for normal review, with `maintainability_reviewer` for maintainability-only review and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review',
                 '',
             ].join('\n'),
@@ -254,7 +254,7 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
-            'Session prompt README must keep the tracked role intent explicit: planner/planner_deep for planning launchers, worker/worker_terra for eligible implementers, cleanup_worker for Tier 3 cleanup-loop implementation passes, reviewer plus specialized read-only reviewer roles for review launchers.'
+            'Session prompt README must keep the tracked role intent explicit: planner/planner_deep for planning launchers, worker/worker_luna for eligible implementers, cleanup_worker for Tier 3 cleanup-loop implementation passes, reviewer plus specialized read-only reviewer roles for review launchers.'
         );
     });
 
@@ -324,20 +324,20 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         );
     });
 
-    it('fails when worker_terra does not use its approved worker-terra config path', () => {
+    it('fails when worker_luna does not use its approved worker-luna config path', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
         writeRoleWorkflowClaimFixture(repoRoot);
         writeValidCodexRoleConfigFixture(repoRoot);
         const configPath = path.join(repoRoot, '.codex/config.toml');
         writeFileSync(configPath, readFileSync(configPath, 'utf8').replace(
-            'config_file = "agents/worker-terra.toml"', 'config_file = "agents/worker.toml"'
+            'config_file = "agents/worker-luna.toml"', 'config_file = "agents/worker.toml"'
         ), 'utf8');
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
         const result = runVerifier(repoRoot);
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
-            'Codex role worker_terra must use config_file="agents/worker-terra.toml" in .codex/config.toml'
+            'Codex role worker_luna must use config_file="agents/worker-luna.toml" in .codex/config.toml'
         );
     });
 
@@ -379,7 +379,7 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         writeValidCodexRoleConfigFixture(repoRoot);
         const configPath = path.join(repoRoot, '.codex/config.toml');
         writeFileSync(configPath,
-            `${readFileSync(configPath, 'utf8')}\n[agents.worker_54_high]\ndescription = "Retired worker"\nconfig_file = "agents/worker-terra.toml"\n`,
+            `${readFileSync(configPath, 'utf8')}\n[agents.worker_54_high]\ndescription = "Retired worker"\nconfig_file = "agents/worker-luna.toml"\n`,
             'utf8'
         );
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);

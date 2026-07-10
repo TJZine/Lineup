@@ -38,7 +38,7 @@ test('checkTrackedCodexRoleConfig reports invalid config_file paths (must be age
         'planner',
         'planner_deep',
         'worker',
-        'worker_terra',
+        'worker_luna',
         'cleanup_worker',
         'monitor',
         'monitor_fallback',
@@ -58,7 +58,7 @@ test('checkTrackedCodexRoleConfig reports invalid config_file paths (must be age
     for (const role of requiredRoles) {
         writeFileSync(
             path.join(agentsDir, `${role}.toml`),
-            role === 'worker' || role === 'worker_terra' || role === 'cleanup_worker' || role === 'planner' || role === 'planner_deep'
+            role === 'worker' || role === 'worker_luna' || role === 'cleanup_worker' || role === 'planner' || role === 'planner_deep'
                 ? 'developer_instructions = """\nown bounded planning work\nnot product-code implementation\nplanning artifacts\nexecution-ready handoffs\nleave implementation to the worker role\ndeep planning work\ntier 3\nunresolved architecture/product seam\ndo not implement product code\napproved, bounded, exact, cheap-to-verify execution units\ncurrent execution packet\nstop and escalate on ambiguity\nplan contradiction\nverification failure that needs diagnosis\nbounded cleanup-loop implementation write scope\nsmallest defensible cleanup change\napproved execution unit\ntier 3 cleanup-loop implementation passes\nleave general implementation routing to the worker role\n"""\n'
                 : 'sandbox_mode = "read-only"\n',
             'utf8',
@@ -132,7 +132,7 @@ test('checkTrackedCodexRoleConfig requires specialized reviewer roles to be read
         ['planner', 'agents/planner.toml'],
         ['planner_deep', 'agents/planner-deep.toml'],
         ['worker', 'agents/worker.toml'],
-        ['worker_terra', 'agents/worker-terra.toml'],
+        ['worker_luna', 'agents/worker-luna.toml'],
         ['cleanup_worker', 'agents/cleanup-worker.toml'],
         ['monitor', 'agents/monitor.toml'],
         ['monitor_fallback', 'agents/monitor-fallback.toml'],
@@ -153,7 +153,7 @@ test('checkTrackedCodexRoleConfig requires specialized reviewer roles to be read
         const readOnlyContent = role === 'architecture_reviewer' ? 'model = "not-checked"\n' : 'model = "not-checked"\nsandbox_mode = "read-only"\n';
         writeFileSync(
             filePath,
-            role === 'worker' || role === 'worker_terra' || role === 'cleanup_worker' || role === 'planner' || role === 'planner_deep'
+            role === 'worker' || role === 'worker_luna' || role === 'cleanup_worker' || role === 'planner' || role === 'planner_deep'
                 ? writeCapableContent
                 : readOnlyContent,
             'utf8',

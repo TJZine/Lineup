@@ -38,9 +38,9 @@ config_file = "agents/planner-deep.toml"
 description = "Implementation-focused role for narrow, disjoint write scopes once the task is understood."
 config_file = "agents/worker.toml"
 
-[agents.worker_terra]
+[agents.worker_luna]
 description = "Cost-optimized write-capable implementer for approved, bounded, exact, cheap-to-verify execution units only."
-config_file = "agents/worker-terra.toml"
+config_file = "agents/worker-luna.toml"
 
 [agents.cleanup_worker]
 description = "Cleanup-loop-specific implementer for approved Tier 3 cleanup-loop implementation passes."

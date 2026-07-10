@@ -32,8 +32,8 @@ The managed-list description for `cleanup-loop.md` is intentionally concise. The
 Tracked role intent:
 
 - run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role by default; use `planner_deep` for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning
-- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_terra` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify
-- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_terra` for a bounded exact cheap-to-verify subunit
+- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_luna` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify
+- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_luna` for a bounded exact cheap-to-verify subunit
 - keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role for normal review, with `maintainability_reviewer` for maintainability-only review and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review
 
 ## Routing (Authoritative)
@@ -94,8 +94,8 @@ Each launcher should:
 1. confirm the current repo is Lineup
 2. load [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) and [`agents.md`](../../../agents.md)
 3. load the matching file in this directory
-4. use the tracked role that matches the launcher intent (`planner` for default planning, `planner_deep` for deep Tier 3/hotspot/boundary planning, `worker` for default Sol implementation, `worker_terra` only when an approved execution packet declares lower-cost eligibility, `reviewer` for normal review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review)
-   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker_terra
+4. use the tracked role that matches the launcher intent (`planner` for default planning, `planner_deep` for deep Tier 3/hotspot/boundary planning, `worker` for default Sol implementation, `worker_luna` only when an approved execution packet declares lower-cost eligibility, `reviewer` for normal review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review)
+   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker_luna
 5. if the user message includes a `NEXT_SESSION_HANDOFF` block, treat its `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` fields as required task-specific context after the launcher read order
 6. if no `NEXT_SESSION_HANDOFF` block is supplied, accept one short follow-up message that names the exact checklist item, plan path, or artifact under review and treat that message as the active scope selector for the session
 7. follow the workflow in that file without duplicating repo policy text inline

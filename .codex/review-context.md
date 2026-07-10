@@ -149,7 +149,7 @@ Preferred roles when available:
 - reviewer: normal correctness/regression/security/test review
 - maintainability_reviewer: code-health, file-shape, brittle tests, slop, unnecessary indirection, harmful duplication
 - architecture_reviewer: hotspots, owner seams, Plex/persistence/navigation/platform/control-plane risk
-- worker_terra: lower-cost exact, bounded, testable fixes with no unresolved owner/product/architecture decision
+- worker_luna: lower-cost exact, bounded, testable fixes with no unresolved owner/product/architecture decision
 - worker: ambiguous or high-risk implementation/fix work
 - cleanup_worker: only for approved Tier 3 cleanup-loop execution units
 - docs_researcher: official docs/API/framework behavior checks
@@ -160,7 +160,7 @@ Fallback rule:
 
 ## Model Policy
 
-- Use GPT-5.6 Terra medium through `worker_terra` for explicitly eligible exact, bounded, cheap-to-verify implementation.
+- Use GPT-5.6 Luna xhigh through `worker_luna` for explicitly eligible exact, bounded, cheap-to-verify implementation.
 - Use GPT-5.6 Sol medium for normal planning and implementation.
 - Use GPT-5.6 Sol high/xhigh for architecture, security, hotspot, priority-exit, long-context, or hard debugging/review tasks.
 - Do not default every review subagent to GPT-5.6 Sol high; use the tracked reviewer specialization that matches the risk surface.

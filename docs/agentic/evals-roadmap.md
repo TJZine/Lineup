@@ -125,7 +125,7 @@ Pass conditions:
 - ordinary Tier 2 planning uses `planner` on the `gpt-5.6-sol` medium reasoning surface
 - Tier 3, hotspot, priority-exit, or unresolved-seam planning escalates to `planner_deep`
 - critique and maintainability-review roles remain advisory or review-only rather than default authoritative planning
-- routine bounded implementation uses `worker`; `worker_terra` is reserved for explicitly eligible exact units with cheap direct verification and stop/escalation rules
+- routine bounded implementation uses `worker`; `worker_luna` is reserved for explicitly eligible exact units with cheap direct verification and stop/escalation rules
 - normal correctness review uses `reviewer`, maintainability/code-health review uses `maintainability_reviewer`, and hotspot/boundary/security-adjacent review uses `architecture_reviewer`
 - no extra roles or sidecars are added without concrete evidence that they improve outcome quality
 
@@ -133,7 +133,7 @@ Pass conditions:
 
 Comparison shape:
 
-- run exact implementation units with `worker_terra` versus `worker`
+- run exact implementation units with `worker_luna` versus `worker`
 - run matched planning surfaces with `planner` medium versus `planner_deep` xhigh
 - run maintainability/code-health diffs with `maintainability_reviewer` versus general `reviewer`
 - run hotspot/boundary diffs with `architecture_reviewer` versus general `reviewer`
