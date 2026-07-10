@@ -13,6 +13,7 @@ import {
     NowPlayingInfoCoordinator,
 } from '../modules/ui/now-playing-info';
 import { EPGCoordinator } from '../modules/ui/epg';
+import type { EPGEventMap } from '../modules/ui/epg/types';
 import type { EpgScheduleRefreshResult } from '../modules/ui/epg/coordinator/EPGCoordinatorContracts';
 import type { ChannelSwitchOutcome } from '../types/channelSwitch';
 import type { INavigationManager } from '../modules/navigation';
@@ -34,6 +35,7 @@ import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/runtime/OrchestratorRecoverableRuntimeReporter';
 import { expectConsoleWarn } from './helpers';
+import { EventEmitter } from '../utils/EventEmitter';
 import {
     installMockLocalStorage,
     mockLocalStorage,
@@ -423,9 +425,9 @@ const mockChannel = {
     id: 'ch1',
     name: 'Test Channel',
     number: 1,
-    contentSource: { type: 'manual', items: [] as unknown[] },
+    contentSource: { type: 'manual', items: [] },
     startTimeAnchor: 0,
-    playbackMode: 'sequential' as const,
+    playbackMode: 'sequential',
     shuffleSeed: 12345,
     phaseSeed: 4242,
     skipIntros: false,
@@ -435,7 +437,7 @@ const mockChannel = {
     lastContentRefresh: 0,
     itemCount: 0,
     totalDurationMs: 0,
-};
+} satisfies EPGEventMap['channelSelected']['channel'];
 
 const mockChannelManager = {
     loadChannels: jest.fn().mockResolvedValue(undefined),
@@ -524,6 +526,7 @@ jest.mock('../modules/player', () => {
 });
 
 // Mock EPGComponent
+const mockEpgEvents = new EventEmitter<EPGEventMap>();
 const mockEpg = {
     initialize: jest.fn(),
     ensureReady: jest.fn().mockResolvedValue(undefined),
@@ -558,8 +561,8 @@ const mockEpg = {
     focusChannel: jest.fn(),
     focusNow: jest.fn(),
     scrollToChannel: jest.fn(),
-    on: jest.fn(() => ({ dispose: jest.fn() })),
-    off: jest.fn(),
+    on: jest.fn(mockEpgEvents.on.bind(mockEpgEvents)),
+    off: jest.fn(mockEpgEvents.off.bind(mockEpgEvents)),
 };
 
 const createMockEpgDebugRuntime = (): {
@@ -629,6 +632,7 @@ describe('AppOrchestrator', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        mockEpgEvents.removeAllListeners();
         resetMockLocalStorage();
 
         mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReset();
@@ -1472,20 +1476,8 @@ describe('AppOrchestrator', () => {
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             await orchestrator.start();
 
-            const epgOnCalls = mockEpg.on.mock.calls as unknown as Array<[
-                string,
-                (payload: {
-                    channel: typeof mockChannel;
-                    program: ScheduledProgram;
-                }) => void,
-            ]>;
-            const channelSelected = epgOnCalls.find(
-                ([event]) => event === 'channelSelected'
-            )?.[1];
-            expect(channelSelected).toBeDefined();
-
             const now = Date.now();
-            channelSelected?.({
+            mockEpgEvents.emit('channelSelected', {
                 channel: mockChannel,
                 program: {
                     item: {
