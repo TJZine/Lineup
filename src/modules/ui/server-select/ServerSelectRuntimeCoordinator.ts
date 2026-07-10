@@ -1,8 +1,10 @@
 import type { PlexServer } from '../../plex/discovery/types';
-import type { ServerSelectScreenPorts } from './types';
+import type { ServerSelectScreenPorts, ServerSelectSelectionResult } from './types';
 import type { ServerSelectRuntimeScreenAdapter } from './ServerSelectRuntimeContracts';
 import { ServerSelectStatusPolicy } from './ServerSelectStatusPolicy';
 import { getSelectedServerStatusDetail, getSelectedServerStatusTone } from './ServerSelectSelectionStatus';
+
+type SelectedServerResult = Extract<ServerSelectSelectionResult, { kind: 'selected' }>;
 
 export class ServerSelectRuntimeCoordinator {
     private _ports: ServerSelectScreenPorts;
@@ -179,11 +181,7 @@ export class ServerSelectRuntimeCoordinator {
                         this._adapter.setAutoConnectHintVisible(false);
 
                         if (result.kind === 'selected') {
-                            this._adapter.setStatus(
-                                'Connected…',
-                                getSelectedServerStatusDetail(result),
-                                getSelectedServerStatusTone(result)
-                            );
+                            this._setSelectedServerStatus('Connected…', result);
                             return;
                         }
                         savedServerUnavailable = true;
@@ -315,11 +313,7 @@ export class ServerSelectRuntimeCoordinator {
             }
 
             if (result.kind === 'selected') {
-                this._adapter.setStatus(
-                    `Connected to ${server.name}.`,
-                    getSelectedServerStatusDetail(result),
-                    getSelectedServerStatusTone(result)
-                );
+                this._setSelectedServerStatus(`Connected to ${server.name}.`, result);
                 return;
             }
             this._adapter.setStatus('Connection failed.', '', 'error');
@@ -398,6 +392,10 @@ export class ServerSelectRuntimeCoordinator {
             ...options,
             isSelecting: this._isSelecting,
         });
+    }
+
+    private _setSelectedServerStatus(heading: string, result: SelectedServerResult): void {
+        this._adapter.setStatus(heading, getSelectedServerStatusDetail(result), getSelectedServerStatusTone(result));
     }
 
     private _handleClearSelectionError(error: unknown, generation: number): void {
