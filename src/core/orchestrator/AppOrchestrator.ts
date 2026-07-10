@@ -1127,9 +1127,7 @@ export class AppOrchestrator {
             initCoordinator.restorePendingServerResumeAfterProfileSwitchFailure();
             throw error;
         }
-        // Failed profile switches keep the previous identity, so cleanup starts only after success.
-        cleanupController.finalizeProfileSwitch();
-        this._clearIdentityScopedRuntimeState({ resetPlayback: false });
+        this._clearIdentityScopedRuntimeState({ stopPlayback: false });
         await this._resumeStartupAfterProfileSwitch(initCoordinator);
     }
 
@@ -1153,10 +1151,7 @@ export class AppOrchestrator {
             initCoordinator.restorePendingServerResumeAfterProfileSwitchFailure();
             throw error;
         }
-        // Finalize only after logout succeeds. Failed logout leaves the active profile
-        // unchanged, so channel/stream identity should remain intact.
-        cleanupController.finalizeProfileSwitch();
-        this._clearIdentityScopedRuntimeState({ resetPlayback: false });
+        this._clearIdentityScopedRuntimeState({ stopPlayback: false });
         await this._resumeStartupAfterProfileSwitch(initCoordinator);
     }
 
@@ -1170,7 +1165,7 @@ export class AppOrchestrator {
         }
         await this._plexAuth.clearCredentials();
         this._plexDiscovery?.clearSelection();
-        this._clearIdentityScopedRuntimeState({ resetPlayback: true });
+        this._clearIdentityScopedRuntimeState({ stopPlayback: true });
         await this._configureChannelManagerStorageForSelectedServer();
         if (this._initCoordinator) {
             await this._initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
@@ -1205,7 +1200,7 @@ export class AppOrchestrator {
 
     async clearSelectedServer(): Promise<void> {
         await this._serverSelectionRuntime.clearSelectedServer();
-        this._clearIdentityScopedRuntimeState({ resetPlayback: true });
+        this._clearIdentityScopedRuntimeState({ stopPlayback: true });
         await this._configureChannelManagerStorageForSelectedServer();
     }
 
@@ -1833,7 +1828,7 @@ export class AppOrchestrator {
         this._videoPlayer?.stop();
     }
 
-    private _clearIdentityScopedRuntimeState(options: { resetPlayback: boolean }): void {
+    private _clearIdentityScopedRuntimeState(options: { stopPlayback: boolean }): void {
         clearIdentityScopedRuntimeState({
             stopPlayback: (): void => this._stopPlayback(),
             unloadCurrentChannel: (): void => this._scheduler?.unloadChannel(),

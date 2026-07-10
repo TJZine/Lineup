@@ -25,7 +25,7 @@ describe('clearIdentityScopedRuntimeState', () => {
     it('clears playback and identity-scoped runtime state when playback reset is requested', () => {
         const deps = createDeps();
 
-        clearIdentityScopedRuntimeState(deps, { resetPlayback: true });
+        clearIdentityScopedRuntimeState(deps, { stopPlayback: true });
 
         expect(deps.stopPlayback).toHaveBeenCalledTimes(1);
         expect(deps.unloadCurrentChannel).toHaveBeenCalledTimes(1);
@@ -37,10 +37,10 @@ describe('clearIdentityScopedRuntimeState', () => {
     it('preserves active playback operations while clearing playback identity state for profile changes', () => {
         const deps = createDeps();
 
-        clearIdentityScopedRuntimeState(deps, { resetPlayback: false });
+        clearIdentityScopedRuntimeState(deps, { stopPlayback: false });
 
         expect(deps.stopPlayback).not.toHaveBeenCalled();
-        expect(deps.unloadCurrentChannel).not.toHaveBeenCalled();
+        expect(deps.unloadCurrentChannel).toHaveBeenCalledTimes(1);
         expect(deps.clearPlaybackState).toHaveBeenCalledTimes(1);
         expect(deps.clearChannelManagerRuntimeState).toHaveBeenCalledTimes(1);
         expect(deps.clearEpgScheduleState).toHaveBeenCalledTimes(1);
@@ -59,7 +59,7 @@ describe('clearIdentityScopedRuntimeState', () => {
             });
         }
 
-        expect(() => clearIdentityScopedRuntimeState(deps, { resetPlayback: true })).not.toThrow();
+        expect(() => clearIdentityScopedRuntimeState(deps, { stopPlayback: true })).not.toThrow();
 
         expect(calls).toEqual(cleanupSteps);
         expect(deps.reportFailure).toHaveBeenCalledWith(
@@ -79,7 +79,7 @@ describe('clearIdentityScopedRuntimeState', () => {
             throw new Error('report failed');
         });
 
-        expect(() => clearIdentityScopedRuntimeState(deps, { resetPlayback: true })).not.toThrow();
+        expect(() => clearIdentityScopedRuntimeState(deps, { stopPlayback: true })).not.toThrow();
 
         expect(deps.clearEpgScheduleState).toHaveBeenCalledTimes(1);
     });

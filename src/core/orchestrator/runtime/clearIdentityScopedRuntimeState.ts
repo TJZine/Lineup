@@ -23,12 +23,12 @@ export interface IdentityScopedRuntimeStateResetDeps {
 
 export function clearIdentityScopedRuntimeState(
     deps: IdentityScopedRuntimeStateResetDeps,
-    options: { resetPlayback: boolean }
+    options: { stopPlayback: boolean }
 ): void {
-    if (options.resetPlayback) {
+    if (options.stopPlayback) {
         runCleanupStep(deps, 'stopPlayback', deps.stopPlayback);
-        runCleanupStep(deps, 'unloadCurrentChannel', deps.unloadCurrentChannel);
     }
+    runCleanupStep(deps, 'unloadCurrentChannel', deps.unloadCurrentChannel);
     runCleanupStep(deps, 'clearPlaybackState', deps.clearPlaybackState);
     runCleanupStep(deps, 'clearChannelManagerRuntimeState', deps.clearChannelManagerRuntimeState);
     runCleanupStep(deps, 'clearEpgScheduleState', deps.clearEpgScheduleState);

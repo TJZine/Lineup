@@ -1717,39 +1717,14 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('continues profile-switch startup and reports when identity cleanup fails', async () => {
-            await orchestrator.initialize(mockConfig);
-            const cleanupError = new Error('channel cleanup failed');
-            const reportError = jest.fn();
-            const resumeStartupAfterProfileSwitchSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
-                .mockResolvedValue(undefined);
-            mockChannelManager.clearRuntimeState.mockImplementationOnce(() => {
-                throw cleanupError;
-            });
-            Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
-                reportIssue: jest.fn(),
-                reportError,
-            });
-
-            try {
-                await expect(orchestrator.switchHomeUser('user-2')).resolves.toBeUndefined();
-
-                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
-                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
-                expect(reportError).toHaveBeenCalledWith(
-                    'orchestrator.identityScopedRuntimeState.clearChannelManagerRuntimeState',
-                    'Identity-scoped runtime cleanup step failed: clearChannelManagerRuntimeState',
-                    cleanupError,
-                    { step: 'clearChannelManagerRuntimeState' }
-                );
-            } finally {
-                resumeStartupAfterProfileSwitchSpy.mockRestore();
-            }
-        });
-
-        it('clears guide-origin focus preservation after a profile switch', async () => {
+        it('continues switchHomeUser cleanup and startup when scheduler unload throws', async () => {
+            expectConsoleWarn([
+                'Identity-scoped runtime cleanup step failed: unloadCurrentChannel',
+                expect.objectContaining({
+                    step: 'unloadCurrentChannel',
+                    safeError: expect.objectContaining({ message: 'unload failed' }),
+                }),
+            ]);
             await orchestrator.initialize(mockConfig);
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
                 createStoredCredentials('valid-token')
@@ -1782,14 +1757,21 @@ describe('AppOrchestrator', () => {
                     isCurrent: true,
                 },
             });
+            mockScheduler.unloadChannel.mockImplementationOnce(() => {
+                throw new Error('unload failed');
+            });
 
             try {
                 mockEpg.show.mockClear();
                 orchestrator.openEPG();
                 expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: true });
 
-                await orchestrator.switchHomeUser('user-2');
+                await expect(orchestrator.switchHomeUser('user-2')).resolves.toBeUndefined();
 
+                expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
+                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
+                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
                 mockEpg.show.mockClear();
                 orchestrator.openEPG();
                 expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: false });
@@ -1900,6 +1882,34 @@ describe('AppOrchestrator', () => {
                 ]);
             } finally {
                 prepareForProfileSwitchAttemptSpy.mockRestore();
+                resumeStartupAfterProfileSwitchSpy.mockRestore();
+            }
+        });
+
+        it('continues useMainAccountProfile cleanup and startup when channel runtime clear throws', async () => {
+            expectConsoleWarn([
+                'Identity-scoped runtime cleanup step failed: clearChannelManagerRuntimeState',
+                expect.objectContaining({
+                    step: 'clearChannelManagerRuntimeState',
+                    safeError: expect.objectContaining({ message: 'channel cleanup failed' }),
+                }),
+            ]);
+            await orchestrator.initialize(mockConfig);
+            const resumeStartupAfterProfileSwitchSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                .mockResolvedValue(undefined);
+            mockChannelManager.clearRuntimeState.mockImplementationOnce(() => {
+                throw new Error('channel cleanup failed');
+            });
+
+            try {
+                await expect(orchestrator.useMainAccountProfile()).resolves.toBeUndefined();
+
+                expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
+                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
+            } finally {
                 resumeStartupAfterProfileSwitchSpy.mockRestore();
             }
         });
