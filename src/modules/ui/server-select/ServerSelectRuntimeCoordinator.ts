@@ -2,7 +2,7 @@ import type { PlexServer } from '../../plex/discovery/types';
 import type { ServerSelectScreenPorts } from './types';
 import type { ServerSelectRuntimeScreenAdapter } from './ServerSelectRuntimeContracts';
 import { ServerSelectStatusPolicy } from './ServerSelectStatusPolicy';
-import { getSelectedServerStatusDetail } from './ServerSelectSelectionStatus';
+import { getSelectedServerStatusDetail, getSelectedServerStatusTone } from './ServerSelectSelectionStatus';
 
 export class ServerSelectRuntimeCoordinator {
     private _ports: ServerSelectScreenPorts;
@@ -179,8 +179,11 @@ export class ServerSelectRuntimeCoordinator {
                         this._adapter.setAutoConnectHintVisible(false);
 
                         if (result.kind === 'selected') {
-                            const tone = result.startupResume.epgRefresh.kind === 'failed' ? 'warning' : 'success';
-                            this._adapter.setStatus('Connected…', getSelectedServerStatusDetail(result), tone);
+                            this._adapter.setStatus(
+                                'Connected…',
+                                getSelectedServerStatusDetail(result),
+                                getSelectedServerStatusTone(result)
+                            );
                             return;
                         }
                         savedServerUnavailable = true;
@@ -315,7 +318,7 @@ export class ServerSelectRuntimeCoordinator {
                 this._adapter.setStatus(
                     `Connected to ${server.name}.`,
                     getSelectedServerStatusDetail(result),
-                    result.startupResume.epgRefresh.kind === 'failed' ? 'warning' : 'success'
+                    getSelectedServerStatusTone(result)
                 );
                 return;
             }

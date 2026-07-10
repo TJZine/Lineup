@@ -6,6 +6,21 @@ import {
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupCompletionResult } from '../../channel-setup/types';
+import type {
+    EpgDegradedScheduleRefreshResult,
+    EpgReadyScheduleRefreshResult,
+} from '../../../shared/epgRefresh';
+import type { AppShellServerSelectionResult } from '../runtime/AppShellRuntimeContracts';
+
+const READY_EPG_REFRESH: EpgReadyScheduleRefreshResult = {
+    readiness: 'ready',
+    attemptedChannelCount: 1,
+    immediateReadyChannelCount: 1,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: true,
+};
 
 type MockRuntimeOrchestrator = {
     requestAuthPin: jest.Mock;
@@ -16,7 +31,10 @@ type MockRuntimeOrchestrator = {
     useMainAccountProfile: jest.Mock;
     signOutPlex: jest.Mock;
     discoverServers: jest.Mock;
-    selectServer: jest.Mock;
+    selectServer: jest.Mock<
+        Promise<AppShellServerSelectionResult>,
+        [serverId: string, options?: { signal?: AbortSignal | null }]
+    >;
     clearSelectedServer: jest.Mock<Promise<void>, []>;
     getSelectedServerScreenState: jest.Mock;
     getChannelSetupWorkflowPort: jest.Mock;
@@ -99,7 +117,7 @@ const createChannelSetupWorkflowPortFixture = (): jest.Mocked<ChannelSetupWorkfl
 });
 
 const makeSelectedServerResult = (): Extract<
-    Awaited<ReturnType<MockRuntimeOrchestrator['selectServer']>>,
+    AppShellServerSelectionResult,
     { kind: 'selected' }
 > => ({
     kind: 'selected',
@@ -107,7 +125,7 @@ const makeSelectedServerResult = (): Extract<
     persistedSelection: 'updated',
     startupResume: {
         startup: 'completed',
-        epgRefresh: { kind: 'succeeded' },
+        epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH },
     },
 });
 
@@ -275,6 +293,31 @@ describe('AppLazyScreenPortFactory', () => {
         expect(orchestrator.selectServer.mock.calls[0]?.[0]).toBe('server-1');
     });
 
+    it('preserves structured degraded EPG refresh detail across the server-select port boundary', async (): Promise<void> => {
+        const orchestrator = makeOrchestrator();
+        const refreshResult: EpgDegradedScheduleRefreshResult = {
+            ...READY_EPG_REFRESH,
+            readiness: 'partial',
+            immediateReadyChannelCount: 0,
+            failedChannelCount: 1,
+        };
+        orchestrator.selectServer.mockResolvedValueOnce({
+            ...makeSelectedServerResult(),
+            startupResume: {
+                startup: 'completed',
+                epgRefresh: { kind: 'degraded', result: refreshResult },
+            },
+        });
+        const serverPorts = createFactory(orchestrator).createServerSelectScreenPorts();
+
+        await expect(serverPorts?.selectServer('server-1')).resolves.toMatchObject({
+            kind: 'selected',
+            startupResume: {
+                epgRefresh: { kind: 'degraded', result: refreshResult },
+            },
+        });
+    });
+
     it('forwards server-select cancellation options to the orchestrator runtime', async (): Promise<void> => {
         const orchestrator = makeOrchestrator();
         const factory = createFactory(orchestrator);
@@ -290,7 +333,7 @@ describe('AppLazyScreenPortFactory', () => {
         const orchestrator = makeOrchestrator();
         orchestrator.selectServer.mockResolvedValueOnce({
             kind: 'selection_deferred',
-        });
+        } as never);
         const factory = createFactory(orchestrator);
 
         const serverPorts = factory.createServerSelectScreenPorts();

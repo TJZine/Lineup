@@ -1,6 +1,7 @@
 import type { PlexServer } from '../../plex/discovery/types';
 import type { PlexServerSelectionFailureReason } from '../../plex/discovery';
 import type { ServerSelectScreenNavigationPort } from '../../navigation';
+import type { EpgScheduleRefreshOutcome } from '../../../shared/epgRefresh';
 
 export type ServerSelectHealthRecord = {
     status?: string;
@@ -34,8 +35,7 @@ export type ServerSelectSelectionResult =
         startupResume: {
             startup: 'completed' | 'skipped_no_coordinator';
             epgRefresh:
-                | { kind: 'succeeded' }
-                | { kind: 'failed'; error: unknown }
+                | EpgScheduleRefreshOutcome
                 | { kind: 'skipped_no_coordinator' };
         };
     };

@@ -254,9 +254,18 @@ export class OrchestratorServerSelectionRuntime {
                 };
             }
             this._serverSwapEpgRollbackPending = false;
+            const epgRefresh = refreshResult.value.readiness === 'ready'
+                ? {
+                    kind: 'succeeded' as const,
+                    result: { ...refreshResult.value, readiness: refreshResult.value.readiness },
+                }
+                : {
+                    kind: 'degraded' as const,
+                    result: { ...refreshResult.value, readiness: refreshResult.value.readiness },
+                };
             return {
                 startup: 'completed',
-                epgRefresh: { kind: 'succeeded' },
+                epgRefresh,
             };
         } catch (error) {
             if (isSelectionAbortError(error, signal)) {

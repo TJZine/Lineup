@@ -10,6 +10,19 @@ export interface EpgScheduleRefreshResult {
     firstVisibleScheduleReady: boolean;
 }
 
+export type EpgReadyScheduleRefreshResult = Omit<EpgScheduleRefreshResult, 'readiness'> & {
+    readiness: 'ready';
+};
+
+export type EpgDegradedScheduleRefreshResult = Omit<EpgScheduleRefreshResult, 'readiness'> & {
+    readiness: Exclude<EpgScheduleRefreshReadiness, 'ready'>;
+};
+
+export type EpgScheduleRefreshOutcome =
+    | { kind: 'succeeded'; result: EpgReadyScheduleRefreshResult }
+    | { kind: 'degraded'; result: EpgDegradedScheduleRefreshResult }
+    | { kind: 'failed'; error: unknown };
+
 export function createSkippedEpgScheduleRefreshResult(): EpgScheduleRefreshResult {
     return {
         readiness: 'skipped',

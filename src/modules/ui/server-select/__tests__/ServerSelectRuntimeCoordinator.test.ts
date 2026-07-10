@@ -8,9 +8,20 @@ import type {
     ServerSelectScreenPorts,
     ServerSelectSelectionResult,
 } from '../types';
+import type { EpgReadyScheduleRefreshResult } from '../../../../shared/epgRefresh';
 
 type RuntimeAdapter = jest.Mocked<ServerSelectRuntimeScreenAdapter>;
 type RuntimePorts = jest.Mocked<ServerSelectScreenPorts>;
+
+const READY_EPG_REFRESH: EpgReadyScheduleRefreshResult = {
+    readiness: 'ready',
+    attemptedChannelCount: 2,
+    immediateReadyChannelCount: 2,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: true,
+};
 
 const makeServer = (id: string, name: string, owned = true): PlexServer => ({
     id,
@@ -39,7 +50,7 @@ const selectedResult = (
     persistedSelection: 'updated',
     startupResume: {
         startup: 'completed',
-        epgRefresh: { kind: 'succeeded' },
+        epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH },
     },
     ...overrides,
 });
@@ -243,6 +254,62 @@ describe('ServerSelectRuntimeCoordinator', () => {
         expect(adapter.setStatus).toHaveBeenLastCalledWith(
             'Connected to Server One.',
             'Connected, but guide refresh needs retry.',
+            'warning'
+        );
+    });
+
+    it.each([
+        {
+            result: {
+                ...READY_EPG_REFRESH,
+                readiness: 'partial' as const,
+                immediateReadyChannelCount: 1,
+                failedChannelCount: 1,
+            },
+            detail: 'Connected, but guide refresh is incomplete (1/2 schedules ready).',
+        },
+        {
+            result: {
+                ...READY_EPG_REFRESH,
+                readiness: 'failed' as const,
+                immediateReadyChannelCount: 0,
+                failedChannelCount: 2,
+                firstVisibleScheduleReady: false,
+            },
+            detail: 'Connected, but guide refresh failed before schedules became ready.',
+        },
+        {
+            result: {
+                ...READY_EPG_REFRESH,
+                readiness: 'skipped' as const,
+                attemptedChannelCount: 0,
+                immediateReadyChannelCount: 0,
+                failedChannelCount: 0,
+                firstVisibleScheduleReady: false,
+            },
+            detail: 'Connected, but guide refresh was unavailable.',
+        },
+    ])('uses warning detail for resolved $result.readiness guide refreshes', async ({ result, detail }) => {
+        const server = makeServer('srv-1', 'Server One');
+        const ports = createPorts({
+            discoverServers: jest.fn().mockResolvedValue([server]),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                startupResume: {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'degraded', result },
+                },
+            })),
+        } as Partial<RuntimePorts>);
+        const { runtime, adapter } = createRuntime({ ports });
+
+        runtime.show({ allowAutoConnect: false });
+        await runtime.whenIdle();
+        runtime.selectServer(server);
+        await runtime.whenIdle();
+
+        expect(adapter.setStatus).toHaveBeenLastCalledWith(
+            'Connected to Server One.',
+            detail,
             'warning'
         );
     });

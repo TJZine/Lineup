@@ -19,6 +19,7 @@ import type { ToastInput } from '../../../shared/toast';
 import type { IDisposable } from '../../../utils/interfaces';
 import type { AppErrorCode } from '../../../types/app-errors';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
+import type { EpgScheduleRefreshOutcome } from '../../../shared/epgRefresh';
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;
@@ -52,8 +53,7 @@ export type AppShellServerSelectionResult =
         startupResume: {
             startup: 'completed' | 'skipped_no_coordinator';
             epgRefresh:
-                | { kind: 'succeeded' }
-                | { kind: 'failed'; error: unknown }
+                | EpgScheduleRefreshOutcome
                 | { kind: 'skipped_no_coordinator' };
         };
     };

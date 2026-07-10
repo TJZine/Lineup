@@ -2,6 +2,7 @@ import type {
     PlexDiscoverySelectedServerSnapshot,
     PlexServerSelectionFailureReason,
 } from '../../modules/plex/discovery';
+import type { EpgScheduleRefreshOutcome } from '../../shared/epgRefresh';
 
 export type OrchestratorServerSelectionReadiness = 'ready' | 'startup_pending';
 export type SelectedServerPersistenceResult =
@@ -12,8 +13,7 @@ export type SelectedServerPersistenceResult =
 export type SelectedServerStartupResumeResult = {
     startup: 'completed' | 'skipped_no_coordinator';
     epgRefresh:
-        | { kind: 'succeeded' }
-        | { kind: 'failed'; error: unknown }
+        | EpgScheduleRefreshOutcome
         | { kind: 'skipped_no_coordinator' };
 };
 
