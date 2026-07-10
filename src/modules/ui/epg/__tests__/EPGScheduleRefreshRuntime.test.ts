@@ -648,6 +648,14 @@ describe('EPGScheduleRefreshRuntime', () => {
             nextRange: { channelStart: 0, channelEnd: 0, timeStartMs: 60_000, timeEndMs: 120_000 },
         },
     ])('reports a superseded $label load and only applies the current schedule', async ({ nextRange }) => {
+        let signalFirstLoadStarted: () => void = () => undefined;
+        let signalSecondLoadStarted: () => void = () => undefined;
+        const firstLoadStarted = new Promise<void>((resolve) => {
+            signalFirstLoadStarted = resolve;
+        });
+        const secondLoadStarted = new Promise<void>((resolve) => {
+            signalSecondLoadStarted = resolve;
+        });
         const pendingLoads: Array<{
             resolve: (value: ResolvedChannelContent) => void;
             signal: AbortSignal | null | undefined;
@@ -657,6 +665,11 @@ describe('EPGScheduleRefreshRuntime', () => {
                 resolveChannelContent: jest.fn((_channelId: string, options?: { signal?: AbortSignal | null }) =>
                     new Promise<ResolvedChannelContent>((resolve, reject) => {
                         pendingLoads.push({ resolve, signal: options?.signal });
+                        if (pendingLoads.length === 1) {
+                            signalFirstLoadStarted();
+                        } else if (pendingLoads.length === 2) {
+                            signalSecondLoadStarted();
+                        }
                         options?.signal?.addEventListener('abort', () => {
                             reject(new DOMException('Superseded', 'AbortError'));
                         }, { once: true });
@@ -669,13 +682,12 @@ describe('EPGScheduleRefreshRuntime', () => {
             { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
-        await Promise.resolve();
+        await firstLoadStarted;
         const secondRefresh = runtime.refreshForRange(
             nextRange,
             'visible-range'
         );
-        await Promise.resolve();
-        await Promise.resolve();
+        await secondLoadStarted;
 
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
         expect(pendingLoads).toHaveLength(2);

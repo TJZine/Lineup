@@ -1,6 +1,5 @@
 import type { EPGConfig } from '../../../modules/ui/epg/types';
 import type { EpgVisibleRange } from '../../../modules/ui/epg/types';
-import { ChannelSetupCompletionTracker } from '../../channel-setup/persistence/ChannelSetupCompletionTracker';
 import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorNavigationCoordinatorBuilderInput,
@@ -276,7 +275,9 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                     createChannelsFromSetup: expect.any(Function),
                 },
                 recordStore: recordStoreInstance,
-                completionTracker: expect.any(ChannelSetupCompletionTracker),
+                completionTracker: expect.objectContaining({
+                    markSetupComplete: expect.any(Function),
+                }),
                 getSelectedServerId: expect.any(Function),
                 getExistingChannelCount: expect.any(Function),
             },
@@ -321,9 +322,28 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         expect(coordinatorArgs.getExistingChannelCount).toBe(owners.portOwners.getExistingChannelCount);
         expect(owners.portOwners.getSelectedServerId()).toBe('server-1');
         expect(owners.portOwners.getExistingChannelCount()).toBe(2);
-        expect(owners.portOwners.completionTracker).toBeInstanceOf(ChannelSetupCompletionTracker);
-        owners.portOwners.completionTracker.markSetupComplete('server-1', {} as never);
-        expect(recordStoreInstance.markSetupComplete).toHaveBeenCalledWith('server-1', {});
+        const setupConfig = { serverId: 'server-1' } as never;
+        const persistenceFailure = {
+            ok: false,
+            reason: 'unavailable',
+            message: 'Device storage is unavailable.',
+        } as const;
+        const durableSuccess = {
+            ok: true,
+            record: { serverId: 'server-1' },
+        } as never;
+        (recordStoreInstance.markSetupComplete as jest.Mock)
+            .mockReturnValueOnce(persistenceFailure)
+            .mockReturnValueOnce(durableSuccess);
+
+        expect(owners.portOwners.completionTracker.markSetupComplete('server-1', setupConfig))
+            .toBe(persistenceFailure);
+        expect(recordStoreInstance.markSetupComplete).toHaveBeenNthCalledWith(1, 'server-1', setupConfig);
+        expect(coordinatorInstance.clearRerunRequest).not.toHaveBeenCalled();
+
+        expect(owners.portOwners.completionTracker.markSetupComplete('server-1', setupConfig))
+            .toBe(durableSuccess);
+        expect(recordStoreInstance.markSetupComplete).toHaveBeenNthCalledWith(2, 'server-1', setupConfig);
         expect(coordinatorInstance.clearRerunRequest).toHaveBeenCalledTimes(1);
         expect(owners.portOwners.recordStore).toBe(recordStoreInstance);
         owners.portOwners.planningService.invalidateFacetSnapshot();
