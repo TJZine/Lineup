@@ -6,7 +6,6 @@ export function createRefreshMetrics(): RefreshMetrics {
         cacheHits: 0,
         staleCacheHits: 0,
         cacheMisses: 0,
-        inFlightSkipped: 0,
         alreadyLoaded: 0,
         liveScheduleHits: 0,
         immediateReadyChannelIds: new Set<string>(),

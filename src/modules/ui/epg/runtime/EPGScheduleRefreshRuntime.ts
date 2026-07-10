@@ -38,6 +38,7 @@ import type {
     ScheduleCachePolicy,
     SelectedRowSnapshotSeed,
 } from './EPGScheduleRefreshRuntimeTypes';
+import { createSkippedEpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
 
 const EPG_BACKGROUND_DEBUG_LOG_EVERY_N = 20;
 const QA_003B_ISSUE_ID = 'QA-003b';
@@ -244,7 +245,7 @@ export class EPGScheduleRefreshRuntime {
         throwIfEpgRefreshAborted(signal);
         const session = this._createRefreshSession(range, reason, signal);
         if (!session) {
-            return skippedEpgScheduleRefreshResult();
+            return createSkippedEpgScheduleRefreshResult();
         }
         const cleanup = this._bindRefreshAbort(session);
 
@@ -333,15 +334,9 @@ export class EPGScheduleRefreshRuntime {
         const visibleRangeIds = new Set(channels.slice(visibleStart, visibleEnd).map((channel) => channel.id));
         this._selectedRowSnapshotSeed = null;
 
-        const neededIds = new Set(
-            [...partitioned.immediateChannels, ...partitioned.backgroundChannels].map((channel) => channel.id)
-        );
-        const abortAll = reason === 'library-filter' || forceRefresh;
-        const { kept: inFlightKept, aborted: inFlightAborted } = this._pruneInFlightSchedules(
-            neededIds,
-            rangeKey,
-            abortAll
-        );
+        // Every new session invalidates the previous session token, so retaining
+        // any of its promises would leave work that can no longer apply or cache.
+        const inFlightAborted = this._abortSupersededInFlightSchedules();
         this._cacheStore.prune(Date.now());
 
         return {
@@ -373,7 +368,6 @@ export class EPGScheduleRefreshRuntime {
                 1,
                 Math.min(backgroundCaps.maxConcurrency, partitioned.backgroundChannels.length)
             ),
-            inFlightKept,
             inFlightAborted,
             bufferedRange: partitioned.bufferedRange,
             backgroundRange: partitioned.backgroundRange,
@@ -417,7 +411,7 @@ export class EPGScheduleRefreshRuntime {
             bufferedRange: session.bufferedRange,
             backgroundRange: session.backgroundRange,
             overscan: session.overscan,
-            inFlight: { kept: session.inFlightKept, aborted: session.inFlightAborted },
+            inFlight: { aborted: session.inFlightAborted },
             concurrency: session.immediateConcurrency,
             backgroundConcurrency: session.backgroundConcurrency,
             cacheSize: this._cacheStore.getSize(),
@@ -587,11 +581,6 @@ export class EPGScheduleRefreshRuntime {
             }
 
             const existing = this._inFlightByChannel.get(channel.id);
-            if (existing && existing.rangeKey === session.rangeKey) {
-                metrics.inFlightSkipped += 1;
-                markFastReadyChannel(session, metrics, channel.id, phase);
-                return;
-            }
             if (existing) {
                 existing.controller.abort();
                 this._inFlightByChannel.delete(channel.id);
@@ -704,7 +693,6 @@ export class EPGScheduleRefreshRuntime {
             staleCacheHits: metrics.staleCacheHits,
             cacheMisses: metrics.cacheMisses,
             cacheHitRatio,
-            inFlightSkipped: metrics.inFlightSkipped,
             alreadyLoaded: metrics.alreadyLoaded,
             liveScheduleHits: metrics.liveScheduleHits,
             immediateLoadedCount: metrics.immediateLoadedCount,
@@ -815,34 +803,13 @@ export class EPGScheduleRefreshRuntime {
         return (date.getFullYear() * 10000) + ((date.getMonth() + 1) * 100) + date.getDate();
     }
 
-    private _pruneInFlightSchedules(
-        keepIds: Set<string>,
-        rangeKey: string,
-        abortAll: boolean
-    ): { kept: number; aborted: number } {
-        let kept = 0;
+    private _abortSupersededInFlightSchedules(): number {
         let aborted = 0;
         for (const [channelId, entry] of this._inFlightByChannel) {
-            if (abortAll || entry.rangeKey !== rangeKey || !keepIds.has(channelId)) {
-                entry.controller.abort();
-                this._inFlightByChannel.delete(channelId);
-                aborted += 1;
-            } else {
-                kept += 1;
-            }
+            entry.controller.abort();
+            this._inFlightByChannel.delete(channelId);
+            aborted += 1;
         }
-        return { kept, aborted };
+        return aborted;
     }
-}
-
-function skippedEpgScheduleRefreshResult(): EpgScheduleRefreshResult {
-    return {
-        readiness: 'skipped',
-        attemptedChannelCount: 0,
-        immediateReadyChannelCount: 0,
-        backgroundQueuedChannelCount: 0,
-        failedChannelCount: 0,
-        staleCacheChannelCount: 0,
-        firstVisibleScheduleReady: false,
-    };
 }

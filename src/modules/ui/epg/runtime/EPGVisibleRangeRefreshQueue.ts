@@ -1,5 +1,6 @@
 import type { EpgVisibleRange } from '../types';
 import type { EpgScheduleRefreshOptions, EpgScheduleRefreshResult } from '../coordinator/EPGCoordinatorContracts';
+import { createSkippedEpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
 import { readEpgRefreshAbortReason, throwIfEpgRefreshAborted } from './EPGRefreshAbort';
 
 type RefreshFn = (range: EpgVisibleRange, reason: string, signal?: AbortSignal | null) => Promise<EpgScheduleRefreshResult>;
@@ -43,7 +44,7 @@ export class EPGVisibleRangeRefreshQueue {
         this._pendingRange = null;
         this._pendingReason = null;
 
-        this._settlePendingRequests(pendingRequests, 'resolve', skippedEpgScheduleRefreshResult());
+        this._settlePendingRequests(pendingRequests, 'resolve', createSkippedEpgScheduleRefreshResult());
         for (const batch of Array.from(this._activeRefreshBatches)) {
             this._cancelActiveBatch(batch);
         }
@@ -76,7 +77,7 @@ export class EPGVisibleRangeRefreshQueue {
             this._pendingReason = null;
 
             if (!pending) {
-                this._settlePendingRequests(pendingRequests, 'resolve', skippedEpgScheduleRefreshResult());
+                this._settlePendingRequests(pendingRequests, 'resolve', createSkippedEpgScheduleRefreshResult());
                 return;
             }
 
@@ -191,7 +192,7 @@ export class EPGVisibleRangeRefreshQueue {
 
     private _cancelActiveBatch(batch: ActiveRefreshBatch): void {
         batch.controller.abort();
-        this._settlePendingRequests(batch.requests, 'resolve', skippedEpgScheduleRefreshResult());
+        this._settlePendingRequests(batch.requests, 'resolve', createSkippedEpgScheduleRefreshResult());
         this._finishActiveBatch(batch);
     }
 
@@ -246,16 +247,4 @@ export class EPGVisibleRangeRefreshQueue {
     ): Promise<EpgScheduleRefreshResult> {
         return signal ? this._refreshFn(range, reason, signal) : this._refreshFn(range, reason);
     }
-}
-
-function skippedEpgScheduleRefreshResult(): EpgScheduleRefreshResult {
-    return {
-        readiness: 'skipped',
-        attemptedChannelCount: 0,
-        immediateReadyChannelCount: 0,
-        backgroundQueuedChannelCount: 0,
-        failedChannelCount: 0,
-        staleCacheChannelCount: 0,
-        firstVisibleScheduleReady: false,
-    };
 }

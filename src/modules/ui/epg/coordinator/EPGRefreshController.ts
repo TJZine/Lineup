@@ -33,6 +33,7 @@ import type {
     EpgScheduleRefreshOptions,
     EpgUiStatus,
 } from './EPGCoordinatorContracts';
+import { createSkippedEpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
 
 const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
@@ -253,7 +254,7 @@ export class EPGRefreshController {
         const signal = options?.signal ?? null;
         throwIfEpgRefreshAborted(signal);
         const epg = this._deps.getEpg();
-        if (!epg) return skippedEpgScheduleRefreshResult();
+        if (!epg) return createSkippedEpgScheduleRefreshResult();
         const epgState = epg.getState();
         const range = {
             channelStart: epgState.viewWindow.startChannelIndex,
@@ -462,26 +463,14 @@ export class EPGRefreshController {
         const invalidation = this._scheduleRefreshRuntimeInvalidation;
         const runtime = await this._getScheduleRefreshRuntime();
         if (!runtime) {
-            return skippedEpgScheduleRefreshResult();
+            return createSkippedEpgScheduleRefreshResult();
         }
         throwIfEpgRefreshAborted(signal);
         if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
-            return skippedEpgScheduleRefreshResult();
+            return createSkippedEpgScheduleRefreshResult();
         }
         return (signal
             ? runtime.refreshForRange(range, reason, { signal })
             : runtime.refreshForRange(range, reason));
     }
-}
-
-function skippedEpgScheduleRefreshResult(): EpgScheduleRefreshResult {
-    return {
-        readiness: 'skipped',
-        attemptedChannelCount: 0,
-        immediateReadyChannelCount: 0,
-        backgroundQueuedChannelCount: 0,
-        failedChannelCount: 0,
-        staleCacheChannelCount: 0,
-        firstVisibleScheduleReady: false,
-    };
 }
