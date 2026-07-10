@@ -53,6 +53,16 @@ const READY_EPG_REFRESH_RESULT: EpgScheduleRefreshResult = {
     firstVisibleScheduleReady: true,
 };
 
+const SKIPPED_EPG_REFRESH_RESULT: EpgScheduleRefreshResult = {
+    readiness: 'skipped',
+    attemptedChannelCount: 0,
+    immediateReadyChannelCount: 0,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: false,
+};
+
 installMockLocalStorage();
 
 
@@ -1120,7 +1130,7 @@ describe('AppOrchestrator', () => {
                     persistedSelection: 'updated',
                     startupResume: {
                         startup: 'completed',
-                        epgRefresh: { kind: 'succeeded' },
+                        epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT },
                     },
                 });
 
@@ -1243,7 +1253,7 @@ describe('AppOrchestrator', () => {
                     persistedSelection: 'skipped_missing_credentials',
                     startupResume: {
                         startup: 'completed',
-                        epgRefresh: { kind: 'succeeded' },
+                        epgRefresh: { kind: 'degraded', result: SKIPPED_EPG_REFRESH_RESULT },
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
@@ -1272,7 +1282,7 @@ describe('AppOrchestrator', () => {
                     persistedSelection: 'skipped_corrupted_credentials',
                     startupResume: {
                         startup: 'completed',
-                        epgRefresh: { kind: 'succeeded' },
+                        epgRefresh: { kind: 'degraded', result: SKIPPED_EPG_REFRESH_RESULT },
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
@@ -2459,7 +2469,7 @@ describe('AppOrchestrator', () => {
                 },
                 {
                     outcome: { kind: 'failed', reason: 'content_unavailable' },
-                    expectedError: null,
+                    expectedError: /Initial channel switch failed for ch1: content_unavailable/,
                     expectedScreen: null,
                 },
                 {

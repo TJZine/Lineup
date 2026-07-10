@@ -1,5 +1,6 @@
 import type { EPGConfig } from '../../../modules/ui/epg/types';
 import type { EpgVisibleRange } from '../../../modules/ui/epg/types';
+import { ChannelSetupCompletionTracker } from '../../channel-setup/persistence/ChannelSetupCompletionTracker';
 import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorNavigationCoordinatorBuilderInput,
@@ -275,9 +276,7 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                     createChannelsFromSetup: expect.any(Function),
                 },
                 recordStore: recordStoreInstance,
-                completionTracker: {
-                    markSetupComplete: expect.any(Function),
-                },
+                completionTracker: expect.any(ChannelSetupCompletionTracker),
                 getSelectedServerId: expect.any(Function),
                 getExistingChannelCount: expect.any(Function),
             },
@@ -322,7 +321,9 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         expect(coordinatorArgs.getExistingChannelCount).toBe(owners.portOwners.getExistingChannelCount);
         expect(owners.portOwners.getSelectedServerId()).toBe('server-1');
         expect(owners.portOwners.getExistingChannelCount()).toBe(2);
+        expect(owners.portOwners.completionTracker).toBeInstanceOf(ChannelSetupCompletionTracker);
         owners.portOwners.completionTracker.markSetupComplete('server-1', {} as never);
+        expect(recordStoreInstance.markSetupComplete).toHaveBeenCalledWith('server-1', {});
         expect(coordinatorInstance.clearRerunRequest).toHaveBeenCalledTimes(1);
         expect(owners.portOwners.recordStore).toBe(recordStoreInstance);
         owners.portOwners.planningService.invalidateFacetSnapshot();

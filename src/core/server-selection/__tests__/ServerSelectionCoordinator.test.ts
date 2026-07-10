@@ -3,6 +3,17 @@ import type {
     DiscoverySelectedServerSnapshot,
     PersistedSelectedServerSnapshot,
 } from '../ServerSelectionTypes';
+import type { EpgReadyScheduleRefreshResult } from '../../../shared/epgRefresh';
+
+const readyEpgRefreshResult: EpgReadyScheduleRefreshResult = {
+    readiness: 'ready',
+    attemptedChannelCount: 1,
+    immediateReadyChannelCount: 1,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: true,
+};
 
 const discoverySnapshot: DiscoverySelectedServerSnapshot = {
     server: null,
@@ -17,7 +28,7 @@ const persistedSnapshot: PersistedSelectedServerSnapshot = {
 
 const startupResumeSucceeded = {
     startup: 'completed',
-    epgRefresh: { kind: 'succeeded' },
+    epgRefresh: { kind: 'succeeded', result: readyEpgRefreshResult },
 } as const;
 
 function createDeferred<T>(): {
