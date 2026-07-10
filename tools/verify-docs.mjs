@@ -634,6 +634,37 @@ function checkRetiredCodexRoleGuidance(errors) {
     }
 }
 
+function checkSubagentTransparencyContract(errors) {
+    const transparencyFiles = [
+        'docs/AGENTIC_DEV_WORKFLOW.md',
+        '.agents/skills/bounded-worker-execution/SKILL.md',
+    ];
+    const requiredMarkers = [
+        'configured toml defaults',
+        'dispatch-time overrides separately',
+        'model and reasoning effort',
+        'runtime identity',
+        'operator-recorded/unverified',
+        'execution surface exposes',
+    ];
+
+    for (const relativePath of transparencyFiles) {
+        const content = readRepoFile(relativePath, errors);
+        if (content === null) {
+            continue;
+        }
+
+        const normalizedContent = normalizeDocText(content);
+        for (const marker of requiredMarkers) {
+            if (!normalizedContent.includes(marker)) {
+                errors.push(
+                    `Subagent transparency guidance must distinguish configured defaults, dispatch-time overrides, and verified runtime identity (${marker}): ${relativePath}`
+                );
+            }
+        }
+    }
+}
+
 function checkEvalPromptReadme(errors) {
     const readme = readRepoFile('docs/agentic/evals/README.md', errors);
     if (readme === null) {
@@ -2041,6 +2072,7 @@ function main() {
     checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
     checkSessionPromptReadme(errors);
     checkRetiredCodexRoleGuidance(errors);
+    checkSubagentTransparencyContract(errors);
     checkEvalPromptReadme(errors);
     checkControlPlaneAuthorityModel(errors);
     checkRepoLocalLauncherSkillReadOrders(errors);

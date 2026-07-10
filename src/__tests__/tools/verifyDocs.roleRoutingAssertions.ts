@@ -222,6 +222,52 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         expect(result.stdout).toContain('Documentation verification passed.');
     });
 
+    it.each([
+        {
+            relativePath: 'docs/AGENTIC_DEV_WORKFLOW.md',
+            original: 'CONFIGURED TOML DEFAULTS',
+            replacement: 'ROLE FILE SETTINGS',
+            marker: 'configured toml defaults',
+        },
+        {
+            relativePath: '.agents/skills/bounded-worker-execution/SKILL.md',
+            original: 'DISPATCH-TIME OVERRIDES separately',
+            replacement: 'REQUEST SETTINGS',
+            marker: 'dispatch-time overrides separately',
+        },
+        {
+            relativePath: '.agents/skills/bounded-worker-execution/SKILL.md',
+            original: 'model and reasoning effort',
+            replacement: 'runtime settings',
+            marker: 'model and reasoning effort',
+        },
+        {
+            relativePath: 'docs/AGENTIC_DEV_WORKFLOW.md',
+            original: 'operator-recorded/unverified',
+            replacement: 'effective',
+            marker: 'operator-recorded/unverified',
+        },
+    ])('fails when $relativePath drops the subagent transparency marker $marker', ({
+        relativePath,
+        original,
+        replacement,
+        marker,
+    }) => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        const targetPath = path.join(repoRoot, relativePath);
+        const originalContent = readFileSync(targetPath, 'utf8');
+        const mutatedContent = originalContent.split(original).join(replacement);
+        expect(mutatedContent).not.toBe(originalContent);
+        writeFileSync(targetPath, mutatedContent, 'utf8');
+
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            `Subagent transparency guidance must distinguish configured defaults, dispatch-time overrides, and verified runtime identity (${marker}): ${relativePath}`
+        );
+    });
+
     it('keeps the tracked worker_luna role aligned with the tracked role model policy', () => {
         const workerLunaConfig = readFileSync(
             path.join(process.cwd(), '.codex/agents/worker-luna.toml'),

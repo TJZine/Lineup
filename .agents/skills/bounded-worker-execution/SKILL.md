@@ -69,12 +69,17 @@ Do not make the worker infer the slice from a broad plan alone.
 
 Before dispatch, locate the selected role in `.codex/config.toml`, read its
 exact `config_file` value, and resolve that value beneath `.codex/`. Record the
-resolved path in the worker packet and use that same path at closeout when
-reporting the role, `model`, and `model_reasoning_effort` read from the TOML.
-For example, `worker_luna` resolves to `.codex/agents/worker-luna.toml`.
-Never derive a config filename from the role identifier. Treat the worker's
-`CONFIGURED ROLE` opening line as a visibility aid, not independent proof of
-the model selection.
+resolved path and the model and reasoning effort read from it as `CONFIGURED
+TOML DEFAULTS` in the worker packet. Record `DISPATCH-TIME OVERRIDES`
+separately for model and reasoning effort, using `none` when a
+field is not overridden. At closeout, keep configured defaults and dispatch-time
+overrides separate. Report runtime identity as verified only when the execution
+surface exposes it; otherwise report `RUNTIME IDENTITY:
+operator-recorded/unverified` and do not present the requested values as runtime
+proof. For example, `worker_luna` resolves to
+`.codex/agents/worker-luna.toml`. Never derive a config filename from the role
+identifier. Treat the worker's `CONFIGURED ROLE` opening line as role-selection
+visibility, not proof of model or reasoning effort.
 
 ## Execution Pattern
 

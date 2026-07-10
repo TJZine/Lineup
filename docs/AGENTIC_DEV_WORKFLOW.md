@@ -109,14 +109,20 @@ unless that exception record exists.
 
 At [dispatch](#multi-agent-usage-optional), locate the selected role in
 `.codex/config.toml`, read its exact `config_file` value, and resolve that value
-beneath `.codex/`. Record the resolved path in the worker packet. At
-[closeout](#session-handoffs), use that same resolved path to report the role,
-`model`, and `model_reasoning_effort` read from the TOML. For example,
+beneath `.codex/`. Record the resolved path and the model and reasoning effort
+read from it as `CONFIGURED TOML DEFAULTS` in the worker packet. Record
+`DISPATCH-TIME OVERRIDES` separately for model and reasoning effort, including
+an explicit override or `none` for each field.
+At [closeout](#session-handoffs), report those configured defaults and
+dispatch-time overrides as separate facts. Only label runtime model and effort
+as verified when the execution surface exposes the actual runtime identity. If
+it does not, report `RUNTIME IDENTITY: operator-recorded/unverified` using the
+requested override values, or the configured defaults when no override was
+requested, and state that they are not runtime proof. For example,
 `worker_luna` resolves to `.codex/agents/worker-luna.toml`. Never derive a
 config filename from the role identifier. The child role's `CONFIGURED ROLE`
-opening line is a visible confirmation of the selected role; the mapped TOML
-remains authoritative and avoids duplicating model names in prompts or workflow
-docs.
+opening line confirms the selected role only; it does not verify model or
+reasoning effort.
 
 ## Default Workflow
 
@@ -184,7 +190,7 @@ docs.
    - use repo-local `execution-plan-authoring` as the authoritative planner skill for Lineup serious plans
    - use the tracked `planner` role by default for serious planning
    - use the tracked `planner_deep` role for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning; it may write planning artifacts but must not implement product code
-   - a direct model override is allowed only as an escalation state for ambiguous Tier 2 or moderate architecture-risk planning when `planner_deep` would be disproportionate; record the reason in the worker packet and report the effective model settings from the resolved TOML at closeout
+   - a direct model override is allowed only as an escalation state for ambiguous Tier 2 or moderate architecture-risk planning when `planner_deep` would be disproportionate; record the reason and override separately from the configured TOML defaults in the worker packet, and do not call either value the effective runtime model unless the execution surface exposes it
    - use repo-local `verification-strategy` to choose the proof mode before freezing verification commands or deciding whether new tests are needed
    - serious tracked plans must be decision-complete at the seam, scope, ownership, and verification level without turning into pseudo-code master plans
    - serious tracked plans should freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk
