@@ -4,8 +4,8 @@ import type { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecut
 import type { ChannelSetupEpgRefreshOptions } from '../build/ChannelSetupBuildCommitter';
 import type { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
 import type { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
+import { ChannelSetupCompletionTracker } from '../persistence/ChannelSetupCompletionTracker';
 import type { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
-import type { ChannelSetupCompletionResult } from '../types';
 import type { ChannelSetupWorkflowPortOwners } from './createChannelSetupWorkflowPort';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import type { EpgScheduleRefreshResult } from '../../../shared/epgRefresh';
@@ -85,6 +85,11 @@ export function createLazyChannelSetupWorkflowPortOwners(
         return buildExecutorPromise;
     };
 
+    const completionTracker = new ChannelSetupCompletionTracker({
+        recordStore: deps.recordStore,
+        clearRerunRequest: deps.clearRerunRequest,
+    });
+
     return {
         planningService: {
             invalidateFacetSnapshot: (): void => {
@@ -118,15 +123,7 @@ export function createLazyChannelSetupWorkflowPortOwners(
                 (await getBuildExecutor()).createChannelsFromSetup(config, options),
         },
         recordStore: deps.recordStore,
-        completionTracker: {
-            markSetupComplete: (serverId, setupConfig): ChannelSetupCompletionResult => {
-                const result = deps.recordStore.markSetupComplete(serverId, setupConfig);
-                if (result.ok) {
-                    deps.clearRerunRequest();
-                }
-                return result;
-            },
-        },
+        completionTracker,
         getSelectedServerId: deps.getSelectedServerId,
         getExistingChannelCount: deps.getExistingChannelCount,
     };
