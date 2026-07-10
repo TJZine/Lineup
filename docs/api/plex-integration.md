@@ -237,11 +237,11 @@ interface IPlexServerDiscovery {
 
 Discovery list and selected-server getters return defensive snapshots. Startup initialization returns a saved-server restore result so callers can distinguish each restore branch:
 
-- `skipped_no_servers`: discovery completed with no available servers.
+- `skipped_no_servers`: discovery completed with no available servers and there is no saved server id to restore.
 - `skipped_no_saved_server`: discovery found servers, but there is no saved server id to restore.
 - `already_selected`: the saved server is already the active selection.
 - `selected`: the saved server was restored and selected.
-- `selection_failed`: the saved server id could not be selected; inspect `reason` for `server_not_found`, `unreachable`, `auth_required`, or `access_denied`.
+- `selection_failed`: the saved server id could not be selected; inspect `reason` for `server_not_found`, `unreachable`, `auth_required`, or `access_denied`. When a saved id exists but discovery returns no servers, initialization returns `selection_failed` with `server_not_found` and clears that stale saved selection.
 
 Callers may cancel their own discovery wait with `AbortSignal` without canceling the shared in-flight discovery used by other callers. Connection probes and selected-server selection accept caller cancellation signals and rethrow the caller's raw abort reason instead of converting explicit cancellation into an unreachable-server result.
 
