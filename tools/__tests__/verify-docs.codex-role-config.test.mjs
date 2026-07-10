@@ -444,22 +444,19 @@ test('checkTrackedCodexRoleConfig rejects a role symlink to an internal untracke
     }
 });
 
-test('checkTrackedCodexRoleConfig rejects special files without reading them', async () => {
+test('checkTrackedCodexRoleConfig rejects non-regular files without reading them', async () => {
     const tmpRoot = createFixture();
     try {
         const workerPath = path.join(tmpRoot, '.codex/agents/worker.toml');
         rmSync(workerPath);
-        execFileSync('mkfifo', [workerPath], {
-            timeout: GIT_TIMEOUT_MS,
-            maxBuffer: GIT_MAX_BUFFER_BYTES,
-        });
+        mkdirSync(workerPath);
 
         const errors = await checkTrackedRoleConfig(tmpRoot);
         assert(
             errors.some((message) => message.includes(
                 'Codex role config must be a regular, non-symlink file: .codex/agents/worker.toml',
             )),
-            `Expected special-file rejection, got:\n${errors.join('\n')}`,
+            `Expected non-regular-file rejection, got:\n${errors.join('\n')}`,
         );
     } finally {
         rmSync(tmpRoot, { recursive: true, force: true });
