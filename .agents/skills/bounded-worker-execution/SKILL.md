@@ -67,9 +67,12 @@ Do not make the worker infer the slice from a broad plan alone.
 
 ## Delegation Record
 
-Before dispatch, record the selected role and its `.codex/agents/<role>.toml`
-path in the worker packet. At closeout, report that role, config path, `model`,
-and `model_reasoning_effort` read from the TOML. Treat the worker's
+Before dispatch, locate the selected role in `.codex/config.toml`, read its
+exact `config_file` value, and resolve that value beneath `.codex/`. Record the
+resolved path in the worker packet and use that same path at closeout when
+reporting the role, `model`, and `model_reasoning_effort` read from the TOML.
+For example, `worker_terra` resolves to `.codex/agents/worker-terra.toml`.
+Never derive a config filename from the role identifier. Treat the worker's
 `CONFIGURED ROLE` opening line as a visibility aid, not independent proof of
 the model selection.
 

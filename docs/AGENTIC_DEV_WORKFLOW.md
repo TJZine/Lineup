@@ -107,12 +107,15 @@ unless that exception record exists.
 
 ## Subagent Transparency
 
-When dispatching a subagent, record the selected role and its
-`.codex/agents/<role>.toml` path. At task closeout, list each role used with
-the `model` and `model_reasoning_effort` read from that TOML. The child role's
-`CONFIGURED ROLE` opening line is a visible confirmation of the selected role;
-the TOML remains the authoritative configuration and avoids duplicating model
-names in prompts or workflow docs.
+When dispatching a subagent, locate the selected role in `.codex/config.toml`,
+read its exact `config_file` value, and resolve that value beneath `.codex/`.
+Record the resolved path in the worker packet and use that same path at task
+closeout when reporting the role, `model`, and `model_reasoning_effort` read
+from the TOML. For example, `worker_terra` resolves to
+`.codex/agents/worker-terra.toml`. Never derive a config filename from the role
+identifier. The child role's `CONFIGURED ROLE` opening line is a visible
+confirmation of the selected role; the mapped TOML remains authoritative and
+avoids duplicating model names in prompts or workflow docs.
 
 ## Default Workflow
 

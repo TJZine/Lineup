@@ -222,6 +222,15 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         expect(result.stdout).toContain('Documentation verification passed.');
     });
 
+    it('keeps the worker_terra fixture aligned with the tracked role model policy', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        const content = readFileSync(path.join(repoRoot, '.codex/agents/worker-terra.toml'), 'utf8');
+        expect(content).toContain('model = "gpt-5.6-terra"');
+        expect(content).toContain('model_reasoning_effort = "medium"');
+    });
+
     it('fails when the session prompt README drops the explicit planner/worker/reviewer role mapping', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
@@ -315,6 +324,89 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         );
     });
 
+    it('fails when worker_terra does not use its approved worker-terra config path', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        const configPath = path.join(repoRoot, '.codex/config.toml');
+        writeFileSync(configPath, readFileSync(configPath, 'utf8').replace(
+            'config_file = "agents/worker-terra.toml"', 'config_file = "agents/worker.toml"'
+        ), 'utf8');
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role worker_terra must use config_file="agents/worker-terra.toml" in .codex/config.toml'
+        );
+    });
+
+    it('fails when a role config omits its exact CONFIGURED ROLE marker', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        writeRepoFile(repoRoot, '.codex/agents/cleanup-worker.toml',
+            'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = """\nOwn one bounded cleanup-loop implementation write scope at a time.\nMake the smallest defensible cleanup change inside the approved execution unit.\nUse this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.\n"""\n'
+        );
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config is missing exact CONFIGURED ROLE marker for cleanup_worker: .codex/agents/cleanup-worker.toml'
+        );
+    });
+
+    it('fails when current role guidance mentions retired worker_54_high routing', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        const readmePath = path.join(repoRoot, 'docs/agentic/session-prompts/README.md');
+        writeFileSync(readmePath, `${readFileSync(readmePath, 'utf8')}\nUse worker_54_high for bounded implementation.\n`, 'utf8');
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Current Codex role guidance must not mention retired role worker_54_high: docs/agentic/session-prompts/README.md'
+        );
+    });
+
+    it('fails when tracked codex config redeclares retired worker_54_high', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        const configPath = path.join(repoRoot, '.codex/config.toml');
+        writeFileSync(configPath,
+            `${readFileSync(configPath, 'utf8')}\n[agents.worker_54_high]\ndescription = "Retired worker"\nconfig_file = "agents/worker-terra.toml"\n`,
+            'utf8'
+        );
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Tracked Codex role config must not mention retired role worker_54_high: .codex/config.toml'
+        );
+    });
+
+    it('fails when an agent role config mentions retired worker_54_high guidance', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+        const workerPath = path.join(repoRoot, '.codex/agents/worker.toml');
+        writeFileSync(workerPath, readFileSync(workerPath, 'utf8').replace(
+            '"""\n', '"""\nDo not delegate this unit to worker_54_high.\n'
+        ), 'utf8');
+        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'Codex role config must not mention retired role worker_54_high: .codex/agents/worker.toml'
+        );
+    });
+
     it('fails when required codex roles are missing from tracked config', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
@@ -360,7 +452,7 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         writeRepoFile(
             repoRoot,
             '.codex/agents/planner.toml',
-            'model = "gpt-5.5"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = """\nOwn bounded planning work, not product-code implementation.\nUse write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.\nDo the discovery needed to freeze the plan, surface unresolved seams early, and leave implementation to the worker role unless the parent narrows the scope to a planning-surface edit.\n"""\n'
+            'model = "gpt-5.5"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = """\nBegin your first assistant response with `CONFIGURED ROLE: planner` on its own line. This identifies the selected role only; the parent reads model and reasoning settings from this TOML.\nOwn bounded planning work, not product-code implementation.\nUse write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.\nDo the discovery needed to freeze the plan, surface unresolved seams early, and leave implementation to the worker role unless the parent narrows the scope to a planning-surface edit.\n"""\n'
         );
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
 
@@ -402,7 +494,7 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         writeRepoFile(
             repoRoot,
             '.codex/agents/cleanup-worker.toml',
-            'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nOwn one bounded cleanup-loop implementation write scope at a time.\nMake the smallest defensible cleanup change inside the approved execution unit, avoid unrelated edits, and validate the changed behavior before returning.\nUse this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.\n"""\n'
+            'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\ndeveloper_instructions = """\nBegin your first assistant response with `CONFIGURED ROLE: cleanup_worker` on its own line. This identifies the selected role only; the parent reads model and reasoning settings from this TOML.\nOwn one bounded cleanup-loop implementation write scope at a time.\nMake the smallest defensible cleanup change inside the approved execution unit, avoid unrelated edits, and validate the changed behavior before returning.\nUse this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.\n"""\n'
         );
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
 
