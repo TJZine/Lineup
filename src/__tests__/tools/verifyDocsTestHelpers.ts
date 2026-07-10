@@ -739,16 +739,25 @@ export function writeValidCodexRoleConfigFixture(
     );
 
     writeSimpleCodexRoleConfigFixture(repoRoot, {
-        relativePath: '.codex/agents/explorer.toml', role: 'explorer', model: CODEX_MODEL_SPARK,
-        reasoningEffort: 'xhigh', readOnly: true,
+        relativePath: '.codex/agents/explorer.toml',
+        role: 'explorer',
+        model: CODEX_MODEL_SPARK,
+        reasoningEffort: 'xhigh',
+        readOnly: true,
     });
     writeSimpleCodexRoleConfigFixture(repoRoot, {
-        relativePath: '.codex/agents/explorer-fallback.toml', role: 'explorer_fallback', model: CODEX_MODEL_LUNA,
-        reasoningEffort: 'xhigh', readOnly: true,
+        relativePath: '.codex/agents/explorer-fallback.toml',
+        role: 'explorer_fallback',
+        model: CODEX_MODEL_LUNA,
+        reasoningEffort: 'xhigh',
+        readOnly: true,
     });
     writeSimpleCodexRoleConfigFixture(repoRoot, {
-        relativePath: '.codex/agents/reviewer.toml', role: 'reviewer', model: CODEX_MODEL_SOL,
-        reasoningEffort: 'high', readOnly: true,
+        relativePath: '.codex/agents/reviewer.toml',
+        role: 'reviewer',
+        model: CODEX_MODEL_SOL,
+        reasoningEffort: 'high',
+        readOnly: true,
     });
     writeRepoFile(
         repoRoot,
@@ -782,8 +791,11 @@ export function writeValidCodexRoleConfigFixture(
         ].join('\n')
     );
     writeSimpleCodexRoleConfigFixture(repoRoot, {
-        relativePath: '.codex/agents/docs-researcher.toml', role: 'docs_researcher', model: CODEX_MODEL_LUNA,
-        reasoningEffort: 'high', readOnly: true,
+        relativePath: '.codex/agents/docs-researcher.toml',
+        role: 'docs_researcher',
+        model: CODEX_MODEL_LUNA,
+        reasoningEffort: 'high',
+        readOnly: true,
     });
     writeRepoFile(
         repoRoot,
@@ -816,7 +828,9 @@ export function writeValidCodexRoleConfigFixture(
         ].join('\n')
     );
     writeSimpleCodexRoleConfigFixture(repoRoot, {
-        relativePath: '.codex/agents/worker.toml', role: 'worker', model: CODEX_MODEL_SOL,
+        relativePath: '.codex/agents/worker.toml',
+        role: 'worker',
+        model: CODEX_MODEL_SOL,
         reasoningEffort: 'medium',
     });
     writeRepoFile(
@@ -850,12 +864,18 @@ export function writeValidCodexRoleConfigFixture(
         ].join('\n')
     );
     writeSimpleCodexRoleConfigFixture(repoRoot, {
-        relativePath: '.codex/agents/monitor.toml', role: 'monitor', model: CODEX_MODEL_SPARK,
-        reasoningEffort: 'low', readOnly: true,
+        relativePath: '.codex/agents/monitor.toml',
+        role: 'monitor',
+        model: CODEX_MODEL_SPARK,
+        reasoningEffort: 'low',
+        readOnly: true,
     });
     writeSimpleCodexRoleConfigFixture(repoRoot, {
-        relativePath: '.codex/agents/monitor-fallback.toml', role: 'monitor_fallback', model: CODEX_MODEL_LUNA,
-        reasoningEffort: 'low', readOnly: true,
+        relativePath: '.codex/agents/monitor-fallback.toml',
+        role: 'monitor_fallback',
+        model: CODEX_MODEL_LUNA,
+        reasoningEffort: 'low',
+        readOnly: true,
     });
 }
 

@@ -225,10 +225,15 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     it('keeps the worker_luna fixture aligned with the tracked role model policy', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
+
         writeValidCodexRoleConfigFixture(repoRoot);
-        const content = readFileSync(path.join(repoRoot, '.codex/agents/worker-luna.toml'), 'utf8');
-        expect(content).toContain('model = "gpt-5.6-luna"');
-        expect(content).toContain('model_reasoning_effort = "xhigh"');
+
+        const workerLunaConfig = readFileSync(
+            path.join(repoRoot, '.codex/agents/worker-luna.toml'),
+            'utf8'
+        );
+        expect(workerLunaConfig).toContain('model = "gpt-5.6-luna"');
+        expect(workerLunaConfig).toContain('model_reasoning_effort = "xhigh"');
     });
 
     it('fails when the session prompt README drops the explicit planner/worker/reviewer role mapping', () => {
@@ -327,14 +332,22 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     it('fails when worker_luna does not use its approved worker-luna config path', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
+
         writeRoleWorkflowClaimFixture(repoRoot);
         writeValidCodexRoleConfigFixture(repoRoot);
         const configPath = path.join(repoRoot, '.codex/config.toml');
-        writeFileSync(configPath, readFileSync(configPath, 'utf8').replace(
-            'config_file = "agents/worker-luna.toml"', 'config_file = "agents/worker.toml"'
-        ), 'utf8');
+        writeFileSync(
+            configPath,
+            readFileSync(configPath, 'utf8').replace(
+                'config_file = "agents/worker-luna.toml"',
+                'config_file = "agents/worker.toml"'
+            ),
+            'utf8'
+        );
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
         const result = runVerifier(repoRoot);
+
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
             'Codex role worker_luna must use config_file="agents/worker-luna.toml" in .codex/config.toml'
@@ -344,13 +357,18 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     it('fails when a role config omits its exact CONFIGURED ROLE marker', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
+
         writeRoleWorkflowClaimFixture(repoRoot);
         writeValidCodexRoleConfigFixture(repoRoot);
-        writeRepoFile(repoRoot, '.codex/agents/cleanup-worker.toml',
+        writeRepoFile(
+            repoRoot,
+            '.codex/agents/cleanup-worker.toml',
             'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = """\nOwn one bounded cleanup-loop implementation write scope at a time.\nMake the smallest defensible cleanup change inside the approved execution unit.\nUse this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.\n"""\n'
         );
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
         const result = runVerifier(repoRoot);
+
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
             'Codex role config is missing exact CONFIGURED ROLE marker for cleanup_worker: .codex/agents/cleanup-worker.toml'
@@ -360,12 +378,19 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     it('fails when current role guidance mentions retired worker_54_high routing', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
+
         writeRoleWorkflowClaimFixture(repoRoot);
         writeValidCodexRoleConfigFixture(repoRoot);
         const readmePath = path.join(repoRoot, 'docs/agentic/session-prompts/README.md');
-        writeFileSync(readmePath, `${readFileSync(readmePath, 'utf8')}\nUse worker_54_high for bounded implementation.\n`, 'utf8');
+        writeFileSync(
+            readmePath,
+            `${readFileSync(readmePath, 'utf8')}\nUse worker_54_high for bounded implementation.\n`,
+            'utf8'
+        );
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
         const result = runVerifier(repoRoot);
+
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
             'Current Codex role guidance must not mention retired role worker_54_high: docs/agentic/session-prompts/README.md'
@@ -375,15 +400,19 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     it('fails when tracked codex config redeclares retired worker_54_high', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
+
         writeRoleWorkflowClaimFixture(repoRoot);
         writeValidCodexRoleConfigFixture(repoRoot);
         const configPath = path.join(repoRoot, '.codex/config.toml');
-        writeFileSync(configPath,
+        writeFileSync(
+            configPath,
             `${readFileSync(configPath, 'utf8')}\n[agents.worker_54_high]\ndescription = "Retired worker"\nconfig_file = "agents/worker-luna.toml"\n`,
             'utf8'
         );
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
         const result = runVerifier(repoRoot);
+
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
             'Tracked Codex role config must not mention retired role worker_54_high: .codex/config.toml'
@@ -393,14 +422,22 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     it('fails when an agent role config mentions retired worker_54_high guidance', () => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
+
         writeRoleWorkflowClaimFixture(repoRoot);
         writeValidCodexRoleConfigFixture(repoRoot);
         const workerPath = path.join(repoRoot, '.codex/agents/worker.toml');
-        writeFileSync(workerPath, readFileSync(workerPath, 'utf8').replace(
-            '"""\n', '"""\nDo not delegate this unit to worker_54_high.\n'
-        ), 'utf8');
+        writeFileSync(
+            workerPath,
+            readFileSync(workerPath, 'utf8').replace(
+                '"""\n',
+                '"""\nDo not delegate this unit to worker_54_high.\n'
+            ),
+            'utf8'
+        );
         runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+
         const result = runVerifier(repoRoot);
+
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
             'Codex role config must not mention retired role worker_54_high: .codex/agents/worker.toml'

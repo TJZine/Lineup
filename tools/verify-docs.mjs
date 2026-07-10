@@ -103,7 +103,7 @@ const requiredCodexRoleConfigFiles = new Map([
     ['monitor_fallback', 'agents/monitor-fallback.toml'],
 ]);
 const requiredCodexAgentRoles = Array.from(requiredCodexRoleConfigFiles.keys());
-const retiredCodexAgentRoles = ['worker_54_high'];
+const retiredCodexAgentRoles = ['worker_54_high', 'worker_terra'];
 const currentCodexRoleGuidanceFiles = [
     'docs/AGENTIC_DEV_WORKFLOW.md',
     'docs/agentic/skill-strategy.md',
@@ -666,7 +666,7 @@ function checkSessionPromptReadme(errors) {
     const hasWorkerRoleIntent = normalizedLines.some(
         (line) => includesAllMarkers(line, ['cleanup-implement.md', 'feature-implement.md', 'worker role'])
     );
-    const hasWorkerTerraRoleIntent = normalizedLines.some(
+    const hasWorkerLunaRoleIntent = normalizedLines.some(
         (line) => includesAllMarkers(line, ['worker luna', 'current execution packet', 'cheap to verify'])
     );
     const hasCleanupWorkerRoleIntent = normalizedLines.some(
@@ -692,7 +692,7 @@ function checkSessionPromptReadme(errors) {
         !hasPlannerRoleIntent ||
         !hasPlannerDeepRoleIntent ||
         !hasWorkerRoleIntent ||
-        !hasWorkerTerraRoleIntent ||
+        !hasWorkerLunaRoleIntent ||
         !hasCleanupWorkerRoleIntent ||
         !hasReviewerRoleIntent ||
         !hasSpecializedReviewerRoleIntent
