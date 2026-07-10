@@ -1,6 +1,5 @@
 import type { AppError, IAppLifecycle } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../types/app-errors';
-import { isChannelSwitchAborted, isChannelSwitchFailed, isChannelSwitchSuccessful } from '../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { INavigationManager } from '../../modules/navigation';
 import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
@@ -134,21 +133,37 @@ export async function applyPostReadyRoutingPolicy(inputs: PostReadyRoutingInputs
         throwIfStartupAborted(inputs.signal);
         const outcome = await inputs.switchToChannel(channelToPlay.id);
         throwIfStartupAborted(inputs.signal);
-        if (isChannelSwitchFailed(outcome) && outcome.reason === 'missing_channel') {
-            inputs.navigation.replaceScreen('channel-setup');
-            return;
+        switch (outcome.kind) {
+            case 'switched':
+                inputs.navigation.replaceScreen('player');
+                return;
+            case 'aborted':
+                throw new Error(`Initial channel switch aborted for ${channelToPlay.id}.`);
+            case 'failed': {
+                const reason = outcome.reason;
+                switch (reason) {
+                    case 'missing_channel':
+                        inputs.navigation.replaceScreen('channel-setup');
+                        return;
+                    case 'missing_dependencies':
+                    case 'content_unavailable':
+                    case 'playback_start_failed':
+                        throw new Error(`Initial channel switch failed for ${channelToPlay.id}: ${reason}.`);
+                    default:
+                        return assertUnhandledChannelSwitchOutcome(reason);
+                }
+            }
+            default:
+                return assertUnhandledChannelSwitchOutcome(outcome);
         }
-        if (isChannelSwitchAborted(outcome)) {
-            throw new Error(`Initial channel switch aborted for ${channelToPlay.id}.`);
-        }
-        if (isChannelSwitchSuccessful(outcome)) {
-            inputs.navigation.replaceScreen('player');
-        }
-        return;
     }
 
     throwIfStartupAborted(inputs.signal);
     inputs.openServerSelect();
+}
+
+function assertUnhandledChannelSwitchOutcome(value: never): never {
+    throw new Error(`Unhandled initial channel switch outcome: ${String(value)}`);
 }
 
 function buildSelectedServerByUserId(

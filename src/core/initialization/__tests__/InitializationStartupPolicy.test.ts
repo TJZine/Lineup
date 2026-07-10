@@ -105,10 +105,16 @@ describe('applyPostReadyRoutingPolicy', () => {
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
-    it('does not force channel setup when the startup tune fails transiently', async () => {
-        const inputs = createInputs({ kind: 'failed', reason: 'content_unavailable' });
+    it.each([
+        'missing_dependencies',
+        'content_unavailable',
+        'playback_start_failed',
+    ] as const)('rejects %s startup tune failures into global recoverable handling', async (reason) => {
+        const inputs = createInputs({ kind: 'failed', reason });
 
-        await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
+        await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toThrow(
+            `Initial channel switch failed for current-channel-id: ${reason}.`
+        );
 
         expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
