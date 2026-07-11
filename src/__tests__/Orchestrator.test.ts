@@ -13,6 +13,9 @@ import {
     NowPlayingInfoCoordinator,
 } from '../modules/ui/now-playing-info';
 import { EPGCoordinator } from '../modules/ui/epg';
+import type { EPGEventMap } from '../modules/ui/epg/types';
+import type { EpgScheduleRefreshResult } from '../modules/ui/epg/coordinator/EPGCoordinatorContracts';
+import type { ChannelSwitchOutcome } from '../types/channelSwitch';
 import type { INavigationManager } from '../modules/navigation';
 import type { PlexAuthDataV2, PlexStoredCredentialsReadResult } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
@@ -25,18 +28,40 @@ import { ChannelTuningCoordinator } from '../core/channel-tuning';
 import type { PlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
 import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
+import { EpgPreferencesStore } from '../modules/settings/EpgPreferencesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/runtime/OrchestratorRecoverableRuntimeReporter';
 import { expectConsoleWarn } from './helpers';
+import { EventEmitter } from '../utils/EventEmitter';
 import {
     installMockLocalStorage,
     mockLocalStorage,
     resetMockLocalStorage,
     restoreOriginalLocalStorage,
 } from './mocks/localStorage';
+
+const READY_EPG_REFRESH_RESULT: EpgScheduleRefreshResult = {
+    readiness: 'ready',
+    attemptedChannelCount: 1,
+    immediateReadyChannelCount: 1,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: true,
+};
+
+const SKIPPED_EPG_REFRESH_RESULT: EpgScheduleRefreshResult = {
+    readiness: 'skipped',
+    attemptedChannelCount: 0,
+    immediateReadyChannelCount: 0,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: false,
+};
 
 installMockLocalStorage();
 
@@ -350,13 +375,15 @@ const makeDecision = (overrides: Partial<StreamDecision> = {}): StreamDecision =
 
 jest.mock('../modules/plex/auth', () => ({
     PlexAuth: jest.fn(() => mockPlexAuth),
+    isPlexAuthRecoverable: jest.fn(() => false),
 }));
 
 // Mock PlexServerDiscovery
 const mockPlexDiscovery = {
-    initialize: jest.fn().mockResolvedValue(undefined),
+    initialize: jest.fn().mockResolvedValue({ kind: 'skipped_no_saved_server' }),
     isConnected: jest.fn().mockReturnValue(true),
     getSelectedServer: jest.fn().mockReturnValue(null),
+    getSelectedConnection: jest.fn().mockReturnValue({ uri: 'http://localhost:32400' }),
     getServerUri: jest.fn().mockReturnValue('http://localhost:32400'),
     captureSelectedServerSnapshot: jest.fn().mockReturnValue({
         server: null,
@@ -408,9 +435,9 @@ const mockChannel = {
     id: 'ch1',
     name: 'Test Channel',
     number: 1,
-    contentSource: { type: 'manual', items: [] as unknown[] },
+    contentSource: { type: 'manual', items: [] },
     startTimeAnchor: 0,
-    playbackMode: 'sequential' as const,
+    playbackMode: 'sequential',
     shuffleSeed: 12345,
     phaseSeed: 4242,
     skipIntros: false,
@@ -420,7 +447,7 @@ const mockChannel = {
     lastContentRefresh: 0,
     itemCount: 0,
     totalDurationMs: 0,
-};
+} satisfies EPGEventMap['channelSelected']['channel'];
 
 const mockChannelManager = {
     loadChannels: jest.fn().mockResolvedValue(undefined),
@@ -429,6 +456,7 @@ const mockChannelManager = {
     dispose: jest.fn(),
     replaceAllChannels: jest.fn().mockResolvedValue(undefined),
     getAllChannels: jest.fn().mockReturnValue([mockChannel]),
+    clearRuntimeState: jest.fn(),
     getCurrentChannel: jest.fn().mockReturnValue(mockChannel),
     getChannel: jest.fn().mockReturnValue(mockChannel),
     getChannelByNumber: jest.fn().mockReturnValue(mockChannel),
@@ -508,6 +536,7 @@ jest.mock('../modules/player', () => {
 });
 
 // Mock EPGComponent
+const mockEpgEvents = new EventEmitter<EPGEventMap>();
 const mockEpg = {
     initialize: jest.fn(),
     ensureReady: jest.fn().mockResolvedValue(undefined),
@@ -542,8 +571,8 @@ const mockEpg = {
     focusChannel: jest.fn(),
     focusNow: jest.fn(),
     scrollToChannel: jest.fn(),
-    on: jest.fn(() => ({ dispose: jest.fn() })),
-    off: jest.fn(),
+    on: jest.fn(mockEpgEvents.on.bind(mockEpgEvents)),
+    off: jest.fn(mockEpgEvents.off.bind(mockEpgEvents)),
 };
 
 const createMockEpgDebugRuntime = (): {
@@ -600,7 +629,7 @@ describe('AppOrchestrator', () => {
     };
     let pauseHandler: (() => void | Promise<void>) | null;
     let resumeHandler: (() => void | Promise<void>) | null;
-const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrator => {
+    const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrator => {
         const instance = new AppOrchestrator(platformServices);
         ownedOrchestrators.add(instance);
         return instance;
@@ -613,6 +642,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
     beforeEach(() => {
         jest.clearAllMocks();
+        mockEpgEvents.removeAllListeners();
         resetMockLocalStorage();
 
         mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReset();
@@ -634,6 +664,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         mockPlexDiscovery.getSelectedServer.mockReset();
         mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
+        mockPlexDiscovery.getSelectedConnection.mockReset();
+        mockPlexDiscovery.getSelectedConnection.mockReturnValue({ uri: 'http://localhost:32400' });
         mockPlexDiscovery.getServerUri.mockReset();
         mockPlexDiscovery.getServerUri.mockReturnValue(null);
         mockPlexDiscovery.captureSelectedServerSnapshot.mockReset();
@@ -647,6 +679,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         mockChannelManager.getAllChannels.mockReset();
         mockChannelManager.getAllChannels.mockReturnValue([mockChannel]);
+        mockChannelManager.clearRuntimeState.mockReset();
 
         mockLifecycle.onPause.mockReset();
         mockLifecycle.onResume.mockReset();
@@ -1082,7 +1115,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
-                .mockResolvedValue(undefined);
+                .mockResolvedValue(READY_EPG_REFRESH_RESULT);
             const runStartupSpy = jest
                 .spyOn(InitializationCoordinator.prototype, 'runStartup')
                 .mockResolvedValue(undefined);
@@ -1097,7 +1130,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     persistedSelection: 'updated',
                     startupResume: {
                         startup: 'completed',
-                        epgRefresh: { kind: 'succeeded' },
+                        epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT },
                     },
                 });
 
@@ -1220,7 +1253,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     persistedSelection: 'skipped_missing_credentials',
                     startupResume: {
                         startup: 'completed',
-                        epgRefresh: { kind: 'succeeded' },
+                        epgRefresh: { kind: 'degraded', result: SKIPPED_EPG_REFRESH_RESULT },
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
@@ -1249,7 +1282,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     persistedSelection: 'skipped_corrupted_credentials',
                     startupResume: {
                         startup: 'completed',
-                        epgRefresh: { kind: 'succeeded' },
+                        epgRefresh: { kind: 'degraded', result: SKIPPED_EPG_REFRESH_RESULT },
                     },
                 });
                 expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
@@ -1341,7 +1374,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                         selectedServerByUserId: expect.objectContaining({
                             'user-1': { serverId: 'server-1', serverUri: 'http://next.example' },
                         }),
-                    })
+                    }),
+                    { emitAuthChange: false }
                 );
                 expect(mockPlexAuth.storeCredentials).toHaveBeenNthCalledWith(
                     2,
@@ -1349,7 +1383,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                         selectedServerByUserId: expect.objectContaining({
                             'user-1': { serverId: 'server-prev', serverUri: 'http://previous.example' },
                         }),
-                    })
+                    }),
+                    { emitAuthChange: false }
                 );
             } finally {
                 runStartupSpy.mockRestore();
@@ -1395,7 +1430,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                         selectedServerByUserId: expect.objectContaining({
                             'user-1': { serverId: 'server-1', serverUri: 'http://next.example' },
                         }),
-                    })
+                    }),
+                    { emitAuthChange: false }
                 );
                 expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).toHaveBeenCalledTimes(2);
             } finally {
@@ -1407,6 +1443,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         it('clears discovery selection and persisted selected-server state', async () => {
             await orchestrator.initialize(mockConfig);
+            const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
+            const clearScheduleCachesSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const storedCredentials = createStoredCredentials('valid-token');
             if (storedCredentials.kind !== 'available') {
                 throw new Error('Expected available stored credentials in test setup');
@@ -1416,16 +1454,90 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 serverUri: 'http://example',
             };
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
+            try {
+                await orchestrator.clearSelectedServer();
+
+                expect(mockPlexDiscovery.clearSelection).toHaveBeenCalledTimes(1);
+                expect(mockPlexAuth.storeCredentials).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        activeUserId: 'user-1',
+                        selectedServerByUserId: expect.objectContaining({
+                            'user-1': { serverId: null, serverUri: null },
+                        }),
+                    }),
+                    { emitAuthChange: false }
+                );
+                expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
+                expect(clearSelectedSnapshotSpy).toHaveBeenCalledTimes(1);
+                expect(clearScheduleCachesSpy).toHaveBeenCalledTimes(1);
+                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
+                expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+            } finally {
+                clearSelectedSnapshotSpy.mockRestore();
+                clearScheduleCachesSpy.mockRestore();
+            }
+        });
+
+        it('clears guide-origin focus preservation after selected-server clear', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
+                createStoredCredentials('valid-token')
+            );
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            await orchestrator.start();
+
+            const now = Date.now();
+            mockEpgEvents.emit('channelSelected', {
+                channel: mockChannel,
+                program: {
+                    item: {
+                        ratingKey: 'guide-program',
+                        type: 'movie',
+                        title: 'Guide Program',
+                        fullTitle: 'Guide Program',
+                        durationMs: 60_000,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: now - 1_000,
+                    scheduledEndTime: now + 59_000,
+                    elapsedMs: 1_000,
+                    remainingMs: 59_000,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    isCurrent: true,
+                },
+            });
+
+            mockEpg.show.mockClear();
+            orchestrator.openEPG();
+            expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: true });
 
             await orchestrator.clearSelectedServer();
 
-            expect(mockPlexDiscovery.clearSelection).toHaveBeenCalledTimes(1);
-            expect(mockPlexAuth.storeCredentials).toHaveBeenCalledWith(expect.objectContaining({
-                activeUserId: 'user-1',
-                selectedServerByUserId: expect.objectContaining({
-                    'user-1': { serverId: null, serverUri: null },
-                }),
-            }));
+            mockEpg.show.mockClear();
+            orchestrator.openEPG();
+            expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: false });
+        });
+
+        it('clears selected-library filter scope after selected-server clear', async () => {
+            await orchestrator.initialize(mockConfig);
+            const storedCredentials = createStoredCredentials('valid-token');
+            if (storedCredentials.kind !== 'available') {
+                throw new Error('Expected available stored credentials in test setup');
+            }
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
+            const scopeSpy = jest.spyOn(EpgPreferencesStore.prototype, 'setLibraryFilterScope');
+            scopeSpy.mockClear();
+
+            try {
+                await orchestrator.clearSelectedServer();
+
+                expect(scopeSpy).toHaveBeenLastCalledWith(null);
+            } finally {
+                scopeSpy.mockRestore();
+            }
         });
 
         it('propagates selected-server clear persistence failures without clearing discovery selection', async () => {
@@ -1438,6 +1550,22 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
             expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
             expect(mockPlexDiscovery.clearSelection).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Plex sign-out storage scope', () => {
+        it('clears selected-library filter scope after sign-out clears identity', async () => {
+            await orchestrator.initialize(mockConfig);
+            const scopeSpy = jest.spyOn(EpgPreferencesStore.prototype, 'setLibraryFilterScope');
+            scopeSpy.mockClear();
+
+            try {
+                await orchestrator.signOutPlex();
+
+                expect(scopeSpy).toHaveBeenLastCalledWith(null);
+            } finally {
+                scopeSpy.mockRestore();
+            }
         });
     });
 
@@ -1461,6 +1589,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockImplementation(async () => {
                     epgRefreshSequence.push('refreshEpgSchedules');
+                    return READY_EPG_REFRESH_RESULT;
                 });
             const nowSpy = jest.spyOn(Date, 'now');
             try {
@@ -1519,6 +1648,8 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 .mockImplementation(async () => {
                     profileSwitchSequence.push('resumeStartupAfterProfileSwitch');
                 });
+            const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
+            const clearScheduleCachesSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
 
             try {
                 mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
@@ -1535,6 +1666,10 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 mockVideoPlayer.stop.mockClear();
                 mockScheduler.unloadChannel.mockClear();
                 mockPlexStreamResolver.stopTranscodeSession.mockClear();
+                mockChannelManager.clearRuntimeState.mockClear();
+                mockEpg.clearSchedules.mockClear();
+                clearSelectedSnapshotSpy.mockClear();
+                clearScheduleCachesSpy.mockClear();
                 mockPlexAuth.switchHomeUser.mockImplementationOnce(async () => {
                     profileSwitchSequence.push('switchHomeUser');
                 });
@@ -1575,6 +1710,10 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 expect(mockVideoPlayer.stop).toHaveBeenCalled();
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
                 expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('profile-switch-session');
+                expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
+                expect(clearSelectedSnapshotSpy).toHaveBeenCalledTimes(1);
+                expect(clearScheduleCachesSpy).toHaveBeenCalledTimes(1);
+                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
                 expect(profileSwitchSequence).toEqual([
                     'prepareForProfileSwitchAttempt',
                     'switchHomeUser',
@@ -1582,6 +1721,71 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 ]);
             } finally {
                 prepareForProfileSwitchAttemptSpy.mockRestore();
+                resumeStartupAfterProfileSwitchSpy.mockRestore();
+                clearSelectedSnapshotSpy.mockRestore();
+                clearScheduleCachesSpy.mockRestore();
+            }
+        });
+
+        it('continues switchHomeUser cleanup and startup when scheduler unload throws', async () => {
+            expectConsoleWarn([
+                'Identity-scoped runtime cleanup step failed: unloadCurrentChannel',
+                expect.objectContaining({
+                    step: 'unloadCurrentChannel',
+                    safeError: expect.objectContaining({ message: 'unload failed' }),
+                }),
+            ]);
+            await orchestrator.initialize(mockConfig);
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
+                createStoredCredentials('valid-token')
+            );
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            await orchestrator.start();
+            const resumeStartupAfterProfileSwitchSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                .mockResolvedValue(undefined);
+            const now = Date.now();
+            mockEpgEvents.emit('channelSelected', {
+                channel: mockChannel,
+                program: {
+                    item: {
+                        ratingKey: 'profile-guide-program',
+                        type: 'movie',
+                        title: 'Profile Guide Program',
+                        fullTitle: 'Profile Guide Program',
+                        durationMs: 60_000,
+                        thumb: null,
+                        year: 2026,
+                        scheduledIndex: 0,
+                    },
+                    scheduledStartTime: now - 1_000,
+                    scheduledEndTime: now + 59_000,
+                    elapsedMs: 1_000,
+                    remainingMs: 59_000,
+                    scheduleIndex: 0,
+                    loopNumber: 0,
+                    isCurrent: true,
+                },
+            });
+            mockScheduler.unloadChannel.mockImplementationOnce(() => {
+                throw new Error('unload failed');
+            });
+
+            try {
+                mockEpg.show.mockClear();
+                orchestrator.openEPG();
+                expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: true });
+
+                await expect(orchestrator.switchHomeUser('user-2')).resolves.toBeUndefined();
+
+                expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
+                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
+                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
+                mockEpg.show.mockClear();
+                orchestrator.openEPG();
+                expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: false });
+            } finally {
                 resumeStartupAfterProfileSwitchSpy.mockRestore();
             }
         });
@@ -1688,6 +1892,34 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 ]);
             } finally {
                 prepareForProfileSwitchAttemptSpy.mockRestore();
+                resumeStartupAfterProfileSwitchSpy.mockRestore();
+            }
+        });
+
+        it('continues useMainAccountProfile cleanup and startup when channel runtime clear throws', async () => {
+            expectConsoleWarn([
+                'Identity-scoped runtime cleanup step failed: clearChannelManagerRuntimeState',
+                expect.objectContaining({
+                    step: 'clearChannelManagerRuntimeState',
+                    safeError: expect.objectContaining({ message: 'channel cleanup failed' }),
+                }),
+            ]);
+            await orchestrator.initialize(mockConfig);
+            const resumeStartupAfterProfileSwitchSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                .mockResolvedValue(undefined);
+            mockChannelManager.clearRuntimeState.mockImplementationOnce(() => {
+                throw new Error('channel cleanup failed');
+            });
+
+            try {
+                await expect(orchestrator.useMainAccountProfile()).resolves.toBeUndefined();
+
+                expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
+                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
+            } finally {
                 resumeStartupAfterProfileSwitchSpy.mockRestore();
             }
         });
@@ -1833,6 +2065,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             });
             mockPlexDiscovery.initialize.mockImplementation(async () => {
                 initOrder.push('plex-discovery');
+                return { kind: 'skipped_no_saved_server' };
             });
 
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('test-token'));
@@ -1893,7 +2126,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
             mockChannelManager.getAllChannels.mockReturnValue([]);
             mockLocalStorage.getItem.mockImplementation((key: string) => {
-                if (key === 'lineup_channel_setup_v2:server-1') return null;
+                if (key === 'lineup_channel_setup_v3:server-1:user-1') return null;
                 if (key === 'lineup_channels_server_v1:server-1:user-1') return null;
                 return null;
             });
@@ -2007,7 +2240,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             mockChannelManager.getAllChannels.mockReturnValue([]);
             mockLocalStorage.getItem.mockImplementation((key: string) => {
                 if (key === 'lineup_audio_setup_complete') return '1';
-                if (key === 'lineup_channel_setup_v2:server-1') return null;
+                if (key === 'lineup_channel_setup_v3:server-1:user-1') return null;
                 if (key === 'lineup_channels_server_v1:server-1:user-1') return null;
                 return null;
             });
@@ -2225,15 +2458,29 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
 
         it('carries ID-based switch outcomes through the public startup contract', async () => {
             const cases: Array<{
-                outcome: 'failed' | 'aborted' | 'switched';
+                outcome: ChannelSwitchOutcome;
                 expectedError: RegExp | null;
+                expectedScreen: 'channel-setup' | 'player' | null;
             }> = [
-                { outcome: 'failed', expectedError: /Initial channel switch failed for ch1/ },
-                { outcome: 'aborted', expectedError: /Initial channel switch aborted for ch1/ },
-                { outcome: 'switched', expectedError: null },
+                {
+                    outcome: { kind: 'failed', reason: 'missing_channel' },
+                    expectedError: null,
+                    expectedScreen: 'channel-setup',
+                },
+                {
+                    outcome: { kind: 'failed', reason: 'content_unavailable' },
+                    expectedError: /Initial channel switch failed for ch1: content_unavailable/,
+                    expectedScreen: null,
+                },
+                {
+                    outcome: { kind: 'aborted' },
+                    expectedError: /Initial channel switch aborted for ch1/,
+                    expectedScreen: null,
+                },
+                { outcome: { kind: 'switched' }, expectedError: null, expectedScreen: 'player' },
             ];
 
-            for (const { outcome, expectedError } of cases) {
+            for (const { outcome, expectedError, expectedScreen } of cases) {
                 const localOrchestrator = createOrchestrator();
                 await localOrchestrator.initialize(mockConfig);
                 mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
@@ -2250,6 +2497,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                 const switchSpy = jest
                     .spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel')
                     .mockResolvedValueOnce(outcome);
+                mockNavigation.replaceScreen.mockClear();
 
                 try {
                     if (expectedError) {
@@ -2264,6 +2512,11 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                         await expect(localOrchestrator.start()).rejects.toThrow(expectedError);
                     } else {
                         await expect(localOrchestrator.start()).resolves.toBeUndefined();
+                        if (expectedScreen) {
+                            expect(mockNavigation.replaceScreen).toHaveBeenCalledWith(expectedScreen);
+                        } else {
+                            expect(mockNavigation.replaceScreen).not.toHaveBeenCalled();
+                        }
                     }
                 } finally {
                     switchSpy.mockRestore();
@@ -2474,7 +2727,7 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
             orchestrator.requestChannelSetupRerun();
 
             expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
-                'lineup_channel_setup_v2:server-3'
+                'lineup_channel_setup_v3:server-3:user-1'
             );
             expect(mockNavigation.goTo).toHaveBeenCalledWith('channel-setup');
         });
@@ -3898,8 +4151,9 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
         it('returns null and reports when Plex resource URL accessor dependencies throw', () => {
             const reportError = jest.fn();
 
-            mockPlexDiscovery.getServerUri.mockImplementation(() => {
-                throw new Error('server uri failed');
+            mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400?X-Plex-Token=base-secret');
+            mockPlexAuth.getAuthHeaders.mockImplementation(() => {
+                throw new Error('auth headers failed');
             });
             Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
                 reportIssue: jest.fn(),
@@ -3911,21 +4165,24 @@ const createOrchestrator = (platformServices?: PlatformServices): AppOrchestrato
                     Reflect.get(
                         orchestrator as object,
                         '_buildPlexResourceUrl'
-                    ).call(orchestrator, '/library/metadata/1/thumb')
+                    ).call(orchestrator, '/library/metadata/1/thumb?X-Plex-Token=path-secret')
                 ).toBeNull();
                 expect(reportError).toHaveBeenCalledWith(
                     'orchestrator.plexResourceUrl.build',
                     'buildPlexResourceUrlWithAuth failed',
                     expect.objectContaining({
-                        message: 'server uri failed',
+                        message: 'auth headers failed',
                     }),
                     expect.objectContaining({
-                        pathOrUrl: '/library/metadata/1/thumb',
+                        pathOrUrl: '/library/metadata/1/thumb?X-Plex-Token=REDACTED',
+                        baseUri: 'http://localhost:32400?X-Plex-Token=REDACTED',
                     })
                 );
             } finally {
                 mockPlexDiscovery.getServerUri.mockReset();
                 mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
+                mockPlexAuth.getAuthHeaders.mockReset();
+                mockPlexAuth.getAuthHeaders.mockReturnValue({ 'X-Plex-Token': 'mock-token' });
             }
         });
     });

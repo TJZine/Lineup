@@ -5,6 +5,22 @@ import {
 } from '../deferred-screens/AppLazyScreenPortFactory';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
+import type { ChannelSetupCompletionResult } from '../../channel-setup/types';
+import type {
+    EpgDegradedScheduleRefreshResult,
+    EpgReadyScheduleRefreshResult,
+} from '../../../shared/epgRefresh';
+import type { AppShellServerSelectionResult } from '../runtime/AppShellRuntimeContracts';
+
+const READY_EPG_REFRESH: EpgReadyScheduleRefreshResult = {
+    readiness: 'ready',
+    attemptedChannelCount: 1,
+    immediateReadyChannelCount: 1,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: true,
+};
 
 type MockRuntimeOrchestrator = {
     requestAuthPin: jest.Mock;
@@ -15,13 +31,16 @@ type MockRuntimeOrchestrator = {
     useMainAccountProfile: jest.Mock;
     signOutPlex: jest.Mock;
     discoverServers: jest.Mock;
-    selectServer: jest.Mock;
+    selectServer: jest.Mock<
+        Promise<AppShellServerSelectionResult>,
+        [serverId: string, options?: { signal?: AbortSignal | null }]
+    >;
     clearSelectedServer: jest.Mock<Promise<void>, []>;
     getSelectedServerScreenState: jest.Mock;
     getChannelSetupWorkflowPort: jest.Mock;
     getSelectedServerId: jest.Mock;
     openServerSelect: jest.Mock;
-    switchToChannelByNumber: jest.Mock;
+    switchToChannelByNumberWithOutcome: jest.Mock;
     openEPG: jest.Mock;
     requestChannelSetupRerun: jest.Mock;
     setSubtitleTrack: jest.Mock;
@@ -81,7 +100,10 @@ const createScreenWorkflowPort = (): jest.Mocked<ChannelSetupScreenWorkflowPort>
         canceled: false,
         lastTask: 'done',
     })),
-    markSetupComplete: jest.fn((_serverId, _setupConfig) => {}),
+    markSetupComplete: jest.fn((_serverId, _setupConfig) => ({
+        ok: true,
+        record: { serverId: _serverId },
+    } as ChannelSetupCompletionResult)),
 });
 
 const createChannelSetupWorkflowPortFixture = (): jest.Mocked<ChannelSetupWorkflowPort> => ({
@@ -94,6 +116,19 @@ const createChannelSetupWorkflowPortFixture = (): jest.Mocked<ChannelSetupWorkfl
     }),
 });
 
+const makeSelectedServerResult = (): Extract<
+    AppShellServerSelectionResult,
+    { kind: 'selected' }
+> => ({
+    kind: 'selected',
+    readiness: 'startup_pending',
+    persistedSelection: 'updated',
+    startupResume: {
+        startup: 'completed',
+        epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH },
+    },
+});
+
 const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     requestAuthPin: jest.fn().mockResolvedValue({ id: 1 }),
     pollForPin: jest.fn().mockResolvedValue({ id: 1, authToken: 'token' }),
@@ -103,9 +138,7 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
     signOutPlex: jest.fn().mockResolvedValue(undefined),
     discoverServers: jest.fn().mockResolvedValue([]),
-    selectServer: jest.fn().mockResolvedValue({
-        kind: 'selected',
-    }),
+    selectServer: jest.fn().mockResolvedValue(makeSelectedServerResult()),
     clearSelectedServer: jest.fn().mockResolvedValue(undefined),
     getSelectedServerScreenState: jest.fn().mockReturnValue({
         selectedServerId: 'server-1',
@@ -119,9 +152,9 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     getChannelSetupWorkflowPort: jest.fn().mockReturnValue(createChannelSetupWorkflowPortFixture()),
     getSelectedServerId: jest.fn().mockReturnValue('server-1'),
     openServerSelect: jest.fn(),
-    switchToChannelByNumber: jest.fn().mockResolvedValue(undefined),
+    switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
     openEPG: jest.fn(),
-    requestChannelSetupRerun: jest.fn(),
+    requestChannelSetupRerun: jest.fn(() => ({ ok: true as const, serverId: 'server-1' })),
     setSubtitleTrack: jest.fn().mockResolvedValue(undefined),
     onGuideSettingChange: jest.fn(),
     getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
@@ -204,7 +237,7 @@ describe('AppLazyScreenPortFactory', () => {
             forceRefresh: true,
             signal: discoveryController.signal,
         });
-        await expect(serverPorts?.selectServer('server-1')).resolves.toEqual({ kind: 'selected' });
+        await expect(serverPorts?.selectServer('server-1')).resolves.toEqual(makeSelectedServerResult());
         await serverPorts?.clearSelectedServer();
         expect(serverPorts?.getSelectedServerScreenState()).toEqual({
             selectedServerId: 'server-1',
@@ -260,13 +293,38 @@ describe('AppLazyScreenPortFactory', () => {
         expect(orchestrator.selectServer.mock.calls[0]?.[0]).toBe('server-1');
     });
 
+    it('preserves structured degraded EPG refresh detail across the server-select port boundary', async (): Promise<void> => {
+        const orchestrator = makeOrchestrator();
+        const refreshResult: EpgDegradedScheduleRefreshResult = {
+            ...READY_EPG_REFRESH,
+            readiness: 'partial',
+            immediateReadyChannelCount: 0,
+            failedChannelCount: 1,
+        };
+        orchestrator.selectServer.mockResolvedValueOnce({
+            ...makeSelectedServerResult(),
+            startupResume: {
+                startup: 'completed',
+                epgRefresh: { kind: 'degraded', result: refreshResult },
+            },
+        });
+        const serverPorts = createFactory(orchestrator).createServerSelectScreenPorts();
+
+        await expect(serverPorts?.selectServer('server-1')).resolves.toMatchObject({
+            kind: 'selected',
+            startupResume: {
+                epgRefresh: { kind: 'degraded', result: refreshResult },
+            },
+        });
+    });
+
     it('forwards server-select cancellation options to the orchestrator runtime', async (): Promise<void> => {
         const orchestrator = makeOrchestrator();
         const factory = createFactory(orchestrator);
         const serverPorts = factory.createServerSelectScreenPorts();
         const options = { signal: new AbortController().signal };
 
-        await expect(serverPorts?.selectServer('server-1', options)).resolves.toEqual({ kind: 'selected' });
+        await expect(serverPorts?.selectServer('server-1', options)).resolves.toEqual(makeSelectedServerResult());
 
         expect(orchestrator.selectServer).toHaveBeenCalledWith('server-1', options);
     });
@@ -275,7 +333,7 @@ describe('AppLazyScreenPortFactory', () => {
         const orchestrator = makeOrchestrator();
         orchestrator.selectServer.mockResolvedValueOnce({
             kind: 'selection_deferred',
-        });
+        } as never);
         const factory = createFactory(orchestrator);
 
         const serverPorts = factory.createServerSelectScreenPorts();
@@ -336,15 +394,15 @@ describe('AppLazyScreenPortFactory', () => {
         expect(runtimePort?.getSelectedServerId()).toBe('server-1');
         runtimePort?.openServerSelect();
         runtimePort?.openEPG();
-        await runtimePort?.switchToChannelByNumber(12);
+        await runtimePort?.switchToChannelByNumberWithOutcome(12);
         const controller = new AbortController();
-        await runtimePort?.switchToChannelByNumber(12, { signal: controller.signal });
+        await runtimePort?.switchToChannelByNumberWithOutcome(12, { signal: controller.signal });
 
         expect(orchestrator.getChannelSetupWorkflowPort).toHaveBeenCalledTimes(1);
         expect(orchestrator.openServerSelect).toHaveBeenCalledTimes(1);
         expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
-        expect(orchestrator.switchToChannelByNumber).toHaveBeenCalledWith(12, undefined);
-        expect(orchestrator.switchToChannelByNumber).toHaveBeenCalledWith(12, {
+        expect(orchestrator.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(12, undefined);
+        expect(orchestrator.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(12, {
             signal: controller.signal,
         });
     });
@@ -374,13 +432,13 @@ describe('AppLazyScreenPortFactory', () => {
         expect(channelSetupInput?.screenPorts.getSelectedServerId()).toBe('server-1');
         channelSetupInput?.screenPorts.openServerSelect();
         channelSetupInput?.screenPorts.openEPG();
-        await channelSetupInput?.screenPorts.switchToChannelByNumber(12);
+        await channelSetupInput?.screenPorts.switchToChannelByNumberWithOutcome(12);
 
         expect(orchestrator.openServerSelect).toHaveBeenCalledTimes(1);
         expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
         expect(orchestrator.getChannelSetupWorkflowPort).toHaveBeenCalledTimes(1);
         expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
-        expect(orchestrator.switchToChannelByNumber).toHaveBeenCalledWith(12, undefined);
+        expect(orchestrator.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(12, undefined);
     });
 
     it('looks up channel-setup navigation from the current orchestrator at call time', (): void => {

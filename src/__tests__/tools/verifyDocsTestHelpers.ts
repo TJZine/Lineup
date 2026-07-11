@@ -201,6 +201,14 @@ export function writeValidRepoLocalSkillFixtures(repoRoot: string): void {
                 '1. `docs/AGENTIC_DEV_WORKFLOW.md`',
                 '2. `agents.md`',
                 '',
+                ...(skill === 'bounded-worker-execution'
+                    ? [
+                        'Record CONFIGURED TOML DEFAULTS for model and reasoning effort.',
+                        'Record DISPATCH-TIME OVERRIDES separately for model and reasoning effort.',
+                        'Only verify RUNTIME IDENTITY when the execution surface exposes it; otherwise report operator-recorded/unverified.',
+                        '',
+                    ]
+                    : []),
             ].join('\n')
         );
     }
@@ -300,8 +308,8 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             'Tracked role intent:',
             '',
             '- run `cleanup-plan.md` and `feature-plan.md` with the tracked `planner` role by default; use `planner_deep` for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning',
-            '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_54_high` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify',
-            '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_54_high` for a bounded exact cheap-to-verify subunit',
+            '- run `cleanup-implement.md` and `feature-implement.md` with the tracked `worker` role by default; use `worker_luna` only when an approved `CURRENT_EXECUTION_PACKET` explicitly declares the unit eligible as bounded, exact, and cheap to verify',
+            '- route Tier 3 cleanup-loop.md implementation passes through the tracked cleanup_worker role only unless an approved execution packet explicitly names `worker_luna` for a bounded exact cheap-to-verify subunit',
             '- keep `cleanup-review.md`, `feature-review.md`, and `workflow-harness-review.md` read-only under the tracked `reviewer` role for normal review, with `maintainability_reviewer` for maintainability-only review and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review',
             '',
             '## Routing (Authoritative)',
@@ -324,8 +332,8 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '1. confirm the current repo is Lineup',
             '2. load [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md) and [`agents.md`](../../../agents.md)',
             '3. load the matching file in this directory',
-            '4. use the tracked role that matches the launcher intent (`planner` for default planning, `planner_deep` for deep Tier 3/hotspot/boundary planning, `worker` for default implementation, `worker_54_high` only when an approved execution packet declares eligibility, `reviewer` for normal review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review)',
-            '   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker_54_high',
+            '4. use the tracked role that matches the launcher intent (`planner` for default planning, `planner_deep` for deep Tier 3/hotspot/boundary planning, `worker` for default implementation, `worker_luna` only when an approved execution packet declares eligibility, `reviewer` for normal review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review)',
+            '   cleanup-loop is the exception: Tier 3 cleanup implementation inside that loop routes to cleanup_worker while Tier 2 cleanup and feature implementation stay on worker unless a bounded current execution packet explicitly allows worker_luna',
             '',
         ].join('\n')
     );
@@ -370,6 +378,12 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
             '- Once a delegated `planner` pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal.',
             '- While that delegated planner is active, limit controller-side inspection to explicit blocker or seam resolution; do not do competing local plan drafting or redundant planning discovery.',
+            '',
+            '## Subagent Transparency',
+            '',
+            'Record CONFIGURED TOML DEFAULTS for model and reasoning effort.',
+            'Record DISPATCH-TIME OVERRIDES separately for model and reasoning effort.',
+            'Only verify RUNTIME IDENTITY when the execution surface exposes it; otherwise report operator-recorded/unverified.',
             '',
             'A final `P#-W#` plan must include a `Priority-exit readiness` section, assign a single final owner to each deferred or split follow-up item, and record any exact `P0` security issue ids before starting or planning the next priority.',
             'No `P(n+1)` checklist item, plan, or implementation work may open while `P#-EXIT` is unresolved.',
@@ -483,7 +497,7 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Each implemented approved execution unit or standalone execution target has a clean implementation review loop.',
             '- If the completed checklist-linked execution unit closes the final planned `P#-W#` item, finish the `P#-EXIT` evidence before closeout.',
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
-            '- Use `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, `worker_54_high` only for approved bounded exact cheap-to-verify execution units, `reviewer` for normal adversarial review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review.',
+            '- Use `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, `worker_luna` only for approved bounded exact cheap-to-verify execution units, `reviewer` for normal adversarial review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review.',
             '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
             '',
         ].join('\n')
@@ -638,10 +652,37 @@ export function writeRoleWorkflowClaimFixture(repoRoot: string): void {
 }
 
 const CODEX_MODEL_SPARK = 'gpt-5.3-codex-spark';
-const CODEX_MODEL_DEFAULT = 'gpt-5.3-codex';
-const CODEX_MODEL_FALLBACK = 'gpt-5.1-codex-max';
-const CODEX_MODEL_MONITOR_FALLBACK = 'gpt-5.1';
-const CODEX_MODEL_PLANNER = 'gpt-5.5';
+const CODEX_MODEL_SOL = 'gpt-5.6-sol';
+const CODEX_MODEL_LUNA = 'gpt-5.6-luna';
+
+function configuredRoleInstruction(role: string): string {
+    return `Begin your first assistant response with \`CONFIGURED ROLE: ${role}\` on its own line. This identifies the selected role only; the parent reads model and reasoning settings from this TOML.`;
+}
+
+function writeSimpleCodexRoleConfigFixture(
+    repoRoot: string,
+    options: {
+        relativePath: string;
+        role: string;
+        model: string;
+        reasoningEffort: string;
+        readOnly?: boolean;
+    }
+): void {
+    writeRepoFile(
+        repoRoot,
+        options.relativePath,
+        [
+            `model = "${options.model}"`,
+            `model_reasoning_effort = "${options.reasoningEffort}"`,
+            ...(options.readOnly ? ['sandbox_mode = "read-only"'] : []),
+            'developer_instructions = """',
+            configuredRoleInstruction(options.role),
+            '"""',
+            '',
+        ].join('\n')
+    );
+}
 
 export function writeValidCodexRoleConfigFixture(
     repoRoot: string,
@@ -692,9 +733,9 @@ export function writeValidCodexRoleConfigFixture(
             'description = "Worker"',
             'config_file = "agents/worker.toml"',
             '',
-            '[agents.worker_54_high]',
+            '[agents.worker_luna]',
             'description = "Cost-optimized write-capable implementer for approved, bounded, exact, cheap-to-verify execution units only."',
-            'config_file = "agents/worker-54-high.toml"',
+            'config_file = "agents/worker-luna.toml"',
             '',
             '[agents.cleanup_worker]',
             'description = "Cleanup-loop-specific implementer for approved Tier 3 cleanup-loop implementation passes."',
@@ -711,28 +752,36 @@ export function writeValidCodexRoleConfigFixture(
         ].join('\n')
     );
 
-    writeRepoFile(
-        repoRoot,
-        '.codex/agents/explorer.toml',
-        `model = "${CODEX_MODEL_SPARK}"\nsandbox_mode = "read-only"\n`
-    );
-    writeRepoFile(
-        repoRoot,
-        '.codex/agents/explorer-fallback.toml',
-        `model = "${CODEX_MODEL_FALLBACK}"\nsandbox_mode = "read-only"\n`
-    );
-    writeRepoFile(
-        repoRoot,
-        '.codex/agents/reviewer.toml',
-        `model = "${CODEX_MODEL_DEFAULT}"\nsandbox_mode = "read-only"\n`
-    );
+    writeSimpleCodexRoleConfigFixture(repoRoot, {
+        relativePath: '.codex/agents/explorer.toml',
+        role: 'explorer',
+        model: CODEX_MODEL_SPARK,
+        reasoningEffort: 'xhigh',
+        readOnly: true,
+    });
+    writeSimpleCodexRoleConfigFixture(repoRoot, {
+        relativePath: '.codex/agents/explorer-fallback.toml',
+        role: 'explorer_fallback',
+        model: CODEX_MODEL_LUNA,
+        reasoningEffort: 'xhigh',
+        readOnly: true,
+    });
+    writeSimpleCodexRoleConfigFixture(repoRoot, {
+        relativePath: '.codex/agents/reviewer.toml',
+        role: 'reviewer',
+        model: CODEX_MODEL_SOL,
+        reasoningEffort: 'high',
+        readOnly: true,
+    });
     writeRepoFile(
         repoRoot,
         '.codex/agents/maintainability-reviewer.toml',
         [
-            `model = "${CODEX_MODEL_DEFAULT}"`,
+            `model = "${CODEX_MODEL_SOL}"`,
+            'model_reasoning_effort = "xhigh"',
             'sandbox_mode = "read-only"',
             'developer_instructions = """',
+            configuredRoleInstruction('maintainability_reviewer'),
             'Review code-health, slop, file shape, test brittleness, maintainability, duplication, naming, and unnecessary indirection.',
             'Do not block on style-only preferences.',
             'Do not edit files.',
@@ -744,27 +793,32 @@ export function writeValidCodexRoleConfigFixture(
         repoRoot,
         '.codex/agents/architecture-reviewer.toml',
         [
-            `model = "${CODEX_MODEL_DEFAULT}"`,
+            `model = "${CODEX_MODEL_SOL}"`,
+            'model_reasoning_effort = "xhigh"',
             'sandbox_mode = "read-only"',
             'developer_instructions = """',
+            configuredRoleInstruction('architecture_reviewer'),
             'Review hotspots, owner seams, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contracts, priority-exit, and security-adjacent architecture risk.',
             'Do not edit files.',
             '"""',
             '',
         ].join('\n')
     );
-    writeRepoFile(
-        repoRoot,
-        '.codex/agents/docs-researcher.toml',
-        `model = "${CODEX_MODEL_DEFAULT}"\nsandbox_mode = "read-only"\n`
-    );
+    writeSimpleCodexRoleConfigFixture(repoRoot, {
+        relativePath: '.codex/agents/docs-researcher.toml',
+        role: 'docs_researcher',
+        model: CODEX_MODEL_LUNA,
+        reasoningEffort: 'high',
+        readOnly: true,
+    });
     writeRepoFile(
         repoRoot,
         '.codex/agents/planner.toml',
         [
-            `model = "${CODEX_MODEL_PLANNER}"`,
+            `model = "${CODEX_MODEL_SOL}"`,
             'model_reasoning_effort = "medium"',
             'developer_instructions = """',
+            configuredRoleInstruction('planner'),
             'Own bounded planning work, not product-code implementation.',
             'Use write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.',
             'Do the discovery needed to freeze the plan, surface unresolved seams early, and leave implementation to the worker role unless the parent narrows the scope to a planning-surface edit.',
@@ -776,9 +830,10 @@ export function writeValidCodexRoleConfigFixture(
         repoRoot,
         '.codex/agents/planner-deep.toml',
         [
-            `model = "${CODEX_MODEL_PLANNER}"`,
+            `model = "${CODEX_MODEL_SOL}"`,
             'model_reasoning_effort = "xhigh"',
             'developer_instructions = """',
+            configuredRoleInstruction('planner_deep'),
             'Own deep planning work for Tier 3, hotspot, priority-exit, cross-boundary, or unresolved architecture/product seam plans.',
             'Use write access only for planning artifacts, scoped workflow docs, and execution-ready handoffs that the parent explicitly requested.',
             'Do not implement product code.',
@@ -786,16 +841,22 @@ export function writeValidCodexRoleConfigFixture(
             '',
         ].join('\n')
     );
-    writeRepoFile(repoRoot, '.codex/agents/worker.toml', `model = "${CODEX_MODEL_DEFAULT}"\n`);
+    writeSimpleCodexRoleConfigFixture(repoRoot, {
+        relativePath: '.codex/agents/worker.toml',
+        role: 'worker',
+        model: CODEX_MODEL_SOL,
+        reasoningEffort: 'medium',
+    });
     writeRepoFile(
         repoRoot,
-        '.codex/agents/worker-54-high.toml',
+        '.codex/agents/worker-luna.toml',
         [
-            `model = "${CODEX_MODEL_DEFAULT}"`,
-            'model_reasoning_effort = "high"',
+            `model = "${CODEX_MODEL_LUNA}"`,
+            'model_reasoning_effort = "xhigh"',
             'developer_instructions = """',
+            configuredRoleInstruction('worker_luna'),
             'Own only approved, bounded, exact, cheap-to-verify execution units.',
-            'Use this role when the plan or CURRENT_EXECUTION_PACKET explicitly declares worker_54_high eligibility.',
+            'Use this role when the plan or CURRENT_EXECUTION_PACKET explicitly declares worker_luna eligibility.',
             'Stop and escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure that needs diagnosis.',
             '"""',
             '',
@@ -805,9 +866,10 @@ export function writeValidCodexRoleConfigFixture(
         repoRoot,
         '.codex/agents/cleanup-worker.toml',
         [
-            `model = "${CODEX_MODEL_PLANNER}"`,
+            `model = "${CODEX_MODEL_SOL}"`,
             'model_reasoning_effort = "medium"',
             'developer_instructions = """',
+            configuredRoleInstruction('cleanup_worker'),
             'Own one bounded cleanup-loop implementation write scope at a time.',
             'Make the smallest defensible cleanup change inside the approved execution unit, avoid unrelated edits, and validate the changed behavior before returning.',
             'Use this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.',
@@ -815,16 +877,20 @@ export function writeValidCodexRoleConfigFixture(
             '',
         ].join('\n')
     );
-    writeRepoFile(
-        repoRoot,
-        '.codex/agents/monitor.toml',
-        `model = "${CODEX_MODEL_SPARK}"\nsandbox_mode = "read-only"\n`
-    );
-    writeRepoFile(
-        repoRoot,
-        '.codex/agents/monitor-fallback.toml',
-        `model = "${CODEX_MODEL_MONITOR_FALLBACK}"\nsandbox_mode = "read-only"\n`
-    );
+    writeSimpleCodexRoleConfigFixture(repoRoot, {
+        relativePath: '.codex/agents/monitor.toml',
+        role: 'monitor',
+        model: CODEX_MODEL_SPARK,
+        reasoningEffort: 'low',
+        readOnly: true,
+    });
+    writeSimpleCodexRoleConfigFixture(repoRoot, {
+        relativePath: '.codex/agents/monitor-fallback.toml',
+        role: 'monitor_fallback',
+        model: CODEX_MODEL_LUNA,
+        reasoningEffort: 'low',
+        readOnly: true,
+    });
 }
 
 export function createRepoFixture(overrides: Partial<Record<string, string>> = {}): string {

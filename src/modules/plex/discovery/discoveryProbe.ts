@@ -1,6 +1,7 @@
 import { logPlexWarning } from '../shared/plexLogging';
+import { PLEX_DISCOVERY_CONSTANTS } from './constants';
 import { MixedContentConfig, PlexConnection, PlexServer } from './types';
-import { throwIfAborted } from './PlexDiscoveryAbort';
+import { readAbortReason, throwIfAborted } from './PlexDiscoveryAbort';
 import type {
     PlexConnectionProbeOutcome,
     PlexConnectionProbeResult,
@@ -23,7 +24,12 @@ export async function findFastestConnectionProbe(options: {
 
     for (const tier of probeTiers) {
         throwIfAborted(signal);
-        const tierProbes = await Promise.all(tier.connections.map((connection) => probeConnection(connection)));
+        const tierProbes = await runLimitedConnectionProbes(
+            tier.connections,
+            probeConnection,
+            PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS,
+            signal
+        );
         const selectedProbe = pickFastestReachableProbe(tierProbes);
 
         tierProbes.forEach((probe) => noteAuthOutcome(summary, probe.outcome));
@@ -55,6 +61,86 @@ export async function findFastestConnectionProbe(options: {
     }
 
     return summary;
+}
+
+function runLimitedConnectionProbes(
+    connections: PlexConnection[],
+    probeConnection: (connection: PlexConnection) => Promise<PlexConnectionProbeResult>,
+    maxConcurrent: number,
+    signal: AbortSignal | null
+): Promise<PlexConnectionProbeResult[]> {
+    throwIfAborted(signal);
+    if (connections.length === 0) {
+        return Promise.resolve([]);
+    }
+
+    const limit = Math.max(1, Math.floor(maxConcurrent));
+    const results = new Array<PlexConnectionProbeResult>(connections.length);
+    let nextIndex = 0;
+    let activeCount = 0;
+    let settled = false;
+
+    return new Promise((resolve, reject) => {
+        const cleanupAbort = (): void => {
+            signal?.removeEventListener('abort', onAbort);
+        };
+        const settleReject = (error: unknown): void => {
+            if (settled) return;
+            settled = true;
+            cleanupAbort();
+            reject(error);
+        };
+        const settleResolve = (): void => {
+            if (settled || activeCount !== 0 || nextIndex < connections.length) return;
+            settled = true;
+            cleanupAbort();
+            resolve(results);
+        };
+        const launchNext = (): void => {
+            if (settled) return;
+            try {
+                throwIfAborted(signal);
+            } catch (error) {
+                settleReject(error);
+                return;
+            }
+            while (activeCount < limit && nextIndex < connections.length) {
+                const index = nextIndex;
+                const connection = connections[index];
+                nextIndex += 1;
+                activeCount += 1;
+
+                let probeResult: Promise<PlexConnectionProbeResult> | PlexConnectionProbeResult;
+                try {
+                    probeResult = probeConnection(connection!);
+                } catch (error: unknown) {
+                    activeCount -= 1;
+                    settleReject(error);
+                    return;
+                }
+
+                Promise.resolve(probeResult)
+                    .then((result) => {
+                        results[index] = result;
+                    })
+                    .then(() => {
+                        activeCount -= 1;
+                        launchNext();
+                        settleResolve();
+                    })
+                    .catch((error: unknown) => {
+                        activeCount -= 1;
+                        settleReject(error);
+                    });
+            }
+            settleResolve();
+        };
+        const onAbort = (): void => {
+            settleReject(signal ? readAbortReason(signal) : undefined);
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+        launchNext();
+    });
 }
 
 function pickFastestReachableProbe(

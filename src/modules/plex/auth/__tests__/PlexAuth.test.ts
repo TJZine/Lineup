@@ -1014,6 +1014,18 @@ describe('PlexAuth', () => {
             expect(handler).toHaveBeenNthCalledWith(2, false);
         });
 
+        it('can persist credential metadata without emitting authChange', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const handler = jest.fn();
+            auth.on('authChange', handler);
+
+            const testToken = createAuthToken('metadata-only-token');
+            auth.storeCredentials(createAuthData(testToken), { emitAuthChange: false });
+
+            expect(auth.isAuthenticated()).toBe(true);
+            expect(handler).not.toHaveBeenCalled();
+        });
+
         it('should allow unsubscribing from events', async () => {
             const auth = new PlexAuth(mockConfig);
             const handler = jest.fn();
@@ -2302,6 +2314,42 @@ describe('PlexAuth', () => {
             };
             expect(stored.data?.activeUserId).toBe('kid-profile');
             expect(stored.data?.selectedServerByUserId).toHaveProperty('kid-profile');
+        });
+
+        it('uses selected profile metadata when the switched profile payload omits username and email', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const testToken = createAuthToken('account-token', 'admin');
+            auth.storeCredentials(createAuthData(testToken));
+
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({ authToken: 'child-token' }),
+                    text: async () => JSON.stringify({ authToken: 'child-token' }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => 'application/json' },
+                    json: async () => ({
+                        id: 'owner-account-id',
+                        thumb: '',
+                    }),
+                    text: async () => JSON.stringify({ id: 'owner-account-id' }),
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await auth.switchHomeUser('kid-profile');
+
+            expect(auth.getActiveUserId()).toBe('kid-profile');
+            expect(auth.getCurrentUser()).toMatchObject({
+                token: 'child-token',
+                userId: 'owner-account-id',
+                username: 'kid-profile',
+                email: 'test@example.com',
+            });
         });
     });
 

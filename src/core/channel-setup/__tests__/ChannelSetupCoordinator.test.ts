@@ -5,6 +5,7 @@
 import { ChannelSetupBuildScratchStore } from '../build/ChannelSetupBuildScratchStore';
 import { ChannelSetupCoordinator } from '../ChannelSetupCoordinator';
 import { ChannelSetupRecordStore } from '../persistence/ChannelSetupRecordStore';
+import type { SafeLocalStorageMutationResult } from '../../../utils/storage';
 
 type CoordinatorHarness = {
     coordinator: ChannelSetupCoordinator;
@@ -21,8 +22,15 @@ const createCoordinator = (overrides?: {
     const storage = new Map<string, string>();
     const recordStore = new ChannelSetupRecordStore({
         storageGet: (key: string): string | null => storage.get(key) ?? null,
-        storageSet: (key: string, value: string): void => void storage.set(key, value),
-        storageRemove: (key: string): void => void storage.delete(key),
+        storageSet: (key: string, value: string): SafeLocalStorageMutationResult => {
+            storage.set(key, value);
+            return { ok: true };
+        },
+        storageRemove: (key: string): SafeLocalStorageMutationResult => {
+            storage.delete(key);
+            return { ok: true };
+        },
+        getActiveUserId: (): string | null => 'user-1',
     });
     const navigationGoTo = jest.fn();
     const scratchStore = new ChannelSetupBuildScratchStore({
@@ -71,7 +79,7 @@ describe('ChannelSetupCoordinator', () => {
 
     it('clearRerunRequest resets rerun state', () => {
         const { coordinator, storage } = createCoordinator();
-        storage.set('lineup_channel_setup_v2:server-1', JSON.stringify({
+        storage.set('lineup_channel_setup_v3:server-1:user-1', JSON.stringify({
             serverId: 'server-1',
             selectedLibraryIds: ['lib-1'],
             strategyConfig: {
@@ -93,7 +101,7 @@ describe('ChannelSetupCoordinator', () => {
         }));
 
         coordinator.requestChannelSetupRerun();
-        storage.set('lineup_channel_setup_v2:server-1', JSON.stringify({
+        storage.set('lineup_channel_setup_v3:server-1:user-1', JSON.stringify({
             serverId: 'server-1',
             selectedLibraryIds: ['lib-1'],
             strategyConfig: {
@@ -120,7 +128,7 @@ describe('ChannelSetupCoordinator', () => {
 
     it('requestChannelSetupRerun clears stored setup record and navigates', () => {
         const { coordinator, storage, navigationGoTo } = createCoordinator({ selectedServerId: 'server-9' });
-        storage.set('lineup_channel_setup_v2:server-9', JSON.stringify({
+        storage.set('lineup_channel_setup_v3:server-9:user-1', JSON.stringify({
             serverId: 'server-9',
             selectedLibraryIds: ['lib-1'],
             strategyConfig: {
@@ -141,10 +149,23 @@ describe('ChannelSetupCoordinator', () => {
             updatedAt: 2,
         }));
 
-        coordinator.requestChannelSetupRerun();
+        expect(coordinator.requestChannelSetupRerun()).toEqual({
+            ok: true,
+            serverId: 'server-9',
+        });
 
-        expect(storage.has('lineup_channel_setup_v2:server-9')).toBe(false);
+        expect(storage.has('lineup_channel_setup_v3:server-9:user-1')).toBe(false);
         expect(navigationGoTo).toHaveBeenCalledWith('channel-setup');
+    });
+
+    it('requestChannelSetupRerun reports missing selected server instead of no-oping silently', () => {
+        const { coordinator, navigationGoTo } = createCoordinator({ selectedServerId: null });
+
+        expect(coordinator.requestChannelSetupRerun()).toEqual({
+            ok: false,
+            reason: 'missing-selected-server',
+        });
+        expect(navigationGoTo).not.toHaveBeenCalled();
     });
 
     it('shouldRunChannelSetup returns true with no channels', () => {
@@ -156,12 +177,12 @@ describe('ChannelSetupCoordinator', () => {
         const { coordinator } = createCoordinator();
         localStorage.setItem('lineup_channels_build_tmp_v1:abc', '1');
         localStorage.setItem('lineup_current_channel_build_tmp_v1:def', '2');
-        localStorage.setItem('lineup_channel_setup_v2:server-1', 'keep');
+        localStorage.setItem('lineup_channel_setup_v3:server-1:user-1', 'keep');
 
         coordinator.cleanupStaleChannelBuildKeys();
 
         expect(localStorage.getItem('lineup_channels_build_tmp_v1:abc')).toBe(null);
         expect(localStorage.getItem('lineup_current_channel_build_tmp_v1:def')).toBe(null);
-        expect(localStorage.getItem('lineup_channel_setup_v2:server-1')).toBe('keep');
+        expect(localStorage.getItem('lineup_channel_setup_v3:server-1:user-1')).toBe('keep');
     });
 });

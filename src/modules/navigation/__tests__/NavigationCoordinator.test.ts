@@ -273,7 +273,7 @@ const setup = (
         setLastChannelChangeSourceNumber: jest.fn(),
         switchToNextChannel: jest.fn(),
         switchToPreviousChannel: jest.fn(),
-        switchToChannelByNumber: jest.fn().mockResolvedValue('switched'),
+        switchToChannelByNumber: jest.fn().mockResolvedValue({ kind: 'switched' }),
         focusEpgOnCurrentChannel: jest.fn(),
         toggleEpg: jest.fn(),
         shouldRunChannelSetup: jest.fn().mockReturnValue(false),
@@ -585,7 +585,7 @@ describe('NavigationCoordinator', () => {
         const focusEpgOnCurrentChannel = jest.fn();
         const { handlers, deps, epg } = setup({
             focusEpgOnCurrentChannel,
-            switchToChannelByNumber: jest.fn().mockResolvedValue('switched'),
+            switchToChannelByNumber: jest.fn().mockResolvedValue({ kind: 'switched' }),
         });
         (epg.isVisible as jest.Mock).mockReturnValue(true);
 
@@ -600,7 +600,7 @@ describe('NavigationCoordinator', () => {
         const focusEpgOnCurrentChannel = jest.fn();
         const { handlers, deps, epg } = setup({
             focusEpgOnCurrentChannel,
-            switchToChannelByNumber: jest.fn().mockResolvedValue('switched'),
+            switchToChannelByNumber: jest.fn().mockResolvedValue({ kind: 'switched' }),
         });
         (epg.isVisible as jest.Mock).mockReturnValue(false);
 
@@ -615,7 +615,7 @@ describe('NavigationCoordinator', () => {
         const focusEpgOnCurrentChannel = jest.fn();
         const { handlers, deps, epg } = setup({
             focusEpgOnCurrentChannel,
-            switchToChannelByNumber: jest.fn().mockResolvedValue('aborted'),
+            switchToChannelByNumber: jest.fn().mockResolvedValue({ kind: 'aborted' }),
         });
         (epg.isVisible as jest.Mock).mockReturnValue(true);
 
@@ -630,7 +630,7 @@ describe('NavigationCoordinator', () => {
         const focusEpgOnCurrentChannel = jest.fn();
         const { handlers, deps, epg } = setup({
             focusEpgOnCurrentChannel,
-            switchToChannelByNumber: jest.fn().mockResolvedValue('failed'),
+            switchToChannelByNumber: jest.fn().mockResolvedValue({ kind: 'failed', reason: 'content_unavailable' }),
         });
         (epg.isVisible as jest.Mock).mockReturnValue(true);
 

@@ -208,6 +208,38 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
     });
 
+    it('counts stale cache plus fresh resolution as one ready immediate channel', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(0);
+        try {
+            const { runtime, epg } = createRuntime();
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+
+            runtime.clearLoadedScheduleMarkers();
+            jest.setSystemTime(3 * 60_000);
+            const result = await runtime.refreshForRange(
+                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+
+            expect(result).toEqual({
+                readiness: 'ready',
+                attemptedChannelCount: 1,
+                immediateReadyChannelCount: 1,
+                backgroundQueuedChannelCount: 0,
+                failedChannelCount: 0,
+                staleCacheChannelCount: 1,
+                firstVisibleScheduleReady: true,
+            });
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(3);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
     it('reports background warm queue batch failures through issue diagnostics', async () => {
         jest.useFakeTimers();
         const idleScheduler = globalThis as unknown as {
@@ -298,11 +330,20 @@ describe('EPGScheduleRefreshRuntime', () => {
             },
         });
 
-        await runtime.refreshForRange(
+        const result = await runtime.refreshForRange(
             { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
+        expect(result).toEqual({
+            readiness: 'failed',
+            attemptedChannelCount: 1,
+            immediateReadyChannelCount: 0,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 1,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: false,
+        });
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
             'epg.scheduleLoadFailed',
@@ -314,6 +355,54 @@ describe('EPGScheduleRefreshRuntime', () => {
                 }),
             })
         );
+    });
+
+    it('returns partial readiness when only some immediate channel schedules load', async () => {
+        const first = makeChannel('c1', 1);
+        const second = makeChannel('c2', 2);
+        const { runtime } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => [first, second]),
+                getChannel: jest.fn((channelId: string) => (
+                    channelId === first.id ? first : channelId === second.id ? second : null
+                )),
+                resolveChannelContent: jest.fn(async (channelId: string) => {
+                    if (channelId === second.id) {
+                        throw new Error('second failed');
+                    }
+                    return createResolvedContent(channelId);
+                }),
+            },
+            epg: {
+                getState: jest.fn().mockReturnValue({
+                    isVisible: true,
+                    focusedCell: null,
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: 0,
+                        endTime: 60_000,
+                        startChannelIndex: 0,
+                        endChannelIndex: 1,
+                    },
+                    currentTime: 0,
+                }),
+            },
+        });
+
+        const result = await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(result).toEqual({
+            readiness: 'partial',
+            attemptedChannelCount: 2,
+            immediateReadyChannelCount: 1,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 1,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: true,
+        });
     });
 
     it('aborts stale in-flight loads when a force-refresh request arrives', async () => {
@@ -524,6 +613,121 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
 
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
+    });
+
+    it('counts already-loaded visible channels as ready refresh results', async () => {
+        const { runtime } = createRuntime();
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        const result = await runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(result).toEqual({
+            readiness: 'ready',
+            attemptedChannelCount: 1,
+            immediateReadyChannelCount: 1,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 0,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: true,
+        });
+    });
+
+    it.each([
+        {
+            label: 'same-range',
+            nextRange: { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+        },
+        {
+            label: 'different-range',
+            nextRange: { channelStart: 0, channelEnd: 0, timeStartMs: 60_000, timeEndMs: 120_000 },
+        },
+    ])('reports a superseded $label load and only applies the current schedule', async ({ nextRange }) => {
+        let signalFirstLoadStarted: () => void = () => undefined;
+        let signalSecondLoadStarted: () => void = () => undefined;
+        const firstLoadStarted = new Promise<void>((resolve) => {
+            signalFirstLoadStarted = resolve;
+        });
+        const secondLoadStarted = new Promise<void>((resolve) => {
+            signalSecondLoadStarted = resolve;
+        });
+        const pendingLoads: Array<{
+            resolve: (value: ResolvedChannelContent) => void;
+            signal: AbortSignal | null | undefined;
+        }> = [];
+        const { runtime, channelManager, epg } = createRuntime({
+            channelManager: {
+                resolveChannelContent: jest.fn((_channelId: string, options?: { signal?: AbortSignal | null }) =>
+                    new Promise<ResolvedChannelContent>((resolve, reject) => {
+                        pendingLoads.push({ resolve, signal: options?.signal });
+                        if (pendingLoads.length === 1) {
+                            signalFirstLoadStarted();
+                        } else if (pendingLoads.length === 2) {
+                            signalSecondLoadStarted();
+                        }
+                        options?.signal?.addEventListener('abort', () => {
+                            reject(new DOMException('Superseded', 'AbortError'));
+                        }, { once: true });
+                    })
+                ),
+            },
+        });
+
+        const firstRefresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        await firstLoadStarted;
+        const secondRefresh = runtime.refreshForRange(
+            nextRange,
+            'visible-range'
+        );
+        await secondLoadStarted;
+
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+        expect(pendingLoads).toHaveLength(2);
+        expect(pendingLoads[0]?.signal?.aborted).toBe(true);
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+        expect(epg.focusNow).not.toHaveBeenCalled();
+
+        const firstResult = await firstRefresh;
+        expect(firstResult).toEqual({
+            readiness: 'superseded',
+            attemptedChannelCount: 0,
+            immediateReadyChannelCount: 0,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 0,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: false,
+        });
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+
+        pendingLoads[1]?.resolve(createResolvedContent('c1'));
+        const currentResult = await secondRefresh;
+
+        expect(currentResult).toEqual({
+            readiness: 'ready',
+            attemptedChannelCount: 1,
+            immediateReadyChannelCount: 1,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 0,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: true,
+        });
+        expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
+        expect(epg.focusNow).toHaveBeenCalledTimes(1);
+
+        await runtime.refreshForRange(
+            nextRange,
+            'visible-range'
+        );
+        expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+        expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });
 
     it('does not apply schedules or refocus after aborting an active refresh', async () => {

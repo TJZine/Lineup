@@ -34,7 +34,7 @@ The skill layout and workflow in this repo are based on recurring patterns from 
 - Repo-specific skills should stay local to this repo unless they become broadly reusable enough to justify promotion to a global skill home.
 - Lineup's preferred subagent patterns should live in repo-local skills when the tracked workflow needs stricter delegation rules than generic global defaults.
 - The broader document/control-plane structure is defined in [`docs/AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles`](../AGENTIC_DEV_WORKFLOW.md#authority-and-document-roles).
-- Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus bounded `planner` and `planner_deep` roles for planning artifacts, one general bounded `worker` role for implementation, one `worker_54_high` role only for approved bounded exact cheap-to-verify execution units, and one cleanup-loop-specific `cleanup_worker` role for approved Tier 3 cleanup-loop implementation passes, with explicit fallback roles instead of assumed automatic failover.
+- Keep the repo-defined role set conservative: read-only evidence/review/docs/monitor roles plus bounded `planner` and `planner_deep` roles for planning artifacts, one general Sol `worker` role for implementation, one lower-cost `worker_luna` role only for approved bounded exact cheap-to-verify execution units, and one cleanup-loop-specific `cleanup_worker` role for approved Tier 3 cleanup-loop implementation passes, with explicit fallback roles instead of assumed automatic failover.
 - Stable entrypoint doc: `agents.md`.
 - Stable workflow doc: `docs/AGENTIC_DEV_WORKFLOW.md`.
 
@@ -125,16 +125,19 @@ Local-only by default:
 
 ## Tracked Codex Role Routing
 
-- `planner`: `gpt-5.5 medium`; default write-capable planning role for bounded planning artifacts and execution-ready handoffs.
-- `planner_deep`: `gpt-5.5 xhigh`; write-capable planning role for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, and security-adjacent planning; not product-code implementation.
-- `worker`: `gpt-5.5 medium`; default implementation role.
-- `worker_54_high`: `gpt-5.4 high`; write-capable role only for approved, bounded, exact, cheap-to-verify execution units that explicitly declare eligibility and stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis.
-- `cleanup_worker`: `gpt-5.5 medium`; Tier 3 cleanup-loop implementation default.
-- `reviewer`: `gpt-5.5 high`; normal read-only adversarial review.
-- `maintainability_reviewer`: `gpt-5.4 xhigh`; read-only code-health, slop, file-shape, test-brittleness, and maintainability review with no style-only blocking.
-- `architecture_reviewer`: `gpt-5.5 xhigh`; read-only hotspot, owner-seam, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contract, priority-exit, and security-adjacent architecture review.
-- `docs_researcher`: `gpt-5.5 medium`; read-only external documentation and source-backed research.
-- `explorer`, `explorer_fallback`, `monitor`, and `monitor_fallback` keep their existing defaults.
+- `planner`: `gpt-5.6-sol medium`; default write-capable planning role for bounded planning artifacts and execution-ready handoffs.
+- `planner_deep`: `gpt-5.6-sol xhigh`; write-capable planning role for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, and security-adjacent planning; not product-code implementation.
+- `worker`: `gpt-5.6-sol medium`; default implementation role.
+- `worker_luna`: `gpt-5.6-luna xhigh`; lower-cost write-capable role only for approved, bounded, exact, cheap-to-verify execution units that explicitly declare eligibility and stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis.
+- `cleanup_worker`: `gpt-5.6-sol medium`; Tier 3 cleanup-loop implementation default.
+- `reviewer`: `gpt-5.6-sol high`; normal read-only adversarial review.
+- `maintainability_reviewer`: `gpt-5.6-sol xhigh`; read-only code-health, slop, file-shape, test-brittleness, and maintainability review with no style-only blocking.
+- `architecture_reviewer`: `gpt-5.6-sol xhigh`; read-only hotspot, owner-seam, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contract, priority-exit, and security-adjacent architecture review.
+- `docs_researcher`: `gpt-5.6-luna high`; read-only external documentation and source-backed research.
+- `explorer`: `gpt-5.3-codex-spark xhigh`; latency-sensitive code exploration.
+- `explorer_fallback`: `gpt-5.6-luna xhigh`.
+- `monitor`: `gpt-5.3-codex-spark low`; latency-sensitive waits and polling.
+- `monitor_fallback`: `gpt-5.6-luna low`.
 
 ## Repo-Local Subagent Policy
 

@@ -1,10 +1,12 @@
 import type { PlexServer } from '../../plex/discovery/types';
 import type { PlexServerSelectionFailureReason } from '../../plex/discovery';
 import type { ServerSelectScreenNavigationPort } from '../../navigation';
+import type { EpgScheduleRefreshOutcome } from '../../../shared/epgRefresh';
 
 export type ServerSelectHealthRecord = {
     status?: string;
     type?: string;
+    protocol?: 'http' | 'https';
     latencyMs?: number;
     testedAt?: number;
 };
@@ -25,13 +27,28 @@ export type ServerSelectSelectionResult =
     }
     | {
         kind: 'selected';
+        readiness: 'ready' | 'startup_pending';
+        persistedSelection:
+            | 'updated'
+            | 'skipped_missing_credentials'
+            | 'skipped_corrupted_credentials';
+        startupResume: {
+            startup: 'completed' | 'skipped_no_coordinator';
+            epgRefresh:
+                | EpgScheduleRefreshOutcome
+                | { kind: 'skipped_no_coordinator' };
+        };
     };
+
+export type ServerSelectRerunSetupResult =
+    | { ok: true; serverId: string }
+    | { ok: false; reason: 'missing-selected-server' };
 
 export interface ServerSelectScreenPorts {
     discoverServers(options?: { forceRefresh?: boolean; signal?: AbortSignal | null }): Promise<PlexServer[]>;
     selectServer(serverId: string, options?: { signal?: AbortSignal | null }): Promise<ServerSelectSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerScreenState(): ServerSelectDisplayState;
-    requestChannelSetupRerun(): void;
+    requestChannelSetupRerun(): ServerSelectRerunSetupResult;
     getNavigation(): ServerSelectScreenNavigationPort | null;
 }

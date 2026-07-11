@@ -22,15 +22,18 @@ import {
     computeEpgScheduleRangeMs,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
+import { reportLibraryFilterPersistenceResult } from './EPGLibraryFilterPersistenceDiagnostics';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
 import { toEpgScheduleWindow } from '../model/adapters';
 import type { EPGConfig } from '../types';
 import type { IEPGDebugRuntime } from '../debug/EPGDebugRuntime';
 import type {
     EpgGuideSelectionSnapshot,
+    EpgScheduleRefreshResult,
     EpgScheduleRefreshOptions,
     EpgUiStatus,
 } from './EPGCoordinatorContracts';
+import { createSkippedEpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
 
 const EPG_SCHEDULE_CACHE_MIN_ENTRIES = 60;
 const EPG_SCHEDULE_CACHE_MAX_ENTRIES = 240;
@@ -158,7 +161,12 @@ export class EPGRefreshController {
             this._deps.epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
         if (shouldClearPersistedSelection) {
-            this._deps.epgPreferencesStore.writeSelectedLibraryId(null);
+            reportLibraryFilterPersistenceResult(
+                this._deps.appendIssueDiagnostic,
+                this._deps.epgPreferencesStore.writeSelectedLibraryId(null),
+                null,
+                'normalize-invalid-library-filter'
+            );
         }
         return { selectedId, shouldFilter };
     }
@@ -242,11 +250,11 @@ export class EPGRefreshController {
         this._invalidateScheduleRefreshRuntime(reason);
     }
 
-    async refreshEpgSchedules(options?: EpgScheduleRefreshOptions): Promise<void> {
+    async refreshEpgSchedules(options?: EpgScheduleRefreshOptions): Promise<EpgScheduleRefreshResult> {
         const signal = options?.signal ?? null;
         throwIfEpgRefreshAborted(signal);
         const epg = this._deps.getEpg();
-        if (!epg) return;
+        if (!epg) return createSkippedEpgScheduleRefreshResult();
         const epgState = epg.getState();
         const range = {
             channelStart: epgState.viewWindow.startChannelIndex,
@@ -256,10 +264,9 @@ export class EPGRefreshController {
         };
         const reason = options?.reason ?? 'manual';
         if (options?.debounceMs !== undefined) {
-            await this.refreshEpgSchedulesForRange(range, { reason, debounceMs: options.debounceMs, signal });
-            return;
+            return this.refreshEpgSchedulesForRange(range, { reason, debounceMs: options.debounceMs, signal });
         }
-        await this._refreshEpgSchedulesForRange(range, reason, signal);
+        return this._refreshEpgSchedulesForRange(range, reason, signal);
     }
 
     async refreshEpgSchedulesForRange(
@@ -270,7 +277,7 @@ export class EPGRefreshController {
             timeEndMs: number;
         },
         options?: EpgScheduleRefreshOptions
-    ): Promise<void> {
+    ): Promise<EpgScheduleRefreshResult> {
         return this._visibleRangeRefreshQueue.request(range, options);
     }
 
@@ -278,8 +285,8 @@ export class EPGRefreshController {
         range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
         reason: string,
         signal?: AbortSignal | null
-    ): Promise<void> {
-        await this._refreshEpgSchedulesForRange(range, reason, signal);
+    ): Promise<EpgScheduleRefreshResult> {
+        return this._refreshEpgSchedulesForRange(range, reason, signal);
     }
 
     private _resolveLiveSchedulerRow(options?: {
@@ -451,18 +458,18 @@ export class EPGRefreshController {
         range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
         reason: string,
         signal?: AbortSignal | null
-    ): Promise<void> {
+    ): Promise<EpgScheduleRefreshResult> {
         throwIfEpgRefreshAborted(signal);
         const invalidation = this._scheduleRefreshRuntimeInvalidation;
         const runtime = await this._getScheduleRefreshRuntime();
         if (!runtime) {
-            return;
+            return createSkippedEpgScheduleRefreshResult();
         }
         throwIfEpgRefreshAborted(signal);
         if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
-            return;
+            return createSkippedEpgScheduleRefreshResult();
         }
-        await (signal
+        return (signal
             ? runtime.refreshForRange(range, reason, { signal })
             : runtime.refreshForRange(range, reason));
     }

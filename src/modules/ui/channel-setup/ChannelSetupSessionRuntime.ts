@@ -301,10 +301,10 @@ export class ChannelSetupSessionRuntime {
             if (result.canceled) {
                 return { kind: 'canceled' };
             }
-
             let bookkeepingError: string | undefined;
             try {
-                this._deps.workflowPort.markSetupComplete(serverId, config);
+                const completionResult = this._deps.workflowPort.markSetupComplete(serverId, config);
+                bookkeepingError = completionResult.ok ? undefined : completionResult.message;
             } catch (error) {
                 if (isAbortLikeError(error, buildAbortController.signal)) {
                     return { kind: 'canceled' };

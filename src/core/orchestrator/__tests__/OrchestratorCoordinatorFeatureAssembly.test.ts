@@ -5,7 +5,10 @@ import type {
     OrchestratorNavigationCoordinatorBuilderInput,
 } from '../assembly/OrchestratorCoordinatorContracts';
 
-const recordStoreInstance = { kind: 'record-store', markSetupComplete: jest.fn() };
+const recordStoreInstance = {
+    kind: 'record-store',
+    markSetupComplete: jest.fn(() => ({ ok: true, record: { serverId: 'server-1' } })),
+};
 const scratchStoreInstance = { kind: 'scratch-store' };
 const planningServiceInstance = {
     kind: 'planning-service',
@@ -145,6 +148,7 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
             lastChannelChangeSource: jest.fn(() => null),
             setLastChannelChangeSource: jest.fn(),
             setActiveScheduleDayKey: jest.fn(),
+            getActiveUserId: jest.fn(() => 'user-1'),
             getSelectedServerId: jest.fn(() => 'server-1'),
             getLocalMidnightMs: jest.fn(() => 0),
             getLocalDayKey: jest.fn(() => 0),
@@ -152,7 +156,7 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
         },
         actions: {
             switchToChannel: jest.fn(),
-            switchToChannelWithOutcome: jest.fn().mockResolvedValue('switched'),
+            switchToChannelWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
             switchToNextChannel: jest.fn(),
             switchToPreviousChannel: jest.fn(),
             switchToChannelByNumberWithOutcome: jest.fn(),
@@ -232,7 +236,15 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         const epgCoordinator = {
             clearSelectedChannelScheduleSnapshot: jest.fn(),
             primeEpgChannels: jest.fn(),
-            refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
+            refreshEpgSchedules: jest.fn().mockResolvedValue({
+                readiness: 'ready',
+                attemptedChannelCount: 1,
+                immediateReadyChannelCount: 1,
+                backgroundQueuedChannelCount: 0,
+                failedChannelCount: 0,
+                staleCacheChannelCount: 0,
+                firstVisibleScheduleReady: true,
+            }),
         };
 
         const owners = buildChannelSetupOwners(input, epgCoordinator as never);
@@ -241,6 +253,14 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         expect(ChannelSetupBuildScratchStore).toHaveBeenCalledTimes(1);
         expect(ChannelSetupPlanningService).not.toHaveBeenCalled();
         expect(ChannelSetupBuildExecutor).not.toHaveBeenCalled();
+        const recordStoreArgs = (ChannelSetupRecordStore as jest.Mock).mock.calls[0]?.[0];
+        expect(recordStoreArgs.getActiveUserId()).toBe('user-1');
+        recordStoreArgs.appendDiagnostic({ reason: 'invalid-json', serverId: 'server-1' });
+        expect(input.diagnostics.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'channel-setup-record',
+            'channel-setup.record.persistence',
+            { reason: 'invalid-json', serverId: 'server-1' }
+        );
         expect(owners).toEqual({
             coordinator: coordinatorInstance,
             portOwners: {
@@ -255,9 +275,9 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                     createChannelsFromSetup: expect.any(Function),
                 },
                 recordStore: recordStoreInstance,
-                completionTracker: {
+                completionTracker: expect.objectContaining({
                     markSetupComplete: expect.any(Function),
-                },
+                }),
                 getSelectedServerId: expect.any(Function),
                 getExistingChannelCount: expect.any(Function),
             },
@@ -279,7 +299,15 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         await expect(buildCommitterArgs.ensureEpgInitialized()).resolves.toBeUndefined();
         buildCommitterArgs.clearSelectedChannelScheduleSnapshot();
         buildCommitterArgs.primeEpgChannels();
-        await expect(buildCommitterArgs.refreshEpgSchedules({ reason: 'rerun' })).resolves.toBeUndefined();
+        await expect(buildCommitterArgs.refreshEpgSchedules({ reason: 'rerun' })).resolves.toEqual({
+            readiness: 'ready',
+            attemptedChannelCount: 1,
+            immediateReadyChannelCount: 1,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 0,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: true,
+        });
 
         expect(input.init.ensureEpgInitialized).toHaveBeenCalledTimes(1);
         expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).toHaveBeenCalledTimes(1);
@@ -294,7 +322,28 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         expect(coordinatorArgs.getExistingChannelCount).toBe(owners.portOwners.getExistingChannelCount);
         expect(owners.portOwners.getSelectedServerId()).toBe('server-1');
         expect(owners.portOwners.getExistingChannelCount()).toBe(2);
-        owners.portOwners.completionTracker.markSetupComplete('server-1', {} as never);
+        const setupConfig = { serverId: 'server-1' } as never;
+        const persistenceFailure = {
+            ok: false,
+            reason: 'unavailable',
+            message: 'Device storage is unavailable.',
+        } as const;
+        const durableSuccess = {
+            ok: true,
+            record: { serverId: 'server-1' },
+        } as never;
+        (recordStoreInstance.markSetupComplete as jest.Mock)
+            .mockReturnValueOnce(persistenceFailure)
+            .mockReturnValueOnce(durableSuccess);
+
+        expect(owners.portOwners.completionTracker.markSetupComplete('server-1', setupConfig))
+            .toBe(persistenceFailure);
+        expect(recordStoreInstance.markSetupComplete).toHaveBeenNthCalledWith(1, 'server-1', setupConfig);
+        expect(coordinatorInstance.clearRerunRequest).not.toHaveBeenCalled();
+
+        expect(owners.portOwners.completionTracker.markSetupComplete('server-1', setupConfig))
+            .toBe(durableSuccess);
+        expect(recordStoreInstance.markSetupComplete).toHaveBeenNthCalledWith(2, 'server-1', setupConfig);
         expect(coordinatorInstance.clearRerunRequest).toHaveBeenCalledTimes(1);
         expect(owners.portOwners.recordStore).toBe(recordStoreInstance);
         owners.portOwners.planningService.invalidateFacetSnapshot();

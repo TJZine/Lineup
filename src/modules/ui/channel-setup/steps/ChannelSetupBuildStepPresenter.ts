@@ -1,5 +1,14 @@
-import type { ChannelBuildProgress } from '../../../../core/channel-setup/types';
+import type {
+    ChannelBuildProgress,
+    ChannelSetupGuideRefreshSummary,
+} from '../../../../core/channel-setup/types';
 import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import {
+    isChannelSwitchAborted,
+    isChannelSwitchFailed,
+    isChannelSwitchSuccessful,
+} from '../../../../types/channelSwitch';
+import type { ChannelSwitchOutcome } from '../../../../types/channelSwitch';
 import { renderCappedWarnings } from '../../common/render/renderCappedWarnings';
 import { formatChannelSetupUserCopy } from '../ChannelSetupUserCopy';
 import type { ChannelSetupFocusCoordinator } from '../focus/ChannelSetupFocusCoordinator';
@@ -18,6 +27,7 @@ export class ChannelSetupBuildStepPresenter {
     private readonly _buildReviewStep = new BuildReviewStepController();
     private readonly _buildProgressStep = new BuildProgressStepController();
     private readonly _maxPreviewWarnings = 5;
+    private _lastInitialChannelNumber: number | null = null;
 
     render(
         ctx: StepRenderContext,
@@ -212,15 +222,18 @@ export class ChannelSetupBuildStepPresenter {
                 deps.renderStep();
             },
             onDone: () => {
-                const nav = deps.screenPorts.getNavigation();
-                if (nav) {
-                    nav.replaceScreen('player');
+                const initialChannelNumber = this._lastInitialChannelNumber;
+                if (initialChannelNumber === null) {
+                    ctx.errorEl.textContent = 'Channels were created, but no starting channel is available.';
+                    return;
                 }
-                deps.screenPorts.switchToChannelByNumber(1)
-                    .then(() => deps.screenPorts.openEPG())
+
+                deps.screenPorts.switchToChannelByNumberWithOutcome(initialChannelNumber)
+                    .then((outcome) => this._handleDoneChannelSwitchOutcome(ctx, outcome, initialChannelNumber, deps))
                     .catch((error: unknown) => {
                         if (isAbortLikeError(error)) return;
-                        console.warn('Switch to channel 1 failed:', summarizeErrorForLog(error));
+                        ctx.errorEl.textContent = 'Channels were created, but playback could not start.';
+                        console.warn(`Switch to channel ${initialChannelNumber} failed:`, summarizeErrorForLog(error));
                     });
             },
             startBuild: async (ui) => {
@@ -297,6 +310,7 @@ export class ChannelSetupBuildStepPresenter {
     ): Promise<void> {
         const { cancelButton, doneButton, barFill, taskLabel, detailLabel } = ui;
         const token = deps.getVisibilityToken();
+        this._lastInitialChannelNumber = null;
         const outcome = await deps.session.beginBuild({
             onProgress: (p: ChannelBuildProgress): void => {
                 if (token !== deps.getVisibilityToken()) {
@@ -324,6 +338,7 @@ export class ChannelSetupBuildStepPresenter {
         }
 
         if (outcome.kind === 'missing-server') {
+            this._lastInitialChannelNumber = null;
             ctx.errorEl.textContent = 'No server selected.';
             ctx.statusEl.textContent = 'Error';
             taskLabel.textContent = 'Select a server';
@@ -337,11 +352,13 @@ export class ChannelSetupBuildStepPresenter {
         }
 
         if (outcome.kind === 'blocked') {
+            this._lastInitialChannelNumber = null;
             this._applyBuildBlockedUI(ctx, cancelButton, doneButton, barFill, taskLabel, detailLabel, outcome.message);
             return;
         }
 
         if (outcome.kind === 'canceled') {
+            this._lastInitialChannelNumber = null;
             this._applyBuildCanceledUI(ctx, cancelButton, doneButton, barFill, taskLabel, detailLabel, {
                 disableDone: true,
             });
@@ -349,6 +366,7 @@ export class ChannelSetupBuildStepPresenter {
         }
 
         if (outcome.kind === 'error') {
+            this._lastInitialChannelNumber = null;
             ctx.errorEl.textContent = outcome.message;
             ctx.statusEl.textContent = 'Error';
             taskLabel.textContent = 'Error';
@@ -360,17 +378,17 @@ export class ChannelSetupBuildStepPresenter {
             return;
         }
 
-        ctx.statusEl.textContent = 'Channels ready.';
+        this._lastInitialChannelNumber = outcome.result.initialChannelNumber ?? null;
+        const guideRefresh = outcome.result.guideRefresh;
+        ctx.statusEl.textContent = this._buildSuccessStatus(outcome.bookkeepingError, guideRefresh);
         taskLabel.textContent = 'Complete';
         detailLabel.textContent = `Created ${outcome.result.created} channels. Skipped ${outcome.result.skipped}.`;
         barFill.style.width = '100%';
         barFill.classList.remove('indeterminate');
-        ctx.errorEl.textContent = outcome.bookkeepingError
-            ? `Channels were created, but setup completion could not be saved: ${outcome.bookkeepingError}`
-            : '';
+        ctx.errorEl.textContent = this._buildSuccessWarning(outcome.bookkeepingError, guideRefresh);
 
         cancelButton.disabled = false;
-        doneButton.disabled = outcome.result.created === 0;
+        doneButton.disabled = outcome.result.created === 0 || this._lastInitialChannelNumber === null;
         cancelButton.textContent = 'Back';
 
         if (outcome.result.created === 0) {
@@ -388,5 +406,62 @@ export class ChannelSetupBuildStepPresenter {
         } else {
             nav?.setFocus(cancelButton.id);
         }
+    }
+
+    private _handleDoneChannelSwitchOutcome(
+        ctx: StepRenderContext,
+        outcome: ChannelSwitchOutcome,
+        initialChannelNumber: number,
+        deps: { screenPorts: ChannelSetupScreenPorts }
+    ): void {
+        if (isChannelSwitchSuccessful(outcome)) {
+            deps.screenPorts.getNavigation()?.replaceScreen('player');
+            deps.screenPorts.openEPG();
+            return;
+        }
+        if (isChannelSwitchFailed(outcome)) {
+            ctx.errorEl.textContent = `Channels were created, but channel ${initialChannelNumber} could not start.`;
+            return;
+        }
+        if (isChannelSwitchAborted(outcome)) {
+            ctx.errorEl.textContent = 'Channels were created, but playback start was canceled.';
+        }
+    }
+
+    private _buildSuccessStatus(
+        bookkeepingError: string | undefined,
+        guideRefresh: ChannelSetupGuideRefreshSummary | undefined
+    ): string {
+        if (bookkeepingError) {
+            return 'Channels created; setup save needed.';
+        }
+        if (guideRefresh?.readiness === 'failed') {
+            return 'Channels created; guide refresh failed.';
+        }
+        if (guideRefresh?.readiness === 'skipped') {
+            return 'Channels created; guide refresh unavailable.';
+        }
+        if (guideRefresh?.readiness === 'partial') {
+            return 'Channels created; guide needs attention.';
+        }
+        return 'Channels ready.';
+    }
+
+    private _buildSuccessWarning(
+        bookkeepingError: string | undefined,
+        guideRefresh: ChannelSetupGuideRefreshSummary | undefined
+    ): string {
+        const warnings: string[] = [];
+        if (bookkeepingError) {
+            warnings.push(`Channels were created, but setup completion could not be saved: ${bookkeepingError}`);
+        }
+        if (guideRefresh?.readiness === 'failed') {
+            warnings.push('Guide data could not be refreshed. Open the guide again after schedules finish loading.');
+        } else if (guideRefresh?.readiness === 'skipped') {
+            warnings.push('Guide data was not refreshed. Open the guide again after schedules finish loading.');
+        } else if (guideRefresh?.readiness === 'partial') {
+            warnings.push(`${guideRefresh.failedChannelCount} channel schedules could not be refreshed immediately.`);
+        }
+        return warnings.join(' ');
     }
 }

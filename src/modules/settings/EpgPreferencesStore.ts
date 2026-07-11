@@ -20,7 +20,20 @@ export type EpgScheduleRangeSnapshot = {
     selectedLibraryId: string | null;
 };
 
+export interface EpgLibraryFilterScope {
+    serverId: string;
+    userId: string;
+}
+
 export class EpgPreferencesStore {
+    private _libraryFilterScope: EpgLibraryFilterScope | null = null;
+
+    setLibraryFilterScope(scope: EpgLibraryFilterScope | null): void {
+        const serverId = scope?.serverId.trim() ?? '';
+        const userId = scope?.userId.trim() ?? '';
+        this._libraryFilterScope = serverId && userId ? { serverId, userId } : null;
+    }
+
     readLibraryTabsEnabledAndClean(fallback: boolean = true): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, fallback);
     }
@@ -38,11 +51,16 @@ export class EpgPreferencesStore {
     }
 
     readSelectedLibraryIdAndClean(): string | null {
-        return readTrimmedStringAndClean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER);
+        const key = this._getSelectedLibraryFilterKey();
+        return key ? readTrimmedStringAndClean(key) : null;
     }
 
     writeSelectedLibraryId(libraryId: string | null): SafeLocalStorageMutationResult {
-        return writeTrimmedStringOrRemoveWithResult(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, libraryId);
+        const key = this._getSelectedLibraryFilterKey();
+        if (!key) {
+            return { ok: false, reason: 'unavailable' };
+        }
+        return writeTrimmedStringOrRemoveWithResult(key, libraryId);
     }
 
     readGuideDensityAndClean(fallback: EpgGuideDensity = 'detailed'): EpgGuideDensity {
@@ -120,5 +138,12 @@ export class EpgPreferencesStore {
 
     writeInfoBackgroundMode(mode: 0 | 1 | 2): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, String(mode));
+    }
+
+    private _getSelectedLibraryFilterKey(): string | null {
+        if (!this._libraryFilterScope) {
+            return null;
+        }
+        return `${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:${this._libraryFilterScope.serverId}:${this._libraryFilterScope.userId}`;
     }
 }

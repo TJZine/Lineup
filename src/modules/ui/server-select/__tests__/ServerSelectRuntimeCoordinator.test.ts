@@ -8,9 +8,20 @@ import type {
     ServerSelectScreenPorts,
     ServerSelectSelectionResult,
 } from '../types';
+import type { EpgReadyScheduleRefreshResult } from '../../../../shared/epgRefresh';
 
 type RuntimeAdapter = jest.Mocked<ServerSelectRuntimeScreenAdapter>;
 type RuntimePorts = jest.Mocked<ServerSelectScreenPorts>;
+
+const READY_EPG_REFRESH: EpgReadyScheduleRefreshResult = {
+    readiness: 'ready',
+    attemptedChannelCount: 2,
+    immediateReadyChannelCount: 2,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: true,
+};
 
 const makeServer = (id: string, name: string, owned = true): PlexServer => ({
     id,
@@ -31,7 +42,18 @@ const makeScreenState = (
     ...overrides,
 });
 
-const selectedResult = (): ServerSelectSelectionResult => ({ kind: 'selected' });
+const selectedResult = (
+    overrides: Partial<Extract<ServerSelectSelectionResult, { kind: 'selected' }>> = {}
+): ServerSelectSelectionResult => ({
+    kind: 'selected',
+    readiness: 'startup_pending',
+    persistedSelection: 'updated',
+    startupResume: {
+        startup: 'completed',
+        epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH },
+    },
+    ...overrides,
+});
 
 const createAdapter = (): RuntimeAdapter => ({
     showContainer: jest.fn(),
@@ -132,11 +154,16 @@ describe('ServerSelectRuntimeCoordinator', () => {
         await expect(runtime.whenIdle()).resolves.toBeUndefined();
     });
 
-    it('auto-connects a saved server without rendering fallback selection state', async () => {
+    it('auto-connects a saved server with selected-result detail', async () => {
         const servers = [makeServer('srv-1', 'Server One')];
         const ports = createPorts({
             discoverServers: jest.fn().mockResolvedValue(servers),
-            selectServer: jest.fn().mockResolvedValue(selectedResult()),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                startupResume: {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
+                },
+            })),
             getSelectedServerScreenState: jest.fn(() => makeScreenState({ selectedServerId: 'srv-1' })),
         } as Partial<RuntimePorts>);
         const { runtime, adapter } = createRuntime({ ports });
@@ -149,7 +176,11 @@ describe('ServerSelectRuntimeCoordinator', () => {
         });
         expect(adapter.setAutoConnectHintVisible).toHaveBeenCalledWith(true);
         expect(adapter.setAutoConnectHintVisible).toHaveBeenLastCalledWith(false);
-        expect(adapter.setStatus).toHaveBeenCalledWith('Connected…', 'Continuing startup…', 'success');
+        expect(adapter.setStatus).toHaveBeenCalledWith(
+            'Connected…',
+            'Connected, but guide refresh needs retry.',
+            'warning'
+        );
         expect(adapter.renderServers).not.toHaveBeenCalled();
     });
 
@@ -178,6 +209,143 @@ describe('ServerSelectRuntimeCoordinator', () => {
         );
         expect(adapter.setAutoConnectHintVisible).toHaveBeenLastCalledWith(false);
         expect(adapter.setServerConnectButtonsDisabled).not.toHaveBeenCalledWith(true);
+    });
+
+    it('surfaces degraded successful selection details instead of generic success', async () => {
+        const server = makeServer('srv-1', 'Server One');
+        const ports = createPorts({
+            discoverServers: jest.fn().mockResolvedValue([server]),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                persistedSelection: 'skipped_missing_credentials',
+            })),
+        } as Partial<RuntimePorts>);
+        const { runtime, adapter } = createRuntime({ ports });
+
+        runtime.show({ allowAutoConnect: false });
+        await runtime.whenIdle();
+        runtime.selectServer(server);
+        await runtime.whenIdle();
+
+        expect(adapter.setStatus).toHaveBeenLastCalledWith(
+            'Connected to Server One.',
+            'Connected, but saved-server preference was not updated because credentials are unavailable.',
+            'success'
+        );
+    });
+
+    it('uses warning tone when selection succeeds but guide refresh fails', async () => {
+        const server = makeServer('srv-1', 'Server One');
+        const ports = createPorts({
+            discoverServers: jest.fn().mockResolvedValue([server]),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                startupResume: {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
+                },
+            })),
+        } as Partial<RuntimePorts>);
+        const { runtime, adapter } = createRuntime({ ports });
+
+        runtime.show({ allowAutoConnect: false });
+        await runtime.whenIdle();
+        runtime.selectServer(server);
+        await runtime.whenIdle();
+
+        expect(adapter.setStatus).toHaveBeenLastCalledWith(
+            'Connected to Server One.',
+            'Connected, but guide refresh needs retry.',
+            'warning'
+        );
+    });
+
+    it.each([
+        {
+            result: {
+                ...READY_EPG_REFRESH,
+                readiness: 'partial' as const,
+                immediateReadyChannelCount: 1,
+                failedChannelCount: 1,
+            },
+            detail: 'Connected, but guide refresh is incomplete (1/2 schedules ready).',
+        },
+        {
+            result: {
+                ...READY_EPG_REFRESH,
+                readiness: 'failed' as const,
+                immediateReadyChannelCount: 0,
+                failedChannelCount: 2,
+                firstVisibleScheduleReady: false,
+            },
+            detail: 'Connected, but guide refresh failed before schedules became ready.',
+        },
+        {
+            result: {
+                ...READY_EPG_REFRESH,
+                readiness: 'skipped' as const,
+                attemptedChannelCount: 0,
+                immediateReadyChannelCount: 0,
+                failedChannelCount: 0,
+                firstVisibleScheduleReady: false,
+            },
+            detail: 'Connected, but guide refresh was unavailable.',
+        },
+    ])('uses warning detail for resolved $result.readiness guide refreshes', async ({ result, detail }) => {
+        const server = makeServer('srv-1', 'Server One');
+        const ports = createPorts({
+            discoverServers: jest.fn().mockResolvedValue([server]),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                startupResume: {
+                    startup: 'completed',
+                    epgRefresh: { kind: 'degraded', result },
+                },
+            })),
+        } as Partial<RuntimePorts>);
+        const { runtime, adapter } = createRuntime({ ports });
+
+        runtime.show({ allowAutoConnect: false });
+        await runtime.whenIdle();
+        runtime.selectServer(server);
+        await runtime.whenIdle();
+
+        expect(adapter.setStatus).toHaveBeenLastCalledWith(
+            'Connected to Server One.',
+            detail,
+            'warning'
+        );
+    });
+
+    it('does not warn when guide refresh ownership moved to a newer request', async () => {
+        const server = makeServer('srv-1', 'Server One');
+        const ports = createPorts({
+            discoverServers: jest.fn().mockResolvedValue([server]),
+            selectServer: jest.fn().mockResolvedValue(selectedResult({
+                startupResume: {
+                    startup: 'completed',
+                    epgRefresh: {
+                        kind: 'superseded',
+                        result: {
+                            ...READY_EPG_REFRESH,
+                            readiness: 'superseded',
+                            attemptedChannelCount: 0,
+                            immediateReadyChannelCount: 0,
+                            firstVisibleScheduleReady: false,
+                        },
+                    },
+                },
+            })),
+        } as Partial<RuntimePorts>);
+        const { runtime, adapter } = createRuntime({ ports });
+
+        runtime.show({ allowAutoConnect: false });
+        await runtime.whenIdle();
+        runtime.selectServer(server);
+        await runtime.whenIdle();
+
+        expect(adapter.setStatus).toHaveBeenLastCalledWith(
+            'Connected to Server One.',
+            'Connected; guide refresh continued with a newer request.',
+            'success'
+        );
     });
 
     it('ignores concurrent manual selection and keeps clear disabled until visible work settles', async () => {

@@ -328,7 +328,7 @@ export class PlexAuth implements IPlexAuth {
      * Store credentials to localStorage.
      * @param auth - Auth data to store
      */
-    public storeCredentials(auth: PlexAuthData): void {
+    public storeCredentials(auth: PlexAuthData, options?: { emitAuthChange?: boolean }): void {
         const stored: StoredAuthData = {
             version: PLEX_AUTH_CONSTANTS.STORAGE_VERSION,
             data: auth,
@@ -340,7 +340,9 @@ export class PlexAuth implements IPlexAuth {
         this._state.activeToken = clonePlexAuthToken(auth.activeToken);
         this._state.activeUserId = auth.activeUserId;
         this._state.isValidated = true;
-        this._emitter.emit('authChange', true);
+        if (options?.emitAuthChange !== false) {
+            this._emitter.emit('authChange', true);
+        }
     }
 
     /**
@@ -416,7 +418,10 @@ export class PlexAuth implements IPlexAuth {
             pin: options?.pin,
             signal: options?.signal ?? null,
         });
-        const userToken = await this._fetchUserProfile(parsed.authToken, options?.signal ?? null);
+        const userToken = await this._fetchUserProfile(parsed.authToken, options?.signal ?? null, {
+            usernameFallback: userId,
+            emailFallback: accountToken.email,
+        });
 
         if (
             this._credentialsEpoch !== epoch ||
@@ -511,7 +516,8 @@ export class PlexAuth implements IPlexAuth {
 
     private async _fetchUserProfile(
         token: string,
-        signal: AbortSignal | null = null
+        signal: AbortSignal | null = null,
+        fallback?: { usernameFallback?: string | null; emailFallback?: string | null }
     ): Promise<PlexAuthToken> {
         throwIfAborted(signal);
         const url = PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.USER_ENDPOINT;
@@ -523,7 +529,7 @@ export class PlexAuth implements IPlexAuth {
         });
         throwIfAborted(signal);
         const data = await response.json();
-        const user = parseUserResponse(data, token);
+        const user = parseUserResponse(data, token, fallback);
         throwIfAborted(signal);
         return user;
     }

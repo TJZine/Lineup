@@ -2,6 +2,7 @@ import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../../scheduler/chan
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL } from '../strategyConstants';
 import type {
     ChannelSetupConfig,
+    ChannelSetupCompletionResult,
     ChannelSetupRecord,
 } from '../../../../core/channel-setup/types';
 import type { PlexLibrarySection as PlexLibraryModel } from '../../../plex/library/types';
@@ -38,7 +39,10 @@ const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<
         getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
         invalidateFacetSnapshot: jest.fn(),
         createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve(DEFAULT_BUILD_RESULT)),
-        markSetupComplete: jest.fn((_serverId: string, _setupConfig) => {}),
+        markSetupComplete: jest.fn((_serverId: string, _setupConfig) => ({
+            ok: true,
+            record: { serverId: _serverId },
+        } as ChannelSetupCompletionResult)),
         getSetupPreview: jest.fn().mockResolvedValue(DEFAULT_PREVIEW),
         getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
     };
@@ -1204,7 +1208,10 @@ describe('ChannelSetupSessionController', () => {
 
     it('beginBuild() returns success and marks setup complete only on success', async (): Promise<void> => {
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => {});
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => ({
+            ok: true,
+            record: { serverId: _serverId },
+        } as ChannelSetupCompletionResult));
         const workflowPort = createWorkflowPort({
             createChannelsFromSetup,
             markSetupComplete,
@@ -1251,6 +1258,35 @@ describe('ChannelSetupSessionController', () => {
         expect(markSetupComplete).toHaveBeenCalledTimes(1);
     });
 
+    it('beginBuild() returns success with bookkeeping warning when setup completion persistence is not durable', async (): Promise<void> => {
+        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => ({
+            ok: false,
+            reason: 'quota-exceeded',
+            message: 'Device storage is full.',
+        } as const));
+        const workflowPort = createWorkflowPort({
+            createChannelsFromSetup,
+            markSetupComplete,
+        });
+        const controller = new ChannelSetupSessionController({
+            workflowPort,
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        const outcome = await controller.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        });
+
+        expect(outcome).toMatchObject({
+            kind: 'success',
+            bookkeepingError: 'Device storage is full.',
+        });
+        expect(markSetupComplete).toHaveBeenCalledTimes(1);
+    });
+
     it('beginBuild() stale completion does not clear newer session build state', async (): Promise<void> => {
         const first = createDeferred<typeof DEFAULT_BUILD_RESULT>();
         const second = createDeferred<typeof DEFAULT_BUILD_RESULT>();
@@ -1290,7 +1326,10 @@ describe('ChannelSetupSessionController', () => {
 
     it('expand-lineup style state updates are preserved in build config and setup completion', async (): Promise<void> => {
         const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => {});
+        const markSetupComplete = jest.fn((_serverId: string, _setupConfig: ChannelSetupConfig) => ({
+            ok: true,
+            record: { serverId: _serverId },
+        } as ChannelSetupCompletionResult));
         const workflowPort = createWorkflowPort({
             createChannelsFromSetup,
             markSetupComplete,

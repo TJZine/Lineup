@@ -1,4 +1,5 @@
 import type { ModuleRuntimeStatus } from '../../../../core/module-status';
+export type { EpgScheduleRefreshReadiness, EpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
 import type { ResolvedContentItem } from '../../../scheduler/channel-manager';
 
 export type EpgUiStatus = ModuleRuntimeStatus | undefined;

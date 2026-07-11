@@ -3,11 +3,26 @@ import { STARTUP_PHASE } from '../../initialization/InitializationCoordinator';
 import type { IPlexAuth, PlexAuthData, PlexAuthToken } from '../../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../../modules/plex/discovery';
 import type { EPGCoordinator, IEPGComponent } from '../../../modules/ui/epg';
+import type {
+    EpgDegradedScheduleRefreshResult,
+    EpgReadyScheduleRefreshResult,
+    EpgScheduleRefreshResult,
+} from '../../../shared/epgRefresh';
 import { AppErrorCode } from '../../../types/app-errors';
 import {
     OrchestratorServerSelectionRuntime,
     type OrchestratorServerSelectionRuntimeDeps,
 } from '../runtime/OrchestratorServerSelectionRuntime';
+
+const READY_EPG_REFRESH: EpgReadyScheduleRefreshResult = {
+    readiness: 'ready',
+    attemptedChannelCount: 2,
+    immediateReadyChannelCount: 2,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: true,
+};
 
 const createToken = (userId: string): PlexAuthToken => ({
     token: `${userId}-token`,
@@ -41,6 +56,8 @@ const createPlexAuth = (): jest.Mocked<IPlexAuth> => ({
 const createPlexDiscovery = (): jest.Mocked<IPlexServerDiscovery> => ({
     selectServer: jest.fn().mockResolvedValue({ kind: 'selected' }),
     getServerUri: jest.fn(() => 'http://next.example'),
+    isConnected: jest.fn(() => true),
+    getSelectedConnection: jest.fn(() => ({ uri: 'http://next.example' })),
     clearSelection: jest.fn(),
     captureSelectedServerSnapshot: jest.fn(() => ({
         server: null,
@@ -74,6 +91,17 @@ const createDeps = (
 } as jest.Mocked<OrchestratorServerSelectionRuntimeDeps>);
 
 describe('OrchestratorServerSelectionRuntime', () => {
+    it('does not report a selected server id without an active selected connection', () => {
+        const discovery = createPlexDiscovery();
+        discovery.getSelectedServer.mockReturnValue({ id: 'server-1' } as never);
+        discovery.getSelectedConnection.mockReturnValue(null);
+        const runtime = new OrchestratorServerSelectionRuntime(createDeps({
+            getPlexDiscovery: jest.fn(() => discovery),
+        }));
+
+        expect(runtime.getSelectedServerId()).toBeNull();
+    });
+
     it('uses the typed discovery precondition when discovery disappears during selection', async () => {
         const discovery = {
             captureSelectedServerSnapshot: jest.fn(() => ({
@@ -246,7 +274,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
             clearSelectedChannelScheduleSnapshot: jest.fn(),
             clearScheduleCaches: jest.fn(),
             primeEpgChannels: jest.fn(),
-            refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
+            refreshEpgSchedules: jest.fn().mockResolvedValue(READY_EPG_REFRESH),
         } as unknown as jest.Mocked<EPGCoordinator>;
         const deps = createDeps({
             getPlexDiscovery: jest.fn(() => plexDiscovery),
@@ -262,7 +290,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
             persistedSelection: 'updated',
             startupResume: {
                 startup: 'completed',
-                epgRefresh: { kind: 'succeeded' },
+                epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH },
             },
         });
 
@@ -271,6 +299,74 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
         expect(epgCoordinator.primeEpgChannels).toHaveBeenCalledTimes(1);
         expect(epgCoordinator.refreshEpgSchedules).toHaveBeenCalledWith({ reason: 'server-swap' });
+    });
+
+    it.each([
+        {
+            readiness: 'partial' as const,
+            immediateReadyChannelCount: 1,
+            failedChannelCount: 1,
+            firstVisibleScheduleReady: true,
+        },
+        {
+            readiness: 'failed' as const,
+            immediateReadyChannelCount: 0,
+            failedChannelCount: 2,
+            firstVisibleScheduleReady: false,
+        },
+        {
+            readiness: 'skipped' as const,
+            immediateReadyChannelCount: 0,
+            failedChannelCount: 0,
+            firstVisibleScheduleReady: false,
+        },
+    ])('preserves $readiness resolved EPG outcomes as degraded startup detail', async (outcome) => {
+        const refreshResult: EpgDegradedScheduleRefreshResult = {
+            ...READY_EPG_REFRESH,
+            ...outcome,
+        };
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn().mockResolvedValue(refreshResult),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const runtime = new OrchestratorServerSelectionRuntime(createDeps({
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        }));
+
+        await expect(runtime.selectServer('server-1')).resolves.toMatchObject({
+            kind: 'selected',
+            startupResume: {
+                epgRefresh: { kind: 'degraded', result: refreshResult },
+            },
+        });
+    });
+
+    it('preserves intentional EPG supersession without classifying it as degraded', async () => {
+        const refreshResult: EpgScheduleRefreshResult = {
+            ...READY_EPG_REFRESH,
+            readiness: 'superseded',
+            attemptedChannelCount: 0,
+            immediateReadyChannelCount: 0,
+            firstVisibleScheduleReady: false,
+        };
+        const epgCoordinator = {
+            clearSelectedChannelScheduleSnapshot: jest.fn(),
+            clearScheduleCaches: jest.fn(),
+            primeEpgChannels: jest.fn(),
+            refreshEpgSchedules: jest.fn().mockResolvedValue(refreshResult),
+        } as unknown as jest.Mocked<EPGCoordinator>;
+        const runtime = new OrchestratorServerSelectionRuntime(createDeps({
+            getEpgCoordinator: jest.fn(() => epgCoordinator),
+        }));
+
+        await expect(runtime.selectServer('server-1')).resolves.toMatchObject({
+            kind: 'selected',
+            startupResume: {
+                epgRefresh: { kind: 'superseded', result: refreshResult },
+            },
+        });
     });
 
     it('stops server-swap EPG mutations when the caller aborts after startup resumes', async () => {
@@ -289,7 +385,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
             clearSelectedChannelScheduleSnapshot: jest.fn(),
             clearScheduleCaches: jest.fn(),
             primeEpgChannels: jest.fn(),
-            refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
+            refreshEpgSchedules: jest.fn().mockResolvedValue(READY_EPG_REFRESH),
         } as unknown as jest.Mocked<EPGCoordinator>;
         const deps = createDeps({
             getPlexAuth: jest.fn(() => plexAuth),
@@ -319,7 +415,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
             storedServerId: 'old-server',
         });
         expect(plexAuth.storeCredentials).toHaveBeenCalledTimes(2);
-        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials());
+        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials(), { emitAuthChange: false });
         expect(deps.reportError).not.toHaveBeenCalled();
     });
 
@@ -345,7 +441,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
             refreshEpgSchedules: jest.fn((options?: { signal?: AbortSignal | null }) => {
                 capturedRefreshSignal = options?.signal;
                 markRefreshStarted?.();
-                return new Promise<void>((_resolve, reject) => {
+                return new Promise<EpgScheduleRefreshResult>((_resolve, reject) => {
                     releaseRefresh = (): void => reject(abortReason);
                     options?.signal?.addEventListener('abort', () => reject(abortReason), { once: true });
                 });
@@ -377,7 +473,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
             connection: null,
             storedServerId: 'old-server',
         });
-        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials());
+        expect(plexAuth.storeCredentials).toHaveBeenLastCalledWith(createCredentials(), { emitAuthChange: false });
         expect(epgCoordinator.clearSelectedChannelScheduleSnapshot).toHaveBeenCalledTimes(2);
         expect(epgCoordinator.clearScheduleCaches).toHaveBeenCalledTimes(2);
         expect(epg.clearSchedules).toHaveBeenCalledTimes(2);

@@ -11,6 +11,17 @@ export type PlexServerSelectionResult =
     | { kind: 'server_not_found' }
     | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
+export type PlexSavedServerRestoreResult =
+    | { kind: 'skipped_no_servers' }
+    | { kind: 'skipped_no_saved_server' }
+    | { kind: 'already_selected'; serverId: string }
+    | { kind: 'selected'; serverId: string }
+    | {
+        kind: 'selection_failed';
+        serverId: string;
+        reason: 'server_not_found' | PlexServerSelectionFailureReason;
+    };
+
 export interface PlexDiscoverySignalOptions {
     signal?: AbortSignal | null;
 }
@@ -18,7 +29,7 @@ export interface PlexDiscoverySignalOptions {
 export interface IPlexServerDiscovery {
     discoverServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
     refreshServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
-    initialize(options?: PlexDiscoverySignalOptions): Promise<void>;
+    initialize(options?: PlexDiscoverySignalOptions): Promise<PlexSavedServerRestoreResult>;
     setStorageKeys(selectedServerKey: string, serverHealthKey: string): void;
 
     /**

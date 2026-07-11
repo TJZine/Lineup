@@ -1,4 +1,5 @@
 import { AppErrorCode } from '../../../types/app-errors';
+import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { IAppLifecycle } from '../../../modules/lifecycle';
 import type { INavigationManager } from '../../../modules/navigation';
 import type {
@@ -13,6 +14,7 @@ import { PLEX_AUTH_CONSTANTS } from '../../../modules/plex/auth/constants';
 import {
     applyAuthValidationPolicy,
     applyPostReadyRoutingPolicy,
+    applyServerConnectionPolicy,
     type AuthValidationPolicyInputs,
 } from '../InitializationStartupPolicy';
 
@@ -69,7 +71,7 @@ describe('applyPostReadyRoutingPolicy', () => {
     type PostReadyRoutingPolicyTestInputs = Parameters<typeof applyPostReadyRoutingPolicy>[0];
 
     const createInputs = (
-        switchOutcome: 'switched' | 'failed' | 'aborted' = 'switched'
+        switchOutcome: ChannelSwitchOutcome = { kind: 'switched' }
     ): PostReadyRoutingPolicyTestInputs => ({
         navigation: {
             replaceScreen: jest.fn(),
@@ -85,7 +87,7 @@ describe('applyPostReadyRoutingPolicy', () => {
     });
 
     it('routes to player and completes when the startup tune switches', async () => {
-        const inputs = createInputs('switched');
+        const inputs = createInputs({ kind: 'switched' });
 
         await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
 
@@ -94,11 +96,24 @@ describe('applyPostReadyRoutingPolicy', () => {
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
-    it('rejects without opening server select when the startup tune fails', async () => {
-        const inputs = createInputs('failed');
+    it('routes to channel setup when the startup tune cannot find the channel', async () => {
+        const inputs = createInputs({ kind: 'failed', reason: 'missing_channel' });
+
+        await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
+
+        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+        expect(inputs.openServerSelect).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        'missing_dependencies',
+        'content_unavailable',
+        'playback_start_failed',
+    ] as const)('rejects %s startup tune failures into global recoverable handling', async (reason) => {
+        const inputs = createInputs({ kind: 'failed', reason });
 
         await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toThrow(
-            'Initial channel switch failed for current-channel-id.'
+            `Initial channel switch failed for current-channel-id: ${reason}.`
         );
 
         expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
@@ -106,7 +121,7 @@ describe('applyPostReadyRoutingPolicy', () => {
     });
 
     it('rejects without opening server select when the startup tune aborts', async () => {
-        const inputs = createInputs('aborted');
+        const inputs = createInputs({ kind: 'aborted' });
 
         await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toThrow(
             'Initial channel switch aborted for current-channel-id.'
@@ -114,6 +129,134 @@ describe('applyPostReadyRoutingPolicy', () => {
 
         expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
+    });
+
+    it('opens server select without routing to player when no channels exist', async () => {
+        const inputs = createInputs({ kind: 'switched' });
+        inputs.channelManager = {
+            getCurrentChannel: jest.fn().mockReturnValue(null),
+            getAllChannels: jest.fn().mockReturnValue([]),
+        };
+
+        await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
+
+        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
+        expect(inputs.switchToChannel).not.toHaveBeenCalled();
+        expect(inputs.openServerSelect).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('applyServerConnectionPolicy', () => {
+    const createInputs = (
+        initializeResult: Awaited<ReturnType<Parameters<typeof applyServerConnectionPolicy>[0]['plexDiscovery']['initialize']>>,
+        isConnected = false
+    ): Parameters<typeof applyServerConnectionPolicy>[0] => ({
+        startTime: Date.now(),
+        signal: null,
+        plexDiscovery: {
+            initialize: jest.fn().mockResolvedValue(initializeResult),
+            isConnected: jest.fn().mockReturnValue(isConnected),
+        } as unknown as Parameters<typeof applyServerConnectionPolicy>[0]['plexDiscovery'],
+        plexLibrary: {} as Parameters<typeof applyServerConnectionPolicy>[0]['plexLibrary'],
+        plexStreamResolver: {} as Parameters<typeof applyServerConnectionPolicy>[0]['plexStreamResolver'],
+        navigation: {
+            goTo: jest.fn(),
+        } as unknown as Parameters<typeof applyServerConnectionPolicy>[0]['navigation'],
+        updateModuleStatus: jest.fn(),
+        handlers: {
+            registerServerResume: jest.fn(),
+        },
+    });
+
+    it.each([
+        {
+            reason: 'server_not_found' as const,
+            expectedCode: AppErrorCode.SERVER_UNREACHABLE,
+            expectedMessage: 'Saved Plex server is no longer available.',
+        },
+        {
+            reason: 'unreachable' as const,
+            expectedCode: AppErrorCode.SERVER_UNREACHABLE,
+            expectedMessage: 'Saved Plex server is unreachable.',
+        },
+        {
+            reason: 'auth_required' as const,
+            expectedCode: AppErrorCode.AUTH_REQUIRED,
+            expectedMessage: 'Saved Plex server requires authentication.',
+        },
+        {
+            reason: 'access_denied' as const,
+            expectedCode: AppErrorCode.ACCESS_DENIED,
+            expectedMessage: 'Saved Plex server access was denied.',
+        },
+    ])(
+        'surfaces saved-server $reason as a typed startup blocker while routing to server-select',
+        async ({ reason, expectedCode, expectedMessage }) => {
+            const inputs = createInputs({
+                kind: 'selection_failed',
+                serverId: 'saved-srv',
+                reason,
+            });
+
+            await expect(applyServerConnectionPolicy(inputs)).resolves.toBe(false);
+
+            const expectedError = {
+                code: expectedCode,
+                message: expectedMessage,
+                recoverable: true,
+                context: {
+                    serverId: 'saved-srv',
+                    reason,
+                },
+            };
+            expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-server-discovery',
+                'pending',
+                undefined,
+                expect.any(Number)
+            );
+            expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-library',
+                'pending',
+                expectedError,
+                expect.any(Number)
+            );
+            expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+                'plex-stream-resolver',
+                'pending',
+                expectedError,
+                expect.any(Number)
+            );
+            expect(inputs.handlers.registerServerResume).toHaveBeenCalledTimes(1);
+            expect(inputs.navigation.goTo).toHaveBeenCalledWith('server-select');
+        }
+    );
+
+    it('marks Plex server modules ready without server-select routing after saved-server restore succeeds', async () => {
+        const inputs = createInputs({ kind: 'selected', serverId: 'saved-srv' }, true);
+
+        await expect(applyServerConnectionPolicy(inputs)).resolves.toBe(true);
+
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+            'plex-server-discovery',
+            'ready',
+            undefined,
+            expect.any(Number)
+        );
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+            'plex-library',
+            'ready',
+            undefined,
+            expect.any(Number)
+        );
+        expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
+            'plex-stream-resolver',
+            'ready',
+            undefined,
+            expect.any(Number)
+        );
+        expect(inputs.handlers.registerServerResume).not.toHaveBeenCalled();
+        expect(inputs.navigation.goTo).not.toHaveBeenCalled();
     });
 });
 

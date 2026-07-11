@@ -188,7 +188,7 @@ describe('ServerSelectionStore', () => {
             serverId: 'srv-1',
             status: 'ok',
             details: {
-                connection: { relay: false, local: true },
+                connection: { relay: false, local: true, protocol: 'https' },
                 latency: 42,
             },
             testedAt: 500,
@@ -204,6 +204,7 @@ describe('ServerSelectionStore', () => {
             'srv-1': {
                 status: 'unreachable',
                 type: 'local',
+                protocol: 'https',
                 latencyMs: 42,
                 testedAt: 600,
             },

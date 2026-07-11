@@ -129,7 +129,7 @@ describe('ChannelManager persistence and storage keys', () => {
 
         it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
             expectConsoleWarn([
-                'ChannelManager.setStorageKeys failed while flushing pending saves',
+                'ChannelManager.clearRuntimeState failed while flushing pending saves',
                 expect.objectContaining({
                     name: 'ChannelError',
                     code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
@@ -153,6 +153,91 @@ describe('ChannelManager persistence and storage keys', () => {
                     isQuotaError: true,
                 })
             );
+        });
+
+        it('flushes a queued mutation to the previous scope before runtime clear and key switch', async () => {
+            const persistedChannel = createBaseChannel({
+                id: 'persisted-channel',
+                name: 'Persisted Channel',
+                contentSource: createMockContentSource('persisted-lib'),
+            });
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
+                channels: [persistedChannel],
+                channelOrder: [persistedChannel.id],
+                currentChannelId: persistedChannel.id,
+                savedAt: Date.now(),
+            }));
+            await manager.loadChannels();
+            const unsavedChannel = await manager.createChannel({
+                name: 'Unsaved Runtime Channel',
+                contentSource: createMockContentSource('runtime-lib'),
+            });
+
+            manager.clearRuntimeState();
+            manager.setStorageKeys('lineup_channels_next_scope', 'lineup_current_channel_next_scope');
+            await manager.flushSaves();
+            await settleSaveDebounce();
+
+            const persisted = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
+                channels?: Array<{ id?: string }>;
+                channelOrder?: string[];
+                currentChannelId?: string | null;
+            };
+            expect(persisted.channels?.map((channel) => channel.id)).toEqual([
+                'persisted-channel',
+                unsavedChannel.id,
+            ]);
+            expect(persisted.channelOrder).toEqual(['persisted-channel', unsavedChannel.id]);
+            expect(persisted.currentChannelId).toBe('persisted-channel');
+            expect(mockLocalStorage.getItem('lineup_channels_next_scope')).toBeNull();
+        });
+
+        it('completes runtime clear and key switch when flush and failure reporting throw', async () => {
+            const persistedChannel = createBaseChannel({
+                id: 'persisted-channel',
+                name: 'Persisted Channel',
+                contentSource: createMockContentSource('persisted-lib'),
+            });
+            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
+                channels: [persistedChannel],
+                channelOrder: [persistedChannel.id],
+                currentChannelId: persistedChannel.id,
+                savedAt: Date.now(),
+            }));
+            await manager.loadChannels();
+            await manager.createChannel({
+                name: 'Old Scope Mutation',
+                contentSource: createMockContentSource('old-scope-lib'),
+            });
+            jest.spyOn(ChannelPersistenceCoordinator.prototype, 'flush')
+                .mockImplementationOnce(() => {
+                    throw new Error('flush failed');
+                });
+            jest.spyOn(ChannelPersistenceCoordinator.prototype, 'reportFailure')
+                .mockImplementationOnce(() => {
+                    throw new Error('report failed');
+                });
+
+            expect(() => manager.setStorageKeys(
+                'lineup_channels_next_scope',
+                'lineup_current_channel_next_scope'
+            )).not.toThrow();
+            expect(manager.getAllChannels()).toEqual([]);
+
+            const newScopeChannel = await manager.createChannel({
+                name: 'New Scope Channel',
+                contentSource: createMockContentSource('new-scope-lib'),
+            });
+            await manager.flushSaves();
+
+            const oldScope = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
+                channels?: Array<{ id?: string }>;
+            };
+            const newScope = JSON.parse(
+                mockLocalStorage.getItem('lineup_channels_next_scope') ?? '{}'
+            ) as { channels?: Array<{ id?: string }> };
+            expect(oldScope.channels?.map((channel) => channel.id)).toEqual(['persisted-channel']);
+            expect(newScope.channels?.map((channel) => channel.id)).toEqual([newScopeChannel.id]);
         });
     });
 

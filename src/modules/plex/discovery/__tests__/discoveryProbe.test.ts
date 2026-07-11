@@ -1,4 +1,5 @@
 import { findFastestConnectionProbe } from '../discoveryProbe';
+import { PLEX_DISCOVERY_CONSTANTS } from '../constants';
 import type { PlexConnectionProbeResult } from '../PlexConnectionProbeTypes';
 import type { MixedContentConfig } from '../types';
 import { createMockConnection, createMockServer } from './discoveryTestUtils';
@@ -264,5 +265,105 @@ describe('discoveryProbe', () => {
             }),
             outcome: 'reachable',
         });
+    });
+
+    it('limits concurrent probes within a connection tier', async () => {
+        const connections = Array.from({ length: PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS + 3 }, (_, index) =>
+            createMockConnection({
+                uri: `https://192.168.1.${index + 10}:32400`,
+                address: `192.168.1.${index + 10}`,
+                local: true,
+                relay: false,
+            })
+        );
+        const server = createMockServer({ connections });
+        let active = 0;
+        let maxActive = 0;
+        const resolvers: Array<() => void> = [];
+        const probeConnection = jest.fn((connection) => {
+            active += 1;
+            maxActive = Math.max(maxActive, active);
+            return new Promise<PlexConnectionProbeResult>((resolve) => {
+                resolvers.push((): void => {
+                    active -= 1;
+                    resolve({ connection: { ...connection, latencyMs: 10 }, outcome: 'reachable' });
+                });
+            });
+        });
+
+        const resultPromise = findFastestConnectionProbe({
+            server,
+            mixedContentConfig: defaultMixedContentConfig,
+            probeConnection,
+        });
+
+        await Promise.resolve();
+        expect(probeConnection).toHaveBeenCalledTimes(PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS);
+        expect(maxActive).toBe(PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS);
+
+        while (resolvers.length > 0) {
+            const resolver = resolvers.shift();
+            resolver?.();
+            await Promise.resolve();
+        }
+
+        const result = await resultPromise;
+        expect(probeConnection).toHaveBeenCalledTimes(connections.length);
+        expect(maxActive).toBe(PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS);
+        expect(result.selectedProbe?.outcome).toBe('reachable');
+    });
+
+    it('rejects and stops launching probes when a probe throws synchronously', async () => {
+        const connections = Array.from({ length: PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS + 2 }, (_, index) =>
+            createMockConnection({
+                uri: `https://192.168.1.${index + 30}:32400`,
+                address: `192.168.1.${index + 30}`,
+                local: true,
+                relay: false,
+            })
+        );
+        const server = createMockServer({ connections });
+        const failure = new Error('probe exploded');
+        const probeConnection = jest.fn((connection) => {
+            if (connection === connections[1]) {
+                throw failure;
+            }
+            return new Promise<PlexConnectionProbeResult>(() => undefined);
+        });
+
+        await expect(findFastestConnectionProbe({
+            server,
+            mixedContentConfig: defaultMixedContentConfig,
+            probeConnection,
+        })).rejects.toBe(failure);
+
+        expect(probeConnection).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not launch pending probes after abort', async () => {
+        const connections = Array.from({ length: PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS + 2 }, (_, index) =>
+            createMockConnection({
+                uri: `https://192.168.1.${index + 20}:32400`,
+                address: `192.168.1.${index + 20}`,
+                local: true,
+                relay: false,
+            })
+        );
+        const server = createMockServer({ connections });
+        const controller = new AbortController();
+        const abortReason = new DOMException('stop discovery', 'AbortError');
+        const probeConnection = jest.fn(async (connection) => {
+            controller.abort(abortReason);
+            return { connection, outcome: 'unreachable' as const };
+        });
+
+        await expect(findFastestConnectionProbe({
+            server,
+            mixedContentConfig: defaultMixedContentConfig,
+            probeConnection,
+            signal: controller.signal,
+        })).rejects.toBe(abortReason);
+
+        expect(probeConnection).toHaveBeenCalledTimes(PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS);
     });
 });

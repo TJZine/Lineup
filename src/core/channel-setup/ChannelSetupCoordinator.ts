@@ -1,4 +1,5 @@
 import type { INavigationManager } from '../../modules/navigation';
+import type { ChannelSetupRerunRequestResult } from './types';
 import type { ChannelSetupBuildScratchStore } from './build/ChannelSetupBuildScratchStore';
 import { ChannelSetupRecordStore } from './persistence/ChannelSetupRecordStore';
 import { ChannelSetupRerunController } from './ChannelSetupRerunController';
@@ -28,8 +29,8 @@ export class ChannelSetupCoordinator {
         });
     }
 
-    requestChannelSetupRerun(): void {
-        this._rerunController.requestChannelSetupRerun();
+    requestChannelSetupRerun(): ChannelSetupRerunRequestResult {
+        return this._rerunController.requestChannelSetupRerun();
     }
 
     clearRerunRequest(): void {

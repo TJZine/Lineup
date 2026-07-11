@@ -9,7 +9,7 @@ import type { ServerHealthRecord, ServerHealthStatus, ServerHealthType } from '.
 export type ServerHealthMap = Record<string, ServerHealthRecord>;
 
 export type ServerHealthWriteDetails = {
-    connection?: { relay?: boolean; local?: boolean };
+    connection?: { relay?: boolean; local?: boolean; protocol?: 'http' | 'https' };
     latency?: number;
 };
 
@@ -22,7 +22,7 @@ export type WriteServerHealthRecordInput = {
 
 type ServerSelectionStorageKeys = { selectedServerKey: string; serverHealthKey: string };
 
-const SERVER_HEALTH_RECORD_KEYS = new Set(['status', 'type', 'latencyMs', 'testedAt']);
+const SERVER_HEALTH_RECORD_KEYS = new Set(['status', 'type', 'protocol', 'latencyMs', 'testedAt']);
 const RESERVED_SERVER_HEALTH_IDS = new Set(['__proto__', 'prototype', 'constructor']);
 
 export class ServerSelectionStore {
@@ -127,6 +127,7 @@ export class ServerSelectionStore {
                 normalizedServerId !== serverId
                 || original.status !== record.status
                 || original.type !== record.type
+                || original.protocol !== record.protocol
                 || (typeof record.latencyMs === 'number' && originalLatency !== record.latencyMs)
                 || (record.latencyMs === undefined && originalLatency !== undefined)
                 || (typeof record.testedAt === 'number' && originalTestedAt !== record.testedAt)
@@ -167,6 +168,9 @@ export class ServerSelectionStore {
         const latencyMs = Number.isFinite(input.details?.latency)
             ? Math.max(0, Math.round(Number(input.details?.latency)))
             : previous?.latencyMs;
+        const protocol = input.details?.connection?.protocol === 'http' || input.details?.connection?.protocol === 'https'
+            ? input.details.connection.protocol
+            : previous?.protocol;
 
         const testedAt = Number.isFinite(input.testedAt)
             ? Math.max(0, Math.floor(Number(input.testedAt)))
@@ -177,6 +181,10 @@ export class ServerSelectionStore {
             type,
             testedAt,
         };
+
+        if (protocol === 'http' || protocol === 'https') {
+            nextRecord.protocol = protocol;
+        }
 
         if (typeof latencyMs === 'number') {
             nextRecord.latencyMs = latencyMs;
@@ -225,6 +233,10 @@ export class ServerSelectionStore {
                 : 'unknown';
 
         const next: ServerHealthRecord = { status, type };
+
+        if (input.protocol === 'http' || input.protocol === 'https') {
+            next.protocol = input.protocol;
+        }
 
         if (Number.isFinite(input.latencyMs)) {
             next.latencyMs = Math.max(0, Math.round(Number(input.latencyMs)));

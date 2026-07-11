@@ -444,7 +444,7 @@ describe('PlexServerDiscovery', () => {
                 },
             ]);
 
-            await expect(initializeWait).resolves.toBeUndefined();
+            await expect(initializeWait).resolves.toEqual({ kind: 'skipped_no_saved_server' });
             expect(fetch).toHaveBeenCalledTimes(1);
         });
 
@@ -471,7 +471,7 @@ describe('PlexServerDiscovery', () => {
                 },
             ]);
 
-            await expect(initializeWait).resolves.toBeUndefined();
+            await expect(initializeWait).resolves.toEqual({ kind: 'skipped_no_saved_server' });
             await expect(discoverWait).resolves.toEqual([
                 expect.objectContaining({ id: 'srv1', name: 'Test Server' }),
             ]);
@@ -1470,6 +1470,116 @@ describe('PlexServerDiscovery', () => {
             expect(expectDefined(discovery.getSelectedServer(), 'Expected restored selected server')).toMatchObject({
                 id: 'srv1',
             });
+        });
+
+        it('returns selection_failed and clears stale saved server id when restore target no longer exists', async () => {
+            mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, 'missing-srv');
+
+            const mockServers = [
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Test Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'https://test:32400',
+                            protocol: 'https',
+                            address: 'test',
+                            port: 32400,
+                            local: true,
+                            relay: false,
+                        },
+                    ],
+                },
+            ];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
+            });
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            await expect(discovery.initialize()).resolves.toEqual({
+                kind: 'selection_failed',
+                serverId: 'missing-srv',
+                reason: 'server_not_found',
+            });
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBeNull();
+        });
+
+        it('returns selection_failed when a saved server id exists but discovery returns no servers', async () => {
+            mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, 'missing-srv');
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => [],
+                text: async () => '[]',
+            });
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+
+            await expect(discovery.initialize()).resolves.toEqual({
+                kind: 'selection_failed',
+                serverId: 'missing-srv',
+                reason: 'server_not_found',
+            });
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBeNull();
+        });
+
+        it('returns selection_failed when saved server restore has no usable connection', async () => {
+            mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, 'srv1');
+
+            const mockServers = [
+                {
+                    clientIdentifier: 'srv1',
+                    name: 'Test Server',
+                    sourceTitle: 'testuser',
+                    ownerId: 'owner1',
+                    owned: true,
+                    provides: 'server',
+                    connections: [
+                        {
+                            uri: 'https://test:32400',
+                            protocol: 'https',
+                            address: 'test',
+                            port: 32400,
+                            local: true,
+                            relay: false,
+                        },
+                    ],
+                },
+            ];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => mockServers,
+                text: async () => JSON.stringify(mockServers),
+            });
+
+            const discovery = new PlexServerDiscovery(mockConfig);
+            jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
+                connection: null,
+                authRequired: false,
+                authState: null,
+            });
+
+            await expect(discovery.initialize()).resolves.toEqual({
+                kind: 'selection_failed',
+                serverId: 'srv1',
+                reason: 'unreachable',
+            });
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
         });
 
         it('aborts initialize restore before stale selected-state side effects are written', async () => {

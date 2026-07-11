@@ -102,7 +102,7 @@ const createPresenter = (
                 getNavigation: () => nav as unknown as INavigationManager,
                 openServerSelect: jest.fn(),
                 getSelectedServerId: jest.fn(() => 'server-1'),
-                switchToChannelByNumber: jest.fn(),
+                switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
                 openEPG: jest.fn(),
             },
             contentEl: ctx.contentEl,

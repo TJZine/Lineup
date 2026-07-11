@@ -136,6 +136,15 @@ export class ChannelSetupScreen {
         this._resetStepUi('Loading libraries...');
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
+        if (!this._getSelectedServerId()) {
+            this._contentEl.replaceChildren();
+            this._stepEl.textContent = '';
+            this._statusEl.textContent = 'Select a server.';
+            this._detailEl.textContent = 'Choose a Plex server before building channels.';
+            this._errorEl.textContent = '';
+            this._screenPorts.openServerSelect();
+            return;
+        }
         const nav = this._screenPorts.getNavigation();
         if (nav && !this._navKeyHandler) {
             this._navKeyHandler = (event: KeyEvent): void => {

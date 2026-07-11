@@ -18,6 +18,8 @@ import type { BlockingErrorOverlayAction } from '../chrome/AppBlockingErrorOverl
 import type { ToastInput } from '../../../shared/toast';
 import type { IDisposable } from '../../../utils/interfaces';
 import type { AppErrorCode } from '../../../types/app-errors';
+import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
+import type { EpgScheduleRefreshOutcome } from '../../../shared/epgRefresh';
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;
@@ -43,7 +45,22 @@ export type AppShellServerSelectionResult =
     }
     | {
         kind: 'selected';
+        readiness: 'ready' | 'startup_pending';
+        persistedSelection:
+            | 'updated'
+            | 'skipped_missing_credentials'
+            | 'skipped_corrupted_credentials';
+        startupResume: {
+            startup: 'completed' | 'skipped_no_coordinator';
+            epgRefresh:
+                | EpgScheduleRefreshOutcome
+                | { kind: 'skipped_no_coordinator' };
+        };
     };
+
+export type AppShellChannelSetupRerunRequestResult =
+    | { ok: true; serverId: string }
+    | { ok: false; reason: 'missing-selected-server' };
 
 export type AppShellServerHealthStatus = ServerHealthStatus;
 
@@ -64,14 +81,14 @@ export interface AppShellServerSelectionRuntimePort {
     ): Promise<AppShellServerSelectionResult>;
     clearSelectedServer(): Promise<void>;
     getSelectedServerScreenState(): AppShellServerSelectState;
-    requestChannelSetupRerun(): void;
+    requestChannelSetupRerun(): AppShellChannelSetupRerunRequestResult;
 }
 
 export interface AppShellChannelSetupRuntimePort {
     getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort;
     getSelectedServerId(): string | null;
     openServerSelect(): void;
-    switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
+    switchToChannelByNumberWithOutcome(number: number, options?: { signal?: AbortSignal }): Promise<ChannelSwitchOutcome>;
     openEPG(): void;
 }
 

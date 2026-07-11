@@ -69,6 +69,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/orchestrator/runtime/OrchestratorRuntimeControllerBuilder.ts` owns schedule-day rollover and subtitle-track recovery controller construction for `AppOrchestrator`
 - `src/core/orchestrator/events/` owns orchestrator event binding and cleanup reporting
 - `src/core/orchestrator/controllers/` owns runtime controller collaborators such as schedule-day rollover, subtitle-track recovery, profile-switch cleanup, and overlay runtime policy
+- `src/core/orchestrator/AppOrchestrator.ts` owns the shared identity-scoped runtime reset path after successful selected-server clear, sign-out, and profile switch; it clears in-memory channel, EPG, and playback identity state without deleting persisted channel data
 - `src/core/orchestrator/policy/` and `src/core/orchestrator/storage/` own schedule policy and storage context respectively
 - `src/core/initialization/InitializationCoordinator.ts` owns orchestrator startup sequencing for the app-shell/orchestrator startup path
 - `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` owns Priority-1 runtime assembly shaping from app-provided runtime refs and callbacks; it shapes the public assembly input directly without a separate no-value forwarding layer
@@ -78,7 +79,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 ### `src/core/initialization/`
 
 - startup coordinator and policy collaborators for app-shell/orchestrator startup
-- `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready)
+- `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready), including saved-server restore failure surfacing from discovery initialize results
 - `src/modules/ui/epg/startup/buildEPGStartupConfig.ts` owns EPG startup config shaping
 
 ### `src/core/server-selection/`
@@ -86,7 +87,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - focused server-selection collaborators shared between app shell and orchestrator
 - `src/core/server-selection/ServerSelectionTypes.ts` owns the full core/orchestrator `OrchestratorServerSelectionResult`, including readiness, persistence, and startup-resume details
 - `src/core/server-selection/ServerSelectionCoordinator.ts` owns the full selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, full result shaping, transactional persistence handoff, rollback, and selected-server startup-resume invocation
-- `src/core/server-selection/SelectedServerPersistenceAdapter.ts` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
+- `src/core/server-selection/SelectedServerPersistenceAdapter.ts` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port; metadata-only server-map writes suppress `authChange`
 - `src/core/server-selection/SelectedServerRuntimeController.ts` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
 - `src/core/app-shell/runtime/AppShellRuntimeContracts.ts` owns the narrowed app-shell selected-server result exposed to app-shell/server-select callers, and `src/core/app-shell/deferred-screens/AppLazyScreenPortFactory.ts` adapts that result into the server-select screen port without exposing core resume details
 
@@ -194,11 +195,13 @@ This document is directory-oriented and lists file-level owners where the canoni
 - Plex token handling
 - Plex Home endpoint fallback and profile-switch request/status policy stay in
   auth-local helpers; credential persistence and events stay with `PlexAuth`.
+- `PlexAuth.storeCredentials(..., { emitAuthChange: false })` is reserved for metadata-only credential writes such as selected-server map persistence; token/profile mutations keep the default `authChange` emission.
 
 ### `src/modules/plex/discovery/`
 
 - server discovery
 - server selection persistence
+- saved-server restore returns an explicit result (`selected`, `already_selected`, skipped, or `selection_failed`) so startup can surface stale/unreachable saved-server state instead of inferring from `isConnected()` alone
 
 ### `src/modules/plex/library/`
 
@@ -235,6 +238,9 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/modules/settings/PlaybackSettingsStore.ts`
 - EPG settings storage ownership
 - `src/modules/settings/EpgPreferencesStore.ts`
+- owns global EPG display preferences plus the selected-library filter scoped by
+  selected server and active Plex profile; selected-library reads/writes fail
+  closed when scope is unavailable
 - now-playing display settings storage ownership
 - `src/modules/settings/NowPlayingDisplayStore.ts`
 - profile session storage ownership
@@ -276,7 +282,7 @@ This document is directory-oriented and lists file-level owners where the canoni
   screen-facing workflow contract derived from the full workflow port without
   diagnostics
 - `src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`
-- owns only the persisted setup-record family `lineup_channel_setup_v2:${serverId}`
+- owns only the persisted setup-record family `lineup_channel_setup_v3:${serverId}:${activeUserId}` and returns typed setup-completion persistence results
 - `src/core/channel-setup/build/ChannelSetupBuildScratchStore.ts`
 - owns temporary Channel Setup build-key cleanup for `lineup_channels_build_tmp_v1:*`
   and `lineup_current_channel_build_tmp_v1:*`

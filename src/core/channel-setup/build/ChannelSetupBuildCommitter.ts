@@ -6,11 +6,17 @@ import type {
 } from '../../../modules/scheduler/channel-manager';
 import { MAX_CHANNEL_NUMBER } from '../../../modules/scheduler/channel-manager/constants';
 import type { IPlexLibrary } from '../../../modules/plex/library';
-import type { ChannelBuildProgress, ChannelBuildSummary, ChannelSetupConfig } from '../types';
+import type {
+    ChannelBuildProgress,
+    ChannelBuildSummary,
+    ChannelSetupConfig,
+    ChannelSetupGuideRefreshFailureStage,
+} from '../types';
 import type { PendingChannel, ChannelDiffResult } from '../planning/ChannelSetupPlanningTypes';
 import type { ChannelSetupBuildScratchStore } from './ChannelSetupBuildScratchStore';
 import { formatChannelSetupWarning } from '../shared/formatChannelSetupWarning';
 import { isAbortLikeError } from '../../../utils/errors';
+import type { EpgScheduleRefreshResult } from '../../../shared/epgRefresh';
 
 export type ChannelSetupEpgRefreshOptions = {
     reason?: string;
@@ -33,7 +39,7 @@ export interface ChannelSetupBuildCommitterDeps {
     ensureEpgInitialized: () => Promise<void>;
     clearSelectedChannelScheduleSnapshot: () => void;
     primeEpgChannels: () => void;
-    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<void>;
+    refreshEpgSchedules: (options?: ChannelSetupEpgRefreshOptions) => Promise<EpgScheduleRefreshResult>;
 }
 
 export interface ChannelSetupBuildCommitRequest {
@@ -206,23 +212,43 @@ export class ChannelSetupBuildCommitter {
         }
 
         await this._deps.channelManager.replaceAllChannels(finalChannels, { currentChannelId });
+        const initialChannelNumber = chooseInitialChannelNumber(finalChannels, currentChannelId);
+        if (initialChannelNumber !== undefined) {
+            summary.initialChannelNumber = initialChannelNumber;
+        }
 
         reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
         summary.lastTask = 'refresh_epg';
+        let refreshStage: ChannelSetupGuideRefreshFailureStage = 'prepare';
         try {
             this._deps.clearSelectedChannelScheduleSnapshot();
+            refreshStage = 'ensure_initialized';
             await this._deps.ensureEpgInitialized();
+            refreshStage = 'prime_channels';
             this._deps.primeEpgChannels();
-            await this._deps.refreshEpgSchedules({
+            refreshStage = 'refresh_schedules';
+            const guideRefresh = await this._deps.refreshEpgSchedules({
                 reason: 'channel-setup',
                 debounceMs: 0,
                 signal: request.signal,
             });
+            summary.guideRefresh = guideRefresh;
+            if (guideRefresh.readiness !== 'ready' && guideRefresh.readiness !== 'superseded') {
+                epgRefreshFailed = true;
+                addWarning('[ChannelSetup] EPG refresh completed with degraded guide readiness', guideRefresh);
+            }
         } catch (error: unknown) {
             if (isAbortLikeError(error, request.signal ?? undefined)) {
                 throw error;
             }
             epgRefreshFailed = true;
+            summary.guideRefresh = {
+                readiness: 'failed',
+                failure: {
+                    kind: 'thrown',
+                    stage: refreshStage,
+                },
+            };
             addWarning('[ChannelSetup] EPG refresh failed after commit', error);
             reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);
         }
@@ -346,4 +372,14 @@ export class ChannelSetupBuildCommitter {
 
 function compareChannelsByNumber(left: ChannelConfig, right: ChannelConfig): number {
     return left.number - right.number;
+}
+
+function chooseInitialChannelNumber(
+    channels: ChannelConfig[],
+    currentChannelId: string | null
+): number | undefined {
+    const current = currentChannelId
+        ? channels.find((channel) => channel.id === currentChannelId)
+        : null;
+    return (current ?? channels[0])?.number;
 }

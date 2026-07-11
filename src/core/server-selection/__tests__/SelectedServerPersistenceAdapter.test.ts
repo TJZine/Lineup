@@ -59,16 +59,19 @@ describe('SelectedServerPersistenceAdapter', () => {
 
         await expect(adapter.persistSelection('server-1', 'https://server.example.invalid')).resolves.toBe('updated');
 
-        expect(port.storeCredentials).toHaveBeenCalledWith({
-            accountToken: credentials.accountToken,
-            activeToken: credentials.activeToken,
-            activeUserId: 'active-user',
-            selectedServerByUserId: {
-                'other-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
-                'active-user': { serverId: 'server-1', serverUri: 'https://server.example.invalid' },
+        expect(port.storeCredentials).toHaveBeenCalledWith(
+            {
+                accountToken: credentials.accountToken,
+                activeToken: credentials.activeToken,
+                activeUserId: 'active-user',
+                selectedServerByUserId: {
+                    'other-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
+                    'active-user': { serverId: 'server-1', serverUri: 'https://server.example.invalid' },
+                },
+                deviceKey: null,
             },
-            deviceKey: null,
-        });
+            { emitAuthChange: false }
+        );
     });
 
     it('uses the current session active user when stored credentials disagree', async () => {
@@ -90,13 +93,16 @@ describe('SelectedServerPersistenceAdapter', () => {
         await expect(adapter.persistSelection('server-1', 'https://server.example.invalid')).resolves.toBe('updated');
 
         // Current session authority is intentional: port.getActiveUserId() overwrites stored activeUserId.
-        expect(port.storeCredentials).toHaveBeenCalledWith(expect.objectContaining({
-            activeUserId: 'session-user',
-            selectedServerByUserId: expect.objectContaining({
-                'session-user': { serverId: 'server-1', serverUri: 'https://server.example.invalid' },
-                'stored-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
+        expect(port.storeCredentials).toHaveBeenCalledWith(
+            expect.objectContaining({
+                activeUserId: 'session-user',
+                selectedServerByUserId: expect.objectContaining({
+                    'session-user': { serverId: 'server-1', serverUri: 'https://server.example.invalid' },
+                    'stored-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
+                }),
             }),
-        }));
+            { emitAuthChange: false }
+        );
     });
 
     it('preserves missing and corrupted credential semantics when persisting', async () => {
@@ -174,17 +180,20 @@ describe('SelectedServerPersistenceAdapter', () => {
         })).resolves.toBe('updated');
 
         expect(port.storeCredentials).toHaveBeenCalledTimes(1);
-        expect(port.storeCredentials).toHaveBeenCalledWith(expect.objectContaining({
-            selectedServerByUserId: {
-                'active-user': {
-                    serverId: 'server-2',
-                    serverUri: 'https://server-2.example.invalid',
+        expect(port.storeCredentials).toHaveBeenCalledWith(
+            expect.objectContaining({
+                selectedServerByUserId: {
+                    'active-user': {
+                        serverId: 'server-2',
+                        serverUri: 'https://server-2.example.invalid',
+                    },
+                    'foreign-user': {
+                        serverId: 'foreign-server',
+                        serverUri: 'https://foreign.example.invalid',
+                    },
                 },
-                'foreign-user': {
-                    serverId: 'foreign-server',
-                    serverUri: 'https://foreign.example.invalid',
-                },
-            },
-        }));
+            }),
+            { emitAuthChange: false }
+        );
     });
 });

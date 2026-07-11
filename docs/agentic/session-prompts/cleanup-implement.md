@@ -28,7 +28,7 @@ For `standalone remediation`, do not require checklist linkage just to use the s
 
 ## What This Session Must Do
 
-- honor any `IMPLEMENTER_ROLE_ELIGIBILITY` in the approved `CURRENT_EXECUTION_PACKET`; use `worker` by default, `cleanup_worker` for Tier 3 cleanup-loop implementation passes, and `worker_54_high` only for approved bounded exact cheap-to-verify units
+- honor any `IMPLEMENTER_ROLE_ELIGIBILITY` in the approved `CURRENT_EXECUTION_PACKET`; use `worker` by default, `cleanup_worker` for Tier 3 cleanup-loop implementation passes, and `worker_luna` only for approved bounded exact cheap-to-verify units
 - execute the approved plan in a repo-local worktree under `.worktrees/` when the task is more than a tiny edit
 - exception: for any task where `desloppify` output is used as authoritative checklist/plan evidence, execute those `desloppify` commands only on the target integration branch (no worktree evidence pass)
 - re-check the plan freshness gate before changing files
@@ -48,7 +48,7 @@ For `standalone remediation`, do not require checklist linkage just to use the s
 - for any cleanup task that records `desloppify`-based dispositions, do not run authoritative `desloppify` evidence in a worktree; use the integration branch as the single source of truth for recorded dispositions
 - if a worktree `desloppify` run is unavoidable, synchronize the full `.desloppify` state first, treat output as provisional, and rerun the same commands on the integration branch before recording dispositions
 - if repo state contradicts the plan, update the plan first instead of improvising
-- if the unit is assigned to or marked eligible for `worker_54_high` and implementation reveals ambiguity, plan contradiction, required scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis, stop and escalate instead of improvising
+- if the unit is assigned to or marked eligible for `worker_luna` and implementation reveals ambiguity, plan contradiction, required scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis, stop and escalate instead of improvising
 - prefer extraction and focused collaborators over growing hotspot files
 - do not add fallback paths, migration shims, or dual-path logic unless explicitly approved
 - treat `.agents/skills/` as the tracked repo skill surface; commit updates there when the task changes repo-local skill behavior

@@ -3,6 +3,17 @@ import {
     type SelectedServerRuntimeControllerDeps,
 } from '../SelectedServerRuntimeController';
 import type { PersistedSelectedServerSnapshot } from '../ServerSelectionTypes';
+import type { EpgReadyScheduleRefreshResult } from '../../../shared/epgRefresh';
+
+const readyEpgRefreshResult: EpgReadyScheduleRefreshResult = {
+    readiness: 'ready',
+    attemptedChannelCount: 1,
+    immediateReadyChannelCount: 1,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: true,
+};
 
 const createDeps = (
     overrides: Partial<SelectedServerRuntimeControllerDeps> = {}
@@ -15,7 +26,7 @@ const createDeps = (
     restorePersistedSelectionSnapshot: jest.fn().mockResolvedValue('updated'),
     resumeStartupAfterSelection: jest.fn().mockResolvedValue({
         startup: 'completed',
-        epgRefresh: { kind: 'succeeded' },
+        epgRefresh: { kind: 'succeeded', result: readyEpgRefreshResult },
     }),
     clearDiscoverySelection: jest.fn(),
     ...overrides,
@@ -103,7 +114,7 @@ describe('SelectedServerRuntimeController', () => {
 
         await expect(controller.resumeStartupAfterSelection()).resolves.toEqual({
             startup: 'completed',
-            epgRefresh: { kind: 'succeeded' },
+            epgRefresh: { kind: 'succeeded', result: readyEpgRefreshResult },
         });
 
         expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);

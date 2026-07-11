@@ -170,4 +170,29 @@ describe('createLazyChannelSetupWorkflowPortOwners', () => {
         expect(mockBuildExecutorConstructor).toHaveBeenCalledTimes(2);
         expect(recoveredBuildExecutor.createChannelsFromSetup).toHaveBeenCalledTimes(1);
     });
+
+    it('clears rerun request only after setup completion is durable', () => {
+        const deps = createDeps();
+        const failure = {
+            ok: false,
+            reason: 'unavailable',
+            message: 'Device storage is unavailable.',
+        } as const;
+        const success = {
+            ok: true,
+            record: { serverId: 'server-1' },
+        } as never;
+        (deps.recordStore.markSetupComplete as jest.Mock)
+            .mockReturnValueOnce(failure)
+            .mockReturnValueOnce(success);
+        const owners = createLazyChannelSetupWorkflowPortOwners(deps);
+
+        expect(owners.completionTracker.markSetupComplete('server-1', { serverId: 'server-1' } as never))
+            .toBe(failure);
+        expect(deps.clearRerunRequest).not.toHaveBeenCalled();
+
+        expect(owners.completionTracker.markSetupComplete('server-1', { serverId: 'server-1' } as never))
+            .toBe(success);
+        expect(deps.clearRerunRequest).toHaveBeenCalledTimes(1);
+    });
 });

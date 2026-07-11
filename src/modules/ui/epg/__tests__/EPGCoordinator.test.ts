@@ -23,7 +23,19 @@ import {
     partitionPrefetchChannels,
 } from '../coordinator/EPGCoordinatorPolicies';
 import * as EPGCoordinatorPolicies from '../coordinator/EPGCoordinatorPolicies';
+import type { EpgScheduleRefreshResult } from '../coordinator/EPGCoordinatorContracts';
+import { EPGRefreshController } from '../coordinator/EPGRefreshController';
 import { flushPromises as flushPromiseRounds } from '../../../../__tests__/helpers';
+
+const SKIPPED_REFRESH_RESULT: EpgScheduleRefreshResult = {
+    readiness: 'skipped',
+    attemptedChannelCount: 0,
+    immediateReadyChannelCount: 0,
+    backgroundQueuedChannelCount: 0,
+    failedChannelCount: 0,
+    staleCacheChannelCount: 0,
+    firstVisibleScheduleReady: false,
+};
 
 const flushPromises = async (rounds = 8): Promise<void> => {
     await flushPromiseRounds(rounds);
@@ -83,6 +95,7 @@ const readScheduleRange = (deps: EPGCoordinatorDeps): { startTime: number; endTi
     );
 
 const FIXED_FAKE_NOW = new Date('2026-01-01T12:00:00.000Z');
+const EPG_LIBRARY_FILTER_TEST_KEY = `${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`;
 
 const useDeterministicFakeTimers = (): void => {
     jest.useFakeTimers();
@@ -136,6 +149,7 @@ const makeDeps = (
     overrides: Partial<EPGCoordinatorDeps> = {}
 ): { deps: EPGCoordinatorDeps; epg: IEPGComponent; channelManager: IChannelManager; scheduler: IChannelScheduler } => {
     const epgPreferencesStore = new EpgPreferencesStore();
+    epgPreferencesStore.setLibraryFilterScope({ serverId: 'server-1', userId: 'user-1' });
     const epg: IEPGComponent = {
         show: jest.fn(),
         hide: jest.fn(),
@@ -212,7 +226,7 @@ const makeDeps = (
         } satisfies ScheduleConfig),
         getPreserveFocusOnOpen: () => false,
         setLastChannelChangeSourceToGuide: jest.fn(),
-        switchToChannel: jest.fn().mockResolvedValue('switched'),
+        switchToChannel: jest.fn().mockResolvedValue({ kind: 'switched' }),
         onVisibilityChange: jest.fn(),
         reportEpgInitWarning: jest.fn(),
         epgPreferencesStore,
@@ -311,8 +325,10 @@ describe('EPGCoordinator', () => {
 
     it('openEPG primes and queues an immediate refresh after show when ready', async () => {
         const { deps, epg } = makeDeps();
+        const refreshSpy = jest
+            .spyOn(EPGRefreshController.prototype, 'refreshEpgSchedulesForRange')
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const coordinator = new EPGCoordinator(deps);
-        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedulesForRange').mockResolvedValue(undefined);
 
         coordinator.openEPG();
 
@@ -325,7 +341,7 @@ describe('EPGCoordinator', () => {
                 timeStartMs: 0,
                 timeEndMs: 0,
             },
-            { reason: 'manual', debounceMs: 0 }
+            { reason: 'manual', debounceMs: 0, signal: null }
         );
         expect((epg.show as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
             refreshSpy.mock.invocationCallOrder[0] as number
@@ -351,8 +367,10 @@ describe('EPGCoordinator', () => {
                 currentTime: 60_000,
             });
         });
+        const refreshSpy = jest
+            .spyOn(EPGRefreshController.prototype, 'refreshEpgSchedulesForRange')
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const coordinator = new EPGCoordinator(deps);
-        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedulesForRange').mockResolvedValue(undefined);
 
         coordinator.openEPG();
 
@@ -363,7 +381,7 @@ describe('EPGCoordinator', () => {
                 timeStartMs: postShowRange.startTime,
                 timeEndMs: postShowRange.endTime,
             },
-            { reason: 'manual', debounceMs: 0 }
+            { reason: 'manual', debounceMs: 0, signal: null }
         );
     });
 
@@ -553,7 +571,7 @@ describe('EPGCoordinator', () => {
 
     it('primeEpgChannels applies filtering when tabs enabled and selected', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             {
@@ -602,7 +620,7 @@ describe('EPGCoordinator', () => {
 
     it('primeEpgChannels forces 3h for movie library filters even when default density is detailed', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'movie-lib');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'movie-lib');
 
         const allChannels: ChannelConfig[] = [
             {
@@ -646,7 +664,7 @@ describe('EPGCoordinator', () => {
     it('primeEpgChannels forces 2h for show library filters even when density is wide', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'show-lib');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'show-lib');
 
         const allChannels: ChannelConfig[] = [
             {
@@ -692,7 +710,7 @@ describe('EPGCoordinator', () => {
         jest.spyOn(Date, 'now').mockReturnValue(now);
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'show-lib');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'show-lib');
 
         const channels = [
             {
@@ -827,7 +845,7 @@ describe('EPGCoordinator', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
         const getRange = (selectedLibraryId: string, channels: ChannelConfig[]): { startTime: number; endTime: number } | null => {
-            localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, selectedLibraryId);
+            localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, selectedLibraryId);
             const base = makeDeps().deps.getChannelManager()!;
             const { deps } = makeDeps({
                 getChannelManager: () => ({ ...base, getAllChannels: () => channels } as IChannelManager),
@@ -940,7 +958,7 @@ describe('EPGCoordinator', () => {
 
     it('primeEpgChannels preserves a valid persisted filter when tabs are disabled', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -958,13 +976,13 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBe('lib1');
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
     it('primeEpgChannels preserves a valid persisted filter when only one library remains', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -982,13 +1000,13 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBe('lib1');
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
     });
 
     it('primeEpgChannels clears an invalid persisted filter through explicit runtime-owner cleanup', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'missing-lib');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'missing-lib');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1019,13 +1037,44 @@ describe('EPGCoordinator', () => {
         );
         expect(writeSelectedLibraryIdSpy).toHaveBeenCalledTimes(1);
         expect(writeSelectedLibraryIdSpy).toHaveBeenCalledWith(null);
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBeNull();
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBeNull();
         expect(epg.loadChannels).toHaveBeenCalledWith(allChannels);
+    });
+
+    it('primeEpgChannels diagnoses selected-library filter cleanup persistence failure', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'missing-lib');
+
+        const allChannels: ChannelConfig[] = [
+            { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
+            { ...makeChannel('c2', 2), sourceLibraryId: 'lib2', sourceLibraryName: 'TV' },
+        ];
+
+        const { deps } = makeDeps({
+            getChannelManager: () =>
+            ({
+                ...makeDeps().channelManager,
+                getAllChannels: () => allChannels,
+            } as IChannelManager),
+        });
+        jest.spyOn(deps.epgPreferencesStore, 'writeSelectedLibraryId').mockReturnValue({
+            ok: false,
+            reason: 'unavailable',
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.primeEpgChannels();
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
+            reason: 'unavailable',
+            requestedLibraryId: null,
+            source: 'prime-epg-channels',
+        });
     });
 
     it('primeEpgChannels preserves a valid persisted filter when tabs are enabled and multiple libraries remain', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1043,7 +1092,7 @@ describe('EPGCoordinator', () => {
 
         coordinator.primeEpgChannels();
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBe('lib1');
         expect(epg.loadChannels).toHaveBeenCalledWith([
             expect.objectContaining({ id: 'c1' }),
         ]);
@@ -1052,7 +1101,7 @@ describe('EPGCoordinator', () => {
     it('does not clear stored library filter during schedule range computations', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'auto');
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '0');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const allChannels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1068,7 +1117,7 @@ describe('EPGCoordinator', () => {
         });
         readScheduleRange(deps);
 
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER)).toBe('lib1');
+        expect(localStorage.getItem(EPG_LIBRARY_FILTER_TEST_KEY)).toBe('lib1');
     });
 
     it('primeEpgChannels applies layout mode and now watching settings from storage', () => {
@@ -1194,7 +1243,7 @@ describe('EPGCoordinator', () => {
 	    it('preseeds current channel schedule when scheduler is active and channel is visible', () => {
 	        const { deps, epg } = makeDeps();
 	        const coordinator = new EPGCoordinator(deps);
-	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
 	        coordinator.openEPG();
 
@@ -1211,7 +1260,7 @@ describe('EPGCoordinator', () => {
 	            getScheduler: () => scheduler,
 	        });
 	        const coordinator = new EPGCoordinator(deps);
-	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
         coordinator.openEPG();
 
@@ -1221,7 +1270,7 @@ describe('EPGCoordinator', () => {
 
 	    it('does not preseed when current channel is filtered out', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib2');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib2');
 
         const channels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1238,7 +1287,7 @@ describe('EPGCoordinator', () => {
             } as IChannelManager),
 	        });
 	        const coordinator = new EPGCoordinator(deps);
-	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(undefined);
+	        const refreshSpy = jest.spyOn(coordinator, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
         coordinator.openEPG();
 
@@ -1688,7 +1737,7 @@ describe('EPGCoordinator', () => {
 
     it('refreshEpgSchedules uses filtered channels', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const channels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1715,7 +1764,7 @@ describe('EPGCoordinator', () => {
 
     it('refreshEpgSchedulesForRange uses filtered channels', async () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, '1');
-        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER, 'lib1');
+        localStorage.setItem(EPG_LIBRARY_FILTER_TEST_KEY, 'lib1');
 
         const channels: ChannelConfig[] = [
             { ...makeChannel('c1', 1), sourceLibraryId: 'lib1', sourceLibraryName: 'Movies' },
@@ -1906,7 +1955,7 @@ describe('EPGCoordinator', () => {
             scrollToChannel: jest.fn(),
             focusChannel: jest.fn(),
         } as unknown as IEPGComponent;
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const setSource = jest.fn();
         const deps = makeDeps({
             getEpg: () => epg,
@@ -2070,7 +2119,7 @@ describe('EPGCoordinator', () => {
         } as unknown as IEPGComponent;
         const deps = makeDeps({
             getEpg: () => epg,
-            switchToChannel: jest.fn().mockResolvedValue('failed'),
+            switchToChannel: jest.fn().mockResolvedValue({ kind: 'failed', reason: 'content_unavailable' }),
         }).deps;
         const coordinator = new EPGCoordinator(deps);
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
@@ -2130,7 +2179,7 @@ describe('EPGCoordinator', () => {
         } as unknown as IEPGComponent;
         const deps = makeDeps({
             getEpg: () => epg,
-            switchToChannel: jest.fn().mockResolvedValue('aborted'),
+            switchToChannel: jest.fn().mockResolvedValue({ kind: 'aborted' }),
         }).deps;
         const coordinator = new EPGCoordinator(deps);
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
@@ -2325,7 +2374,7 @@ describe('EPGCoordinator', () => {
             scrollToChannel: jest.fn(),
             focusChannel: jest.fn(),
         } as unknown as IEPGComponent;
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const setSource = jest.fn();
         const deps = makeDeps({
             getEpg: () => epg,
@@ -2352,7 +2401,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('passes a resolved-immediate selected-row snapshot into guide-initiated tune', async () => {
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const { deps, epg } = makeDeps({ switchToChannel });
         const coordinator = new EPGCoordinator(deps);
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
@@ -2407,7 +2456,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('re-materializes a cache-only selected row before guide-initiated tune', async () => {
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => [makeResolvedItem(channelId, 0)]);
         const channels = Array.from({ length: 20 }, (_, index) => makeChannel(`c${index}`, index + 1));
         const base = makeDeps().deps.getChannelManager()!;
@@ -2470,7 +2519,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('falls back to direct tune when guide snapshot materialization fails', async () => {
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const resolveChannelItemsForSchedule = jest.fn(async () => {
             throw new Error('snapshot materialization failed');
         });
@@ -2534,7 +2583,7 @@ describe('EPGCoordinator', () => {
                 })
             )
             .mockImplementationOnce(async (channelId: string) => makeResolvedItems(channelId));
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const channels = [makeChannel('c0', 1), makeChannel('c1', 2)];
         const { deps, epg } = makeDeps({
             switchToChannel,
@@ -2615,7 +2664,7 @@ describe('EPGCoordinator', () => {
                     resolveSelection = resolve;
                 })
             );
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const { deps, epg } = makeDeps({
             switchToChannel,
             getChannelManager: () => ({
@@ -2659,7 +2708,7 @@ describe('EPGCoordinator', () => {
                     resolveSelection = resolve;
                 })
             );
-        const switchToChannel = jest.fn().mockResolvedValue('switched');
+        const switchToChannel = jest.fn().mockResolvedValue({ kind: 'switched' });
         const { deps, epg } = makeDeps({
             switchToChannel,
             getChannelManager: () => ({
@@ -2711,12 +2760,32 @@ describe('EPGCoordinator', () => {
         expect(epg.loadScheduleForChannel).toHaveBeenCalled();
     });
 
+    it('library filter change diagnoses selected-library filter persistence failure', async () => {
+        const { deps, epg } = makeDeps();
+        jest.spyOn(deps.epgPreferencesStore, 'writeSelectedLibraryId').mockReturnValue({
+            ok: false,
+            reason: 'quota-exceeded',
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.wireEpgEvents();
+
+        const filterHandler = (epg.on as jest.Mock).mock.calls.find((call) => call[0] === 'libraryFilterChanged')?.[1];
+        filterHandler?.({ libraryId: 'lib1' });
+        await flushPromises();
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
+            reason: 'quota-exceeded',
+            requestedLibraryId: 'lib1',
+        });
+    });
+
     it('handleVisibleRangeChange delegates refresh with visible-range reason', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
         const refreshSpy = jest
             .spyOn(coordinator, 'refreshEpgSchedulesForRange')
-            .mockResolvedValue(undefined);
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const range = {
             channelStart: 1,
             channelEnd: 4,
@@ -2770,7 +2839,7 @@ describe('EPGCoordinator', () => {
         const coordinator = new EPGCoordinator(deps);
         const refreshSpy = jest
             .spyOn(coordinator, 'refreshEpgSchedulesForRange')
-            .mockResolvedValue(undefined);
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const range = {
             channelStart: 1,
             channelEnd: 4,

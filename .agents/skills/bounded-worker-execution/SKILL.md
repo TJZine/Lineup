@@ -7,7 +7,7 @@ description: Use when an approved Lineup plan contains concrete, disjoint implem
 
 ## Overview
 
-Use this skill when a plan-approved implementation slice is concrete enough for `worker`, `cleanup_worker`, or explicitly eligible `worker_54_high` execution without inventing seams, adapters, ownership, or verification depth.
+Use this skill when a plan-approved implementation slice is concrete enough for `worker`, `cleanup_worker`, or explicitly eligible `worker_luna` execution without inventing seams, adapters, ownership, or verification depth.
 
 The controller still owns decomposition, integration, verification, and final judgment.
 
@@ -15,7 +15,7 @@ The controller still owns decomposition, integration, verification, and final ju
 
 - Approved plans with clearly separated write scopes
 - Mechanical or moderately scoped implementation slices where the contract is already decided
-- Approved, bounded, exact, cheap-to-verify execution units that explicitly declare `worker_54_high` eligibility
+- Approved, bounded, exact, cheap-to-verify execution units that explicitly declare `worker_luna` eligibility
 - Parallel worker execution only when each worker owns a disjoint file set
 - Cases where the main session can do non-overlapping integration, review prep, or another local slice while the worker runs
 
@@ -37,7 +37,7 @@ All of these must already be true:
 3. the slice has a clear verification target
 4. the write scope is disjoint from any other active worker
 5. the worker does not need to invent seams mid-task
-6. `worker_54_high` units also have exact constraints, direct verification, and explicit stop/escalation triggers
+6. `worker_luna` units also have exact constraints, direct verification, and explicit stop/escalation triggers
 
 If any precondition is false, keep the implementation local or re-plan first.
 
@@ -45,9 +45,9 @@ If any precondition is false, keep the implementation local or re-plan first.
 
 - Use `worker` for general approved implementation.
 - Use `cleanup_worker` for Tier 3 cleanup-loop implementation passes.
-- Use `worker_54_high` only when the approved plan or `CURRENT_EXECUTION_PACKET` says `IMPLEMENTER_ROLE_ELIGIBILITY` includes `worker_54_high` and the unit is approved, bounded, exact, and cheap to verify.
-- `worker_54_high` must stop and escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis.
-- Do not use `worker_54_high` for unresolved seams, broad cleanup/refactor judgment, architecture decisions, ambiguous debugging, or implementation that must diagnose failing verification.
+- Use `worker_luna` only when the approved plan or `CURRENT_EXECUTION_PACKET` says `IMPLEMENTER_ROLE_ELIGIBILITY` includes `worker_luna` and the unit is approved, bounded, exact, and cheap to verify.
+- `worker_luna` must stop and escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis.
+- Do not use `worker_luna` for unresolved seams, broad cleanup/refactor judgment, architecture decisions, ambiguous debugging, or implementation that must diagnose failing verification.
 
 ## Worker Slice Contract
 
@@ -64,6 +64,22 @@ Every delegated slice should specify:
 - expected return format
 
 Do not make the worker infer the slice from a broad plan alone.
+
+## Delegation Record
+
+Before dispatch, locate the selected role in `.codex/config.toml`, read its
+exact `config_file` value, and resolve that value beneath `.codex/`. Record the
+resolved path and the model and reasoning effort read from it as `CONFIGURED
+TOML DEFAULTS` in the worker packet. Record `DISPATCH-TIME OVERRIDES`
+separately for model and reasoning effort, using `none` when a
+field is not overridden. At closeout, keep configured defaults and dispatch-time
+overrides separate. Report runtime identity as verified only when the execution
+surface exposes it; otherwise report `RUNTIME IDENTITY:
+operator-recorded/unverified` and do not present the requested values as runtime
+proof. For example, `worker_luna` resolves to
+`.codex/agents/worker-luna.toml`. Never derive a config filename from the role
+identifier. Treat the worker's `CONFIGURED ROLE` opening line as role-selection
+visibility, not proof of model or reasoning effort.
 
 ## Execution Pattern
 

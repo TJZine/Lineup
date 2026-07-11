@@ -44,11 +44,32 @@ const makeServer = (id: string, name: string, owned = true): PlexServer => ({
     preferredConnection: null,
 });
 
-const makeSelectedServerResult = (): Extract<
+const makeSelectedServerResult = (overrides: Partial<Extract<
+    Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>,
+    { kind: 'selected' }
+>> = {}): Extract<
     Awaited<ReturnType<ServerSelectScreenPorts['selectServer']>>,
     { kind: 'selected' }
 > => ({
     kind: 'selected' as const,
+    readiness: 'startup_pending',
+    persistedSelection: 'updated',
+    startupResume: {
+        startup: 'completed',
+        epgRefresh: {
+            kind: 'succeeded',
+            result: {
+                readiness: 'ready',
+                attemptedChannelCount: 1,
+                immediateReadyChannelCount: 1,
+                backgroundQueuedChannelCount: 0,
+                failedChannelCount: 0,
+                staleCacheChannelCount: 0,
+                firstVisibleScheduleReady: true,
+            },
+        },
+    },
+    ...overrides,
 });
 
 const makeServerSelectState = (
@@ -68,7 +89,7 @@ const setServerSelectState = (
 
 const createOrchestratorStub = (): ServerSelectScreenHarness => {
     const navigation = createNavigationStub();
-    const requestChannelSetupRerun = jest.fn();
+    const requestChannelSetupRerun = jest.fn(() => ({ ok: true as const, serverId: 'srv-1' }));
     return {
         navigation,
         getNavigation: jest.fn(() => navigation),
@@ -156,6 +177,33 @@ describe('ServerSelectScreen', () => {
         const pill = container.querySelector('.server-status-pill') as HTMLElement;
         expect(pill.textContent).toContain('Slow • 250ms');
         expect(pill.classList.contains('latency-slow')).toBe(true);
+    });
+
+    it('renders relay and local HTTP as degraded connection states', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = createBodyAppendedTestContainer();
+
+        orchestrator.discoverServers.mockResolvedValue([
+            makeServer('relay', 'Relay Server'),
+            makeServer('local-http', 'Local HTTP Server'),
+        ]);
+
+        setServerSelectState(orchestrator, {
+            serverHealth: {
+                relay: { status: 'ok', type: 'relay', protocol: 'https', latencyMs: 80, testedAt: Date.now() },
+                'local-http': { status: 'ok', type: 'local', protocol: 'http', latencyMs: 30, testedAt: Date.now() },
+            },
+        });
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+        await settleScreen(screen);
+
+        const text = container.textContent ?? '';
+        expect(text).toContain('Relay - limited quality');
+        expect(text).toContain('Connected via Plex Relay - limited quality');
+        expect(text).toContain('Local HTTP - insecure');
+        expect(text).toContain('Connected over local HTTP - secure connection unavailable');
     });
 
     it('applies very-slow class for >=500ms latency', async () => {
@@ -318,6 +366,26 @@ describe('ServerSelectScreen', () => {
         expect(orchestrator.selectServer).not.toHaveBeenCalled();
         const status = container.querySelector('.screen-status') as HTMLElement;
         expect(status.textContent).toContain('Select a server from the list.');
+    });
+
+    it('shows a status message instead of no-oping when rerun setup has no selected server', async () => {
+        const orchestrator = createOrchestratorStub();
+        const container = createBodyAppendedTestContainer();
+
+        orchestrator.discoverServers.mockResolvedValue([makeServer('srv-1', 'Server One')]);
+
+        const screen = new ServerSelectScreen(container, orchestrator);
+        screen.show({ allowAutoConnect: false });
+
+        await settleScreen(screen);
+
+        const setupButton = container.querySelector('#btn-server-setup') as HTMLButtonElement | null;
+        expect(setupButton).not.toBeNull();
+
+        setupButton?.click();
+
+        expect(orchestrator.requestChannelSetupRerun).not.toHaveBeenCalled();
+        expect(container.querySelector('.screen-status')?.textContent).toContain('Select a server first.');
     });
 
     it('shows auto-connect hint only when explicitly requested', async () => {

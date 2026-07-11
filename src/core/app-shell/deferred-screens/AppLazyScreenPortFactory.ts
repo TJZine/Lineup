@@ -8,6 +8,7 @@ import type {
 } from '../../../modules/ui/server-select';
 import type { GuideSettingChange } from '../../../modules/ui/settings/types';
 import type { ThemeName } from '../../../modules/ui/theme';
+import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
@@ -41,7 +42,7 @@ interface AppShellChannelSetupRuntimeSource {
     getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
     getSelectedServerId(): string | null;
     openServerSelect(): void;
-    switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void>;
+    switchToChannelByNumberWithOutcome(number: number, options?: { signal?: AbortSignal }): Promise<ChannelSwitchOutcome>;
     openEPG(): void;
 }
 
@@ -57,7 +58,8 @@ export const createChannelSetupRuntimePort = (
             createChannelSetupScreenWorkflowPort(runtime.getChannelSetupWorkflowPort()),
         getSelectedServerId: () => runtime.getSelectedServerId(),
         openServerSelect: () => runtime.openServerSelect(),
-        switchToChannelByNumber: (number, options) => runtime.switchToChannelByNumber(number, options),
+        switchToChannelByNumberWithOutcome: (number, options) =>
+            runtime.switchToChannelByNumberWithOutcome(number, options),
         openEPG: () => runtime.openEPG(),
     };
 };
@@ -156,7 +158,12 @@ export class AppLazyScreenPortFactory {
                     case 'selection_failed':
                         return { kind: 'selection_failed', reason: result.reason };
                     case 'selected':
-                        return { kind: 'selected' };
+                        return {
+                            kind: 'selected',
+                            readiness: result.readiness,
+                            persistedSelection: result.persistedSelection,
+                            startupResume: result.startupResume,
+                        };
                     default:
                         return assertUnhandledServerSelectionResult(result);
                 }
@@ -180,7 +187,8 @@ export class AppLazyScreenPortFactory {
                 getNavigation: () => this.getNavigation(),
                 getSelectedServerId: () => runtime.getSelectedServerId(),
                 openServerSelect: () => runtime.openServerSelect(),
-                switchToChannelByNumber: (number, options) => runtime.switchToChannelByNumber(number, options),
+                switchToChannelByNumberWithOutcome: (number, options) =>
+                    runtime.switchToChannelByNumberWithOutcome(number, options),
                 openEPG: () => runtime.openEPG(),
             },
         };

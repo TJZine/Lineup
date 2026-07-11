@@ -41,11 +41,15 @@ export type RefreshMetrics = {
     cacheHits: number;
     staleCacheHits: number;
     cacheMisses: number;
-    inFlightSkipped: number;
     alreadyLoaded: number;
     liveScheduleHits: number;
+    immediateReadyChannelIds: Set<string>;
+    immediateFastReadyChannelIds: Set<string>;
+    backgroundLoadedChannelIds: Set<string>;
+    backgroundFastReadyChannelIds: Set<string>;
     immediateLoadedCount: number;
     backgroundLoadedCount: number;
+    failedChannelCount: number;
     firstVisibleScheduleReadyMs: number | null;
 };
 
@@ -67,7 +71,6 @@ export type RefreshSession = {
     backgroundChannels: ChannelConfig[];
     immediateConcurrency: number;
     backgroundConcurrency: number;
-    inFlightKept: number;
     inFlightAborted: number;
     visibleRangeIds: Set<string>;
     liveChannelId: string | null;

@@ -1,3 +1,5 @@
+import type { EpgScheduleRefreshResult } from '../../shared/epgRefresh';
+
 export type SetupStrategyKey =
     | 'collections'
     | 'playlists'
@@ -41,6 +43,26 @@ export interface ChannelSetupConfig {
 
 export type ChannelSetupContext = 'first-time' | 'existing' | 'unknown';
 
+export type ChannelSetupRerunRequestResult =
+    | { ok: true; serverId: string }
+    | { ok: false; reason: 'missing-selected-server' };
+
+export type ChannelSetupGuideRefreshFailureStage =
+    | 'prepare'
+    | 'ensure_initialized'
+    | 'prime_channels'
+    | 'refresh_schedules';
+
+export type ChannelSetupGuideRefreshSummary =
+    | EpgScheduleRefreshResult
+    | {
+        readiness: 'failed';
+        failure: {
+            kind: 'thrown';
+            stage: ChannelSetupGuideRefreshFailureStage;
+        };
+    };
+
 export interface ChannelBuildSummary {
     created: number;
     skipped: number;
@@ -49,6 +71,8 @@ export interface ChannelBuildSummary {
     canceled: boolean;
     blockedMessage?: string;
     warnings?: string[];
+    guideRefresh?: ChannelSetupGuideRefreshSummary;
+    initialChannelNumber?: number;
     lastTask?: ChannelBuildProgress['task'] | 'init';
 }
 
@@ -116,3 +140,16 @@ export interface ChannelSetupRecord extends ChannelSetupConfig {
     createdAt: number;
     updatedAt: number;
 }
+
+export type ChannelSetupCompletionFailureReason =
+    | 'quota-exceeded'
+    | 'unavailable'
+    | 'missing-active-user';
+
+export type ChannelSetupCompletionResult =
+    | { ok: true; record: ChannelSetupRecord }
+    | {
+        ok: false;
+        reason: ChannelSetupCompletionFailureReason;
+        message: string;
+    };

@@ -3,6 +3,7 @@ import type { IEPGComponent } from '../interfaces';
 import type { ChannelConfig as EpgChannel, EPGConfig, EpgVisibleRange, ScheduledProgram as EpgScheduledProgram } from '../types';
 import type { GuideSettingChange } from '../../settings/types';
 import type { ChannelSwitchOutcome } from '../../../../types/channelSwitch';
+import { isChannelSwitchFailed } from '../../../../types/channelSwitch';
 import type { IChannelManager, ChannelConfig as SchedulerChannelConfig, ResolvedChannelContent } from '../../../scheduler/channel-manager';
 import type {
     IChannelScheduler,
@@ -15,6 +16,7 @@ import {
     computeNormalizedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
+import { reportLibraryFilterPersistenceResult } from './EPGLibraryFilterPersistenceDiagnostics';
 import { countLibraryTypeVotes } from './EPGLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
 import { toEpgChannels } from '../model/adapters';
@@ -23,6 +25,7 @@ import type {
     EpgChannelSwitchOptions,
     EpgGuideSelectionSnapshot,
     EpgScheduleRefreshOptions,
+    EpgScheduleRefreshResult,
     EpgUiStatus,
 } from './EPGCoordinatorContracts';
 
@@ -325,7 +328,7 @@ export class EPGCoordinator {
             this._epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
         if (shouldClearPersistedSelection) {
-            this._epgPreferencesStore.writeSelectedLibraryId(null);
+            reportLibraryFilterPersistenceResult(this.deps.appendIssueDiagnostic, this._epgPreferencesStore.writeSelectedLibraryId(null), null, 'prime-epg-channels');
         }
 
         // Tabs (only show if enabled; EPGComponent will hide if <=1 library)
@@ -345,26 +348,8 @@ export class EPGCoordinator {
         epg.loadChannels(toEpgChannels(visible));
     }
 
-    async refreshEpgSchedules(options?: EpgScheduleRefreshOptions): Promise<void> {
-        const epg = this.deps.getEpg();
-        if (!epg) return;
-        const epgState = epg.getState();
-        const range = {
-            channelStart: epgState.viewWindow.startChannelIndex,
-            channelEnd: epgState.viewWindow.endChannelIndex,
-            timeStartMs: epgState.viewWindow.startTime,
-            timeEndMs: epgState.viewWindow.endTime,
-        };
-        const reason = options?.reason ?? 'manual';
-        const signal = options?.signal ?? null;
-        if (options?.debounceMs !== undefined) {
-            const refreshOptions = signal
-                ? { reason, debounceMs: options.debounceMs, signal }
-                : { reason, debounceMs: options.debounceMs };
-            await this.refreshEpgSchedulesForRange(range, refreshOptions);
-            return;
-        }
-        await this._refreshController.refreshEpgSchedulesForRangeNow(range, reason, signal);
+    async refreshEpgSchedules(options?: EpgScheduleRefreshOptions): Promise<EpgScheduleRefreshResult> {
+        return this._refreshController.refreshEpgSchedules(options);
     }
 
     refreshEpgScheduleForLiveChannel(): void {
@@ -376,7 +361,7 @@ export class EPGCoordinator {
         channelEnd: number;
         timeStartMs: number;
         timeEndMs: number;
-    }, options?: EpgScheduleRefreshOptions): Promise<void> {
+    }, options?: EpgScheduleRefreshOptions): Promise<EpgScheduleRefreshResult> {
         return this._refreshController.refreshEpgSchedulesForRange(range, options);
     }
 
@@ -423,7 +408,7 @@ export class EPGCoordinator {
         epg.on('channelSelected', handler);
 
         const onFilter = (payload: { libraryId: string | null }): void => {
-            this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null);
+            reportLibraryFilterPersistenceResult(this.deps.appendIssueDiagnostic, this._epgPreferencesStore.writeSelectedLibraryId(payload.libraryId ?? null), payload.libraryId ?? null);
 
             this._invalidateGuideSelection('library-filter');
             this._refreshController.handleLibraryFilterRefreshChange();
@@ -482,7 +467,7 @@ export class EPGCoordinator {
             this._epgPreferencesStore.readScheduleRangeSnapshotAndClean()
         );
         if (shouldClearPersistedSelection) {
-            this._epgPreferencesStore.writeSelectedLibraryId(null);
+            reportLibraryFilterPersistenceResult(this.deps.appendIssueDiagnostic, this._epgPreferencesStore.writeSelectedLibraryId(null), null, 'focus-current-channel');
         }
         const channels = selectVisibleChannelsForLibraryFilter(all, selectedId, shouldFilter);
         const index = channels.findIndex((channel) => channel.id === current.id);
@@ -544,11 +529,12 @@ export class EPGCoordinator {
             channelId,
             snapshot ? { guideSelectionSnapshot: snapshot } : undefined
         );
-        if (outcome === 'failed') {
+        if (isChannelSwitchFailed(outcome)) {
             this._reportIssue('epg.switchToChannelFailed', new Error('Guide channel switch failed'), {
                 channelId,
                 ratingKey: program.item.ratingKey,
                 selectedAt,
+                reason: outcome.reason,
             });
         }
     }

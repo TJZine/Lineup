@@ -195,7 +195,13 @@ function createHealthPill(
     else if (normalizedStatus === 'auth_required') statusText = 'Auth Required';
     else if (normalizedStatus === 'access_denied') statusText = 'Access Denied';
 
-    if (normalizedStatus === 'ok' && typeof health?.latencyMs === 'number' && Number.isFinite(health.latencyMs)) {
+    if (normalizedStatus === 'ok' && health?.type === 'relay') {
+        pill.classList.add('connection-degraded');
+        pill.textContent = 'Relay - limited quality';
+    } else if (normalizedStatus === 'ok' && health?.type === 'local' && health.protocol === 'http') {
+        pill.classList.add('connection-degraded');
+        pill.textContent = 'Local HTTP - insecure';
+    } else if (normalizedStatus === 'ok' && typeof health?.latencyMs === 'number' && Number.isFinite(health.latencyMs)) {
         const ms = Math.round(health.latencyMs);
         let label = 'OK';
         if (ms >= 500) {

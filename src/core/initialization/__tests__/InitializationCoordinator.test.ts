@@ -14,6 +14,8 @@ import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionSto
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 
+const SKIPPED_SAVED_SERVER_RESTORE = { kind: 'skipped_no_saved_server' } as const;
+
 const createStoredCredentials = (
     activeToken: string,
     accountToken: string,
@@ -122,7 +124,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         } as unknown as LegacyInitializationDependencies['plexAuth'];
 
         const plexDiscovery = {
-            initialize: jest.fn().mockResolvedValue(undefined),
+            initialize: jest.fn().mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE),
             isConnected: jest.fn().mockReturnValue(false),
             on: jest.fn(() => ({ dispose: jest.fn() })),
         } as unknown as LegacyInitializationDependencies['plexDiscovery'];
@@ -195,7 +197,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             getSelectedServerId: jest.fn().mockReturnValue(null),
             shouldRunAudioSetup: jest.fn().mockReturnValue(false),
             shouldRunChannelSetup: jest.fn().mockReturnValue(false),
-            switchToChannel: jest.fn(),
+            switchToChannel: jest.fn().mockResolvedValue({ kind: 'switched' }),
             openServerSelect: jest.fn(),
             buildPlexResourceUrl: jest.fn(),
         };
@@ -459,6 +461,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
         plexDiscovery.initialize.mockImplementation(async () => {
             order.push('init');
+            return SKIPPED_SAVED_SERVER_RESTORE;
         });
 
         navigation.getCurrentScreen.mockReturnValue('auth');
@@ -570,6 +573,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
         plexDiscovery.initialize.mockImplementation(async () => {
             order.push('init');
+            return SKIPPED_SAVED_SERVER_RESTORE;
         });
         plexDiscovery.isConnected.mockReturnValue(true);
 
@@ -669,7 +673,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
         ]);
-        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
         plexDiscovery.isConnected.mockReturnValue(true);
         navigation.getCurrentScreen.mockReturnValue('auth');
         (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
@@ -751,7 +755,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
         ]);
-        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
         plexDiscovery.isConnected.mockReturnValue(true);
         navigation.getCurrentScreen.mockReturnValue('auth');
         (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
@@ -865,7 +869,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 on: jest.Mock;
             };
 
-            plexDiscovery.initialize.mockResolvedValue(undefined);
+            plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
             plexDiscovery.isConnected.mockReturnValue(false);
 
             await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
@@ -1146,7 +1150,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             isConnected: jest.Mock;
         };
 
-        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
         plexDiscovery.isConnected.mockReturnValue(true);
         (callbacks.setReady as jest.Mock).mockImplementation((ready: boolean) => {
             if (ready) {
@@ -1198,7 +1202,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
         ]);
-        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
         plexDiscovery.isConnected.mockReturnValue(true);
         navigation.getCurrentScreen.mockReturnValue('auth');
 
@@ -1213,11 +1217,11 @@ describe('InitializationCoordinator (Plex Home)', () => {
         plexDiscovery.initialize.mockImplementation(() => {
             initializeCallCount += 1;
             if (initializeCallCount === 1) {
-                return new Promise<void>((resolve) => {
-                    releaseDiscoveryInitialize = resolve;
+                return new Promise<typeof SKIPPED_SAVED_SERVER_RESTORE>((resolve) => {
+                    releaseDiscoveryInitialize = (): void => resolve(SKIPPED_SAVED_SERVER_RESTORE);
                 });
             }
-            return Promise.resolve();
+            return Promise.resolve(SKIPPED_SAVED_SERVER_RESTORE);
         });
 
         const runPromise = coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
@@ -1258,8 +1262,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
         let releaseDiscoveryInitialize: (() => void) | null = null;
         plexDiscovery.initialize.mockImplementation(
             () =>
-                new Promise<void>((resolve) => {
-                    releaseDiscoveryInitialize = resolve;
+                new Promise<typeof SKIPPED_SAVED_SERVER_RESTORE>((resolve) => {
+                    releaseDiscoveryInitialize = (): void => resolve(SKIPPED_SAVED_SERVER_RESTORE);
                 })
         );
         plexDiscovery.isConnected.mockReturnValue(true);
@@ -1301,8 +1305,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
         let releaseDiscoveryInitialize: (() => void) | null = null;
         plexDiscovery.initialize.mockImplementation(
             () =>
-                new Promise<void>((resolve) => {
-                    releaseDiscoveryInitialize = resolve;
+                new Promise<typeof SKIPPED_SAVED_SERVER_RESTORE>((resolve) => {
+                    releaseDiscoveryInitialize = (): void => resolve(SKIPPED_SAVED_SERVER_RESTORE);
                 })
         );
         plexDiscovery.isConnected.mockReturnValue(true);
@@ -1336,8 +1340,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
         let releaseDiscoveryInitialize: (() => void) | null = null;
         plexDiscovery.initialize.mockImplementation(
             () =>
-                new Promise<void>((resolve) => {
-                    releaseDiscoveryInitialize = resolve;
+                new Promise<typeof SKIPPED_SAVED_SERVER_RESTORE>((resolve) => {
+                    releaseDiscoveryInitialize = (): void => resolve(SKIPPED_SAVED_SERVER_RESTORE);
                 })
         );
         plexDiscovery.isConnected.mockReturnValue(true);
@@ -1401,7 +1405,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                     markValidateTokenStarted?.();
                 })
         );
-        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
         plexDiscovery.isConnected.mockReturnValue(true);
 
         const firstRun = coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
@@ -1472,7 +1476,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                     releaseAuthValidation = (): void => resolve(true);
                 })
         );
-        plexDiscovery.initialize.mockResolvedValue(undefined);
+        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
         plexDiscovery.isConnected.mockReturnValue(true);
 
         const firstRun = coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
@@ -1611,7 +1615,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 createStoredCredentials('active-token', 'account-token')
             );
             plexAuth.validateToken.mockResolvedValue(true);
-            plexDiscovery.initialize.mockResolvedValue(undefined);
+            plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
             plexDiscovery.isConnected.mockReturnValue(true);
 
             await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
@@ -1660,7 +1664,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                     createStoredCredentials('active-token', 'account-token')
                 );
                 plexAuth.validateToken.mockResolvedValue(true);
-                plexDiscovery.initialize.mockResolvedValue(undefined);
+                plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
                 plexDiscovery.isConnected.mockReturnValue(true);
                 (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
 
@@ -1741,7 +1745,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
             (callbacks.switchToChannel as jest.Mock).mockImplementationOnce(async () => {
                 controller.abort(abortReason);
-                return 'switched';
+                return { kind: 'switched' };
             });
 
             await expect(
@@ -1772,7 +1776,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             expect(callbacks.openServerSelect).not.toHaveBeenCalled();
         });
 
-	        it('routes to player and opens server select when no channels exist', async () => {
+	        it('opens server select when no channels exist', async () => {
 	            const { coordinator, deps, callbacks } = makeCoordinator({
 	                channelManager: {
                     getCurrentChannel: jest.fn().mockReturnValue(null),
@@ -1783,9 +1787,9 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
             await coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY);
 
-            expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
+            expect(navigation.replaceScreen).not.toHaveBeenCalled();
             expect(callbacks.switchToChannel).not.toHaveBeenCalled();
-            expect(callbacks.openServerSelect).toHaveBeenCalled();
+            expect(callbacks.openServerSelect).toHaveBeenCalledTimes(1);
 	        });
 
 	        it('does not publish ready or ready lifecycle phase when post-ready routing throws', async () => {
@@ -1816,7 +1820,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            );
 	        });
 
-	        it('does not publish ready or open server select when the initial tune fails', async () => {
+	        it('keeps startup ready and routes to channel setup when the initial tune fails', async () => {
 	            const lifecycle = {
 	                setPhase: jest.fn(),
 	            } as unknown as LegacyInitializationDependencies['lifecycle'];
@@ -1829,24 +1833,19 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            });
 	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
-	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce('failed');
+	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce({
+                kind: 'failed',
+                reason: 'missing_channel',
+            });
 
-	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).rejects.toThrow(
-	                'Initial channel switch failed for current-channel-id.'
-	            );
+	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).resolves.toBeUndefined();
 
-            expect(navigation.replaceScreen).not.toHaveBeenCalledWith('player');
-            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
-            expect(callbacks.setReady).not.toHaveBeenCalledWith(true);
-            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).not.toHaveBeenCalledWith('ready');
-	            expect(callbacks.handleGlobalError).toHaveBeenCalledWith(
-	                expect.objectContaining({
-	                    code: 'INITIALIZATION_FAILED',
-	                    message: 'Initial channel switch failed for current-channel-id.',
-	                    recoverable: true,
-	                }),
-	                'start'
-	            );
+	            expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+	            expect(navigation.replaceScreen).not.toHaveBeenCalledWith('player');
+	            expect(callbacks.openServerSelect).not.toHaveBeenCalled();
+	            expect(callbacks.setReady).toHaveBeenCalledWith(true);
+	            expect((deps.lifecycle as unknown as { setPhase: jest.Mock }).setPhase).toHaveBeenCalledWith('ready');
+	            expect(callbacks.handleGlobalError).not.toHaveBeenCalled();
 	        });
 
 	        it('does not publish ready or open server select when the initial tune aborts', async () => {
@@ -1862,7 +1861,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
 	            });
 	            const navigation = deps.navigation as unknown as { replaceScreen: jest.Mock };
 
-	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce('aborted');
+	            (callbacks.switchToChannel as jest.Mock).mockResolvedValueOnce({ kind: 'aborted' });
 
 	            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).rejects.toThrow(
 	                'Initial channel switch aborted for current-channel-id.'

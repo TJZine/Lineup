@@ -26,6 +26,7 @@ export const LINEUP_STORAGE_KEYS = {
 
     // Setup / Onboarding
     AUDIO_SETUP_COMPLETE: 'lineup_audio_setup_complete',
+    CHANNEL_SETUP_RECORD_PREFIX: 'lineup_channel_setup_v3',
     LAST_PROFILE_ID: 'lineup_last_profile_id',
 
     // Display

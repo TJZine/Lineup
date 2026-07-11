@@ -30,12 +30,15 @@ const createController = (overrides?: Partial<{
 };
 
 describe('ChannelSetupRerunController', () => {
-    it('requestChannelSetupRerun is a no-op when no server is selected', () => {
+    it('requestChannelSetupRerun returns a failure when no server is selected', () => {
         const { controller, navigation, clearSetupRecord } = createController({
             getSelectedServerId: () => null,
         });
 
-        controller.requestChannelSetupRerun();
+        expect(controller.requestChannelSetupRerun()).toEqual({
+            ok: false,
+            reason: 'missing-selected-server',
+        });
 
         expect(clearSetupRecord).not.toHaveBeenCalled();
         expect(navigation.goTo).not.toHaveBeenCalled();
@@ -44,7 +47,10 @@ describe('ChannelSetupRerunController', () => {
     it('requestChannelSetupRerun clears setup record and navigates to setup', () => {
         const { controller, navigation, clearSetupRecord } = createController();
 
-        controller.requestChannelSetupRerun();
+        expect(controller.requestChannelSetupRerun()).toEqual({
+            ok: true,
+            serverId: 'server-1',
+        });
 
         expect(clearSetupRecord).toHaveBeenCalledWith('server-1');
         expect(navigation.goTo).toHaveBeenCalledWith('channel-setup');

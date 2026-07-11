@@ -50,6 +50,7 @@ export type ServerHealthType = 'local' | 'remote' | 'relay' | 'unknown';
 export type ServerHealthRecord = {
     status: ServerHealthStatus;
     type: ServerHealthType;
+    protocol?: PlexConnection['protocol'];
     latencyMs?: number;
     testedAt?: number;
 };
