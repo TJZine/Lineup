@@ -23,6 +23,7 @@ import type {
     PlexStoredCredentialsValidationResult,
 } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
+import { PlexDiscoverySelectionSupersededError } from '../modules/plex/discovery';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
 import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
@@ -417,9 +418,13 @@ const mockPlexDiscovery = {
     on: jest.fn(() => ({ dispose: jest.fn() })),
 };
 
-jest.mock('../modules/plex/discovery', () => ({
-    PlexServerDiscovery: jest.fn(() => mockPlexDiscovery),
-}));
+jest.mock('../modules/plex/discovery', () => {
+    const actual = jest.requireActual('../modules/plex/discovery');
+    return {
+        ...actual,
+        PlexServerDiscovery: jest.fn(() => mockPlexDiscovery),
+    };
+});
 
 // Mock PlexLibrary
 const mockPlexLibrary = {
@@ -1593,6 +1598,28 @@ describe('AppOrchestrator', () => {
             } finally {
                 scopeSpy.mockRestore();
             }
+        });
+
+        it('continues sign-out when discovery cleanup is synchronously superseded', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockPlexDiscovery.clearSelection.mockImplementationOnce(() => {
+                throw new PlexDiscoverySelectionSupersededError();
+            });
+
+            await expect(orchestrator.signOutPlex()).resolves.toBeUndefined();
+
+            expect(mockPlexAuth.clearCredentials).toHaveBeenCalledTimes(1);
+            expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
+        });
+
+        it('continues to propagate unrelated sign-out discovery cleanup failures', async () => {
+            await orchestrator.initialize(mockConfig);
+            const cleanupError = new Error('discovery cleanup failed');
+            mockPlexDiscovery.clearSelection.mockImplementationOnce(() => {
+                throw cleanupError;
+            });
+
+            await expect(orchestrator.signOutPlex()).rejects.toBe(cleanupError);
         });
     });
 

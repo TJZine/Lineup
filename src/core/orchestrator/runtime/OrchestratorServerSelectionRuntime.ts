@@ -1,8 +1,9 @@
 import type { IPlexAuth } from '../../../modules/plex/auth';
-import type {
-    PlexDiscoverySignalOptions,
-    IPlexServerDiscovery,
-    PlexServerSelectionResult,
+import {
+    type PlexDiscoverySignalOptions,
+    type IPlexServerDiscovery,
+    type PlexServerSelectionResult,
+    isPlexDiscoverySelectionSupersededError,
 } from '../../../modules/plex/discovery';
 import type {
     EPGCoordinator,
@@ -112,7 +113,11 @@ export class OrchestratorServerSelectionRuntime {
                         }
                     );
                 }
-                plexDiscovery.clearSelection();
+                try {
+                    plexDiscovery.clearSelection();
+                } catch (error) {
+                    if (!isPlexDiscoverySelectionSupersededError(error)) throw error;
+                }
             },
         });
         this._serverSelectionCoordinator = new ServerSelectionCoordinator({

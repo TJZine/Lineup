@@ -194,7 +194,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     ): Promise<PlexServerSelectionResult> {
         const signal = options?.signal ?? null;
         throwIfAborted(signal);
-        return this._selectServer(serverId, options, this._selectionContext.capture());
+        return this._selectServer(serverId, options, this._selectionContext.advanceSelection());
     }
     private async _selectServer(
         serverId: string,
@@ -547,7 +547,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                     this._state.selectedConnection !== null;
             },
             selectSavedServer: (serverId, restoreOptions): Promise<PlexServerSelectionResult> =>
-                this._selectServer(serverId, restoreOptions, context),
+                this._selectServer(serverId, restoreOptions, this._selectionContext.advanceSelection()),
         }, { signal });
         assertCurrent();
         return result;

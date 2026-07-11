@@ -2449,8 +2449,10 @@ describe('PlexServerDiscovery', () => {
                 name: 'PlexDiscoverySelectionSupersededError',
                 message: 'Plex discovery selection was superseded.',
             });
+            expect(new Set(Object.getOwnPropertyNames(error))).toEqual(
+                new Set(['stack', 'message', 'name'])
+            );
             expect(error).not.toHaveProperty('cause');
-            expect(JSON.stringify(error)).not.toMatch(/selected-|health-|https?:|token|generation|version/i);
         });
 
         it('rejects a reachable selection that completes after storage context changes', async () => {
@@ -2513,9 +2515,12 @@ describe('PlexServerDiscovery', () => {
             mockFetchJson([resource]);
             const discovery = new PlexServerDiscovery(mockConfig);
             await discovery.discoverServers();
+            const testConnection = jest.spyOn(discovery, 'testConnection').mockResolvedValueOnce(1);
+            await expect(discovery.selectServer('srv1')).resolves.toEqual({ kind: 'selected' });
             const snapshot = discovery.captureSelectedServerSnapshot();
+            expect(snapshot.server?.id).toBe('srv1');
             const probe = createDeferred<number>();
-            jest.spyOn(discovery, 'testConnection').mockReturnValue(probe.promise);
+            testConnection.mockReturnValue(probe.promise);
             const selection = discovery.selectServer('srv1');
             discovery.setStorageKeys('selected-b', 'health-b');
             discovery.setStorageKeys(
@@ -2528,6 +2533,48 @@ describe('PlexServerDiscovery', () => {
             expect(() => discovery.restoreSelectedServerSnapshot(snapshot)).toThrow(
                 expect.objectContaining({ name: 'PlexDiscoverySelectionSupersededError' })
             );
+        });
+
+        it('allows only the newer overlapping same-context selection to commit', async () => {
+            const secondResource = {
+                ...resource,
+                clientIdentifier: 'srv2',
+                name: 'Server Two',
+                connections: [{
+                    ...resource.connections[0],
+                    uri: 'https://srv2:32400',
+                    address: 'srv2',
+                }],
+            };
+            mockFetchJson([resource, secondResource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const firstProbe = createDeferred<number>();
+            const secondProbe = createDeferred<number>();
+            jest.spyOn(discovery, 'testConnection').mockImplementation((server) =>
+                server.id === 'srv1' ? firstProbe.promise : secondProbe.promise
+            );
+            const serverChange = jest.fn();
+            const connectionChange = jest.fn();
+            discovery.on('serverChange', serverChange);
+            discovery.on('connectionChange', connectionChange);
+
+            const firstSelection = discovery.selectServer('srv1');
+            const secondSelection = discovery.selectServer('srv2');
+            secondProbe.resolve(2);
+            await expect(secondSelection).resolves.toEqual({ kind: 'selected' });
+            firstProbe.resolve(1);
+            await expect(firstSelection).rejects.toMatchObject({
+                name: 'PlexDiscoverySelectionSupersededError',
+            });
+
+            expect(discovery.getSelectedServer()?.id).toBe('srv2');
+            expect(discovery.getSelectedConnection()?.uri).toBe('https://srv2:32400');
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv2');
+            expect(serverChange).toHaveBeenCalledTimes(1);
+            expect(serverChange).toHaveBeenCalledWith(expect.objectContaining({ id: 'srv2' }));
+            expect(connectionChange).toHaveBeenCalledTimes(1);
+            expect(connectionChange).toHaveBeenCalledWith('https://srv2:32400');
         });
 
         it('stops the successful selection suffix when serverChange switches context', async () => {

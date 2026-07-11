@@ -56,7 +56,9 @@ export interface IPlexServerDiscovery {
 
     /**
      * Persists the selection and reports a structured outcome instead of relying on side effects alone.
-     * Rejects with PlexDiscoverySelectionSupersededError when its storage context changes.
+     * Rejects with PlexDiscoverySelectionSupersededError when superseded by a storage-context
+     * change, clearSelection(), snapshot restoration, or a newer selection invocation, including
+     * when the newer invocation uses the same storage keys.
      */
     selectServer(serverId: string, options?: PlexDiscoverySignalOptions): Promise<PlexServerSelectionResult>;
     getSelectedServer(): PlexServer | null;

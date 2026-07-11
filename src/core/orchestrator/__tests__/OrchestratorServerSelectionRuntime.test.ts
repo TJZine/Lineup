@@ -1,7 +1,10 @@
 import type { InitializationCoordinator } from '../../initialization/InitializationCoordinator';
 import { STARTUP_PHASE } from '../../initialization/InitializationCoordinator';
 import type { IPlexAuth, PlexAuthData, PlexAuthToken } from '../../../modules/plex/auth';
-import type { IPlexServerDiscovery } from '../../../modules/plex/discovery';
+import {
+    type IPlexServerDiscovery,
+    PlexDiscoverySelectionSupersededError,
+} from '../../../modules/plex/discovery';
 import type { EPGCoordinator, IEPGComponent } from '../../../modules/ui/epg';
 import type {
     EpgDegradedScheduleRefreshResult,
@@ -163,6 +166,32 @@ describe('OrchestratorServerSelectionRuntime', () => {
                 dependency: 'IPlexServerDiscovery',
             }
         );
+    });
+
+    it('treats discovery supersession during selected-server cleanup as already handled', async () => {
+        const plexDiscovery = createPlexDiscovery();
+        plexDiscovery.clearSelection.mockImplementation(() => {
+            throw new PlexDiscoverySelectionSupersededError();
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+        }));
+
+        await expect(runtime.clearSelectedServer()).resolves.toBeUndefined();
+        expect(plexDiscovery.clearSelection).toHaveBeenCalledTimes(1);
+    });
+
+    it('continues to propagate unrelated discovery cleanup failures', async () => {
+        const plexDiscovery = createPlexDiscovery();
+        const cleanupError = new Error('discovery cleanup failed');
+        plexDiscovery.clearSelection.mockImplementation(() => {
+            throw cleanupError;
+        });
+        const runtime = new OrchestratorServerSelectionRuntime(createDeps({
+            getPlexDiscovery: jest.fn(() => plexDiscovery),
+        }));
+
+        await expect(runtime.clearSelectedServer()).rejects.toBe(cleanupError);
     });
 
     it('skips EPG mutations when selected-server startup resumes without an EPG coordinator', async () => {

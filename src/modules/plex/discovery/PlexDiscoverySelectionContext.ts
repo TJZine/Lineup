@@ -15,24 +15,54 @@ export function isPlexDiscoverySelectionSupersededError(
 
 export type PlexDiscoverySelectionCapture = object;
 
+interface PlexDiscoverySelectionAuthority {
+    contextGeneration: number;
+    selectionGeneration: number | null;
+}
+
 export class PlexDiscoverySelectionContext {
     private _generation = 0;
-    private readonly _captures = new WeakMap<PlexDiscoverySelectionCapture, number>();
+    private _selectionGeneration = 0;
+    private readonly _captures = new WeakMap<
+        PlexDiscoverySelectionCapture,
+        PlexDiscoverySelectionAuthority
+    >();
     private readonly _snapshotCaptures = new WeakMap<object, PlexDiscoverySelectionCapture>();
 
     capture(): PlexDiscoverySelectionCapture {
         const capture = Object.freeze({});
-        this._captures.set(capture, this._generation);
+        this._captures.set(capture, {
+            contextGeneration: this._generation,
+            selectionGeneration: null,
+        });
         return capture;
     }
 
     advance(): PlexDiscoverySelectionCapture {
         this._generation += 1;
+        this._selectionGeneration += 1;
         return this.capture();
     }
 
+    advanceSelection(): PlexDiscoverySelectionCapture {
+        this._selectionGeneration += 1;
+        const capture = Object.freeze({});
+        this._captures.set(capture, {
+            contextGeneration: this._generation,
+            selectionGeneration: this._selectionGeneration,
+        });
+        return capture;
+    }
+
     assertCurrent(capture: PlexDiscoverySelectionCapture): void {
-        if (this._captures.get(capture) !== this._generation) {
+        const authority = this._captures.get(capture);
+        if (
+            authority?.contextGeneration !== this._generation
+            || (
+                authority.selectionGeneration !== null
+                && authority.selectionGeneration !== this._selectionGeneration
+            )
+        ) {
             throw new PlexDiscoverySelectionSupersededError();
         }
     }
