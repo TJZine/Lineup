@@ -21,8 +21,12 @@ const createAuthGuard = (): { signal: AbortSignal; assertCurrent: jest.Mock } =>
 });
 
 async function flushUntil(predicate: () => boolean): Promise<void> {
-    for (let attempt = 0; attempt < 10 && !predicate(); attempt += 1) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        if (predicate()) return;
         await Promise.resolve();
+    }
+    if (!predicate()) {
+        throw new Error('flushUntil: predicate was not satisfied after 10 microtask flushes');
     }
 }
 

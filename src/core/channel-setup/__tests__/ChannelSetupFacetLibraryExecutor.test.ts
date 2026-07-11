@@ -15,6 +15,7 @@ import {
     type FacetPlanningConfigOverrides,
 } from './ChannelSetupFacetPlanningTestHelpers';
 import { PlexLibraryScopeSupersededError } from '../../../modules/plex/library';
+import { createDeferred } from '../../../__tests__/helpers';
 
 const createConfig = (overrides: FacetPlanningConfigOverrides = {}): ChannelSetupConfig => createFacetPlanningConfig({
     selectedLibraryIds: ['lib-1'],
@@ -98,6 +99,47 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
 
         await expect(createExecutor(plexLibrary, createEnabledGenreConfig())
             .loadLibraryFacets(createFacetPlanningLibrary(), 0)).rejects.toBe(stale);
+    });
+
+    it('aborts and drains sibling count recovery before rethrowing supersession', async () => {
+        const stale = new PlexLibraryScopeSupersededError();
+        const plexLibrary = createMockPlexLibrary();
+        const requestsStarted = createDeferred<void>();
+        const supersededRequest = createDeferred<number | null>();
+        const siblingSettled = createDeferred<void>();
+        const signals: AbortSignal[] = [];
+        plexLibrary.getGenres.mockResolvedValue([{ key: 'genre-1', title: 'Comedy', count: null }]);
+        plexLibrary.getDirectors.mockResolvedValue([{ key: 'director-1', title: 'Director', count: null }]);
+        plexLibrary.getLibraryItemCount.mockImplementation((_libraryId, options) => {
+            const signal = options?.signal;
+            if (!signal) throw new Error('Expected count recovery signal');
+            signals.push(signal);
+            if (signals.length === 2) requestsStarted.resolve();
+            if (signals.length === 1) return supersededRequest.promise;
+            return new Promise<number | null>((_resolve, reject) => {
+                signal.addEventListener('abort', () => {
+                    siblingSettled.resolve();
+                    reject(signal.reason);
+                }, { once: true });
+            });
+        });
+        const baseConfig = createEnabledGenreConfig();
+        const config = createConfig({
+            strategyConfig: {
+                ...baseConfig.strategyConfig,
+                genres: { enabled: true, priority: 3, scope: 'per-library' },
+                directors: { enabled: true, priority: 4, scope: 'per-library' },
+            },
+        });
+
+        const load = createExecutor(plexLibrary, config)
+            .loadLibraryFacets(createFacetPlanningLibrary(), 0);
+        await requestsStarted.promise;
+        supersededRequest.reject(stale);
+
+        await expect(load).rejects.toBe(stale);
+        await siblingSettled.promise;
+        expect(signals[1]?.aborted).toBe(true);
     });
 
     it('rethrows people-index supersession before partial-warning behavior', async () => {

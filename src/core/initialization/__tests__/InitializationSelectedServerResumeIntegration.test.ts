@@ -11,6 +11,7 @@ import {
     type InitializationCallbacks,
     type InitializationDependencies,
 } from '../InitializationCoordinator';
+import { createDeferred } from '../../../__tests__/helpers';
 
 const config: PlexAuthConfig = {
     clientIdentifier: 'integration-client', product: 'Lineup', version: '1', platform: 'webOS',
@@ -46,14 +47,16 @@ describe('selected-server auth resume integration', () => {
                 publicJwk: { kty: 'OKP', crv: 'Ed25519', x: 'public-x', alg: 'EdDSA' },
             },
         });
-        let releaseFirstDiscovery: (() => void) | null = null;
+        const firstDiscoveryStarted = createDeferred<() => void>();
         let discoveryCalls = 0;
         const discovery = {
             initialize: jest.fn(() => {
                 discoveryCalls += 1;
                 if (discoveryCalls === 1) {
                     return new Promise((resolve) => {
-                        releaseFirstDiscovery = (): void => resolve({ kind: 'skipped_no_saved_server' });
+                        firstDiscoveryStarted.resolve(
+                            (): void => resolve({ kind: 'skipped_no_saved_server' })
+                        );
                     });
                 }
                 return Promise.resolve({ kind: 'skipped_no_saved_server' });
@@ -129,9 +132,8 @@ describe('selected-server auth resume integration', () => {
         });
 
         const firstRun = coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
-        for (let attempt = 0; attempt < 20 && releaseFirstDiscovery === null; attempt += 1) {
-            await Promise.resolve();
-        }
+        const releaseFirstDiscovery = await firstDiscoveryStarted.promise;
+        expect(releaseFirstDiscovery).toEqual(expect.any(Function));
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(setReady.mock.calls.map(([ready]) => ready)).toEqual([false]);
         expect(setupEventWiring).not.toHaveBeenCalled();
@@ -146,7 +148,7 @@ describe('selected-server auth resume integration', () => {
         expect(setupEventWiring).not.toHaveBeenCalled();
         expect(openServerSelect).not.toHaveBeenCalled();
         expect(setReady.mock.calls.map(([ready]) => ready)).toEqual([false]);
-        releaseFirstDiscovery!();
+        releaseFirstDiscovery();
         await firstRun;
         await queuedRun;
 

@@ -282,10 +282,6 @@ export async function applyAuthValidationPolicy(
         return { kind: 'stop' };
     } catch (error) {
         if (isPlexAuthOperationSupersededError(error)) return { kind: 'stop' };
-        if (isPlexAuthRecoverable(error)) {
-            // A current owner-created invalid result routes above; thrown auth failures have no safe guard.
-            throw error;
-        }
         throw error;
     }
 }

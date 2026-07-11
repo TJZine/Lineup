@@ -256,7 +256,16 @@ export class ChannelSetupFacetLibraryExecutor {
             setFirstFailureOnce(countRecoveryFailure);
             return countRecoveryFailure;
         });
-        await Promise.all(recoveryTasks);
+        try {
+            await Promise.all(recoveryTasks);
+        } catch (error) {
+            if (!isPlexLibraryScopeSupersededError(error)) {
+                throw error;
+            }
+            abortLibraryFacetRequests();
+            await Promise.allSettled(recoveryTasks);
+            throw error;
+        }
         return firstFailure;
     }
     private _createNativeFacetDefinitions(library: PlexLibrarySection): NativeFacetTaskDefinition[] {
