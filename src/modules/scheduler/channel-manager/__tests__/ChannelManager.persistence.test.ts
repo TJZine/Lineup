@@ -193,6 +193,9 @@ describe('ChannelManager persistence and storage keys', () => {
         });
 
         it('completes runtime clear and key switch when flush and failure reporting throw', async () => {
+            const logger = { warn: jest.fn(), error: jest.fn() };
+            manager.dispose();
+            manager = new ChannelManager({ plexLibrary: mockLibrary, logger });
             const persistedChannel = createBaseChannel({
                 id: 'persisted-channel',
                 name: 'Persisted Channel',
@@ -223,6 +226,13 @@ describe('ChannelManager persistence and storage keys', () => {
                 'lineup_current_channel_next_scope'
             )).not.toThrow();
             expect(manager.getAllChannels()).toEqual([]);
+            expect(logger.error).toHaveBeenCalledWith(
+                'ChannelManager.clearRuntimeState could not report a pending-save flush failure',
+                {
+                    flushError: expect.objectContaining({ message: 'flush failed' }),
+                    reportingError: expect.objectContaining({ message: 'report failed' }),
+                }
+            );
 
             const newScopeChannel = await manager.createChannel({
                 name: 'New Scope Channel',

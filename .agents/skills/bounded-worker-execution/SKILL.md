@@ -65,22 +65,6 @@ Every delegated slice should specify:
 
 Do not make the worker infer the slice from a broad plan alone.
 
-## Delegation Record
-
-Before dispatch, locate the selected role in `.codex/config.toml`, read its
-exact `config_file` value, and resolve that value beneath `.codex/`. Record the
-resolved path and the model and reasoning effort read from it as `CONFIGURED
-TOML DEFAULTS` in the worker packet. Record `DISPATCH-TIME OVERRIDES`
-separately for model and reasoning effort, using `none` when a
-field is not overridden. At closeout, keep configured defaults and dispatch-time
-overrides separate. Report runtime identity as verified only when the execution
-surface exposes it; otherwise report `RUNTIME IDENTITY:
-operator-recorded/unverified` and do not present the requested values as runtime
-proof. For example, `worker_luna` resolves to
-`.codex/agents/worker-luna.toml`. Never derive a config filename from the role
-identifier. Treat the worker's `CONFIGURED ROLE` opening line as role-selection
-visibility, not proof of model or reasoning effort.
-
 ## Execution Pattern
 
 1. Decide whether delegation is justified at all.

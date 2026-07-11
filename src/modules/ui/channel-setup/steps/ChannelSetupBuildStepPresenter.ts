@@ -435,13 +435,17 @@ export class ChannelSetupBuildStepPresenter {
         if (bookkeepingError) {
             return 'Channels created; setup save needed.';
         }
-        if (guideRefresh?.readiness === 'failed') {
+        if (guideRefresh?.kind === 'failed') {
             return 'Channels created; guide refresh failed.';
         }
-        if (guideRefresh?.readiness === 'skipped') {
+        const refreshResult = guideRefresh?.result;
+        if (refreshResult?.readiness === 'failed') {
+            return 'Channels created; guide refresh failed.';
+        }
+        if (refreshResult?.readiness === 'skipped') {
             return 'Channels created; guide refresh unavailable.';
         }
-        if (guideRefresh?.readiness === 'partial') {
+        if (refreshResult?.readiness === 'partial') {
             return 'Channels created; guide needs attention.';
         }
         return 'Channels ready.';
@@ -455,12 +459,18 @@ export class ChannelSetupBuildStepPresenter {
         if (bookkeepingError) {
             warnings.push(`Channels were created, but setup completion could not be saved: ${bookkeepingError}`);
         }
-        if (guideRefresh?.readiness === 'failed') {
+        if (guideRefresh?.kind === 'failed') {
             warnings.push('Guide data could not be refreshed. Open the guide again after schedules finish loading.');
-        } else if (guideRefresh?.readiness === 'skipped') {
+            return warnings.join(' ');
+        }
+
+        const refreshResult = guideRefresh?.result;
+        if (refreshResult?.readiness === 'failed') {
+            warnings.push('Guide data could not be refreshed. Open the guide again after schedules finish loading.');
+        } else if (refreshResult?.readiness === 'skipped') {
             warnings.push('Guide data was not refreshed. Open the guide again after schedules finish loading.');
-        } else if (guideRefresh?.readiness === 'partial') {
-            warnings.push(`${guideRefresh.failedChannelCount} channel schedules could not be refreshed immediately.`);
+        } else if (refreshResult?.readiness === 'partial') {
+            warnings.push(`${refreshResult.failedChannelCount} channel schedules could not be refreshed immediately.`);
         }
         return warnings.join(' ');
     }

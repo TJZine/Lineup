@@ -201,11 +201,9 @@ export function writeValidRepoLocalSkillFixtures(repoRoot: string): void {
                 '1. `docs/AGENTIC_DEV_WORKFLOW.md`',
                 '2. `agents.md`',
                 '',
-                ...(skill === 'bounded-worker-execution'
+                ...(skill === 'model-selection'
                     ? [
-                        'Record CONFIGURED TOML DEFAULTS for model and reasoning effort.',
-                        'Record DISPATCH-TIME OVERRIDES separately for model and reasoning effort.',
-                        'Only verify RUNTIME IDENTITY when the execution surface exposes it; otherwise report operator-recorded/unverified.',
+                        'Use `worker_luna` only under the canonical eligibility policy in `docs/AGENTIC_DEV_WORKFLOW.md`.',
                         '',
                     ]
                     : []),
@@ -378,12 +376,8 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
             '- Once a delegated `planner` pass is active, keep it authoritative for plan authoring until it finishes, explicitly blocks, fails, or is abandoned after wait/status-check/wait with no usable progress signal.',
             '- While that delegated planner is active, limit controller-side inspection to explicit blocker or seam resolution; do not do competing local plan drafting or redundant planning discovery.',
-            '',
-            '## Subagent Transparency',
-            '',
-            'Record CONFIGURED TOML DEFAULTS for model and reasoning effort.',
-            'Record DISPATCH-TIME OVERRIDES separately for model and reasoning effort.',
-            'Only verify RUNTIME IDENTITY when the execution surface exposes it; otherwise report operator-recorded/unverified.',
+            '- `worker_luna` eligibility is owned here: require `IMPLEMENTER_ROLE_ELIGIBILITY: worker_luna`, exact files and constraints, explicit verification, and no unresolved product or architecture decision.',
+            '- `worker_luna` must stop and escalate on ambiguity, including a verification failure that requires diagnosis.',
             '',
             'A final `P#-W#` plan must include a `Priority-exit readiness` section, assign a single final owner to each deferred or split follow-up item, and record any exact `P0` security issue ids before starting or planning the next priority.',
             'No `P(n+1)` checklist item, plan, or implementation work may open while `P#-EXIT` is unresolved.',
@@ -633,6 +627,8 @@ export function writeRoleWorkflowClaimFixture(repoRoot: string): void {
         '',
         '- Repo-defined Codex roles are tracked in `.codex/config.toml`.',
         '- Role configs live under `.codex/agents/*.toml`.',
+        '- `worker_luna` eligibility is owned here: require `IMPLEMENTER_ROLE_ELIGIBILITY: worker_luna`, exact files and constraints, explicit verification, and no unresolved product or architecture decision.',
+        '- `worker_luna` must stop and escalate on ambiguity, including a verification failure that requires diagnosis.',
         '',
     ].join('\n');
 

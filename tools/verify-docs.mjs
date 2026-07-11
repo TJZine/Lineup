@@ -633,34 +633,38 @@ function checkRetiredCodexRoleGuidance(errors) {
     }
 }
 
-function checkSubagentTransparencyContract(errors) {
-    const transparencyFiles = [
-        'docs/AGENTIC_DEV_WORKFLOW.md',
-        '.agents/skills/bounded-worker-execution/SKILL.md',
-    ];
-    const requiredMarkers = [
-        'configured toml defaults',
-        'dispatch-time overrides separately',
-        'model and reasoning effort',
-        'runtime identity',
-        'operator-recorded/unverified',
-        'execution surface exposes',
-    ];
+function checkWorkerLunaPolicyOwnership(errors) {
+    const workflow = readRepoFile('docs/AGENTIC_DEV_WORKFLOW.md', errors);
+    const modelSelection = readRepoFile('.agents/skills/model-selection/SKILL.md', errors);
+    if (workflow === null || modelSelection === null) {
+        return;
+    }
 
-    for (const relativePath of transparencyFiles) {
-        const content = readRepoFile(relativePath, errors);
-        if (content === null) {
-            continue;
+    const normalizedWorkflow = normalizeDocText(workflow);
+    const requiredWorkflowMarkers = [
+        'worker luna eligibility is owned here',
+        'implementer role eligibility: worker luna',
+        'exact files and constraints',
+        'explicit verification',
+        'no unresolved product or architecture decision',
+        'stop and escalate on ambiguity',
+        'verification failure that requires diagnosis',
+    ];
+    for (const marker of requiredWorkflowMarkers) {
+        if (!normalizedWorkflow.includes(marker)) {
+            errors.push(`Workflow doc is missing canonical worker_luna eligibility policy marker (${marker})`);
         }
+    }
 
-        const normalizedContent = normalizeDocText(content);
-        for (const marker of requiredMarkers) {
-            if (!normalizedContent.includes(marker)) {
-                errors.push(
-                    `Subagent transparency guidance must distinguish configured defaults, dispatch-time overrides, and verified runtime identity (${marker}): ${relativePath}`
-                );
-            }
-        }
+    const normalizedModelSelection = normalizeDocText(modelSelection);
+    if (
+        !normalizedModelSelection.includes('canonical eligibility policy') ||
+        !normalizedModelSelection.includes('docs/agentic dev workflow.md')
+    ) {
+        errors.push('model-selection skill must reference the canonical worker_luna eligibility policy in docs/AGENTIC_DEV_WORKFLOW.md');
+    }
+    if (normalizedModelSelection.includes('worker luna eligibility requires')) {
+        errors.push('model-selection skill must not duplicate the canonical worker_luna eligibility requirements');
     }
 }
 
@@ -1970,7 +1974,7 @@ export function checkTrackedCodexRoleConfig(errors) {
     for (const [role, roleConfig] of roleConfigContents.entries()) {
         const developerInstructions = roleConfig.parsed.developer_instructions;
         const configuredRoleMarkerPattern = new RegExp(
-            `^Begin your first assistant response with \`CONFIGURED ROLE: ${role}\` on its own line\\.`,
+            `^Begin your first assistant response with \`CONFIGURED ROLE: ${escapeRegExp(role)}\` on its own line\\.`,
             'mu'
         );
         if (typeof developerInstructions !== 'string') {
@@ -2124,7 +2128,7 @@ function main() {
     checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
     checkSessionPromptReadme(errors);
     checkRetiredCodexRoleGuidance(errors);
-    checkSubagentTransparencyContract(errors);
+    checkWorkerLunaPolicyOwnership(errors);
     checkEvalPromptReadme(errors);
     checkControlPlaneAuthorityModel(errors);
     checkRepoLocalLauncherSkillReadOrders(errors);

@@ -105,25 +105,6 @@ names one owner, the reason, verification, and a removal or revisit trigger.
 Reviewers should treat newly introduced guardrail violations as regressions
 unless that exception record exists.
 
-## Subagent Transparency
-
-At [dispatch](#multi-agent-usage-optional), locate the selected role in
-`.codex/config.toml`, read its exact `config_file` value, and resolve that value
-beneath `.codex/`. Record the resolved path and the model and reasoning effort
-read from it as `CONFIGURED TOML DEFAULTS` in the worker packet. Record
-`DISPATCH-TIME OVERRIDES` separately for model and reasoning effort, including
-an explicit override or `none` for each field.
-At [closeout](#session-handoffs), report those configured defaults and
-dispatch-time overrides as separate facts. Only label runtime model and effort
-as verified when the execution surface exposes the actual runtime identity. If
-it does not, report `RUNTIME IDENTITY: operator-recorded/unverified` using the
-requested override values, or the configured defaults when no override was
-requested, and state that they are not runtime proof. For example,
-`worker_luna` resolves to `.codex/agents/worker-luna.toml`. Never derive a
-config filename from the role identifier. The child role's `CONFIGURED ROLE`
-opening line confirms the selected role only; it does not verify model or
-reasoning effort.
-
 ## Default Workflow
 
 1. Start with the relevant process skills.
@@ -190,14 +171,15 @@ reasoning effort.
    - use repo-local `execution-plan-authoring` as the authoritative planner skill for Lineup serious plans
    - use the tracked `planner` role by default for serious planning
    - use the tracked `planner_deep` role for Tier 3, hotspot, priority-exit, cross-boundary, unresolved architecture/product seam, or security-adjacent planning; it may write planning artifacts but must not implement product code
-   - a direct model override is allowed only as an escalation state for ambiguous Tier 2 or moderate architecture-risk planning when `planner_deep` would be disproportionate; record the reason and override separately from the configured TOML defaults in the worker packet, and do not call either value the effective runtime model unless the execution surface exposes it
+   - a direct model override is allowed only as an escalation state for ambiguous Tier 2 or moderate architecture-risk planning when `planner_deep` would be disproportionate; record the reason in the worker packet
    - use repo-local `verification-strategy` to choose the proof mode before freezing verification commands or deciding whether new tests are needed
    - serious tracked plans must be decision-complete at the seam, scope, ownership, and verification level without turning into pseudo-code master plans
    - serious tracked plans should freeze expensive-to-get-wrong decisions and deliberately leave ordinary local coding choices delegated unless a narrow contract snippet materially reduces risk
    - serious tracked plans must record explicit stop-and-replan conditions under the seam gate or an adjacent replan block; implementers should not invent replan policy mid-run
    - when a weaker or cheaper implementer needs extra current-unit detail, emit a bounded current-unit execution packet rather than bloating the master plan
    - when using a bounded current-unit execution packet, include `IMPLEMENTER_ROLE_ELIGIBILITY`; cleanup packets may list `worker_luna | worker | cleanup_worker`, while feature packets may list `worker_luna | worker`
-   - use `worker_luna` only for approved, bounded, exact, cheap-to-verify execution units; it must stop/escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis
+   - `worker_luna` eligibility is owned here: the packet must declare `IMPLEMENTER_ROLE_ELIGIBILITY: worker_luna` or an eligibility set containing the exact `worker_luna` token; the unit must name exact files and constraints, stay bounded and cheap to verify, include explicit verification, and contain no unresolved product or architecture decision
+   - `worker_luna` must stop and escalate on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or a verification failure that requires diagnosis; `worker` remains the default implementer and `cleanup_worker` remains the Tier 3 cleanup-loop default
    - before freezing a serious tracked plan, run the planner self-check from the plan standard so unresolved seams, wrong owners, contradictory scope, or missing evidence are surfaced before execution
    - if an architecture seam or adjacent contract change is still undecided, resolve that boundary before freezing a “decision-point-free” execution plan
    - every serious tracked plan must classify the verification strategy for the current execution surface as one of:

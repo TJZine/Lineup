@@ -330,7 +330,10 @@ describe('ChannelSetupBuildCommitter', () => {
         });
 
         expect(result.summary.initialChannelNumber).toBe(1);
-        expect(result.summary.guideRefresh).toEqual(READY_GUIDE_REFRESH);
+        expect(result.summary.guideRefresh).toEqual({
+            kind: 'completed',
+            result: READY_GUIDE_REFRESH,
+        });
         expect(result.epgRefreshFailed).toBe(false);
     });
 
@@ -388,11 +391,10 @@ describe('ChannelSetupBuildCommitter', () => {
             `[ChannelSetup] EPG refresh failed after commit: ${message}`,
         ]);
         expect(result.summary.guideRefresh).toEqual({
-            readiness: 'failed',
+            kind: 'failed',
             failure: { kind: 'thrown', stage },
         });
-        expect(result.summary.guideRefresh).not.toHaveProperty('attemptedChannelCount');
-        expect(result.summary.guideRefresh).not.toHaveProperty('failedChannelCount');
+        expect(result.summary.guideRefresh).not.toHaveProperty('result');
         expect(progress.at(-1)).toEqual({
             task: 'done',
             label: 'Done!',
@@ -427,7 +429,10 @@ describe('ChannelSetupBuildCommitter', () => {
             reportProgress: (): void => undefined,
         });
 
-        expect(result.summary.guideRefresh).toEqual(partialGuideRefresh);
+        expect(result.summary.guideRefresh).toEqual({
+            kind: 'completed',
+            result: partialGuideRefresh,
+        });
         expect(result.summary.warnings?.[0]).toContain(
             '[ChannelSetup] EPG refresh completed with degraded guide readiness'
         );
@@ -459,7 +464,10 @@ describe('ChannelSetupBuildCommitter', () => {
             reportProgress: (): void => undefined,
         });
 
-        expect(result.summary.guideRefresh).toEqual(skippedGuideRefresh);
+        expect(result.summary.guideRefresh).toEqual({
+            kind: 'completed',
+            result: skippedGuideRefresh,
+        });
         expect(result.summary.warnings?.[0]).toContain(
             '[ChannelSetup] EPG refresh completed with degraded guide readiness'
         );
@@ -489,7 +497,10 @@ describe('ChannelSetupBuildCommitter', () => {
             reportProgress: (): void => undefined,
         });
 
-        expect(result.summary.guideRefresh).toEqual(supersededGuideRefresh);
+        expect(result.summary.guideRefresh).toEqual({
+            kind: 'completed',
+            result: supersededGuideRefresh,
+        });
         expect(result.summary.warnings).toBeUndefined();
         expect(result.epgRefreshFailed).toBe(false);
     });
