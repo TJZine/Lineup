@@ -1,4 +1,8 @@
-import type { PlexDiscoverySignalOptions, PlexServerSelectionResult } from '../../modules/plex/discovery';
+import {
+    isPlexDiscoverySelectionSupersededError,
+    type PlexDiscoverySignalOptions,
+    type PlexServerSelectionResult,
+} from '../../modules/plex/discovery';
 import { throwIfSelectionAborted } from './ServerSelectionAbort';
 import type {
     DiscoverySelectedServerSnapshot,
@@ -80,6 +84,7 @@ export class ServerSelectionCoordinator {
         try {
             selectionResult = await this._deps.selectServer(serverId, options);
         } catch (error) {
+            if (isPlexDiscoverySelectionSupersededError(error)) throw error;
             this._tryRestoreDiscoverySelectionSnapshot(discoverySnapshot);
             throw error;
         }

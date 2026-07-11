@@ -4,6 +4,10 @@
  */
 
 import { PlexServerDiscovery } from '../PlexServerDiscovery';
+import {
+    PlexDiscoverySelectionSupersededError,
+    isPlexDiscoverySelectionSupersededError,
+} from '../index';
 import { PLEX_DISCOVERY_CONSTANTS } from '../constants';
 import {
     createDeferred,
@@ -1238,6 +1242,7 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('preserves the previous successful selection when a later switch attempt fails', async () => {
+            expectConsoleWarn('No working connections found');
             const discovery = new PlexServerDiscovery(mockConfig);
 
             mockFetchJson([
@@ -1263,22 +1268,9 @@ describe('PlexServerDiscovery', () => {
 
             await discovery.discoverServers();
 
-            const connectionSpy = jest.spyOn(discovery, 'findFastestConnection');
-            connectionSpy.mockImplementation(async (server) => {
-                if (server.id === 'srv1') {
-                    return {
-                        connection: createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' }),
-                        authRequired: false,
-                        authState: null,
-                    };
-                }
-
-                return {
-                    connection: null,
-                    authRequired: false,
-                    authState: null,
-                };
-            });
+            jest.spyOn(discovery, 'testConnection').mockImplementation(async (server) =>
+                server.id === 'srv1' ? 1 : null
+            );
 
             await expect(discovery.selectServer('srv1')).resolves.toEqual({ kind: 'selected' });
             await expect(discovery.selectServer('srv2')).resolves.toEqual({
@@ -1312,11 +1304,7 @@ describe('PlexServerDiscovery', () => {
                 },
             ]);
             await discovery.discoverServers();
-            jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
-                connection: createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' }),
-                authRequired: false,
-                authState: null,
-            });
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
 
             await expect(discovery.selectServer('srv1')).resolves.toEqual({ kind: 'selected' });
 
@@ -1364,14 +1352,7 @@ describe('PlexServerDiscovery', () => {
 
             await discovery.discoverServers();
 
-            jest.spyOn(discovery, 'findFastestConnection').mockImplementation(async (server) => ({
-                connection: createMockConnection({
-                    uri: `https://${server.id}:32400`,
-                    address: server.id,
-                }),
-                authRequired: false,
-                authState: null,
-            }));
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
 
             await discovery.selectServer('srv1');
             const snapshot = discovery.captureSelectedServerSnapshot();
@@ -1405,11 +1386,7 @@ describe('PlexServerDiscovery', () => {
             await discovery.discoverServers();
             const emptySnapshot = discovery.captureSelectedServerSnapshot();
 
-            jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
-                connection: createMockConnection({ uri: 'https://srv1:32400', address: 'srv1' }),
-                authRequired: false,
-                authState: null,
-            });
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
 
             await discovery.selectServer('srv1');
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
@@ -1536,6 +1513,7 @@ describe('PlexServerDiscovery', () => {
         });
 
         it('returns selection_failed when saved server restore has no usable connection', async () => {
+            expectConsoleWarn('No working connections found');
             mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, 'srv1');
 
             const mockServers = [
@@ -1567,11 +1545,7 @@ describe('PlexServerDiscovery', () => {
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
-            jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
-                connection: null,
-                authRequired: false,
-                authState: null,
-            });
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(null);
 
             await expect(discovery.initialize()).resolves.toEqual({
                 kind: 'selection_failed',
@@ -1624,16 +1598,9 @@ describe('PlexServerDiscovery', () => {
             discovery.on('connectionChange', (uri) => {
                 connectionChanges.push(uri);
             });
-            jest.spyOn(discovery, 'findFastestConnection').mockImplementation(async (server) => {
+            jest.spyOn(discovery, 'testConnection').mockImplementation(async () => {
                 controller.abort(abortReason);
-                return {
-                    connection: {
-                        ...server.connections[0]!,
-                        latencyMs: 1,
-                    },
-                    authRequired: false,
-                    authState: null,
-                };
+                return 1;
             });
 
             await expect(discovery.initialize({ signal: controller.signal })).rejects.toBe(abortReason);
@@ -1697,14 +1664,7 @@ describe('PlexServerDiscovery', () => {
             });
 
             const discovery = new PlexServerDiscovery(mockConfig);
-            const fastestSpy = jest.spyOn(discovery, 'findFastestConnection').mockImplementation(async (server) => ({
-                connection: {
-                    ...server.connections[0]!,
-                    latencyMs: 1,
-                },
-                authRequired: false,
-                authState: null,
-            }));
+            const probeSpy = jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
 
             const connectionChanges: Array<string | null> = [];
             discovery.on('connectionChange', (uri) => {
@@ -1722,7 +1682,7 @@ describe('PlexServerDiscovery', () => {
 
             expect(discovery.getSelectedServer()?.id).toBe('srvB');
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srvB');
-            expect(fastestSpy).toHaveBeenCalledTimes(2);
+            expect(probeSpy).toHaveBeenCalledTimes(2);
             expect(connectionChanges).toHaveLength(2);
         });
 
@@ -1829,14 +1789,7 @@ describe('PlexServerDiscovery', () => {
             (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
             const discovery = new PlexServerDiscovery(mockConfig);
-            const fastestSpy = jest.spyOn(discovery, 'findFastestConnection').mockImplementation(async (server) => ({
-                connection: {
-                    ...server.connections[0]!,
-                    latencyMs: 1,
-                },
-                authRequired: false,
-                authState: null,
-            }));
+            const probeSpy = jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
             const nowSpy = jest.spyOn(Date, 'now');
             let nowMs = 0;
             nowSpy.mockImplementation(() => nowMs);
@@ -1849,13 +1802,14 @@ describe('PlexServerDiscovery', () => {
                 await discovery.initialize();
 
                 expect(discovery.getServerUri()).toBe('https://new-host:32400');
-                expect(fastestSpy).toHaveBeenCalledTimes(2);
+                expect(probeSpy).toHaveBeenCalledTimes(2);
             } finally {
                 nowSpy.mockRestore();
             }
         });
 
         it('persists access_denied when connection probes fail with forbidden state', async () => {
+            expectConsoleWarn('No working connections found');
             const mockServers = [
                 {
                     clientIdentifier: 'srv1',
@@ -1878,11 +1832,7 @@ describe('PlexServerDiscovery', () => {
 
             const discovery = new PlexServerDiscovery(mockConfig);
             await discovery.discoverServers();
-            jest.spyOn(discovery, 'findFastestConnection').mockResolvedValue({
-                connection: null,
-                authRequired: false,
-                authState: 'access_denied',
-            });
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue('access_denied');
 
             const selected = await discovery.selectServer('srv1');
 
@@ -2480,6 +2430,216 @@ describe('PlexServerDiscovery', () => {
     // ============================================
     // DISC-002: Rate Limit Backoff Tests
     // ============================================
+
+    describe('selection context supersession', () => {
+        const resource = {
+            clientIdentifier: 'srv1', name: 'Server One', sourceTitle: 'user', ownerId: 'owner',
+            owned: true, provides: 'server',
+            connections: [{
+                uri: 'https://srv1:32400', protocol: 'https', address: 'srv1', port: 32400,
+                local: true, relay: false,
+            }],
+        };
+        it('exposes only the fixed sanitized public supersession contract', () => {
+            const error = new PlexDiscoverySelectionSupersededError();
+
+            expect(isPlexDiscoverySelectionSupersededError(error)).toBe(true);
+            expect(isPlexDiscoverySelectionSupersededError(new Error(error.message))).toBe(false);
+            expect(error).toMatchObject({
+                name: 'PlexDiscoverySelectionSupersededError',
+                message: 'Plex discovery selection was superseded.',
+            });
+            expect(error).not.toHaveProperty('cause');
+            expect(JSON.stringify(error)).not.toMatch(/selected-|health-|https?:|token|generation|version/i);
+        });
+
+        it('rejects a reachable selection that completes after storage context changes', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const probe = createDeferred<number>();
+            jest.spyOn(discovery, 'testConnection').mockReturnValue(probe.promise);
+            const serverChange = jest.fn();
+            const connectionChange = jest.fn();
+            discovery.on('serverChange', serverChange);
+            discovery.on('connectionChange', connectionChange);
+
+            const selection = discovery.selectServer('srv1');
+            discovery.setStorageKeys('selected-b', 'health-b');
+            probe.resolve(1);
+
+            await expect(selection).rejects.toMatchObject({ name: 'PlexDiscoverySelectionSupersededError' });
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(mockLocalStorage.getItem('selected-b')).toBeNull();
+            expect(mockLocalStorage.getItem('health-b')).toBeNull();
+            expect(serverChange).not.toHaveBeenCalled();
+            expect(connectionChange).not.toHaveBeenCalled();
+        });
+
+        it.each(['unreachable', 'auth_required', 'access_denied'] as const)(
+            'rejects a %s completion after storage context changes without writing health',
+            async (reason) => {
+                mockFetchJson([resource]);
+                const discovery = new PlexServerDiscovery(mockConfig);
+                await discovery.discoverServers();
+                const probe = createDeferred<null | 'auth_required' | 'access_denied'>();
+                jest.spyOn(discovery, 'testConnection').mockReturnValue(probe.promise);
+                const selection = discovery.selectServer('srv1');
+                discovery.setStorageKeys('selected-b', 'health-b');
+                probe.resolve(reason === 'unreachable' ? null : reason);
+
+                await expect(selection).rejects.toMatchObject({ name: 'PlexDiscoverySelectionSupersededError' });
+                expect(mockLocalStorage.getItem('health-b')).toBeNull();
+            }
+        );
+
+        it('keeps caller abort precedence when abort and context switch happen together', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const probe = createDeferred<number>();
+            jest.spyOn(discovery, 'testConnection').mockReturnValue(probe.promise);
+            const controller = new AbortController();
+            const abortReason = new Error('caller stopped selection');
+            const selection = discovery.selectServer('srv1', { signal: controller.signal });
+            controller.abort(abortReason);
+            discovery.setStorageKeys('selected-b', 'health-b');
+            probe.resolve(1);
+
+            await expect(selection).rejects.toBe(abortReason);
+        });
+
+        it('does not revive an A1 selection or snapshot after B then A2 reuses the same keys', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const snapshot = discovery.captureSelectedServerSnapshot();
+            const probe = createDeferred<number>();
+            jest.spyOn(discovery, 'testConnection').mockReturnValue(probe.promise);
+            const selection = discovery.selectServer('srv1');
+            discovery.setStorageKeys('selected-b', 'health-b');
+            discovery.setStorageKeys(
+                PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY,
+                PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY
+            );
+            probe.resolve(1);
+
+            await expect(selection).rejects.toMatchObject({ name: 'PlexDiscoverySelectionSupersededError' });
+            expect(() => discovery.restoreSelectedServerSnapshot(snapshot)).toThrow(
+                expect.objectContaining({ name: 'PlexDiscoverySelectionSupersededError' })
+            );
+        });
+
+        it('stops the successful selection suffix when serverChange switches context', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
+            const connectionChange = jest.fn();
+            discovery.on('serverChange', () => discovery.setStorageKeys('selected-b', 'health-b'));
+            discovery.on('connectionChange', connectionChange);
+
+            await expect(discovery.selectServer('srv1')).rejects.toMatchObject({
+                name: 'PlexDiscoverySelectionSupersededError',
+            });
+            expect(connectionChange).not.toHaveBeenCalled();
+            expect(mockLocalStorage.getItem('health-b')).toBeNull();
+        });
+
+        it('clearSelection invalidates an in-flight selection and gates listener re-entry', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const probe = createDeferred<number>();
+            jest.spyOn(discovery, 'testConnection').mockReturnValue(probe.promise);
+            const selection = discovery.selectServer('srv1');
+            discovery.clearSelection();
+            probe.resolve(1);
+            await expect(selection).rejects.toMatchObject({ name: 'PlexDiscoverySelectionSupersededError' });
+
+            const connectionChange = jest.fn();
+            discovery.on('serverChange', () => discovery.setStorageKeys('selected-b', 'health-b'));
+            discovery.on('connectionChange', connectionChange);
+            expect(() => discovery.clearSelection()).toThrow(
+                expect.objectContaining({ name: 'PlexDiscoverySelectionSupersededError' })
+            );
+            expect(connectionChange).not.toHaveBeenCalled();
+            expect(mockLocalStorage.getItem('selected-b')).toBeNull();
+        });
+
+        it('gates snapshot restore after a reentrant serverChange context switch', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const snapshot = discovery.captureSelectedServerSnapshot();
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
+            await discovery.selectServer('srv1');
+            const connectionChange = jest.fn();
+            discovery.on('serverChange', () => discovery.setStorageKeys('selected-b', 'health-b'));
+            discovery.on('connectionChange', connectionChange);
+
+            expect(() => discovery.restoreSelectedServerSnapshot(snapshot)).toThrow(
+                expect.objectContaining({ name: 'PlexDiscoverySelectionSupersededError' })
+            );
+            expect(connectionChange).not.toHaveBeenCalled();
+            expect(mockLocalStorage.getItem('selected-b')).toBeNull();
+        });
+
+        it('snapshot restore invalidates an in-flight selection', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const snapshot = discovery.captureSelectedServerSnapshot();
+            const probe = createDeferred<number>();
+            jest.spyOn(discovery, 'testConnection').mockReturnValue(probe.promise);
+
+            const selection = discovery.selectServer('srv1');
+            discovery.restoreSelectedServerSnapshot(snapshot);
+            probe.resolve(1);
+
+            await expect(selection).rejects.toMatchObject({ name: 'PlexDiscoverySelectionSupersededError' });
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBeNull();
+        });
+
+        it('rejects initialize when its discovery continuation crosses storage context', async () => {
+            const response = createDeferred<ReturnType<typeof createMockFetchResponse>>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockReturnValue(response.promise);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const initialization = discovery.initialize();
+            discovery.setStorageKeys('selected-b', 'health-b');
+            response.resolve(createMockFetchResponse([resource]));
+
+            await expect(initialization).rejects.toMatchObject({ name: 'PlexDiscoverySelectionSupersededError' });
+            expect(mockLocalStorage.getItem('selected-b')).toBeNull();
+            expect(mockLocalStorage.getItem('health-b')).toBeNull();
+        });
+
+        it('does not clean or overwrite a new saved selection when initialize restore is superseded', async () => {
+            mockLocalStorage.setItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY, 'srv1');
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const probe = createDeferred<number>();
+            const probeStarted = createDeferred<void>();
+            jest.spyOn(discovery, 'testConnection').mockImplementation(() => {
+                probeStarted.resolve();
+                return probe.promise;
+            });
+            const serverChange = jest.fn();
+            discovery.on('serverChange', serverChange);
+
+            const initialization = discovery.initialize();
+            await probeStarted.promise;
+            discovery.setStorageKeys('selected-b', 'health-b');
+            mockLocalStorage.setItem('selected-b', 'new-saved-server');
+            probe.resolve(1);
+
+            await expect(initialization).rejects.toMatchObject({ name: 'PlexDiscoverySelectionSupersededError' });
+            expect(mockLocalStorage.getItem('selected-b')).toBe('new-saved-server');
+            expect(mockLocalStorage.getItem('health-b')).toBeNull();
+            expect(serverChange).not.toHaveBeenCalled();
+        });
+    });
 
     describe('rate limit handling', () => {
         it('should retry after 429 with Retry-After header', async () => {

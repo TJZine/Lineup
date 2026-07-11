@@ -8,7 +8,11 @@ import {
     isPlexAuthOperationSupersededError,
     isPlexAuthRecoverable,
 } from '../../modules/plex/auth';
-import type { IPlexServerDiscovery, PlexSavedServerRestoreResult } from '../../modules/plex/discovery';
+import {
+    isPlexDiscoverySelectionSupersededError,
+    type IPlexServerDiscovery,
+    type PlexSavedServerRestoreResult,
+} from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
@@ -294,6 +298,7 @@ export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicy
         savedServerRestore = await inputs.plexDiscovery.initialize({ signal: inputs.signal ?? null });
         throwIfStartupAborted(inputs.signal);
     } catch (error) {
+        if (isPlexDiscoverySelectionSupersededError(error)) throw error;
         if (isPlexAuthRecoverable(error)) {
             throw error;
         }

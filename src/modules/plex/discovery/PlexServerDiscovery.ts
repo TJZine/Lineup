@@ -17,7 +17,7 @@ import {
     MixedContentConfig,
     PlexDiscoverySelectedServerSnapshot,
 } from './types';
-import { findFastestConnectionProbe } from './discoveryProbe';
+import { findFastestPlexConnection } from './discoveryProbe';
 import { throwIfAborted, throwIfCallerAbort } from './PlexDiscoveryAbort';
 import type { PlexConnectionProbeResult } from './PlexConnectionProbeTypes';
 import { AppErrorCode } from '../../../types/app-errors';
@@ -34,9 +34,11 @@ import { logPlexError, logPlexWarning } from '../shared/plexLogging';
 import { discoverPlexResourcesWithRequestPolicy } from './PlexResourceDiscoveryRequestPolicy';
 import { probePlexConnection } from './PlexConnectionProbeRequest';
 import { restoreSavedPlexServerSelection } from './PlexSavedServerRestore';
-
+import {
+    PlexDiscoverySelectionCapture,
+    PlexDiscoverySelectionContext,
+} from './PlexDiscoverySelectionContext';
 export { PlexApiError };
-
 export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _state: PlexServerDiscoveryState;
     private _emitter: EventEmitter<PlexServerDiscoveryEvents>;
@@ -45,9 +47,9 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _serverSelectionStore: ServerSelectionStore;
     private _discoveryRequest: PlexDiscoverySharedRequest<PlexServer[]> | null = null;
     private _discoveryContextVersion = 0;
+    private readonly _selectionContext = new PlexDiscoverySelectionContext();
     private _selectedServerStorageKey: string;
     private _serverHealthStorageKey: string;
-
     constructor(config: PlexServerDiscoveryConfig) {
         this._getAuthHeaders = config.getAuthHeaders;
         this._emitter = new EventEmitter<PlexServerDiscoveryEvents>();
@@ -66,7 +68,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             isDiscovering: false,
         };
     }
-
     public discoverServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]> {
         const signal = options?.signal ?? null;
         throwIfAborted(signal);
@@ -77,11 +78,9 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         ) {
             return Promise.resolve(clonePlexServers(this._state.servers));
         }
-
         if (this._discoveryRequest) {
             return this._discoveryRequest.awaitSnapshot(signal, clonePlexServers);
         }
-
         const contextVersion = this._discoveryContextVersion;
         const discoveryAbortController = new AbortController();
         let discoveryRequest: PlexDiscoverySharedRequest<PlexServer[]> | null = null;
@@ -92,13 +91,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             .finally(clearDiscoveryRequest);
         discoveryRequest = new PlexDiscoverySharedRequest(discoveryPromise, discoveryAbortController, clearDiscoveryRequest);
         this._discoveryRequest = discoveryRequest;
-
         return discoveryRequest.awaitSnapshot(signal, clonePlexServers);
     }
-
     private async _doDiscoverServers(contextVersion: number, signal: AbortSignal | null = null): Promise<PlexServer[]> {
         this._state.isDiscovering = true;
-
         try {
             throwIfAborted(signal);
             const headers = this._getAuthHeaders();
@@ -106,16 +102,13 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             throwIfAborted(signal);
             const servers = this._parseResources(resources);
             throwIfAborted(signal);
-
             // Discovery can race with profile/storage-key switches. Ignore results
             // from stale contexts so they cannot overwrite the active user's state.
             if (contextVersion !== this._discoveryContextVersion) {
                 return clonePlexServers(this._state.servers);
             }
-
             this._state.servers = servers;
             this._state.lastRefreshAt = Date.now();
-
             return clonePlexServers(servers);
         } catch (error) {
             throwIfCallerAbort(error, signal);
@@ -151,9 +144,12 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         options?: PlexDiscoverySignalOptions
     ): Promise<number | 'auth_required' | 'access_denied' | null> {
         const probe = await this._probeConnection(connection, options);
-        return this._mapProbeToPublicTestResult(probe);
+        if (probe.outcome === 'reachable') return probe.connection.latencyMs;
+        if (probe.outcome === 'auth_required' || probe.outcome === 'access_denied') {
+            return probe.outcome;
+        }
+        return null;
     }
-
     private async _probeConnection(
         connection: PlexConnection,
         options?: PlexDiscoverySignalOptions
@@ -165,7 +161,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             signal: options?.signal ?? null,
         });
     }
-
     public async findFastestConnection(
         server: PlexServer,
         options?: PlexDiscoverySignalOptions
@@ -174,153 +169,128 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         authRequired: boolean;
         authState: 'auth_required' | 'access_denied' | null;
     }> {
-        const probeSummary = await findFastestConnectionProbe({
+        return this._findFastestConnection(server, options);
+    }
+    private async _findFastestConnection(
+        server: PlexServer,
+        options?: PlexDiscoverySignalOptions,
+        assertCurrent?: () => void
+    ): Promise<{
+        connection: PlexConnection | null;
+        authRequired: boolean;
+        authState: 'auth_required' | 'access_denied' | null;
+    }> {
+        return findFastestPlexConnection({
             server,
             mixedContentConfig: this._mixedContentConfig,
-            probeConnection: (connection) => this._probeConnectionFromTestConnection(server, connection, options),
+            testConnection: (connection) => this.testConnection(server, connection, options),
             signal: options?.signal ?? null,
+            ...(assertCurrent ? { assertCurrent } : {}),
         });
-
-        return {
-            connection: probeSummary.selectedProbe?.connection ?? null,
-            authRequired: probeSummary.authRequired,
-            authState: probeSummary.authState,
-        };
     }
-
-    private _mapProbeToPublicTestResult(
-        probe: PlexConnectionProbeResult
-    ): number | 'auth_required' | 'access_denied' | null {
-        if (probe.outcome === 'reachable') {
-            return probe.connection.latencyMs;
-        }
-        if (probe.outcome === 'auth_required' || probe.outcome === 'access_denied') {
-            return probe.outcome;
-        }
-        return null;
-    }
-
-    private async _probeConnectionFromTestConnection(
-        server: PlexServer,
-        connection: PlexConnection,
-        options?: PlexDiscoverySignalOptions
-    ): Promise<PlexConnectionProbeResult> {
-        const publicResult = await this.testConnection(server, connection, options);
-
-        if (typeof publicResult === 'number') {
-            return {
-                connection: this._createConnectionWithLatency(connection, publicResult),
-                outcome: 'reachable',
-            };
-        }
-        if (publicResult === 'auth_required' || publicResult === 'access_denied') {
-            return {
-                connection,
-                outcome: publicResult,
-            };
-        }
-        return {
-            connection,
-            outcome: 'unreachable',
-        };
-    }
-
-    private _createConnectionWithLatency(conn: PlexConnection, latency: number): PlexConnection {
-        return {
-            uri: conn.uri,
-            protocol: conn.protocol,
-            address: conn.address,
-            port: conn.port,
-            local: conn.local,
-            relay: conn.relay,
-            latencyMs: latency,
-        };
-    }
-
     public async selectServer(
         serverId: string,
         options?: PlexDiscoverySignalOptions
     ): Promise<PlexServerSelectionResult> {
+        const signal = options?.signal ?? null;
+        throwIfAborted(signal);
+        return this._selectServer(serverId, options, this._selectionContext.capture());
+    }
+    private async _selectServer(
+        serverId: string,
+        options: PlexDiscoverySignalOptions | undefined,
+        context: PlexDiscoverySelectionCapture
+    ): Promise<PlexServerSelectionResult> {
+        const signal = options?.signal ?? null;
+        const assertCurrent = (): void => this._assertSelectionCurrent(signal, context);
+        assertCurrent();
         const server = this._findServerById(serverId);
-
         if (!server) {
+            assertCurrent();
             return { kind: 'server_not_found' };
         }
-
-        const { connection, authRequired, authState } = await this.findFastestConnection(server, options);
-        throwIfAborted(options?.signal ?? null);
-
+        const { connection, authRequired, authState } = await this._findFastestConnection(
+            server,
+            options,
+            assertCurrent
+        );
+        assertCurrent();
         if (!connection) {
             const reason = authState ?? (authRequired ? 'auth_required' : 'unreachable');
+            assertCurrent();
             this._persistServerHealth(serverId, reason);
+            assertCurrent();
             return {
                 kind: 'connection_unavailable',
                 reason,
             };
         }
-
         const serverWithConnection: PlexServer = {
             ...server,
             preferredConnection: connection,
         };
-
+        assertCurrent();
         this._state.selectedServer = serverWithConnection;
+        assertCurrent();
         this._state.selectedConnection = connection;
-
+        assertCurrent();
         this._serverSelectionStore.writeSelectedServerId(serverId);
-
+        assertCurrent();
         this._emitter.emit('serverChange', serverWithConnection);
+        assertCurrent();
         this._emitter.emit('connectionChange', connection.uri);
-
+        assertCurrent();
         this._persistServerHealth(serverId, 'ok', {
             connection: connection,
             latency: connection.latencyMs ?? 0
         });
-
+        assertCurrent();
         return { kind: 'selected' };
     }
 
     public captureSelectedServerSnapshot(): PlexDiscoverySelectedServerSnapshot {
-        return {
+        return this._selectionContext.retainSnapshot({
             server: cloneSelectedPlexServer(this._state.selectedServer, this._state.selectedConnection),
             connection: clonePlexConnection(this._state.selectedConnection),
             storedServerId: this._serverSelectionStore.readSelectedServerId(),
-        };
+        });
     }
-
     public restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void {
+        this._selectionContext.assertSnapshotCurrent(snapshot);
+        const context = this._selectionContext.advance();
+        const assertCurrent = (): void => this._selectionContext.assertCurrent(context);
         const previousServerId = this._state.selectedServer?.id ?? null;
         const previousConnectionUri = this._state.selectedConnection?.uri ?? null;
         const nextConnection = clonePlexConnection(snapshot.connection);
         const nextServer = cloneSelectedPlexServer(snapshot.server, nextConnection);
-
+        assertCurrent();
         this._state.selectedServer = nextServer;
+        assertCurrent();
         this._state.selectedConnection = nextConnection;
-
+        assertCurrent();
         if (snapshot.storedServerId) {
             this._serverSelectionStore.writeSelectedServerId(snapshot.storedServerId);
         } else {
             this._serverSelectionStore.clearSelectedServerId();
         }
-
         const nextServerId = nextServer?.id ?? null;
         const nextConnectionUri = nextConnection?.uri ?? null;
         if (previousServerId !== nextServerId) {
+            assertCurrent();
             this._emitter.emit('serverChange', nextServer);
         }
         if (previousConnectionUri !== nextConnectionUri) {
+            assertCurrent();
             this._emitter.emit('connectionChange', nextConnectionUri);
         }
+        assertCurrent();
     }
-
     public getSelectedServer(): PlexServer | null {
         return cloneSelectedPlexServer(this._state.selectedServer, this._state.selectedConnection);
     }
-
     public getSelectedConnection(): PlexConnection | null {
         return clonePlexConnection(this._state.selectedConnection);
     }
-
     public getServerUri(): string | null {
         if (this._state.selectedConnection) {
             return this._state.selectedConnection.uri;
@@ -332,7 +302,6 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         if (!server) {
             return null;
         }
-
         for (const conn of server.connections) {
             if (conn.protocol === 'https' && !conn.relay) {
                 return clonePlexConnection(conn);
@@ -340,13 +309,11 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
         return null;
     }
-
     public getRelayConnection(): PlexConnection | null {
         const server = this._state.selectedServer;
         if (!server) {
             return null;
         }
-
         for (const conn of server.connections) {
             if (conn.relay) {
                 return clonePlexConnection(conn);
@@ -354,19 +321,24 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
         return null;
     }
-
     public getActiveConnectionUri(): string | null {
         return this.getServerUri();
     }
-
     public clearSelection(): void {
+        const context = this._selectionContext.advance();
+        const assertCurrent = (): void => this._selectionContext.assertCurrent(context);
+        assertCurrent();
         this._state.selectedServer = null;
+        assertCurrent();
         this._state.selectedConnection = null;
+        assertCurrent();
         this._serverSelectionStore.clearSelectedServerId();
+        assertCurrent();
         this._emitter.emit('serverChange', null);
+        assertCurrent();
         this._emitter.emit('connectionChange', null);
+        assertCurrent();
     }
-
     public getServers(): PlexServer[] {
         return clonePlexServers(this._state.servers);
     }
@@ -392,14 +364,16 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
 
     public async initialize(options?: PlexDiscoverySignalOptions): Promise<PlexSavedServerRestoreResult> {
         const signal = options?.signal ?? null;
+        throwIfAborted(signal);
+        const context = this._selectionContext.capture();
         const previousRefreshAt = this._state.lastRefreshAt;
         await this._discoverServersForInitialize(signal);
-        throwIfAborted(signal);
+        this._assertSelectionCurrent(signal, context);
         const refreshedDiscovery = this._state.lastRefreshAt !== previousRefreshAt;
         return this._restoreSelectionAsync({
             forceReselect: refreshedDiscovery,
             signal,
-        });
+        }, context);
     }
 
     private async _discoverServersForInitialize(signal: AbortSignal | null): Promise<void> {
@@ -431,6 +405,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         }
         // Bump context to invalidate any in-flight discovery started under the
         // previous profile/user storage namespace.
+        this._selectionContext.advance();
         this._discoveryContextVersion += 1;
         this._discoveryRequest = null;
         this._selectedServerStorageKey = normalizedSelectedServerKey;
@@ -546,20 +521,43 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     }
 
     private async _restoreSelectionAsync(
-        options?: { forceReselect?: boolean; signal?: AbortSignal | null }
+        options: { forceReselect?: boolean; signal?: AbortSignal | null } | undefined,
+        context: PlexDiscoverySelectionCapture
     ): Promise<PlexSavedServerRestoreResult> {
         const signal = options?.signal ?? null;
-        throwIfAborted(signal);
-        return restoreSavedPlexServerSelection({
-            hasDiscoveredServers: (): boolean => this._state.servers.length > 0,
-            readSavedServerId: (): string | null => this._serverSelectionStore.readSelectedServerIdAndClean(),
-            clearSavedServerId: (): void => this._serverSelectionStore.clearSelectedServerId(),
-            isSavedServerAlreadySelected: (serverId): boolean =>
-                options?.forceReselect !== true &&
-                this._state.selectedServer?.id === serverId &&
-                this._state.selectedConnection !== null,
+        const assertCurrent = (): void => this._assertSelectionCurrent(signal, context);
+        assertCurrent();
+        const result = await restoreSavedPlexServerSelection({
+            hasDiscoveredServers: (): boolean => {
+                assertCurrent();
+                return this._state.servers.length > 0;
+            },
+            readSavedServerId: (): string | null => {
+                assertCurrent();
+                return this._serverSelectionStore.readSelectedServerIdAndClean();
+            },
+            clearSavedServerId: (): void => {
+                assertCurrent();
+                this._serverSelectionStore.clearSelectedServerId();
+            },
+            isSavedServerAlreadySelected: (serverId): boolean => {
+                assertCurrent();
+                return options?.forceReselect !== true &&
+                    this._state.selectedServer?.id === serverId &&
+                    this._state.selectedConnection !== null;
+            },
             selectSavedServer: (serverId, restoreOptions): Promise<PlexServerSelectionResult> =>
-                this.selectServer(serverId, restoreOptions),
+                this._selectServer(serverId, restoreOptions, context),
         }, { signal });
+        assertCurrent();
+        return result;
+    }
+
+    private _assertSelectionCurrent(
+        signal: AbortSignal | null,
+        context: PlexDiscoverySelectionCapture
+    ): void {
+        throwIfAborted(signal);
+        this._selectionContext.assertCurrent(context);
     }
 }

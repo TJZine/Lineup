@@ -1,4 +1,5 @@
 import type { PlexServer } from '../../../plex/discovery/types';
+import { PlexDiscoverySelectionSupersededError } from '../../../plex/discovery';
 import { createDeferred } from '../../../../__tests__/helpers';
 import { ServerSelectRuntimeCoordinator } from '../ServerSelectRuntimeCoordinator';
 import type { ServerSelectRuntimeScreenAdapter } from '../ServerSelectRuntimeContracts';
@@ -209,6 +210,31 @@ describe('ServerSelectRuntimeCoordinator', () => {
         );
         expect(adapter.setAutoConnectHintVisible).toHaveBeenLastCalledWith(false);
         expect(adapter.setServerConnectButtonsDisabled).not.toHaveBeenCalledWith(true);
+    });
+
+    it('does not render a partial manual list when saved auto-connect is superseded', async () => {
+        const servers = [makeServer('srv-1', 'Server One')];
+        const ports = createPorts({
+            discoverServers: jest.fn().mockResolvedValue(servers),
+            selectServer: jest.fn().mockRejectedValue(new PlexDiscoverySelectionSupersededError()),
+            getSelectedServerScreenState: jest.fn(() => makeScreenState({ selectedServerId: 'srv-1' })),
+        } as Partial<RuntimePorts>);
+        const { runtime, adapter } = createRuntime({ ports });
+
+        runtime.show({ allowAutoConnect: true });
+        await runtime.whenIdle();
+
+        expect(adapter.renderServers).not.toHaveBeenCalledWith(
+            servers,
+            expect.anything(),
+            expect.objectContaining({ savedServerUnavailable: true })
+        );
+        expect(adapter.renderServers).toHaveBeenCalledWith(
+            [],
+            { selectedServerId: null, serverHealth: {} },
+            { emptyStateReason: 'discovery_failed' }
+        );
+        expect(adapter.setStatus).toHaveBeenCalledWith('Discovery failed.', '', 'error');
     });
 
     it('surfaces degraded successful selection details instead of generic success', async () => {

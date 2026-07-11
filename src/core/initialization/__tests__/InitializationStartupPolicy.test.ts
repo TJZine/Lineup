@@ -12,6 +12,7 @@ import type {
 } from '../../../modules/plex/auth';
 import { PlexAuth } from '../../../modules/plex/auth/PlexAuth';
 import { PLEX_AUTH_CONSTANTS } from '../../../modules/plex/auth/constants';
+import { PlexDiscoverySelectionSupersededError } from '../../../modules/plex/discovery';
 import {
     applyAuthValidationPolicy,
     applyPostReadyRoutingPolicy,
@@ -253,6 +254,17 @@ describe('applyServerConnectionPolicy', () => {
             undefined,
             expect.any(Number)
         );
+        expect(inputs.handlers.registerServerResume).not.toHaveBeenCalled();
+        expect(inputs.navigation.goTo).not.toHaveBeenCalled();
+    });
+
+    it('rethrows discovery supersession before startup fallback routing', async () => {
+        const inputs = createInputs({ kind: 'skipped_no_servers' });
+        const superseded = new PlexDiscoverySelectionSupersededError();
+        inputs.plexDiscovery.initialize = jest.fn().mockRejectedValue(superseded);
+
+        await expect(applyServerConnectionPolicy(inputs)).rejects.toBe(superseded);
+        expect(inputs.updateModuleStatus).toHaveBeenCalledTimes(1);
         expect(inputs.handlers.registerServerResume).not.toHaveBeenCalled();
         expect(inputs.navigation.goTo).not.toHaveBeenCalled();
     });

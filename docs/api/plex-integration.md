@@ -180,6 +180,12 @@ type PlexServerSelectionResult =
   | { kind: 'server_not_found' }
   | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
+class PlexDiscoverySelectionSupersededError extends Error {}
+
+function isPlexDiscoverySelectionSupersededError(
+  error: unknown
+): error is PlexDiscoverySelectionSupersededError;
+
 type PlexSavedServerRestoreResult =
   | { kind: 'skipped_no_servers' }
   | { kind: 'skipped_no_saved_server' }
@@ -261,6 +267,10 @@ Discovery list and selected-server getters return defensive snapshots. Startup i
 - `selection_failed`: the saved server id could not be selected; inspect `reason` for `server_not_found`, `unreachable`, `auth_required`, or `access_denied`. When a saved id exists but discovery returns no servers, initialization returns `selection_failed` with `server_not_found` and clears that stale saved selection.
 
 Callers may cancel their own discovery wait with `AbortSignal` without canceling the shared in-flight discovery used by other callers. Connection probes and selected-server selection accept caller cancellation signals and rethrow the caller's raw abort reason instead of converting explicit cancellation into an unreachable-server result.
+
+Server selection and saved-server initialization capture one discovery-local monotonic context before discovery or probing. A storage/profile transition, authoritative clear, or snapshot restore supersedes older work even when later storage keys reuse the same text. Superseded selection rejects with `PlexDiscoverySelectionSupersededError`; it is not a selection-result kind, abort, or application error code. Callers may classify it through `isPlexDiscoverySelectionSupersededError()` but do not own or construct selection validity. Caller abort remains the first observation at every continuation and therefore retains its raw reason when cancellation and supersession coincide.
+
+Selection revalidates before each probe continuation and before every selected-state, selected-id, event, health, and successful-return suffix. Snapshot restore validates its discovery-owned capture before advancing the context; clear and restore then guard their own synchronous mutation/event suffixes, so a re-entrant `serverChange` listener cannot continue under a newly selected storage context. Standalone `testConnection()` and `findFastestConnection()` retain their existing transport contracts.
 
 Discovery is endpoint-aware: plex.tv cloud resource discovery `401`/`403` remains an auth recovery failure, while a PMS identity-probe `403` means the active Plex profile lacks permission for that server and surfaces as `access_denied` instead of invalid stored credentials.
 Plex cloud discovery `5xx` responses surface as retryable `SERVER_ERROR` failures after discovery retry policy is exhausted; request failures without an HTTP response remain `SERVER_UNREACHABLE`.

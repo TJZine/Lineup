@@ -4,6 +4,7 @@ import type {
     PersistedSelectedServerSnapshot,
 } from '../ServerSelectionTypes';
 import type { EpgReadyScheduleRefreshResult } from '../../../shared/epgRefresh';
+import { PlexDiscoverySelectionSupersededError } from '../../../modules/plex/discovery';
 
 const readyEpgRefreshResult: EpgReadyScheduleRefreshResult = {
     readiness: 'ready',
@@ -93,6 +94,29 @@ describe('ServerSelectionCoordinator', () => {
         await expect(coordinator.selectServer('server-1')).rejects.toBe(selectionError);
 
         expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
+        expect(deps.persistSelection).not.toHaveBeenCalled();
+        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+    });
+
+    it('rethrows discovery supersession without rollback, persistence, or startup', async () => {
+        const superseded = new PlexDiscoverySelectionSupersededError();
+        const deps = {
+            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
+            restoreDiscoverySelectionSnapshot: jest.fn(),
+            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
+            selectServer: jest.fn(async () => { throw superseded; }),
+            getSelectedServerUri: jest.fn(() => null),
+            persistSelection: jest.fn(async () => 'updated' as const),
+            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
+            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
+            rollbackStartupAfterSelectionFailure: jest.fn(),
+            getReadiness: jest.fn(() => 'startup_pending' as const),
+        };
+        const coordinator = new ServerSelectionCoordinator(deps);
+
+        await expect(coordinator.selectServer('server-1')).rejects.toBe(superseded);
+        expect(deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
         expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
         expect(deps.persistSelection).not.toHaveBeenCalled();
         expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
