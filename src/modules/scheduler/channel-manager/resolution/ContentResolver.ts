@@ -13,6 +13,7 @@ import type {
     PlaybackMode,
 } from '../contracts/types';
 import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
+import { isPlexLibraryScopeSupersededError } from '../../../plex/library';
 import { ContentItemMapper } from './ContentItemMapper';
 import { ContentSelectionPolicy } from './ContentSelectionPolicy';
 import { SourceResolutionCache } from './SourceResolutionCache';
@@ -176,6 +177,9 @@ export class ContentResolver {
                     expanded.push(this._mapper.toResolvedItem(merged, 0));
                 }
             } catch (error) {
+                if (isPlexLibraryScopeSupersededError(error)) {
+                    throw error;
+                }
                 if (options?.strict || isAbortLikeError(error, options?.signal ?? undefined)) {
                     throw error;
                 }
@@ -265,6 +269,9 @@ export class ContentResolver {
                 shows = await this._library.getLibraryItems(source.libraryId, options);
                 this._showCacheByLibraryId.set(source.libraryId, { items: shows, cachedAt: now });
             } catch (error) {
+                if (isPlexLibraryScopeSupersededError(error)) {
+                    throw error;
+                }
                 if (isAbortLikeError(error, options?.signal ?? undefined)) {
                     throw error;
                 }
@@ -349,6 +356,9 @@ export class ContentResolver {
                         continue;
                     }
                 } catch (error) {
+                    if (isPlexLibraryScopeSupersededError(error)) {
+                        throw error;
+                    }
                     this._logger.warn('Failed to expand show collection item', item.ratingKey, error);
                 }
             }

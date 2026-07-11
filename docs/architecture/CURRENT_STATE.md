@@ -207,6 +207,11 @@ after this extraction.
 - `src/modules/plex/library/`
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
+- `src/modules/plex/library/PlexLibraryRequestScope.ts` owns the library-local
+  immutable server URI/auth-header/key/version snapshot and currentness checks
+  used by `PlexLibrary` and its request client. Scope supersession remains a
+  typed library rejection; callers may classify it through the narrow exported
+  predicate but do not own identity validity or construct scope failures.
 - `src/modules/plex/stream/resolver/PlexStreamResolver.ts` remains the public
   `IPlexStreamResolver` implementation and delegates focused stream
   responsibilities instead of constructing settings/debug storage owners

@@ -10,7 +10,11 @@ import {
     type FacetPlanningConfigOverrides,
 } from './ChannelSetupFacetPlanningTestHelpers';
 import type { ChannelSetupConfig } from '../types';
-import { PLEX_MEDIA_TYPES, type PlexMediaItem } from '../../../modules/plex/library';
+import {
+    PLEX_MEDIA_TYPES,
+    PlexLibraryScopeSupersededError,
+    type PlexMediaItem,
+} from '../../../modules/plex/library';
 import { flushPromisesAndMacrotask } from '../../../__tests__/helpers';
 
 const createConfig = (overrides: FacetPlanningConfigOverrides = {}): ChannelSetupConfig => createFacetPlanningConfig({
@@ -46,6 +50,28 @@ const createEpisode = (
 } as PlexMediaItem);
 
 describe('ChannelSetupFacetSnapshotLoadSession', () => {
+    it('rethrows playlist supersession before partial-warning conversion', async () => {
+        const stale = new PlexLibraryScopeSupersededError();
+        const plexLibrary = createPlexLibrary();
+        plexLibrary.getPlaylists.mockRejectedValue(stale);
+        const session = new ChannelSetupFacetSnapshotLoadSession({
+            plexLibrary,
+            config: createConfig({
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    playlists: { enabled: true, priority: 2, scope: 'per-library' },
+                },
+            }),
+            libraries: [createLibrary()],
+            signal: null,
+            requestIntent: 'preview',
+            snapshotAbortController: new AbortController(),
+            reportProgress: undefined,
+        });
+
+        await expect(session.load()).rejects.toBe(stale);
+    });
+
     it('builds required tag failures through the runtime snapshot state owners', async () => {
         const expectedMessage = 'Required genres tag directory (type=1) is unsupported for Movies; stop and re-plan.';
         const plexLibrary = createPlexLibrary();

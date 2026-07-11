@@ -2,6 +2,7 @@ import { summarizeErrorForLog } from '../../../utils/errors';
 import { PLEX_MEDIA_TYPES } from './constants';
 import type { LibraryQueryOptions, PlexLibrarySection } from './types';
 import type { PlexLibraryConfig } from './interfaces';
+import { isPlexLibraryScopeSupersededError } from './PlexLibraryError';
 
 type LibraryCountFetcher = (
     libraryId: string,
@@ -27,7 +28,16 @@ function normalizeItemCountConcurrency(itemCountConcurrency: number | undefined)
 }
 
 function shouldStopCountEnrichment(error: unknown, signal: AbortSignal | null): boolean {
-    return Boolean(signal?.aborted || (error instanceof Error && error.name === 'AbortError'));
+    return Boolean(
+        signal?.aborted
+        || (error instanceof Error && error.name === 'AbortError')
+        || isPlexLibraryScopeSupersededError(error)
+    );
+}
+
+function throwFatalCountError(error: unknown, signal: AbortSignal | null): never {
+    signal?.throwIfAborted();
+    throw error;
 }
 
 function describeLibraryForLog(library: PlexLibrarySection): string {
@@ -42,12 +52,11 @@ export async function enrichLibrarySectionCounts(
     const concurrency = normalizeItemCountConcurrency(options.itemCountConcurrency);
     const queue = libraries.slice();
     const workerCount = Math.min(concurrency, queue.length);
+    let fatal = false;
 
     const workers = Array.from({ length: workerCount }, async () => {
-        while (queue.length > 0) {
-            if (signal?.aborted) {
-                return;
-            }
+        while (!fatal && queue.length > 0) {
+            signal?.throwIfAborted();
             const library = queue.shift();
             if (!library) {
                 return;
@@ -73,7 +82,8 @@ export async function enrichLibrarySectionCounts(
                         }
                     } catch (error) {
                         if (shouldStopCountEnrichment(error, signal)) {
-                            return;
+                            fatal = true;
+                            throwFatalCountError(error, signal);
                         }
                         delete library.episodeCount;
                         options.logger.warn(
@@ -84,7 +94,8 @@ export async function enrichLibrarySectionCounts(
                 }
             } catch (error) {
                 if (shouldStopCountEnrichment(error, signal)) {
-                    return;
+                    fatal = true;
+                    throwFatalCountError(error, signal);
                 }
                 library.contentCount = null;
                 options.logger.warn(

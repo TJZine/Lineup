@@ -1,6 +1,14 @@
 import { AppErrorCode } from '../../../../types/app-errors';
-import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
-import { PlexLibrary, PlexLibraryError } from '../PlexLibrary';
+import {
+    expectConsoleError,
+    expectConsoleWarn,
+    flushPromisesAndMacrotask,
+} from '../../../../__tests__/helpers';
+import {
+    PlexLibrary,
+    PlexLibraryError,
+    PlexLibraryScopeSupersededError,
+} from '../PlexLibrary';
 import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfaces';
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
@@ -31,6 +39,30 @@ const expectPlexLibraryWarn = (...args: readonly unknown[]): void => {
 const expectPlexLibraryError = (...args: readonly unknown[]): void => {
     expectConsoleError(args);
 };
+
+function sectionResponse(title: string): unknown {
+    return {
+        MediaContainer: {
+            Directory: [{
+                key: '1',
+                uuid: `lib-${title}`,
+                title,
+                type: 'movie',
+                agent: 'agent',
+                scanner: 'scanner',
+            }],
+        },
+    };
+}
+
+function fetchResponse(body: unknown): Response {
+    return {
+        ok: true,
+        status: 200,
+        headers: { get: (): string | null => 'application/json' },
+        text: async (): Promise<string> => JSON.stringify(body),
+    } as unknown as Response;
+}
 
 // ============================================
 // Tests
@@ -78,21 +110,19 @@ describe('PlexLibrary', () => {
         });
 
         it('does not reset contentCount when episodeCount fetch fails', async () => {
-            mockFetchJson(mockLibrarySectionsResponse);
+            mockFetchSequence([
+                { json: mockLibrarySectionsResponse },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: null } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+            ]);
             const library = new PlexLibrary(mockConfig);
             expectPlexLibraryWarn(
                 '[PlexLibrary] Failed to fetch episode count for library TV Shows:',
-                expect.objectContaining({ message: 'episode count failed' })
+                expect.objectContaining({ name: 'PlexLibraryError' })
             );
-
-            const spy = jest.spyOn(library, 'getLibraryItemCount');
-            spy.mockImplementation(async (_libraryId, options) => {
-                const typeFilter = options?.filter?.type;
-                if (typeFilter === 4) {
-                    throw new Error('episode count failed');
-                }
-                return 456;
-            });
 
             const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
 
@@ -102,24 +132,18 @@ describe('PlexLibrary', () => {
         });
 
         it('preserves unknown contentCount when item-count fetch fails', async () => {
-            mockFetchJson(mockLibrarySectionsResponse);
+            mockFetchSequence([
+                { json: mockLibrarySectionsResponse },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: null } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+            ]);
             const library = new PlexLibrary(mockConfig);
             expectPlexLibraryWarn(
                 '[PlexLibrary] Failed to fetch item count for library TV Shows:',
-                expect.objectContaining({ message: 'item count failed' })
+                expect.objectContaining({ name: 'PlexLibraryError' })
             );
-
-            const spy = jest.spyOn(library, 'getLibraryItemCount');
-            spy.mockImplementation(async (_libraryId, options) => {
-                const typeFilter = options?.filter?.type;
-                if (typeFilter === 4) {
-                    return 999;
-                }
-                if (_libraryId === '2') {
-                    throw new Error('item count failed');
-                }
-                return 456;
-            });
 
             const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
 
@@ -129,16 +153,15 @@ describe('PlexLibrary', () => {
         });
 
         it('does not assign null episodeCount when episode count is unavailable', async () => {
-            mockFetchJson(mockLibrarySectionsResponse);
+            mockFetchSequence([
+                { json: mockLibrarySectionsResponse },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: {} } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+            ]);
             const library = new PlexLibrary(mockConfig);
-
-            const spy = jest.spyOn(library, 'getLibraryItemCount');
-            spy.mockImplementation(async (_libraryId, options) => {
-                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
-                    return null;
-                }
-                return 456;
-            });
 
             const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
 
@@ -148,31 +171,24 @@ describe('PlexLibrary', () => {
         });
 
         it('does not fetch episodeCount when show contentCount is unavailable', async () => {
-            mockFetchJson(mockLibrarySectionsResponse);
+            mockFetchSequence([
+                { json: mockLibrarySectionsResponse },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: {} } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+                { json: { MediaContainer: { totalSize: 456 } } },
+            ]);
             const library = new PlexLibrary(mockConfig);
-
-            const spy = jest.spyOn(library, 'getLibraryItemCount');
-            spy.mockImplementation(async (libraryId, options) => {
-                if (libraryId === '2' && options?.filter?.type !== PLEX_MEDIA_TYPES.EPISODE) {
-                    return null;
-                }
-                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
-                    throw new Error('episode count should not be fetched');
-                }
-                return 456;
-            });
 
             const libs = await library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
 
             const showLib = libs.find((lib) => lib.id === '2');
             expect(showLib?.contentCount).toBeNull();
             expect(showLib?.episodeCount).toBeUndefined();
-            expect(spy).not.toHaveBeenCalledWith(
-                '2',
-                expect.objectContaining({
-                    filter: { type: PLEX_MEDIA_TYPES.EPISODE },
-                })
-            );
+            expect((fetch as jest.Mock).mock.calls).not.toContainEqual([
+                expect.stringMatching(/library\/sections\/2\/all.*type=4/),
+                expect.any(Object),
+            ]);
         });
 
         it('should sanitize itemCountConcurrency when includeItemCounts is enabled', async () => {
@@ -330,6 +346,18 @@ describe('PlexLibrary', () => {
             expect(fetch).toHaveBeenCalledTimes(1);
         });
 
+        it('rejects an already-aborted cache hit with the exact caller reason', async () => {
+            mockFetchJson(mockLibrarySectionsResponse);
+            const library = new PlexLibrary(mockConfig);
+            await library.getLibraries();
+            const reason = new Error('caller stopped');
+            const controller = new AbortController();
+            controller.abort(reason);
+
+            await expect(library.getLibrary('1', { signal: controller.signal })).rejects.toBe(reason);
+            expect(fetch).toHaveBeenCalledTimes(1);
+        });
+
         it('should clear cache when server or account changes', async () => {
             const baseHeaders = {
                 Accept: 'application/json',
@@ -366,6 +394,200 @@ describe('PlexLibrary', () => {
             await library.getLibrary('1');
 
             expect(fetch).toHaveBeenCalledTimes(3);
+        });
+
+        it('rejects a late A list and keeps the colliding B library cached', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'token-a';
+            const pending: Array<(response: Response) => void> = [];
+            const fetchMock = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const library = new PlexLibrary({
+                getServerUri: (): string => serverUri,
+                getAuthToken: (): string => token,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+            });
+
+            const requestA = library.getLibraries();
+            serverUri = 'http://server-b:32400';
+            token = 'token-b';
+            const requestB = library.getLibraries();
+
+            pending[1]?.(fetchResponse(sectionResponse('B')));
+            await expect(requestB).resolves.toMatchObject([{ id: '1', title: 'B' }]);
+            pending[0]?.(fetchResponse(sectionResponse('A')));
+            await expect(requestA).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+            await expect(library.getLibrary('1')).resolves.toMatchObject({ title: 'B' });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('does not revive A1 after an observed A1-B-A2 scope sequence', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'token-a';
+            const pending: Array<(response: Response) => void> = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            const library = new PlexLibrary({
+                getServerUri: (): string => serverUri,
+                getAuthToken: (): string => token,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+            });
+
+            const requestA1 = library.getLibraries();
+            serverUri = 'http://server-b:32400';
+            token = 'token-b';
+            const requestB = library.getLibraries();
+            serverUri = 'http://server-a:32400';
+            token = 'token-a';
+            const requestA2 = library.getLibraries();
+
+            pending[2]?.(fetchResponse(sectionResponse('A2')));
+            await expect(requestA2).resolves.toMatchObject([{ title: 'A2' }]);
+            pending[1]?.(fetchResponse(sectionResponse('B')));
+            pending[0]?.(fetchResponse(sectionResponse('A1')));
+            await expect(requestB).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+            await expect(requestA1).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+            await expect(library.getLibrary('1')).resolves.toMatchObject({ title: 'A2' });
+        });
+
+        it('prefers the exact caller abort reason when abort and supersession coincide', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'token-a';
+            const pending: Array<(response: Response) => void> = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            const library = new PlexLibrary({
+                getServerUri: (): string => serverUri,
+                getAuthToken: (): string => token,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+            });
+            const controller = new AbortController();
+            const requestA = library.getLibraries({ signal: controller.signal });
+            serverUri = 'http://server-b:32400';
+            token = 'token-b';
+            const requestB = library.getLibraries();
+            const reason = new Error('caller canceled A');
+            controller.abort(reason);
+
+            pending[0]?.(fetchResponse(sectionResponse('A')));
+            await expect(requestA).rejects.toBe(reason);
+            pending[1]?.(fetchResponse(sectionResponse('B')));
+            await expect(requestB).resolves.toMatchObject([{ title: 'B' }]);
+        });
+
+        it('treats scope supersession during count enrichment as fatal', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'token-a';
+            const pending: Array<(response: Response) => void> = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            const library = new PlexLibrary({
+                getServerUri: (): string => serverUri,
+                getAuthToken: (): string => token,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+            });
+            const staleCounts = library.getLibraries({ includeItemCounts: true, itemCountConcurrency: 1 });
+            pending[0]?.(fetchResponse(sectionResponse('A')));
+            await flushPromisesAndMacrotask();
+            serverUri = 'http://server-b:32400';
+            token = 'token-b';
+            const current = library.getLibraries();
+            pending[1]?.(fetchResponse({ MediaContainer: { totalSize: 10 } }));
+
+            await expect(staleCounts).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+            pending[2]?.(fetchResponse(sectionResponse('B')));
+            await current;
+        });
+
+        it('rejects abort during count enrichment without caching a partial list', async () => {
+            const pending: Array<(response: Response) => void> = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            const library = new PlexLibrary(mockConfig);
+            const controller = new AbortController();
+            const reason = new Error('stop count enrichment');
+            const request = library.getLibraries({
+                signal: controller.signal,
+                includeItemCounts: true,
+                itemCountConcurrency: 1,
+            });
+            pending[0]?.(fetchResponse(sectionResponse('A')));
+            await flushPromisesAndMacrotask();
+            controller.abort(reason);
+            pending[1]?.(fetchResponse({ MediaContainer: { totalSize: 10 } }));
+
+            await expect(request).rejects.toBe(reason);
+            const lookup = library.getLibrary('1');
+            pending[2]?.(fetchResponse(sectionResponse('A-current')));
+            await expect(lookup).resolves.toMatchObject({ title: 'A-current' });
+        });
+
+        it('stops queued multi-library count work after caller abort without caching partial sections', async () => {
+            const sections = {
+                MediaContainer: {
+                    Directory: ['1', '2', '3'].map((key) => ({
+                        key,
+                        uuid: `lib-${key}`,
+                        title: `Library ${key}`,
+                        type: 'movie',
+                        agent: 'agent',
+                        scanner: 'scanner',
+                    })),
+                },
+            };
+            const pending: Array<(response: Response) => void> = [];
+            const fetchMock = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const library = new PlexLibrary(mockConfig);
+            const controller = new AbortController();
+            const reason = new Error('stop all count work');
+            const request = library.getLibraries({
+                signal: controller.signal,
+                includeItemCounts: true,
+                itemCountConcurrency: 1,
+            });
+            pending[0]?.(fetchResponse(sections));
+            await flushPromisesAndMacrotask();
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+
+            controller.abort(reason);
+            pending[1]?.(fetchResponse({ MediaContainer: { totalSize: 10 } }));
+            await expect(request).rejects.toBe(reason);
+            await flushPromisesAndMacrotask();
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+
+            const lookup = library.getLibrary('1');
+            pending[2]?.(fetchResponse(sectionResponse('Current')));
+            await expect(lookup).resolves.toMatchObject({ title: 'Current' });
+        });
+
+        it('keeps same-scope overlapping callers independent when one aborts', async () => {
+            const pending: Array<(response: Response) => void> = [];
+            const fetchMock = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const library = new PlexLibrary(mockConfig);
+            const controller = new AbortController();
+            const reason = new Error('cancel only first caller');
+
+            const canceled = library.getLibraries({ signal: controller.signal });
+            const independent = library.getLibraries();
+            controller.abort(reason);
+            pending[0]?.(fetchResponse(sectionResponse('Canceled')));
+            pending[1]?.(fetchResponse(sectionResponse('Independent')));
+
+            await expect(canceled).rejects.toBe(reason);
+            await expect(independent).resolves.toMatchObject([{ title: 'Independent' }]);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
         });
     });
 
@@ -431,7 +653,31 @@ describe('PlexLibrary', () => {
             );
             const library = new PlexLibrary(mockConfig);
 
-            await expect(library.getLibrary('1', { signal: controller.signal })).rejects.toThrow('Aborted');
+            await expect(library.getLibrary('1', { signal: controller.signal })).rejects.toMatchObject({
+                name: 'AbortError',
+            });
+        });
+
+        it('rejects a stale colliding library lookup instead of returning A data', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'token-a';
+            const pending: Array<(response: Response) => void> = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            const library = new PlexLibrary({
+                getServerUri: (): string => serverUri,
+                getAuthToken: (): string => token,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+            });
+            const stale = library.getLibrary('1');
+            serverUri = 'http://server-b:32400';
+            token = 'token-b';
+            const current = library.getLibrary('1');
+            pending[1]?.(fetchResponse(sectionResponse('B')));
+            await expect(current).resolves.toMatchObject({ title: 'B' });
+            pending[0]?.(fetchResponse(sectionResponse('A')));
+            await expect(stale).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
         });
     });
 
@@ -700,6 +946,28 @@ describe('PlexLibrary', () => {
             expect(media?.videoCodec).toBe('h264');
             expect(media?.parts).toHaveLength(1);
             expect(part?.streams).toHaveLength(2);
+        });
+
+        it('rejects a stale colliding item lookup instead of returning A data', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'token-a';
+            const pending: Array<(response: Response) => void> = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            const library = new PlexLibrary({
+                getServerUri: (): string => serverUri,
+                getAuthToken: (): string => token,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+            });
+            const stale = library.getItem('12345');
+            serverUri = 'http://server-b:32400';
+            token = 'token-b';
+            const current = library.getItem('12345');
+            pending[1]?.(fetchResponse(mockMediaItemResponse));
+            await expect(current).resolves.toMatchObject({ ratingKey: '12345' });
+            pending[0]?.(fetchResponse(mockMediaItemResponse));
+            await expect(stale).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
         });
     });
 
@@ -987,7 +1255,7 @@ describe('PlexLibrary', () => {
             await expect(library.search('test', { signal: controller.signal })).rejects.toMatchObject({
                 name: 'AbortError',
             });
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(fetchMock).not.toHaveBeenCalled();
         });
 
         it('throws typed parse error when a search hub metadata payload is malformed', async () => {
@@ -1395,6 +1663,75 @@ describe('PlexLibrary', () => {
             expect(studios).toEqual([]);
             expect(onUnsupported).toHaveBeenCalledWith('empty');
         });
+
+        it('rejects a stale empty required directory without warning or unsupported callback', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'token-a';
+            const pending: Array<(response: Response) => void> = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            const logger = { warn: jest.fn(), error: jest.fn() };
+            const library = new PlexLibrary({
+                getServerUri: (): string => serverUri,
+                getAuthToken: (): string => token,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+                logger,
+            });
+            const onUnsupported = jest.fn();
+            const staleTags = library.getGenres('1', {
+                type: PLEX_MEDIA_TYPES.SHOW,
+                requireEntries: true,
+                onUnsupported,
+            });
+            serverUri = 'http://server-b:32400';
+            token = 'token-b';
+            const current = library.getLibraries();
+
+            pending[0]?.(fetchResponse({ MediaContainer: { Directory: [] } }));
+            await expect(staleTags).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+            expect(onUnsupported).not.toHaveBeenCalled();
+            expect(logger.warn).not.toHaveBeenCalled();
+            pending[1]?.(fetchResponse(sectionResponse('B')));
+            await current;
+        });
+
+        it('rejects stale unavailable required directory without unsupported callback', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'token-a';
+            const pending: Array<(response: Response) => void> = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            const logger = { warn: jest.fn(), error: jest.fn() };
+            const library = new PlexLibrary({
+                getServerUri: (): string => serverUri,
+                getAuthToken: (): string => token,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+                logger,
+            });
+            const onUnsupported = jest.fn();
+            const staleTags = library.getGenres('1', {
+                type: PLEX_MEDIA_TYPES.SHOW,
+                requireEntries: true,
+                onUnsupported,
+            });
+            serverUri = 'http://server-b:32400';
+            token = 'token-b';
+            const current = library.getLibraries();
+
+            pending[0]?.({
+                ok: false,
+                status: 404,
+                headers: { get: (): string | null => null },
+                text: async (): Promise<string> => JSON.stringify({ error: 'not found' }),
+            } as unknown as Response);
+            await expect(staleTags).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+            expect(onUnsupported).not.toHaveBeenCalled();
+            expect(logger.warn).not.toHaveBeenCalled();
+            pending[1]?.(fetchResponse(sectionResponse('B')));
+            await current;
+        });
     });
 
     describe('error handling', () => {
@@ -1528,6 +1865,93 @@ describe('PlexLibrary', () => {
             }
         });
 
+        it('freezes captured auth headers across retry attempts', async () => {
+            jest.useFakeTimers();
+            try {
+                let requestHeader = 'captured-a';
+                const config: PlexLibraryConfig = {
+                    getServerUri: () => 'http://server-a:32400',
+                    getAuthToken: () => 'token-a',
+                    getAuthHeaders: () => ({
+                        [PLEX_TOKEN_HEADER]: 'token-a',
+                        'X-Test-Identity': requestHeader,
+                    }),
+                };
+                const fetchMock = jest.fn()
+                    .mockResolvedValueOnce({
+                        ok: false,
+                        status: 500,
+                        headers: { get: (): string | null => null },
+                        text: async (): Promise<string> => JSON.stringify({ error: 'retry' }),
+                    })
+                    .mockResolvedValueOnce(fetchResponse(sectionResponse('A')));
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+                expectPlexLibraryWarn('[PlexLibrary] Server error 500, retrying after 2s...');
+                const library = new PlexLibrary(config);
+
+                const request = library.getLibraries();
+                await Promise.resolve();
+                requestHeader = 'live-b';
+                await jest.advanceTimersByTimeAsync(PLEX_LIBRARY_CONSTANTS.SERVER_ERROR_RETRY_DELAY);
+                await expect(request).resolves.toMatchObject([{ title: 'A' }]);
+
+                const headers = fetchMock.mock.calls.map(([, init]) => new Headers(init.headers));
+                expect(headers).toHaveLength(2);
+                expect(headers[0]?.get('X-Test-Identity')).toBe('captured-a');
+                expect(headers[1]?.get('X-Test-Identity')).toBe('captured-a');
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('rejects a retry after identity transition without sending B headers to the A URL', async () => {
+            jest.useFakeTimers();
+            try {
+                let serverUri = 'http://server-a:32400';
+                let token = 'token-a';
+                let resolveFirst!: (response: Response) => void;
+                const fetchMock = jest.fn().mockImplementation(
+                    () => new Promise<Response>((resolve) => {
+                        resolveFirst = resolve;
+                    })
+                );
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+                const logger = { warn: jest.fn(), error: jest.fn() };
+                const library = new PlexLibrary({
+                    getServerUri: (): string => serverUri,
+                    getAuthToken: (): string => token,
+                    getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+                    logger,
+                });
+                const request = library.getLibraries();
+                const rejection = expect(request).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+                resolveFirst({
+                    ok: false,
+                    status: 500,
+                    headers: { get: (): string | null => null },
+                    text: async (): Promise<string> => JSON.stringify({ error: 'retry' }),
+                } as unknown as Response);
+                for (let index = 0; index < 10 && logger.warn.mock.calls.length === 0; index++) {
+                    await Promise.resolve();
+                }
+                expect(logger.warn).toHaveBeenCalledWith(
+                    '[PlexLibrary] Server error 500, retrying after 2s...'
+                );
+                serverUri = 'http://server-b:32400';
+                token = 'token-b';
+
+                await jest.advanceTimersByTimeAsync(PLEX_LIBRARY_CONSTANTS.SERVER_ERROR_RETRY_DELAY);
+                await rejection;
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+                const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+                expect(url).toBe('http://server-a:32400/library/sections');
+                expect(new Headers(init.headers).get(PLEX_TOKEN_HEADER)).toBe('token-a');
+                expect(new Headers(init.headers).get(PLEX_TOKEN_HEADER)).not.toBe('token-b');
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('should fail interactive tag-directory requests within 15 seconds instead of using the default timeout budget', async () => {
             jest.useFakeTimers();
             try {
@@ -1646,6 +2070,46 @@ describe('PlexLibrary', () => {
             await expect(library.getLibraries()).rejects.toThrow(PlexLibraryError);
             expect(fetch).toHaveBeenCalledTimes(1);
         });
+
+        it('suppresses stale auth-expired and server-unreachable callbacks', async () => {
+            for (const outcome of ['auth', 'network'] as const) {
+                let serverUri = 'http://server-a:32400';
+                let token = 'token-a';
+                const pending: Array<{ resolve: (response: Response) => void; reject: (error: Error) => void }> = [];
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                    () => new Promise<Response>((resolve, reject) => pending.push({ resolve, reject }))
+                );
+                const onServerUnreachable = jest.fn();
+                const library = new PlexLibrary({
+                    getServerUri: (): string => serverUri,
+                    getAuthToken: (): string => token,
+                    getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+                    onServerUnreachable,
+                });
+                const authExpired = jest.fn();
+                library.on('authExpired', authExpired);
+                const stale = library.getLibraries();
+                serverUri = 'http://server-b:32400';
+                token = 'token-b';
+                const current = library.getLibraries();
+
+                if (outcome === 'auth') {
+                    pending[0]?.resolve({
+                        ok: false,
+                        status: 401,
+                        headers: { get: (): string | null => null },
+                        text: async (): Promise<string> => JSON.stringify({ error: 'unauthorized' }),
+                    } as unknown as Response);
+                } else {
+                    pending[0]?.reject(new Error('offline'));
+                }
+                await expect(stale).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+                expect(authExpired).not.toHaveBeenCalled();
+                expect(onServerUnreachable).not.toHaveBeenCalled();
+                pending[1]?.resolve(fetchResponse(sectionResponse('B')));
+                await current;
+            }
+        });
     });
 
     describe('refreshLibrary', () => {
@@ -1679,6 +2143,36 @@ describe('PlexLibrary', () => {
             disposable.dispose();
             await library.refreshLibrary('1');
             expect(handler).toHaveBeenCalledTimes(1);
+        });
+
+        it('suppresses stale refill and libraryRefreshed after scope change', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'token-a';
+            mockFetchJson(sectionResponse('A'));
+            const config: PlexLibraryConfig = {
+                getServerUri: () => serverUri,
+                getAuthToken: () => token,
+                getAuthHeaders: () => ({ [PLEX_TOKEN_HEADER]: token }),
+            };
+            const library = new PlexLibrary(config);
+            await library.getLibraries();
+            const pending: Array<(response: Response) => void> = [];
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => new Promise<Response>((resolve) => pending.push(resolve))
+            );
+            const refreshed = jest.fn();
+            library.on('libraryRefreshed', refreshed);
+            const staleRefresh = library.refreshLibrary('1');
+            serverUri = 'http://server-b:32400';
+            token = 'token-b';
+            const current = library.getLibraries();
+
+            pending[1]?.(fetchResponse(sectionResponse('B')));
+            await current;
+            pending[0]?.(fetchResponse(sectionResponse('A')));
+            await expect(staleRefresh).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+            expect(refreshed).not.toHaveBeenCalled();
+            await expect(library.getLibrary('1')).resolves.toMatchObject({ title: 'B' });
         });
     });
 });

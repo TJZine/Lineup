@@ -1,4 +1,9 @@
-export { PlexLibrary, PlexLibraryError } from './PlexLibrary';
+export {
+    PlexLibrary,
+    PlexLibraryError,
+    PlexLibraryScopeSupersededError,
+    isPlexLibraryScopeSupersededError,
+} from './PlexLibrary';
 export type {
     IPlexLibrary,
     PlexLibraryConfig,

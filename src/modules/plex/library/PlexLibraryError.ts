@@ -6,6 +6,25 @@ export interface PlexLibraryErrorOptions {
     context?: unknown;
 }
 
+const PLEX_LIBRARY_SCOPE_SUPERSEDED_MESSAGE = 'Plex library request scope superseded';
+
+/**
+ * Signals that a library operation completed after the active server/account
+ * identity moved to a newer library-local request scope.
+ */
+export class PlexLibraryScopeSupersededError extends Error {
+    constructor() {
+        super(PLEX_LIBRARY_SCOPE_SUPERSEDED_MESSAGE);
+        this.name = 'PlexLibraryScopeSupersededError';
+    }
+}
+
+export function isPlexLibraryScopeSupersededError(
+    error: unknown
+): error is PlexLibraryScopeSupersededError {
+    return error instanceof PlexLibraryScopeSupersededError;
+}
+
 /**
  * Plex Library error with typed error code.
  */

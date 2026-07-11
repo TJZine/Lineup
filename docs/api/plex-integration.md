@@ -72,6 +72,12 @@ type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';
 
 type PlexLibraryRequestIntent = 'preview' | 'background';
 
+class PlexLibraryScopeSupersededError extends Error {}
+
+function isPlexLibraryScopeSupersededError(
+  error: unknown
+): error is PlexLibraryScopeSupersededError;
+
 interface PlexTagDirectoryQueryOptions {
   type: number;
   signal?: AbortSignal | null;
@@ -155,6 +161,8 @@ interface IPlexLibrary {
 
 `getLibrary()` returns `null` only when the id is not present in a valid fetched section list. Unavailable or malformed section-list fetches throw `PlexLibraryError`.
 Across the rest of the library surface, `null` and empty arrays are reserved for real Plex not-found or empty-success outcomes such as `404` item lookups, empty metadata lists, or unsupported tag directories. Malformed payloads, empty `200` response bodies, timeout failures, and server errors reject with `PlexLibraryError` instead of collapsing into semantic empties.
+Each network/cache operation captures one immutable active-server URI and auth-header snapshot. If the active server/account identity changes before that operation settles, the operation rejects with `PlexLibraryScopeSupersededError`; stale results do not update library caches or emit library transport/refresh/tag callbacks. Callers that intentionally provide partial-result fallbacks must use `isPlexLibraryScopeSupersededError()` to rethrow that exact error before ordinary fallback conversion.
+Caller cancellation remains distinct and takes precedence at each observation boundary: an aborted signal rejects with its raw reason, including on a current cache hit. Count enrichment treats caller abort and scope supersession as fatal for the whole library-list request, while ordinary count failures remain best-effort and leave the affected count unknown.
 `getImageUrl()` returns `null` when no image URL can be built, such as an empty image path, missing active server URI, or a foreign absolute image URL. Plex tokens are only attached to active-server-owned image URLs.
 
 ## Server Discovery (`IPlexServerDiscovery`)

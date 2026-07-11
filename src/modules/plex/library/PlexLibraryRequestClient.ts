@@ -9,6 +9,7 @@ import {
     classifyFetchError,
     classifyFetchResponse,
 } from './PlexLibraryFetchPolicy';
+import type { PlexLibraryRequestScopeSnapshot } from './PlexLibraryRequestScope';
 
 const INTERACTIVE_REQUEST_POLICY = {
     timeoutMs: 5000,
@@ -29,6 +30,10 @@ interface PlexLibraryRequestClientDeps {
     config: PlexLibraryConfig;
     logger: PlexLibraryLogger;
     emitAuthExpired: () => void;
+    assertCurrent: (
+        scope: PlexLibraryRequestScopeSnapshot,
+        signal?: AbortSignal | null
+    ) => void;
 }
 
 export const resolveRequestProfileForIntent = (
@@ -54,14 +59,17 @@ export class PlexLibraryRequestClient {
     private readonly _config: PlexLibraryConfig;
     private readonly _logger: PlexLibraryLogger;
     private readonly _emitAuthExpired: () => void;
+    private readonly _assertCurrent: PlexLibraryRequestClientDeps['assertCurrent'];
 
     constructor(deps: PlexLibraryRequestClientDeps) {
         this._config = deps.config;
         this._logger = deps.logger;
         this._emitAuthExpired = deps.emitAuthExpired;
+        this._assertCurrent = deps.assertCurrent;
     }
 
     async fetchWithRetry<T>(
+        scope: PlexLibraryRequestScopeSnapshot,
         url: string,
         options: RequestInit = {},
         requestProfile: PlexLibraryRequestProfile = 'default'
@@ -74,6 +82,7 @@ export class PlexLibraryRequestClient {
         while (true) {
             let externalAborted = false;
             const externalSignal = options.signal ?? null;
+            this._assertCurrent(scope, externalSignal);
             try {
                 const onExternalAbort = (): void => {
                     externalAborted = true;
@@ -89,13 +98,14 @@ export class PlexLibraryRequestClient {
                 try {
                     response = await fetchWithTimeout({
                         url,
-                        init: buildFetchRequestInit(url, options, this._config.getAuthHeaders()),
+                        init: buildFetchRequestInit(url, options, scope.headers),
                         timeoutMs: requestPolicy.timeoutMs,
                         upstreamSignal: externalSignal,
                     });
                 } finally {
                     externalSignal?.removeEventListener('abort', onExternalAbort);
                 }
+                this._assertCurrent(scope, externalSignal);
 
                 const responseOutcome = await classifyFetchResponse<T>(
                     response,
@@ -103,6 +113,7 @@ export class PlexLibraryRequestClient {
                     this._logger,
                     redactUrlForLog
                 );
+                this._assertCurrent(scope, externalSignal);
 
                 switch (responseOutcome.kind) {
                     case 'success':
@@ -130,6 +141,7 @@ export class PlexLibraryRequestClient {
                         }
                         rateLimitRetries++;
                         await this._delay(responseOutcome.retryAfterMs);
+                        this._assertCurrent(scope, externalSignal);
                         continue;
                     case 'notFound':
                         this._logger.warn(`[PlexLibrary] 404 Not Found: ${redactUrlForLog(url)}`);
@@ -139,6 +151,7 @@ export class PlexLibraryRequestClient {
                             serverErrorRetried = true;
                             this._logger.warn(`[PlexLibrary] Server error ${responseOutcome.status}, retrying after 2s...`);
                             await this._delay(PLEX_LIBRARY_CONSTANTS.SERVER_ERROR_RETRY_DELAY);
+                            this._assertCurrent(scope, externalSignal);
                             continue;
                         }
                         throw new PlexLibraryError(
@@ -154,6 +167,7 @@ export class PlexLibraryRequestClient {
                         );
                 }
             } catch (error) {
+                this._assertCurrent(scope, externalSignal);
                 const errorOutcome = classifyFetchError(error, externalAborted, options.signal ?? null);
 
                 switch (errorOutcome.kind) {
@@ -168,6 +182,7 @@ export class PlexLibraryRequestClient {
                             this._logger.warn(`[PlexLibrary] Network timeout, retry ${timeoutRetries + 1}/${requestPolicy.maxTimeoutRetries} after ${delay}ms`);
                             timeoutRetries++;
                             await this._delay(delay);
+                            this._assertCurrent(scope, externalSignal);
                             continue;
                         }
                         throw new PlexLibraryError(

@@ -14,6 +14,7 @@ import {
     createMockPlexLibrary,
     type FacetPlanningConfigOverrides,
 } from './ChannelSetupFacetPlanningTestHelpers';
+import { PlexLibraryScopeSupersededError } from '../../../modules/plex/library';
 
 const createConfig = (overrides: FacetPlanningConfigOverrides = {}): ChannelSetupConfig => createFacetPlanningConfig({
     selectedLibraryIds: ['lib-1'],
@@ -39,6 +40,92 @@ const createFailureBuilder = (
 });
 
 describe('ChannelSetupFacetLibraryExecutor', () => {
+    const createExecutor = (
+        plexLibrary: ReturnType<typeof createMockPlexLibrary>,
+        config: ChannelSetupConfig,
+        loadState = new ChannelSetupFacetSnapshotLoadState()
+    ): ChannelSetupFacetLibraryExecutor => {
+        const getLastTask = (): ChannelBuildProgress['task'] => 'scan_library_items';
+        return new ChannelSetupFacetLibraryExecutor({
+            plexLibrary,
+            config,
+            requestIntent: 'preview',
+            requestSignal: new AbortController().signal,
+            selectedLibraryCount: 1,
+            loadState,
+            failureBuilder: createFailureBuilder(loadState, getLastTask),
+            getLastTask,
+            callerCanceled: (): boolean => false,
+            failureStopRequested: (): boolean => false,
+            requestAbortRequiresThrow: (): boolean => false,
+            reportSnapshotProgress: jest.fn(),
+            addPartialWarning: (task, detail, error): void => loadState.addPartialWarning(task, detail, error),
+            abortSiblingRequests: jest.fn(),
+        });
+    };
+
+    it('rethrows collection supersession before empty fallback state mutation', async () => {
+        const stale = new PlexLibraryScopeSupersededError();
+        const plexLibrary = createMockPlexLibrary();
+        plexLibrary.getCollections.mockRejectedValue(stale);
+        const loadState = new ChannelSetupFacetSnapshotLoadState();
+        const config = createConfig({
+            strategyConfig: {
+                ...createConfig().strategyConfig,
+                collections: { enabled: true, priority: 1, scope: 'per-library' },
+            },
+        });
+
+        await expect(createExecutor(plexLibrary, config, loadState)
+            .loadLibraryFacets(createFacetPlanningLibrary(), 0)).rejects.toBe(stale);
+        expect(loadState.collectionsByLibraryId.has('lib-1')).toBe(false);
+    });
+
+    it('rethrows required tag supersession before blocking-failure conversion', async () => {
+        const stale = new PlexLibraryScopeSupersededError();
+        const plexLibrary = createMockPlexLibrary();
+        plexLibrary.getGenres.mockRejectedValue(stale);
+
+        await expect(createExecutor(plexLibrary, createEnabledGenreConfig())
+            .loadLibraryFacets(createFacetPlanningLibrary(), 0)).rejects.toBe(stale);
+    });
+
+    it('rethrows tag-count supersession before blocking-failure conversion', async () => {
+        const stale = new PlexLibraryScopeSupersededError();
+        const plexLibrary = createMockPlexLibrary();
+        plexLibrary.getGenres.mockResolvedValue([{ key: 'genre-1', title: 'Comedy', count: null }]);
+        plexLibrary.getLibraryItemCount.mockRejectedValue(stale);
+
+        await expect(createExecutor(plexLibrary, createEnabledGenreConfig())
+            .loadLibraryFacets(createFacetPlanningLibrary(), 0)).rejects.toBe(stale);
+    });
+
+    it('rethrows people-index supersession before partial-warning behavior', async () => {
+        const stale = new PlexLibraryScopeSupersededError();
+        const plexLibrary = createMockPlexLibrary();
+        plexLibrary.getActors.mockResolvedValue([
+            { key: 'actor-1', title: 'Alex Actor', count: 3 },
+        ]);
+        plexLibrary.getLibraryItems.mockRejectedValue(stale);
+        const loadState = new ChannelSetupFacetSnapshotLoadState();
+        const config = createConfig({
+            strategyConfig: {
+                ...createConfig().strategyConfig,
+                actors: { enabled: true, priority: 8, scope: 'per-library' },
+            },
+        });
+
+        await expect(createExecutor(plexLibrary, config, loadState).loadLibraryFacets(
+            createFacetPlanningLibrary({ type: 'show', title: 'Shows', contentCount: 3 }),
+            0
+        )).rejects.toBe(stale);
+        expect(loadState.peopleSeriesIndexByLibraryId.has('lib-1')).toBe(false);
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledWith(
+            'lib-1',
+            expect.objectContaining({ filter: { type: 4 } })
+        );
+    });
+
     it('hydrates unknown native facet counts through count recovery without changing loaded tags', async () => {
         const loadState = new ChannelSetupFacetSnapshotLoadState();
         const getLastTask = (): ChannelBuildProgress['task'] => 'scan_library_items';
