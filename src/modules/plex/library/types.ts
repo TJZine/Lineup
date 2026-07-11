@@ -121,11 +121,6 @@ export interface SearchOptions {
 export interface PlexLibraryState {
     libraryCache: Map<string, LibraryCacheEntry>;
     isRefreshing: boolean;
-    /**
-     * Cache scope derived from the active server URI + account token hash.
-     * When the scope changes, in-memory caches must be cleared to avoid cross-server/profile contamination.
-     */
-    cacheScope: string | null;
 }
 
 /**

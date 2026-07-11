@@ -1,4 +1,3 @@
-import { fnv1a32Hex } from '../../../utils/hash';
 import { AppErrorCode } from '../../../types/app-errors';
 import type { PlexLibraryConfig } from './interfaces';
 import {
@@ -10,19 +9,21 @@ export interface PlexLibraryRequestScopeSnapshot {
     readonly signal: AbortSignal | null;
     readonly serverUri: string | null;
     readonly headers: Readonly<Record<string, string>>;
-    readonly key: string | null;
+    readonly key: object | null;
     readonly version: number;
 }
 
 interface PlexLibraryRequestScopeOptions {
     config: Pick<PlexLibraryConfig, 'getServerUri' | 'getAuthHeaders' | 'getAuthToken'>;
-    onScopeChange: (key: string | null) => void;
+    onScopeChange: () => void;
 }
 
 export class PlexLibraryRequestScope {
     private readonly _config: PlexLibraryRequestScopeOptions['config'];
     private readonly _onScopeChange: PlexLibraryRequestScopeOptions['onScopeChange'];
-    private _activeKey: string | null = null;
+    private _activeKey: object | null = null;
+    private _activeServerUri: string | null = null;
+    private _activeAuthToken = '';
     private _version = 0;
     private _initialized = false;
 
@@ -34,12 +35,12 @@ export class PlexLibraryRequestScope {
     capture(signal: AbortSignal | null = null): PlexLibraryRequestScopeSnapshot {
         signal?.throwIfAborted();
         const identity = this._readIdentity();
-        this._observeKey(identity.key);
+        this._observeIdentity(identity);
         return Object.freeze({
             signal,
             serverUri: identity.serverUri,
             headers: Object.freeze({ ...this._config.getAuthHeaders() }),
-            key: identity.key,
+            key: this._activeKey,
             version: this._version,
         });
     }
@@ -49,9 +50,8 @@ export class PlexLibraryRequestScope {
         signal: AbortSignal | null = null
     ): void {
         signal?.throwIfAborted();
-        const { key } = this._readIdentity();
-        this._observeKey(key);
-        if (scope.version !== this._version || scope.key !== key) {
+        this._observeIdentity(this._readIdentity());
+        if (scope.version !== this._version || scope.key !== this._activeKey) {
             throw new PlexLibraryScopeSupersededError();
         }
     }
@@ -74,24 +74,25 @@ export class PlexLibraryRequestScope {
         return url.toString();
     }
 
-    private _readIdentity(): { serverUri: string | null; key: string | null } {
+    private _readIdentity(): { serverUri: string | null; authToken: string } {
         const configuredServerUri = this._config.getServerUri();
         const serverUri = configuredServerUri ? new URL(configuredServerUri).toString() : null;
-        if (!serverUri) {
-            return { serverUri: null, key: null };
-        }
-        const token = this._config.getAuthToken() ?? '';
-        const tokenHash = token ? fnv1a32Hex(token) : 'no-token';
-        return { serverUri, key: `${serverUri}::${tokenHash}` };
+        return { serverUri, authToken: this._config.getAuthToken() ?? '' };
     }
 
-    private _observeKey(key: string | null): void {
-        if (this._initialized && this._activeKey === key) {
+    private _observeIdentity(identity: { serverUri: string | null; authToken: string }): void {
+        if (
+            this._initialized
+            && this._activeServerUri === identity.serverUri
+            && this._activeAuthToken === identity.authToken
+        ) {
             return;
         }
         this._initialized = true;
-        this._activeKey = key;
+        this._activeServerUri = identity.serverUri;
+        this._activeAuthToken = identity.authToken;
+        this._activeKey = identity.serverUri ? Object.freeze({}) : null;
         this._version++;
-        this._onScopeChange(key);
+        this._onScopeChange();
     }
 }

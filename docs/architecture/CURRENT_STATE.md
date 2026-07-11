@@ -207,10 +207,11 @@ after this extraction.
 - `src/modules/plex/library/`
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
-- `src/modules/plex/discovery/PlexDiscoverySelectionContext.ts` owns discovery-local monotonic selection validity and snapshot lineage. `PlexServerDiscovery` captures or advances that authority for selection, initialization, storage/profile transitions, clear, and snapshot restore; supersession is a typed discovery rejection exposed only through its public error and narrow predicate, while callers retain no counter or validity authority.
+- `src/modules/plex/discovery/PlexDiscoverySelectionContext.ts` owns discovery-local monotonic context validity, per-invocation latest-selection authority, and snapshot lineage. `PlexServerDiscovery` captures or advances that authority for selection, initialization, storage/profile transitions, clear, and snapshot restore; supersession is a typed discovery rejection exposed only through its public error and narrow predicate, while callers retain no counter or validity authority.
 - selected-server mutation order remains state, selected-id storage, `serverChange`, `connectionChange`, health storage, then success. Each suffix is context-guarded, including synchronous listener re-entry; caller abort is observed before selection-context validity, and standalone connection-probe contracts are unchanged.
 - `src/modules/plex/library/PlexLibraryRequestScope.ts` owns the library-local
-  immutable server URI/auth-header/key/version snapshot and currentness checks
+  immutable server URI/auth-header/opaque-key/version snapshot, exact private
+  token-identity comparison, and currentness checks
   used by `PlexLibrary` and its request client. Scope supersession remains a
   typed library rejection; callers may classify it through the narrow exported
   predicate but do not own identity validity or construct scope failures.

@@ -114,13 +114,11 @@ export class PlexLibrary implements IPlexLibrary {
         this._state = {
             libraryCache: new Map(),
             isRefreshing: false,
-            cacheScope: null,
         };
         this._requestScope = new PlexLibraryRequestScope({
             config,
-            onScopeChange: (key): void => {
+            onScopeChange: (): void => {
                 this._state.libraryCache.clear();
-                this._state.cacheScope = key;
             },
         });
         this._requestClient = new PlexLibraryRequestClient({
