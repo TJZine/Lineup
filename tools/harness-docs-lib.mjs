@@ -190,6 +190,11 @@ export const EVAL_PROMPT_INVENTORY = [
         linkText: '23-reviewer-specialization-effectiveness',
         title: '23 Reviewer Specialization Effectiveness',
     },
+    {
+        file: '24-cleanup-loop-review-budget-and-boundary-sweep.md',
+        linkText: '24-cleanup-loop-review-budget-and-boundary-sweep',
+        title: '24 Cleanup Loop Review Budget And Boundary Sweep',
+    },
 ];
 
 export const EXPECTED_SESSION_PROMPT_FILES = SESSION_PROMPT_INVENTORY.map(({ file }) => file);

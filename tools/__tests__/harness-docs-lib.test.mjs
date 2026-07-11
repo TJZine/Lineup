@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
     ACTIVE_PLAN_MARKER,
@@ -18,6 +19,15 @@ import {
     replaceManagedSection,
     SESSION_PROMPT_INVENTORY,
 } from '../harness-docs-lib.mjs';
+
+test('docs verification scripts preserve fast iteration and full closeout gates', () => {
+    const packageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+    assert.equal(packageJson.scripts['verify:docs:fast'], 'node tools/verify-docs.mjs');
+    assert.equal(
+        packageJson.scripts['verify:docs'],
+        'node tools/verify-docs.mjs && npm run test:harness-docs && npm run test:verify-docs-contracts'
+    );
+});
 
 function buildSingleSlicePackageDecomposition({
     readyNowSlice = 'P6-W1-S1',
@@ -362,7 +372,7 @@ test('SESSION_PROMPT_INVENTORY and EVAL_PROMPT_INVENTORY drive expected file ord
     );
     assert.equal(SESSION_PROMPT_INVENTORY.at(-1)?.file, 'workflow-harness-review.md');
     assert.equal(EVAL_PROMPT_INVENTORY[0].file, '01-app-container-extraction-no-ui-drift.md');
-    assert.equal(EVAL_PROMPT_INVENTORY.at(-1)?.file, '23-reviewer-specialization-effectiveness.md');
+    assert.equal(EVAL_PROMPT_INVENTORY.at(-1)?.file, '24-cleanup-loop-review-budget-and-boundary-sweep.md');
 });
 
 test('renderSessionPromptSet renders the managed launcher inventory from manifest data', () => {

@@ -147,6 +147,13 @@ unless that exception record exists.
    - Tier 2 feature/design work uses the same tracked planner/reviewer/implementer prompt family as cleanup, with planner -> reviewer -> implementer -> reviewer sequencing
    - Tier 3: hotspot, cross-boundary, multi-session, or otherwise high-risk work uses task-specific orchestration, and a local run bundle when repeated handoff is likely
    - for cleanup Tier 3 work, `cleanup-loop` is an explicit cleanup/refactor/remediation orchestrator, not a feature-delivery loop: the main session keeps `update_plan`, keeps planning/closeout package-scoped for `checklist-linked` work, runs planner -> reviewer until clean approval, then iterates approved `execution_unit` -> implementer -> reviewer loops for checklist-linked work or one bounded execution target for `standalone remediation` until the subtype-matched closeout gates are clean
+     - when an approved program remediation plan already defines package membership, sequencing, owner intent, and verification class, treat it as program-level authority; create a compact package execution addendum that records only fresh source evidence, changed assumptions, the chosen seam, exact current-unit scope, invariants, verification, and reset triggers instead of duplicating the program plan into a second master plan
+     - before the first package-plan review, complete one holistic source/caller/side-effect sweep across the proposed owner and every production caller, async continuation, persistence/event mutation, startup/resume path, and adjacent contract that can invalidate the package seam
+     - require the initial reviewer to return one consolidated whole-package finding set, separated into architecture/seam findings and mechanical plan-hygiene findings; findings reasonably discoverable from the initial packet must not be serially withheld for later rounds
+     - budget one normal plan revision round. Mechanical scope-list, docs, formatting, or command corrections may be fixed and closure-checked without restarting the review state machine. Any genuinely new cross-boundary design flaw first raised after that allowed revision triggers `scope-reset`, controller/user reporting, and a rebuilt addendum before review resumes
+     - same-reviewer closure is useful for confirming accepted blocking findings without reopening discovery; one fresh final review is sufficient when the seam or review surface changed materially, the prior review was not holistic, or the maintainer requests independent confirmation. Do not require both same-reviewer closure and a fresh final review for the same unchanged artifact by default
+     - a maintainer may explicitly waive further package-plan review only after every finding is adjudicated, accepted fixes are applied, no unresolved blocking architecture/seam finding remains, and the residual-risk report names any accepted non-blocking risk; record the override, but never use it to waive implementation review, required verification, focused commits, or truthful closeout
+     - keep remediation packages sequential: implement, review, verify, commit, and close one package before selecting or planning the next package
      - for checklist-linked package work, `slice_table` remains the atomic ownership map and `execution_unit` is the execution/review surface
      - `ready_now_execution_unit` is required for checklist-linked package work and must identify either one approved single-slice unit or one approved `wave_id`; `ready_now_slice` remains the first slice inside that unit
      - `execution_waves` are required only when the approved execution unit spans multiple slices or the plan explicitly opts into wave-scoped execution
@@ -232,6 +239,7 @@ unless that exception record exists.
    - run `npm run verify:maintainability` when production source files are added, removed, renamed, or changed in a way that could affect file-shape baselines
    - `npm run verify` for UI, navigation, Orchestrator, or Plex work
    - `npm run verify:docs` for workflow/control-plane/reference doc changes
+   - use `npm run verify:docs:fast` during workflow-doc iteration for structural, inventory, link, and marker feedback; it does not replace the full `npm run verify:docs` gate before review, after accepted blocking fixes, and before closeout
    - `npm run verify:docs` warns for checklist plan paths that are untracked (including when the path is missing from the workspace and not tracked), and still fails for missing tracked plan references or other docs regressions
    - `npm run verify:docs:workspace` downgrades missing tracked plan references to warnings during active local plan churn, but it does not replace the normal `npm run verify:docs` gate before closeout
    - if prompt inventories or their README indexes changed, run `npm run docs:sync` before the docs verifier so the managed sections stay aligned with the tracked manifest
@@ -272,6 +280,19 @@ unless that exception record exists.
    - when prompt inventories or managed README sections change, run `npm run docs:sync` before `npm run verify:docs`
    - when workflow, launcher, skill, or role changes trip an eval trigger, run the required manual eval prompt set named in [`docs/agentic/evals/README.md`](./agentic/evals/README.md) and record the tracked baseline summary in the same pass
    - do not claim a workflow-quality improvement from prose alone; pair the doc update with the matching verification and eval evidence
+
+## Reusable Control Contracts
+
+Launchers may reference these stable contracts by name instead of repeating their full prose. A launcher must still state task-specific scope, stop conditions, and any behavior needed at the point of action.
+
+- `DELEGATED_PLANNER_AUTHORITY`: one selected planner owns the planning artifact until completion, explicit block/failure, user-directed local takeover, a controller-only seam decision, or the documented abandonment test; the controller does not draft a competing plan.
+- `REVIEWER_READ_ONLY_CONTRACT`: reviewers receive a bounded artifact/evidence packet, stay read-only, lead with severity-ordered findings, separate blockers from optional improvements, and explicitly report a clean result.
+- `IMPLEMENTATION_CLOSEOUT_GATE`: required verification, clean risk-matched implementation review, focused commit handling, required docs/status synchronization, and truthful residual-risk reporting must complete before closeout.
+- `SEQUENTIAL_PACKAGE_GATE`: one remediation package is planned, implemented, reviewed, verified, committed, and closed before the next package is selected or planned.
+
+Deterministic prompt-eval execution may use `worker_luna` only through an exact bounded `CURRENT_EXECUTION_PACKET` that freezes prompt, files, rubric, output, verification, and stop conditions. Treat its result as eval evidence, never as the required adversarial review, and escalate ambiguity or unexpected evidence to the appropriate Sol reviewer/planner.
+
+When a referenced contract changes materially, update its verifier markers and triggered evals in the same pass. Do not require launchers to copy the full contract; retain only task-local clauses needed at the point of action.
 
 ## Review Routing
 
@@ -401,6 +422,8 @@ ARTIFACT: <reviewed artifact or diff target>
 FILES:
 - <key file or artifact path>
 BLOCKERS: <none or short blocker summary>
+HANDOFF_DELTA_FROM: <resolvable repo-relative artifact path@revision or "none">
+CHANGED_FACTS: <only facts changed since that artifact, or "initial handoff">
 MESSAGE:
 <pasteable next-session message>
 ```
@@ -413,6 +436,8 @@ Rules:
 - keep the handoff block short enough to paste directly into the next fresh session
 - do not require users to reconstruct the next launcher/message from prose paragraphs
 - keep `TASK`, `PLAN`, and `FILES` concrete enough that the next fresh session can start without extra reconstruction
+- after the initial handoff, use `HANDOFF_DELTA_FROM` and `CHANGED_FACTS` instead of restating unchanged plan, invariant, verification, role, and review history; the receiver must resolve and read the repo-relative artifact at the named revision, confirm it remains authoritative, and apply the delta only afterward
+- fall back to a complete handoff when the delta base cannot be resolved exactly, the authority artifact moved, the seam changed, prior context is unavailable, or a delta would make the receiver reconstruct hidden state
 
 ## Quality Loop
 

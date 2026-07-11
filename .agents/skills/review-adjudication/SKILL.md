@@ -101,6 +101,8 @@ Adjust downward when the code is isolated, temporary, already being retired, or 
    - create follow-up
    - reject with evidence
 8. Choose verification using `verification-strategy`.
+9. Classify accepted plan findings as `architecture/seam` or `mechanical plan hygiene`; mechanical corrections do not restart the review state machine.
+10. Track the plan revision budget: any genuinely new cross-boundary design flaw first raised after the one allowed revision triggers scope reset and controller/user reporting rather than another ordinary rereview.
 
 ## Output Shape
 

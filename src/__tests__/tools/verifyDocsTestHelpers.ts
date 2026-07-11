@@ -367,6 +367,14 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '- [`docs/agentic/phase-2-steady-state-plan.md`](./agentic/phase-2-steady-state-plan.md)',
             '',
             'Route task family before choosing a tier.',
+            '## Reusable Control Contracts',
+            '`DELEGATED_PLANNER_AUTHORITY`: one selected planner owns the artifact and the controller does not draft a competing plan.',
+            '`REVIEWER_READ_ONLY_CONTRACT`: reviewers receive a bounded artifact/evidence packet, stay read-only, and return severity-ordered findings.',
+            '`IMPLEMENTATION_CLOSEOUT_GATE`: required verification, implementation review, focused commit handling, and truthful residual-risk reporting precede closeout.',
+            '`SEQUENTIAL_PACKAGE_GATE`: one remediation package is closed before the next package is selected or planned.',
+            '`HANDOFF_DELTA_FROM` and `CHANGED_FACTS` carry only changed handoff facts.',
+            'Use `npm run verify:docs:fast` during iteration and the full docs gate before closeout.',
+            'Treat its result as eval evidence, never as the required adversarial review.',
             '',
             '- For cleanup/refactor work, choose `checklist-linked` or `standalone remediation` before selecting a tier.',
             '- Record whether cleanup work is `checklist-linked` or `standalone remediation` before freezing the plan.',
@@ -493,6 +501,33 @@ export function writeValidSessionPromptFixture(repoRoot: string): void {
             '- Large-package execution should review coherent retirement batches, not one tiny fix at a time.',
             '- Use `planner` for bounded planning artifacts, `planner_deep` for Tier 3/hotspot/priority-exit/cross-boundary/unresolved seam planning, `cleanup_worker` for Tier 3 `cleanup-loop` implementation write passes, `worker` for general implementation outside that loop, `worker_luna` only for approved bounded exact cheap-to-verify execution units, `reviewer` for normal adversarial review, `maintainability_reviewer` for maintainability-only review, and `architecture_reviewer` for hotspot/boundary/security-adjacent architecture review.',
             '- Do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning.',
+            '- Use a compact package execution addendum. Before freezing that addendum or plan, perform one holistic source/caller/side-effect sweep.',
+            '- The initial reviewer returns one consolidated finding set separated into architecture/seam and mechanical plan hygiene.',
+            '- Any genuinely new cross-boundary design flaw first raised after the one allowed revision triggers scope-reset.',
+            '- Do not require both gates for the same unchanged artifact.',
+            '- A maintainer may explicitly waive further package-plan review only after every finding is adjudicated and no unresolved blocking architecture/seam finding remains; the override never waives implementation review, required verification, focused commits, or truthful closeout.',
+            '- Close the current package before selecting or planning the next package.',
+            '- Record the sweep as `surface`, `owner/callers`, `async boundary`, `side effects`, `invariant`, and `evidence`.',
+            '- Use same-reviewer closure when accepted fixes leave ownership, public behavior, persistence/security semantics, verification surface, and reviewed files materially unchanged.',
+            '- Use one fresh final reviewer instead when a fix changes an owner seam, public contract/behavior, persistence or security semantics, the verification surface, or the reviewed file set materially.',
+            '- Do not require both same-reviewer closure and a fresh final review for the same unchanged implementation artifact.',
+            '- Resolve and read its repo-relative artifact at the named revision before applying `CHANGED_FACTS`.',
+            '- Reject the delta and require a complete handoff instead of reconstructing hidden state.',
+            '',
+        ].join('\n')
+    );
+
+    writeRepoFile(
+        repoRoot,
+        'docs/agentic/session-prompts/workflow-harness-review.md',
+        [
+            '# Workflow Harness Review (Fixture)',
+            '',
+            'Declare exactly one review mode before reading.',
+            '- `targeted`: one named workflow, launcher, skill, or verifier contract.',
+            '- `whole-system`: the entire control plane and review axes.',
+            '- End targeted review with a `READING_SCOPE` record naming reviewed and intentionally omitted surfaces.',
+            '- Omission is invalid when architecture, role routing, tracked/local truth, or verifier behavior depends on that surface.',
             '',
         ].join('\n')
     );

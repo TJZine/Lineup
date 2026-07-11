@@ -1,10 +1,14 @@
 # Eval Baseline Summary
 
+**Summary mode:** `compact` | `full telemetry`
+
 ## Date
 
 ## Operator / Agent Surface
 
 ## Session Metadata
+
+Required in compact mode: fresh-session status, launcher/surface, and repo-state exception. Complete the remaining telemetry only in `full telemetry` mode or when a value materially explains the outcome.
 
 - fresh-session run: `yes` | `no`
 - session id / launcher:
@@ -21,6 +25,8 @@
 - observed result:
 
 ## Review / Rework Telemetry
+
+Optional in compact mode. Required for model/role cost comparison, orchestration-efficiency measurement, or workflow-failure diagnosis.
 
 - review findings count:
 - blocking findings count:

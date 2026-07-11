@@ -85,6 +85,8 @@ Build and refresh eval prompts from:
   - 22 Planner Escalation And Plan Critique Boundaries
 - [`23-reviewer-specialization-effectiveness`](./prompts/23-reviewer-specialization-effectiveness.md)
   - 23 Reviewer Specialization Effectiveness
+- [`24-cleanup-loop-review-budget-and-boundary-sweep`](./prompts/24-cleanup-loop-review-budget-and-boundary-sweep.md)
+  - 24 Cleanup Loop Review Budget And Boundary Sweep
 <!-- END MANAGED EVAL PROMPT INVENTORY -->
 
 ## How To Run A Manual Eval
@@ -93,14 +95,17 @@ Build and refresh eval prompts from:
 2. Use one prompt file as the task input.
 3. Start a fresh session for each prompt you score.
 4. Record the agent surface used.
-5. Record ROLE / MODEL / REASONING_EFFORT, task family, tier, risk score, verification results, review finding counts, rework rounds, wall time, and observed token/credit/cost data when available.
-6. Treat exact model and reasoning-effort entries as observed/operator-recorded evidence only; do not claim mechanical verification unless the surface actually exposes it.
-7. Record whether the expected skills and Codanna workflow were actually used.
-8. If Codanna fallback is used, log the exact invocation, acceptable condition, and fallback evidence path.
-9. Score only fresh-session runs or explicitly logged Codanna-fallback runs.
-10. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
-11. Write one tracked summary file under [`docs/agentic/evals/baseline-summaries/`](./baseline-summaries/README.md) using [`baseline-summary-template.md`](./baseline-summary-template.md), including fallback usage and fresh-session deviations.
-12. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
+5. Choose `compact` summary mode by default. Use `full telemetry` only for model/role cost comparisons, orchestration-efficiency measurement, or diagnosing workflow failure.
+6. Compact mode records prompt/scenario, pass/fail, deviations, material misses, verification evidence, and the durable workflow conclusion. Full mode additionally records ROLE / MODEL / REASONING_EFFORT, task family, tier, risk score, review counts, rework rounds, wall time, and observed token/credit/cost data when available.
+7. Treat exact model and reasoning-effort entries as observed/operator-recorded evidence only; do not claim mechanical verification unless the surface actually exposes it.
+8. Record whether the expected skills and Codanna workflow were actually used.
+9. If Codanna fallback is used, log the exact invocation, acceptable condition, and fallback evidence path.
+10. Score only fresh-session runs or explicitly logged Codanna-fallback runs.
+11. Score the run with [`rubric.md`](./rubric.md) and [`scorecard-template.md`](./scorecard-template.md).
+12. Write one tracked summary file under [`docs/agentic/evals/baseline-summaries/`](./baseline-summaries/README.md) using [`baseline-summary-template.md`](./baseline-summary-template.md), including fallback usage and fresh-session deviations.
+13. Keep raw baseline artifacts local-only unless they are intentionally promoted later.
+
+For deterministic eval execution, a bounded `CURRENT_EXECUTION_PACKET` may declare `IMPLEMENTER_ROLE_ELIGIBILITY: worker_luna` only when the prompt, files, rubric, output shape, and direct verification are exact; no architecture/product decision or failure diagnosis remains; and the worker must stop on ambiguity or unexpected evidence. `worker_luna` may execute the prompt and write its bounded summary, but its output is eval evidence, not adversarial approval. Keep architecture, security, boundary, priority-exit, and ambiguous review on the specialized reviewer roles.
 
 For the first manual baseline, run only these prompts in this order:
 
@@ -114,6 +119,8 @@ For the first manual baseline, run only these prompts in this order:
 Do not run all tracked prompts in the first baseline.
 
 Run [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) whenever the workflow/control-plane changes materially.
+
+Run [`24-cleanup-loop-review-budget-and-boundary-sweep`](./prompts/24-cleanup-loop-review-budget-and-boundary-sweep.md) whenever Tier 3 cleanup-loop planning, plan-review budgeting, scope-reset, or package-sequencing policy changes materially.
 
 Run [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) whenever tracked multi-agent role guidance, repo-local subagent routing guidance, or `.codex/config.toml` role declarations change materially.
 
@@ -141,6 +148,7 @@ Use this table as the operational trigger map for control-plane and boundary-ski
 | Change surface | Required prompt(s) | Notes |
 | --- | --- | --- |
 | tracked workflow/control-plane docs change materially | [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) | Baseline workflow gate for routing, tiering, and local-only absorption. |
+| Tier 3 cleanup-loop planning, plan-review budgeting, scope-reset, or package sequencing changes materially | [`24-cleanup-loop-review-budget-and-boundary-sweep`](./prompts/24-cleanup-loop-review-budget-and-boundary-sweep.md) | Guards compact addenda, holistic boundary discovery, consolidated findings, bounded revision, override semantics, and sequential package closeout. |
 | launcher routing or feature-vs-cleanup guidance changes materially | [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) | Use the feature/design workflow meta-eval scenario below when feature launchers or routing guidance changed. |
 | tracked workflow-critical skill topology changes materially | [`13-risk-tiered-orchestration-and-local-only-absorption`](./prompts/13-risk-tiered-orchestration-and-local-only-absorption.md) | Validates canonical repo-local skill-topology ownership under `.agents/skills/`; also run [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) when the change affects subagent/delegation routing. |
 | tracked multi-agent role guidance, repo-local subagent skill/routing guidance, skill-topology policy, or `.codex/config.toml` role declarations change materially | [`19-multi-agent-role-selection-and-delegation-discipline`](./prompts/19-multi-agent-role-selection-and-delegation-discipline.md) | Required before claiming delegation-policy or role-surface improvements. |

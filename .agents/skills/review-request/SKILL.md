@@ -73,6 +73,8 @@ For plans, include:
 - chosen seam and non-goals
 - ready execution unit or review surface
 - stop-and-replan triggers
+- the program-level authority and compact package addendum when a remediation program already owns package membership and sequencing
+- the recorded holistic source/caller/side-effect sweep
 
 For skills/workflow docs, include:
 
@@ -92,6 +94,8 @@ Ask the reviewer to:
 - check scope creep and owner-boundary violations
 - avoid style-only commentary unless it hides a defect
 - say explicitly when no blocking findings are found
+- return one consolidated whole-package finding set on the initial pass, separated into architecture/seam findings and mechanical plan-hygiene findings
+- confirm the whole-package pass is complete and not defer reasonably discoverable findings into serial rereviews
 
 Do not ask the reviewer to rewrite the work unless the task is explicitly a planning or docs review.
 

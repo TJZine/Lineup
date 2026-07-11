@@ -251,6 +251,24 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         expect(result.stdout).toContain('Documentation verification passed.');
     });
 
+    it.each([
+        ['DELEGATED_PLANNER_AUTHORITY', 'controller does not draft a competing plan', 'controller may draft a competing plan'],
+        ['REVIEWER_READ_ONLY_CONTRACT', 'stay read-only', 'may patch findings directly'],
+        ['IMPLEMENTATION_CLOSEOUT_GATE', 'required verification', 'optional verification'],
+        ['SEQUENTIAL_PACKAGE_GATE', 'closed before the next package is selected or planned', 'may overlap the next package'],
+    ])('fails when reusable contract %s keeps its name but loses required semantics', (_name, required, weakened) => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        const workflowPath = path.join(repoRoot, 'docs/AGENTIC_DEV_WORKFLOW.md');
+        const workflow = readFileSync(workflowPath, 'utf8');
+        writeFileSync(workflowPath, workflow.replace(required, weakened), 'utf8');
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('Workflow reusable contract');
+    });
+
     it('fails when the runbook drops canonical worker_luna eligibility policy', () => {
         expectVerifierFailureAfterMutating({
             mutate: (repoRoot) => {
