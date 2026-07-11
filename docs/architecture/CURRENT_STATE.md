@@ -81,6 +81,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### `src/core/initialization/InitializationCoordinator.ts`
 
 - focused startup sequencing collaborator between app shell and orchestrator
+- owns each startup pass's opaque Plex-auth guard through discovery, runtime/EPG work, routing, event wiring, ready/lifecycle publication, queued continuation, resume cleanup, and guarded warmup scheduling
+- every separate phase entry validates stored credentials first; same-pass queued work retains its guard, while queued work after supersession re-enters validation under a fresh lineage
 
 ### `src/core/server-selection/`
 
@@ -228,8 +230,12 @@ after this extraction.
   `PlexStreamResolver.fetchUniversalTranscodeDecision()` remains the public
   delegating contract.
 - `src/modules/plex/auth/PlexAuth.ts` owns the auth credential storage key
-  `lineup_plex_auth`, credential epoch, token validation, PIN flow, and auth /
-  profile event emission
+  `lineup_plex_auth`, private monotonic credential-operation authority, atomic
+  stored-credential validation/reconstruction, token validation, PIN flow, and
+  auth / profile event emission
+- `src/modules/plex/auth/plexStoredCredentialsValidation.ts` owns pure active-token
+  and account-fallback credential reconstruction while `PlexAuth` retains storage,
+  operation-context, commit, and event authority
 - `src/modules/plex/auth/plexHomeProfileClient.ts` owns Plex Home endpoint
   fallback, Home status classification, and profile-switch request/status
   coordination while returning typed auth outcomes to `PlexAuth`

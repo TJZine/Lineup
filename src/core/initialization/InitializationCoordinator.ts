@@ -1,7 +1,12 @@
 import type { IAppLifecycle, AppError } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../types/app-errors';
 import type { INavigationManager } from '../../modules/navigation';
-import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
+import {
+    type IPlexAuth,
+    type PlexAuthValidationGuard,
+    isPlexAuthOperationSupersededError,
+    isPlexAuthRecoverable,
+} from '../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
@@ -26,19 +31,20 @@ import {
     applyAuthValidationPolicy,
     applyServerConnectionPolicy,
     applyPostReadyRoutingPolicy,
+    type AuthValidationPolicyResult,
 } from './InitializationStartupPolicy';
 import {
     isStartupAbortError,
+    createStartupPassValidity,
     throwIfStartupAborted,
+    type StartupPassValidity,
     type StartupSignalOptions,
 } from './InitializationAbort';
 import { InitializationStartupQueue } from './InitializationStartupQueue';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
 import type { RecoverableAsyncFailureReporter } from '../orchestrator/runtime/OrchestratorRuntimeSeams';
 
-// Numeric order is significant: lower values are earlier pipeline stages.
-// runStartup compares StartupPhase values and uses Math.min(_startupQueuedPhase, startPhase)
-// to collapse queued requests, so do not reorder or renumber without updating that logic.
+// Numeric order is significant for queued phase collapsing.
 export const STARTUP_PHASE = {
     FULL_STARTUP: 1,
     RESUME_AFTER_AUTH_CHANGE: 2,
@@ -104,7 +110,6 @@ export interface InitializationDependencies {
 export interface InitializationStartupUiPort {
     ensureCorePlayerUiInitialized(): Promise<void>;
 }
-
 /**
  * Callbacks the coordinator invokes on the Orchestrator.
  * These maintain separation of concerns while allowing state updates.
@@ -144,7 +149,6 @@ export interface InitializationCallbacks {
         buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
     };
 }
-
 /**
  * InitializationCoordinator - Manages the named startup sequence.
  *
@@ -154,15 +158,11 @@ export interface InitializationCallbacks {
  */
 export class InitializationCoordinator {
     private static readonly EPG_WARMUP_DELAY_MS = 1500;
-
     private _startupInProgress = false;
     private readonly _startupQueue = new InitializationStartupQueue();
-
     private _authResumeDisposable: IDisposable | null = null;
     private _serverResumeDisposable: IDisposable | null = null;
     private _profileResumeDisposable: IDisposable | null = null;
-
-    // EPG init promise (prevents duplicate initialization)
     private _epgInitPromise: Promise<void> | null = null;
     private _epgWarmupTimerId: ReturnType<typeof setTimeout> | null = null;
 
@@ -171,114 +171,141 @@ export class InitializationCoordinator {
         private readonly _deps: InitializationDependencies,
         private readonly _callbacks: InitializationCallbacks
     ) { }
-
     async runStartup(startPhase: StartupPhase, options?: StartupSignalOptions): Promise<void> {
-        let activeSignal = options?.signal;
-        throwIfStartupAborted(activeSignal);
+        let activeCallerSignal = options?.signal;
+        throwIfStartupAborted(activeCallerSignal);
         this._cancelEpgWarmup();
         if (this._startupInProgress) {
-            return this._startupQueue.queue(startPhase, activeSignal);
+            return this._startupQueue.queue(startPhase, activeCallerSignal);
         }
 
         this._startupInProgress = true;
         let phaseToRun: StartupPhase = startPhase;
         let caughtError: unknown;
-        let shouldScheduleEpgWarmup = false;
-        let shouldEagerlyInitEpgForFinalReadyWork: boolean | null = null;
+        let passValidity: StartupPassValidity | null = null;
+        let retainedGuard: PlexAuthValidationGuard | null = null;
 
         try {
             while (true) {
-                throwIfStartupAborted(activeSignal);
+                throwIfStartupAborted(activeCallerSignal);
                 const willRunInitializePlaybackRuntime = phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES;
                 const shouldEagerlyInitEpgForPass = phaseToRun > STARTUP_PHASE.FULL_STARTUP;
-                throwIfStartupAborted(activeSignal);
-                this._callbacks.state.setReady(false);
 
                 if (phaseToRun <= STARTUP_PHASE.FULL_STARTUP) {
-                    await this._initCoreInfrastructure(activeSignal);
+                    await this._initCoreInfrastructure(activeCallerSignal);
                 }
 
-                if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE) {
-                    const authValid = await this._validateAuthentication(activeSignal);
-                    if (!authValid) {
-                        const queuedWork = this._startupQueue.consumeQueuedWork();
-                        if (queuedWork === null) break;
+                const authResult: AuthValidationPolicyResult = retainedGuard
+                    ? { kind: 'continue' as const, guard: retainedGuard }
+                    : await this._validateAuthentication(activeCallerSignal);
+                retainedGuard = null;
+                if (authResult.kind === 'stop') {
+                    const queuedWork = this._startupQueue.consumeQueuedWork();
+                    if (queuedWork === null) break;
+                    phaseToRun = queuedWork.phase;
+                    activeCallerSignal = queuedWork.signal;
+                    continue;
+                }
+                passValidity = createStartupPassValidity(activeCallerSignal, authResult.guard);
+                const activeSignal = passValidity.signal;
+                passValidity.assertCurrent();
+                this._callbacks.state.setReady(false);
+
+                try {
+                    if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION) {
+                        const plexConnected = await this._connectPlexServer(activeSignal);
+                        passValidity!.assertCurrent();
+                        if (!plexConnected) {
+                            const queuedWork = this._startupQueue.consumeQueuedWork();
+                            passValidity.dispose();
+                            passValidity = null;
+                            if (queuedWork === null) break;
+                            phaseToRun = queuedWork.phase;
+                            activeCallerSignal = queuedWork.signal;
+                            retainedGuard = authResult.guard;
+                            continue;
+                        }
+                    }
+
+                    if (phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES) {
+                        await this._initializePlaybackRuntime(activeSignal);
+                        passValidity!.assertCurrent();
+                        await this._ensureCorePlayerUiInitialized(activeSignal);
+                        passValidity.assertCurrent();
+                    }
+
+                    if (shouldEagerlyInitEpgForPass) {
+                        await this._initializeEpg({
+                            ensureCorePlayerUi: !willRunInitializePlaybackRuntime,
+                            signal: activeSignal,
+                        });
+                        passValidity.assertCurrent();
+                    }
+
+                    passValidity.assertCurrent();
+                    const queuedWork = this._startupQueue.consumeQueuedWork();
+                    if (queuedWork !== null) {
+                        passValidity!.dispose();
+                        passValidity = null;
                         phaseToRun = queuedWork.phase;
-                        activeSignal = queuedWork.signal;
+                        activeCallerSignal = queuedWork.signal;
+                        retainedGuard = authResult.guard;
                         continue;
                     }
-                }
 
-                if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION) {
-                    const plexConnected = await this._connectPlexServer(activeSignal);
-                    if (!plexConnected) {
-                        const queuedWork = this._startupQueue.consumeQueuedWork();
-                        if (queuedWork === null) break;
-                        phaseToRun = queuedWork.phase;
-                        activeSignal = queuedWork.signal;
-                        continue;
+                    passValidity.assertCurrent();
+                    this._callbacks.state.setupEventWiring();
+
+                    if (this._deps.modules.navigation) {
+                        passValidity.assertCurrent();
+                        await applyPostReadyRoutingPolicy({
+                            navigation: this._deps.modules.navigation,
+                            channelManager: this._deps.modules.channelManager,
+                            shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
+                            shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
+                            switchToChannel: this._callbacks.routing.switchToChannel,
+                            openServerSelect: this._callbacks.routing.openServerSelect,
+                            signal: activeSignal,
+                        });
+                        passValidity.assertCurrent();
                     }
-                }
 
-                if (phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES) {
-                    await this._initializePlaybackRuntime(activeSignal);
-                    await this._ensureCorePlayerUiInitialized(activeSignal);
-                }
+                    passValidity.assertCurrent();
+                    this._callbacks.state.setReady(true);
+                    if (this._deps.modules.lifecycle) {
+                        passValidity.assertCurrent();
+                        this._deps.modules.lifecycle.setPhase('ready');
+                    }
 
-                if (shouldEagerlyInitEpgForPass) {
-                    await this._initializeEpg({
-                        ensureCorePlayerUi: !willRunInitializePlaybackRuntime,
-                        signal: activeSignal,
-                    });
-                }
-
-                throwIfStartupAborted(activeSignal);
-                const queuedWork = this._startupQueue.consumeQueuedWork();
-                if (queuedWork === null) {
-                    shouldEagerlyInitEpgForFinalReadyWork = shouldEagerlyInitEpgForPass;
+                    passValidity.assertCurrent();
+                    this.clearAuthResume();
+                    this.clearServerResume();
+                    this.clearProfileResume();
+                    if (!shouldEagerlyInitEpgForPass) {
+                        this._scheduleEpgWarmup(() => authResult.guard.assertCurrent());
+                    }
                     break;
+                } catch (error) {
+                    try {
+                        passValidity!.assertCurrent();
+                    } catch (validityError) {
+                        if (!isPlexAuthOperationSupersededError(validityError)) throw validityError;
+                        const queuedWork = this._startupQueue.consumeQueuedWork();
+                        passValidity!.dispose();
+                        passValidity = null;
+                        if (queuedWork === null) break;
+                        phaseToRun = queuedWork.phase;
+                        activeCallerSignal = queuedWork.signal;
+                        continue;
+                    }
+                    throw error;
                 }
-                phaseToRun = queuedWork.phase;
-                activeSignal = queuedWork.signal;
-            }
-
-            if (shouldEagerlyInitEpgForFinalReadyWork !== null) {
-                throwIfStartupAborted(activeSignal);
-                this._callbacks.state.setupEventWiring();
-
-                if (this._deps.modules.navigation) {
-                    throwIfStartupAborted(activeSignal);
-                    await applyPostReadyRoutingPolicy({
-                        navigation: this._deps.modules.navigation,
-                        channelManager: this._deps.modules.channelManager,
-                        shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
-                        shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
-                        switchToChannel: this._callbacks.routing.switchToChannel,
-                        openServerSelect: this._callbacks.routing.openServerSelect,
-                        signal: activeSignal,
-                    });
-                }
-
-                throwIfStartupAborted(activeSignal);
-                this._callbacks.state.setReady(true);
-                if (this._deps.modules.lifecycle) {
-                    throwIfStartupAborted(activeSignal);
-                    this._deps.modules.lifecycle.setPhase('ready');
-                }
-
-                throwIfStartupAborted(activeSignal);
-                this.clearAuthResume();
-                this.clearServerResume();
-                this.clearProfileResume();
-                shouldScheduleEpgWarmup = !shouldEagerlyInitEpgForFinalReadyWork;
             }
         } catch (error: unknown) {
             caughtError = error;
             this._cancelEpgWarmup();
-            if (isStartupAbortError(error, activeSignal)) shouldScheduleEpgWarmup = false;
-            else {
+            if (!isStartupAbortError(error, activeCallerSignal) && !isStartupAbortError(error, passValidity?.signal)) {
                 const message = error instanceof Error ? error.message : String(error);
-                // Avoid leaving stale resume listeners after a fatal startup error.
                 this.clearAuthResume();
                 this.clearServerResume();
                 this.clearProfileResume();
@@ -292,14 +319,11 @@ export class InitializationCoordinator {
                 );
             }
         } finally {
+            passValidity?.dispose();
             this._startupInProgress = false;
             this._startupQueue.settle(caughtError);
         }
 
-        if (shouldScheduleEpgWarmup) {
-            this._scheduleEpgWarmup();
-        }
-        // Rethrow after cleanup so direct callers receive a rejected Promise
         if (caughtError !== undefined) {
             throw caughtError;
         }
@@ -308,7 +332,6 @@ export class InitializationCoordinator {
     isStartupInProgress(): boolean {
         return this._startupInProgress;
     }
-
     async ensureEPGInitialized(): Promise<void> {
         await this._initializeEpg();
     }
@@ -320,7 +343,6 @@ export class InitializationCoordinator {
             this._authResumeDisposable = null;
         }
     }
-
     clearServerResume(): void {
         this._cancelEpgWarmup();
         if (this._serverResumeDisposable) {
@@ -328,7 +350,6 @@ export class InitializationCoordinator {
             this._serverResumeDisposable = null;
         }
     }
-
     clearProfileResume(): void {
         this._cancelEpgWarmup();
         if (this._profileResumeDisposable) {
@@ -336,12 +357,10 @@ export class InitializationCoordinator {
             this._profileResumeDisposable = null;
         }
     }
-
     prepareForProfileSwitchAttempt(): void {
         this.clearServerResume();
         this.clearProfileResume();
     }
-
     restorePendingServerResumeAfterProfileSwitchFailure(): void {
         const discoveryStatus = this._callbacks.status.getModuleStatus('plex-server-discovery');
         const libraryStatus = this._callbacks.status.getModuleStatus('plex-library');
@@ -356,23 +375,18 @@ export class InitializationCoordinator {
 
         this._registerServerResume();
     }
-
     async resumeStartupAfterProfileSwitch(): Promise<void> {
         this.clearServerResume();
         this.clearProfileResume();
-        this._callbacks.serverStorage.configureDiscoveryStorage();
         await this.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
     }
 
     private async _initCoreInfrastructure(signal: AbortSignal | null | undefined): Promise<void> {
         const startTime = Date.now();
-
         throwIfStartupAborted(signal);
-        // EventEmitter is already ready (synchronous)
         this._callbacks.status.updateModuleStatus('event-emitter', 'ready', undefined, 0);
 
         const promises: Promise<void>[] = [];
-
         if (this._deps.modules.lifecycle) {
             throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus('app-lifecycle', 'initializing');
@@ -406,11 +420,10 @@ export class InitializationCoordinator {
         throwIfStartupAborted(signal);
     }
 
-    private async _validateAuthentication(signal: AbortSignal | null | undefined): Promise<boolean> {
+    private async _validateAuthentication(signal: AbortSignal | null | undefined): Promise<AuthValidationPolicyResult> {
         const startTime = Date.now();
         throwIfStartupAborted(signal);
         this._callbacks.status.updateModuleStatus('plex-auth', 'initializing');
-
         if (!this._deps.modules.plexAuth || !this._deps.modules.navigation) {
             throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus(
@@ -421,9 +434,8 @@ export class InitializationCoordinator {
                     'Plex auth or navigation module unavailable during startup.'
                 )
             );
-            return false;
+            return { kind: 'stop' as const };
         }
-
         const authGateInputs = {
             startTime,
             plexAuth: this._deps.modules.plexAuth,
@@ -439,13 +451,11 @@ export class InitializationCoordinator {
             },
             signal,
         };
-
         return applyAuthValidationPolicy(authGateInputs);
     }
 
     private async _connectPlexServer(signal: AbortSignal | null | undefined): Promise<boolean> {
         const startTime = Date.now();
-
         if (
             !this._deps.modules.plexDiscovery ||
             !this._deps.modules.plexLibrary ||
@@ -454,7 +464,6 @@ export class InitializationCoordinator {
         ) {
             return false;
         }
-
         try {
             return await applyServerConnectionPolicy({
                 startTime,
@@ -490,11 +499,8 @@ export class InitializationCoordinator {
             return false;
         }
     }
-
     private async _initializePlaybackRuntime(signal: AbortSignal | null | undefined): Promise<void> {
         const startTime = Date.now();
-
-        // Channel Manager
         if (this._deps.modules.channelManager) {
             const channelManager = this._deps.modules.channelManager;
             await this._initializeRuntimeModule('channel-manager', startTime, signal, async () => {
@@ -503,8 +509,6 @@ export class InitializationCoordinator {
                 await channelManager.loadChannels();
             });
         }
-
-        // Channel Scheduler (no async init needed)
         if (this._deps.modules.scheduler) {
             throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus(
@@ -517,8 +521,6 @@ export class InitializationCoordinator {
             throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus('channel-scheduler', 'disabled');
         }
-
-        // Video Player
         if (this._deps.modules.videoPlayer && this._config) {
             const videoPlayer = this._deps.modules.videoPlayer;
             await this._initializeRuntimeModule('video-player', startTime, signal, async () => {
@@ -526,46 +528,39 @@ export class InitializationCoordinator {
                     ...this._config.playerConfig,
                 });
                 throwIfStartupAborted(signal);
-                // Request Media Session integration (once per app lifetime)
                 videoPlayer.requestMediaSession();
             });
         }
-
         if (this._deps.overlays.playerOsd && this._config) {
             const playerOsd = this._deps.overlays.playerOsd;
             await this._initializeRuntimeModule('player-osd-ui', startTime, signal, () => {
                 playerOsd.initialize(this._config.playerOsdConfig);
             });
         }
-
         if (this._deps.overlays.channelNumberOverlay && this._config) {
             const channelNumberOverlay = this._deps.overlays.channelNumberOverlay;
             await this._initializeRuntimeModule('channel-number-overlay-ui', startTime, signal, () => {
                 channelNumberOverlay.initialize(this._config.channelNumberOverlayConfig.containerId);
             });
         }
-
         if (this._deps.overlays.channelBadgeOverlay && this._config) {
             const channelBadgeOverlay = this._deps.overlays.channelBadgeOverlay;
             await this._initializeRuntimeModule('channel-badge-ui', startTime, signal, () => {
                 channelBadgeOverlay.initialize(this._config.channelBadgeConfig);
             });
         }
-
         if (this._deps.overlays.miniGuide && this._config) {
             const miniGuide = this._deps.overlays.miniGuide;
             await this._initializeRuntimeModule('mini-guide-ui', startTime, signal, () => {
                 miniGuide.initialize(this._config.miniGuideConfig);
             });
         }
-
         if (this._deps.overlays.channelTransition && this._config) {
             const channelTransition = this._deps.overlays.channelTransition;
             await this._initializeRuntimeModule('channel-transition-ui', startTime, signal, () => {
                 channelTransition.initialize(this._config.channelTransitionConfig);
             });
         }
-
     }
 
     private async _initializeRuntimeModule(
@@ -675,12 +670,17 @@ export class InitializationCoordinator {
         }
     }
 
-    private _scheduleEpgWarmup(): void {
+    private _scheduleEpgWarmup(assertCurrent?: () => void): void {
         this._cancelEpgWarmup();
         this._epgWarmupTimerId = setTimeout(() => {
             this._epgWarmupTimerId = null;
+            try {
+                assertCurrent?.();
+            } catch {
+                return;
+            }
             void this.ensureEPGInitialized().catch(() => {
-                // Best-effort warmup only.
+                // Best-effort warmup.
             });
         }, InitializationCoordinator.EPG_WARMUP_DELAY_MS);
     }
@@ -738,8 +738,7 @@ export class InitializationCoordinator {
     }
 
     private _reportResumeFailure(phase: StartupResumePhase, error: unknown): void {
-        // runStartup() already reports fatal startup failures via handleGlobalError('start').
-        // Consume the rejection here only to avoid an unhandled Promise rejection on resume.
+        // runStartup reports fatal failures; consume resume rejection to avoid an unhandled promise.
         try {
             const failure = STARTUP_RESUME_FAILURES[phase];
             this._callbacks.diagnostics.reportRecoverableAsyncFailure(
@@ -748,7 +747,7 @@ export class InitializationCoordinator {
                 error
             );
         } catch {
-            // Resume rejection is already consumed above; diagnostics must stay best-effort.
+            // Diagnostics stay best-effort.
         }
     }
 }

@@ -57,6 +57,17 @@ function mockFetchFailure(error: Error): void {
     (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockRejectedValue(error);
 }
 
+function createDeferred<T>(): {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+} {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((settle) => {
+        resolve = settle;
+    });
+    return { promise, resolve };
+}
+
 function createAuthToken(
     token: string,
     userId: string = 'user1'
@@ -271,6 +282,84 @@ describe('PlexAuth', () => {
     });
 
     describe('checkPinStatus', () => {
+        it('does not restore claimed credentials after a newer clear', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const profile = createDeferred<unknown>();
+            const authEvents: boolean[] = [];
+            auth.on('authChange', (value) => authEvents.push(value));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        id: 12345,
+                        code: 'ABCD',
+                        expiresAt: '2026-01-15T12:15:00Z',
+                        authToken: 'old-token',
+                        clientIdentifier: mockConfig.clientIdentifier,
+                    }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: () => profile.promise,
+                });
+
+            const pending = auth.checkPinStatus(12345);
+            await Promise.resolve();
+            await Promise.resolve();
+            auth.clearCredentials();
+            profile.resolve({
+                id: 'old-user',
+                username: 'old',
+                email: 'old@example.com',
+                thumb: '',
+            });
+
+            await expect(pending).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+            expect(auth.isAuthenticated()).toBe(false);
+            expect(auth.getCurrentUser()).toBeNull();
+            expect(mockLocalStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBeNull();
+            expect(authEvents).toEqual([false]);
+        });
+
+        it('reports supersession instead of a stale transport failure after clear', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const response = createDeferred<Response>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn(() => response.promise);
+            const pending = auth.checkPinStatus(12345);
+            auth.clearCredentials();
+            response.resolve({
+                ok: false,
+                status: 500,
+                json: async () => ({}),
+            } as Response);
+
+            await expect(pending).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+        });
+
+        it('reports supersession instead of a stale PIN parser failure after clear', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const payload = createDeferred<unknown>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: () => payload.promise,
+            });
+            const pending = auth.checkPinStatus(12345);
+            await Promise.resolve();
+            auth.clearCredentials();
+            payload.resolve({ id: 12345 });
+
+            await expect(pending).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+        });
+
         it('should return updated PIN when not yet claimed', async () => {
             const auth = new PlexAuth(mockConfig);
             mockFetchJson({
@@ -289,7 +378,6 @@ describe('PlexAuth', () => {
 
         it('should store credentials when PIN is claimed', async () => {
             const auth = new PlexAuth(mockConfig);
-            const storeCredentialsSpy = jest.spyOn(auth, 'storeCredentials');
 
             // First call returns claimed PIN
             const fetchMock = jest.fn()
@@ -324,15 +412,12 @@ describe('PlexAuth', () => {
 
             await auth.checkPinStatus(12345);
 
-            expect(storeCredentialsSpy).toHaveBeenCalledTimes(1);
-            expect(storeCredentialsSpy).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    accountToken: expect.objectContaining({ userId: '99999' }),
-                    activeToken: expect.objectContaining({ userId: '99999' }),
-                    activeUserId: '99999',
-                })
-            );
             expect(auth.isAuthenticated()).toBe(true);
+            expect(auth.getCurrentUser()).toEqual(expect.objectContaining({ userId: '99999' }));
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual(expect.objectContaining({
+                kind: 'available',
+                credentials: expect.objectContaining({ activeUserId: '99999' }),
+            }));
         });
 
         it('aborts claimed PIN handling before fetching the token profile', async () => {
@@ -655,6 +740,76 @@ describe('PlexAuth', () => {
     });
 
     describe('validateToken', () => {
+        it('does not commit a late valid token after a newer clear', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const payload = createDeferred<unknown>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: () => payload.promise,
+            });
+
+            const pending = auth.validateToken('old-token');
+            await Promise.resolve();
+            auth.clearCredentials();
+            payload.resolve({
+                id: 'old-user',
+                username: 'old',
+                email: 'old@example.com',
+                thumb: '',
+            });
+
+            await expect(pending).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+            expect(auth.isAuthenticated()).toBe(false);
+            expect(auth.getCurrentUser()).toBeNull();
+        });
+
+        it('keeps an older validation superseded when the newer caller was already aborted', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const oldPayload = createDeferred<unknown>();
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({ ok: true, status: 200, json: () => oldPayload.promise });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const oldValidation = auth.validateToken('old-token');
+            await Promise.resolve();
+            const controller = new AbortController();
+            const abortReason = new Error('new caller canceled');
+            controller.abort(abortReason);
+
+            await expect(auth.validateToken('new-token', { signal: controller.signal })).rejects.toBe(
+                abortReason
+            );
+            oldPayload.resolve({
+                id: 'old-user', username: 'old', email: 'old@example.com', thumb: '',
+            });
+            await expect(oldValidation).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+            expect(auth.isAuthenticated()).toBe(false);
+        });
+
+        it('keeps an older validation superseded when the newer request fails remotely', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const oldPayload = createDeferred<unknown>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockResolvedValueOnce({ ok: true, status: 200, json: () => oldPayload.promise })
+                .mockRejectedValueOnce(new Error('new network failure'));
+            const oldValidation = auth.validateToken('old-token');
+            await Promise.resolve();
+            await expect(auth.validateToken('new-token')).rejects.toMatchObject({
+                code: AppErrorCode.SERVER_UNREACHABLE,
+            });
+            oldPayload.resolve({
+                id: 'old-user', username: 'old', email: 'old@example.com', thumb: '',
+            });
+            await expect(oldValidation).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+            expect(auth.isAuthenticated()).toBe(false);
+        });
+
         it('should return true for valid token', async () => {
             const auth = new PlexAuth(mockConfig);
             mockFetchJson({ id: 1, username: 'user', email: 'user@example.com' }, 200);
@@ -2350,6 +2505,116 @@ describe('PlexAuth', () => {
                 username: 'kid-profile',
                 email: 'test@example.com',
             });
+        });
+    });
+
+    describe('stored validation authority', () => {
+        it('commits an active-valid result before returning a live guard', async () => {
+            const seed = new PlexAuth(mockConfig);
+            const active = createAuthToken('active-token', 'active-user');
+            const account = createAuthToken('account-token', 'account-user');
+            seed.storeCredentials({
+                accountToken: account,
+                activeToken: active,
+                activeUserId: 'active-user',
+                selectedServerByUserId: {
+                    'active-user': { serverId: 'server-a', serverUri: 'http://a' },
+                    foreign: { serverId: 'server-b', serverUri: 'http://b' },
+                },
+            });
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({
+                id: 'active-user', username: 'active', email: 'active@example.com', thumb: '',
+            });
+
+            const result = await auth.validateStoredCredentials();
+
+            expect(result.kind).toBe('active_valid');
+            expect(auth.getCurrentUser()).toMatchObject({ token: 'active-token', userId: 'active-user' });
+            expect(() => result.guard.assertCurrent()).not.toThrow();
+            auth.clearCredentials();
+            expect(() => result.guard.assertCurrent()).toThrow('superseded');
+        });
+
+        it('commits an account fallback while preserving foreign selected-server metadata', async () => {
+            const seed = new PlexAuth(mockConfig);
+            const active = createAuthToken('invalid-active', 'active-user');
+            const account = createAuthToken('account-token', 'account-user');
+            seed.storeCredentials({
+                accountToken: account,
+                activeToken: active,
+                activeUserId: 'active-user',
+                selectedServerByUserId: {
+                    foreign: { serverId: 'server-b', serverUri: 'http://b' },
+                },
+            });
+            const auth = new PlexAuth(mockConfig);
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        id: 'account-user', username: 'account', email: 'account@example.com', thumb: '',
+                    }),
+                });
+
+            const result = await auth.validateStoredCredentials();
+            const stored = auth.readStoredCredentialsAndClearCorruption();
+
+            expect(result.kind).toBe('account_fallback_valid');
+            expect(auth.getActiveUserId()).toBe('account-user');
+            expect(stored).toEqual(expect.objectContaining({
+                kind: 'available',
+                credentials: expect.objectContaining({
+                    selectedServerByUserId: expect.objectContaining({
+                        foreign: { serverId: 'server-b', serverUri: 'http://b' },
+                        'account-user': { serverId: null, serverUri: null },
+                    }),
+                }),
+            }));
+        });
+    });
+
+    describe('logout authority', () => {
+        it('supersedes older work even when no account is present', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const payload = createDeferred<unknown>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+                ok: true, status: 200, json: () => payload.promise,
+            });
+            const oldValidation = auth.validateToken('old-token');
+            await Promise.resolve();
+            await expect(auth.logoutActiveUser()).resolves.toBeUndefined();
+            payload.resolve({ id: 'old-user', username: 'old', email: 'old@example.com', thumb: '' });
+            await expect(oldValidation).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+            expect(auth.isAuthenticated()).toBe(false);
+        });
+
+        it('fixes logout success before auth listener re-entry and suppresses stale profile change', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const account = createAuthToken('account-token', 'account-user');
+            auth.storeCredentials({
+                accountToken: account,
+                activeToken: createAuthToken('child-token', 'child-user'),
+                activeUserId: 'child-user',
+                selectedServerByUserId: {
+                    'child-user': { serverId: 'child-server', serverUri: 'http://child' },
+                },
+            });
+            const profileHandler = jest.fn();
+            auth.on('profileChange', profileHandler);
+            auth.on('authChange', (authenticated) => {
+                if (authenticated) auth.clearCredentials();
+            });
+
+            await expect(auth.logoutActiveUser()).resolves.toBeUndefined();
+
+            expect(profileHandler).not.toHaveBeenCalled();
+            expect(auth.isAuthenticated()).toBe(false);
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual({ kind: 'missing' });
         });
     });
 

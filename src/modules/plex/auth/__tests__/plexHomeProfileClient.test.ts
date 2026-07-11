@@ -31,7 +31,7 @@ describe('PlexHomeProfileClient', () => {
     it('falls back from empty successful v2 Home users to v1 before returning users', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken: jest.fn(),
+            classifyAccountToken: jest.fn(),
         });
         const fetchMock = jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(200, { MediaContainer: {} }))
@@ -54,7 +54,7 @@ describe('PlexHomeProfileClient', () => {
     it('throws the later Plex failure after empty successful v2 Home users', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken: jest.fn(),
+            classifyAccountToken: jest.fn(),
         });
         const fetchMock = jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(200, { MediaContainer: {} }))
@@ -71,7 +71,7 @@ describe('PlexHomeProfileClient', () => {
     it('returns empty users only after all supported endpoints are empty successes', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken: jest.fn(),
+            classifyAccountToken: jest.fn(),
         });
         const fetchMock = jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(200, { MediaContainer: {} }))
@@ -84,7 +84,7 @@ describe('PlexHomeProfileClient', () => {
     it('classifies Home users 401 as AUTH_REQUIRED and 403 as AUTH_INVALID', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken: jest.fn(),
+            classifyAccountToken: jest.fn(),
         });
         const fetchMock = jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(401, { error: 'unauthorized' }))
@@ -105,7 +105,7 @@ describe('PlexHomeProfileClient', () => {
         const validateAccountToken = jest.fn().mockResolvedValue(true);
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken,
+            classifyAccountToken: validateAccountToken,
         });
         const fetchMock = jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(401, { error: 'unauthorized' }));
@@ -129,7 +129,7 @@ describe('PlexHomeProfileClient', () => {
         const validateAccountToken = jest.fn().mockResolvedValue(true);
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken,
+            classifyAccountToken: validateAccountToken,
         });
         jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(401, { error: 'unauthorized' }));
@@ -155,7 +155,7 @@ describe('PlexHomeProfileClient', () => {
         const validateAccountToken = jest.fn().mockRejectedValue(abortReason);
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken,
+            classifyAccountToken: validateAccountToken,
         });
         jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(401, { error: 'unauthorized' }));
@@ -174,7 +174,7 @@ describe('PlexHomeProfileClient', () => {
     it('classifies unsupported switch endpoints as RESOURCE_NOT_FOUND', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken: jest.fn(),
+            classifyAccountToken: jest.fn(),
         });
         const fetchSpy = jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(404, { error: 'not found' }))
@@ -193,7 +193,7 @@ describe('PlexHomeProfileClient', () => {
     it('stops after remaining switch endpoints reject with a non-terminal Plex API error', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken: jest.fn(),
+            classifyAccountToken: jest.fn(),
         });
         const firstError = new PlexApiError(
             AppErrorCode.SERVER_UNREACHABLE,
@@ -227,7 +227,7 @@ describe('PlexHomeProfileClient', () => {
     it('classifies rate-limited switch responses as RATE_LIMITED', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken: jest.fn(),
+            classifyAccountToken: jest.fn(),
         });
         const fetchSpy = jest.spyOn(globalThis, 'fetch')
             .mockResolvedValueOnce(createJsonResponse(429, { error: 'slow down' }))
@@ -247,7 +247,7 @@ describe('PlexHomeProfileClient', () => {
     it('redacts token and PIN values from switch transport causes', async () => {
         const client = new PlexHomeProfileClient({
             config: mockConfig,
-            validateAccountToken: jest.fn(),
+            classifyAccountToken: jest.fn(),
         });
         const leakedUrl = 'https://plex.tv/api/home/users/kid/switch?pin=1234';
         const cause = new TypeError(`Network error X-Plex-Token=secret url=${leakedUrl}`);

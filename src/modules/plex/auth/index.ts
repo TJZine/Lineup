@@ -10,6 +10,8 @@ export type {
     PlexAuthDataV2,
     PlexStoredCredentialsReadCorruptionReason,
     PlexStoredCredentialsReadResult,
+    PlexAuthValidationGuard,
+    PlexStoredCredentialsValidationResult,
     PlexHomeUser,
     PlexAuthEvents,
 } from './interfaces';
@@ -23,4 +25,8 @@ export {
 } from './config';
 export type { PlexIdentityHeaderOptions } from './config';
 export { buildRequestHeaders } from './plexAuthTransport';
-export { isPlexAuthRecoverable } from './plexAuthErrors';
+export {
+    PlexAuthOperationSupersededError,
+    isPlexAuthOperationSupersededError,
+    isPlexAuthRecoverable,
+} from './plexAuthErrors';

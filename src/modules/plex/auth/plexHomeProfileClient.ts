@@ -15,7 +15,7 @@ import {
 
 interface PlexHomeProfileClientOptions {
     config: PlexAuthConfig;
-    validateAccountToken: (
+    classifyAccountToken: (
         token: string,
         options?: { signal?: AbortSignal | null }
     ) => Promise<boolean>;
@@ -30,14 +30,14 @@ interface SwitchHomeUserOptions {
 
 export class PlexHomeProfileClient {
     private readonly _config: PlexAuthConfig;
-    private readonly _validateAccountToken: (
+    private readonly _classifyAccountToken: (
         token: string,
         options?: { signal?: AbortSignal | null }
     ) => Promise<boolean>;
 
     constructor(options: PlexHomeProfileClientOptions) {
         this._config = options.config;
-        this._validateAccountToken = options.validateAccountToken;
+        this._classifyAccountToken = options.classifyAccountToken;
     }
 
     public async getHomeUsers(
@@ -245,8 +245,8 @@ export class PlexHomeProfileClient {
             let stillValid = false;
             try {
                 stillValid = signal
-                    ? await this._validateAccountToken(accountToken, { signal })
-                    : await this._validateAccountToken(accountToken);
+                    ? await this._classifyAccountToken(accountToken, { signal })
+                    : await this._classifyAccountToken(accountToken);
             } catch (error) {
                 onValidationFailure(error);
                 throw error;

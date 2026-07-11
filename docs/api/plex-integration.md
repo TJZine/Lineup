@@ -27,6 +27,9 @@ interface IPlexAuth {
   cancelPin(pinId: number): Promise<void>;
   pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
   validateToken(token: string, options?: { signal?: AbortSignal | null }): Promise<boolean>;
+  validateStoredCredentials(options?: {
+    signal?: AbortSignal | null;
+  }): Promise<PlexStoredCredentialsValidationResult>;
   getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
   switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
   getActiveUserId(): string | null;
@@ -44,6 +47,12 @@ interface IPlexAuth {
 ```
 
 Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state. The stored-credential read/write/clear methods are synchronous local storage and in-memory state operations; they do not imply an async persistence backend.
+
+Credential-capable auth operations use a private monotonic authority owned by `PlexAuth`: the latest-started operation wins. Authority is acquired synchronously before caller-abort observation, so a newer pre-aborted or remotely failing invocation still permanently supersedes older work. Public `storeCredentials()` and `clearCredentials()` are synchronous authorities; `{ emitAuthChange: false }` suppresses notification only.
+
+`validateStoredCredentials()` owns the stored read, active/account fallback probes, validated credential reconstruction, and conditional commit as one transaction. Its tagged result includes an opaque guard whose `assertCurrent()` and read-only signal protect the remainder of that startup pass without exposing a counter or commit capability. Superseded work is a dedicated auth-local outcome, not invalid credentials and not recoverable pending-auth routing.
+
+PIN, profile-switch, and main-account logout success is fixed immediately after the guarded credential commit and before the first synchronous success event. Listener re-entry may supersede the operation and suppress later notifications, but cannot reject the committed result. `logoutActiveUser()` acquires authority even when no account exists; that path is a mutation-free successful no-op that still supersedes older work. Normal account-present notification order remains `authChange` then `profileChange`.
 
 Caller-provided cancellation signals on `requestPin()`, `checkPinStatus()`, `pollForPin()`, `validateToken()`, `getHomeUsers()`, and `switchHomeUser()` rethrow the caller's raw `AbortError` or abort reason so callers can distinguish explicit cancellation from Plex failures. `cancelPin()` remains the normal best-effort PIN cancellation API.
 
