@@ -46,6 +46,7 @@ interface AuthOperation {
     readonly id: number;
     readonly controller: AbortController;
     terminal: boolean;
+    pinId: number | null;
 }
 
 /** Plex credential, PIN, token-validation, and profile lifecycle owner. */
@@ -74,20 +75,28 @@ export class PlexAuth implements IPlexAuth {
     }
 
     public async requestPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest> {
-        throwIfAborted(options?.signal);
-        const response = await fetchWithRetry(
-            PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.PIN_ENDPOINT,
-            {
-                method: 'POST',
-                headers: buildRequestHeaders(this._state.config),
-                ...(options?.signal ? { signal: options.signal } : {}),
-            }
-        );
-        throwIfAborted(options?.signal);
-        const pin = parsePinResponse(await response.json(), this._state.config.clientIdentifier);
-        throwIfAborted(options?.signal);
-        this._state.pendingPin = pin;
-        return pin;
+        const operation = this._beginOperation();
+        const signal = options?.signal ?? null;
+        try {
+            this._observe(operation, signal);
+            const response = await fetchWithRetry(
+                PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.PIN_ENDPOINT,
+                {
+                    method: 'POST',
+                    headers: buildRequestHeaders(this._state.config),
+                    ...(signal ? { signal } : {}),
+                }
+            );
+            this._observe(operation, signal);
+            const pin = parsePinResponse(await response.json(), this._state.config.clientIdentifier);
+            this._observe(operation, signal);
+            operation.pinId = pin.id;
+            this._state.pendingPin = pin;
+            return pin;
+        } catch (error) {
+            this._observe(operation, signal, error);
+            throw error;
+        }
     }
 
     public async checkPinStatus(
@@ -95,6 +104,7 @@ export class PlexAuth implements IPlexAuth {
         options?: { signal?: AbortSignal | null }
     ): Promise<PlexPinRequest> {
         const operation = this._pollOperation ?? this._beginOperation();
+        operation.pinId = pinId;
         this._pollOperation = null;
         return this._checkPinStatus(pinId, operation, options?.signal ?? null);
     }
@@ -104,6 +114,7 @@ export class PlexAuth implements IPlexAuth {
         options?: { signal?: AbortSignal | null }
     ): Promise<PlexPinRequest> {
         const operation = this._beginOperation();
+        operation.pinId = pinId;
         const signal = options?.signal ?? null;
         this._observe(operation, signal);
         const startTime = Date.now();
@@ -134,6 +145,8 @@ export class PlexAuth implements IPlexAuth {
     }
 
     public async cancelPin(pinId: number): Promise<void> {
+        this._supersedeMatchingPinOperation(pinId);
+        if (this._state.pendingPin?.id === pinId) this._state.pendingPin = null;
         try {
             await fetchWithRetry(
                 PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.PIN_ENDPOINT + '/' + String(pinId),
@@ -142,7 +155,6 @@ export class PlexAuth implements IPlexAuth {
         } catch {
             // Best-effort cancellation.
         }
-        if (this._state.pendingPin?.id === pinId) this._state.pendingPin = null;
     }
 
     public async validateToken(
@@ -159,9 +171,13 @@ export class PlexAuth implements IPlexAuth {
         const isActiveToken = this._state.activeToken?.token === token;
         if (isAccountToken) {
             this._state.accountToken = userToken;
-            if (isActiveToken || !this._state.activeToken) this._state.activeToken = userToken;
+            if (isActiveToken || !this._state.activeToken) {
+                this._state.activeToken = userToken;
+                this._state.activeUserId = userToken.userId;
+            }
         } else {
             this._state.activeToken = userToken;
+            this._state.activeUserId = userToken.userId;
             if (!this._state.accountToken) this._state.accountToken = userToken;
         }
         this._state.isValidated = true;
@@ -348,9 +364,18 @@ export class PlexAuth implements IPlexAuth {
             id: ++this._operationId,
             controller: new AbortController(),
             terminal: false,
+            pinId: null,
         };
         this._currentOperation = operation;
         return operation;
+    }
+
+    private _supersedeMatchingPinOperation(pinId: number): void {
+        const operation = this._currentOperation;
+        if (!operation || operation.pinId !== pinId) return;
+        operation.controller.abort(new PlexAuthOperationSupersededError());
+        if (this._pollOperation === operation) this._pollOperation = null;
+        if (this._currentOperation === operation) this._currentOperation = null;
     }
 
     private _isCurrent(operation: AuthOperation): boolean {

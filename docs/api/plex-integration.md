@@ -48,7 +48,7 @@ interface IPlexAuth {
 
 Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state. The stored-credential read/write/clear methods are synchronous local storage and in-memory state operations; they do not imply an async persistence backend.
 
-Credential-capable auth operations use a private monotonic authority owned by `PlexAuth`: the latest-started operation wins. Authority is acquired synchronously before caller-abort observation, so a newer pre-aborted or remotely failing invocation still permanently supersedes older work. Public `storeCredentials()` and `clearCredentials()` are synchronous authorities; `{ emitAuthChange: false }` suppresses notification only.
+PIN and credential-capable auth operations use a private monotonic authority owned by `PlexAuth`: the latest-started operation wins. Authority is acquired synchronously before caller-abort observation, so a newer pre-aborted or remotely failing invocation still permanently supersedes older work. `cancelPin()` invalidates only the matching PIN operation. Public `storeCredentials()` and `clearCredentials()` are synchronous authorities; `{ emitAuthChange: false }` suppresses notification only.
 
 `validateStoredCredentials()` owns the stored read, active/account fallback probes, validated credential reconstruction, and conditional commit as one transaction. Its tagged result includes an opaque guard whose `assertCurrent()` and read-only signal protect the remainder of that startup pass without exposing a counter or commit capability. Superseded work is a dedicated auth-local outcome, not invalid credentials and not recoverable pending-auth routing.
 

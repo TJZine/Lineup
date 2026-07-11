@@ -279,6 +279,69 @@ describe('PlexAuth', () => {
                 code: 'PARSE_ERROR',
             });
         });
+
+        it('does not restore a pending PIN after a newer credential clear', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const response = createDeferred<Response>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn(() => response.promise);
+
+            const request = auth.requestPin();
+            auth.clearCredentials();
+            response.resolve({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    id: 12345,
+                    code: 'ABCD',
+                    expiresAt: '2026-01-15T12:15:00Z',
+                    authToken: null,
+                    clientIdentifier: mockConfig.clientIdentifier,
+                }),
+            } as Response);
+
+            await expect(request).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+        });
+
+        it('allows only the newer overlapping PIN request to complete', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const firstResponse = createDeferred<Response>();
+            const secondResponse = createDeferred<Response>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockReturnValueOnce(firstResponse.promise)
+                .mockReturnValueOnce(secondResponse.promise);
+
+            const first = auth.requestPin();
+            const second = auth.requestPin();
+            secondResponse.resolve({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    id: 2,
+                    code: 'NEW2',
+                    expiresAt: '2026-01-15T12:15:00Z',
+                    authToken: null,
+                    clientIdentifier: mockConfig.clientIdentifier,
+                }),
+            } as Response);
+            await expect(second).resolves.toMatchObject({ id: 2, code: 'NEW2' });
+            firstResponse.resolve({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    id: 1,
+                    code: 'OLD1',
+                    expiresAt: '2026-01-15T12:15:00Z',
+                    authToken: null,
+                    clientIdentifier: mockConfig.clientIdentifier,
+                }),
+            } as Response);
+
+            await expect(first).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+        });
     });
 
     describe('checkPinStatus', () => {
@@ -874,6 +937,32 @@ describe('PlexAuth', () => {
                 expect(currentUser.username).toBe('validateduser');
                 expect(currentUser.token).toBe('valid-token');
             }
+        });
+
+        it('synchronizes activeUserId when validation replaces the active token', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const accountToken = createAuthToken('account-token', 'account-user');
+            auth.storeCredentials({
+                accountToken,
+                activeToken: createAuthToken('old-active-token', 'old-active-user'),
+                activeUserId: 'stale-active-user',
+                selectedServerByUserId: {
+                    'stale-active-user': { serverId: 'stale-server', serverUri: 'http://stale' },
+                },
+            });
+            mockFetchJson({
+                id: 'validated-active-user',
+                username: 'validated',
+                email: 'validated@example.com',
+                thumb: '',
+            });
+
+            await expect(auth.validateToken('replacement-token')).resolves.toBe(true);
+            expect(auth.getActiveUserId()).toBe('validated-active-user');
+            expect(auth.getCurrentUser()).toMatchObject({
+                token: 'replacement-token',
+                userId: 'validated-active-user',
+            });
         });
 
         it('aborts token validation before fetching when the signal is already cancelled', async () => {
@@ -2647,6 +2736,59 @@ describe('PlexAuth', () => {
             });
             const newPin = await auth.requestPin();
             expect(newPin.id).toBe(67890);
+        });
+
+        it('prevents a matching late poll response from committing credentials', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const pollResponse = createDeferred<Response>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockReturnValueOnce(pollResponse.promise)
+                .mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) });
+
+            const poll = auth.checkPinStatus(12345);
+            await auth.cancelPin(12345);
+            pollResponse.resolve({
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    id: 12345,
+                    code: 'ABCD',
+                    expiresAt: '2026-01-15T12:15:00Z',
+                    authToken: 'late-token',
+                    clientIdentifier: mockConfig.clientIdentifier,
+                }),
+            } as Response);
+
+            await expect(poll).rejects.toMatchObject({
+                name: 'PlexAuthOperationSupersededError',
+            });
+            expect(auth.isAuthenticated()).toBe(false);
+            expect(auth.getCurrentUser()).toBeNull();
+        });
+
+        it('does not supersede an unrelated active auth operation', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const validationPayload = createDeferred<unknown>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: () => validationPayload.promise,
+                })
+                .mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) });
+
+            const validation = auth.validateToken('unrelated-token');
+            await Promise.resolve();
+            await auth.cancelPin(12345);
+            validationPayload.resolve({
+                id: 'unrelated-user',
+                username: 'unrelated',
+                email: 'unrelated@example.com',
+                thumb: '',
+            });
+
+            await expect(validation).resolves.toBe(true);
+            expect(auth.getActiveUserId()).toBe('unrelated-user');
         });
     });
 });
