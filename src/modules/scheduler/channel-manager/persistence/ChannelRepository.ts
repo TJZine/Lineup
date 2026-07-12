@@ -104,6 +104,7 @@ export class ChannelRepository {
         if (!Array.isArray(stored.channels) || !Array.isArray(stored.channelOrder)) {
             return null;
         }
+        const storedChannelOrder = stored.channelOrder;
 
         const savedCurrentChannelId = this._store.readCurrentChannelId();
         const savedAt =
@@ -112,7 +113,7 @@ export class ChannelRepository {
         const dataCurrentChannelId =
             typeof stored.currentChannelId === 'string' ? stored.currentChannelId : null;
 
-        const channelCandidates: ChannelConfig[] = [];
+        const channelCandidatesById = new Map<string, ChannelConfig>();
         let didMutate = false;
 
         for (const raw of stored.channels) {
@@ -124,10 +125,16 @@ export class ChannelRepository {
             if (decoded.didMutate) {
                 didMutate = true;
             }
-            channelCandidates.push(decoded.channel);
+            if (channelCandidatesById.has(decoded.channel.id)) {
+                didMutate = true;
+            }
+            channelCandidatesById.set(decoded.channel.id, decoded.channel);
         }
 
-        const channelNumberNormalization = normalizeChannelNumbers(channelCandidates, this._logger);
+        const channelNumberNormalization = normalizeChannelNumbers(
+            [...channelCandidatesById.values()],
+            this._logger
+        );
         if (channelNumberNormalization.didMutate) {
             didMutate = true;
         }
@@ -137,21 +144,30 @@ export class ChannelRepository {
             channelIds.add(channel.id);
         }
 
-        const normalizedOrder = stored.channelOrder.filter((id) => {
-            if (typeof id !== 'string') {
-                return false;
+        const channelOrder: string[] = [];
+        const orderedChannelIds = new Set<string>();
+        for (const id of storedChannelOrder) {
+            if (
+                typeof id === 'string' &&
+                channelIds.has(id) &&
+                !orderedChannelIds.has(id)
+            ) {
+                channelOrder.push(id);
+                orderedChannelIds.add(id);
             }
-            return channelIds.has(id);
-        });
-        if (normalizedOrder.length !== stored.channelOrder.length) {
-            didMutate = true;
         }
 
-        let channelOrder = normalizedOrder;
-        if (channelOrder.length === 0 && normalizedChannels.length > 0) {
-            channelOrder = [...normalizedChannels]
-                .sort((a, b) => a.number - b.number || a.id.localeCompare(b.id))
-                .map((channel) => channel.id);
+        const omittedChannels = normalizedChannels
+            .filter((channel) => !orderedChannelIds.has(channel.id))
+            .sort((a, b) => a.number - b.number || a.id.localeCompare(b.id));
+        for (const channel of omittedChannels) {
+            channelOrder.push(channel.id);
+        }
+
+        if (
+            channelOrder.length !== storedChannelOrder.length ||
+            channelOrder.some((id, index) => id !== storedChannelOrder[index])
+        ) {
             didMutate = true;
         }
 

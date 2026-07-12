@@ -201,6 +201,59 @@ describe('ChannelRepository', () => {
         expect(normalized.didMutate).toBe(true);
     });
 
+    it('keeps one canonical channel per id with the last decoded record in the first id position', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                createStoredChannel({ id: 'duplicate', number: 2, name: 'Earlier value' }),
+                createStoredChannel({ id: 'other', number: 1, name: 'Other channel' }),
+                createStoredChannel({ id: 'duplicate', number: 3, name: 'Winning value' }),
+            ],
+            channelOrder: ['duplicate', 'other'],
+            currentChannelId: 'duplicate',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(
+            normalized.data.channels.map((channel) => ({
+                id: channel.id,
+                name: channel.name,
+                number: channel.number,
+            }))
+        ).toEqual([
+            { id: 'duplicate', name: 'Winning value', number: 3 },
+            { id: 'other', name: 'Other channel', number: 1 },
+        ]);
+        expect(normalized.didMutate).toBe(true);
+    });
+
+    it('does not replace a valid channel with a later invalid record using the same id', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                createStoredChannel({ id: 'duplicate', name: 'Valid value' }),
+                createStoredChannel({
+                    id: 'duplicate',
+                    name: 'Invalid value',
+                    contentSource: { type: 'library', libraryId: '' },
+                }),
+            ],
+            channelOrder: ['duplicate'],
+            currentChannelId: 'duplicate',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(normalized.data.channels).toHaveLength(1);
+        expect(normalized.data.channels[0]?.name).toBe('Valid value');
+        expect(normalized.didMutate).toBe(true);
+    });
+
     it('normalizes invalid and duplicate persisted channel numbers', () => {
         const repo = new ChannelRepository();
         const payload = {
@@ -377,6 +430,64 @@ describe('ChannelRepository', () => {
         expect(normalized.didMutate).toBe(true);
     });
 
+    it('keeps only the first occurrence of duplicate order ids', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [createStoredChannel(), createStoredChannel({ id: 'channel-2', number: 2 })],
+            channelOrder: ['channel-2', 'channel-2', 'channel-1'],
+            currentChannelId: 'channel-2',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(normalized.data.channelOrder).toEqual(['channel-2', 'channel-1']);
+        expect(normalized.didMutate).toBe(true);
+    });
+
+    it('appends channels omitted from a partial order by channel number and preserves current id', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                createStoredChannel({ id: 'channel-3', number: 3 }),
+                createStoredChannel({ id: 'channel-1', number: 1 }),
+                createStoredChannel({ id: 'channel-2', number: 2 }),
+            ],
+            channelOrder: ['channel-3'],
+            currentChannelId: 'channel-2',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(normalized.data.channelOrder).toEqual(['channel-3', 'channel-1', 'channel-2']);
+        expect(normalized.data.currentChannelId).toBe('channel-2');
+        expect(normalized.didMutate).toBe(true);
+    });
+
+    it('repairs mixed unknown, non-string, duplicate, and omitted order entries exactly once', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [
+                createStoredChannel({ id: 'channel-3', number: 3 }),
+                createStoredChannel({ id: 'channel-1', number: 1 }),
+                createStoredChannel({ id: 'channel-2', number: 2 }),
+            ],
+            channelOrder: ['unknown', 123, 'channel-3', 'channel-3'],
+            currentChannelId: 'channel-3',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(normalized.data.channelOrder).toEqual(['channel-3', 'channel-1', 'channel-2']);
+        expect(new Set(normalized.data.channelOrder).size).toBe(3);
+        expect(normalized.didMutate).toBe(true);
+    });
+
     it('rebuilds stable order when persisted order is empty', () => {
         const repo = new ChannelRepository();
         const payload = {
@@ -393,6 +504,58 @@ describe('ChannelRepository', () => {
         const normalized = loadNormalized(repo);
 
         expect(normalized.data.channelOrder).toEqual(['channel-1', 'channel-2']);
+        expect(normalized.didMutate).toBe(true);
+    });
+
+    it('keeps empty channels and order unchanged', () => {
+        const repo = new ChannelRepository();
+        const payload = {
+            channels: [],
+            channelOrder: [],
+            currentChannelId: null,
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+
+        expect(normalized.data).toEqual(payload);
+        expect(normalized.didMutate).toBe(false);
+    });
+
+    it('deduplicates before number repair so discarded records cannot cause false exhaustion', () => {
+        const repo = new ChannelRepository();
+        const numberedChannels = Array.from({ length: MAX_CHANNEL_NUMBER - 1 }, (_value, index) =>
+            createStoredChannel({
+                id: `channel-${index + 1}`,
+                number: index + 1,
+            })
+        );
+        const payload = {
+            channels: [
+                ...numberedChannels,
+                createStoredChannel({ id: 'duplicate', number: MAX_CHANNEL_NUMBER }),
+                createStoredChannel({ id: 'duplicate', number: undefined, name: 'Winning value' }),
+            ],
+            channelOrder: [
+                ...numberedChannels.map((channel) => channel.id),
+                'duplicate',
+            ],
+            currentChannelId: 'duplicate',
+            savedAt: Date.now(),
+        };
+
+        mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        const normalized = loadNormalized(repo);
+        const duplicate = normalized.data.channels.find((channel) => channel.id === 'duplicate');
+
+        expect(normalized.data.channels).toHaveLength(MAX_CHANNEL_NUMBER);
+        expect(duplicate).toEqual(expect.objectContaining({
+            name: 'Winning value',
+            number: MAX_CHANNEL_NUMBER,
+        }));
+        expect(normalized.data.channelOrder).toHaveLength(MAX_CHANNEL_NUMBER);
+        expect(normalized.data.channelOrder.at(-1)).toBe('duplicate');
         expect(normalized.didMutate).toBe(true);
     });
 
