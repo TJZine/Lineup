@@ -49,6 +49,7 @@
         "flat_dirs",
         "review",
         "smells",
+        "structural",
         "test_coverage"
       ],
       "includes_issue_ids": [
@@ -842,7 +843,6 @@
       "includes_detectors": [
         "review",
         "signature",
-        "structural",
         "test_coverage"
       ],
       "includes_issue_ids": [

@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parse as parseToml } from 'smol-toml';
 
 const root = process.cwd();
@@ -114,7 +115,7 @@ function checkMarkdownLinks() {
 
 function checkSkills() {
     const skillFiles = workingFiles('.agents/skills/*/SKILL.md');
-    if (skillFiles.length === 0) errors.push('no tracked repo-local skills found');
+    if (skillFiles.length === 0) errors.push('no repo-local skills found');
 
     for (const file of skillFiles) {
         const content = read(file);
@@ -152,10 +153,33 @@ function checkSkills() {
         if (interfaceValues.default_prompt && !interfaceValues.default_prompt.includes(`$${skillName}`)) {
             errors.push(`${file}: interface.default_prompt must mention $${skillName}`);
         }
-        if (/^policy:\s*$/mu.test(content) && !/^  allow_implicit_invocation:\s*(?:true|false)\s*$/mu.test(content)) {
+        if (requiresExplicitInvocation(skillName) && !hasExplicitOnlyPolicy(content)) {
+            errors.push(`${file}: explicit-only launcher must set allow_implicit_invocation: false`);
+        } else if (/^policy:\s*$/mu.test(content) && !/^  allow_implicit_invocation:\s*(?:true|false)\s*$/mu.test(content)) {
             errors.push(`${file}: policy must declare boolean allow_implicit_invocation`);
         }
     }
+}
+
+export function requiresExplicitInvocation(skillName) {
+    return skillName.startsWith('lineup-') || skillName === 'large-task-orchestration';
+}
+
+export function hasExplicitOnlyPolicy(content) {
+    return (
+        /^policy:\s*$/mu.test(content) &&
+        /^  allow_implicit_invocation:\s*false\s*$/mu.test(content)
+    );
+}
+
+export function isValidMaxDepth(value) {
+    return (
+        typeof value === 'number' &&
+        Number.isFinite(value) &&
+        Number.isInteger(value) &&
+        value >= 0 &&
+        value <= 1
+    );
 }
 
 function safeRolePath(relativePath) {
@@ -184,7 +208,9 @@ function checkRoleConfig() {
         errors.push('.codex/config.toml: missing [agents]');
         return;
     }
-    if (Number(agents.max_depth) > 1) errors.push('.codex/config.toml: max_depth must be <= 1');
+    if (!isValidMaxDepth(agents.max_depth)) {
+        errors.push('.codex/config.toml: max_depth must be a finite non-negative integer <= 1');
+    }
 
     const tracked = new Set(trackedFiles());
     for (const [role, declaration] of Object.entries(agents)) {
@@ -229,16 +255,21 @@ function checkActivePlans() {
     }
 }
 
-checkRequiredFiles();
-checkMarkdownLinks();
-checkSkills();
-checkRoleConfig();
-checkActivePlans();
+function main() {
+    checkRequiredFiles();
+    checkMarkdownLinks();
+    checkSkills();
+    checkRoleConfig();
+    checkActivePlans();
 
-if (errors.length > 0) {
-    for (const error of errors) console.error(`- ${error}`);
-    console.error(`Documentation verification failed with ${errors.length} error(s).`);
-    process.exit(1);
+    if (errors.length > 0) {
+        for (const error of errors) console.error(`- ${error}`);
+        console.error(`Documentation verification failed with ${errors.length} error(s).`);
+        process.exit(1);
+    }
+
+    console.log('Documentation structure verified.');
 }
 
-console.log('Documentation structure verified.');
+const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
+if (entryPath !== null && pathToFileURL(entryPath).href === import.meta.url) main();

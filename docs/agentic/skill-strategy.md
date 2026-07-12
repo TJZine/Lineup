@@ -10,9 +10,12 @@ load only when selected.
 - Prefer one process skill plus only the boundary skills required by the change.
 - Put global workflow policy in `docs/AGENTIC_DEV_WORKFLOW.md`; skills should not
   restate tiering, commands, generic quality principles, or the full role catalog.
-- Make launcher skills explicit-only with `allow_implicit_invocation: false`.
-- Preserve old skill names as tiny compatibility entrypoints when active historical
-  plans still reference them; compatibility entrypoints own no policy.
+- Explicit-only launcher skills must declare
+  `policy.allow_implicit_invocation: false`.
+- Preserve an old skill name as a tiny compatibility entrypoint only while a current
+  tracked executable entrypoint still references it. Remove the compatibility entrypoint
+  once tracked inbound references are zero and the migration is complete; compatibility
+  entrypoints own no policy.
 - Do not add a skill without a recurring failure or workflow that cannot be handled
   clearly by the runbook and an existing skill.
 - Prefer instructions to scripts unless deterministic tooling is genuinely required.

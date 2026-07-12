@@ -1,8 +1,19 @@
 class JestSummaryReporter {
     onRunComplete(_contexts, results) {
         for (const suite of results.testResults) {
-            for (const test of suite.testResults) {
-                if (test.status !== 'failed') continue;
+            const failedTests = suite.testResults.filter((test) => test.status === 'failed');
+            const individualFailureMessages = failedTests.flatMap((test) => test.failureMessages);
+            const suiteFailureMessage = suite.failureMessage?.trim();
+            const suiteFailureAlreadyReported = individualFailureMessages.some(
+                (message) => message.trim() === suiteFailureMessage
+            );
+
+            if (suiteFailureMessage && !suiteFailureAlreadyReported) {
+                console.error(`FAIL ${suite.testFilePath}`);
+                console.error(suiteFailureMessage);
+            }
+
+            for (const test of failedTests) {
                 console.error(`FAIL ${suite.testFilePath}: ${test.fullName}`);
                 for (const message of test.failureMessages) console.error(message);
             }

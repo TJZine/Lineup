@@ -134,6 +134,11 @@ function validatePackageMap(packageMap, expectedOpenIssueIds = null) {
             actual.by_detector,
             `${packageEntry.package_id} verified by_detector must match issue id detector prefixes`
         );
+        assert.deepEqual(
+            [...(packageEntry.includes_detectors ?? [])].sort(),
+            Object.keys(actual.by_detector).sort(),
+            `${packageEntry.package_id} includes_detectors must match issue detector prefixes`
+        );
 
         for (const key of Object.keys(totals)) {
             totals[key] += expectedCounts[key];

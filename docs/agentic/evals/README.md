@@ -1,8 +1,10 @@
 # Agent Workflow Evals
 
 Use small comparative evals to decide whether workflow scaffolding improves real
-Lineup outcomes. Evals are optional engineering evidence, not a mandatory closeout
-artifact for ordinary changes.
+Lineup outcomes. Evals are optional for ordinary changes. Before claiming production
+readiness for a material change to orchestration, role topology, model defaults,
+skill routing, or verifier scope, run only the matching manual scenarios in fresh
+contexts and record the outcome. Do not run the whole prompt bank by default.
 
 ## Method
 

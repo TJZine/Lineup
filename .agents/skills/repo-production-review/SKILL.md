@@ -16,10 +16,9 @@ Start with:
 - `.codex/config.toml`
 - `docs/architecture/CURRENT_STATE.md`
 
-Inventory skill names and descriptions, then load only boundary skills matching the
-review dimension. Load `ARCHITECTURE_CLEANUP_CHECKLIST.md` only for a
-checklist-linked review. Do not preload launcher and process skill bodies merely to
-inventory them.
+Load only repo-local boundary skills directly implicated by the observed review
+scope. Do not enumerate or preload unrelated peer skills. Load
+`ARCHITECTURE_CLEANUP_CHECKLIST.md` only for a checklist-linked review.
 
 Also open and follow the global orchestrator at:
 
