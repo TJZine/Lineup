@@ -132,4 +132,34 @@ describe('SubtitleStreamProbe', () => {
             })
         );
     });
+
+    it('keeps the probe deadline active while waiting for a subtitle sample', async () => {
+        jest.useFakeTimers();
+        const cancel = jest.fn();
+        const logDebug = jest.fn();
+        mockFetch.mockResolvedValue(new Response(new ReadableStream<Uint8Array>({ cancel })));
+
+        const probe = probeSubtitleStreamDelivery(
+            {
+                itemKey: '12345',
+                subtitleStreamId: 'sub-1',
+                codec: 'vtt',
+            },
+            {
+                serverUri: 'http://192.168.1.100:32400',
+                getAuthHeaders: () => ({ 'X-Plex-Token': 'mock-token' }),
+                logDebug,
+            }
+        );
+
+        await jest.advanceTimersByTimeAsync(SUBTITLE_STREAM_PROBE_TIMEOUT_MS);
+        await probe;
+
+        expect(cancel).toHaveBeenCalledTimes(1);
+        expect(logDebug).toHaveBeenCalledWith(
+            'subtitle_stream_probe_error',
+            expect.objectContaining({ error: expect.stringContaining('This operation was aborted') })
+        );
+        jest.useRealTimers();
+    });
 });

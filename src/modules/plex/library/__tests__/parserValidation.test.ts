@@ -2,11 +2,15 @@ import { AppErrorCode } from '../../../../types/app-errors';
 import { PlexLibraryError } from '../PlexLibraryError';
 import {
     parseArrayOrEmpty,
+    parseFiniteNumberOrDefault,
+    parseOptionalFiniteNumber,
+    parseOptionalString,
     parseRequiredArray,
     parseRequiredFiniteNumber,
     parseRequiredObject,
     parseRequiredString,
     parseRequiredStringLike,
+    parseStringOrDefault,
 } from '../parsing/parserValidation';
 
 describe('parserValidation', () => {
@@ -54,5 +58,26 @@ describe('parserValidation', () => {
         expect(() => parseRequiredString(123, 'object', 'field')).toThrow(PlexLibraryError);
         expect(() => parseRequiredStringLike(null, 'object', 'id')).toThrow(PlexLibraryError);
         expect(() => parseRequiredFiniteNumber(Number.NaN, 'object', 'count')).toThrow(PlexLibraryError);
+    });
+
+    it('preserves optional/default behavior for missing and null scalar values', () => {
+        expect(parseStringOrDefault(undefined, 'object', 'name')).toBe('');
+        expect(parseStringOrDefault(null, 'object', 'name', 'fallback')).toBe('fallback');
+        expect(parseOptionalString(null, 'object', 'name')).toBeUndefined();
+        expect(parseFiniteNumberOrDefault(undefined, 'object', 'count')).toBe(0);
+        expect(parseFiniteNumberOrDefault(null, 'object', 'count', 5)).toBe(5);
+        expect(parseOptionalFiniteNumber(null, 'object', 'count')).toBeUndefined();
+    });
+
+    it.each([
+        ['default string', (): unknown => parseStringOrDefault(12, 'object', 'name'), 'Invalid object payload: name must be a string'],
+        ['optional string', (): unknown => parseOptionalString({}, 'object', 'name'), 'Invalid object payload: name must be a string'],
+        ['default number', (): unknown => parseFiniteNumberOrDefault(Number.NaN, 'object', 'count'), 'Invalid object payload: count must be a finite number'],
+        ['optional number', (): unknown => parseOptionalFiniteNumber('12', 'object', 'count'), 'Invalid object payload: count must be a finite number'],
+    ])('throws a sanitized typed parse error for wrong-typed %s values', (_name, parse, message) => {
+        expect(parse).toThrow(expect.objectContaining({
+            code: AppErrorCode.PARSE_ERROR,
+            message,
+        }));
     });
 });

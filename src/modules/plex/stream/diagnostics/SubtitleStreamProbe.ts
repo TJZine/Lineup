@@ -1,5 +1,5 @@
 import { redactSensitiveTokens, redactUrlForLog } from '../../../../utils/redact';
-import { fetchWithTimeout } from '../../shared/fetchWithTimeout';
+import { fetchWithTimeoutAndConsume } from '../../shared/fetchWithTimeout';
 import {
     buildSubtitleStreamProbeRequestContext,
     readSubtitleProbeSample,
@@ -107,7 +107,7 @@ export async function probeSubtitleStreamDelivery(
     });
 
     try {
-        const response = await fetchWithTimeout({
+        const { response, sampleResult } = await fetchWithTimeoutAndConsume({
             url: requestContext.baseUrl.toString(),
             init: {
                 method: 'GET',
@@ -117,12 +117,16 @@ export async function probeSubtitleStreamDelivery(
                 credentials: 'omit',
             },
             timeoutMs: SUBTITLE_STREAM_PROBE_TIMEOUT_MS,
+            consume: async (response, signal) => ({
+                response,
+                sampleResult: await readSubtitleProbeSample(
+                    response,
+                    options.codec,
+                    SUBTITLE_STREAM_PROBE_MAX_SAMPLE_CHARS,
+                    signal
+                ),
+            }),
         });
-        const sampleResult = await readSubtitleProbeSample(
-            response,
-            options.codec,
-            SUBTITLE_STREAM_PROBE_MAX_SAMPLE_CHARS
-        );
         deps.logDebug(
             'subtitle_stream_probe',
             buildSubtitleProbeSuccessContext(options, requestContext, response, sampleResult)

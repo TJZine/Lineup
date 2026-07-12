@@ -163,13 +163,12 @@ export const mockSearchResponse = {
 };
 
 export function mockFetchJson(json: unknown, status: number = 200): void {
-    (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
-        ok: status >= 200 && status < 300,
-        status,
-        headers: { get: () => null },
-        json: async () => json,
-        text: async () => JSON.stringify(json),
-    });
+    (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(() =>
+        Promise.resolve(new Response(JSON.stringify(json), {
+            status,
+            headers: { 'content-type': 'application/json' },
+        }))
+    );
 }
 
 export function mockFetchSequence(responses: Array<{ json: unknown; status?: number }>): void {
@@ -177,21 +176,15 @@ export function mockFetchSequence(responses: Array<{ json: unknown; status?: num
     (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(() => {
         const response = responses[callIndex] || responses[responses.length - 1];
         callIndex++;
-        return Promise.resolve({
-            ok: (response?.status ?? 200) >= 200 && (response?.status ?? 200) < 300,
+        return Promise.resolve(new Response(JSON.stringify(response?.json), {
             status: response?.status ?? 200,
-            headers: { get: () => null },
-            json: async () => response?.json,
-            text: async () => JSON.stringify(response?.json),
-        });
+            headers: { 'content-type': 'application/json' },
+        }));
     });
 }
 
 export function mockFetchTextResponse(text: string, status: number = 200): void {
-    (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
-        ok: status >= 200 && status < 300,
-        status,
-        headers: { get: () => null },
-        text: async () => text,
-    });
+    (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(() =>
+        Promise.resolve(new Response(text, { status }))
+    );
 }

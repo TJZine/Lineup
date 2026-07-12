@@ -19,6 +19,12 @@ export const PLEX_LIBRARY_CONSTANTS = {
     /** Default rate limit delay when Retry-After header is missing (seconds) */
     DEFAULT_RATE_LIMIT_DELAY: 5,
 
+    /** Maximum server-directed rate limit delay in milliseconds */
+    MAX_RATE_LIMIT_DELAY_MS: 30000,
+
+    /** Maximum successful JSON response body size in bytes */
+    MAX_RESPONSE_BODY_BYTES: 16 * 1024 * 1024,
+
     /** Page size for fetching all leaves (episodes) of a show */
     ALL_LEAVES_PAGE_SIZE: 5000,
 

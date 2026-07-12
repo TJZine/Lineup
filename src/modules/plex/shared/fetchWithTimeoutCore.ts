@@ -1,4 +1,5 @@
 import { readOptionalAbortSignalReason } from '../../../utils/abortSignalReason';
+import { cancelAndReleaseResponseReader } from './boundedResponseText';
 
 export interface FetchWithTimeoutCoreArgs {
     url: string;
@@ -7,12 +8,17 @@ export interface FetchWithTimeoutCoreArgs {
     upstreamSignal?: AbortSignal | null;
 }
 
-export async function fetchWithTimeoutCore({
+export interface FetchWithTimeoutCoreConsumeArgs<T> extends FetchWithTimeoutCoreArgs {
+    consume: (response: Response, signal: AbortSignal) => Promise<T>;
+}
+
+async function runFetchWithTimeoutCore<T>({
     url,
     init,
     timeoutMs,
     upstreamSignal = null,
-}: FetchWithTimeoutCoreArgs): Promise<Response> {
+    consume,
+}: FetchWithTimeoutCoreConsumeArgs<T>, cancelUnreadBody: boolean): Promise<T> {
     const controller = new AbortController();
     const abortRequest = (reason?: unknown): void => {
         try {
@@ -43,7 +49,14 @@ export async function fetchWithTimeoutCore({
     const timeoutId = setTimeout(() => abortRequest(), timeoutMs);
 
     try {
-        return await fetch(url, { ...init, signal: controller.signal });
+        const response = await fetch(url, { ...init, signal: controller.signal });
+        try {
+            return await consume(response, controller.signal);
+        } finally {
+            if (cancelUnreadBody) {
+                cancelUnreadResponseBody(response);
+            }
+        }
     } finally {
         clearTimeout(timeoutId);
         if (upstreamSignal) {
@@ -54,4 +67,37 @@ export async function fetchWithTimeoutCore({
             }
         }
     }
+}
+
+function cancelUnreadResponseBody(response: Response): void {
+    try {
+        const body = response.body;
+        if (!body || response.bodyUsed || body.locked) {
+            return;
+        }
+        cancelAndReleaseResponseReader(body.getReader());
+    } catch {
+        // Unread response cleanup must not replace the operation outcome.
+    }
+}
+
+export async function fetchWithTimeoutCore({
+    url,
+    init,
+    timeoutMs,
+    upstreamSignal = null,
+}: FetchWithTimeoutCoreArgs): Promise<Response> {
+    return runFetchWithTimeoutCore({
+        url,
+        init,
+        timeoutMs,
+        upstreamSignal,
+        consume: async (response) => response,
+    }, false);
+}
+
+export async function fetchWithTimeoutCoreAndConsume<T>(
+    args: FetchWithTimeoutCoreConsumeArgs<T>
+): Promise<T> {
+    return runFetchWithTimeoutCore(args, true);
 }

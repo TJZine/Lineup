@@ -1,5 +1,7 @@
 import { AppErrorCode } from '../../../types/app-errors';
 import { redactSensitiveTokens } from '../../../utils/redact';
+import { readAbortSignalReason } from '../../../utils/abortSignalReason';
+import { readBoundedResponseText } from '../shared/boundedResponseText';
 import { PLEX_LIBRARY_CONSTANTS } from './constants';
 import { PlexLibraryError } from './PlexLibraryError';
 import type { PlexLibraryConfig } from './interfaces';
@@ -83,12 +85,18 @@ function parseRetryAfterDelayMs(retryAfterHeader: string | null): number {
 
     const parsed = parseInt(retryAfterHeader, 10);
     if (!isNaN(parsed)) {
-        return Math.max(0, parsed) * 1000;
+        return Math.min(
+            PLEX_LIBRARY_CONSTANTS.MAX_RATE_LIMIT_DELAY_MS,
+            Math.max(0, parsed) * 1000
+        );
     }
 
     const date = Date.parse(retryAfterHeader);
     if (!isNaN(date)) {
-        return Math.max(0, Math.ceil((date - Date.now()) / 1000)) * 1000;
+        return Math.min(
+            PLEX_LIBRARY_CONSTANTS.MAX_RATE_LIMIT_DELAY_MS,
+            Math.max(0, Math.ceil((date - Date.now()) / 1000)) * 1000
+        );
     }
 
     return PLEX_LIBRARY_CONSTANTS.DEFAULT_RATE_LIMIT_DELAY * 1000;
@@ -98,11 +106,15 @@ async function parseJsonResponse<T>(
     response: Response,
     url: string,
     logger: PlexLibraryLogger,
-    redactUrl: (url: string) => string
+    redactUrl: (url: string) => string,
+    signal: AbortSignal
 ): Promise<T> {
     let text = '';
     try {
-        text = await response.text();
+        text = await readBoundedResponseText(response, {
+            maxBytes: PLEX_LIBRARY_CONSTANTS.MAX_RESPONSE_BODY_BYTES,
+            signal,
+        });
 
         if (!text || text.trim() === '') {
             throw new PlexLibraryError(
@@ -122,6 +134,9 @@ async function parseJsonResponse<T>(
 
         return data;
     } catch (parseError) {
+        if (signal.aborted) {
+            throw readAbortSignalReason(signal);
+        }
         const responseBodySnippet = redactSensitiveTokens(text.substring(0, 500));
         logger.error(
             `[PlexLibrary] Parse error for ${redactUrl(url)}:`,
@@ -153,7 +168,8 @@ export async function classifyFetchResponse<T>(
     response: Response,
     url: string,
     logger: PlexLibraryLogger,
-    redactUrl: (url: string) => string
+    redactUrl: (url: string) => string,
+    signal: AbortSignal
 ): Promise<FetchResponseOutcome<T>> {
     if (response.status === 401) {
         return { kind: 'authExpired' };
@@ -178,7 +194,7 @@ export async function classifyFetchResponse<T>(
     }
     return {
         kind: 'success',
-        data: await parseJsonResponse<T>(response, url, logger, redactUrl),
+        data: await parseJsonResponse<T>(response, url, logger, redactUrl, signal),
     };
 }
 

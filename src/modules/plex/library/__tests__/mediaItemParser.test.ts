@@ -98,4 +98,24 @@ describe('mediaItemParser', () => {
             })
         );
     });
+
+    it('surfaces wrong-typed nested media scalars as sanitized library parse errors', () => {
+        expect(() => parseMediaItem({
+            ratingKey: 'movie-6',
+            key: '/library/metadata/movie-6',
+            type: 'movie',
+            title: 'Movie 6',
+            Media: [{
+                id: '9',
+                Part: [{
+                    id: '12',
+                    key: '/library/parts/12',
+                    Stream: [{ id: '1', streamType: 1, codec: 'hevc', bitrate: 'secret-invalid-value' }],
+                }],
+            }],
+        } as unknown as RawMediaItem)).toThrow(expect.objectContaining({
+            code: AppErrorCode.PARSE_ERROR,
+            message: 'Invalid stream payload: bitrate must be a finite number',
+        }));
+    });
 });

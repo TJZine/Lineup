@@ -7,12 +7,8 @@ import {
 import type { HlsOptions, StreamDecision } from '../contracts/types';
 
 function createResponse(overrides: Partial<Response> & { bodyText?: string } = {}): Response {
-    return {
-        ok: true,
-        status: 200,
-        text: jest.fn().mockResolvedValue(overrides.bodyText ?? ''),
-        ...overrides,
-    } as unknown as Response;
+    const status = overrides.status ?? (overrides.ok === false ? 500 : 200);
+    return new Response(overrides.bodyText ?? '', { status });
 }
 
 function createTranscodeRequest(
@@ -133,26 +129,245 @@ describe('UniversalTranscodeDecisionClient', () => {
         });
     });
 
-    it('uses the lightweight attribute parser when DOMParser reports malformed XML', async () => {
+    it('rejects malformed XML reported by DOMParser without using the lightweight fallback', async () => {
         mockFetch.mockResolvedValue(createResponse({
             bodyText:
                 '<MediaContainer decisionCode="2000" decisionText="Fallback">' +
                 '<TranscodeSession><Stream id="sub-1" streamType="3" decision="burn"></MediaContainer>',
         }));
 
-        const result = await createClient().fetchDecision('/library/metadata/123', createTranscodeRequest());
+        await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest()))
+            .rejects.toThrow('Invalid universal transcode decision XML');
+    });
 
-        expect(result).toMatchObject({
-            decisionCode: '2000',
-            decisionText: 'Fallback',
-            streams: [
-                {
-                    id: 'sub-1',
-                    streamType: 3,
-                    decision: 'burn',
-                },
-            ],
+    it.each([
+        ['absent', undefined],
+        ['non-callable', { parseFromString: jest.fn() }],
+    ])('uses the complete lightweight parser when DOMParser is %s', async (_caseName, parserValue) => {
+        const originalDomParser = globalThis.DOMParser;
+        Object.defineProperty(globalThis, 'DOMParser', {
+            configurable: true,
+            writable: true,
+            value: parserValue,
         });
+        mockFetch.mockResolvedValue(createResponse({
+            bodyText:
+                '<MediaContainer decisionCode="2000" decisionText="Fallback">' +
+                '<TranscodeSession videoDecision="copy">' +
+                '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                '</TranscodeSession></MediaContainer>',
+        }));
+
+        try {
+            await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest()))
+                .resolves.toMatchObject({
+                    decisionCode: '2000',
+                    decisionText: 'Fallback',
+                    videoDecision: 'copy',
+                    streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
+                });
+        } finally {
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                writable: true,
+                value: originalDomParser,
+            });
+        }
+    });
+
+    it('uses the lightweight parser when DOM parsing throws before yielding a document', async () => {
+        const originalDomParser = globalThis.DOMParser;
+        Object.defineProperty(globalThis, 'DOMParser', {
+            configurable: true,
+            writable: true,
+            value: class {
+                parseFromString(): never {
+                    throw new Error('DOM parsing is unavailable');
+                }
+            },
+        });
+        mockFetch.mockResolvedValue(createResponse({
+            bodyText:
+                '<MediaContainer generalDecisionCode="2000" generalDecisionText="Fallback">' +
+                '<TranscodeSession><Stream id="sub-1" streamType="3" decision="burn"></Stream>' +
+                '</TranscodeSession></MediaContainer>',
+        }));
+
+        try {
+            await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest()))
+                .resolves.toMatchObject({
+                    decisionCode: '2000',
+                    decisionText: 'Fallback',
+                    streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
+                });
+        } finally {
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                writable: true,
+                value: originalDomParser,
+            });
+        }
+    });
+
+    it.each([
+        ['truncated container', '<MediaContainer><TranscodeSession /></MediaContain'],
+        ['truncated transcode', '<MediaContainer><TranscodeSession><Stream id="sub-1" streamType="3" decision="burn" /></MediaContainer>'],
+        ['truncated stream', '<MediaContainer><TranscodeSession><Stream id="sub-1" streamType="3" decision="burn"></TranscodeSession></MediaContainer>'],
+        ['mismatched fragment', '<MediaContainer><TranscodeSession></Stream></TranscodeSession></MediaContainer>'],
+        ['trailing malformed content', '<MediaContainer><TranscodeSession /></MediaContainer><broken'],
+    ])('rejects %s in the lightweight fallback', async (_caseName, bodyText) => {
+        const originalDomParser = globalThis.DOMParser;
+        Object.defineProperty(globalThis, 'DOMParser', {
+            configurable: true,
+            writable: true,
+            value: undefined,
+        });
+        mockFetch.mockResolvedValue(createResponse({ bodyText }));
+
+        try {
+            await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest()))
+                .rejects.toThrow('Invalid universal transcode decision XML');
+        } finally {
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                writable: true,
+                value: originalDomParser,
+            });
+        }
+    });
+
+    it('does not treat near-match fallback attributes or streams outside TranscodeSession as burn evidence', async () => {
+        const originalDomParser = globalThis.DOMParser;
+        Object.defineProperty(globalThis, 'DOMParser', {
+            configurable: true,
+            writable: true,
+            value: undefined,
+        });
+        mockFetch.mockResolvedValue(createResponse({
+            bodyText:
+                '<MediaContainer decisionCodeExtra="2000">' +
+                '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                '<TranscodeSession><Stream idExtra="sub-1" streamTypeExtra="3" decisionExtra="burn" /></TranscodeSession>' +
+                '</MediaContainer>',
+        }));
+
+        try {
+            await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest()))
+                .resolves.toEqual({ fetchedAt: Date.parse('2026-05-05T12:00:00Z') });
+        } finally {
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                writable: true,
+                value: originalDomParser,
+            });
+        }
+    });
+
+    it.each(['absent', 'throwing'] as const)(
+        'decodes fallback XML references with DOM-equivalent semantics when DOMParser is %s',
+        async (fallbackMode) => {
+            const originalDomParser = globalThis.DOMParser;
+            const bodyText =
+                '<MediaContainer decisionText="&amp;&lt;&gt;&quot;&apos;&#65;&#x1F4FA;">' +
+                '<TranscodeSession><Stream id="sub&#45;1&amp;x" streamType="3" decision="burn" />' +
+                '</TranscodeSession></MediaContainer>';
+            mockFetch.mockImplementation(() => Promise.resolve(createResponse({ bodyText })));
+
+            const domResult = await createClient().fetchDecision(
+                '/library/metadata/123',
+                createTranscodeRequest()
+            );
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                writable: true,
+                value: fallbackMode === 'absent'
+                    ? undefined
+                    : class {
+                        parseFromString(): never {
+                            throw new Error('DOM parsing is unavailable');
+                        }
+                    },
+            });
+
+            try {
+                const fallbackResult = await createClient().fetchDecision(
+                    '/library/metadata/123',
+                    createTranscodeRequest()
+                );
+                expect(fallbackResult.decisionText).toBe('&<>"\'A📺');
+                expect(fallbackResult.decisionText).toBe(domResult.decisionText);
+                expect(fallbackResult.streams?.[0]?.id).toBe('sub-1&x');
+                expect(fallbackResult.streams?.[0]?.id).toBe(domResult.streams?.[0]?.id);
+            } finally {
+                Object.defineProperty(globalThis, 'DOMParser', {
+                    configurable: true,
+                    writable: true,
+                    value: originalDomParser,
+                });
+            }
+        }
+    );
+
+    it.each([
+        ['unknown entity', '&unknown;'],
+        ['prototype-key entity', '&constructor;'],
+        ['bare ampersand', 'rock & roll'],
+        ['malformed hexadecimal reference', '&#xZZ;'],
+        ['malformed decimal reference', '&#12x;'],
+        ['forbidden null code point', '&#0;'],
+        ['surrogate code point', '&#xD800;'],
+        ['out-of-range code point', '&#x110000;'],
+    ])('rejects %s in fallback attributes with the fixed sanitized error', async (_caseName, encodedValue) => {
+        const originalDomParser = globalThis.DOMParser;
+        Object.defineProperty(globalThis, 'DOMParser', {
+            configurable: true,
+            writable: true,
+            value: undefined,
+        });
+        mockFetch.mockResolvedValue(createResponse({
+            bodyText: `<MediaContainer decisionText="${encodedValue}"><TranscodeSession /></MediaContainer>`,
+        }));
+
+        try {
+            await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest()))
+                .rejects.toThrow('Invalid universal transcode decision XML');
+        } finally {
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                writable: true,
+                value: originalDomParser,
+            });
+        }
+    });
+
+    it('handles deeply nested fallback elements without recursive traversal failure', async () => {
+        const originalDomParser = globalThis.DOMParser;
+        Object.defineProperty(globalThis, 'DOMParser', {
+            configurable: true,
+            writable: true,
+            value: undefined,
+        });
+        const depth = 6000;
+        const bodyText = '<MediaContainer>' +
+            '<Layer>'.repeat(depth) +
+            '<TranscodeSession><Stream id="sub-1" streamType="3" decision="burn" /></TranscodeSession>' +
+            '</Layer>'.repeat(depth) +
+            '</MediaContainer>';
+        expect(new TextEncoder().encode(bodyText).byteLength).toBeLessThan(1024 * 1024);
+        mockFetch.mockResolvedValue(createResponse({ bodyText }));
+
+        try {
+            await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest()))
+                .resolves.toMatchObject({
+                    streams: [{ id: 'sub-1', streamType: 3, decision: 'burn' }],
+                });
+        } finally {
+            Object.defineProperty(globalThis, 'DOMParser', {
+                configurable: true,
+                writable: true,
+                value: originalDomParser,
+            });
+        }
     });
 
     it('passes auth failures through before non-ok handling', async () => {
@@ -262,6 +477,50 @@ describe('UniversalTranscodeDecisionClient', () => {
 
         await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest()))
             .rejects.toThrow('PMS decision request failed: 500');
+    });
+
+    it('keeps the four-second deadline active while reading the decision body', async () => {
+        const cancel = jest.fn();
+        mockFetch.mockResolvedValue(new Response(new ReadableStream<Uint8Array>({ cancel })));
+
+        const request = createClient().fetchDecision(
+            '/library/metadata/123',
+            createTranscodeRequest()
+        );
+        const expectation = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+        await jest.advanceTimersByTimeAsync(4000);
+
+        await expectation;
+        expect(cancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects oversized decision XML from content length and chunked bodies', async () => {
+        const declaredCancel = jest.fn();
+        mockFetch.mockResolvedValueOnce(new Response(
+            new ReadableStream<Uint8Array>({ cancel: declaredCancel }),
+            { headers: { 'content-length': String(1024 * 1024 + 1) } }
+        ));
+
+        await expect(createClient().fetchDecision(
+            '/library/metadata/123',
+            createTranscodeRequest()
+        )).rejects.toThrow('1048576-byte limit');
+        expect(declaredCancel).toHaveBeenCalledTimes(1);
+
+        const chunkedCancel = jest.fn();
+        mockFetch.mockResolvedValueOnce(new Response(new ReadableStream<Uint8Array>({
+            start(controller): void {
+                controller.enqueue(new Uint8Array(1024 * 1024));
+                controller.enqueue(new Uint8Array(1));
+            },
+            cancel: chunkedCancel,
+        })));
+
+        await expect(createClient().fetchDecision(
+            '/library/metadata/123',
+            createTranscodeRequest()
+        )).rejects.toThrow('1048576-byte limit');
+        expect(chunkedCancel).toHaveBeenCalledTimes(1);
     });
 
     it('aborts the decision request after the configured timeout', async () => {

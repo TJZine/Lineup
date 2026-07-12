@@ -56,12 +56,10 @@ function sectionResponse(title: string): unknown {
 }
 
 function fetchResponse(body: unknown): Response {
-    return {
-        ok: true,
+    return new Response(JSON.stringify(body), {
         status: 200,
-        headers: { get: (): string | null => 'application/json' },
-        text: async (): Promise<string> => JSON.stringify(body),
-    } as unknown as Response;
+        headers: { 'content-type': 'application/json' },
+    });
 }
 
 // ============================================
@@ -813,13 +811,9 @@ describe('PlexLibrary', () => {
             };
 
             // Mock fetch to always return a full page infinite times
-            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
-                ok: true,
-                status: 200,
-                headers: { get: () => null },
-                json: async () => page,
-                text: async () => JSON.stringify(page),
-            });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => Promise.resolve(new Response(JSON.stringify(page), { status: 200 }))
+            );
 
             const warn = jest.fn();
             const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
@@ -1129,13 +1123,9 @@ describe('PlexLibrary', () => {
                 }
             };
 
-            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
-                ok: true,
-                status: 200,
-                headers: { get: () => null },
-                json: async () => page,
-                text: async () => JSON.stringify(page),
-            });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockImplementation(
+                () => Promise.resolve(new Response(JSON.stringify(page), { status: 200 }))
+            );
 
             const warn = jest.fn();
             const library = new PlexLibrary({ ...mockConfig, logger: { warn, error: console.error } });
@@ -1794,21 +1784,26 @@ describe('PlexLibrary', () => {
             jest.useFakeTimers();
             try {
                 expectPlexLibraryWarn('[PlexLibrary] Server error 500, retrying after 2s...');
-                const fetchMock = jest.fn().mockResolvedValue({
-                    ok: false,
-                    status: 500,
-                    headers: { get: () => null },
-                    json: async () => ({ error: 'Server error' }),
-                });
+                const cancel = jest.fn();
+                const fetchMock = jest.fn().mockImplementation(() => Promise.resolve(
+                    new Response(new ReadableStream<Uint8Array>({ cancel }), { status: 500 })
+                ));
                 (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
                 const library = new PlexLibrary(mockConfig);
                 const promise = library.getLibraries();
                 const rejection = expect(promise).rejects.toThrow();
 
-                await jest.advanceTimersByTimeAsync(2000);
+                await jest.advanceTimersByTimeAsync(0);
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+                expect(cancel).toHaveBeenCalledTimes(1);
+                await jest.advanceTimersByTimeAsync(1999);
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+                await jest.advanceTimersByTimeAsync(1);
 
                 await rejection;
+                expect(fetchMock).toHaveBeenCalledTimes(2);
+                expect(cancel).toHaveBeenCalledTimes(2);
             } finally {
                 jest.useRealTimers();
             }
@@ -1853,33 +1848,130 @@ describe('PlexLibrary', () => {
         it('retries 429 responses using the Retry-After delay', async () => {
             jest.useFakeTimers();
             try {
+                const cancel = jest.fn();
                 const fetchMock = jest.fn()
-                    .mockResolvedValueOnce({
-                        ok: false,
-                        status: 429,
-                        headers: {
-                            get: (name: string): string | null => name === 'Retry-After' ? '2' : null,
-                        },
-                        text: async (): Promise<string> => JSON.stringify({ error: 'Rate limited' }),
-                    })
-                    .mockResolvedValueOnce({
-                        ok: true,
+                    .mockResolvedValueOnce(new Response(
+                        new ReadableStream<Uint8Array>({ cancel }),
+                        { status: 429, headers: { 'Retry-After': '2' } }
+                    ))
+                    .mockResolvedValueOnce(new Response(JSON.stringify(mockLibrarySectionsResponse), {
                         status: 200,
-                        headers: { get: (): string | null => null },
-                        text: async (): Promise<string> => JSON.stringify(mockLibrarySectionsResponse),
-                    });
+                    }));
                 (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
                 const library = new PlexLibrary(mockConfig);
 
                 const request = library.getLibraries();
                 const expectation = expect(request).resolves.toHaveLength(4);
 
+                await jest.advanceTimersByTimeAsync(0);
+                expect(cancel).toHaveBeenCalledTimes(1);
                 await jest.advanceTimersByTimeAsync(1999);
                 expect(fetchMock).toHaveBeenCalledTimes(1);
                 await jest.advanceTimersByTimeAsync(1);
 
                 await expectation;
                 expect(fetchMock).toHaveBeenCalledTimes(2);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('aborts a rate-limit backoff promptly with the exact caller reason', async () => {
+            jest.useFakeTimers();
+            try {
+                const controller = new AbortController();
+                const reason = new Error('stop rate-limit retry');
+                const fetchMock = jest.fn().mockResolvedValue(new Response('', {
+                    status: 429,
+                    headers: { 'Retry-After': '30' },
+                }));
+                global.fetch = fetchMock;
+                const request = new PlexLibrary(mockConfig).getLibraries({ signal: controller.signal });
+                await jest.advanceTimersByTimeAsync(0);
+
+                controller.abort(reason);
+
+                await expect(request).rejects.toBe(reason);
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('aborts a server-error backoff promptly with the exact caller reason', async () => {
+            jest.useFakeTimers();
+            try {
+                expectPlexLibraryWarn('[PlexLibrary] Server error 500, retrying after 2s...');
+                const controller = new AbortController();
+                const reason = new Error('stop server retry');
+                const fetchMock = jest.fn().mockResolvedValue(new Response('', { status: 500 }));
+                global.fetch = fetchMock;
+                const request = new PlexLibrary(mockConfig).getLibraries({ signal: controller.signal });
+                await jest.advanceTimersByTimeAsync(0);
+
+                controller.abort(reason);
+
+                await expect(request).rejects.toBe(reason);
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('aborts a timeout backoff promptly with the exact caller reason', async () => {
+            jest.useFakeTimers();
+            try {
+                expectPlexLibraryWarn('[PlexLibrary] Network timeout, retry 1/3 after 1000ms');
+                const controller = new AbortController();
+                const reason = new Error('stop timeout retry');
+                const fetchMock = jest.fn((_url: string, init: RequestInit) =>
+                    new Promise<Response>((_resolve, reject) => {
+                        const signal = init.signal;
+                        if (!signal) {
+                            reject(new Error('missing request signal'));
+                            return;
+                        }
+                        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+                    })
+                );
+                global.fetch = fetchMock as unknown as typeof global.fetch;
+                const request = new PlexLibrary(mockConfig).getLibraries({ signal: controller.signal });
+
+                await jest.advanceTimersByTimeAsync(PLEX_LIBRARY_CONSTANTS.REQUEST_TIMEOUT_MS);
+                controller.abort(reason);
+
+                await expect(request).rejects.toBe(reason);
+                expect(fetchMock).toHaveBeenCalledTimes(1);
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('applies the request timeout to a library body that stalls after headers', async () => {
+            jest.useFakeTimers();
+            try {
+                expectPlexLibraryWarn('[PlexLibrary] Network timeout, retry 1/3 after 1000ms');
+                expectPlexLibraryWarn('[PlexLibrary] Network timeout, retry 2/3 after 2000ms');
+                expectPlexLibraryWarn('[PlexLibrary] Network timeout, retry 3/3 after 4000ms');
+                const cancel = jest.fn();
+                const fetchMock = jest.fn().mockImplementation(() => Promise.resolve(
+                    new Response(new ReadableStream<Uint8Array>({ cancel }))
+                ));
+                global.fetch = fetchMock;
+
+                const request = new PlexLibrary(mockConfig).getLibraries();
+                const expectation = expect(request).rejects.toMatchObject({
+                    code: AppErrorCode.NETWORK_TIMEOUT,
+                });
+                await jest.runAllTimersAsync();
+
+                await expectation;
+                expect(fetchMock).toHaveBeenCalledTimes(
+                    PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES + 1
+                );
+                expect(cancel).toHaveBeenCalledTimes(
+                    PLEX_LIBRARY_CONSTANTS.MAX_TIMEOUT_RETRIES + 1
+                );
             } finally {
                 jest.useRealTimers();
             }

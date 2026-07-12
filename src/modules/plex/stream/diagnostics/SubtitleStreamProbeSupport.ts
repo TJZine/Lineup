@@ -3,6 +3,11 @@ import {
     type SubtitleTextContentFormat,
 } from '../../../../shared/subtitleTextFormatDetection';
 import { redactUrlForLog } from '../../../../utils/redact';
+import { readAbortSignalReason } from '../../../../utils/abortSignalReason';
+import {
+    cancelAndReleaseResponseReader,
+    readResponseBodyChunkWithAbort,
+} from '../../shared/boundedResponseText';
 import { applyXPlexTokenQueryParam, readXPlexTokenFromHeaders } from '../../shared/plexUrl';
 import {
     resolvePlexSubtitleProbeBaseUrl,
@@ -102,7 +107,8 @@ export function buildSubtitleStreamProbeRequestContext(
 
 async function readSubtitleProbeSampleFromStream(
     response: Response,
-    maxSampleChars: number
+    maxSampleChars: number,
+    signal: AbortSignal | null
 ): Promise<SubtitleStreamProbeReadResult | null> {
     const reader = response.body?.getReader?.();
     if (!reader) {
@@ -115,7 +121,12 @@ async function readSubtitleProbeSampleFromStream(
 
     try {
         while (sample.length < maxSampleChars) {
-            const { value, done } = await reader.read();
+            if (signal?.aborted) {
+                throw readAbortSignalReason(signal);
+            }
+            const { value, done } = signal
+                ? await readResponseBodyChunkWithAbort(reader, signal)
+                : await reader.read();
             if (done) {
                 break;
             }
@@ -123,14 +134,22 @@ async function readSubtitleProbeSampleFromStream(
                 continue;
             }
 
-            const chunk = decoder.decode(value, { stream: true });
             const remaining = maxSampleChars - sample.length;
+            const maxBytesForRemainingCharacters = remaining * 4;
+            const boundedValue = value.byteLength > maxBytesForRemainingCharacters
+                ? value.subarray(0, maxBytesForRemainingCharacters)
+                : value;
+            const chunk = decoder.decode(boundedValue, { stream: true });
             if (chunk.length > remaining) {
                 sample += chunk.slice(0, remaining);
                 sampleCapped = true;
                 break;
             }
             sample += chunk;
+            if (boundedValue.byteLength < value.byteLength) {
+                sampleCapped = true;
+                break;
+            }
         }
 
         if (sample.length < maxSampleChars) {
@@ -144,11 +163,7 @@ async function readSubtitleProbeSampleFromStream(
             }
         }
     } finally {
-        try {
-            await reader.cancel();
-        } catch {
-            // Ignore cancel errors.
-        }
+        cancelAndReleaseResponseReader(reader);
     }
 
     return {
@@ -162,14 +177,22 @@ async function readSubtitleProbeSampleFromStream(
 export async function readSubtitleProbeSample(
     response: Response,
     codec: string | undefined,
-    maxSampleChars: number
+    maxSampleChars: number,
+    signal: AbortSignal | null = null
 ): Promise<SubtitleStreamProbeReadResult> {
     try {
-        const streamedResult = await readSubtitleProbeSampleFromStream(response, maxSampleChars);
+        const streamedResult = await readSubtitleProbeSampleFromStream(
+            response,
+            maxSampleChars,
+            signal
+        );
         if (streamedResult && streamedResult.sampleLength > 0) {
             return streamedResult;
         }
     } catch {
+        if (signal?.aborted) {
+            throw readAbortSignalReason(signal);
+        }
         // Ignore read errors; still log status/headers.
     }
 
