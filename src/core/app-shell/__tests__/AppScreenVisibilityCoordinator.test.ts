@@ -270,8 +270,72 @@ describe('AppScreenVisibilityCoordinator', () => {
         await Promise.resolve();
         await Promise.resolve();
 
+        expect(lazyScreenErrorHandler).toHaveBeenCalledTimes(1);
         expect(lazyScreenErrorHandler).toHaveBeenCalledWith(lazyError);
         expect(splashScreen.hide).not.toHaveBeenCalled();
+    });
+
+    it('ignores deferred startup-screen load failures after the route changes', async () => {
+        currentScreen = 'auth';
+        registry.getAuthScreen.mockReturnValue(null);
+
+        let rejectAuth!: (error: unknown) => void;
+        registry.ensureAuthScreen.mockReturnValue(
+            new Promise((_resolve, reject) => {
+                rejectAuth = reject;
+            })
+        );
+
+        const coordinator = createCoordinator();
+        coordinator.apply('auth');
+
+        currentScreen = 'player';
+        rejectAuth(new Error('stale chunk load failure'));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(lazyScreenErrorHandler).not.toHaveBeenCalled();
+    });
+
+    it.each(['channel-setup', 'settings'])(
+        'ignores %s lazy-screen load failures after the route changes',
+        async (screen) => {
+            currentScreen = screen;
+
+            let rejectScreen!: (error: unknown) => void;
+            const pendingScreen = new Promise<Screen>((_resolve, reject) => {
+                rejectScreen = reject;
+            });
+            if (screen === 'channel-setup') {
+                registry.ensureChannelSetupScreen.mockReturnValue(pendingScreen);
+            } else {
+                registry.ensureSettingsScreen.mockReturnValue(pendingScreen);
+            }
+
+            const coordinator = createCoordinator();
+            coordinator.apply(screen);
+
+            currentScreen = 'player';
+            rejectScreen(new Error('stale chunk load failure'));
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(lazyScreenErrorHandler).not.toHaveBeenCalled();
+        }
+    );
+
+    it('routes current lazy-screen load failures through the app-shell error callback once', async () => {
+        currentScreen = 'settings';
+        const lazyError = new Error('settings chunk load failed');
+        registry.ensureSettingsScreen.mockRejectedValue(lazyError);
+
+        const coordinator = createCoordinator();
+        coordinator.apply('settings');
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(lazyScreenErrorHandler).toHaveBeenCalledTimes(1);
+        expect(lazyScreenErrorHandler).toHaveBeenCalledWith(lazyError);
     });
 
     it('syncs using current screen and player fallback', () => {
