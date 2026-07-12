@@ -12,6 +12,10 @@ import { fetchSubtitleFallbackVtt } from './subtitleFallbackPipeline';
 import { SubtitleDebugLogger } from '../../debug/SubtitleDebugLogger';
 import { snapshotNativeTextTracks } from './nativeTextTrackDebugSnapshot';
 import { getRequestedBurnInExtractionSuppression } from './SubtitleLocalExtractionSuppression';
+import {
+    SubtitleFallbackAttemptLifecycle,
+    type TerminalFallbackReason,
+} from './SubtitleFallbackAttemptLifecycle';
 
 type SubtitleTrackContext = NonNullable<StreamDescriptor['subtitleContext']>;
 
@@ -33,11 +37,10 @@ export class SubtitleManager {
     private _activeTrackId: string | null = null;
     private _subtitleContext: SubtitleTrackContext | null = null;
     private _loadToken = 0;
-    private _trackTimers: Map<string, number[]> = new Map();
-    private _fallbackInProgress: Set<string> = new Set();
+    private _fallbackInProgress: Map<string, symbol> = new Map();
     private _readyTracks: Set<string> = new Set();
-    private _blobUrls: Map<string, string> = new Map();
     private _fallbackControllers: Map<string, AbortController> = new Map();
+    private readonly _fallbackLifecycle = new SubtitleFallbackAttemptLifecycle();
     private readonly _subtitleService: PlatformSubtitleService;
 
     constructor(subtitleService?: PlatformSubtitleService) {
@@ -169,6 +172,10 @@ export class SubtitleManager {
 
         this._activeTrackId = trackId;
 
+        if (trackId && this._fallbackLifecycle.isTerminal(trackId)) {
+            this._activeTrackId = null;
+            return;
+        }
         if (trackId && this._readyTracks.has(trackId)) {
             this._applyTrackModeShowing(trackId);
         } else if (trackId) {
@@ -224,43 +231,14 @@ export class SubtitleManager {
     }
 
     private _clearPendingTrackState(): void {
-        for (const timers of this._trackTimers.values()) {
-            for (const timerId of timers) {
-                window.clearTimeout(timerId);
-            }
-        }
-        this._trackTimers.clear();
-
         for (const controller of this._fallbackControllers.values()) {
             controller.abort();
         }
         this._fallbackControllers.clear();
 
-        for (const blobUrl of this._blobUrls.values()) {
-            try {
-                URL.revokeObjectURL(blobUrl);
-            } catch {
-                // ignore
-            }
-        }
-        this._blobUrls.clear();
+        this._fallbackLifecycle.reset();
         this._fallbackInProgress.clear();
         this._readyTracks.clear();
-    }
-
-    private _storeTrackTimer(trackId: string, timerId: number): void {
-        const existing = this._trackTimers.get(trackId) ?? [];
-        existing.push(timerId);
-        this._trackTimers.set(trackId, existing);
-    }
-
-    private _clearTrackTimers(trackId: string): void {
-        const timers = this._trackTimers.get(trackId);
-        if (!timers) return;
-        for (const timerId of timers) {
-            window.clearTimeout(timerId);
-        }
-        this._trackTimers.delete(trackId);
     }
 
     private _buildDirectTrackUrl(track: SubtitleTrack): string | null {
@@ -323,29 +301,34 @@ export class SubtitleManager {
         trackElement.addEventListener('load', onLoad);
         trackElement.addEventListener('error', onError);
 
-        const loadTimeoutId = window.setTimeout(() => {
-            if (loadToken !== this._loadToken) return;
-            if (this._readyTracks.has(track.id)) return;
-            const textTracksLength = this._videoElement?.textTracks.length ?? 0;
-            const reason = textTracksLength <= baselineTextTracks
-                ? 'texttracks_unchanged'
-                : 'load_timeout';
-            void this._triggerFallback(track, reason, loadToken);
-        }, 2000);
-        this._storeTrackTimer(track.id, loadTimeoutId);
+        if (path === 'direct') {
+            const loadTimeoutId = window.setTimeout(() => {
+                if (loadToken !== this._loadToken || this._readyTracks.has(track.id)) return;
+                const textTracksLength = this._videoElement?.textTracks.length ?? 0;
+                const reason = textTracksLength <= baselineTextTracks
+                    ? 'texttracks_unchanged'
+                    : 'load_timeout';
+                void this._triggerFallback(track, reason, loadToken);
+            }, 2000);
+            this._fallbackLifecycle.storeTimer(track.id, loadTimeoutId);
+        }
 
         const cueTimeoutId = window.setTimeout(() => {
             if (loadToken !== this._loadToken) return;
             if (this._readyTracks.has(track.id)) return;
             const cuesLength = trackElement.track?.cues?.length ?? 0;
             if (cuesLength === 0) {
+                if (path === 'blob' && !this._fallbackLifecycle.hasBudget(track.id)) {
+                    this._terminateFallback(track, 'unusable_cues');
+                    return;
+                }
                 void this._triggerFallback(track, 'no_cues', loadToken);
                 return;
             }
             const textTracksLength = this._videoElement?.textTracks.length ?? 0;
             this._markTrackReady(track, path, textTracksLength, cuesLength);
         }, 3000);
-        this._storeTrackTimer(track.id, cueTimeoutId);
+        this._fallbackLifecycle.storeTimer(track.id, cueTimeoutId);
     }
 
     private _checkTrackReady(
@@ -369,7 +352,7 @@ export class SubtitleManager {
     ): void {
         if (this._readyTracks.has(track.id)) return;
         this._readyTracks.add(track.id);
-        this._clearTrackTimers(track.id);
+        this._fallbackLifecycle.clearTimers(track.id);
         this._logSubtitleDebug('subtitle_track_ready', () => ({
             id: track.id,
             path,
@@ -393,9 +376,15 @@ export class SubtitleManager {
         if (this._fallbackInProgress.has(track.id)) return;
         if (this._readyTracks.has(track.id)) return;
         if (loadToken !== this._loadToken) return;
-        this._fallbackInProgress.add(track.id);
+        if (this._fallbackLifecycle.isTerminal(track.id)) return;
+        if (!this._fallbackLifecycle.consume(track.id)) {
+            this._terminateFallback(track, 'attempt_exhausted');
+            return;
+        }
+        const fallbackOwner = Symbol(track.id);
+        this._fallbackInProgress.set(track.id, fallbackOwner);
         // Prevent stale timers from triggering duplicate fallback attempts.
-        this._clearTrackTimers(track.id);
+        this._fallbackLifecycle.clearTimers(track.id);
         this._logSubtitleDebug('subtitle_fallback_used', () => ({
             id: track.id,
             reason,
@@ -413,7 +402,7 @@ export class SubtitleManager {
 
             this._replaceTrackElement(track, result.blobUrl, loadToken);
         } finally {
-            this._fallbackInProgress.delete(track.id);
+            if (this._fallbackInProgress.get(track.id) === fallbackOwner) this._fallbackInProgress.delete(track.id);
         }
     }
 
@@ -464,19 +453,7 @@ export class SubtitleManager {
             if (loadToken !== this._loadToken) return { kind: 'stale' };
             if (fallbackResult.kind !== 'success') return fallbackResult;
 
-            const existing = this._blobUrls.get(track.id);
-            if (existing) {
-                try {
-                    URL.revokeObjectURL(existing);
-                } catch {
-                    // ignore
-                }
-                this._blobUrls.delete(track.id);
-            }
-
-            const blob = new Blob([fallbackResult.vtt], { type: 'text/vtt' });
-            const blobUrl = URL.createObjectURL(blob);
-            this._blobUrls.set(track.id, blobUrl);
+            const blobUrl = this._fallbackLifecycle.createBlobUrl(track.id, fallbackResult.vtt);
             return {
                 kind: 'success',
                 blobUrl,
@@ -491,7 +468,7 @@ export class SubtitleManager {
             }));
             return { kind: 'transient', reason: 'unknown_error' };
         } finally {
-            this._fallbackControllers.delete(track.id);
+            if (this._fallbackControllers.get(track.id) === controller) this._fallbackControllers.delete(track.id);
         }
     }
 
@@ -550,6 +527,26 @@ export class SubtitleManager {
             return;
         }
         this._recoverHandledSubtitleDeactivation(track.id, reason);
+    }
+
+    private _terminateFallback(
+        track: SubtitleTrack,
+        reason: TerminalFallbackReason
+    ): void {
+        if (!this._fallbackLifecycle.markTerminal(track.id)) return;
+        this._fallbackLifecycle.cleanupTrack(track.id);
+        const element = this._trackElements.get(track.id);
+        element?.remove();
+        this._trackElements.delete(track.id);
+        this._logSubtitleDebug('subtitle_fallback_exhausted', () => ({ id: track.id, reason }));
+        if (this._activeTrackId !== track.id) return;
+        this.setActiveTrack(null);
+        const deactivationReason = reason === 'unusable_cues'
+            ? 'subtitle_text_unusable_cues'
+            : 'subtitle_text_attempt_exhausted';
+        const handled = this._notifySubtitleDeactivated(track.id, deactivationReason);
+        if (!handled) this._notifySubtitleUnavailable();
+        else this._recoverHandledSubtitleDeactivation(track.id, deactivationReason);
     }
 
     private _getFallbackFailureReason(
