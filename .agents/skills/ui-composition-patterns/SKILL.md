@@ -32,11 +32,9 @@ This skill defines how Lineup UI should be composed and constrained once impleme
 
 ## Discovery Pattern
 
-1. Run a Codanna-first evidence sweep before changing a shared screen, overlay, or focus path.
-   - start with `semantic_search_with_context`
-   - use `search_documents` when design or workflow docs matter
-   - run `analyze_impact` before touching shared/public UI coordinators or primitives
-   - fall back to `rg` only when Codanna is insufficient, and note the fallback
+1. Find the screen, focus owner, lifecycle cleanup, and shared callers with exact
+   search and direct reads. Use Codanna semantic or impact tools when available and
+   useful for an unknown or shared UI seam.
 2. Confirm the screen's current owner and adjacent collaborators before editing.
 3. Decide which layer owns each concern:
    - rendering/view composition

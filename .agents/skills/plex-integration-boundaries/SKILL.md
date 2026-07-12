@@ -15,10 +15,13 @@ The main anti-pattern is mixing URL construction, auth handling, transport polic
 
 1. [`docs/api/plex-integration.md`](../../../docs/api/plex-integration.md) for the public Plex contract
 2. [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md) for current ownership truth
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md) for tiering, verification, and handoff rules
-4. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) when the task is cleanup-linked or hotspot-oriented
+3. relevant sections of [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md) for verification and handoff rules
+4. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) only when the task explicitly implements or updates a checklist item
 
-## Relevant Modules
+## Relevant Owner Examples
+
+Confirm current file-level ownership in `CURRENT_STATE.md`; these examples identify
+the stable Plex layers, not a second authoritative inventory.
 
 - [`src/modules/plex/auth/PlexAuth.ts`](../../../src/modules/plex/auth/PlexAuth.ts)
 - [`src/modules/plex/discovery/PlexServerDiscovery.ts`](../../../src/modules/plex/discovery/PlexServerDiscovery.ts)
@@ -35,11 +38,9 @@ The main anti-pattern is mixing URL construction, auth handling, transport polic
 
 ## Discovery Pattern
 
-1. Run a Codanna-first evidence sweep before changing shared Plex surfaces.
-   - start with `semantic_search_with_context`
-   - use `search_documents` when repo-doc context matters
-   - run `analyze_impact` before touching shared/public Plex APIs or resolver types
-   - fall back to `rg` only when Codanna is insufficient, and note the fallback
+1. Find the owning Plex layer and exact callers with search and direct reads. Use
+   Codanna semantic or impact tools when available and useful for an unknown or
+   shared API.
 2. Confirm which Plex layer owns the change:
    - auth
    - discovery/selection

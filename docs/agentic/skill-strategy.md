@@ -21,8 +21,8 @@ load only when selected.
 
 Process skills cover planning, debugging, verification, review lifecycle,
 delegation, closeout, and explicit feature/cleanup launchers. Boundary skills cover
-architecture, persistence, Plex, and UI composition. The global production-review
-suite has one thin Lineup wrapper.
+architecture, TypeScript production quality, test design, persistence, Plex, and UI
+composition. The global production-review suite has one thin Lineup wrapper.
 
 `.codex/config.toml` owns the role catalog. The compact `model-selection` skill owns
 task-specific cost/capability routing; retain a distinct role only while that routing

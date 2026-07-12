@@ -35,6 +35,21 @@ function trackedFiles(pattern) {
     }
 }
 
+function workingFiles(pattern) {
+    try {
+        return execFileSync(
+            'git',
+            ['ls-files', '--cached', '--others', '--exclude-standard', '--', pattern],
+            { cwd: root, encoding: 'utf8' }
+        )
+            .split('\n')
+            .filter(Boolean);
+    } catch (error) {
+        errors.push(`git working-file discovery failed for ${pattern}: ${error.message}`);
+        return [];
+    }
+}
+
 function checkRequiredFiles() {
     const tracked = new Set(trackedFiles());
     for (const relativePath of requiredFiles) {
@@ -98,16 +113,47 @@ function checkMarkdownLinks() {
 }
 
 function checkSkills() {
-    const skillFiles = trackedFiles('.agents/skills/*/SKILL.md');
+    const skillFiles = workingFiles('.agents/skills/*/SKILL.md');
     if (skillFiles.length === 0) errors.push('no tracked repo-local skills found');
 
     for (const file of skillFiles) {
         const content = read(file);
         if (content === null) continue;
         const frontmatter = content.match(/^---\n([\s\S]*?)\n---/u)?.[1] ?? '';
-        if (!/^name:\s*\S+/mu.test(frontmatter)) errors.push(`${file}: missing skill name`);
+        const name = frontmatter.match(/^name:\s*([a-z0-9-]+)\s*$/mu)?.[1];
+        if (!name) errors.push(`${file}: missing or invalid skill name`);
         if (!/^description:\s*(?:\S|>)/mu.test(frontmatter)) {
             errors.push(`${file}: missing skill description`);
+        }
+    }
+
+    for (const file of workingFiles('.agents/skills/*/agents/openai.yaml')) {
+        const content = read(file);
+        if (content === null) continue;
+        const skillName = file.split('/').at(-3);
+        if (!skillFiles.includes(`.agents/skills/${skillName}/SKILL.md`)) {
+            errors.push(`${file}: launcher has no matching skill`);
+        }
+        if (/\t/u.test(content)) errors.push(`${file}: YAML must not contain tabs`);
+        const interfaceValues = {};
+        for (const field of ['display_name', 'short_description', 'default_prompt']) {
+            const value = content.match(new RegExp(`^  ${field}:\\s*"([^"]+)"\\s*$`, 'mu'))?.[1];
+            if (!value) {
+                errors.push(`${file}: missing quoted interface.${field}`);
+            } else {
+                interfaceValues[field] = value;
+            }
+        }
+        if (!/^interface:\s*$/mu.test(content)) errors.push(`${file}: missing interface mapping`);
+        const shortDescription = interfaceValues.short_description;
+        if (shortDescription && (shortDescription.length < 25 || shortDescription.length > 64)) {
+            errors.push(`${file}: interface.short_description must be 25-64 characters`);
+        }
+        if (interfaceValues.default_prompt && !interfaceValues.default_prompt.includes(`$${skillName}`)) {
+            errors.push(`${file}: interface.default_prompt must mention $${skillName}`);
+        }
+        if (/^policy:\s*$/mu.test(content) && !/^  allow_implicit_invocation:\s*(?:true|false)\s*$/mu.test(content)) {
+            errors.push(`${file}: policy must declare boolean allow_implicit_invocation`);
         }
     }
 }

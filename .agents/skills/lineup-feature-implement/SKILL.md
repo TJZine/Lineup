@@ -5,7 +5,8 @@ description: Explicit launcher for implementing an approved Lineup feature plan;
 
 # Lineup Feature Implement
 
-Read `AGENTS.md`, the runbook, the approved plan/brief, and only relevant boundary
-docs. Implement one coherent unit, update changed authority surfaces, run
-risk-matched proof, and stop if ownership, public behavior, or verification differs
-from the plan.
+Read `AGENTS.md`, relevant runbook sections, the approved plan/brief, and matching
+boundary skills. Implement one coherent unit, preserve explicit failure and cleanup
+behavior, update changed authority surfaces, and run targeted plus risk-matched
+proof. Stop if scope, ownership, public behavior, failure semantics, or verification
+diverges from the plan.

@@ -9,16 +9,17 @@ Thin Lineup wrapper for the global `repo-production-review` skill suite.
 
 ## Local Required Reads
 
-Before running the universal review, read and honor:
+Start with:
 
-- `docs/AGENTIC_DEV_WORKFLOW.md`
 - `AGENTS.md`
+- relevant sections of `docs/AGENTIC_DEV_WORKFLOW.md`
 - `.codex/config.toml`
-- `.agents/skills/*/SKILL.md`
 - `docs/architecture/CURRENT_STATE.md`
-- `ARCHITECTURE_CLEANUP_CHECKLIST.md`
-- `docs/agentic/skill-strategy.md`
-- the tracked production-review launcher document, if present
+
+Inventory skill names and descriptions, then load only boundary skills matching the
+review dimension. Load `ARCHITECTURE_CLEANUP_CHECKLIST.md` only for a
+checklist-linked review. Do not preload launcher and process skill bodies merely to
+inventory them.
 
 Also open and follow the global orchestrator at:
 
@@ -31,7 +32,7 @@ Also open and follow the global orchestrator at:
 - `docs_researcher`: read-only official API/framework/platform documentation checks.
 - `planner`: remediation planning only after accepted findings.
 - `monitor`: observation of safe long-running commands only.
-- `worker`: not used during the read-only review pass.
+- `worker` and `worker_luna`: not used during the read-only review pass.
 
 Honor local orchestration limits:
 

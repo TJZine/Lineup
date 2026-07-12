@@ -14,29 +14,17 @@ Lineup's rule is simple: one storage namespace, one owner.
 ## Required Reading
 
 1. [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md) for the current storage owner map
-2. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) when the task is cleanup-linked or architecture-affecting
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md) for tiering, verification, and handoff rules
+2. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) only when the task explicitly implements or updates a checklist item
+3. relevant sections of [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md) for verification and handoff rules
 4. [`src/utils/storage.ts`](../../../src/utils/storage.ts) when changing shared storage helpers or failure handling
 
-## Current Storage Owners
+## Owner Selection
 
-- [`src/modules/lifecycle/LifecycleStateStore.ts`](../../../src/modules/lifecycle/LifecycleStateStore.ts)
-- [`src/modules/settings/AudioSettingsStore.ts`](../../../src/modules/settings/AudioSettingsStore.ts) - owns audio toggles plus `lineup_audio_setup_complete`
-- [`src/modules/settings/DeveloperSettingsStore.ts`](../../../src/modules/settings/DeveloperSettingsStore.ts) - owns `debugLogging` and `subtitleDebugLogging`
-- [`src/modules/settings/PlaybackSettingsStore.ts`](../../../src/modules/settings/PlaybackSettingsStore.ts)
-- [`src/modules/settings/EpgPreferencesStore.ts`](../../../src/modules/settings/EpgPreferencesStore.ts)
-- [`src/modules/settings/NowPlayingDisplayStore.ts`](../../../src/modules/settings/NowPlayingDisplayStore.ts)
-- [`src/modules/settings/ProfileSessionStore.ts`](../../../src/modules/settings/ProfileSessionStore.ts)
-- [`src/modules/settings/SubtitlePreferencesStore.ts`](../../../src/modules/settings/SubtitlePreferencesStore.ts) - owns subtitle mode policy including burn-in allowance
-- [`src/modules/settings/ThemePreferencesStore.ts`](../../../src/modules/settings/ThemePreferencesStore.ts)
-- [`src/modules/debug/DebugOverridesStore.ts`](../../../src/modules/debug/DebugOverridesStore.ts) - owns debug overrides including `lineup_debug_epg`
-- [`src/modules/debug/IssueDiagnosticsStore.ts`](../../../src/modules/debug/IssueDiagnosticsStore.ts)
-- [`src/modules/plex/auth/PlexAuth.ts`](../../../src/modules/plex/auth/PlexAuth.ts)
-- [`src/modules/plex/auth/clientIdentifier.ts`](../../../src/modules/plex/auth/clientIdentifier.ts)
-- [`src/modules/plex/discovery/ServerSelectionStore.ts`](../../../src/modules/plex/discovery/ServerSelectionStore.ts)
-- [`src/modules/scheduler/channel-manager/persistence/ChannelPersistenceStore.ts`](../../../src/modules/scheduler/channel-manager/persistence/ChannelPersistenceStore.ts)
-- [`src/core/channel-setup/persistence/ChannelSetupRecordStore.ts`](../../../src/core/channel-setup/persistence/ChannelSetupRecordStore.ts)
-- Shared storage helpers in [`src/utils/storage.ts`](../../../src/utils/storage.ts)
+Use the current storage-owner map in `CURRENT_STATE.md`; do not copy key ownership
+into another caller. Settings, sessions, scheduler/channel data, Plex auth/selection,
+and lifecycle state have different lifecycles and should remain in their existing
+domain owners. Shared storage helpers own mechanics only—not schemas, defaults,
+migrations, or product policy.
 
 ## Bounded Exceptions
 
@@ -66,11 +54,8 @@ Lineup's rule is simple: one storage namespace, one owner.
 
 ## Discovery Pattern
 
-1. Run a Codanna-first evidence sweep before changing storage ownership.
-   - start with `semantic_search_with_context`
-   - use `search_documents` when repo-doc context matters
-   - run `analyze_impact` before touching shared/public store APIs
-   - fall back to `rg` only when Codanna is insufficient, and note the fallback
+1. Find the current owner and all key/API callers with exact search and direct reads.
+   Use Codanna impact tools when available and useful for a shared store API.
 2. Confirm the current owner in [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md).
 3. Decide whether the change belongs to an existing owner, a focused new owner, or no persistence at all.
 4. Keep the public API typed and small. Callers should ask for values and intents, not storage details.

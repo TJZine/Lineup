@@ -1,170 +1,71 @@
 # Codanna Playbook
 
-> Established 2026-03-05. This is the Lineup-specific Codanna usage guide for agent discovery and change impact analysis.
+Optional Lineup guidance for semantic discovery and impact analysis. Codanna is a
+tool choice, not a workflow gate; use the smallest reliable discovery method for the
+question.
 
-## Goal
+## Choose The Tool
 
-Use Codanna as the default code-intelligence layer so agent work starts with precise context instead of grep-and-hope loops.
+- Exact symbol, path, literal, CSS class, config key, or known owner: start with
+  `rg`, language tooling, and direct reads.
+- Unknown owner or concept spread across modules: use
+  `semantic_search_with_context` when Codanna is available.
+- Shared/public symbol with uncertain callers: use `analyze_impact`, `find_symbol`,
+  `get_calls`, or `find_callers` when available, then confirm important callers in
+  source.
+- Architecture, cleanup, or plan history: use `search_documents` when it is likely
+  to return a smaller useful set than direct document search.
 
-This follows the Codanna project’s own positioning of semantic search, symbol tracing, and impact analysis as a context-first workflow, and matches Lineup’s existing Codanna-first policy.
+Do not delay implementation merely to prove Codanna was attempted. Evidence quality
+matters; tool order does not.
 
-## Default Tool Order
+## Query Shape
 
-1. `semantic_search_with_context`
-2. `analyze_impact`
-3. `find_symbol`, `get_calls`, `find_callers`
-4. `search_symbols`, `semantic_search_docs`, `search_documents`
-5. `ripgrep` only when Codanna is unavailable or insufficient
+Use a concrete anchor such as a feature, screen, module, file-like hint, or symbol.
+Prefer short noun phrases:
 
-## Query Shaping Rules
-
-- Include one concrete anchor in every query:
-  - feature name
-  - screen/module name
-  - file-ish hint
-  - identifier
-- Use `lang:"typescript"` when noise is high.
-- Start broad enough to find the owner, then narrow with symbols and impact analysis.
-
-Examples:
-
-- `SettingsScreen transcode quality local storage`
+- `SettingsScreen transcode quality storage`
 - `AppOrchestrator overlay runtime controller`
-- `Plex subtitle delivery transcode policy`
-- `ChannelPersistenceStore selected channel serialization`
+- `Plex subtitle delivery policy`
+- `ChannelPersistenceStore serialization`
 
-## Change Workflow
+Use `lang:"typescript"` when semantic results are noisy. Start broad enough to find
+the likely owner, then narrow to the exact symbol or call path.
 
-### 1. Discovery
+## Reliability Bound
 
-Use `semantic_search_with_context` to find the likely owner and surrounding call chain.
+Treat semantic results as discovery evidence, not proof. Confirm affected public
+callers, contracts, and tests in current source.
 
-Capture:
+If an expected symbol is missing or results are implausibly weak:
 
-- key symbol names
-- `symbol_id` values where available
-- likely impacted files
-- relevant document hits from `search_documents` when the task depends on repo docs or cleanup context
+1. Run `get_index_info` once when available.
+2. Retry once with a clearer anchor if that is likely to help.
+3. Fall back to `rg`, language tooling, and direct reads.
 
-### 2. Impact Analysis
+Do not build task notes around query counts or index metadata unless a risky decision
+actually depends on the semantic result. If the index predates relevant working-tree
+changes or covers implausibly few files, prefer deterministic source discovery.
 
-Before touching shared/public code, run `analyze_impact` on the main symbol.
+## Lineup Heuristics
 
-Treat this as an impact gate for risky/shared edits and carry the snapshot into the plan or task notes.
+- Architecture: begin at `App`, `AppOrchestrator`, the current composition owner, or
+  the owner named by `docs/architecture/CURRENT_STATE.md`.
+- UI: trace the screen/overlay, focus owner, timers/listeners, and shared primitive.
+- Persistence: find the store/repository and every key/API caller before editing.
+- Plex: start inside the relevant auth, discovery, library, stream, or subtitle owner;
+  keep transport and policy out of UI/orchestration callers.
+- Checklist work: search the exact item only after the task is confirmed as
+  checklist-linked.
 
-Use this to answer:
+## Local Reliability Note
 
-- what calls this
-- what types depend on this
-- what render/composition relationships exist
-
-### 3. Disambiguation
-
-Use `find_symbol`, `get_calls`, and `find_callers` when:
-
-- multiple symbols match
-- the semantic search result is noisy
-- you need the exact call path
-
-### 4. Plan
-
-Carry the impacted symbols/files into `update_plan` and the relevant `docs/plans/*` file.
-
-When the task is guided by repo docs, also carry forward the key `search_documents` result(s) that shaped the plan.
-
-### 5. Verification
-
-Before finishing:
-
-- cross-check Codanna’s impacted files against the actual diff
-- ensure tests cover the high-risk scopes Codanna surfaced
-
-## Fallback To `rg`
-
-Use `rg` when:
-
-- Codanna has no useful semantic result
-- you need raw text/config search
-- you are searching generated names, literals, CSS classes, or comments
-
-When you fall back, note that you did so.
-
-## Index Freshness Gate
-
-If expected symbols are missing from `find_symbol`/`search_symbols` or semantic hits are unexpectedly weak, treat it as a possible stale Codanna index before assuming the symbol is absent.
-
-Treat results as "unexpectedly weak" when any of these hold:
-
-- `find_symbol` / `search_symbols` returns 0 results for an identifier you strongly expect to exist.
-- `semantic_search_with_context` returns fewer than 3 results for a query that includes a concrete anchor (see Query Shaping Rules).
-- the semantic top hit score is below ~0.5 (0.3-0.5 is often weak/noisy) *and* the anchor is specific.
-
-Index freshness gate workflow:
-
-1. Run `get_index_info` and capture the snapshot in task notes.
-2. Retry with one broader and one narrower query anchor (use the Query Shaping Rules).
-3. If results are still insufficient, log the Codanna insufficiency and fall back to `rg` with explicit evidence paths.
-
-Concrete broader/narrower anchor example:
-
-- Broad: `SettingsScreen state management`
-- Narrow: `SettingsScreenStateController focus restore`
-
-Explicit evidence paths means logging (in the task notes or plan):
-
-- query string(s)
-- tool used (e.g., `semantic_search_with_context`, `find_symbol`)
-- result count
-- top hit file paths (1-3)
-- the `get_index_info` snapshot
-
-Interpreting `get_index_info` snapshots (what to look at):
-
-- index "Updated" time: if it is older than your current working session and you're searching for recently changed code, treat results as suspect
-- indexed file count: if it looks implausibly low for the repo, prefer `rg` for determinism
-- semantic search status/model/embedding count: confirms whether semantic search is actually available in this environment
-
-If you do not have a supported way to refresh the index in your environment, treat `rg` as the deterministic fallback once the gate triggers and you have preserved the evidence above.
-
-## Document Search
-
-Use `search_documents` when:
-
-- planning against [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-- checking [`docs/architecture/CURRENT_STATE.md`](../architecture/CURRENT_STATE.md) or architecture reference docs
-- looking for prior decisions in [`docs/decisions/`](../decisions)
-- reviewing task memory in `docs/plans/*`
-
-This keeps repo docs as queryable context instead of relying on memory or manual browsing alone.
-
-Document-search reliability notes for this repo:
-
-- Prefer short anchored noun phrases over sentence-like prompts.
-- Good: `CURRENT_STATE persistence owner map P3-W5`
-- Avoid: `refresh CURRENT_STATE and adjacent docs so the persistence-owner list is accurate and complete`
-- If `search_documents` stalls, times out, or returns obviously noisy hits, retry once with a narrower anchor and once with a broader anchor before falling back.
-- For deterministic fallback, use `rg` plus direct reads and record that `search_documents` was insufficient in the task notes/plan.
-- Repo-local mitigation: `.codanna/settings.toml` keeps `documents.search.highlight = false` because Codanna `0.9.14` can panic while building highlighted previews for some overlapping multi-word matches. Re-enable only after the upstream preview/highlighting bug is fixed.
-
-## Lineup-Specific Heuristics
-
-- Architecture work:
-  - start with `AppOrchestrator`, `App`, `InitializationCoordinator`, or the relevant boundary store/controller
-- UI work:
-  - find the screen/overlay plus its focus coordinator and shared primitives
-- Persistence work:
-  - find the store/repository first, not the screen/controller caller
-- Plex work:
-  - trace from the relevant Plex module and keep policy leakage out of callers
-- Doc-backed work:
-  - search the relevant docs collection first, then trace the code symbols the docs point to
-
-## Automation Note
-
-For future scripted/automated Codanna workflows, prefer structured outputs and tool chaining over ad-hoc text scraping so follow-up calls stay deterministic.
+`.codanna/settings.toml` keeps `documents.search.highlight = false` because Codanna
+`0.9.14` can fail while building highlighted previews for some overlapping multiword
+matches. Re-enable it only after verifying the upstream behavior is fixed.
 
 ## References
 
-- Codanna repo: [bartolli/codanna](https://github.com/bartolli/codanna)
-- Repo workflow: [`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md)
-- Stable policy: [`AGENTS.md`](../../AGENTS.md)
+- [Codanna repository](https://github.com/bartolli/codanna)
+- [Lineup workflow](../AGENTIC_DEV_WORKFLOW.md)
+- [Lineup agent entrypoint](../../AGENTS.md)
