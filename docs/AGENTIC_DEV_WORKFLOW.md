@@ -71,7 +71,7 @@ Choose the task family and risk before editing.
 | --- | --- | --- | --- |
 | Low | docs, comments, tiny isolated cleanup | one agent | focused check + diff audit |
 | Medium | bounded feature, bug fix, internal refactor | one agent plans and implements | focused tests + type/lint as applicable |
-| High | public contract, hotspot, Plex/security/persistence, broad UI/runtime, cross-session, or material workflow/control-plane change affecting entrypoints, routing, skills, roles, launchers, or verifier scope | explicit plan when needed + implementation + one independent final review | surface-specific proof; for control-plane changes, `npm run verify:docs`, `git diff --check`, and the relevant manual workflow eval when behavior changes materially |
+| High | public contract, hotspot, Plex/security/persistence, broad UI/runtime, cross-session, or material workflow/control-plane change affecting entrypoints, routing, skills, roles, launchers, or verifier scope | explicit plan when needed + implementation + one independent final review | surface-specific proof; for control-plane changes, `npm run verify:docs`, `git diff --check`, and the relevant manual workflow eval when workflow behavior or operative guidance changes materially |
 
 Escalate only when the lower tier would materially weaken reliability.
 

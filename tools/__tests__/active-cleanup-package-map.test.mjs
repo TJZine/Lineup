@@ -135,7 +135,7 @@ function validatePackageMap(packageMap, expectedOpenIssueIds = null) {
             `${packageEntry.package_id} verified by_detector must match issue id detector prefixes`
         );
         assert.deepEqual(
-            [...(packageEntry.includes_detectors ?? [])].sort(),
+            (packageEntry.includes_detectors ?? []).toSorted(),
             Object.keys(actual.by_detector).sort(),
             `${packageEntry.package_id} includes_detectors must match issue detector prefixes`
         );
@@ -203,6 +203,7 @@ function recalculateFixtureMetadata(packageMap) {
         };
         packageEntry.includes_review_issue_ids = actual.review_issue_ids;
         packageEntry.includes_fresh_non_review_issue_ids = actual.fresh_non_review_issue_ids;
+        packageEntry.includes_detectors = Object.keys(actual.by_detector).toSorted();
         packageEntry.estimated_backlog_size = { ...counts };
         packageEntry.verified_package_size = {
             ...packageEntry.verified_package_size,
@@ -248,6 +249,7 @@ function createPackageEntry(packageId, order, issueIds) {
         },
     };
     const actual = countPackageIssues(entry);
+    entry.includes_detectors = Object.keys(actual.by_detector).toSorted();
     const counts = {
         total_open: actual.total_open,
         older_live_non_review: actual.older_live_non_review,
@@ -301,6 +303,13 @@ function createValidFixture() {
     };
 }
 
+test('active cleanup package map fixture is valid before mutation', () => {
+    const fixture = createValidFixture();
+    assert.doesNotThrow(() =>
+        validatePackageMap(fixture, collectAssignedIssueIds(fixture))
+    );
+});
+
 test('active cleanup package map verifier rejects malformed package maps', () => {
     const cases = [
         {
@@ -342,17 +351,7 @@ test('active cleanup package map verifier rejects malformed package maps', () =>
             mutate: (fixture) => {
                 const duplicateId = fixture.packages[0].includes_issue_ids[0];
                 fixture.packages[1].includes_issue_ids.push(duplicateId);
-                fixture.packages[1].includes_review_issue_ids.push(duplicateId);
-                fixture.packages[1].estimated_backlog_size.total_open += 1;
-                fixture.packages[1].estimated_backlog_size.fresh_review += 1;
-                fixture.packages[1].verified_package_size.total_open += 1;
-                fixture.packages[1].verified_package_size.fresh_review += 1;
-                fixture.packages[1].verified_package_size.by_detector.review =
-                    (fixture.packages[1].verified_package_size.by_detector.review ?? 0) + 1;
-                fixture.verified_counts.total_open += 1;
-                fixture.verified_counts.fresh_review += 1;
-                fixture.validation_details.total_open_issues += 1;
-                fixture.validation_details.assigned_open_issues += 1;
+                recalculateFixtureMetadata(fixture);
             },
         },
         {
