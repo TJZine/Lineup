@@ -4,7 +4,7 @@ import type { EpgVisibleRange } from '../types';
 describe('EPGVisibleRangeEmitter', () => {
     const baseRange = (overrides: Partial<EpgVisibleRange> = {}): EpgVisibleRange => ({
         channelStart: 0,
-        channelEnd: 5,
+        channelEndExclusive: 5,
         timeStartMs: 1000,
         timeEndMs: 2000,
         ...overrides,
@@ -36,7 +36,7 @@ describe('EPGVisibleRangeEmitter', () => {
         const emitter = new EPGVisibleRangeEmitter(onChange);
 
         emitter.emit(baseRange());
-        emitter.emit(baseRange({ channelStart: 1, channelEnd: 6 }));
+        emitter.emit(baseRange({ channelStart: 1, channelEndExclusive: 6 }));
 
         expect(onChange).toHaveBeenCalledTimes(2);
     });

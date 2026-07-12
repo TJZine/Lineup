@@ -88,7 +88,7 @@ const createRuntime = (
                 startTime: 0,
                 endTime: 60_000,
                 startChannelIndex: 0,
-                endChannelIndex: 0,
+                endChannelIndexExclusive: 0,
             },
             currentTime: 0,
         }),
@@ -187,7 +187,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const refresh = runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'server-swap',
             { operationContext: operation }
         );
@@ -215,14 +215,14 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
         expect(computeScheduleCacheLimit).toHaveBeenLastCalledWith(1, false);
         expect(getScheduleLoadConcurrency).toHaveBeenLastCalledWith(1, expect.any(Number), false);
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'server-swap'
         );
         expect(computeScheduleCacheLimit).toHaveBeenLastCalledWith(1, true);
@@ -233,7 +233,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         const { runtime, deps } = createRuntime();
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -252,14 +252,14 @@ describe('EPGScheduleRefreshRuntime', () => {
         try {
             const { runtime, epg } = createRuntime();
             await runtime.refreshForRange(
-                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
                 'visible-range'
             );
 
             runtime.clearLoadedScheduleMarkers();
             jest.setSystemTime(3 * 60_000);
             const result = await runtime.refreshForRange(
-                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
                 'visible-range'
             );
 
@@ -312,7 +312,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             });
 
             await runtime.refreshForRange(
-                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
                 'visible-range'
             );
 
@@ -323,7 +323,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             failCachedClone = true;
 
             await runtime.refreshForRange(
-                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
                 'visible-range'
             );
 
@@ -369,7 +369,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const result = await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -420,7 +420,7 @@ describe('EPGScheduleRefreshRuntime', () => {
                         startTime: 0,
                         endTime: 60_000,
                         startChannelIndex: 0,
-                        endChannelIndex: 1,
+                        endChannelIndexExclusive: 1,
                     },
                     currentTime: 0,
                 }),
@@ -428,7 +428,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const result = await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -474,13 +474,13 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const firstRefresh = runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
         await Promise.resolve();
 
         const secondRefresh = runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'server-swap'
         );
         await Promise.allSettled([firstRefresh, secondRefresh]);
@@ -507,7 +507,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const refresh = runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'server-swap',
             { signal: controller.signal }
         );
@@ -528,6 +528,110 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
     });
 
+    it('ignores a stale external abort after a newer refresh session owns the active token', async () => {
+        jest.useFakeTimers();
+        const firstController = new AbortController();
+        const firstAbortReason = new DOMException('stale caller canceled', 'AbortError');
+        let resolveFirst: ((value: ResolvedChannelContent) => void) | null = null;
+        let resolveSecond: ((value: ResolvedChannelContent) => void) | null = null;
+        let firstLoadSignal: AbortSignal | null = null;
+        let secondLoadSignal: AbortSignal | null = null;
+        let callCount = 0;
+        const channels = Array.from({ length: 20 }, (_, index) => makeChannel(`c${index + 1}`, index + 1));
+        const resolveChannelItemsForSchedule = jest.fn(async (channelId: string) => makeResolvedItems(channelId));
+        const { runtime, epg, deps } = createRuntime({
+            isDebugEnabled: () => true,
+            epg: {
+                getState: jest.fn().mockReturnValue({
+                    isVisible: true,
+                    focusedCell: { kind: 'placeholder', channelIndex: 0 },
+                    scrollPosition: { channelOffset: 0, timeOffset: 0 },
+                    viewWindow: {
+                        startTime: 0,
+                        endTime: 60_000,
+                        startChannelIndex: 0,
+                        endChannelIndexExclusive: 1,
+                    },
+                    currentTime: 0,
+                }),
+            },
+            channelManager: {
+                getAllChannels: jest.fn(() => channels),
+                getChannel: jest.fn((channelId: string) => (
+                    channels.find((channel) => channel.id === channelId) ?? null
+                )),
+                resolveChannelContent: jest.fn((channelId: string, options?: { signal?: AbortSignal | null }) => {
+                    callCount += 1;
+                    if (callCount > 2) {
+                        return Promise.resolve(createResolvedContent(channelId));
+                    }
+                    return new Promise<ResolvedChannelContent>((resolve) => {
+                        if (callCount === 1) {
+                            firstLoadSignal = options?.signal ?? null;
+                            resolveFirst = resolve;
+                            return;
+                        }
+                        secondLoadSignal = options?.signal ?? null;
+                        resolveSecond = resolve;
+                    });
+                }),
+                resolveChannelItemsForSchedule,
+            },
+        });
+        try {
+            const firstRefresh = runtime.refreshForRange(
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range',
+                { signal: firstController.signal }
+            );
+            await Promise.resolve();
+
+            const secondRefresh = runtime.refreshForRange(
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'server-swap'
+            );
+            await Promise.resolve();
+
+            expect((firstLoadSignal as AbortSignal | null)?.aborted).toBe(true);
+            expect((secondLoadSignal as AbortSignal | null)?.aborted).toBe(false);
+
+            firstController.abort(firstAbortReason);
+
+            expect((secondLoadSignal as AbortSignal | null)?.aborted).toBe(false);
+            (resolveSecond as unknown as (value: ResolvedChannelContent) => void)(createResolvedContent('c1'));
+
+            await expect(secondRefresh).resolves.toEqual(expect.objectContaining({
+                readiness: 'ready',
+                immediateReadyChannelCount: 9,
+                backgroundQueuedChannelCount: 11,
+                firstVisibleScheduleReady: true,
+            }));
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c1', expect.any(Object));
+
+            const snapshot = await runtime.buildGuideSelectionSnapshot({
+                channelId: 'c1',
+                ratingKey: 'c1-0',
+                scheduledStartTime: 0,
+                scheduledEndTime: 60_000,
+                selectedAt: Date.now(),
+            });
+            expect(snapshot?.source).toBe('resolved-immediate');
+
+            await settleBackgroundRefresh(runtime);
+            expect(resolveChannelItemsForSchedule).toHaveBeenCalledWith('c10', expect.anything());
+            expect(deps.appendDebugLog).toHaveBeenCalledWith(
+                'EPG.refreshEpgSchedulesForRange.background',
+                expect.objectContaining({ refreshId: 2 })
+            );
+            expect((secondLoadSignal as AbortSignal | null)?.aborted).toBe(false);
+
+            (resolveFirst as unknown as (value: ResolvedChannelContent) => void)(createResolvedContent('c1'));
+            await expect(firstRefresh).rejects.toBe(firstAbortReason);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
     it('reports non-abort channel load failures that race with caller cancellation', async () => {
         const abortReason = new DOMException('server selection hidden', 'AbortError');
         const loadError = new Error('resolver failed after abort');
@@ -544,7 +648,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const refresh = runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'server-swap',
             { signal: controller.signal }
         );
@@ -583,7 +687,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const refresh = runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'server-swap',
             { signal: controller.signal }
         );
@@ -617,14 +721,14 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const firstRefresh = runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
         await Promise.resolve();
 
         visibleChannels = [];
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -642,11 +746,11 @@ describe('EPGScheduleRefreshRuntime', () => {
         const { runtime, channelManager } = createRuntime();
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -657,11 +761,11 @@ describe('EPGScheduleRefreshRuntime', () => {
         const { runtime } = createRuntime();
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
         const result = await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -679,11 +783,11 @@ describe('EPGScheduleRefreshRuntime', () => {
     it.each([
         {
             label: 'same-range',
-            nextRange: { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            nextRange: { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
         },
         {
             label: 'different-range',
-            nextRange: { channelStart: 0, channelEnd: 0, timeStartMs: 60_000, timeEndMs: 120_000 },
+            nextRange: { channelStart: 0, channelEndExclusive: 1, timeStartMs: 60_000, timeEndMs: 120_000 },
         },
     ])('reports a superseded $label load and only applies the current schedule', async ({ nextRange }) => {
         let signalFirstLoadStarted: () => void = () => undefined;
@@ -717,7 +821,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const firstRefresh = runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
         await firstLoadStarted;
@@ -788,7 +892,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         runtimeUnderTest = runtime;
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -820,7 +924,7 @@ describe('EPGScheduleRefreshRuntime', () => {
                         startTime: 0,
                         endTime: 60_000,
                         startChannelIndex: 0,
-                        endChannelIndex: 0,
+                        endChannelIndexExclusive: 0,
                     },
                     currentTime: 0,
                 }),
@@ -828,7 +932,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
         try {
             await runtime.refreshForRange(
-                { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+                { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
                 'visible-range'
             );
 
@@ -927,7 +1031,7 @@ describe('EPGScheduleRefreshRuntime', () => {
                         startTime: priorDayRangeStart,
                         endTime: rangeEnd,
                         startChannelIndex: 0,
-                        endChannelIndex: 0,
+                        endChannelIndexExclusive: 0,
                     },
                     currentTime: now,
                 }),
@@ -936,7 +1040,7 @@ describe('EPGScheduleRefreshRuntime', () => {
 
         try {
             await runtime.refreshForRange(
-                { channelStart: 0, channelEnd: 0, timeStartMs: priorDayRangeStart, timeEndMs: rangeEnd },
+                { channelStart: 0, channelEndExclusive: 0, timeStartMs: priorDayRangeStart, timeEndMs: rangeEnd },
                 'visible-range'
             );
 
@@ -991,7 +1095,7 @@ describe('EPGScheduleRefreshRuntime', () => {
                         startTime: 0,
                         endTime: 60_000,
                         startChannelIndex: 0,
-                        endChannelIndex: 1,
+                        endChannelIndexExclusive: 1,
                     },
                     currentTime: 0,
                 }),
@@ -999,7 +1103,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
         try {
             await runtime.refreshForRange(
-                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
                 'visible-range'
             );
 
@@ -1054,7 +1158,7 @@ describe('EPGScheduleRefreshRuntime', () => {
                         startTime: 0,
                         endTime: 60_000,
                         startChannelIndex: 0,
-                        endChannelIndex: 2,
+                        endChannelIndexExclusive: 2,
                     },
                     currentTime: 0,
                 }),
@@ -1062,7 +1166,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 2, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 2, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -1095,7 +1199,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -1142,7 +1246,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
         (deps.appendIssueDiagnostic as jest.Mock).mockClear();
@@ -1151,7 +1255,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         schedulerState.channelId = channel.id;
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -1199,7 +1303,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -1210,7 +1314,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         resolveChannelContent.mockClear();
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 

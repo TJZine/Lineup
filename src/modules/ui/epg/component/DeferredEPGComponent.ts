@@ -238,7 +238,7 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
                 startTime: 0,
                 endTime: 0,
                 startChannelIndex: 0,
-                endChannelIndex: 0,
+                endChannelIndexExclusive: 0,
             },
             currentTime: Date.now(),
         };

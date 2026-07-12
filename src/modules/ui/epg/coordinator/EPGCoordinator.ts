@@ -358,7 +358,7 @@ export class EPGCoordinator {
 
     async refreshEpgSchedulesForRange(range: {
         channelStart: number;
-        channelEnd: number;
+        channelEndExclusive: number;
         timeStartMs: number;
         timeEndMs: number;
     }, options?: EpgScheduleRefreshOptions): Promise<EpgScheduleRefreshResult> {

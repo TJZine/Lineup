@@ -269,7 +269,7 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
         } as OrchestratorCoordinatorAssemblyInput['config'];
         const visibleRange = {
             channelStart: 0,
-            channelEnd: 2,
+            channelEndExclusive: 2,
             timeStartMs: 0,
             timeEndMs: 60_000,
         };
@@ -313,7 +313,7 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
             getState: jest.fn().mockReturnValue({
                 viewWindow: {
                     startChannelIndex: 0,
-                    endChannelIndex: 0,
+                    endChannelIndexExclusive: 0,
                     startTime: 0,
                     endTime: 60_000,
                 },

@@ -16,7 +16,7 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
     const range = (id: number): EpgVisibleRange => ({
         channelStart: id,
-        channelEnd: id + 1,
+        channelEndExclusive: id + 1,
         timeStartMs: id * 1000,
         timeEndMs: (id * 1000) + 500,
     });
@@ -61,6 +61,22 @@ describe('EPGVisibleRangeRefreshQueue', () => {
 
         expect(refreshFn).toHaveBeenCalledTimes(1);
         expect(refreshFn).toHaveBeenCalledWith(range(2), 'library-filter', expect.any(AbortSignal));
+    });
+
+    it('forwards the latest exclusive endpoint unchanged when replacing a queued range', async () => {
+        jest.useFakeTimers();
+        const refreshFn = jest.fn().mockResolvedValue(SKIPPED_REFRESH_RESULT);
+        const queue = new EPGVisibleRangeRefreshQueue(refreshFn);
+        const firstRange = range(1);
+        const latestRange = { ...range(2), channelEndExclusive: 9 };
+
+        const first = queue.request(firstRange, { debounceMs: 50, reason: 'visible-range' });
+        const latest = queue.request(latestRange, { debounceMs: 50, reason: 'visible-range' });
+        jest.advanceTimersByTime(50);
+        await Promise.all([first, latest]);
+
+        expect(refreshFn).toHaveBeenCalledTimes(1);
+        expect(refreshFn).toHaveBeenCalledWith(latestRange, 'visible-range', expect.any(AbortSignal));
     });
 
     it('isolates abort handling when a debounced request is coalesced', async () => {

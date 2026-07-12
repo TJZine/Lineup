@@ -622,7 +622,7 @@ const mockEpg = {
             startTime: 0,
             endTime: 0,
             startChannelIndex: 0,
-            endChannelIndex: 0,
+            endChannelIndexExclusive: 1,
         },
         currentTime: 0,
     }),

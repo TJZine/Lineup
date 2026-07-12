@@ -64,7 +64,7 @@ export interface EPGConfig {
 
 export interface EpgVisibleRange {
     channelStart: number;
-    channelEnd: number;
+    channelEndExclusive: number;
     timeStartMs: number;
     timeEndMs: number;
 }
@@ -80,7 +80,7 @@ export interface EPGState {
         startTime: number;
         endTime: number;
         startChannelIndex: number;
-        endChannelIndex: number;
+        endChannelIndexExclusive: number;
     };
     currentTime: number;
 }

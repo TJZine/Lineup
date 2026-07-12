@@ -351,7 +351,7 @@ export class EPGScheduleRefreshRuntime {
         const focusedChannelId = epgState.focusedCell
             ? channels[epgState.focusedCell.channelIndex]?.id ?? null
             : null;
-        const visibleCount = Math.max(1, range.channelEnd - range.channelStart + 1);
+        const visibleCount = Math.max(1, range.channelEndExclusive - range.channelStart);
         const backgroundCaps = computeBackgroundWarmQueueCaps(channels.length, visibleCount, aggressive);
         const partitioned = partitionPrefetchChannels(
             channels,
@@ -368,7 +368,7 @@ export class EPGScheduleRefreshRuntime {
         );
 
         const visibleStart = Math.max(0, Math.min(range.channelStart, channels.length - 1));
-        const visibleEnd = Math.min(channels.length, range.channelEnd + 1);
+        const visibleEnd = Math.min(channels.length, range.channelEndExclusive);
         const visibleRangeIds = new Set(channels.slice(visibleStart, visibleEnd).map((channel) => channel.id));
         operation.assertCurrent();
         this._selectedRowSnapshotSeed = null;
@@ -450,7 +450,10 @@ export class EPGScheduleRefreshRuntime {
             warmQueueCount: session.backgroundChannels.length,
             liveChannelId: session.liveChannelId,
             focusedChannelId: session.focusedChannelId,
-            visibleRange: { start: session.range.channelStart, end: session.range.channelEnd },
+            visibleRange: {
+                start: session.range.channelStart,
+                endExclusive: session.range.channelEndExclusive,
+            },
             bufferedRange: session.bufferedRange,
             backgroundRange: session.backgroundRange,
             overscan: session.overscan,
@@ -783,7 +786,10 @@ export class EPGScheduleRefreshRuntime {
     private _bindRefreshAbort(session: RefreshSession): () => void {
         const signal = session.signal ?? null;
         if (!signal) return () => undefined;
-        const onAbort = (): void => this._invalidateRefreshWork('external-abort', { abortInFlight: true });
+        const onAbort = (): void => {
+            if (session.refreshId !== this._scheduleLoadToken) return;
+            this._invalidateRefreshWork('external-abort', { abortInFlight: true });
+        };
         signal.addEventListener('abort', onAbort, { once: true });
         return () => signal.removeEventListener('abort', onAbort);
     }

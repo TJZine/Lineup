@@ -170,7 +170,7 @@ const makeDeps = (
                 startTime: 0,
                 endTime: 0,
                 startChannelIndex: 0,
-                endChannelIndex: 3,
+                endChannelIndexExclusive: 3,
             },
             currentTime: 0,
         }),
@@ -299,7 +299,7 @@ describe('EPGCoordinator', () => {
         );
     });
 
-    it('partitions prefetch channels with inclusive channelEnd', () => {
+    it('partitions prefetch channels from an exclusive channel endpoint', () => {
         makeDeps();
 
         const channels: ChannelConfig[] = Array.from(
@@ -307,8 +307,8 @@ describe('EPGCoordinator', () => {
             (_, i) => makeChannel(`c${i}`, i + 1)
         );
 
-        const range = { channelStart: 10, channelEnd: 20 };
-        const caps = { visibleCount: 11, maxQueuedChannels: 120, aggressive: false };
+        const range = { channelStart: 10, channelEndExclusive: 20 };
+        const caps = { visibleCount: 10, maxQueuedChannels: 120, aggressive: false };
         const ids = { liveChannelId: null, focusedChannelId: null };
 
         const partitioned = partitionPrefetchChannels(channels, range, ids, {
@@ -317,10 +317,46 @@ describe('EPGCoordinator', () => {
             aggressive: caps.aggressive,
         });
 
-        // channelEnd is inclusive; slice end is exclusive. For channelCount=100 and non-aggressive overscan=7:
-        // endIndex = 20 + 1 + 7 = 28
-        expect(partitioned.bufferedRange).toEqual({ start: 3, end: 28 });
-        expect(partitioned.immediateChannels[partitioned.immediateChannels.length - 1]?.id).toBe('c27');
+        // The exclusive endpoint is extended by overscan once: endIndex = 20 + 7 = 27.
+        expect(partitioned.bufferedRange).toEqual({ start: 3, endExclusive: 27 });
+        expect(partitioned.immediateChannels[partitioned.immediateChannels.length - 1]?.id).toBe('c26');
+    });
+
+    it('preserves terminal, single-channel, and empty half-open endpoint behavior', () => {
+        makeDeps();
+        const channels: ChannelConfig[] = Array.from(
+            { length: 100 },
+            (_, index) => makeChannel(`c${index}`, index + 1)
+        );
+        const ids = { liveChannelId: null, focusedChannelId: null };
+
+        const terminal = partitionPrefetchChannels(
+            channels,
+            { channelStart: 98, channelEndExclusive: 100 },
+            ids,
+            { visibleCount: 2, maxQueuedChannels: 120, aggressive: false }
+        );
+        expect(terminal.bufferedRange).toEqual({ start: 91, endExclusive: 100 });
+        expect(terminal.immediateChannels[terminal.immediateChannels.length - 1]?.id).toBe('c99');
+
+        const single = partitionPrefetchChannels(
+            channels,
+            { channelStart: 10, channelEndExclusive: 11 },
+            ids,
+            { visibleCount: 1, maxQueuedChannels: 120, aggressive: false }
+        );
+        expect(single.bufferedRange).toEqual({ start: 3, endExclusive: 18 });
+        expect(single.immediateChannels[single.immediateChannels.length - 1]?.id).toBe('c17');
+
+        const empty = partitionPrefetchChannels(
+            [],
+            { channelStart: 0, channelEndExclusive: 0 },
+            ids,
+            { visibleCount: 1, maxQueuedChannels: 120, aggressive: false }
+        );
+        expect(empty.immediateChannels).toEqual([]);
+        expect(empty.backgroundChannels).toEqual([]);
+        expect(empty.bufferedRange).toEqual({ start: 0, endExclusive: 0 });
     });
 
     it('openEPG primes and queues an immediate refresh after show when ready', async () => {
@@ -337,7 +373,7 @@ describe('EPGCoordinator', () => {
         expect(refreshSpy).toHaveBeenCalledWith(
             {
                 channelStart: 0,
-                channelEnd: 3,
+                channelEndExclusive: 3,
                 timeStartMs: 0,
                 timeEndMs: 0,
             },
@@ -355,7 +391,7 @@ describe('EPGCoordinator', () => {
             startTime: 60_000,
             endTime: 180_000,
             startChannelIndex: 2,
-            endChannelIndex: 6,
+            endChannelIndexExclusive: 6,
         };
         const { deps, epg } = makeDeps();
         (epg.show as jest.Mock).mockImplementation(() => {
@@ -377,7 +413,7 @@ describe('EPGCoordinator', () => {
         expect(refreshSpy).toHaveBeenCalledWith(
             {
                 channelStart: postShowRange.startChannelIndex,
-                channelEnd: postShowRange.endChannelIndex,
+                channelEndExclusive: postShowRange.endChannelIndexExclusive,
                 timeStartMs: postShowRange.startTime,
                 timeEndMs: postShowRange.endTime,
             },
@@ -498,7 +534,7 @@ describe('EPGCoordinator', () => {
             const coordinator = new EPGCoordinator(deps);
 
             const pending = coordinator.refreshEpgSchedulesForRange(
-                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 0 },
                 { debounceMs: 50, reason: 'visible-range' }
             );
 
@@ -553,7 +589,7 @@ describe('EPGCoordinator', () => {
                 const coordinator = new EPGCoordinator(deps);
 
                 const refreshPromise = coordinator.refreshEpgSchedulesForRange(
-                    { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 0 },
+                    { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 0 },
                     { debounceMs: 0, reason: 'visible-range' }
                 );
                 await signalRegistered;
@@ -1378,7 +1414,7 @@ describe('EPGCoordinator', () => {
         const coordinator = new EPGCoordinator(deps);
 
         await coordinator.refreshEpgSchedulesForRange(
-            { channelStart: 100, channelEnd: 103, timeStartMs: 0, timeEndMs: 0 },
+            { channelStart: 100, channelEndExclusive: 103, timeStartMs: 0, timeEndMs: 0 },
             { debounceMs: 0, reason: 'visible-range' }
         );
 
@@ -1421,14 +1457,14 @@ describe('EPGCoordinator', () => {
                         startTime: 0,
                         endTime: 0,
                         startChannelIndex: 100,
-                        endChannelIndex: 119,
+                        endChannelIndexExclusive: 119,
                     },
                     currentTime: 0,
                 });
 
                 const coordinator = new EPGCoordinator(deps);
                 await coordinator.refreshEpgSchedulesForRange(
-                    { channelStart: 100, channelEnd: 119, timeStartMs: 0, timeEndMs: 0 },
+                    { channelStart: 100, channelEndExclusive: 119, timeStartMs: 0, timeEndMs: 0 },
                     { debounceMs: 0, reason: 'visible-range' }
                 );
 
@@ -1447,7 +1483,7 @@ describe('EPGCoordinator', () => {
                 resolveChannelContent.mockClear();
 
                 await coordinator.refreshEpgSchedulesForRange(
-                    { channelStart: 130, channelEnd: 130, timeStartMs: 0, timeEndMs: 0 },
+                    { channelStart: 130, channelEndExclusive: 131, timeStartMs: 0, timeEndMs: 0 },
                     { debounceMs: 0, reason: 'visible-range' }
                 );
 
@@ -1500,14 +1536,14 @@ describe('EPGCoordinator', () => {
                         startTime: 0,
                         endTime: 0,
                         startChannelIndex: 100,
-                        endChannelIndex: 119,
+                        endChannelIndexExclusive: 119,
                     },
                     currentTime: 0,
                 });
 
                 const coordinator = new EPGCoordinator(deps);
                 await coordinator.refreshEpgSchedulesForRange(
-                    { channelStart: 100, channelEnd: 119, timeStartMs: 0, timeEndMs: 0 },
+                    { channelStart: 100, channelEndExclusive: 119, timeStartMs: 0, timeEndMs: 0 },
                     { debounceMs: 0, reason: 'visible-range' }
                 );
 
@@ -1515,7 +1551,7 @@ describe('EPGCoordinator', () => {
                 expect(pendingWarmResolves.has('c130')).toBe(true);
 
                 await coordinator.refreshEpgSchedulesForRange(
-                    { channelStart: 10, channelEnd: 13, timeStartMs: 0, timeEndMs: 0 },
+                    { channelStart: 10, channelEndExclusive: 13, timeStartMs: 0, timeEndMs: 0 },
                     { debounceMs: 0, reason: 'visible-range' }
                 );
 
@@ -1524,7 +1560,7 @@ describe('EPGCoordinator', () => {
 
                 resolveChannelContent.mockClear();
                 await coordinator.refreshEpgSchedulesForRange(
-                    { channelStart: 130, channelEnd: 130, timeStartMs: 0, timeEndMs: 0 },
+                    { channelStart: 130, channelEndExclusive: 131, timeStartMs: 0, timeEndMs: 0 },
                     { debounceMs: 0, reason: 'visible-range' }
                 );
                 const didResolveFromNetwork = resolveChannelContent.mock.calls.some((call) => call[0] === 'c130');
@@ -1573,14 +1609,14 @@ describe('EPGCoordinator', () => {
                         startTime: 0,
                         endTime: 0,
                         startChannelIndex: 100,
-                        endChannelIndex: 119,
+                        endChannelIndexExclusive: 119,
                     },
                     currentTime: 0,
                 });
 
                 const coordinator = new EPGCoordinator(deps);
                 const refreshPromise = coordinator.refreshEpgSchedulesForRange(
-                    { channelStart: 100, channelEnd: 119, timeStartMs: 0, timeEndMs: 0 },
+                    { channelStart: 100, channelEndExclusive: 119, timeStartMs: 0, timeEndMs: 0 },
                     { debounceMs: 0, reason: 'visible-range' }
                 );
 
@@ -1607,7 +1643,7 @@ describe('EPGCoordinator', () => {
                 (epg.loadScheduleForChannel as jest.Mock).mockClear();
                 resolveChannelContent.mockClear();
                 await coordinator.refreshEpgSchedulesForRange(
-                    { channelStart: 130, channelEnd: 130, timeStartMs: 0, timeEndMs: 0 },
+                    { channelStart: 130, channelEndExclusive: 131, timeStartMs: 0, timeEndMs: 0 },
                     { debounceMs: 0, reason: 'visible-range' }
                 );
                 const loadedAfterScroll = (epg.loadScheduleForChannel as jest.Mock).mock.calls.map((call) => call[0]);
@@ -1684,14 +1720,14 @@ describe('EPGCoordinator', () => {
                             startTime: 0,
                             endTime: 0,
                             startChannelIndex: 100,
-                            endChannelIndex: 100,
+                            endChannelIndexExclusive: 101,
                         },
                         currentTime: 0,
                     });
 
                     const coordinator = new EPGCoordinator(deps);
                     await coordinator.refreshEpgSchedulesForRange(
-                        { channelStart: 100, channelEnd: 100, timeStartMs: 0, timeEndMs: 0 },
+                        { channelStart: 100, channelEndExclusive: 101, timeStartMs: 0, timeEndMs: 0 },
                         { debounceMs: 0, reason: 'visible-range' }
                     );
                     await advanceWarmQueueTimers(40);
@@ -1712,7 +1748,7 @@ describe('EPGCoordinator', () => {
     it('visible-range refresh still reapplies the live scheduler row after schedules were previously loaded', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);
-        const range = { channelStart: 0, channelEnd: 3, timeStartMs: 0, timeEndMs: 0 };
+        const range = { channelStart: 0, channelEndExclusive: 3, timeStartMs: 0, timeEndMs: 0 };
 
         await coordinator.refreshEpgSchedulesForRange(range, { debounceMs: 0, reason: 'visible-range' });
         expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBeGreaterThan(0);
@@ -1783,7 +1819,7 @@ describe('EPGCoordinator', () => {
         const coordinator = new EPGCoordinator(deps);
 
         await coordinator.refreshEpgSchedulesForRange(
-            { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 0 },
             { debounceMs: 0, reason: 'visible-range' }
         );
 
@@ -1799,11 +1835,11 @@ describe('EPGCoordinator', () => {
             const coordinator = new EPGCoordinator(deps);
 
             const promise = coordinator.refreshEpgSchedulesForRange(
-                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 0 },
                 { debounceMs: 50, reason: 'visible-range' }
             );
             const secondPromise = coordinator.refreshEpgSchedulesForRange(
-                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 0 },
                 { debounceMs: 50, reason: 'visible-range' }
             );
             expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
@@ -1824,16 +1860,16 @@ describe('EPGCoordinator', () => {
             const coordinator = new EPGCoordinator(deps);
 
             const debouncedPromise = coordinator.refreshEpgSchedulesForRange(
-                { channelStart: 0, channelEnd: 1, timeStartMs: 0, timeEndMs: 0 },
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 0 },
                 { debounceMs: 75, reason: 'visible-range' }
             );
             const secondDebouncedPromise = coordinator.refreshEpgSchedulesForRange(
-                { channelStart: 1, channelEnd: 2, timeStartMs: 60_000, timeEndMs: 120_000 },
+                { channelStart: 1, channelEndExclusive: 2, timeStartMs: 60_000, timeEndMs: 120_000 },
                 { debounceMs: 75, reason: 'visible-range' }
             );
 
             const immediatePromise = coordinator.refreshEpgSchedulesForRange(
-                { channelStart: 2, channelEnd: 3, timeStartMs: 120_000, timeEndMs: 180_000 },
+                { channelStart: 2, channelEndExclusive: 3, timeStartMs: 120_000, timeEndMs: 180_000 },
                 { debounceMs: 0, reason: 'library-filter' }
             );
 
@@ -1893,7 +1929,7 @@ describe('EPGCoordinator', () => {
     });
 
     it('keeps non-live loaded rows short-circuited across overlay/classic layout mode flips while refreshing the live row', async () => {
-        const range = { channelStart: 0, channelEnd: 2, timeStartMs: 0, timeEndMs: 0 };
+        const range = { channelStart: 0, channelEndExclusive: 2, timeStartMs: 0, timeEndMs: 0 };
         const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
             const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
             return { items } as ResolvedChannelContent;
@@ -1945,7 +1981,7 @@ describe('EPGCoordinator', () => {
                     startTime: 0,
                     endTime: 0,
                     startChannelIndex: 0,
-                    endChannelIndex: 0,
+                    endChannelIndexExclusive: 0,
                 },
                 currentTime: 0,
             }),
@@ -2046,7 +2082,7 @@ describe('EPGCoordinator', () => {
                     startTime: 0,
                     endTime: 0,
                     startChannelIndex: 0,
-                    endChannelIndex: 0,
+                    endChannelIndexExclusive: 0,
                 },
                 currentTime: 0,
             }),
@@ -2105,7 +2141,7 @@ describe('EPGCoordinator', () => {
                     startTime: 0,
                     endTime: 0,
                     startChannelIndex: 0,
-                    endChannelIndex: 0,
+                    endChannelIndexExclusive: 0,
                 },
                 currentTime: 0,
             }),
@@ -2165,7 +2201,7 @@ describe('EPGCoordinator', () => {
                     startTime: 0,
                     endTime: 0,
                     startChannelIndex: 0,
-                    endChannelIndex: 0,
+                    endChannelIndexExclusive: 0,
                 },
                 currentTime: 0,
             }),
@@ -2222,7 +2258,7 @@ describe('EPGCoordinator', () => {
                     startTime: 0,
                     endTime: 0,
                     startChannelIndex: 0,
-                    endChannelIndex: 0,
+                    endChannelIndexExclusive: 0,
                 },
                 currentTime: 0,
             }),
@@ -2290,7 +2326,7 @@ describe('EPGCoordinator', () => {
                     startTime: 0,
                     endTime: 0,
                     startChannelIndex: 0,
-                    endChannelIndex: 0,
+                    endChannelIndexExclusive: 0,
                 },
                 currentTime: 0,
             }),
@@ -2364,7 +2400,7 @@ describe('EPGCoordinator', () => {
                     startTime: 0,
                     endTime: 0,
                     startChannelIndex: 0,
-                    endChannelIndex: 0,
+                    endChannelIndexExclusive: 0,
                 },
                 currentTime: 0,
             }),
@@ -2420,13 +2456,13 @@ describe('EPGCoordinator', () => {
                 startTime: 0,
                 endTime: 10_000,
                 startChannelIndex: 0,
-                endChannelIndex: 2,
+                endChannelIndexExclusive: 2,
             },
             currentTime: 5_000,
         });
 
         await coordinator.refreshEpgSchedulesForRange(
-            { channelStart: 0, channelEnd: 2, timeStartMs: 0, timeEndMs: 10_000 },
+            { channelStart: 0, channelEndExclusive: 2, timeStartMs: 0, timeEndMs: 10_000 },
             { debounceMs: 0, reason: 'visible-range' }
         );
 
@@ -2476,7 +2512,7 @@ describe('EPGCoordinator', () => {
                 startTime: 0,
                 endTime: 10_000,
                 startChannelIndex: 0,
-                endChannelIndex: 0,
+                endChannelIndexExclusive: 0,
             },
             currentTime: 0,
         });
@@ -2485,7 +2521,7 @@ describe('EPGCoordinator', () => {
         jest.spyOn(Date, 'now').mockReturnValue(5_000);
 
         await coordinator.refreshEpgSchedulesForRange(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 10_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 10_000 },
             { debounceMs: 0, reason: 'visible-range' }
         );
 
@@ -2538,7 +2574,7 @@ describe('EPGCoordinator', () => {
                 startTime: 0,
                 endTime: 10_000,
                 startChannelIndex: 0,
-                endChannelIndex: 0,
+                endChannelIndexExclusive: 0,
             },
             currentTime: 5_000,
         });
@@ -2602,7 +2638,7 @@ describe('EPGCoordinator', () => {
                 startTime: 0,
                 endTime: 10_000,
                 startChannelIndex: 0,
-                endChannelIndex: 1,
+                endChannelIndexExclusive: 1,
             },
             currentTime: 5_000,
         });
@@ -2788,7 +2824,7 @@ describe('EPGCoordinator', () => {
             .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const range = {
             channelStart: 1,
-            channelEnd: 4,
+            channelEndExclusive: 4,
             timeStartMs: 1000,
             timeEndMs: 2000,
         };
@@ -2807,7 +2843,7 @@ describe('EPGCoordinator', () => {
         const error = new Error('visible range failed');
         const range = {
             channelStart: 1,
-            channelEnd: 4,
+            channelEndExclusive: 4,
             timeStartMs: 1000,
             timeEndMs: 2000,
         };
@@ -2842,7 +2878,7 @@ describe('EPGCoordinator', () => {
             .mockResolvedValue(SKIPPED_REFRESH_RESULT);
         const range = {
             channelStart: 1,
-            channelEnd: 4,
+            channelEndExclusive: 4,
             timeStartMs: 1000,
             timeEndMs: 2000,
         };

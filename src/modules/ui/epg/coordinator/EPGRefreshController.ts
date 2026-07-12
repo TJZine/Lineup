@@ -262,7 +262,7 @@ export class EPGRefreshController {
         const epgState = epg.getState();
         const range = {
             channelStart: epgState.viewWindow.startChannelIndex,
-            channelEnd: epgState.viewWindow.endChannelIndex,
+            channelEndExclusive: epgState.viewWindow.endChannelIndexExclusive,
             timeStartMs: epgState.viewWindow.startTime,
             timeEndMs: epgState.viewWindow.endTime,
         };
@@ -287,7 +287,7 @@ export class EPGRefreshController {
     async refreshEpgSchedulesForRange(
         range: {
             channelStart: number;
-            channelEnd: number;
+            channelEndExclusive: number;
             timeStartMs: number;
             timeEndMs: number;
         },
@@ -297,7 +297,7 @@ export class EPGRefreshController {
     }
 
     async refreshEpgSchedulesForRangeNow(
-        range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
+        range: { channelStart: number; channelEndExclusive: number; timeStartMs: number; timeEndMs: number },
         reason: string,
         signal?: AbortSignal | null
     ): Promise<EpgScheduleRefreshResult> {
@@ -470,7 +470,7 @@ export class EPGRefreshController {
     }
 
     private async _refreshEpgSchedulesForRange(
-        range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
+        range: { channelStart: number; channelEndExclusive: number; timeStartMs: number; timeEndMs: number },
         reason: string,
         options?: EpgRefreshInvocationOptions
     ): Promise<EpgScheduleRefreshResult> {

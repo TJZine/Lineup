@@ -77,8 +77,8 @@ export type RefreshSession = {
     visibleRangeIds: Set<string>;
     liveChannelId: string | null;
     focusedChannelId: string | null;
-    bufferedRange: { start: number; end: number };
-    backgroundRange: { start: number; end: number };
+    bufferedRange: { start: number; endExclusive: number };
+    backgroundRange: { start: number; endExclusive: number };
     overscan: number;
     shuffler: ShuffleGenerator;
 };
