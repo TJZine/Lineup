@@ -136,6 +136,7 @@ export class PlexLibrary implements IPlexLibrary {
         const scope = this._requestScope.capture(options?.signal ?? null);
         const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_SECTIONS);
         const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(scope, url, { signal: scope.signal });
+        this._requestScope.assertCurrent(scope, scope.signal);
 
         if (!response) {
             throw new PlexLibraryError(

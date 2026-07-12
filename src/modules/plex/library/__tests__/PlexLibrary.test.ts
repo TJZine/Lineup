@@ -335,6 +335,26 @@ describe('PlexLibrary', () => {
             });
         });
 
+        it('reports scope supersession when identity changes before unavailable sections are handled', async () => {
+            let token = 'token-a';
+            mockFetchJson({ error: 'Not found' }, 404);
+            const library = new PlexLibrary({
+                getServerUri: (): string => 'http://192.168.1.100:32400',
+                getAuthToken: (): string => token,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+                logger: {
+                    warn: jest.fn(() => {
+                        token = 'token-b';
+                    }),
+                    error: jest.fn(),
+                },
+            });
+
+            await expect(library.getLibraries()).rejects.toBeInstanceOf(
+                PlexLibraryScopeSupersededError
+            );
+        });
+
         it('should cache libraries', async () => {
             mockFetchJson(mockLibrarySectionsResponse);
             const library = new PlexLibrary(mockConfig);
