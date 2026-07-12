@@ -167,4 +167,4 @@ For future scripted/automated Codanna workflows, prefer structured outputs and t
 
 - Codanna repo: [bartolli/codanna](https://github.com/bartolli/codanna)
 - Repo workflow: [`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md)
-- Stable policy: [`agents.md`](../../agents.md)
+- Stable policy: [`AGENTS.md`](../../AGENTS.md)

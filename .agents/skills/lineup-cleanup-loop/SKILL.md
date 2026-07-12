@@ -1,20 +1,11 @@
 ---
 name: lineup-cleanup-loop
-description: Use when the user explicitly asks for lineup-cleanup-loop, invokes the matching Lineup fresh-session launcher workflow, or wants this exact reusable launcher as a skill.
+description: Explicit high-risk Lineup cleanup controller used only when repeated orchestration is demonstrably needed; do not invoke implicitly.
 ---
 
 # Lineup Cleanup Loop
 
-This skill is the skill-based replacement for the legacy `lineup-cleanup-loop.md` launcher.
-
-Use the prompt body below as the authoritative workflow instructions for this skill invocation.
-
-Use this only from the Lineup repo.
-
-Read these files in order:
-
-1. `docs/AGENTIC_DEV_WORKFLOW.md`
-2. `agents.md`
-3. `docs/agentic/session-prompts/cleanup-loop.md`
-
-Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this repo-local skill.
+Use only when one agent cannot safely complete the approved high-risk work. Keep
+planning local unless a separate planner is justified, execute one coherent unit,
+request one independent final review, and repeat only after material findings.
+Stop on changed ownership, public contracts, or proof requirements.

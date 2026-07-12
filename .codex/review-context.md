@@ -37,7 +37,7 @@ Generated cache files under `.codex/cache/` are optional aids only and must not 
 ## Authority Surfaces
 
 Current truth:
-- `agents.md`
+- `AGENTS.md`
 - `docs/AGENTIC_DEV_WORKFLOW.md`
 - `docs/architecture/CURRENT_STATE.md`
 - `ARCHITECTURE_CLEANUP_CHECKLIST.md`
@@ -57,7 +57,7 @@ Historical/reference only:
 ## Control-Plane / Config Paths
 
 Do not treat these as pure docs/assets:
-- `agents.md`
+- `AGENTS.md`
 - `.codex/config.toml`
 - `.codex/agents/**`
 - `.agents/skills/**`
@@ -123,7 +123,6 @@ npm run verify
 
 Docs/control-plane verification:
 ```bash
-npm run docs:sync   # when managed prompt inventories or generated docs change
 npm run verify:docs
 ```
 
@@ -145,31 +144,29 @@ npm run build
 
 ## Subagent Roles
 
-Preferred roles when available:
-- reviewer: normal correctness/regression/security/test review
-- maintainability_reviewer: code-health, file-shape, brittle tests, slop, unnecessary indirection, harmful duplication
-- architecture_reviewer: hotspots, owner seams, Plex/persistence/navigation/platform/control-plane risk
-- worker_luna: lower-cost exact, bounded, testable fixes with no unresolved owner/product/architecture decision
-- worker: ambiguous or high-risk implementation/fix work
-- cleanup_worker: only for approved Tier 3 cleanup-loop execution units
-- docs_researcher: official docs/API/framework behavior checks
+Preferred roles:
+- `explorer`: read-only source discovery
+- `reviewer`: packet-focused correctness, architecture, maintainability, security, or workflow review
+- `worker`: bounded implementation
+- `worker_luna`: lower-cost execution of a decision-complete Sol-planned unit
+- `planner`: separate planning only when justified
+- `docs_researcher`: official-source checks
+- `monitor`: long waits and status checks
 
-Fallback rule:
-- If a named role is unavailable, use the closest available default subagent and pass the intended role instructions explicitly.
-- Preserve read-only reviewer vs write-capable worker boundaries.
+Preserve read-only reviewer/research roles versus write-capable planner/worker boundaries.
 
 ## Model Policy
 
-- Use GPT-5.6 Luna xhigh through `worker_luna` for explicitly eligible exact, bounded, cheap-to-verify implementation.
 - Use GPT-5.6 Sol medium for normal planning and implementation.
-- Use GPT-5.6 Sol high/xhigh for architecture, security, hotspot, priority-exit, long-context, or hard debugging/review tasks.
-- Do not default every review subagent to GPT-5.6 Sol high; use the tracked reviewer specialization that matches the risk surface.
+- Use GPT-5.6 Luna xhigh only for an explicitly eligible, low-ambiguity,
+  directly verifiable unit planned by the Sol planner.
+- Use GPT-5.6 Sol high for difficult adversarial review. Change role defaults only from representative eval evidence.
 
 ## Pure Docs / Assets Exclusion Rule
 
 Only exclude commits from adversarial subagent review when they change docs/assets with no effect on runtime behavior, public contracts, CI/release behavior, architecture/workflow/control-plane policy, tests, generated outputs, security, persistence, or data handling.
 
-Never auto-exclude Lineup control-plane docs, architecture docs, design/API docs, `.codex/**`, `agents.md`, `.coderabbit.yaml`, CI files, package scripts, or verifier/tooling files.
+Never auto-exclude Lineup control-plane docs, architecture docs, design/API docs, `.codex/**`, `AGENTS.md`, `.coderabbit.yaml`, CI files, package scripts, or verifier/tooling files.
 
 ## Suggestion Review Calibration
 

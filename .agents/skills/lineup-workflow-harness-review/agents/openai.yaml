@@ -2,3 +2,5 @@ interface:
   display_name: "Lineup Workflow Harness Review"
   short_description: "Launch the workflow-harness review session"
   default_prompt: "Use the lineup-workflow-harness-review skill for this task."
+policy:
+  allow_implicit_invocation: false

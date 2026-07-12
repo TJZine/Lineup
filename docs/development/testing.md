@@ -44,7 +44,7 @@ npm run test:timings:tools
 | `npm run verify:maintainability` | Production file-shape guard | Runs `tools/verify-maintainability.mjs` against `src/**` production `.ts`, `.tsx`, `.css`, and `.html` files and the architecture allowlist. |
 | `npm run verify:architecture` | Architecture/static guard | Runs ESLint over `src` and then `verify:maintainability`, so production file-shape growth is part of the architecture gate. |
 | `npm run verify:bundle` | Release bundle guard | Runs `tools/verify-bundle.mjs`, which builds the lean analyzed bundle and verifies startup chunk size/deferred-module expectations. |
-| `npm run verify:docs` | Docs-specific verification | Intentionally overlaps with `npm run test:tools`: it still runs the targeted `src/__tests__/tools/verifyDocs.test.ts` proof through `jest.tools.config.js`, even though `verify` also executes the broader tools surface. |
+| `npm run verify:docs` | Structural workflow/docs verification | Runs the small Node checker for required tracked entrypoints, local links, skill metadata, role TOML/read-only safety, and minimal active-plan sections. It does not duplicate `test:tools` or enforce prose. |
 
 ### What to Test
 

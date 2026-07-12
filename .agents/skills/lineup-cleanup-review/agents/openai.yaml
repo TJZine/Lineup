@@ -2,3 +2,5 @@ interface:
   display_name: "Lineup Cleanup Review"
   short_description: "Launch the cleanup review session"
   default_prompt: "Use the lineup-cleanup-review skill for this task."
+policy:
+  allow_implicit_invocation: false

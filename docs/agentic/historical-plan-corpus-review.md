@@ -270,7 +270,7 @@ Do not keep:
 
 - `retune-workflow`
 - assumptions that the legacy singular-agent skill mirror is the canonical skill source
-- stale instructions that bypass `agents.md`, the document map, or the Codanna playbook
+- stale instructions that bypass `AGENTS.md` or the Codanna playbook
 
 ### 4. Over-specified implementation mechanics without freshness guards
 

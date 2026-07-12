@@ -2,3 +2,5 @@ interface:
   display_name: "Lineup Cleanup Loop"
   short_description: "Launch the Tier 3 cleanup controller session"
   default_prompt: "Use the lineup-cleanup-loop skill for this task."
+policy:
+  allow_implicit_invocation: false

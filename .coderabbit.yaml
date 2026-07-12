@@ -20,15 +20,15 @@ reviews:
     - "!**/.mcp_sequential_thinking/**"
     - "!**/.DS_Store"
   path_instructions:
-    - path: "agents.md"
+    - path: "AGENTS.md"
       instructions: |
-        Review this file as stable policy. Flag contradictions with docs/AGENTIC_DEV_WORKFLOW.md, docs/agentic/document-map.md, docs/agentic/plan-authoring-standard.md, and repo-local skill policy. Prioritize real policy conflicts, stale workflow assumptions, or wording that could cause agent drift.
+        Review this file as the short agent entrypoint. Flag contradictions with docs/AGENTIC_DEV_WORKFLOW.md, docs/agentic/plan-authoring-standard.md, and repo-local skill policy. Do not request that it become a second runbook.
     - path: "docs/AGENTIC_DEV_WORKFLOW.md"
       instructions: |
-        Review this file as the operational runbook. Check that it matches agents.md, the tracked-vs-local artifact policy, Codanna-first discovery rules, plan/archive/corpus-review triggers, and verification expectations. Flag duplicate authority, stale guidance, or process overhead that does not improve execution quality.
+        Review this file as the operational runbook. Check that it matches AGENTS.md, the tracked-vs-local artifact policy, just-in-time discovery rules, risk-triggered planning/review, and verification expectations. Flag duplicate authority, stale guidance, or process overhead that does not improve execution quality.
     - path: "docs/agentic/**"
       instructions: |
-        These files are the Lineup agent-control plane. Review for contradictions, stale references, local-only leakage, mismatches with tools/verify-docs.mjs, and gaps that would encourage tech debt or AI slop. For eval docs, ensure prompts, rubric, and baseline policy stay consistent with Codanna fallback rules and fresh-session execution.
+        These files are the Lineup agent-control plane. Review for contradictions, stale references, local-only leakage, mismatches with tools/verify-docs.mjs, and gaps that would encourage tech debt or AI slop. Keep eval guidance small, representative, and outcome based.
     - path: "docs/plans/**/*.md"
       instructions: |
         Review tracked implementation plans for fresh-session executability, exact verification, rollback clarity, scope control, and absence of stale absolute paths or obsolete workflow names. Flag plans that would be brittle, ambiguous, or likely to create low-quality execution.
@@ -43,10 +43,10 @@ reviews:
         Review these as tracked templates only. Ensure they support fresh-session execution, exact verification, and durable task structure without assuming local-only artifacts are tracked.
     - path: ".agents/skills/**/*.md"
       instructions: |
-        These are repo-local Lineup skills. Review for overlap with global Codex skills, contradictions with agents.md or docs/agentic/*, and anything that would weaken architectural boundaries, persistence discipline, Plex integration boundaries, or UI composition rules.
+        These are repo-local Lineup skills. Review for overlap with global Codex skills, contradictions with AGENTS.md or docs/agentic/*, and anything that would weaken architectural boundaries, persistence discipline, Plex integration boundaries, or UI composition rules.
     - path: "tools/verify-docs.mjs"
       instructions: |
-        Review this file against repo policy, not just implementation style. Local-only artifacts under docs/runs/* actual instances and docs/agentic/evals/baselines/* must not break docs verification. Tracked control-plane docs, tracked eval definitions, and tracked templates must remain enforced.
+        Review this small structural checker against repo policy. It should validate required tracked entrypoints, local links, skill metadata, role config/read-only safety, and minimal active-plan structure without enforcing prose, inventories, or duplicated workflow policy.
     - path: "src/Orchestrator.ts"
       instructions: |
         Treat this as a hotspot. Prefer comments that reduce responsibility growth, preserve clear composition-root ownership, and push work toward focused collaborators. Flag changes that increase cross-cutting orchestration logic or rely on private-probe-friendly design.
@@ -94,7 +94,7 @@ reviews:
         Review test helpers and fixtures for realistic contracts, maintainability, and low coupling to private implementation details. Flag helper changes that hide behavior assertions, make async/timer behavior nondeterministic, or weaken coverage of persistence, navigation, Plex, scheduler, startup, or platform seams.
     - path: "tools/__tests__/**"
       instructions: |
-        Review tooling tests as workflow contract tests. Flag missing regression coverage when verifier, harness, or control-plane behavior changes, and prefer fixtures that prove the documented contract instead of only matching current implementation structure.
+        Review tooling tests for stable executable behavior. Add regression coverage only when a tooling failure mode is important and likely to recur; avoid mirrors of prose or file inventories.
     - path: "src/**/*.ts"
       instructions: |
         For storage-backed changes, flag new raw localStorage access in feature modules and push toward centralized persistence owners/stores. For shared-symbol edits, expect impact-aware reasoning and verification proportional to risk.
@@ -103,7 +103,7 @@ knowledge_base:
   code_guidelines:
     enabled: true
     filePatterns:
-      - "agents.md"
+      - "AGENTS.md"
       - "docs/AGENTIC_DEV_WORKFLOW.md"
       - "docs/architecture/CURRENT_STATE.md"
       - "ARCHITECTURE_CLEANUP_CHECKLIST.md"
