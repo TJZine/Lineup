@@ -117,6 +117,15 @@ conditions. The main agent reviews the diff, integrates it, and reruns the proof
 The main agent owns decisions, integration, and final verification. Keep depth at
 one. Return concise findings rather than raw transcripts.
 
+For genuinely large multi-unit work, explicitly use the
+`large-task-orchestration` skill. The main task remains the authoritative
+controller and integrates checkpointed, decision-complete units. Reuse a completed
+worker only for adjacent work with the same owner and contracts; use a fresh worker
+when the seam or assumptions change, and a fresh read-only reviewer for required
+independent final review. Give that reviewer a bounded task/diff/proof/risk packet
+without the implementation transcript. Treat six threads as a cap rather than a
+target and keep delegation depth at one.
+
 ## Boundary Guardrails
 
 For every non-trivial change:

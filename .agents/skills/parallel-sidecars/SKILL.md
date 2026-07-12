@@ -12,3 +12,7 @@ invariants, verification, stop conditions, and no overlap. The controller owns
 integration and final proof. Route a Sol-planned, exact, low-ambiguity,
 cheap-to-verify unit through `bounded-worker-execution` when `worker_luna` is
 explicitly selected. Keep delegation depth shallow.
+
+For a genuinely large program with multiple work units, dependency ordering, and
+repeated integration checkpoints, explicitly use `large-task-orchestration`. This
+skill routes individual sidecars and bounded units; it does not own a program.
