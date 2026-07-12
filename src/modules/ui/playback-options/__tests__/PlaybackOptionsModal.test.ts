@@ -104,6 +104,58 @@ describe('PlaybackOptionsModal', () => {
         expect(modal.getFocusableIds()).toEqual(['sub-1', 'sub-2', 'aud-1']);
     });
 
+    it('renders a labelled modal dialog with labelled option groups and pressed states', () => {
+        const modal = new PlaybackOptionsModal();
+        modal.initialize({ containerId: 'playback-options-container' });
+
+        const { viewModel } = createViewModel();
+        modal.show(viewModel);
+
+        expect(container.getAttribute('role')).toBe('dialog');
+        expect(container.getAttribute('aria-modal')).toBe('true');
+        expect(container.getAttribute('aria-labelledby')).toBe('playback-options-title');
+        expect(container.querySelector('#playback-options-title')?.textContent).toBe(
+            'Playback options'
+        );
+
+        const groups = [...container.querySelectorAll('[role="group"]')];
+        expect(groups).toHaveLength(2);
+        expect(groups.map((group) => group.getAttribute('aria-labelledby'))).toEqual([
+            'playback-options-subtitles-title',
+            'playback-options-audio-title',
+        ]);
+        expect(container.querySelector('#playback-options-subtitles-title')?.textContent).toBe(
+            'Subtitles'
+        );
+        expect(container.querySelector('#playback-options-audio-title')?.textContent).toBe('Audio');
+
+        expect(container.querySelector('#sub-1')?.getAttribute('aria-pressed')).toBe('true');
+        expect(container.querySelector('#sub-2')?.getAttribute('aria-pressed')).toBe('false');
+        expect(container.querySelector('#sub-2')?.getAttribute('aria-disabled')).toBe('true');
+        expect(container.querySelector('#sub-3')?.getAttribute('aria-pressed')).toBe('false');
+        expect((container.querySelector('#sub-3') as HTMLButtonElement).disabled).toBe(true);
+        expect(container.querySelector('#aud-1')?.getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('synchronizes pressed state when runtime selection updates', () => {
+        const modal = new PlaybackOptionsModal();
+        modal.initialize({ containerId: 'playback-options-container' });
+
+        const { viewModel } = createViewModel();
+        modal.show(viewModel);
+
+        const updated = createViewModel().viewModel;
+        updated.subtitles.options[0]!.selected = false;
+        updated.audio.options[0]!.selected = true;
+        modal.update(updated);
+
+        expect(container.querySelector('#sub-1')?.getAttribute('aria-pressed')).toBe('false');
+        expect(container.querySelector('#aud-1')?.getAttribute('aria-pressed')).toBe('true');
+        expect(container.querySelectorAll('#playback-options-title')).toHaveLength(1);
+        expect(container.querySelectorAll('#playback-options-subtitles-title')).toHaveLength(1);
+        expect(container.querySelectorAll('#playback-options-audio-title')).toHaveLength(1);
+    });
+
     it('renders equalizer indicator on selected items only', () => {
         const modal = new PlaybackOptionsModal();
         modal.initialize({ containerId: 'playback-options-container' });
@@ -173,6 +225,12 @@ describe('PlaybackOptionsModal', () => {
         modal.show(viewModel);
 
         expect(container.textContent ?? '').toContain('No alternate audio');
+        const audioGroup = container.querySelector(
+            '[role="group"][aria-labelledby="playback-options-audio-title"]'
+        );
+        expect(audioGroup).not.toBeNull();
+        expect(audioGroup?.children).toHaveLength(0);
+        expect(container.querySelector('#playback-options-audio-title')?.textContent).toBe('Audio');
     });
 
     it('keeps unavailable section copy visible when a default option is present', () => {
@@ -236,5 +294,8 @@ describe('PlaybackOptionsModal', () => {
         modal.destroy();
         expect(container.textContent).toBe('');
         expect(modal.getFocusableIds()).toEqual([]);
+        expect(container.hasAttribute('role')).toBe(false);
+        expect(container.hasAttribute('aria-modal')).toBe(false);
+        expect(container.hasAttribute('aria-labelledby')).toBe(false);
     });
 });
