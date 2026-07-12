@@ -21,6 +21,20 @@ import { EPGBackgroundWarmQueue } from './EPGBackgroundWarmQueue';
 import { EPGScheduleCacheStore } from './EPGScheduleCacheStore';
 import { buildRefreshResult, createRefreshMetrics, markFastReadyChannel } from './EPGScheduleRefreshMetrics';
 import { throwIfEpgRefreshAborted } from './EPGRefreshAbort';
+import { createEpgRetainedOperationContext } from './EPGRetainedOperationContext';
+import type { EpgRetainedOperationContext } from './EPGRetainedOperationContext';
+import {
+    assertEpgRefreshSessionCurrent,
+    runIfEpgRefreshCurrent,
+} from './EPGScheduleRefreshCurrentness';
+import {
+    cloneEpgResolvedItems,
+    getEpgLocalDayKey,
+    getEpgScheduleRangeKey,
+    reportEpgBackgroundWarmQueueFailure,
+    reportEpgChannelLoadFailure,
+} from './EPGScheduleRefreshUtilities';
+import { startRetainedEpgBackgroundRefresh } from './EPGBackgroundRefreshLease';
 import { toEpgScheduleWindow } from '../model/adapters';
 import type {
     EpgScheduleRefreshResult,
@@ -136,7 +150,7 @@ export class EPGScheduleRefreshRuntime {
                         error: summarizeErrorForLog(error),
                     });
                 }
-                this._reportBackgroundWarmQueueFailure(error, { phase: 'background' });
+                reportEpgBackgroundWarmQueueFailure(this._deps.appendIssueDiagnostic, error, { phase: 'background' });
             },
         });
     }
@@ -167,7 +181,7 @@ export class EPGScheduleRefreshRuntime {
             return null;
         }
 
-        const dayKey = this._getLocalDayKey(request.selectedAt);
+        const dayKey = getEpgLocalDayKey(request.selectedAt);
         const seed = this._selectedRowSnapshotSeed;
         if (
             seed &&
@@ -185,7 +199,7 @@ export class EPGScheduleRefreshRuntime {
                 source: 'resolved-immediate',
                 referenceTimeMs: seed.referenceTimeMs,
                 dayKey: seed.dayKey,
-                orderedItems: this._cloneResolvedItems(seed.orderedItems),
+                orderedItems: cloneEpgResolvedItems(seed.orderedItems),
             };
         }
 
@@ -215,7 +229,7 @@ export class EPGScheduleRefreshRuntime {
             source: 'on-demand-materialized',
             referenceTimeMs: request.selectedAt,
             dayKey,
-            orderedItems: this._cloneResolvedItems(orderedItems),
+            orderedItems: cloneEpgResolvedItems(orderedItems),
         };
     }
 
@@ -242,38 +256,45 @@ export class EPGScheduleRefreshRuntime {
     async refreshForRange(
         range: EpgVisibleRange,
         reason: string,
-        options?: { signal?: AbortSignal | null }
+        options?: { signal?: AbortSignal | null; operationContext?: EpgRetainedOperationContext }
     ): Promise<EpgScheduleRefreshResult> {
         const signal = options?.signal ?? null;
         throwIfEpgRefreshAborted(signal);
-        const session = this._createRefreshSession(range, reason, signal);
+        const operation = options?.operationContext
+            ? options.operationContext.retain('schedule-refresh')
+            : createEpgRetainedOperationContext([]);
+        operation.assertCurrent();
+        const session = this._createRefreshSession(range, reason, signal, operation);
         if (!session) {
+            operation.release();
             return createSkippedEpgScheduleRefreshResult();
         }
         const cleanup = this._bindRefreshAbort(session);
 
         try {
             const metrics = createRefreshMetrics();
-            this._initializeBackgroundDebugState(session);
-            this._logRefreshStart(session);
+            runIfEpgRefreshCurrent(session, () => this._initializeBackgroundDebugState(session));
+            runIfEpgRefreshCurrent(session, () => this._logRefreshStart(session));
             await this._refreshImmediateChannels(session, metrics);
-            throwIfEpgRefreshAborted(signal);
+            assertEpgRefreshSessionCurrent(session);
             if (!this._isRefreshSessionActive(session)) {
                 return createSupersededEpgScheduleRefreshResult();
             }
             this._startBackgroundRefresh(session, metrics);
-            this._logRefreshResults(session, metrics);
-            this._restoreFocusAfterRefresh(session);
-            return buildRefreshResult(session, metrics);
+            runIfEpgRefreshCurrent(session, () => this._logRefreshResults(session, metrics));
+            runIfEpgRefreshCurrent(session, () => this._restoreFocusAfterRefresh(session));
+            return runIfEpgRefreshCurrent(session, () => buildRefreshResult(session, metrics));
         } finally {
             cleanup();
+            operation.release();
         }
     }
 
     private _createRefreshSession(
         range: EpgVisibleRange,
         reason: string,
-        signal: AbortSignal | null
+        signal: AbortSignal | null,
+        operation: EpgRetainedOperationContext
     ): RefreshSession | null {
         const refreshStartedAt = Date.now();
         const epg = this._deps.getEpg();
@@ -292,27 +313,38 @@ export class EPGScheduleRefreshRuntime {
         }
 
         const { startTime, endTime } = scheduleRange;
+        operation.assertCurrent();
         epg.setGridAnchorTime(startTime);
+        operation.assertCurrent();
 
         const allChannels = channelManager.getAllChannels();
         const { selectedId, shouldFilter } = this._deps.getLibraryFilterState(allChannels);
         const channels = this._deps.getVisibleChannels(allChannels, selectedId, shouldFilter);
         if (channels.length === 0) {
+            operation.assertCurrent();
             this._invalidateRefreshWork('no-visible-channels', { abortInFlight: true });
+            operation.assertCurrent();
             return null;
         }
 
+        operation.assertCurrent();
         const refreshId = ++this._scheduleLoadToken;
+        operation.assertCurrent();
         this._warmQueue.cancel('new-visible-range-request');
+        operation.assertCurrent();
 
-        const rangeKey = this._getScheduleRangeKey(startTime, endTime);
+        const rangeKey = getEpgScheduleRangeKey(startTime, endTime);
         const forceRefresh = reason === 'channel-setup' || reason === 'server-swap';
         if (forceRefresh) {
+            operation.assertCurrent();
             this.clearScheduleCaches();
+            operation.assertCurrent();
         }
 
         const aggressive = this._deps.isAggressivePreloadEnabled() || reason === 'server-swap';
+        operation.assertCurrent();
         this._cacheStore.setMaxEntries(this._deps.computeScheduleCacheLimit(channels.length, aggressive));
+        operation.assertCurrent();
 
         const liveChannelId = channelManager.getCurrentChannel()?.id ?? null;
         const epgState = epg.getState();
@@ -338,12 +370,16 @@ export class EPGScheduleRefreshRuntime {
         const visibleStart = Math.max(0, Math.min(range.channelStart, channels.length - 1));
         const visibleEnd = Math.min(channels.length, range.channelEnd + 1);
         const visibleRangeIds = new Set(channels.slice(visibleStart, visibleEnd).map((channel) => channel.id));
+        operation.assertCurrent();
         this._selectedRowSnapshotSeed = null;
+        operation.assertCurrent();
 
         // Every new session invalidates the previous session token, so retaining
         // any of its promises would leave work that can no longer apply or cache.
+        operation.assertCurrent();
         const inFlightAborted = this._abortSupersededInFlightSchedules();
         this._cacheStore.prune(Date.now());
+        operation.assertCurrent();
 
         return {
             refreshId,
@@ -351,6 +387,7 @@ export class EPGScheduleRefreshRuntime {
             refreshStartedAt,
             range,
             signal,
+            operation,
             epg,
             channelManager,
             scheduler,
@@ -441,11 +478,13 @@ export class EPGScheduleRefreshRuntime {
         const phase = options?.phase ?? 'immediate';
         const shouldApplyToUi = phase !== 'background';
 
+        assertEpgRefreshSessionCurrent(session);
         if (phase === 'background') {
             metrics.backgroundLoadedCount = metrics.backgroundLoadedChannelIds.add(channelId).size;
         } else {
             metrics.immediateLoadedCount = metrics.immediateReadyChannelIds.add(channelId).size;
         }
+        assertEpgRefreshSessionCurrent(session);
 
         if (shouldApplyToUi) {
             const now = Date.now();
@@ -458,9 +497,9 @@ export class EPGScheduleRefreshRuntime {
                 this._selectedRowSnapshotSeed = {
                     channelId,
                     source: 'resolved-immediate',
-                    dayKey: this._getLocalDayKey(now),
+                    dayKey: getEpgLocalDayKey(now),
                     referenceTimeMs: now,
-                    orderedItems: this._cloneResolvedItems(options.materializationSeed),
+                    orderedItems: cloneEpgResolvedItems(options.materializationSeed),
                 };
             }
             if (metrics.firstVisibleScheduleReadyMs === null && session.visibleRangeIds.has(channelId)) {
@@ -469,7 +508,7 @@ export class EPGScheduleRefreshRuntime {
             const currentProgram =
                 schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
                 null;
-            this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.scheduleApplied', {
+            runIfEpgRefreshCurrent(session, () => this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.scheduleApplied', {
                 channelId,
                 phase,
                 source: options?.source ?? 'resolved-immediate',
@@ -479,21 +518,23 @@ export class EPGScheduleRefreshRuntime {
                 currentScheduledStartTime: currentProgram?.scheduledStartTime ?? null,
                 currentScheduledEndTime: currentProgram?.scheduledEndTime ?? null,
                 sampleRatingKeys: schedule.programs.slice(0, 3).map((program) => program.item.ratingKey),
-            });
-            session.epg.loadScheduleForChannel(channelId, toEpgScheduleWindow(schedule));
+            }));
+            runIfEpgRefreshCurrent(session, () =>
+                session.epg.loadScheduleForChannel(channelId, toEpgScheduleWindow(schedule)));
         }
 
         if (phase === 'background') {
-            this._syncBackgroundDebugState(session, metrics);
+            runIfEpgRefreshCurrent(session, () => this._syncBackgroundDebugState(session, metrics));
         }
 
         if ((options?.cachePolicy ?? 'persist') === 'skip') {
             return;
         }
 
-        this._cacheStore.storeSchedule(channelId, session.rangeKey, schedule);
+        runIfEpgRefreshCurrent(session, () => this._cacheStore.storeSchedule(channelId, session.rangeKey, schedule));
         if (shouldApplyToUi) {
-            this._cacheStore.markScheduleLoaded(channelId, session.rangeKey);
+            runIfEpgRefreshCurrent(session, () =>
+                this._cacheStore.markScheduleLoaded(channelId, session.rangeKey));
         }
     }
 
@@ -637,6 +678,7 @@ export class EPGScheduleRefreshRuntime {
             )) {
                 return;
             }
+            session.operation.assertCurrent();
             if (session.debugEnabled) {
                 this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange.channelLoad.error', {
                     channelId: channel.id,
@@ -645,12 +687,21 @@ export class EPGScheduleRefreshRuntime {
                 });
             }
             metrics.failedChannelCount += 1;
-            this._reportChannelLoadFailure(session, channel.id, phase, error);
+            reportEpgChannelLoadFailure(this._deps.appendIssueDiagnostic, session, channel.id, phase, error);
         } finally {
             if (controller) {
-                const active = this._inFlightByChannel.get(channel.id);
-                if (active && active.controller === controller) {
-                    this._inFlightByChannel.delete(channel.id);
+                let canPublishCleanup = false;
+                try {
+                    session.operation.assertCurrent();
+                    canPublishCleanup = true;
+                } catch {
+                    // A newer owner is responsible for clearing superseded entries.
+                }
+                if (canPublishCleanup) {
+                    const active = this._inFlightByChannel.get(channel.id);
+                    if (active && active.controller === controller) {
+                        this._inFlightByChannel.delete(channel.id);
+                    }
                 }
             }
         }
@@ -674,13 +725,12 @@ export class EPGScheduleRefreshRuntime {
         if (!this._isRefreshSessionActive(session) || session.backgroundChannels.length === 0) {
             return;
         }
-
-        this._warmQueue.start({
-            refreshId: session.refreshId,
-            reason: session.reason,
-            channels: session.backgroundChannels,
-            refreshChannelSchedule: (channel) => this._refreshChannelSchedule(session, metrics, channel, 'background'),
-            concurrency: session.backgroundConcurrency,
+        startRetainedEpgBackgroundRefresh({
+            queue: this._warmQueue,
+            session,
+            metrics,
+            refreshChannel: (backgroundSession, backgroundMetrics, channel) =>
+                this._refreshChannelSchedule(backgroundSession, backgroundMetrics, channel, 'background'),
         });
     }
 
@@ -739,45 +789,8 @@ export class EPGScheduleRefreshRuntime {
     }
 
     private _isRefreshSessionActive(session: RefreshSession): boolean {
-        return session.refreshId === this._scheduleLoadToken && !session.signal?.aborted;
-    }
-
-    private _reportIssue(
-        event: string,
-        error: unknown,
-        payload: Record<string, unknown> = {}
-    ): void {
-        this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, event, {
-            ...payload,
-            safeError: summarizeErrorForLog(error),
-        });
-    }
-
-    private _reportBackgroundWarmQueueFailure(
-        error: unknown,
-        payload: Record<string, unknown> = {}
-    ): void {
-        this._reportIssue('epg.backgroundWarmQueueFailed', error, payload);
-    }
-
-    private _reportChannelLoadFailure(
-        session: RefreshSession,
-        channelId: string,
-        phase: RefreshPhase,
-        error: unknown
-    ): void {
-        const payload = {
-            channelId,
-            phase,
-            refreshId: session.refreshId,
-            rangeKey: session.rangeKey,
-            reason: session.reason,
-        };
-        if (phase === 'background') {
-            this._reportBackgroundWarmQueueFailure(error, payload);
-            return;
-        }
-        this._reportIssue('epg.scheduleLoadFailed', error, payload);
+        assertEpgRefreshSessionCurrent(session);
+        return session.refreshId === this._scheduleLoadToken;
     }
 
     private _invalidateRefreshWork(
@@ -794,19 +807,6 @@ export class EPGScheduleRefreshRuntime {
         }
         this._backgroundDebugState = null;
         this._selectedRowSnapshotSeed = null;
-    }
-
-    private _getScheduleRangeKey(startTime: number, endTime: number): string {
-        return `${startTime}-${endTime}`;
-    }
-
-    private _cloneResolvedItems(items: ResolvedChannelContent['items']): ResolvedChannelContent['items'] {
-        return items.map((item) => ({ ...item }));
-    }
-
-    private _getLocalDayKey(timeMs: number): number {
-        const date = new Date(timeMs);
-        return (date.getFullYear() * 10000) + ((date.getMonth() + 1) * 100) + date.getDate();
     }
 
     private _abortSupersededInFlightSchedules(): number {

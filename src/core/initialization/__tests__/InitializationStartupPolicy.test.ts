@@ -12,7 +12,11 @@ import type {
 } from '../../../modules/plex/auth';
 import { PlexAuth } from '../../../modules/plex/auth/PlexAuth';
 import { PLEX_AUTH_CONSTANTS } from '../../../modules/plex/auth/constants';
-import { PlexDiscoverySelectionSupersededError } from '../../../modules/plex/discovery';
+import {
+    PlexDiscoverySelectionSupersededError,
+    type PlexDiscoverySelectionReceipt,
+} from '../../../modules/plex/discovery';
+import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
 import {
     applyAuthValidationPolicy,
     applyPostReadyRoutingPolicy,
@@ -146,6 +150,11 @@ describe('applyPostReadyRoutingPolicy', () => {
 });
 
 describe('applyServerConnectionPolicy', () => {
+    const createReceipt = (): PlexDiscoverySelectionReceipt => {
+        const context = new PlexDiscoverySelectionContext();
+        return context.issueReceipt(context.capture(), 'selected');
+    };
+
     const createInputs = (
         initializeResult: Awaited<ReturnType<Parameters<typeof applyServerConnectionPolicy>[0]['plexDiscovery']['initialize']>>,
         isConnected = false
@@ -155,6 +164,7 @@ describe('applyServerConnectionPolicy', () => {
         plexDiscovery: {
             initialize: jest.fn().mockResolvedValue(initializeResult),
             isConnected: jest.fn().mockReturnValue(isConnected),
+            assertSelectionReceiptCurrent: jest.fn(),
         } as unknown as Parameters<typeof applyServerConnectionPolicy>[0]['plexDiscovery'],
         plexLibrary: {} as Parameters<typeof applyServerConnectionPolicy>[0]['plexLibrary'],
         plexStreamResolver: {} as Parameters<typeof applyServerConnectionPolicy>[0]['plexStreamResolver'],
@@ -197,7 +207,10 @@ describe('applyServerConnectionPolicy', () => {
                 reason,
             });
 
-            await expect(applyServerConnectionPolicy(inputs)).resolves.toBe(false);
+            await expect(applyServerConnectionPolicy(inputs)).resolves.toEqual({
+                kind: 'stop',
+                reason: 'selection_failed',
+            });
 
             const expectedError = {
                 code: expectedCode,
@@ -232,9 +245,13 @@ describe('applyServerConnectionPolicy', () => {
     );
 
     it('marks Plex server modules ready without server-select routing after saved-server restore succeeds', async () => {
-        const inputs = createInputs({ kind: 'selected', serverId: 'saved-srv' }, true);
+        const receipt = createReceipt();
+        const inputs = createInputs({ kind: 'selected', serverId: 'saved-srv', receipt }, true);
 
-        await expect(applyServerConnectionPolicy(inputs)).resolves.toBe(true);
+        await expect(applyServerConnectionPolicy(inputs)).resolves.toEqual({
+            kind: 'continue',
+            receipt,
+        });
 
         expect(inputs.updateModuleStatus).toHaveBeenCalledWith(
             'plex-server-discovery',
@@ -256,6 +273,7 @@ describe('applyServerConnectionPolicy', () => {
         );
         expect(inputs.handlers.registerServerResume).not.toHaveBeenCalled();
         expect(inputs.navigation.goTo).not.toHaveBeenCalled();
+        expect(inputs.plexDiscovery.assertSelectionReceiptCurrent).toHaveBeenCalledTimes(5);
     });
 
     it('rethrows discovery supersession before startup fallback routing', async () => {

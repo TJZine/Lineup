@@ -121,12 +121,8 @@ const makeSelectedServerResult = (): Extract<
     { kind: 'selected' }
 > => ({
     kind: 'selected',
-    readiness: 'startup_pending',
     persistedSelection: 'updated',
-    startupResume: {
-        startup: 'completed',
-        epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH },
-    },
+    epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH },
 });
 
 const makeOrchestrator = (): MockRuntimeOrchestrator => ({
@@ -303,19 +299,19 @@ describe('AppLazyScreenPortFactory', () => {
         };
         orchestrator.selectServer.mockResolvedValueOnce({
             ...makeSelectedServerResult(),
-            startupResume: {
-                startup: 'completed',
-                epgRefresh: { kind: 'degraded', result: refreshResult },
-            },
+            epgRefresh: { kind: 'degraded', result: refreshResult },
         });
         const serverPorts = createFactory(orchestrator).createServerSelectScreenPorts();
 
-        await expect(serverPorts?.selectServer('server-1')).resolves.toMatchObject({
+        const result = await serverPorts?.selectServer('server-1');
+
+        expect(result).toMatchObject({
             kind: 'selected',
-            startupResume: {
-                epgRefresh: { kind: 'degraded', result: refreshResult },
-            },
+            epgRefresh: { kind: 'degraded', result: refreshResult },
         });
+        expect(result?.kind === 'selected' && result.epgRefresh.kind === 'degraded'
+            ? result.epgRefresh.result
+            : null).toBe(refreshResult);
     });
 
     it('forwards server-select cancellation options to the orchestrator runtime', async (): Promise<void> => {

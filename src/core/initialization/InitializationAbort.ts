@@ -1,6 +1,11 @@
 import { readAbortSignalReason } from '../../utils/abortSignalReason';
 import type { PlexAuthValidationGuard } from '../../modules/plex/auth';
 
+export interface StartupDiscoveryValidity {
+    readonly signal: AbortSignal;
+    assertCurrent(): void;
+}
+
 export interface StartupSignalOptions {
     signal?: AbortSignal | null | undefined;
 }
@@ -35,24 +40,36 @@ export interface StartupPassValidity {
 /** Compose caller cancellation with auth supersession while preserving caller-first observation. */
 export function createStartupPassValidity(
     callerSignal: AbortSignal | null | undefined,
-    guard: PlexAuthValidationGuard
+    guard: PlexAuthValidationGuard,
+    discovery?: StartupDiscoveryValidity
 ): StartupPassValidity {
     const controller = new AbortController();
-    const onCallerAbort = (): void => controller.abort(readAbortSignalReason(callerSignal!));
+    const activeCallerSignal = callerSignal ?? null;
+    const onCallerAbort = (): void => {
+        if (activeCallerSignal) controller.abort(readAbortSignalReason(activeCallerSignal));
+    };
     const onAuthAbort = (): void => controller.abort(readAbortSignalReason(guard.signal));
-    callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+    const discoverySignal = discovery?.signal;
+    const onDiscoveryAbort = (): void => {
+        if (discoverySignal) controller.abort(readAbortSignalReason(discoverySignal));
+    };
+    activeCallerSignal?.addEventListener('abort', onCallerAbort, { once: true });
     guard.signal.addEventListener('abort', onAuthAbort, { once: true });
-    if (callerSignal?.aborted) onCallerAbort();
+    discoverySignal?.addEventListener('abort', onDiscoveryAbort, { once: true });
+    if (activeCallerSignal?.aborted) onCallerAbort();
     else if (guard.signal.aborted) onAuthAbort();
+    else if (discoverySignal?.aborted) onDiscoveryAbort();
     return {
         signal: controller.signal,
         assertCurrent(): void {
-            throwIfStartupAborted(callerSignal);
+            throwIfStartupAborted(activeCallerSignal);
             guard.assertCurrent();
+            discovery?.assertCurrent();
         },
         dispose(): void {
-            callerSignal?.removeEventListener('abort', onCallerAbort);
+            activeCallerSignal?.removeEventListener('abort', onCallerAbort);
             guard.signal.removeEventListener('abort', onAuthAbort);
+            discoverySignal?.removeEventListener('abort', onDiscoveryAbort);
         },
     };
 }

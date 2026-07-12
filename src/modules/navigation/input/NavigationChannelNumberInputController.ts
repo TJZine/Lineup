@@ -41,6 +41,15 @@ export class NavigationChannelNumberInputController {
         this.channelDigits = '';
     }
 
+    public cancelPendingInput(): void {
+        if (this.channelDigits.length === 0) {
+            return;
+        }
+        this._clearChannelInputTimer();
+        this.channelDigits = '';
+        this.deps.emitChannelInputUpdate({ digits: '', isComplete: true });
+    }
+
     private _clearChannelInputTimer(): void {
         if (this.channelInputTimer !== null) {
             globalThis.clearTimeout(this.channelInputTimer);

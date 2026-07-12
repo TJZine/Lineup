@@ -34,20 +34,14 @@ const RECOVERY_ACTION_FACTORIES: Record<RecoveryActionGroupId, RecoveryActionFac
         }, { isPrimary: true, requiresNetwork: true }),
     ],
     network: (deps) => [
-        buildAction('Retry', () => {
-            deps.retryStart();
-        }, { isPrimary: true, requiresNetwork: true }),
-        buildAction('Exit', () => {
-            deps.exitApp();
-        }, { isPrimary: false, requiresNetwork: false }),
+        buildAction('Retry', () => deps.retryStart(), { isPrimary: true, requiresNetwork: true }),
+        buildAction('Exit', () => deps.exitApp(), { isPrimary: false, requiresNetwork: false }),
     ],
     server: (deps) => [
         buildAction('Select Server', () => {
             deps.goToServerSelect();
         }, { isPrimary: true, requiresNetwork: true }),
-        buildAction('Retry', () => {
-            deps.retryStart();
-        }, { isPrimary: false, requiresNetwork: true }),
+        buildAction('Retry', () => deps.retryStart(), { isPrimary: false, requiresNetwork: true }),
     ],
     playback: (deps) => [
         buildAction('Retry', () => {
@@ -66,17 +60,11 @@ const RECOVERY_ACTION_FACTORIES: Record<RecoveryActionGroupId, RecoveryActionFac
         buildAction('Open Settings', () => {
             deps.goToSettings();
         }, { isPrimary: true, requiresNetwork: false }),
-        buildAction('Retry', () => {
-            deps.retryStart();
-        }, { isPrimary: false, requiresNetwork: false }),
+        buildAction('Retry', () => deps.retryStart(), { isPrimary: false, requiresNetwork: false }),
     ],
     startup: (deps) => [
-        buildAction('Retry', () => {
-            deps.retryStart();
-        }, { isPrimary: true, requiresNetwork: true }),
-        buildAction('Exit', () => {
-            deps.exitApp();
-        }, { isPrimary: false, requiresNetwork: false }),
+        buildAction('Retry', () => deps.retryStart(), { isPrimary: true, requiresNetwork: true }),
+        buildAction('Exit', () => deps.exitApp(), { isPrimary: false, requiresNetwork: false }),
     ],
     dismiss: () => [
         buildAction('Dismiss', () => {
@@ -84,9 +72,7 @@ const RECOVERY_ACTION_FACTORIES: Record<RecoveryActionGroupId, RecoveryActionFac
         }, { isPrimary: true, requiresNetwork: false }),
     ],
     unrecoverable: (deps) => [
-        buildAction('Exit', () => {
-            deps.exitApp();
-        }, { isPrimary: true, requiresNetwork: false }),
+        buildAction('Exit', () => deps.exitApp(), { isPrimary: true, requiresNetwork: false }),
     ],
 };
 

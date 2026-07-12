@@ -1,4 +1,5 @@
 import { SourceResolutionCache } from '../resolution/SourceResolutionCache';
+import { SourceResolutionScope } from '../resolution/SourceResolutionEntryAuthority';
 import type { ChannelContentSource, ResolvedContentItem } from '../contracts/types';
 import { flushPromises } from '../../../../__tests__/helpers';
 
@@ -159,6 +160,56 @@ describe('SourceResolutionCache', () => {
 
         expect(afterClear.map((item) => item.ratingKey)).toEqual(['after-clear']);
         expect(resolveUncached).toHaveBeenCalledTimes(2);
+    });
+
+    it('closes an orphaned entry when its last waiter aborts and blocks late cache publication', async () => {
+        const cache = new SourceResolutionCache();
+        const source: ChannelContentSource = { type: 'manual', items: [] };
+        const deferred = createDeferred<ResolvedContentItem[]>();
+        const caller = new AbortController();
+        const resolveUncached: ResolveUncachedMock = jest.fn()
+            .mockImplementationOnce(() => deferred.promise)
+            .mockResolvedValueOnce([createItem('fresh')]);
+
+        const first = cache.resolve(source, resolveUncached, { signal: caller.signal });
+        caller.abort(createAbortError());
+        await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+        deferred.resolve([createItem('orphan')]);
+        await flushPromises();
+
+        await expect(cache.resolve(source, resolveUncached)).resolves.toEqual([
+            expect.objectContaining({ ratingKey: 'fresh' }),
+        ]);
+        expect(resolveUncached).toHaveBeenCalledTimes(2);
+    });
+
+    it('never coalesces the same source key across distinct resolution authorities', async () => {
+        const cache = new SourceResolutionCache();
+        const source: ChannelContentSource = { type: 'manual', items: [] };
+        const firstDeferred = createDeferred<ResolvedContentItem[]>();
+        const firstScope = new SourceResolutionScope([{ assertCurrent: jest.fn() }]);
+        const secondScope = new SourceResolutionScope([{ assertCurrent: jest.fn() }]);
+        const firstOperation = firstScope.retain('first');
+        const secondOperation = secondScope.retain('second');
+        const resolveUncached = jest.fn()
+            .mockImplementationOnce(() => firstDeferred.promise)
+            .mockResolvedValueOnce([createItem('second-scope')]);
+
+        const first = cache.resolveWithOperation(source, resolveUncached, firstOperation);
+        const second = cache.resolveWithOperation(source, resolveUncached, secondOperation);
+
+        await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+        await expect(second).resolves.toEqual([
+            expect.objectContaining({ ratingKey: 'second-scope' }),
+        ]);
+        firstDeferred.resolve([createItem('first-scope-late')]);
+        await flushPromises();
+        expect(resolveUncached).toHaveBeenCalledTimes(2);
+
+        firstOperation.release();
+        secondOperation.release();
+        firstScope.release();
+        secondScope.release();
     });
 
     it('invalidates mixed parent entries when a leaf source is invalidated', async () => {

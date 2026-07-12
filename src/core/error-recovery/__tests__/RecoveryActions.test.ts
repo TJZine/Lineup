@@ -8,9 +8,9 @@ describe('getRecoveryActions', () => {
         goToServerSelect: jest.fn(),
         goToChannelEdit: jest.fn(),
         goToSettings: jest.fn(),
-        retryStart: jest.fn(),
+        retryStart: jest.fn().mockResolvedValue(undefined),
         retryPlayback: jest.fn(),
-        exitApp: jest.fn(),
+        exitApp: jest.fn().mockResolvedValue(undefined),
         skipToNext: jest.fn(),
     });
 
@@ -45,10 +45,12 @@ describe('getRecoveryActions', () => {
             requiresNetwork: false,
         });
 
-        actions[0]!.action();
-        actions[1]!.action();
+        const retryResult = actions[0]!.action();
+        const exitResult = actions[1]!.action();
         expect(deps.retryStart).toHaveBeenCalledTimes(1);
         expect(deps.exitApp).toHaveBeenCalledTimes(1);
+        expect(retryResult).toBeInstanceOf(Promise);
+        expect(exitResult).toBeInstanceOf(Promise);
     });
 
     it('returns Select Server and Retry for SERVER_UNREACHABLE', () => {

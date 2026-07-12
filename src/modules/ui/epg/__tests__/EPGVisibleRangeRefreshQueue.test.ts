@@ -1,6 +1,7 @@
 import { EPGVisibleRangeRefreshQueue } from '../runtime/EPGVisibleRangeRefreshQueue';
 import type { EpgScheduleRefreshResult } from '../coordinator/EPGCoordinatorContracts';
 import type { EpgVisibleRange } from '../types';
+import { createEpgRetainedOperationContext } from '../runtime/EPGRetainedOperationContext';
 
 describe('EPGVisibleRangeRefreshQueue', () => {
     const SKIPPED_REFRESH_RESULT: EpgScheduleRefreshResult = {
@@ -379,5 +380,62 @@ describe('EPGVisibleRangeRefreshQueue', () => {
         const observedSignal = refreshSignal as AbortSignal | null;
         expect(observedSignal?.aborted).toBe(true);
         await expect(immediate).resolves.toEqual(SKIPPED_REFRESH_RESULT);
+    });
+
+    it('coalesces guarded requests only when they share the same authority', async () => {
+        jest.useFakeTimers();
+        const guardedRefresh = jest.fn().mockResolvedValue(SKIPPED_REFRESH_RESULT);
+        const queue = new EPGVisibleRangeRefreshQueue(jest.fn(), guardedRefresh);
+        const firstAuthority = createEpgRetainedOperationContext([]);
+        const secondAuthority = createEpgRetainedOperationContext([]);
+
+        const first = queue.request(range(1), { debounceMs: 40, operationContext: firstAuthority });
+        const coalesced = queue.request(range(2), { debounceMs: 40, operationContext: firstAuthority });
+        const independent = queue.request(range(3), { debounceMs: 40, operationContext: secondAuthority });
+        jest.advanceTimersByTime(40);
+        await Promise.all([first, coalesced, independent]);
+
+        expect(guardedRefresh).toHaveBeenCalledTimes(2);
+        expect(guardedRefresh).toHaveBeenCalledWith(
+            range(2),
+            'visible-range',
+            expect.objectContaining({ operationContext: expect.objectContaining({ authority: firstAuthority.authority }) })
+        );
+        expect(guardedRefresh).toHaveBeenCalledWith(
+            range(3),
+            'visible-range',
+            expect.objectContaining({ operationContext: expect.objectContaining({ authority: secondAuthority.authority }) })
+        );
+        firstAuthority.release();
+        secondAuthority.release();
+    });
+
+    it('cancels one guarded waiter without aborting another waiter in the same batch', async () => {
+        jest.useFakeTimers();
+        const batch = deferred();
+        let batchSignal: AbortSignal | null = null;
+        const guardedRefresh = jest.fn((_range, _reason, options) => {
+            batchSignal = options?.signal ?? null;
+            return batch.promise;
+        });
+        const queue = new EPGVisibleRangeRefreshQueue(jest.fn(), guardedRefresh);
+        const authority = createEpgRetainedOperationContext([]);
+        const firstController = new AbortController();
+        const firstReason = new DOMException('caller moved on', 'AbortError');
+        const first = queue.request(range(1), {
+            debounceMs: 10,
+            signal: firstController.signal,
+            operationContext: authority,
+        });
+        const second = queue.request(range(2), { debounceMs: 10, operationContext: authority });
+        jest.advanceTimersByTime(10);
+        await Promise.resolve();
+
+        firstController.abort(firstReason);
+        await expect(first).rejects.toBe(firstReason);
+        expect((batchSignal as AbortSignal | null)?.aborted).toBe(false);
+        batch.resolve();
+        await expect(second).resolves.toEqual(SKIPPED_REFRESH_RESULT);
+        authority.release();
     });
 });

@@ -4,6 +4,7 @@ import { PlexAuth, type PlexAuthConfig, type PlexPinRequest } from '../../../mod
 import { AuthScreen } from '../../../modules/ui/auth/AuthScreen';
 import { EpgPreferencesStore } from '../../../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
+import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
 import {
     InitializationCoordinator,
     STARTUP_PHASE,
@@ -22,6 +23,8 @@ const config: PlexAuthConfig = {
 };
 
 function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationCoordinator {
+    const selectionContext = new PlexDiscoverySelectionContext();
+    const receipt = selectionContext.issueReceipt(selectionContext.capture(), 'selected');
     const navigation = {
         initialize: jest.fn(),
         getCurrentScreen: jest.fn().mockReturnValue('player'),
@@ -34,8 +37,14 @@ function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationC
             navigation,
             plexAuth: auth,
             plexDiscovery: {
-                initialize: jest.fn().mockResolvedValue({ kind: 'skipped_no_saved_server' }),
+                initialize: jest.fn().mockResolvedValue({
+                    kind: 'already_selected',
+                    serverId: 'server-1',
+                    receipt,
+                }),
                 isConnected: jest.fn().mockReturnValue(true),
+                getSelectionReceiptSignal: jest.fn(() => selectionContext.getReceiptSignal(receipt)),
+                assertSelectionReceiptCurrent: jest.fn(() => selectionContext.assertReceiptCurrent(receipt)),
                 on: jest.fn(() => ({ dispose: jest.fn() })),
             },
             plexLibrary: {},

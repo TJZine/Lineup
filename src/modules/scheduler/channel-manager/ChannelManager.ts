@@ -1,6 +1,6 @@
 import { EventEmitter } from '../../../utils/EventEmitter';
 import { summarizeErrorForLog } from '../../../utils/errors';
-import { AppErrorCode, getAppErrorCode } from '../../../types/app-errors';
+import { AppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './resolution/ContentResolver';
 import { ChannelAuthoringService, omitUndefinedChannelUpdates } from './authoring/ChannelAuthoringService';
 import { ChannelImportExportService } from './import-export/ChannelImportExportService';
@@ -8,13 +8,25 @@ import { resolveChannelSeed } from './authoring/ChannelSeedPolicy';
 import { ChannelPersistenceCoordinator, normalizeStorageKey } from './persistence/ChannelPersistenceCoordinator';
 import { ChannelResolutionCache } from './resolution/ChannelResolutionCache';
 import { ChannelRetryScheduler } from './resolution/ChannelRetryScheduler';
+import {
+    ChannelResolutionOperationContext,
+    type ChannelInitialResolutionAuthorization,
+    type ChannelResolutionLease,
+} from './resolution/ChannelResolutionOperationContext';
+import type { OperationContextUpstream } from '../../../utils/RetainedOperationContext';
+import {
+    getContentSourceLogIdentity,
+    getHttpStatusForLog,
+    isAccessDeniedResolutionError as isAccessDeniedError,
+    isGracefulAuthoringResolutionError,
+    isNetworkResolutionError as isNetworkError,
+} from './resolution/ChannelResolutionErrorPolicy';
 import { cloneChannelForOwnership } from './authoring/ChannelDomainClone';
 import { ChannelError } from './ChannelErrors';
 import type { IChannelManager, ChannelCreateOptions, ChannelManagerConfig, IPlexLibraryMinimal } from './contracts/interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
     ChannelConfig,
-    ChannelContentSource,
     ChannelCreateInput,
     ResolvedChannelContent,
     ResolvedContentItem,
@@ -32,16 +44,6 @@ import {
 
 export { ChannelError } from './ChannelErrors';
 
-/**
- * Network-related AppErrorCodes that allow cache fallback.
- */
-const NETWORK_ERROR_CODES: Set<AppErrorCode> = new Set([
-    AppErrorCode.NETWORK_TIMEOUT,
-    AppErrorCode.NETWORK_OFFLINE,
-    AppErrorCode.SERVER_UNREACHABLE,
-    AppErrorCode.NETWORK_UNAVAILABLE,
-]);
-
 const RESOLUTION_AFFECTING_UPDATE_FIELDS: readonly (keyof ChannelUpdateInput)[] = [
     'contentSource',
     'contentFilters',
@@ -53,98 +55,16 @@ const RESOLUTION_AFFECTING_UPDATE_FIELDS: readonly (keyof ChannelUpdateInput)[] 
     'shuffleSeed',
 ];
 
-/**
- * Extract AppErrorCode from any error type that has a code property.
- * Works with ChannelError, PlexLibraryError, PlexApiError, etc.
- */
-function getErrorCode(error: unknown): AppErrorCode | null {
-    if (error && typeof error === 'object' && 'code' in error) {
-        return getAppErrorCode((error as { code: unknown }).code);
-    }
-    return null;
-}
-
-/**
- * Check if error is a network-related error that allows cache fallback.
- */
-function isNetworkError(error: unknown): boolean {
-    const code = getErrorCode(error);
-    if (code && NETWORK_ERROR_CODES.has(code)) {
-        return true;
-    }
-    // Fallback: Check error message for network-related terms
-    return error instanceof Error && (
-        error.message.toLowerCase().includes('network') ||
-        error.message.toLowerCase().includes('timeout') ||
-        error.message.toLowerCase().includes('econnrefused') ||
-        error.message.toLowerCase().includes('failed to fetch')
-    );
-}
+type ChannelResolutionOptions = {
+    signal?: AbortSignal | null;
+    shouldApply?: () => boolean;
+    operationContext?: ChannelResolutionLease;
+};
 
 function affectsResolvedContent(updates: ChannelUpdateInput): boolean {
     return RESOLUTION_AFFECTING_UPDATE_FIELDS.some((field) =>
         Object.prototype.hasOwnProperty.call(updates, field)
     );
-}
-
-/**
- * Check if error is a content-unavailable error that allows stale cache fallback.
- */
-function isContentUnavailableError(error: unknown): boolean {
-    const code = getErrorCode(error);
-    return code === AppErrorCode.CONTENT_UNAVAILABLE;
-}
-
-/**
- * Check if error is an access-denied (403) error.
- * Unlike network errors, 403 is persistent for the session and should NOT use cache fallback.
- */
-function isAccessDeniedError(error: unknown): boolean {
-    const code = getErrorCode(error);
-    return code === AppErrorCode.ACCESS_DENIED;
-}
-
-function isResourceNotFoundError(error: unknown): boolean {
-    const code = getErrorCode(error);
-    if (code === AppErrorCode.RESOURCE_NOT_FOUND) {
-        return true;
-    }
-    const status = getHttpStatusForLog(error);
-    if (status === 404) {
-        return true;
-    }
-    return error instanceof Error && /\b404\b/.test(error.message);
-}
-
-function isGracefulAuthoringResolutionError(error: unknown): boolean {
-    return isContentUnavailableError(error) || isResourceNotFoundError(error);
-}
-
-function getContentSourceLogIdentity(
-    source: ChannelContentSource
-): { type: ChannelContentSource['type']; id?: string } {
-    switch (source.type) {
-        case 'library':
-            return { type: source.type, id: source.libraryId };
-        case 'collection':
-            return { type: source.type, id: source.collectionKey };
-        case 'show':
-            return { type: source.type, id: source.showKey };
-        case 'playlist':
-            return { type: source.type, id: source.playlistKey };
-        case 'mixed':
-        case 'manual':
-        default:
-            return { type: source.type };
-    }
-}
-
-function getHttpStatusForLog(error: unknown): number | undefined {
-    if (!error || typeof error !== 'object') return undefined;
-    const maybe = error as { httpStatus?: unknown; status?: unknown };
-    if (typeof maybe.httpStatus === 'number') return maybe.httpStatus;
-    if (typeof maybe.status === 'number') return maybe.status;
-    return undefined;
 }
 
 function createChannelNotFoundError(): ChannelError {
@@ -185,6 +105,7 @@ export class ChannelManager implements IChannelManager {
     private readonly _persistence: ChannelPersistenceCoordinator;
     private readonly _resolutionCache: ChannelResolutionCache;
     private readonly _retryScheduler: ChannelRetryScheduler;
+    private readonly _resolutionOperations = new ChannelResolutionOperationContext();
     private readonly _logger: {
         warn: (message: string, ...args: unknown[]) => void;
         error: (message: string, ...args: unknown[]) => void;
@@ -264,12 +185,53 @@ export class ChannelManager implements IChannelManager {
             }
         }
         this._persistence.supersedePendingSave();
+        this._clearRuntimeStateAfterPersistence();
+    }
+
+    private _clearRuntimeStateAfterPersistence(): void {
         this._contentResolver.clearCaches();
         this._resolutionCache.clear();
         this._state.channels.clear();
         this._state.channelOrder = [];
         this._state.currentChannelId = null;
         this._isRuntimeStateCleared = true;
+    }
+
+    async supersedeActiveResolutions(): Promise<void> {
+        this._retryScheduler.cancelAll();
+        this._contentResolver.clearCaches();
+        await this._resolutionOperations.supersedeAndDrain();
+    }
+
+    resumeActiveResolutions(): void {
+        this._resolutionOperations.resume();
+    }
+
+    async clearRuntimeStateForScopeTransition(): Promise<void> {
+        const drain = this.supersedeActiveResolutions();
+        this._persistence.supersedePendingSave();
+        await drain;
+        this._clearRuntimeStateAfterPersistence();
+    }
+
+    createInitialTuneResolutionAuthorization(
+        channelId: string,
+        validator: OperationContextUpstream
+    ): ChannelInitialResolutionAuthorization {
+        return this._resolutionOperations.createInitialTuneAuthorization(channelId, validator);
+    }
+
+    async resolveChannelContentForInitialTune(
+        channelId: string,
+        authorization: ChannelInitialResolutionAuthorization
+    ): Promise<ResolvedChannelContent> {
+        const channel = this._state.channels.get(channelId);
+        if (!channel) throw createChannelNotFoundError();
+        return this._resolutionOperations.runInitialTune(
+            channelId,
+            authorization,
+            (operationContext) => this._resolveContentInternal(channel, { operationContext })
+        );
     }
 
     /**
@@ -455,6 +417,7 @@ export class ChannelManager implements IChannelManager {
         channelId: string,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedChannelContent> {
+        this._resolutionOperations.assertGeneralAdmission();
         const channel = this._state.channels.get(channelId);
         if (!channel) {
             throw createChannelNotFoundError();
@@ -481,6 +444,7 @@ export class ChannelManager implements IChannelManager {
         channelId: string,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedChannelContent> {
+        this._resolutionOperations.assertGeneralAdmission();
         const channel = this._state.channels.get(channelId);
         if (!channel) {
             throw createChannelNotFoundError();
@@ -491,14 +455,11 @@ export class ChannelManager implements IChannelManager {
         return this._resolveContentInternal(channel, options);
     }
 
-    /**
-     * Resolve channel items for schedule generation without mutating ChannelManager state.
-     * This avoids caching, event emission, and persistence side-effects.
-     */
     async resolveChannelItemsForSchedule(
         channelId: string,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
+        this._resolutionOperations.assertGeneralAdmission();
         const channel = this._state.channels.get(channelId);
         if (!channel) {
             throw createChannelNotFoundError();
@@ -678,9 +639,19 @@ export class ChannelManager implements IChannelManager {
 
     private async _resolveFilteredItems(
         channel: ChannelConfig,
-        options?: { signal?: AbortSignal | null }
+        options?: ChannelResolutionOptions
     ): Promise<ResolvedContentItem[]> {
-        const rawItems = await this._contentResolver.resolveSource(channel.contentSource, options);
+        if (!options?.operationContext) {
+            return this._resolutionOperations.run(options?.signal, (operationContext) =>
+                this._resolveFilteredItems(channel, { ...options, operationContext })
+            );
+        }
+        options.operationContext.assertCurrent();
+        const rawItems = await this._contentResolver.resolveSource(channel.contentSource, {
+            ...(options.signal !== undefined ? { signal: options.signal } : {}),
+            operationContext: options.operationContext,
+        });
+        options.operationContext.assertCurrent();
 
         // If source itself returns empty, it's CONTENT_UNAVAILABLE (library/collection deleted)
         // This is different from filtering removing all items
@@ -787,15 +758,23 @@ export class ChannelManager implements IChannelManager {
 
     private async _resolveContentForAuthoring(
         channel: ChannelConfig,
-        options?: { signal?: AbortSignal | null }
+        options?: ChannelResolutionOptions
     ): Promise<ResolvedChannelContent> {
+        if (!options?.operationContext) {
+            return this._resolutionOperations.run(options?.signal, (operationContext) =>
+                this._resolveContentForAuthoring(channel, { ...options, operationContext })
+            );
+        }
+        const operation = options.operationContext;
         const cached = this._resolutionCache.get(channel.id);
 
         try {
             const items = await this._resolveFilteredItems(channel, options);
+            operation.assertCurrent();
             this._retryScheduler.cancel(channel.id);
             return this._createResolvedContent(channel, items);
         } catch (error) {
+            operation.assertCurrent();
             if (error instanceof ChannelError && error.code === AppErrorCode.SCHEDULER_EMPTY_CHANNEL) {
                 throw error;
             }
@@ -806,6 +785,7 @@ export class ChannelManager implements IChannelManager {
                     `Resolution failed for channel ${channel.id} during authoring due to network error, using cached content as stale (ttlStale: ${wasStale})`,
                     summarizeErrorForLog(error)
                 );
+                operation.assertCurrent();
                 this._retryScheduler.queue(channel.id);
                 return this._resolutionCache.cloneContent(cached, {
                     fromCache: true,
@@ -819,6 +799,7 @@ export class ChannelManager implements IChannelManager {
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
                 );
+                operation.assertCurrent();
                 return this._resolutionCache.cloneContent(cached, {
                     fromCache: true,
                     isStale: true,
@@ -836,12 +817,20 @@ export class ChannelManager implements IChannelManager {
 
     private async _resolveContentInternal(
         channel: ChannelConfig,
-        options?: { signal?: AbortSignal | null; shouldApply?: () => boolean }
+        options?: ChannelResolutionOptions
     ): Promise<ResolvedChannelContent> {
+        if (!options?.operationContext) {
+            return this._resolutionOperations.run(options?.signal, (operationContext) =>
+                this._resolveContentInternal(channel, { ...options, operationContext })
+            );
+        }
+        const operation = options.operationContext;
+        operation.assertCurrent();
         const cached = this._resolutionCache.get(channel.id);
 
         try {
             const items = await this._resolveFilteredItems(channel, options);
+            operation.assertCurrent();
             const result = this._createResolvedContent(channel, items);
 
             if (options?.shouldApply && !options.shouldApply()) {
@@ -851,16 +840,23 @@ export class ChannelManager implements IChannelManager {
             this._retryScheduler.cancel(channel.id);
 
             // Cache
+            operation.assertCurrent();
             this._resolutionCache.set(result);
+            operation.assertCurrent();
             this._emitter.emit('contentResolved', result);
 
+            operation.assertCurrent();
             this._applyResolvedContentMetadata(channel, result);
+            operation.assertCurrent();
             this._state.channels.set(channel.id, channel);
 
+            operation.assertCurrent();
             this._queueSave();
 
+            operation.assertCurrent();
             return this._resolutionCache.cloneContent(result);
         } catch (error) {
+            operation.assertCurrent();
             if (options?.shouldApply && !options.shouldApply()) {
                 throw error;
             }
@@ -878,7 +874,9 @@ export class ChannelManager implements IChannelManager {
                     `Resolution failed for channel ${channel.id} due to network error, using cached content (stale: ${isStale})`,
                     summarizeErrorForLog(error)
                 );
+                operation.assertCurrent();
                 this._retryScheduler.queue(channel.id);
+                operation.assertCurrent();
                 return this._resolutionCache.cloneContent(cached, {
                     fromCache: true,
                     isStale,
@@ -892,6 +890,7 @@ export class ChannelManager implements IChannelManager {
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
                 );
+                operation.assertCurrent();
                 return this._resolutionCache.cloneContent(cached, {
                     fromCache: true,
                     isStale: true,
@@ -905,8 +904,11 @@ export class ChannelManager implements IChannelManager {
             // by code/status policy, so ordering here is not load-bearing.
             if (isAccessDeniedError(error)) {
                 // Prevent any future cache fallback for a persistent 403.
+                operation.assertCurrent();
                 this._resolutionCache.delete(channel.id);
+                operation.assertCurrent();
                 this._contentResolver.invalidateSource(channel.contentSource);
+                operation.assertCurrent();
                 this._retryScheduler.cancel(channel.id);
 
                 throw this._createAccessDeniedResolutionError(channel, error);

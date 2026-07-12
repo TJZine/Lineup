@@ -6,6 +6,7 @@ import type {
 import type { IChannelScheduler, ShuffleGenerator } from '../../../scheduler/scheduler';
 import type { IEPGComponent } from '../interfaces';
 import type { EpgVisibleRange } from '../types';
+import type { EpgRetainedOperationContext } from './EPGRetainedOperationContext';
 
 export type BackgroundDebugState = {
     refreshId: number;
@@ -59,6 +60,7 @@ export type RefreshSession = {
     refreshStartedAt: number;
     range: EpgVisibleRange;
     signal?: AbortSignal | null;
+    operation: EpgRetainedOperationContext;
     epg: IEPGComponent;
     channelManager: IChannelManager;
     scheduler: IChannelScheduler | null;

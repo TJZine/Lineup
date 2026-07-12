@@ -11,6 +11,7 @@ import {
 import {
     isPlexDiscoverySelectionSupersededError,
     type IPlexServerDiscovery,
+    type PlexDiscoverySelectionReceipt,
     type PlexSavedServerRestoreResult,
 } from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
@@ -76,6 +77,13 @@ export interface PostReadyRoutingInputs extends StartupSignalOptions {
 export type AuthValidationPolicyResult =
     | { kind: 'stop' }
     | { kind: 'continue'; guard: PlexAuthValidationGuard };
+
+export type ServerConnectionPolicyResult =
+    | { kind: 'continue'; receipt: PlexDiscoverySelectionReceipt }
+    | {
+        kind: 'stop';
+        reason: 'no_servers' | 'no_saved_server' | 'selection_failed';
+    };
 
 function createSavedServerRestoreError(restoreResult: PlexSavedServerRestoreResult): AppError | undefined {
     if (restoreResult.kind !== 'selection_failed') {
@@ -286,7 +294,9 @@ export async function applyAuthValidationPolicy(
     }
 }
 
-export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicyInputs): Promise<boolean> {
+export async function applyServerConnectionPolicy(
+    inputs: ServerConnectionPolicyInputs
+): Promise<ServerConnectionPolicyResult> {
     throwIfStartupAborted(inputs.signal);
     inputs.updateModuleStatus('plex-server-discovery', 'initializing');
     let savedServerRestore: PlexSavedServerRestoreResult;
@@ -305,14 +315,13 @@ export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicy
             toRecoverableModuleStatusError(error, 'Server discovery failed during startup.')
         );
         inputs.navigation.goTo('server-select');
-        return false;
+        return { kind: 'stop', reason: 'selection_failed' };
     }
 
     const elapsedMs = Date.now() - inputs.startTime;
-    const isConnected = inputs.plexDiscovery.isConnected();
     throwIfStartupAborted(inputs.signal);
 
-    if (!isConnected) {
+    if (savedServerRestore.kind !== 'already_selected' && savedServerRestore.kind !== 'selected') {
         const restoreError = createSavedServerRestoreError(savedServerRestore);
         inputs.updateModuleStatus('plex-server-discovery', 'pending', undefined, elapsedMs);
         inputs.updateModuleStatus('plex-library', 'pending', restoreError, elapsedMs);
@@ -321,12 +330,25 @@ export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicy
         inputs.handlers.registerServerResume();
         throwIfStartupAborted(inputs.signal);
         inputs.navigation.goTo('server-select');
-        return false;
+        const reason = savedServerRestore.kind === 'skipped_no_servers'
+            ? 'no_servers'
+            : savedServerRestore.kind === 'skipped_no_saved_server'
+                ? 'no_saved_server'
+                : 'selection_failed';
+        return { kind: 'stop', reason };
     }
 
+    inputs.plexDiscovery.assertSelectionReceiptCurrent(savedServerRestore.receipt);
+    if (!inputs.plexDiscovery.isConnected()) {
+        throw new Error('Receipt-bearing Plex discovery result is not connected.');
+    }
     throwIfStartupAborted(inputs.signal);
+    inputs.plexDiscovery.assertSelectionReceiptCurrent(savedServerRestore.receipt);
     inputs.updateModuleStatus('plex-server-discovery', 'ready', undefined, elapsedMs);
+    inputs.plexDiscovery.assertSelectionReceiptCurrent(savedServerRestore.receipt);
     inputs.updateModuleStatus('plex-library', 'ready', undefined, elapsedMs);
+    inputs.plexDiscovery.assertSelectionReceiptCurrent(savedServerRestore.receipt);
     inputs.updateModuleStatus('plex-stream-resolver', 'ready', undefined, elapsedMs);
-    return true;
+    inputs.plexDiscovery.assertSelectionReceiptCurrent(savedServerRestore.receipt);
+    return { kind: 'continue', receipt: savedServerRestore.receipt };
 }

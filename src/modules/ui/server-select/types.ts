@@ -27,17 +27,11 @@ export type ServerSelectSelectionResult =
     }
     | {
         kind: 'selected';
-        readiness: 'ready' | 'startup_pending';
         persistedSelection:
             | 'updated'
             | 'skipped_missing_credentials'
             | 'skipped_corrupted_credentials';
-        startupResume: {
-            startup: 'completed' | 'skipped_no_coordinator';
-            epgRefresh:
-                | EpgScheduleRefreshOutcome
-                | { kind: 'skipped_no_coordinator' };
-        };
+        epgRefresh: EpgScheduleRefreshOutcome;
     };
 
 export type ServerSelectRerunSetupResult =

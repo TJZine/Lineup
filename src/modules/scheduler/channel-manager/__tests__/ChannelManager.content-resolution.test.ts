@@ -46,6 +46,112 @@ describe('ChannelManager content resolution', () => {
     });
 
     describe('happy-path resolution', () => {
+        it('cancels first and drains abort-ignoring resolution before clearing scope state', async () => {
+            const channel = await manager.createChannel(
+                { contentSource: createMockContentSource() },
+                { initialContent: [{
+                    ratingKey: 'initial',
+                    type: 'movie',
+                    title: 'Initial',
+                    fullTitle: 'Initial',
+                    durationMs: 1000,
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                }] }
+            );
+            let release: () => void = () => undefined;
+            mockLibrary.getLibraryItems.mockImplementation(() => new Promise((resolve) => {
+                release = (): void => resolve([createMockItem({ ratingKey: 'late' })]);
+            }));
+            const resolution = manager.refreshChannelContent(channel.id);
+            let transitionSettled = false;
+            const transition = manager.clearRuntimeStateForScopeTransition().then(() => {
+                transitionSettled = true;
+            });
+
+            await Promise.resolve();
+            expect(transitionSettled).toBe(false);
+            release();
+
+            await expect(resolution).rejects.toMatchObject({ name: 'AbortError' });
+            await transition;
+            expect(manager.getAllChannels()).toEqual([]);
+        });
+
+        it('keeps general resolution closed while one exact initial-tune authorization resolves once', async () => {
+            const channel = await manager.createChannel(
+                { contentSource: createMockContentSource() },
+                { initialContent: [{
+                    ratingKey: 'initial-authorized',
+                    type: 'movie',
+                    title: 'Initial Authorized',
+                    fullTitle: 'Initial Authorized',
+                    durationMs: 1000,
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                }] }
+            );
+            const unrelated = await manager.createChannel(
+                { contentSource: createMockContentSource('unrelated-library') },
+                { initialContent: [{
+                    ratingKey: 'unrelated',
+                    type: 'movie',
+                    title: 'Unrelated',
+                    fullTitle: 'Unrelated',
+                    durationMs: 1000,
+                    thumb: null,
+                    year: 2026,
+                    scheduledIndex: 0,
+                }] }
+            );
+            await manager.supersedeActiveResolutions();
+            await expect(manager.resolveChannelContent(channel.id)).rejects.toMatchObject({
+                name: 'AbortError',
+            });
+            const validator = { assertCurrent: jest.fn() };
+            const authorization = manager.createInitialTuneResolutionAuthorization(
+                channel.id,
+                validator
+            );
+
+            await expect(manager.resolveChannelContentForInitialTune(
+                unrelated.id,
+                authorization
+            )).rejects.toMatchObject({ name: 'AbortError' });
+
+            await expect(manager.resolveChannelContentForInitialTune(
+                channel.id,
+                authorization
+            )).resolves.toEqual(expect.objectContaining({ channelId: channel.id }));
+            await expect(manager.resolveChannelContentForInitialTune(
+                channel.id,
+                authorization
+            )).rejects.toMatchObject({ name: 'AbortError' });
+            expect(validator.assertCurrent).toHaveBeenCalled();
+        });
+
+        it('invalidates an unused initial-tune resolution authorization on the next supersession', async () => {
+            const channel = await manager.createChannel(
+                { contentSource: createMockContentSource() },
+                { initialContent: [] }
+            );
+            mockLibrary.getLibraryItems.mockClear();
+            await manager.supersedeActiveResolutions();
+            const authorization = manager.createInitialTuneResolutionAuthorization(
+                channel.id,
+                { assertCurrent: jest.fn() }
+            );
+            await manager.supersedeActiveResolutions();
+
+            await expect(manager.resolveChannelContentForInitialTune(
+                channel.id,
+                authorization
+            )).rejects.toMatchObject({ name: 'AbortError' });
+            expect(mockLibrary.getLibraryItems).not.toHaveBeenCalled();
+        });
+
         it('should resolve library content source', async () => {
             const channel = await manager.createChannel({
                 contentSource: createMockContentSource(),

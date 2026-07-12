@@ -13,6 +13,34 @@ function createKeyEvent(button: RemoteButton, overrides: Partial<KeyEvent> = {})
 }
 
 describe('NavigationRemoteInputRouter', () => {
+    it('consumes every command while the runtime gate is active before modal presentation', () => {
+        const deps = {
+            isInputBlocked: jest.fn().mockReturnValue(false),
+            isRuntimeCommandGated: jest.fn().mockReturnValue(true),
+            getActiveModalPolicy: jest.fn().mockReturnValue(null),
+            logInputSuppressed: jest.fn(),
+            cancelDirectionalRepeat: jest.fn(),
+            emitKeyPress: jest.fn(),
+            repairFocusDesync: jest.fn(),
+            handleDirectionalKeyDown: jest.fn(),
+            handleOk: jest.fn(),
+            handleBack: jest.fn(),
+            handleNumberKey: jest.fn(),
+            emitGuide: jest.fn(),
+            emitSettings: jest.fn(),
+        };
+        const router = new NavigationRemoteInputRouter(deps);
+
+        for (const button of ['up', 'ok', 'back', 'num4', 'play', 'guide'] as RemoteButton[]) {
+            router.handleKeyEvent(createKeyEvent(button));
+        }
+
+        expect(deps.emitKeyPress).not.toHaveBeenCalled();
+        expect(deps.handleDirectionalKeyDown).not.toHaveBeenCalled();
+        expect(deps.handleOk).not.toHaveBeenCalled();
+        expect(deps.handleNumberKey).not.toHaveBeenCalled();
+    });
+
     it('short-circuits and logs when input is blocked', () => {
         const deps = {
             isInputBlocked: jest.fn().mockReturnValue(true),
@@ -131,5 +159,44 @@ describe('NavigationRemoteInputRouter', () => {
         expect(deps.handleOk).toHaveBeenCalledTimes(1);
         expect(deps.handleBack).toHaveBeenCalledTimes(1);
         expect(deps.emitGuide).toHaveBeenCalledTimes(1);
+    });
+
+    it('routes only direction and OK inside a protected modal and consumes background commands', () => {
+        const deps = {
+            isInputBlocked: jest.fn().mockReturnValue(false),
+            getActiveModalPolicy: jest.fn().mockReturnValue({
+                dismissOnBack: false,
+                blocksBackgroundCommands: true,
+            }),
+            logInputSuppressed: jest.fn(),
+            cancelDirectionalRepeat: jest.fn(),
+            emitKeyPress: jest.fn(),
+            repairFocusDesync: jest.fn(),
+            handleDirectionalKeyDown: jest.fn(),
+            handleOk: jest.fn(),
+            handleBack: jest.fn(),
+            handleNumberKey: jest.fn(),
+            emitGuide: jest.fn(),
+            emitSettings: jest.fn(),
+        };
+        const router = new NavigationRemoteInputRouter(deps);
+
+        const protectedModalInput: RemoteButton[] = [
+            'left', 'ok', 'back', 'guide', 'green', 'yellow', 'info', 'blue',
+            'channelUp', 'channelDown', 'num0', 'num3', 'num9', 'red',
+            'play', 'pause', 'stop', 'rewind', 'fastforward',
+        ];
+        for (const button of protectedModalInput) {
+            router.handleKeyEvent(createKeyEvent(button));
+        }
+
+        expect(deps.handleDirectionalKeyDown).toHaveBeenCalledWith('left', false);
+        expect(deps.handleOk).toHaveBeenCalledTimes(1);
+        expect(deps.emitKeyPress).not.toHaveBeenCalled();
+        expect(deps.handleBack).not.toHaveBeenCalled();
+        expect(deps.handleNumberKey).not.toHaveBeenCalled();
+        expect(deps.emitGuide).not.toHaveBeenCalled();
+        expect(deps.emitSettings).not.toHaveBeenCalled();
+        expect(deps.logInputSuppressed).toHaveBeenCalledWith('protected_modal', 'back');
     });
 });

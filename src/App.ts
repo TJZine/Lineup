@@ -53,6 +53,10 @@ const NON_BLOCKING_LIFECYCLE_CODES = new Set<AppErrorCode>(
 );
 
 const ERROR_OVERLAY_MODAL_ID = 'modal:error-overlay';
+const QUARANTINE_MODAL_POLICY = Object.freeze({
+    dismissOnBack: false,
+    blocksBackgroundCommands: true,
+});
 const APP_START_START_MARK = 'lineup.app_start.start';
 const APP_START_FIRST_ACTIONABLE_MARK = 'lineup.app_start.first_actionable';
 const ORCHESTRATOR_INITIALIZE_START_MARK = 'lineup.orchestrator_initialize.start';
@@ -392,12 +396,49 @@ export class App {
             return;
         }
 
+        const quarantineState = this._orchestrator.getQuarantineState();
+        if (quarantineState.kind === 'quarantined') {
+            const actions: BlockingErrorOverlayAction[] = [
+                {
+                    id: 'retry',
+                    label: 'Retry',
+                    isPrimary: true,
+                    action: async (): Promise<void> => {
+                        const orchestrator = this._orchestrator;
+                        if (!orchestrator) {
+                            throw new Error('Recovery runtime is unavailable.');
+                        }
+                        await orchestrator.retryQuarantineRecovery();
+                        if (orchestrator.getQuarantineState().kind !== 'clear') {
+                            throw new Error('Recovery did not clear quarantine.');
+                        }
+                    },
+                },
+                {
+                    id: 'exit',
+                    label: 'Exit',
+                    isPrimary: false,
+                    action: (): Promise<void> => this._requireOrchestratorForQuarantine().exitQuarantine(),
+                },
+            ];
+            this._blockingErrorOverlayPresenter.show(error, actions, {
+                modalPolicy: QUARANTINE_MODAL_POLICY,
+            });
+            return;
+        }
+
         const recoveryCode = getAppErrorCode(error.code) ?? AppErrorCode.UNKNOWN;
-        const actions: BlockingErrorOverlayAction[] =
-            error.actions.length > 0
-                ? error.actions
-                : this._orchestrator.getRecoveryActions(recoveryCode);
+        const actions: BlockingErrorOverlayAction[] = error.actions.length > 0
+            ? error.actions
+            : this._orchestrator.getRecoveryActions(recoveryCode);
         this._blockingErrorOverlayPresenter.show(error, actions);
+    }
+
+    private _requireOrchestratorForQuarantine(): AppShellOrchestratorRuntime {
+        if (!this._orchestrator) {
+            throw new Error('Recovery runtime is unavailable.');
+        }
+        return this._orchestrator;
     }
 
     hideErrorOverlay(options?: { fromModalClose?: boolean }): void {

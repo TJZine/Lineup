@@ -45,6 +45,7 @@ const createNavigation = (): {
     setFocus: jest.Mock;
     on: jest.Mock;
     off: jest.Mock;
+    cancelPendingChannelInput: jest.Mock;
 } => {
     return {
         openModal: jest.fn(),
@@ -55,6 +56,7 @@ const createNavigation = (): {
         setFocus: jest.fn(),
         on: jest.fn(),
         off: jest.fn(),
+        cancelPendingChannelInput: jest.fn(),
     };
 };
 
@@ -191,5 +193,84 @@ describe('AppBlockingErrorOverlayPresenter', () => {
         expect(nav.off).toHaveBeenCalled();
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('error-overlay-action-0');
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('error-overlay-action-1');
+    });
+
+    it('keeps a protected overlay open and deduplicates actions while recovery is pending', async () => {
+        const overlay = createOverlayContainer();
+        const nav = createNavigation();
+        let resolveRecovery: (() => void) | undefined;
+        const action = jest.fn(() => new Promise<void>((resolve) => {
+            resolveRecovery = resolve;
+        }));
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
+        presenter.setContainer(overlay);
+
+        presenter.show(createError(), [{ id: 'retry', label: 'Retry', isPrimary: true, action }], {
+            modalPolicy: { dismissOnBack: false, blocksBackgroundCommands: true },
+        });
+        const button = overlay.querySelector('button') as HTMLButtonElement;
+        button.click();
+        button.click();
+
+        expect(nav.cancelPendingChannelInput.mock.invocationCallOrder[0]).toBeLessThan(
+            nav.openModal.mock.invocationCallOrder[0] as number
+        );
+        expect(nav.openModal).toHaveBeenCalledWith(
+            'modal:error-overlay',
+            ['error-overlay-action-0'],
+            { dismissOnBack: false, blocksBackgroundCommands: true }
+        );
+        expect(button.disabled).toBe(true);
+        expect(overlay.classList.contains('hidden')).toBe(false);
+        expect(action).toHaveBeenCalledTimes(1);
+
+        resolveRecovery?.();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(overlay.classList.contains('hidden')).toBe(true);
+    });
+
+    it('keeps the overlay gated on rejection and restores Retry focus with sanitized status', async () => {
+        const overlay = createOverlayContainer();
+        const nav = createNavigation();
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
+        presenter.setContainer(overlay);
+        presenter.show(createError(), [{
+            id: 'retry',
+            label: 'Retry',
+            isPrimary: true,
+            action: (): Promise<void> => Promise.reject(new Error('secret credential detail')),
+        }], { modalPolicy: { dismissOnBack: false, blocksBackgroundCommands: true } });
+
+        const button = overlay.querySelector('button') as HTMLButtonElement;
+        button.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(overlay.classList.contains('hidden')).toBe(false);
+        expect(button.disabled).toBe(false);
+        expect(overlay.querySelector('[role="status"]')?.textContent).toBe('Retry failed. Please try again.');
+        expect(overlay.textContent).not.toContain('secret credential detail');
+        expect(nav.setFocus).toHaveBeenLastCalledWith('error-overlay-action-0', { persist: false });
+    });
+
+    it('ignores stale action completion after disposal', async () => {
+        const overlay = createOverlayContainer();
+        let rejectRecovery: ((error: Error) => void) | undefined;
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): null => null });
+        presenter.setContainer(overlay);
+        presenter.show(createError(), [{
+            id: 'retry',
+            label: 'Retry',
+            isPrimary: true,
+            action: (): Promise<void> => new Promise<void>((_resolve, reject) => { rejectRecovery = reject; }),
+        }]);
+        (overlay.querySelector('button') as HTMLButtonElement).click();
+        presenter.dispose();
+
+        rejectRecovery?.(new Error('late'));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(overlay.querySelector('[role="status"]')?.textContent).toBe('Retry in progress…');
     });
 });

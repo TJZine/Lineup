@@ -47,12 +47,8 @@ const selectedResult = (
     overrides: Partial<Extract<ServerSelectSelectionResult, { kind: 'selected' }>> = {}
 ): ServerSelectSelectionResult => ({
     kind: 'selected',
-    readiness: 'startup_pending',
     persistedSelection: 'updated',
-    startupResume: {
-        startup: 'completed',
-        epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH },
-    },
+    epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH },
     ...overrides,
 });
 
@@ -160,10 +156,7 @@ describe('ServerSelectRuntimeCoordinator', () => {
         const ports = createPorts({
             discoverServers: jest.fn().mockResolvedValue(servers),
             selectServer: jest.fn().mockResolvedValue(selectedResult({
-                startupResume: {
-                    startup: 'completed',
-                    epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
-                },
+                epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
             })),
             getSelectedServerScreenState: jest.fn(() => makeScreenState({ selectedServerId: 'srv-1' })),
         } as Partial<RuntimePorts>);
@@ -264,10 +257,7 @@ describe('ServerSelectRuntimeCoordinator', () => {
         const ports = createPorts({
             discoverServers: jest.fn().mockResolvedValue([server]),
             selectServer: jest.fn().mockResolvedValue(selectedResult({
-                startupResume: {
-                    startup: 'completed',
-                    epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
-                },
+                epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
             })),
         } as Partial<RuntimePorts>);
         const { runtime, adapter } = createRuntime({ ports });
@@ -320,10 +310,7 @@ describe('ServerSelectRuntimeCoordinator', () => {
         const ports = createPorts({
             discoverServers: jest.fn().mockResolvedValue([server]),
             selectServer: jest.fn().mockResolvedValue(selectedResult({
-                startupResume: {
-                    startup: 'completed',
-                    epgRefresh: { kind: 'degraded', result },
-                },
+                epgRefresh: { kind: 'degraded', result },
             })),
         } as Partial<RuntimePorts>);
         const { runtime, adapter } = createRuntime({ ports });
@@ -345,17 +332,14 @@ describe('ServerSelectRuntimeCoordinator', () => {
         const ports = createPorts({
             discoverServers: jest.fn().mockResolvedValue([server]),
             selectServer: jest.fn().mockResolvedValue(selectedResult({
-                startupResume: {
-                    startup: 'completed',
-                    epgRefresh: {
-                        kind: 'superseded',
-                        result: {
-                            ...READY_EPG_REFRESH,
-                            readiness: 'superseded',
-                            attemptedChannelCount: 0,
-                            immediateReadyChannelCount: 0,
-                            firstVisibleScheduleReady: false,
-                        },
+                epgRefresh: {
+                    kind: 'superseded',
+                    result: {
+                        ...READY_EPG_REFRESH,
+                        readiness: 'superseded',
+                        attemptedChannelCount: 0,
+                        immediateReadyChannelCount: 0,
+                        firstVisibleScheduleReady: false,
                     },
                 },
             })),

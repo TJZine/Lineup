@@ -20,6 +20,7 @@ import type { IDisposable } from '../../../utils/interfaces';
 import type { AppErrorCode } from '../../../types/app-errors';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { EpgScheduleRefreshOutcome } from '../../../shared/epgRefresh';
+import type { SelectedServerQuarantineCommandState } from '../../server-selection/SelectedServerQuarantineRecoveryState';
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;
@@ -45,17 +46,11 @@ export type AppShellServerSelectionResult =
     }
     | {
         kind: 'selected';
-        readiness: 'ready' | 'startup_pending';
         persistedSelection:
             | 'updated'
             | 'skipped_missing_credentials'
             | 'skipped_corrupted_credentials';
-        startupResume: {
-            startup: 'completed' | 'skipped_no_coordinator';
-            epgRefresh:
-                | EpgScheduleRefreshOutcome
-                | { kind: 'skipped_no_coordinator' };
-        };
+        epgRefresh: EpgScheduleRefreshOutcome;
     };
 
 export type AppShellChannelSetupRerunRequestResult =
@@ -145,4 +140,7 @@ export interface AppShellOrchestratorRuntime
     ): IDisposable;
     getRecoveryActions(errorCode: AppErrorCode): BlockingErrorOverlayAction[];
     setNowPlayingHandler(handler: ((toast: ToastInput) => void) | null): void;
+    getQuarantineState(): SelectedServerQuarantineCommandState;
+    retryQuarantineRecovery(): Promise<void>;
+    exitQuarantine(): Promise<void>;
 }

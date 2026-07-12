@@ -8,6 +8,7 @@ type StartupQueuedWaiter = {
     reject: (err: unknown) => void;
     onAbort?: (() => void) | undefined;
     signal?: AbortSignal | null | undefined;
+    preferredSignalOwner: boolean;
 };
 
 export type StartupQueuedWork = {
@@ -23,14 +24,20 @@ export class InitializationStartupQueue {
         return this._queuedPhase;
     }
 
-    queue(phase: StartupPhase, signal: AbortSignal | null | undefined): Promise<void> {
+    queue(
+        phase: StartupPhase,
+        signal: AbortSignal | null | undefined,
+        preferredSignalOwner = false
+    ): Promise<void> {
         throwIfStartupAborted(signal);
         this._queuedPhase = this._queuedPhase === null
             ? phase
             : (Math.min(this._queuedPhase, phase) as StartupPhase);
 
         return new Promise((resolve, reject) => {
-            const waiter: StartupQueuedWaiter = { phase, consumed: false, resolve, reject };
+            const waiter: StartupQueuedWaiter = {
+                phase, consumed: false, resolve, reject, preferredSignalOwner,
+            };
             if (signal) {
                 waiter.onAbort = (): void => {
                     this._waiters = this._waiters.filter((queuedWaiter) => queuedWaiter !== waiter);
@@ -53,7 +60,8 @@ export class InitializationStartupQueue {
         const samePhaseWaiters = this._waiters.filter(
             (waiter) => !waiter.consumed && waiter.phase === phase
         );
-        const owner = samePhaseWaiters.find((waiter) => waiter.signal) ?? samePhaseWaiters[0];
+        const owner = samePhaseWaiters.find((waiter) => waiter.signal && waiter.preferredSignalOwner)
+            ?? samePhaseWaiters[0];
         this._waiters.forEach((waiter) => {
             if (!waiter.consumed) {
                 waiter.consumed = true;

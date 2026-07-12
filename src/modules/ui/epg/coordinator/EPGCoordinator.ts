@@ -19,7 +19,6 @@ import {
 import { reportLibraryFilterPersistenceResult } from './EPGLibraryFilterPersistenceDiagnostics';
 import { countLibraryTypeVotes } from './EPGLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
-import { toEpgChannels } from '../model/adapters';
 import type { IEPGDebugRuntime } from '../debug/EPGDebugRuntime';
 import type {
     EpgChannelSwitchOptions,
@@ -28,6 +27,14 @@ import type {
     EpgScheduleRefreshResult,
     EpgUiStatus,
 } from './EPGCoordinatorContracts';
+import {
+    createEpgChannelPrimePublication,
+    EPGChannelPrimePublisher,
+} from './EPGChannelPrimePublisher';
+import {
+    createEpgRetainedOperationContext,
+    type EpgRetainedOperationContext,
+} from '../runtime/EPGRetainedOperationContext';
 
 export interface EPGCoordinatorDeps {
     getEpg: () => IEPGComponent | null;
@@ -68,6 +75,7 @@ const QA_003B_ISSUE_ID = 'QA-003b';
 export class EPGCoordinator {
     private readonly _epgPreferencesStore: EpgPreferencesStore;
     private readonly _refreshController: EPGRefreshController;
+    private readonly _primePublisher: EPGChannelPrimePublisher;
     private _openRequestId = 0;
     private _lastReportedVisibility: boolean | null = null;
     private _guideSelectionRequestId = 0;
@@ -75,6 +83,7 @@ export class EPGCoordinator {
 
     constructor(private readonly deps: EPGCoordinatorDeps) {
         this._epgPreferencesStore = deps.epgPreferencesStore;
+        this._primePublisher = new EPGChannelPrimePublisher(() => this.deps.getEpg());
         this._refreshController = new EPGRefreshController({
             getEpg: (): IEPGComponent | null => this.deps.getEpg(),
             getChannelManager: (): IChannelManager | null => this.deps.getChannelManager(),
@@ -317,35 +326,26 @@ export class EPGCoordinator {
         }
     }
 
-    primeEpgChannels(): void {
+    primeEpgChannels(operationContext?: EpgRetainedOperationContext): void {
         const epg = this.deps.getEpg();
         const channelManager = this.deps.getChannelManager();
         if (!epg || !channelManager) return;
         if (this.deps.getEpgUiStatus() !== 'ready') return;
-        const all = channelManager.getAllChannels();
-        const { selectedId, tabsEnabled, shouldFilter, libraries, shouldClearPersistedSelection } = computeNormalizedLibraryFilterState(
-            all,
-            this._epgPreferencesStore.readScheduleRangeSnapshotAndClean()
-        );
-        if (shouldClearPersistedSelection) {
-            reportLibraryFilterPersistenceResult(this.deps.appendIssueDiagnostic, this._epgPreferencesStore.writeSelectedLibraryId(null), null, 'prime-epg-channels');
+        const operation = operationContext?.retain('prime-epg-channels')
+            ?? createEpgRetainedOperationContext([{ assertCurrent: (): void => undefined }]);
+        try {
+            operation.assertCurrent();
+            const publication = createEpgChannelPrimePublication({
+                channelManager,
+                preferencesStore: this._epgPreferencesStore,
+                appendIssueDiagnostic: this.deps.appendIssueDiagnostic,
+                getVisibleHours: (channels, selectedId, shouldFilter): number =>
+                    this._getVisibleHoursForCurrentFilter(channels, selectedId, shouldFilter),
+            });
+            this._primePublisher.publish(publication, operation);
+        } finally {
+            operation.release();
         }
-
-        // Tabs (only show if enabled; EPGComponent will hide if <=1 library)
-        if (tabsEnabled) {
-            epg.setLibraryTabs(libraries, selectedId);
-        } else {
-            epg.setLibraryTabs([], null);
-        }
-
-        const layoutMode = this._epgPreferencesStore.readLayoutModeAndClean('classic');
-        const nowWatchingEnabled = this._epgPreferencesStore.readNowWatchingEnabledAndClean(true);
-        epg.setLayoutMode(layoutMode);
-        epg.setNowWatchingBannerEnabled(nowWatchingEnabled);
-        epg.setVisibleHours(this._getVisibleHoursForCurrentFilter(all, selectedId, shouldFilter));
-
-        const visible = selectVisibleChannelsForLibraryFilter(all, selectedId, shouldFilter);
-        epg.loadChannels(toEpgChannels(visible));
     }
 
     async refreshEpgSchedules(options?: EpgScheduleRefreshOptions): Promise<EpgScheduleRefreshResult> {

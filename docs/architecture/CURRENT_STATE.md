@@ -45,7 +45,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - focused owner for lazy-screen port assembly at the app-shell boundary
 - builds screen-specific port contracts for deferred screens while delegating runtime operations through app-shell-owned runtime port contracts (`AppShellRuntimeContracts`)
-- owns the app-shell/server-select projection of selected-server results; success preserves readiness, persistence, and startup-resume details in the app-shell-owned contract without importing the core `OrchestratorServerSelectionResult`
+- owns the app-shell/server-select projection of selected-server results; success preserves only the exact persistence and EPG-refresh outcome in the app-shell-owned contract without importing the core `OrchestratorServerSelectionResult`
 - owns the channel-setup screen's selected-server projection as runtime state (`getSelectedServerId`) only; channel setup UI must not construct `ServerSelectionStore` or consume selected-server storage-key getters
 - keeps `src/App.ts` at composition wiring by replacing the previous inline lazy-screen runtime object-literal assembly
 
@@ -83,14 +83,17 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - focused startup sequencing collaborator between app shell and orchestrator
 - owns each startup pass's opaque Plex-auth guard through discovery, runtime/EPG work, routing, event wiring, ready/lifecycle publication, queued continuation, resume cleanup, and guarded warmup scheduling
 - every separate phase entry validates stored credentials first; same-pass queued work retains its guard, while queued work after supersession re-enters validation under a fresh lineage
+- `InitializationSelectedServerTransaction` owns selected-server auth/server gating, runtime and EPG preparation, raw EPG outcome mapping, initial-tune routing under an opaque lineage, and the commit boundary that withholds event wiring, routing, ready/lifecycle-ready state, and resume cleanup on stop or failure
+- `InitializationStartupHandoff` stamps selected-server work and ordinary/queued startup requests with opaque initialization-owned lineage. A stale selection may await only a strictly newer startup settlement associated with its exact lineage; it does not consume that startup's result or infer ownership from server-selection serialization
 
 ### `src/core/server-selection/`
 
 - focused server-selection collaborators shared between app shell and orchestrator
-- `ServerSelectionCoordinator.selectServer()` owns the full core/orchestrator selected-server workflow/result contract, including discovery-result translation, transactional persistence handoff, rollback, selected-server readiness, persistence status, and selected-server startup-resume invocation
+- `ServerSelectionCoordinator.selectServer()` serializes the full selected-server transaction, retains the exact discovery receipt plus opaque persistence evidence across every continuation, suspends/drains ordinary tuning before scope work, and is the sole production constructor of `{ kind: 'selected', persistedSelection, epgRefresh }`
 - app-shell/server-select callers consume the narrowed app-shell result owned by `src/core/app-shell/runtime/AppShellRuntimeContracts.ts` and adapted through `src/core/app-shell/deferred-screens/AppLazyScreenPortFactory.ts`
-- `SelectedServerPersistenceAdapter` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port
-- `SelectedServerRuntimeController` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper invoked by that flow; it does not own the app-shell orchestration path itself
+- `SelectedServerPersistenceAdapter` owns strict opaque evidence for candidate persistence and exact selected/unselected rollback proof, rejecting port, profile, envelope, and partial-pair drift; clear-selection persistence remains a separate focused command
+- rollback restores discovery first for a fresh selected or unselected receipt, then proves persistence and runs the matching runtime restoration. Retained discovery snapshots remain reusable for Retry only within their original storage/profile namespace; a real namespace change permanently invalidates them. Failure enters `SelectedServerQuarantineRecoveryState`, keeps tuning/resolution suspended, blocks further selection, and exposes awaited Retry/Exit command state; protected-modal presentation and navigation policy remain outside this owner
+- `SelectedServerRuntimeController` owns only the ordered persisted-selection then discovery clear command; it does not own selected startup, EPG mapping, or rollback
 
 ### `src/Orchestrator.ts`
 
@@ -207,7 +210,7 @@ after this extraction.
 - `src/modules/plex/library/`
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
-- `src/modules/plex/discovery/PlexDiscoverySelectionContext.ts` owns discovery-local monotonic context validity, per-invocation latest-selection authority, and snapshot lineage. `PlexServerDiscovery` captures or advances that authority for selection, initialization, storage/profile transitions, clear, and snapshot restore; supersession is a typed discovery rejection exposed only through its public error and narrow predicate, while callers retain no counter or validity authority.
+- `src/modules/plex/discovery/PlexDiscoverySelectionContext.ts` owns discovery-local monotonic context validity, per-invocation latest-selection authority, snapshot lineage, and opaque selected/restored-scope receipts with discovery-owned invalidation signals. `PlexDiscoverySelectionState.ts` owns receipt-aware selected-state commit, snapshot restore, current-receipt capture, clear ordering, and synchronous listener gates; `PlexServerDiscovery` delegates those transitions while capturing or advancing discovery authority for selection, initialization, and storage/profile transitions. Supersession is a typed discovery rejection exposed only through its public error and narrow predicate, while callers retain no counter, receipt construction, or mutation authority.
 - selected-server mutation order remains state, selected-id storage, `serverChange`, `connectionChange`, health storage, then success. Each suffix is context-guarded, including synchronous listener re-entry; caller abort is observed before selection-context validity, and standalone connection-probe contracts are unchanged.
 - `src/modules/plex/library/PlexLibraryRequestScope.ts` owns the library-local
   immutable server URI/auth-header/opaque-key/version snapshot, exact private
@@ -281,7 +284,9 @@ after this extraction.
 	  `import-export/ChannelImportExportService.ts` owns import/export orchestration,
 	  `persistence/ChannelPersistenceCoordinator.ts` owns manager-facing persistence
 	  coordination, `resolution/ChannelResolutionCache.ts` owns resolved-content clone/stale
-	  policy, `resolution/ChannelRetryScheduler.ts` owns retry timers, and
+	  policy, `resolution/ChannelRetryScheduler.ts` owns retry timers,
+	  `resolution/ChannelResolutionOperationContext.ts` owns cancel-first resolution-scope
+	  supersession and drain, and
 	  `persistence/ChannelPersistenceSaveQueue.ts` owns debounced save promise/timer/warning
 	  orchestration through callbacks while delegating warning backoff timing to
 	  `src/utils/persistenceWarningBackoffPolicy.ts`. `import-export/ChannelImportNormalizer.ts`
@@ -290,11 +295,18 @@ after this extraction.
 - `src/modules/scheduler/channel-manager/resolution/ContentResolver.ts` remains the
 	  package-local source-resolution orchestration entrypoint consumed by
 	  `ChannelManager`, while `resolution/SourceResolutionCache.ts` owns source-result
-	  cache/in-flight coalescing, `resolution/ContentItemMapper.ts` owns Plex item mapping and
+	  cache/in-flight coalescing under opaque entry/waiter authorities from
+	  `resolution/SourceResolutionEntryAuthority.ts`, `resolution/ContentItemMapper.ts` owns Plex item mapping and
 	  media metadata normalization, and `resolution/ContentSelectionPolicy.ts` owns filtering,
 	  sorting, content-level random playback mode, and delegation to the shared
-  scheduler playback-ordering owner for common sequential/shuffle/block
-  ordering
+	  scheduler playback-ordering owner for common sequential/shuffle/block
+	  ordering
+- `src/core/channel-tuning/ChannelTuningCoordinator.ts` remains the channel-switch
+  workflow owner. `ChannelTuningOperationContext.ts` owns general admission and
+  retained suspension currentness, `ChannelInitialTuneAuthority.ts` owns opaque
+  single-use initialization lineage/permits, and ChannelManager mints the matching
+  channel-bound one-use resolution authorization while its general resolution
+  scope remains suspended.
 
 ### Player
 
@@ -357,6 +369,7 @@ after this extraction.
 - `src/modules/ui/epg/startup/buildEPGStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/initialization/InitializationCoordinator.ts`
 - `src/modules/ui/epg/index.ts` is a bounded cross-module seam and no longer re-exports EPG view/util leaf symbols
 - `src/modules/ui/epg/coordinator/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through the scoped selected-library filter API on `EpgPreferencesStore`
+- `EPGRetainedOperationContext` carries opaque selected-server transaction authority through EPG channel priming and schedule refresh. `EPGChannelPrimePublisher` owns the ordered, currentness-gated prime publication; visible-range requests coalesce only within one authority; and detached background refresh retains that authority through queue settlement so superseded work cannot publish UI, diagnostics, cache, loaded-marker, focus, or result suffixes
 - `src/modules/ui/epg/` keeps one package root seam at `src/modules/ui/epg/index.ts`; view and runtime subfolder barrels were removed, so package-local consumers import view/runtime leaf owners directly. `src/modules/ui/epg/view/EPGVirtualizer.ts` remains the current virtualized-grid owner, runtime/focus-imported grid/navigation leaves stay at the view root, and approved owner folders live under `src/modules/ui/epg/view/cells/`, `src/modules/ui/epg/view/info-panel/`, and `src/modules/ui/epg/view/shell/`. `src/modules/ui/epg/view/EPGEpisodeTitlePresentation.ts` owns shared episode show/title display policy for EPG view callers. `src/modules/ui/epg/view/cells/EPGCellRenderer.ts` owns cell DOM rendering and secondary-text clear/apply state, `src/modules/ui/epg/view/cells/EPGCellPresentation.ts` stays pure cell presentation policy, and the EPG package split continues to stage leaf owners under `src/modules/ui/epg/component/`, `src/modules/ui/epg/coordinator/`, `src/modules/ui/epg/startup/`, `src/modules/ui/epg/debug/`, `src/modules/ui/epg/view/`, `src/modules/ui/epg/runtime/`, and `src/modules/ui/epg/model/`
 - overlay package roots (`now-playing-info`, `player-osd`, `mini-guide`, `channel-transition`, `playback-options`, `exit-confirm`) are the intended cross-module seams for coordinator/value imports used by core/app-shell wiring
 - `src/core/app-shell/chrome/AppContainerFactory.ts` materializes a bounded `runtime-chrome-host` under `#app`, canonicalizes app-shell-owned containers plus app-materialized feature mount nodes at document scope, and reparents exactly `player-osd`, `channel-number-overlay`, `channel-badge`, `mini-guide`, and `channel-transition` into that host; the host owns shell-plane structure only, while feature packages keep their DOM markup, visibility, and local z-index ownership

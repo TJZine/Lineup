@@ -7,6 +7,7 @@ import type {
 } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow } from '../../../scheduler/scheduler';
 import type { IEPGComponent } from '../interfaces';
+import { createEpgRetainedOperationContext } from '../runtime/EPGRetainedOperationContext';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -167,6 +168,43 @@ const settleBackgroundRefresh = async (runtime: EPGScheduleRefreshRuntime): Prom
 };
 
 describe('EPGScheduleRefreshRuntime', () => {
+    it('makes the stateful publication suffix inert when transaction authority is superseded', async () => {
+        const authorityController = new AbortController();
+        const superseded = new DOMException('server transaction superseded', 'AbortError');
+        const operation = createEpgRetainedOperationContext([{
+            signal: authorityController.signal,
+            assertCurrent: (): void => {
+                if (authorityController.signal.aborted) throw authorityController.signal.reason;
+            },
+        }]);
+        let resolveContent: ((value: ResolvedChannelContent) => void) | null = null;
+        const { runtime, epg, deps } = createRuntime({
+            channelManager: {
+                resolveChannelContent: jest.fn(() => new Promise<ResolvedChannelContent>((resolve) => {
+                    resolveContent = resolve;
+                })),
+            },
+        });
+
+        const refresh = runtime.refreshForRange(
+            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            'server-swap',
+            { operationContext: operation }
+        );
+        await Promise.resolve();
+        authorityController.abort(superseded);
+        (resolveContent as unknown as (value: ResolvedChannelContent) => void)(createResolvedContent('c1'));
+
+        await expect(refresh).rejects.toBe(superseded);
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleApplied',
+            expect.anything()
+        );
+        operation.release();
+    });
+
     it('threads server-swap into the aggressive-dependent branches', async () => {
         const computeScheduleCacheLimit = jest.fn(() => 64);
         const getScheduleLoadConcurrency = jest.fn(() => 1);

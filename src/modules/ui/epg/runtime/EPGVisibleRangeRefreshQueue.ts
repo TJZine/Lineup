@@ -2,9 +2,16 @@ import type { EpgVisibleRange } from '../types';
 import type { EpgScheduleRefreshOptions, EpgScheduleRefreshResult } from '../coordinator/EPGCoordinatorContracts';
 import { createSkippedEpgScheduleRefreshResult } from '../../../../shared/epgRefresh';
 import { readEpgRefreshAbortReason, throwIfEpgRefreshAborted } from './EPGRefreshAbort';
+import {
+    EPGGuardedVisibleRangeRefreshQueue,
+    type EpgVisibleRangeRefreshFn,
+} from './EPGGuardedVisibleRangeRefreshQueue';
 
-type RefreshFn = (range: EpgVisibleRange, reason: string, signal?: AbortSignal | null) => Promise<EpgScheduleRefreshResult>;
-
+type RefreshFn = (
+    range: EpgVisibleRange,
+    reason: string,
+    signal?: AbortSignal | null
+) => Promise<EpgScheduleRefreshResult>;
 type PendingRefreshRequest = {
     resolve: (result: EpgScheduleRefreshResult) => void;
     reject: (error: unknown) => void;
@@ -26,10 +33,20 @@ export class EPGVisibleRangeRefreshQueue {
     private _pendingReason: string | null = null;
     private _pendingRequests: PendingRefreshRequest[] = [];
     private _activeRefreshBatches = new Set<ActiveRefreshBatch>();
+    private readonly _guardedQueue: EPGGuardedVisibleRangeRefreshQueue;
 
-    constructor(private readonly _refreshFn: RefreshFn) { }
+    constructor(
+        private readonly _refreshFn: RefreshFn,
+        guardedRefreshFn?: EpgVisibleRangeRefreshFn
+    ) {
+        this._guardedQueue = new EPGGuardedVisibleRangeRefreshQueue(
+            guardedRefreshFn ?? ((range, reason, options): Promise<EpgScheduleRefreshResult> =>
+                _refreshFn(range, reason, options?.signal))
+        );
+    }
 
     cancelPendingRefresh(): void {
+        this._guardedQueue.cancel();
         const hadQueuedRefresh = this._timer !== null || this._pendingRange !== null;
         if (!hadQueuedRefresh && this._activeRefreshBatches.size === 0) {
             return;
@@ -55,6 +72,9 @@ export class EPGVisibleRangeRefreshQueue {
         throwIfEpgRefreshAborted(signal);
         const debounceMs = Math.max(0, options?.debounceMs ?? 80);
         const reason = options?.reason ?? 'visible-range';
+        if (options?.operationContext) {
+            return this._guardedQueue.request(range, reason, debounceMs, signal, options.operationContext);
+        }
 
         if (debounceMs === 0) {
             return this._runImmediateAndPreemptQueued(range, reason, signal);

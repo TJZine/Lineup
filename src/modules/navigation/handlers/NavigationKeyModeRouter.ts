@@ -47,6 +47,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
     handleLongPressBack(): void {
         const navigation = this.deps.navigation;
         if (navigation.isInputBlocked()) return;
+        if (navigation.getActiveModalPolicy?.()?.blocksBackgroundCommands === true) return;
 
         this.deps.epg?.hide();
         while (navigation.isModalOpen()) {

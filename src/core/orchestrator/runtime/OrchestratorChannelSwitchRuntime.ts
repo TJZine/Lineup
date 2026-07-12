@@ -4,6 +4,11 @@ import type { IChannelScheduler } from '../../../modules/scheduler/scheduler';
 import { isAbortLikeError } from '../../../utils/errors';
 import { CHANNEL_SWITCH_OUTCOME } from '../../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
+import type { OperationContextUpstream } from '../../../utils/RetainedOperationContext';
+import type {
+    ChannelInitialTuneLineage,
+    ChannelInitialTunePermit,
+} from '../../channel-tuning/ChannelInitialTuneAuthority';
 import type {
     ChannelSwitchOptions,
     ChannelTuningCoordinator,
@@ -21,6 +26,39 @@ export interface OrchestratorChannelSwitchRuntimeDeps {
 
 export class OrchestratorChannelSwitchRuntime {
     constructor(private readonly _deps: OrchestratorChannelSwitchRuntimeDeps) {}
+
+    async suspendAndDrainForScopeTransition(): Promise<void> {
+        this._deps.assertNotShutdown('suspendAndDrainForScopeTransition');
+        await this._deps.getChannelTuning()?.suspendAndDrainForScopeTransition();
+    }
+
+    resumeAfterScopeTransition(): void {
+        this._deps.assertNotShutdown('resumeAfterScopeTransition');
+        this._deps.getChannelTuning()?.resumeAfterScopeTransition();
+    }
+
+    beginInitialTuneLineage(
+        validators: readonly OperationContextUpstream[]
+    ): ChannelInitialTuneLineage {
+        const tuning = this._requireChannelTuning('beginInitialTuneLineage');
+        return tuning.beginInitialTuneLineage(validators);
+    }
+
+    mintInitialTunePermit(lineage: ChannelInitialTuneLineage): ChannelInitialTunePermit {
+        return this._requireChannelTuning('mintInitialTunePermit').mintInitialTunePermit(lineage);
+    }
+
+    completeInitialTuneLineage(lineage: ChannelInitialTuneLineage): void {
+        this._requireChannelTuning('completeInitialTuneLineage').completeInitialTuneLineage(lineage);
+    }
+
+    switchToInitialChannel(
+        channelId: string,
+        permit: ChannelInitialTunePermit
+    ): Promise<ChannelSwitchOutcome> {
+        return this._requireChannelTuning('switchToInitialChannel')
+            .switchToInitialChannel(channelId, permit);
+    }
 
     async switchToChannel(channelId: string, options?: ChannelSwitchOptions): Promise<void> {
         this._deps.assertNotShutdown('switchToChannel');
@@ -100,6 +138,7 @@ export class OrchestratorChannelSwitchRuntime {
     }
 
     switchToNextChannel(): void {
+        if (this._deps.getChannelTuning()?.isSuspended()) return;
         const channelManager = this._deps.getChannelManager();
         if (!channelManager) return;
 
@@ -117,6 +156,7 @@ export class OrchestratorChannelSwitchRuntime {
     }
 
     switchToPreviousChannel(): void {
+        if (this._deps.getChannelTuning()?.isSuspended()) return;
         const channelManager = this._deps.getChannelManager();
         if (!channelManager) return;
 
@@ -154,5 +194,13 @@ export class OrchestratorChannelSwitchRuntime {
             `${context}: channel tuning unavailable`,
             { missingModules }
         );
+    }
+
+    private _requireChannelTuning(method: string): ChannelTuningCoordinator {
+        this._deps.assertNotShutdown(method);
+        const tuning = this._deps.getChannelTuning();
+        if (tuning) return tuning;
+        this._logMissingChannelTuningDependencies(method);
+        throw new Error(`${method}: channel tuning unavailable`);
     }
 }

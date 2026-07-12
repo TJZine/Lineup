@@ -1,5 +1,6 @@
 import { PlexServer, PlexConnection, PlexDiscoverySelectedServerSnapshot } from './types';
 import { IDisposable } from '../../../utils/interfaces';
+import type { PlexDiscoverySelectionReceipt } from './PlexDiscoverySelectionContext';
 
 export type PlexServerSelectionFailureReason =
     | 'unreachable'
@@ -7,15 +8,15 @@ export type PlexServerSelectionFailureReason =
     | 'access_denied';
 
 export type PlexServerSelectionResult =
-    | { kind: 'selected' }
+    | { kind: 'selected'; receipt: PlexDiscoverySelectionReceipt }
     | { kind: 'server_not_found' }
     | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
 export type PlexSavedServerRestoreResult =
     | { kind: 'skipped_no_servers' }
     | { kind: 'skipped_no_saved_server' }
-    | { kind: 'already_selected'; serverId: string }
-    | { kind: 'selected'; serverId: string }
+    | { kind: 'already_selected'; serverId: string; receipt: PlexDiscoverySelectionReceipt }
+    | { kind: 'selected'; serverId: string; receipt: PlexDiscoverySelectionReceipt }
     | {
         kind: 'selection_failed';
         serverId: string;
@@ -87,7 +88,12 @@ export interface IPlexServerDiscovery {
      * Restore selected-server state captured by captureSelectedServerSnapshot.
      * Throws PlexDiscoverySelectionSupersededError when the snapshot belongs to an older storage context.
      */
-    restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void;
+    restoreSelectedServerSnapshot(
+        snapshot: PlexDiscoverySelectedServerSnapshot
+    ): PlexDiscoverySelectionReceipt;
+    captureCurrentSelectionReceipt(): PlexDiscoverySelectionReceipt | null;
+    getSelectionReceiptSignal(receipt: PlexDiscoverySelectionReceipt): AbortSignal;
+    assertSelectionReceiptCurrent(receipt: PlexDiscoverySelectionReceipt): void;
     getServers(): PlexServer[];
     isConnected(): boolean;
 

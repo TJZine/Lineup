@@ -10,6 +10,8 @@ import type {
 import type { PlexMediaFile } from '../../../plex/library';
 import type { PlexMediaType } from '../../../plex/shared/types';
 import type { IDisposable } from '../../../../utils/interfaces';
+import type { OperationContextUpstream } from '../../../../utils/RetainedOperationContext';
+import type { ChannelInitialResolutionAuthorization } from './ChannelResolutionAuthority';
 
 export interface IChannelManager {
     /**
@@ -37,6 +39,22 @@ export interface IChannelManager {
      * active persistence keys or deleting persisted channel data.
      */
     clearRuntimeState(): void;
+
+    supersedeActiveResolutions(): Promise<void>;
+
+    resumeActiveResolutions(): void;
+
+    clearRuntimeStateForScopeTransition(): Promise<void>;
+
+    createInitialTuneResolutionAuthorization(
+        channelId: string,
+        validator: OperationContextUpstream
+    ): ChannelInitialResolutionAuthorization;
+
+    resolveChannelContentForInitialTune(
+        channelId: string,
+        authorization: ChannelInitialResolutionAuthorization
+    ): Promise<ResolvedChannelContent>;
 
     getChannelByNumber(number: number): ChannelConfig | null;
 

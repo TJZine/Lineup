@@ -16,6 +16,31 @@ const createDeps = (
 } as jest.Mocked<OrchestratorChannelSwitchRuntimeDeps>);
 
 describe('OrchestratorChannelSwitchRuntime', () => {
+    it('delegates suspension and gates next/previous channel adapters while suspended', async () => {
+        const channelTuning = {
+            suspendAndDrainForScopeTransition: jest.fn().mockResolvedValue(undefined),
+            isSuspended: jest.fn().mockReturnValue(true),
+            switchToChannel: jest.fn(),
+        };
+        const channelManager = {
+            getNextChannel: jest.fn(),
+            getPreviousChannel: jest.fn(),
+        };
+        const runtime = new OrchestratorChannelSwitchRuntime(createDeps({
+            getChannelTuning: jest.fn(() => channelTuning as never),
+            getChannelManager: jest.fn(() => channelManager as never),
+        }));
+
+        await runtime.suspendAndDrainForScopeTransition();
+        runtime.switchToNextChannel();
+        runtime.switchToPreviousChannel();
+
+        expect(channelTuning.suspendAndDrainForScopeTransition).toHaveBeenCalledTimes(1);
+        expect(channelManager.getNextChannel).not.toHaveBeenCalled();
+        expect(channelManager.getPreviousChannel).not.toHaveBeenCalled();
+        expect(channelTuning.switchToChannel).not.toHaveBeenCalled();
+    });
+
     it('checks shutdown before number-based outcome switches read channel tuning', async () => {
         const shutdownError = Object.assign(
             new Error('AppOrchestrator cannot be used after shutdown; create a new instance.'),

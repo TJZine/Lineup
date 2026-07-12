@@ -160,9 +160,8 @@ export class AppLazyScreenPortFactory {
                     case 'selected':
                         return {
                             kind: 'selected',
-                            readiness: result.readiness,
                             persistedSelection: result.persistedSelection,
-                            startupResume: result.startupResume,
+                            epgRefresh: result.epgRefresh,
                         };
                     default:
                         return assertUnhandledServerSelectionResult(result);

@@ -1,10 +1,15 @@
 import type { LifecycleAppError } from '../../../modules/lifecycle/types';
-import type { INavigationManager } from '../../../modules/navigation';
+import type { INavigationManager, NavigationModalPolicy } from '../../../modules/navigation';
 
 export interface BlockingErrorOverlayAction {
+    id?: string;
     label: string;
     isPrimary: boolean;
     action: () => void | Promise<void>;
+}
+
+export interface BlockingErrorOverlayPresentationOptions {
+    modalPolicy?: NavigationModalPolicy;
 }
 
 export interface AppBlockingErrorOverlayPresenterOptions {
@@ -19,6 +24,9 @@ export class AppBlockingErrorOverlayPresenter {
     private _focusableIds: string[] = [];
     private _preferredFocusId: string | null = null;
     private _modalCloseHandler: ((payload: { modalId: string }) => void) | null = null;
+    private _presentationVersion = 0;
+    private _actionPending = false;
+    private _modalPolicy: NavigationModalPolicy | undefined;
 
     constructor(options: AppBlockingErrorOverlayPresenterOptions) {
         this._getNavigation = options.getNavigation;
@@ -50,6 +58,8 @@ export class AppBlockingErrorOverlayPresenter {
 
         const content = document.createElement('div');
         content.className = 'error-content';
+        content.setAttribute('role', 'dialog');
+        content.setAttribute('aria-modal', 'true');
 
         const title = document.createElement('h2');
         title.className = 'error-title';
@@ -64,6 +74,11 @@ export class AppBlockingErrorOverlayPresenter {
         const actionsContainer = document.createElement('div');
         actionsContainer.className = 'error-actions';
 
+        const status = document.createElement('p');
+        status.className = 'error-recovery-status';
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
+
         const nav = this._getNavigation();
         if (nav) {
             this._teardownNavigation(nav);
@@ -75,11 +90,12 @@ export class AppBlockingErrorOverlayPresenter {
         for (const action of actions) {
             const id = `error-overlay-action-${focusableIds.length}`;
             const button = document.createElement('button');
+            button.id = id;
+            button.dataset.action = action.id ?? this._toStableActionId(action.label);
             button.className = action.isPrimary ? 'error-button primary' : 'error-button secondary';
             button.textContent = action.label;
             button.addEventListener('click', () => {
-                this.hide();
-                void action.action();
+                void this._runAction(action, status, button);
             });
 
             if (action.isPrimary && !primaryButton) {
@@ -100,6 +116,7 @@ export class AppBlockingErrorOverlayPresenter {
         }
 
         content.appendChild(actionsContainer);
+        content.appendChild(status);
         this._container.appendChild(content);
 
         (primaryButton ?? actionsContainer.querySelector('button'))?.focus();
@@ -109,12 +126,21 @@ export class AppBlockingErrorOverlayPresenter {
         this._preferredFocusId = focusableIds[primaryIndex] ?? focusableIds[0] ?? null;
     }
 
-    show(error: LifecycleAppError, actions: BlockingErrorOverlayAction[]): void {
+    show(
+        error: LifecycleAppError,
+        actions: BlockingErrorOverlayAction[],
+        options?: BlockingErrorOverlayPresentationOptions
+    ): void {
         if (this._container === null) {
             return;
         }
 
         const nav = this._getNavigation();
+        nav?.cancelPendingChannelInput();
+        this._presentationVersion += 1;
+        this._actionPending = false;
+        this._modalPolicy = options?.modalPolicy;
+        this._container.removeAttribute('aria-busy');
         const modalWasOpen = nav?.isModalOpen(this._modalId) ?? false;
         if (nav && modalWasOpen) {
             if (this._modalCloseHandler) {
@@ -138,7 +164,11 @@ export class AppBlockingErrorOverlayPresenter {
             }
             nav.on('modalClose', this._modalCloseHandler);
             if (!nav.isModalOpen(this._modalId)) {
-                nav.openModal(this._modalId, this._focusableIds);
+                if (this._modalPolicy) {
+                    nav.openModal(this._modalId, this._focusableIds, this._modalPolicy);
+                } else {
+                    nav.openModal(this._modalId, this._focusableIds);
+                }
             }
             const preferred = this._preferredFocusId ?? this._focusableIds[0] ?? null;
             if (preferred) {
@@ -148,8 +178,11 @@ export class AppBlockingErrorOverlayPresenter {
     }
 
     hide(options?: { fromModalClose?: boolean }): void {
+        this._presentationVersion += 1;
+        this._actionPending = false;
         if (this._container) {
             this._container.classList.add('hidden');
+            this._container.removeAttribute('aria-busy');
         }
 
         const nav = this._getNavigation();
@@ -168,5 +201,57 @@ export class AppBlockingErrorOverlayPresenter {
         this._focusableIds = [];
         this._preferredFocusId = null;
         this._modalCloseHandler = null;
+        this._modalPolicy = undefined;
+    }
+
+    private async _runAction(
+        action: BlockingErrorOverlayAction,
+        status: HTMLElement,
+        selectedButton: HTMLButtonElement
+    ): Promise<void> {
+        if (this._actionPending) {
+            return;
+        }
+        this._actionPending = true;
+        const version = this._presentationVersion;
+        this._setActionsDisabled(true);
+        this._container?.setAttribute('aria-busy', 'true');
+        status.textContent = `${action.label} in progress…`;
+
+        try {
+            await action.action();
+            if (version !== this._presentationVersion) {
+                return;
+            }
+            this.hide();
+        } catch {
+            if (version !== this._presentationVersion) {
+                return;
+            }
+            this._actionPending = false;
+            this._container?.removeAttribute('aria-busy');
+            this._setActionsDisabled(false);
+            status.textContent = `${action.label} failed. Please try again.`;
+            const retryButton = this._container?.querySelector<HTMLButtonElement>('[data-action="retry"]');
+            const focusTarget = retryButton ?? selectedButton;
+            const navigation = this._getNavigation();
+            if (navigation && focusTarget.id) {
+                navigation.setFocus(focusTarget.id, { persist: false });
+            } else {
+                focusTarget.focus();
+            }
+        }
+    }
+
+    private _setActionsDisabled(disabled: boolean): void {
+        const buttons = this._container?.querySelectorAll<HTMLButtonElement>('.error-actions button') ?? [];
+        for (const button of buttons) {
+            button.disabled = disabled;
+        }
+    }
+
+    private _toStableActionId(label: string): string {
+        const id = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        return id || 'action';
     }
 }

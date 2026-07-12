@@ -10,6 +10,7 @@ import {
     FocusableElement,
     FocusGroup,
     RemoteButton, Direction,
+    NavigationModalPolicy,
 } from '../contracts/interfaces';
 import { FocusManager } from './FocusManager';
 import { RemoteHandler } from '../input/RemoteHandler';
@@ -33,8 +34,10 @@ interface NavigationInternalState {
     serverSelectParams: ServerSelectNavigationParams | null;
     modalStack: string[];
     modalFocusableIds: Map<string, string[]>;
+    modalPolicies: Map<string, NavigationModalPolicy>;
     isPointerActive: boolean;
     isInputBlocked: boolean;
+    isRuntimeCommandGated: boolean;
 }
 
 export interface NavigationManagerOptions {
@@ -96,6 +99,8 @@ export class NavigationManager
         });
         this._remoteInputRouter = new NavigationRemoteInputRouter({
             isInputBlocked: (): boolean => this._state.isInputBlocked,
+            isRuntimeCommandGated: (): boolean => this._state.isRuntimeCommandGated,
+            getActiveModalPolicy: (): NavigationModalPolicy | null => this.getActiveModalPolicy(),
             logInputSuppressed: (reason, button): void => this._logInputSuppressed(reason, button),
             cancelDirectionalRepeat: (): void => this._directionalRepeatController.stop(),
             emitKeyPress: (keyEvent): void => this.emit('keyPress', keyEvent),
@@ -119,8 +124,10 @@ export class NavigationManager
             serverSelectParams: null,
             modalStack: [],
             modalFocusableIds: new Map(),
+            modalPolicies: new Map(),
             isPointerActive: false,
             isInputBlocked: false,
+            isRuntimeCommandGated: false,
         };
     }
 
@@ -193,7 +200,7 @@ export class NavigationManager
     public goTo(screen: 'server-select'): void;
     public goTo(screen: Exclude<Screen, 'server-select'>): void;
     public goTo(screen: Screen, params?: ServerSelectNavigationParams): void {
-        if (this._state.isInputBlocked) {
+        if (this._state.isInputBlocked || this._blocksBackgroundCommands()) {
             return;
         }
 
@@ -224,6 +231,9 @@ export class NavigationManager
         }
 
         if (this._state.modalStack.length > 0) {
+            if (this.getActiveModalPolicy()?.dismissOnBack === false) {
+                return false;
+            }
             this.closeModal();
             return true;
         }
@@ -256,7 +266,7 @@ export class NavigationManager
     }
 
     public replaceScreen(screen: Screen): void {
-        if (this._state.isInputBlocked) {
+        if (this._state.isInputBlocked || this._blocksBackgroundCommands()) {
             return;
         }
 
@@ -375,7 +385,14 @@ export class NavigationManager
         this._focusManager.unregisterFocusGroup(groupId);
     }
 
-    public openModal(modalId: string, focusableIds?: string[]): void {
+    public openModal(
+        modalId: string,
+        focusableIds?: string[],
+        policy: NavigationModalPolicy = {
+            dismissOnBack: true,
+            blocksBackgroundCommands: false,
+        }
+    ): void {
         if (this._state.isInputBlocked) {
             return;
         }
@@ -384,12 +401,14 @@ export class NavigationManager
             if (focusableIds && focusableIds.length > 0) {
                 this._state.modalFocusableIds.set(modalId, focusableIds);
             }
+            this._state.modalPolicies.set(modalId, { ...policy });
             return;
         }
 
         this._focusManager.savePreModalFocus();
 
         this._state.modalStack.push(modalId);
+        this._state.modalPolicies.set(modalId, { ...policy });
 
         if (focusableIds && focusableIds.length > 0) {
             this._state.modalFocusableIds.set(modalId, focusableIds);
@@ -413,6 +432,7 @@ export class NavigationManager
             }
             this._state.modalStack.splice(index, 1);
             this._state.modalFocusableIds.delete(modalId);
+            this._state.modalPolicies.delete(modalId);
             closedModalId = modalId;
         } else {
             const topModal = this._state.modalStack.pop();
@@ -420,6 +440,7 @@ export class NavigationManager
                 return;
             }
             this._state.modalFocusableIds.delete(topModal);
+            this._state.modalPolicies.delete(topModal);
             closedModalId = topModal;
         }
 
@@ -436,6 +457,31 @@ export class NavigationManager
             return this._state.modalStack.indexOf(modalId) !== -1;
         }
         return this._state.modalStack.length > 0;
+    }
+
+    public getActiveModalPolicy(): NavigationModalPolicy | null {
+        const activeModalId = this._state.modalStack[this._state.modalStack.length - 1];
+        if (activeModalId === undefined) {
+            return null;
+        }
+        const policy = this._state.modalPolicies.get(activeModalId);
+        return policy ? { ...policy } : null;
+    }
+
+    public cancelPendingChannelInput(): void {
+        this._channelNumberInputController.cancelPendingInput();
+    }
+
+    public activateRuntimeCommandGate(): void {
+        this._state.isRuntimeCommandGated = true;
+    }
+
+    public deactivateRuntimeCommandGate(): void {
+        this._state.isRuntimeCommandGated = false;
+    }
+
+    public isRuntimeCommandGated(): boolean {
+        return this._state.isRuntimeCommandGated;
     }
 
     public blockInput(): void {
@@ -538,7 +584,9 @@ export class NavigationManager
 
     private _handleBackButton(): void {
         if (this._state.modalStack.length > 0) {
-            this.closeModal();
+            if (this.getActiveModalPolicy()?.dismissOnBack !== false) {
+                this.closeModal();
+            }
             return;
         }
 
@@ -572,6 +620,10 @@ export class NavigationManager
             default:
                 break;
         }
+    }
+
+    private _blocksBackgroundCommands(): boolean {
+        return this.getActiveModalPolicy()?.blocksBackgroundCommands === true;
     }
 
     private _initializePointerMode(): void {
