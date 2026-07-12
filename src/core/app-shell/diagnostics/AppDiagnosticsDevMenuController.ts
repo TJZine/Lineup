@@ -18,7 +18,7 @@ export interface AppDiagnosticsDevMenuControllerOptions {
 
 export interface AppDiagnosticsAudioSettingsStore {
     readDirectPlayAudioFallbackEnabledAndClean: (fallback?: boolean) => boolean;
-    writeDirectPlayAudioFallbackEnabled: (enabled: boolean) => void;
+    writeDirectPlayAudioFallbackEnabled: (enabled: boolean) => { ok: true } | { ok: false };
     clearDirectPlayAudioFallbackEnabled: () => void;
 }
 
@@ -90,7 +90,18 @@ export class AppDiagnosticsDevMenuController {
         });
 
         view.saveOverridesButton.addEventListener('click', () => {
-            this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(view.directPlayAudioFallbackEl.checked);
+            const audioResult = this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(
+                view.directPlayAudioFallbackEl.checked
+            );
+            if (!audioResult.ok) {
+                view.directPlayAudioFallbackEl.checked =
+                    this._audioSettingsStore.readDirectPlayAudioFallbackEnabledAndClean();
+                this._showToast({
+                    message: 'Could not save overrides. Check device storage and try again.',
+                    type: 'warning',
+                });
+                return;
+            }
             this._debugOverridesStore.writeNowPlayingStreamDebugEnabled(view.nowPlayingStreamDebugEl.checked);
             this._debugOverridesStore.writeNowPlayingStreamDebugAutoShowEnabled(
                 view.nowPlayingStreamDebugAutoEl.checked

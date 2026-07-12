@@ -7,6 +7,7 @@ import type {
     SettingsSelectConfig,
     SettingsCategoryId,
     GuideSettingChange,
+    SettingsPersistenceResult,
 } from './types';
 import { SettingsStore } from './SettingsStore';
 import type { SubtitleMode } from '../../../shared/subtitle-mode';
@@ -24,7 +25,7 @@ export interface SettingsScreenDeps {
     onGuideSettingChange?: (change: GuideSettingChange) => void;
     getActiveUsername?: () => string | null;
     getTheme?: () => ThemeName;
-    setTheme?: (theme: ThemeName) => void;
+    setTheme?: (theme: ThemeName) => SettingsPersistenceResult;
     settingsStore?: SettingsStore;
 }
 

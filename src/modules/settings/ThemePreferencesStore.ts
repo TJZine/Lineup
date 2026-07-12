@@ -2,7 +2,9 @@ import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import {
     safeLocalStorageGet,
     safeLocalStorageRemove,
-    safeLocalStorageSet,
+    safeLocalStorageSetWithResult,
+    safeLocalStorageRemoveWithResult,
+    type SafeLocalStorageMutationResult,
 } from '../../utils/storage';
 
 export class ThemePreferencesStore {
@@ -19,12 +21,11 @@ export class ThemePreferencesStore {
         return trimmed;
     }
 
-    writeTheme(theme: string): void {
+    writeTheme(theme: string): SafeLocalStorageMutationResult {
         const trimmed = theme.trim();
         if (!trimmed) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.THEME);
-            return;
+            return safeLocalStorageRemoveWithResult(LINEUP_STORAGE_KEYS.THEME);
         }
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.THEME, trimmed);
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.THEME, trimmed);
     }
 }

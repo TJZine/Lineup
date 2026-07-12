@@ -1,5 +1,6 @@
 import { ThemePreferencesStore } from '../../../modules/settings/ThemePreferencesStore';
 import { DEFAULT_THEME, THEME_CLASSES, type ThemeName } from '../../../modules/ui/theme/themeDefinitions';
+import type { SettingsPersistenceResult } from '../../../modules/ui/settings/types';
 
 const isThemeName = (value: string | null): value is ThemeName =>
     !!value && Object.prototype.hasOwnProperty.call(THEME_CLASSES, value);
@@ -32,14 +33,19 @@ export class AppThemeController {
         return this._currentTheme;
     }
 
-    setTheme(theme: ThemeName): void {
+    setTheme(theme: ThemeName): SettingsPersistenceResult {
         if (theme === this._currentTheme) {
-            return;
+            return { ok: true };
+        }
+
+        const result = this._themePreferencesStore.writeTheme(theme);
+        if (!result.ok) {
+            return { ok: false };
         }
 
         this._currentTheme = theme;
-        this._themePreferencesStore.writeTheme(theme);
         this._applyTheme(theme);
+        return { ok: true };
     }
 
     private _applyTheme(theme: ThemeName): void {

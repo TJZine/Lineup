@@ -1,6 +1,11 @@
 import { DEFAULT_THEME, THEME_OPTIONS } from '../theme/themeDefinitions';
-import type { GuideSettingChange, SettingsCategoryConfig } from './types';
-import { SettingsStore } from './SettingsStore';
+import type {
+    GuideSettingChange,
+    SettingsCategoryConfig,
+    SettingsMutationResult,
+    SettingsPersistenceResult,
+} from './types';
+import { SettingsStore, type SettingsWriteResult } from './SettingsStore';
 import type { ThemeName } from '../theme/themeDefinitions';
 import {
     DEFAULT_SUBTITLE_MODE,
@@ -56,6 +61,7 @@ const DEFAULT_SUBTITLE_MODE_VALUE = Math.max(
     0,
     SUBTITLE_MODE_OPTIONS.findIndex((option) => option.mode === DEFAULT_SUBTITLE_MODE)
 );
+const SETTINGS_WRITE_FAILURE_MESSAGE = 'Could not save this setting. Check device storage and try again.';
 
 export interface SettingsScreenStateControllerOptions {
     settingsStore?: SettingsStore;
@@ -63,7 +69,7 @@ export interface SettingsScreenStateControllerOptions {
     onGuideSettingChange?: (change: GuideSettingChange) => void;
     onStateInvalidated?: () => void;
     getTheme?: () => ThemeName;
-    setTheme?: (theme: ThemeName) => void;
+    setTheme?: (theme: ThemeName) => SettingsPersistenceResult;
 }
 
 export class SettingsScreenStateController {
@@ -72,7 +78,7 @@ export class SettingsScreenStateController {
     private readonly _onGuideSettingChange: ((change: GuideSettingChange) => void) | null;
     private readonly _onStateInvalidated: (() => void) | null;
     private readonly _getTheme: () => ThemeName;
-    private readonly _setTheme: (theme: ThemeName) => void;
+    private readonly _setTheme: (theme: ThemeName) => SettingsPersistenceResult;
 
     public constructor(options: SettingsScreenStateControllerOptions = {}) {
         this._settingsStore = options.settingsStore ?? new SettingsStore();
@@ -80,7 +86,7 @@ export class SettingsScreenStateController {
         this._onGuideSettingChange = options.onGuideSettingChange ?? null;
         this._onStateInvalidated = options.onStateInvalidated ?? null;
         this._getTheme = options.getTheme ?? ((): ThemeName => DEFAULT_THEME);
-        this._setTheme = options.setTheme ?? ((_: ThemeName): void => undefined);
+        this._setTheme = options.setTheme ?? ((_: ThemeName): SettingsPersistenceResult => ({ ok: false }));
     }
 
     public getCategories(): SettingsCategoryConfig[] {
@@ -97,7 +103,8 @@ export class SettingsScreenStateController {
                     label: 'DTS Passthrough',
                     description: 'Enable if you have an eARC receiver',
                     value: this._settingsStore.readToggleSettingAndClean('dtsPassthrough'),
-                    onChange: (value: boolean) => this._settingsStore.writeToggleSetting('dtsPassthrough', value),
+                    onChange: (value: boolean) =>
+                        this._toMutationResult(this._settingsStore.writeToggleSetting('dtsPassthrough', value)),
                 },
                 {
                     id: 'settings-direct-play-audio-fallback',
@@ -105,7 +112,7 @@ export class SettingsScreenStateController {
                     description: 'Allow Direct Play using a compatible fallback audio track',
                     value: this._settingsStore.readToggleSettingAndClean('directPlayAudioFallback'),
                     onChange: (value: boolean) =>
-                        this._settingsStore.writeToggleSetting('directPlayAudioFallback', value),
+                        this._toMutationResult(this._settingsStore.writeToggleSetting('directPlayAudioFallback', value)),
                 },
                 {
                     id: 'settings-subtitle-mode',
@@ -116,11 +123,13 @@ export class SettingsScreenStateController {
                         label: option.label,
                         value: index,
                     })),
-                    onChange: (value: number): void => {
+                    onChange: (value: number): SettingsMutationResult<number> => {
                         const mode = this._valueToSubtitleMode(value);
-                        this._settingsStore.writeSubtitleMode(mode);
+                        const result = this._settingsStore.writeSubtitleMode(mode);
+                        if (!result.ok) return this._failedMutationResult();
                         this._onSubtitleModeChange?.(mode);
                         this._onStateInvalidated?.();
+                        return { ok: true };
                     },
                 },
                 {
@@ -134,9 +143,7 @@ export class SettingsScreenStateController {
                     })),
                     disabled: !subtitlesEnabled,
                     disabledReason: 'Enable Subtitle Mode first',
-                    onChange: (value: number): void => {
-                        this._writeSubtitleLanguageValue(value);
-                    },
+                    onChange: (value: number) => this._writeSubtitleLanguageValue(value),
                 },
                 {
                     id: 'settings-subtitles-prefer-forced',
@@ -145,9 +152,8 @@ export class SettingsScreenStateController {
                     value: this._settingsStore.readToggleSettingAndClean('subtitlePreferForced'),
                     disabled: !subtitlesEnabled,
                     disabledReason: 'Enable Subtitle Mode first',
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('subtitlePreferForced', value);
-                    },
+                    onChange: (value: boolean) =>
+                        this._toMutationResult(this._settingsStore.writeToggleSetting('subtitlePreferForced', value)),
                 },
             ],
         };
@@ -161,7 +167,8 @@ export class SettingsScreenStateController {
                     label: 'Keep Playback Running in Settings',
                     description: 'Avoid pausing video when opening Settings (uses more CPU/GPU)',
                     value: this._settingsStore.readToggleSettingAndClean('keepPlayingInSettings'),
-                    onChange: (value: boolean) => this._settingsStore.writeToggleSetting('keepPlayingInSettings', value),
+                    onChange: (value: boolean) =>
+                        this._toMutationResult(this._settingsStore.writeToggleSetting('keepPlayingInSettings', value)),
                 },
                 {
                     id: 'settings-hdr10-fallback-mode',
@@ -174,7 +181,8 @@ export class SettingsScreenStateController {
                         { label: 'Prefer HDR10 (Direct Play)', value: 1 },
                         { label: 'Force HLS/Transcode', value: 2 },
                     ],
-                    onChange: (value: number) => this._settingsStore.writeHdr10FallbackModeValue(value as 0 | 1 | 2),
+                    onChange: (value: number) =>
+                        this._toMutationResult(this._settingsStore.writeHdr10FallbackModeValue(value as 0 | 1 | 2)),
                 },
                 {
                     id: 'settings-transcode-quality',
@@ -185,18 +193,15 @@ export class SettingsScreenStateController {
                         label: option.label,
                         value: index,
                     })),
-                    onChange: (value: number): void => {
-                        this._writeTranscodeQualityValue(value);
-                    },
+                    onChange: (value: number) => this._writeTranscodeQualityValue(value),
                 },
                 {
                     id: 'settings-transcode-compat',
                     label: 'Transcode Compat Mode',
                     description: 'Advanced: only use if transcoding fails; sends a minimal parameter set to Plex',
                     value: this._settingsStore.readToggleSettingAndClean('transcodeCompat'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('transcodeCompat', value);
-                    },
+                    onChange: (value: boolean) =>
+                        this._toMutationResult(this._settingsStore.writeToggleSetting('transcodeCompat', value)),
                 },
             ],
         };
@@ -210,9 +215,11 @@ export class SettingsScreenStateController {
                     label: 'Library Tabs',
                     description: 'Filter the guide by source library',
                     value: this._settingsStore.readToggleSettingAndClean('epgLibraryTabsEnabled'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('epgLibraryTabsEnabled', value);
+                    onChange: (value: boolean): SettingsMutationResult<boolean> => {
+                        const result = this._settingsStore.writeToggleSetting('epgLibraryTabsEnabled', value);
+                        if (!result.ok) return this._failedMutationResult(result.effectiveValue);
                         this._onGuideSettingChange?.({ key: 'libraryTabs', enabled: value });
+                        return { ok: true };
                     },
                 },
                 {
@@ -220,9 +227,11 @@ export class SettingsScreenStateController {
                     label: 'Now Watching Banner',
                     description: 'Show current channel/program above the guide',
                     value: this._settingsStore.readToggleSettingAndClean('epgNowWatchingEnabled'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('epgNowWatchingEnabled', value);
+                    onChange: (value: boolean): SettingsMutationResult<boolean> => {
+                        const result = this._settingsStore.writeToggleSetting('epgNowWatchingEnabled', value);
+                        if (!result.ok) return this._failedMutationResult(result.effectiveValue);
                         this._onGuideSettingChange?.({ key: 'nowWatchingBanner', enabled: value });
+                        return { ok: true };
                     },
                 },
                 {
@@ -230,9 +239,11 @@ export class SettingsScreenStateController {
                     label: 'Aggressive Guide Preload (Experimental)',
                     description: 'Uses more memory to reduce loading in very large guides',
                     value: this._settingsStore.readToggleSettingAndClean('epgAggressivePreloadEnabled'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('epgAggressivePreloadEnabled', value);
+                    onChange: (value: boolean): SettingsMutationResult<boolean> => {
+                        const result = this._settingsStore.writeToggleSetting('epgAggressivePreloadEnabled', value);
+                        if (!result.ok) return this._failedMutationResult(result.effectiveValue);
                         this._onGuideSettingChange?.({ key: 'aggressivePreload', enabled: value });
+                        return { ok: true };
                     },
                 },
                 {
@@ -244,9 +255,11 @@ export class SettingsScreenStateController {
                         { label: 'Detailed (2h)', value: 0 },
                         { label: 'Wide (3h)', value: 1 },
                     ],
-                    onChange: (value: number): void => {
-                        this._writeEpgGuideDensityValue(value);
-                        this._onGuideSettingChange?.({ key: 'guideDensity', density: value === 1 ? 'wide' : 'detailed' });
+                    onChange: (value: number): SettingsMutationResult<number> => {
+                        const result = this._settingsStore.writeEpgGuideDensityValue(value);
+                        if (!result.ok) return this._failedMutationResult(result.effectiveValue);
+                        this._onGuideSettingChange?.({ key: 'guideDensity', density: result.value === 1 ? 'wide' : 'detailed' });
+                        return { ok: true };
                     },
                 },
                 {
@@ -258,9 +271,11 @@ export class SettingsScreenStateController {
                         { label: 'Overlay', value: 0 },
                         { label: 'Classic (PIP)', value: 1 },
                     ],
-                    onChange: (value: number): void => {
-                        this._writeEpgLayoutModeValue(value);
-                        this._onGuideSettingChange?.({ key: 'layoutMode', mode: value === 1 ? 'classic' : 'overlay' });
+                    onChange: (value: number): SettingsMutationResult<number> => {
+                        const result = this._settingsStore.writeEpgLayoutModeValue(value === 0 ? 0 : 1);
+                        if (!result.ok) return this._failedMutationResult(result.effectiveValue);
+                        this._onGuideSettingChange?.({ key: 'layoutMode', mode: result.value === 1 ? 'classic' : 'overlay' });
+                        return { ok: true };
                     },
                 },
                 {
@@ -272,9 +287,12 @@ export class SettingsScreenStateController {
                         label: option.label,
                         value: index,
                     })),
-                    onChange: (value: number): void => {
-                        const stored = this._writeEpgPastItemsWindowValue(value);
+                    onChange: (value: number): SettingsMutationResult<number> => {
+                        const result = this._settingsStore.writeEpgPastItemsWindowValue(value);
+                        if (!result.ok) return this._failedMutationResult(result.effectiveValue);
+                        const stored = EPG_PAST_ITEMS_WINDOWS[result.value] ?? 'auto';
                         this._onGuideSettingChange?.({ key: 'pastItemsWindow', value: stored });
+                        return { ok: true };
                     },
                 },
                 {
@@ -287,9 +305,11 @@ export class SettingsScreenStateController {
                         { label: 'Artwork', value: 2 },
                         { label: 'Theme Default', value: 1 },
                     ],
-                    onChange: (value: number): void => {
-                        const mode = this._writeEpgInfoBackgroundModeValue(value);
-                        this._onGuideSettingChange?.({ key: 'infoBackgroundMode', mode });
+                    onChange: (value: number): SettingsMutationResult<number> => {
+                        const result = this._settingsStore.writeEpgInfoBackgroundModeValue(value);
+                        if (!result.ok) return this._failedMutationResult(result.effectiveValue);
+                        this._onGuideSettingChange?.({ key: 'infoBackgroundMode', mode: result.value });
+                        return { ok: true };
                     },
                 },
                 {
@@ -301,8 +321,9 @@ export class SettingsScreenStateController {
                         label: option.label,
                         value: index,
                     })),
-                    onChange: (value: number): void => {
-                        this._setTheme(THEME_OPTIONS[value]?.theme ?? DEFAULT_THEME);
+                    onChange: (value: number): SettingsMutationResult<number> => {
+                        const result = this._setTheme(THEME_OPTIONS[value]?.theme ?? DEFAULT_THEME);
+                        return result.ok ? { ok: true } : this._failedMutationResult();
                     },
                 },
                 {
@@ -310,18 +331,16 @@ export class SettingsScreenStateController {
                     label: 'Cinematic Now Playing',
                     description: 'Full-screen layout with blurred backdrop and large poster',
                     value: this._settingsStore.readToggleSettingAndClean('cinematicNowPlaying'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('cinematicNowPlaying', value);
-                    },
+                    onChange: (value: boolean) =>
+                        this._toMutationResult(this._settingsStore.writeToggleSetting('cinematicNowPlaying', value)),
                 },
                 {
                     id: 'settings-prefer-clear-logos',
                     label: 'Use Clear Logos',
                     description: 'Show clear logos instead of text titles when available',
                     value: this._settingsStore.readToggleSettingAndClean('preferClearLogos'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('preferClearLogos', value);
-                    },
+                    onChange: (value: boolean) =>
+                        this._toMutationResult(this._settingsStore.writeToggleSetting('preferClearLogos', value)),
                 },
                 {
                     id: 'settings-now-playing-timeout',
@@ -332,9 +351,8 @@ export class SettingsScreenStateController {
                         label: value === 0 ? 'Persistent' : `${Math.round(value / 1000)}s`,
                         value,
                     })),
-                    onChange: (value: number): void => {
-                        this._settingsStore.writeNowPlayingAutoHideValue(value);
-                    },
+                    onChange: (value: number) =>
+                        this._toMutationResult(this._settingsStore.writeNowPlayingAutoHideValue(value)),
                 },
             ],
         };
@@ -348,9 +366,8 @@ export class SettingsScreenStateController {
                     label: 'Show Profile Picker on Startup',
                     description: 'When enabled, prompt for a Plex Home profile on launch',
                     value: this._settingsStore.readToggleSettingAndClean('showProfilePickerOnStartup'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('showProfilePickerOnStartup', value);
-                    },
+                    onChange: (value: boolean) =>
+                        this._toMutationResult(this._settingsStore.writeToggleSetting('showProfilePickerOnStartup', value)),
                 },
             ],
         };
@@ -364,9 +381,11 @@ export class SettingsScreenStateController {
                     label: 'Debug Logging',
                     description: 'Enable verbose console output (applies immediately)',
                     value: this._settingsStore.readToggleSettingAndClean('debugLogging'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('debugLogging', value);
+                    onChange: (value: boolean): SettingsMutationResult<boolean> => {
+                        const result = this._settingsStore.writeToggleSetting('debugLogging', value);
+                        if (!result.ok) return this._failedMutationResult(result.effectiveValue);
                         dispatchDebugLoggingChanged(value);
+                        return { ok: true };
                     },
                 },
                 {
@@ -374,9 +393,8 @@ export class SettingsScreenStateController {
                     label: 'Subtitle Debug Logging',
                     description: 'Log subtitle tracks and native textTracks state (tokens redacted)',
                     value: this._settingsStore.readToggleSettingAndClean('subtitleDebugLogging'),
-                    onChange: (value: boolean): void => {
-                        this._settingsStore.writeToggleSetting('subtitleDebugLogging', value);
-                    },
+                    onChange: (value: boolean) =>
+                        this._toMutationResult(this._settingsStore.writeToggleSetting('subtitleDebugLogging', value)),
                 },
             ],
         };
@@ -414,48 +432,46 @@ export class SettingsScreenStateController {
         return this._settingsStore.readSubtitleLanguageValueAndClean(SUBTITLE_LANGUAGE_OPTIONS);
     }
 
-    private _writeSubtitleLanguageValue(value: number): void {
-        this._settingsStore.writeSubtitleLanguageValue(value, SUBTITLE_LANGUAGE_OPTIONS);
+    private _writeSubtitleLanguageValue(value: number): SettingsMutationResult<number> {
+        return this._toMutationResult(
+            this._settingsStore.writeSubtitleLanguageValue(value, SUBTITLE_LANGUAGE_OPTIONS)
+        );
     }
 
     private _readTranscodeQualityValue(): number {
         return this._settingsStore.readTranscodeQualityValueAndClean(TRANSCODE_QUALITY_OPTIONS);
     }
 
-    private _writeTranscodeQualityValue(value: number): void {
-        this._settingsStore.writeTranscodeQualityValue(value, TRANSCODE_QUALITY_OPTIONS);
+    private _writeTranscodeQualityValue(value: number): SettingsMutationResult<number> {
+        return this._toMutationResult(
+            this._settingsStore.writeTranscodeQualityValue(value, TRANSCODE_QUALITY_OPTIONS)
+        );
     }
 
     private _readEpgLayoutModeValue(): 0 | 1 {
         return this._settingsStore.readEpgLayoutModeValueAndClean();
     }
 
-    private _writeEpgLayoutModeValue(value: number): void {
-        this._settingsStore.writeEpgLayoutModeValue(value === 0 ? 0 : 1);
-    }
-
     private _readEpgGuideDensityValue(): 0 | 1 {
         return this._settingsStore.readEpgGuideDensityValueAndClean();
-    }
-
-    private _writeEpgGuideDensityValue(value: number): void {
-        this._settingsStore.writeEpgGuideDensityValue(value);
     }
 
     private _readEpgPastItemsWindowValue(): number {
         return this._settingsStore.readEpgPastItemsWindowValueAndClean();
     }
 
-    private _writeEpgPastItemsWindowValue(value: number): EpgPastItemsWindow {
-        return this._settingsStore.writeEpgPastItemsWindowValue(value);
-    }
-
     private _readEpgInfoBackgroundModeValue(): 0 | 1 | 2 {
         return this._settingsStore.readEpgInfoBackgroundModeValueAndClean();
     }
 
-    private _writeEpgInfoBackgroundModeValue(value: number): 0 | 1 | 2 {
-        return this._settingsStore.writeEpgInfoBackgroundModeValue(value);
+    private _toMutationResult<T extends boolean | number>(result: SettingsWriteResult<T>): SettingsMutationResult<T> {
+        return result.ok ? { ok: true } : this._failedMutationResult(result.effectiveValue);
+    }
+
+    private _failedMutationResult<T extends boolean | number>(effectiveValue?: T): SettingsMutationResult<T> {
+        return effectiveValue === undefined
+            ? { ok: false, message: SETTINGS_WRITE_FAILURE_MESSAGE }
+            : { ok: false, message: SETTINGS_WRITE_FAILURE_MESSAGE, effectiveValue };
     }
 
     private _readClampedNowPlayingAutoHide(): number {

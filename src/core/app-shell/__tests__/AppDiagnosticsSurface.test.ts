@@ -210,7 +210,7 @@ describe('AppDiagnosticsSurface', () => {
     it('uses the injected audio settings store for dev-menu audio fallback overrides', async () => {
         const audioSettingsStore: jest.Mocked<AppDiagnosticsAudioSettingsStore> = {
             readDirectPlayAudioFallbackEnabledAndClean: jest.fn(() => true),
-            writeDirectPlayAudioFallbackEnabled: jest.fn(),
+            writeDirectPlayAudioFallbackEnabled: jest.fn((_enabled: boolean) => ({ ok: true })),
             clearDirectPlayAudioFallbackEnabled: jest.fn(),
         };
         const container = createContainer();
@@ -238,6 +238,44 @@ describe('AppDiagnosticsSurface', () => {
         (saveButton as HTMLButtonElement).click();
 
         expect(audioSettingsStore.writeDirectPlayAudioFallbackEnabled).toHaveBeenCalledWith(false);
+    });
+
+    it('does not claim dev overrides were saved when audio persistence fails', async () => {
+            const audioSettingsStore: jest.Mocked<AppDiagnosticsAudioSettingsStore> = {
+                readDirectPlayAudioFallbackEnabledAndClean: jest.fn(() => true),
+                writeDirectPlayAudioFallbackEnabled: jest.fn((_enabled: boolean) => ({ ok: false })),
+                clearDirectPlayAudioFallbackEnabled: jest.fn(),
+            };
+            const debugOverridesStore = new DebugOverridesStore();
+            const debugWrite = jest.spyOn(debugOverridesStore, 'writeNowPlayingStreamDebugEnabled');
+            const showToast = jest.fn();
+            const container = createContainer();
+            document.body.appendChild(container);
+
+            surface = new AppDiagnosticsSurface({
+                getDiagnosticsRuntime: (): AppShellDiagnosticsRuntimePort => createOrchestrator(),
+                showToast,
+                debugOverridesStore,
+                audioSettingsStore,
+            });
+            surface.setContainer(container);
+            surface.initialize();
+
+            document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', ctrlKey: true, shiftKey: true }));
+            await flushPromises();
+
+            const fallbackToggle = container.querySelector('#dev-directplay-audio-fallback') as HTMLInputElement;
+            const saveButton = container.querySelector('#dev-transcode-save') as HTMLButtonElement;
+            fallbackToggle.checked = false;
+            saveButton.click();
+
+            expect(fallbackToggle.checked).toBe(true);
+            expect(debugWrite).not.toHaveBeenCalled();
+            expect(showToast).toHaveBeenCalledWith({
+                message: 'Could not save overrides. Check device storage and try again.',
+                type: 'warning',
+            });
+            expect(showToast).not.toHaveBeenCalledWith({ message: 'Saved overrides', type: 'success' });
     });
 
     it('dumps saved channel-setup planner diagnostics through the global helper', async () => {

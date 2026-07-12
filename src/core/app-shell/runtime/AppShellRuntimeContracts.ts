@@ -8,7 +8,7 @@ import type {
     ServerHealthStatus,
     ServerHealthType,
 } from '../../../modules/plex/discovery';
-import type { GuideSettingChange } from '../../../modules/ui/settings/types';
+import type { GuideSettingChange, SettingsPersistenceResult } from '../../../modules/ui/settings/types';
 import type { ThemeName } from '../../../modules/ui/theme';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
@@ -92,7 +92,7 @@ export interface AppShellSettingsRuntimePort {
     onGuideSettingChange(change: GuideSettingChange): void;
     getActiveUsername(): string | null;
     getTheme(): ThemeName;
-    setTheme(theme: ThemeName): void;
+    setTheme(theme: ThemeName): SettingsPersistenceResult;
 }
 
 export type AppShellPlaybackInfoSnapshot = PlaybackInfoSnapshot;

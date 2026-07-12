@@ -3,7 +3,9 @@ import {
     readStoredBooleanAndClean,
     safeLocalStorageGet,
     safeLocalStorageRemove,
-    safeLocalStorageSet,
+    safeLocalStorageSetWithResult,
+    safeLocalStorageRemoveWithResult,
+    type SafeLocalStorageMutationResult,
 } from '../../utils/storage';
 import {
     parseSubtitleMode,
@@ -24,16 +26,16 @@ export class SubtitlePreferencesStore {
         return fallback;
     }
 
-    writeSubtitleMode(mode: SubtitleMode): void {
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, mode);
+    writeSubtitleMode(mode: SubtitleMode): SafeLocalStorageMutationResult {
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.SUBTITLE_MODE, mode);
     }
 
     readSubtitlePreferForcedAndClean(fallback: boolean = false): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, fallback);
     }
 
-    writeSubtitlePreferForced(enabled: boolean): void {
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, enabled ? '1' : '0');
+    writeSubtitlePreferForced(enabled: boolean): SafeLocalStorageMutationResult {
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, enabled ? '1' : '0');
     }
 
     readSubtitleLanguageAndClean(): string | null {
@@ -49,16 +51,14 @@ export class SubtitlePreferencesStore {
         return normalized;
     }
 
-    writeSubtitleLanguage(languageCode: string | null): void {
+    writeSubtitleLanguage(languageCode: string | null): SafeLocalStorageMutationResult {
         if (typeof languageCode !== 'string') {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-            return;
+            return safeLocalStorageRemoveWithResult(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         }
         const normalized = normalizeSubtitleLanguage(languageCode);
         if (!normalized) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
-            return;
+            return safeLocalStorageRemoveWithResult(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE);
         }
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE, normalized);
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE, normalized);
     }
 }

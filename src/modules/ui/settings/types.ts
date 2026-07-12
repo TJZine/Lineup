@@ -69,6 +69,12 @@ export interface SettingsConfig {
     account: AccountSettings;
 }
 
+export type SettingsMutationResult<T extends boolean | number> =
+    | { ok: true }
+    | { ok: false; message: string; effectiveValue?: T };
+
+export type SettingsPersistenceResult = { ok: true } | { ok: false };
+
 export interface SettingsToggleConfig {
     id: string;
     label: string;
@@ -77,7 +83,7 @@ export interface SettingsToggleConfig {
     disabled?: boolean;
     /** Reason for being disabled (shown to user) */
     disabledReason?: string;
-    onChange: (value: boolean) => void;
+    onChange: (value: boolean) => SettingsMutationResult<boolean>;
 }
 
 export interface SettingsSelectOption {
@@ -94,7 +100,7 @@ export interface SettingsSelectConfig {
     disabled?: boolean;
     /** Reason for being disabled (shown to user) */
     disabledReason?: string;
-    onChange: (value: number) => void;
+    onChange: (value: number) => SettingsMutationResult<number>;
 }
 
 export type SettingsItemConfig = SettingsToggleConfig | SettingsSelectConfig;

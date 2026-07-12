@@ -11,7 +11,7 @@ describe('createSettingsToggle', () => {
     });
 
     it('toggles state, classes, and callback behavior on click', () => {
-        const onChange = jest.fn();
+        const onChange = jest.fn(() => ({ ok: true } as const));
         const toggle = createSettingsToggle({
             id: 'theme-toggle',
             label: 'Theme',
@@ -35,7 +35,7 @@ describe('createSettingsToggle', () => {
             value: true,
             disabled: false,
             disabledReason: 'Unavailable until setup completes.',
-            onChange: jest.fn(),
+            onChange: jest.fn(() => ({ ok: true } as const)),
         });
 
         toggle.setDisabled(true);
@@ -51,7 +51,7 @@ describe('createSettingsToggle', () => {
     });
 
     it('ignores disabled clicks and restores callback behavior after re-enable', () => {
-        const onChange = jest.fn();
+        const onChange = jest.fn(() => ({ ok: true } as const));
         const toggle = createSettingsToggle({
             id: 'theme-toggle',
             label: 'Theme',
@@ -72,5 +72,31 @@ describe('createSettingsToggle', () => {
 
         expect(onChange).toHaveBeenCalledTimes(1);
         expect(onChange).toHaveBeenCalledWith(true);
+    });
+
+    it('rolls back a failed change, announces the failure, and restores metadata after success', () => {
+        const onChange = jest.fn()
+            .mockReturnValueOnce({ ok: false, message: 'Storage failed.' })
+            .mockReturnValueOnce({ ok: true });
+        const toggle = createSettingsToggle({
+            id: 'theme-toggle',
+            label: 'Theme',
+            description: 'Enable the theme.',
+            value: false,
+            onChange,
+        });
+
+        toggle.element.click();
+
+        const meta = toggle.element.querySelector('.setup-toggle-meta');
+        expect(toggle.element.querySelector('.setup-toggle-state')?.textContent).toBe('Off');
+        expect(meta?.textContent).toBe('Storage failed.');
+        expect(meta?.getAttribute('role')).toBe('status');
+        expect(meta?.getAttribute('aria-live')).toBe('polite');
+
+        toggle.element.click();
+
+        expect(toggle.element.querySelector('.setup-toggle-state')?.textContent).toBe('On');
+        expect(meta?.textContent).toBe('Enable the theme.');
     });
 });

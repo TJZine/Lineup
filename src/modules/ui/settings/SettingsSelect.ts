@@ -23,9 +23,9 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
 
     const meta = document.createElement('span');
     meta.className = 'setup-toggle-meta';
-    meta.textContent = config.disabled && config.disabledReason
-        ? config.disabledReason
-        : config.description ?? '';
+    meta.setAttribute('role', 'status');
+    meta.setAttribute('aria-live', 'polite');
+    restoreMetadata();
 
     const state = document.createElement('span');
     state.className = 'setup-toggle-state';
@@ -54,7 +54,7 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         if (nextValue === previousValue) {
             return false;
         }
-        config.onChange(nextValue);
+        applyChange(nextValue, previousValue);
         return true;
     };
 
@@ -66,7 +66,7 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         if (nextValue === previousValue) {
             return false;
         }
-        config.onChange(nextValue);
+        applyChange(nextValue, previousValue);
         return true;
     };
 
@@ -80,7 +80,7 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
             return false;
         }
         update(nextValue);
-        config.onChange(nextValue);
+        applyChange(nextValue, previousValue);
         return true;
     };
 
@@ -101,7 +101,21 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         } else {
             button.classList.remove('disabled');
         }
-        meta.textContent = disabled && config.disabledReason
+        restoreMetadata();
+    }
+
+    function applyChange(nextValue: number, previousValue: number): void {
+        const result = config.onChange(nextValue);
+        if (!result.ok) {
+            update(result.effectiveValue ?? previousValue);
+            meta.textContent = result.message;
+            return;
+        }
+        restoreMetadata();
+    }
+
+    function restoreMetadata(): void {
+        meta.textContent = config.disabled && config.disabledReason
             ? config.disabledReason
             : config.description ?? '';
     }

@@ -5,7 +5,6 @@ import { DeveloperSettingsStore } from '../../settings/DeveloperSettingsStore';
 import {
     EPG_PAST_ITEMS_WINDOWS,
     EpgPreferencesStore,
-    type EpgPastItemsWindow,
 } from '../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../settings/NowPlayingDisplayStore';
 import {
@@ -20,7 +19,12 @@ import {
 } from '../../../shared/subtitle-mode';
 import { normalizeSubtitleLanguage } from '../../../shared/subtitle-language';
 import { DEFAULT_SETTINGS } from './constants';
+import type { SafeLocalStorageMutationResult } from '../../../utils/storage';
 type SubtitleLanguageOption = Readonly<{ code: string | null }>;
+
+export type SettingsWriteResult<T> =
+    | { ok: true; value: T }
+    | { ok: false; reason: 'quota-exceeded' | 'unavailable'; effectiveValue?: T };
 
 export type ToggleSettingId =
     | 'dtsPassthrough'
@@ -151,53 +155,38 @@ export class SettingsStore {
         }
     }
 
-    writeToggleSetting(id: ToggleSettingId, value: boolean): void {
+    writeToggleSetting(id: ToggleSettingId, value: boolean): SettingsWriteResult<boolean> {
         switch (id) {
             case 'dtsPassthrough':
-                this._audioSettingsStore.writeDtsPassthroughEnabled(value);
-                return;
+                return this._toWriteResult(this._audioSettingsStore.writeDtsPassthroughEnabled(value), value);
             case 'directPlayAudioFallback':
-                this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(value);
-                return;
+                return this._toWriteResult(this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(value), value);
             case 'keepPlayingInSettings':
-                this._profileSessionStore.writeKeepPlayingInSettings(value);
-                return;
+                return this._toWriteResult(this._profileSessionStore.writeKeepPlayingInSettings(value), value);
             case 'transcodeCompat':
-                this._playbackSettingsStore.writeTranscodeCompatEnabled(value);
-                return;
+                return this._toWriteResult(this._playbackSettingsStore.writeTranscodeCompatEnabled(value), value);
             case 'debugLogging':
-                this._developerSettingsStore.writeDebugLoggingEnabled(value);
-                return;
+                return this._toWriteResult(this._developerSettingsStore.writeDebugLoggingEnabled(value), value);
             case 'subtitleDebugLogging':
-                this._developerSettingsStore.writeSubtitleDebugLoggingEnabled(value);
-                return;
+                return this._toWriteResult(this._developerSettingsStore.writeSubtitleDebugLoggingEnabled(value), value);
             case 'subtitlePreferForced':
-                this._subtitlePreferencesStore.writeSubtitlePreferForced(value);
-                return;
+                return this._toWriteResult(this._subtitlePreferencesStore.writeSubtitlePreferForced(value), value);
             case 'epgLibraryTabsEnabled':
-                this._epgPreferencesStore.writeLibraryTabsEnabled(value);
-                return;
+                return this._toWriteResult(this._epgPreferencesStore.writeLibraryTabsEnabled(value), value);
             case 'epgNowWatchingEnabled':
-                this._epgPreferencesStore.writeNowWatchingEnabled(value);
-                return;
+                return this._toWriteResult(this._epgPreferencesStore.writeNowWatchingEnabled(value), value);
             case 'epgAggressivePreloadEnabled':
-                this._epgPreferencesStore.writeAggressivePreloadEnabled(value);
-                return;
+                return this._toWriteResult(this._epgPreferencesStore.writeAggressivePreloadEnabled(value), value);
             case 'showProfilePickerOnStartup':
-                this._profileSessionStore.writeShowProfilePickerOnStartup(value);
-                return;
+                return this._toWriteResult(this._profileSessionStore.writeShowProfilePickerOnStartup(value), value);
             case 'cinematicNowPlaying':
-                this._nowPlayingDisplayStore.writeCinematicNowPlayingEnabled(value);
-                return;
+                return this._toWriteResult(this._nowPlayingDisplayStore.writeCinematicNowPlayingEnabled(value), value);
             case 'preferClearLogos':
-                this._nowPlayingDisplayStore.writePreferClearLogosEnabled(value);
-                return;
+                return this._toWriteResult(this._nowPlayingDisplayStore.writePreferClearLogosEnabled(value), value);
             case 'smartHdr10Fallback':
-                this._playbackSettingsStore.writeSmartHdr10FallbackEnabled(value);
-                return;
+                return this._toWriteResult(this._playbackSettingsStore.writeSmartHdr10FallbackEnabled(value), value);
             case 'forceHdr10Fallback':
-                this._playbackSettingsStore.writeForceHdr10FallbackEnabled(value);
-                return;
+                return this._toWriteResult(this._playbackSettingsStore.writeForceHdr10FallbackEnabled(value), value);
             default:
                 return assertNeverToggleSettingId(id);
         }
@@ -207,26 +196,31 @@ export class SettingsStore {
         return this._playbackSettingsStore.readHdr10FallbackModeValueAndClean();
     }
 
-    writeHdr10FallbackModeValue(value: Hdr10FallbackModeValue): void {
-        this._playbackSettingsStore.writeHdr10FallbackModeValue(value);
+    writeHdr10FallbackModeValue(value: Hdr10FallbackModeValue): SettingsWriteResult<Hdr10FallbackModeValue> {
+        const result = this._playbackSettingsStore.writeHdr10FallbackModeValue(value);
+        if (result.ok) return { ok: true, value };
+        return result.effectiveValue === undefined
+            ? { ok: false, reason: result.reason }
+            : { ok: false, reason: result.reason, effectiveValue: result.effectiveValue };
     }
 
     readEpgLayoutModeValueAndClean(): 0 | 1 {
         return this._epgPreferencesStore.readLayoutModeAndClean('classic') === 'overlay' ? 0 : 1;
     }
 
-    writeEpgLayoutModeValue(value: 0 | 1): void {
+    writeEpgLayoutModeValue(value: 0 | 1): SettingsWriteResult<0 | 1> {
         const mode = value === 1 ? 'classic' : 'overlay';
-        this._epgPreferencesStore.writeLayoutMode(mode);
+        return this._toWriteResult(this._epgPreferencesStore.writeLayoutMode(mode), value);
     }
 
     readEpgGuideDensityValueAndClean(): 0 | 1 {
         return this._epgPreferencesStore.readGuideDensityAndClean('detailed') === 'wide' ? 1 : 0;
     }
 
-    writeEpgGuideDensityValue(value: number): void {
+    writeEpgGuideDensityValue(value: number): SettingsWriteResult<0 | 1> {
+        const normalizedValue: 0 | 1 = value === 1 ? 1 : 0;
         const density = value === 1 ? 'wide' : 'detailed';
-        this._epgPreferencesStore.writeGuideDensity(density);
+        return this._toWriteResult(this._epgPreferencesStore.writeGuideDensity(density), normalizedValue);
     }
 
     readEpgPastItemsWindowValueAndClean(): number {
@@ -236,28 +230,27 @@ export class SettingsStore {
         return 0;
     }
 
-    writeEpgPastItemsWindowValue(value: number): EpgPastItemsWindow {
-        const option = EPG_PAST_ITEMS_WINDOWS[value] ?? EPG_PAST_ITEMS_WINDOWS[0];
-        this._epgPreferencesStore.writePastItemsWindow(option);
-        return option;
+    writeEpgPastItemsWindowValue(value: number): SettingsWriteResult<number> {
+        const normalizedValue = EPG_PAST_ITEMS_WINDOWS[value] ? value : 0;
+        const option = EPG_PAST_ITEMS_WINDOWS[normalizedValue] ?? 'auto';
+        return this._toWriteResult(this._epgPreferencesStore.writePastItemsWindow(option), normalizedValue);
     }
 
     readEpgInfoBackgroundModeValueAndClean(): 0 | 1 | 2 {
         return this._epgPreferencesStore.readInfoBackgroundModeAndClean(DEFAULT_SETTINGS.display.epgInfoBackgroundMode);
     }
 
-    writeEpgInfoBackgroundModeValue(value: number): 0 | 1 | 2 {
+    writeEpgInfoBackgroundModeValue(value: number): SettingsWriteResult<0 | 1 | 2> {
         const mode: 0 | 1 | 2 = value === 2 ? 2 : value === 1 ? 1 : 0;
-        this._epgPreferencesStore.writeInfoBackgroundMode(mode);
-        return mode;
+        return this._toWriteResult(this._epgPreferencesStore.writeInfoBackgroundMode(mode), mode);
     }
 
     readSubtitleModeAndClean(): SubtitleMode {
         return this._subtitlePreferencesStore.readSubtitleModeAndClean(DEFAULT_SUBTITLE_MODE);
     }
 
-    writeSubtitleMode(mode: SubtitleMode): void {
-        this._subtitlePreferencesStore.writeSubtitleMode(mode);
+    writeSubtitleMode(mode: SubtitleMode): SettingsWriteResult<SubtitleMode> {
+        return this._toWriteResult(this._subtitlePreferencesStore.writeSubtitleMode(mode), mode);
     }
 
     readSubtitleLanguageValueAndClean(options: ReadonlyArray<SubtitleLanguageOption>): number {
@@ -275,17 +268,31 @@ export class SettingsStore {
         return 0;
     }
 
-    writeSubtitleLanguageValue(value: number, options: ReadonlyArray<SubtitleLanguageOption>): void {
-        const option = options[value];
-        this._subtitlePreferencesStore.writeSubtitleLanguage(option?.code ?? null);
+    writeSubtitleLanguageValue(
+        value: number,
+        options: ReadonlyArray<SubtitleLanguageOption>
+    ): SettingsWriteResult<number> {
+        const normalizedValue = options[value] ? value : 0;
+        const option = options[normalizedValue];
+        return this._toWriteResult(
+            this._subtitlePreferencesStore.writeSubtitleLanguage(option?.code ?? null),
+            normalizedValue
+        );
     }
 
     readTranscodeQualityValueAndClean(options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS): number {
         return this._playbackSettingsStore.readTranscodeQualityValueAndClean(options);
     }
 
-    writeTranscodeQualityValue(value: number, options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS): void {
-        this._playbackSettingsStore.writeTranscodeQualityValue(value, options);
+    writeTranscodeQualityValue(
+        value: number,
+        options: ReadonlyArray<{ storageValue: string }> = TRANSCODE_QUALITY_OPTIONS
+    ): SettingsWriteResult<number> {
+        const normalizedValue = options[value] ? value : 0;
+        return this._toWriteResult(
+            this._playbackSettingsStore.writeTranscodeQualityValue(normalizedValue, options),
+            normalizedValue
+        );
     }
 
     readClampedNowPlayingAutoHideValueAndClean(validOptions: readonly number[], fallback: number = NOW_PLAYING_INFO_DEFAULTS.autoHideMs): number {
@@ -299,7 +306,17 @@ export class SettingsStore {
         );
     }
 
-    writeNowPlayingAutoHideValue(value: number): void {
-        this._nowPlayingDisplayStore.writeAutoHideMs(value, NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS);
+    writeNowPlayingAutoHideValue(value: number): SettingsWriteResult<number> {
+        const normalizedValue = NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS.some((option) => option === value)
+            ? value
+            : (NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS[0] ?? value);
+        return this._toWriteResult(
+            this._nowPlayingDisplayStore.writeAutoHideMs(normalizedValue, NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS),
+            normalizedValue
+        );
+    }
+
+    private _toWriteResult<T>(result: SafeLocalStorageMutationResult, value: T): SettingsWriteResult<T> {
+        return result.ok ? { ok: true, value } : result;
     }
 }

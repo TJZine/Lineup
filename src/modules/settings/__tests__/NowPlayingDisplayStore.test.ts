@@ -38,4 +38,17 @@ describe('NowPlayingDisplayStore', () => {
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('0');
         expect(store.readClampedAutoHideMsAndClean(NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS, 7_000)).toBe(0);
     });
+
+    it('reports blocked writes without throwing', () => {
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+
+        expect(store.writeCinematicNowPlayingEnabled(true)).toEqual({ ok: false, reason: 'unavailable' });
+        expect(store.writePreferClearLogosEnabled(false)).toEqual({ ok: false, reason: 'unavailable' });
+        expect(store.writeAutoHideMs(5_000, NOW_PLAYING_INFO_AUTO_HIDE_OPTIONS)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+        });
+    });
 });

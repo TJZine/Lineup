@@ -155,7 +155,7 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     onGuideSettingChange: jest.fn(),
     getActiveUsername: jest.fn().mockReturnValue('UnitTestUser'),
     getTheme: jest.fn().mockReturnValue('ember-steel'),
-    setTheme: jest.fn(),
+    setTheme: jest.fn().mockReturnValue({ ok: true }),
     getNavigation: jest.fn().mockReturnValue({ replaceScreen: jest.fn() }),
 });
 
@@ -475,7 +475,7 @@ describe('AppLazyScreenPortFactory', () => {
 
         await settingsRuntimePorts?.clearSubtitleTrack();
         settingsRuntimePorts?.onGuideSettingChange({ key: 'libraryTabs', enabled: true });
-        settingsRuntimePorts?.setTheme('glass');
+        expect(settingsRuntimePorts?.setTheme('glass')).toEqual({ ok: true });
 
         expect(orchestrator.setSubtitleTrack).toHaveBeenCalledWith(null);
         expect(orchestrator.onGuideSettingChange).toHaveBeenCalledWith({ key: 'libraryTabs', enabled: true });

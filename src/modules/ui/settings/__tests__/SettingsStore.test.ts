@@ -31,9 +31,9 @@ describe('SettingsStore', () => {
     it('delegates debug logging toggle reads/writes to DeveloperSettingsStore', () => {
         const developerSettingsStore = {
             readDebugLoggingEnabledAndClean: jest.fn().mockReturnValue(true),
-            writeDebugLoggingEnabled: jest.fn(),
+            writeDebugLoggingEnabled: jest.fn().mockReturnValue({ ok: true }),
             readSubtitleDebugLoggingEnabledAndClean: jest.fn().mockReturnValue(false),
-            writeSubtitleDebugLoggingEnabled: jest.fn(),
+            writeSubtitleDebugLoggingEnabled: jest.fn().mockReturnValue({ ok: true }),
         } as unknown as DeveloperSettingsStore;
         const delegatedStore = new SettingsStore({ developerSettingsStore });
 
@@ -50,9 +50,9 @@ describe('SettingsStore', () => {
     it('delegates subtitle debug logging toggle reads/writes to DeveloperSettingsStore', () => {
         const developerSettingsStore = {
             readDebugLoggingEnabledAndClean: jest.fn().mockReturnValue(false),
-            writeDebugLoggingEnabled: jest.fn(),
+            writeDebugLoggingEnabled: jest.fn().mockReturnValue({ ok: true }),
             readSubtitleDebugLoggingEnabledAndClean: jest.fn().mockReturnValue(true),
-            writeSubtitleDebugLoggingEnabled: jest.fn(),
+            writeSubtitleDebugLoggingEnabled: jest.fn().mockReturnValue({ ok: true }),
         } as unknown as DeveloperSettingsStore;
         const delegatedStore = new SettingsStore({ developerSettingsStore });
 
@@ -71,11 +71,11 @@ describe('SettingsStore', () => {
             readTranscodeCompatEnabledAndClean: jest.fn().mockReturnValue(false),
             writeTranscodeCompatEnabled: jest.fn(),
             readSmartHdr10FallbackEnabledAndClean: jest.fn().mockReturnValue(true),
-            writeSmartHdr10FallbackEnabled: jest.fn(),
+            writeSmartHdr10FallbackEnabled: jest.fn().mockReturnValue({ ok: true }),
             readForceHdr10FallbackEnabledAndClean: jest.fn().mockReturnValue(false),
-            writeForceHdr10FallbackEnabled: jest.fn(),
+            writeForceHdr10FallbackEnabled: jest.fn().mockReturnValue({ ok: true }),
             readHdr10FallbackModeValueAndClean: jest.fn().mockReturnValue(0),
-            writeHdr10FallbackModeValue: jest.fn(),
+            writeHdr10FallbackModeValue: jest.fn().mockReturnValue({ ok: true }),
         } as unknown as NonNullable<SettingsStoreOptions['playbackSettingsStore']>;
 
         const delegatedStore = new SettingsStore({ playbackSettingsStore });
@@ -104,13 +104,13 @@ describe('SettingsStore', () => {
             readSmartHdr10FallbackEnabledAndClean: jest.fn(() => {
                 throw new Error('SettingsStore must not compute HDR10 fallback mode from raw toggles');
             }),
-            writeSmartHdr10FallbackEnabled: jest.fn(),
+            writeSmartHdr10FallbackEnabled: jest.fn().mockReturnValue({ ok: true }),
             readForceHdr10FallbackEnabledAndClean: jest.fn(() => {
                 throw new Error('SettingsStore must not compute HDR10 fallback mode from raw toggles');
             }),
-            writeForceHdr10FallbackEnabled: jest.fn(),
+            writeForceHdr10FallbackEnabled: jest.fn().mockReturnValue({ ok: true }),
             readHdr10FallbackModeValueAndClean: jest.fn().mockReturnValue(2),
-            writeHdr10FallbackModeValue: jest.fn(),
+            writeHdr10FallbackModeValue: jest.fn().mockReturnValue({ ok: true }),
         } as unknown as NonNullable<SettingsStoreOptions['playbackSettingsStore']>;
         const delegatedStore = new SettingsStore({ playbackSettingsStore });
 
@@ -162,12 +162,12 @@ describe('SettingsStore', () => {
     });
 
     it('writes canonical EPG past-items storage values from the shared preference contract', () => {
-        expect(store.writeEpgPastItemsWindowValue(2)).toBe(EPG_PAST_ITEMS_WINDOWS[2]);
+        expect(store.writeEpgPastItemsWindowValue(2)).toEqual({ ok: true, value: 2 });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBe(
             EPG_PAST_ITEMS_WINDOWS[2]
         );
 
-        expect(store.writeEpgPastItemsWindowValue(99)).toBe(EPG_PAST_ITEMS_WINDOWS[0]);
+        expect(store.writeEpgPastItemsWindowValue(99)).toEqual({ ok: true, value: 0 });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBe(
             EPG_PAST_ITEMS_WINDOWS[0]
         );
@@ -257,7 +257,10 @@ describe('SettingsStore', () => {
 
         expect(() => store.readToggleSettingAndClean('debugLogging')).not.toThrow();
         expect(store.readToggleSettingAndClean('debugLogging')).toBe(DEFAULT_SETTINGS.developer.debugLogging);
-        expect(() => store.writeToggleSetting('debugLogging', true)).not.toThrow();
+        expect(store.writeToggleSetting('debugLogging', true)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+        });
 
         getSpy.mockRestore();
         setSpy.mockRestore();

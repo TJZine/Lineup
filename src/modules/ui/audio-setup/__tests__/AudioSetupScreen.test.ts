@@ -47,6 +47,7 @@ describe('AudioSetupScreen', () => {
     });
 
     afterEach(() => {
+        jest.restoreAllMocks();
         document.body.innerHTML = '';
     });
 
@@ -221,5 +222,52 @@ describe('AudioSetupScreen', () => {
         expect(writeSetupCompleteSpy).toHaveBeenCalledWith(true);
         expect(onComplete).toHaveBeenCalled();
         writeSetupCompleteSpy.mockRestore();
+    });
+
+    it.each([
+        'writeDtsPassthroughEnabled',
+        'writeDirectPlayAudioFallbackEnabled',
+    ] as const)('keeps audio setup retryable when %s fails', (methodName) => {
+        jest.spyOn(AudioSettingsStore.prototype, methodName).mockReturnValue({
+            ok: false,
+            reason: 'quota-exceeded',
+        });
+        const writeSetupCompleteSpy = jest.spyOn(AudioSettingsStore.prototype, 'writeAudioSetupComplete');
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const nav = createNavigationStub();
+        const onComplete = jest.fn();
+        const screen = new AudioSetupScreen(container, () => nav as unknown as never, onComplete);
+        screen.show();
+
+        (container.querySelector('#audio-setup-continue') as HTMLButtonElement).click();
+
+        const status = container.querySelector('#audio-setup-status');
+        expect(status?.textContent).toBe('Could not save audio settings. Check device storage and try again.');
+        expect(status?.getAttribute('role')).toBe('status');
+        expect(status?.getAttribute('aria-live')).toBe('polite');
+        expect(nav.getFocusedElement()?.id).toBe('audio-setup-continue');
+        expect(writeSetupCompleteSpy).not.toHaveBeenCalled();
+        expect(onComplete).not.toHaveBeenCalled();
+    });
+
+    it('does not complete onboarding when the setup-complete marker cannot be persisted', () => {
+        jest.spyOn(AudioSettingsStore.prototype, 'writeAudioSetupComplete').mockReturnValue({
+            ok: false,
+            reason: 'unavailable',
+        });
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const nav = createNavigationStub();
+        const onComplete = jest.fn();
+        const screen = new AudioSetupScreen(container, () => nav as unknown as never, onComplete);
+        screen.show();
+
+        (container.querySelector('#audio-setup-continue') as HTMLButtonElement).click();
+
+        expect(container.querySelector('#audio-setup-status')?.textContent).toBe(
+            'Could not save audio settings. Check device storage and try again.'
+        );
+        expect(onComplete).not.toHaveBeenCalled();
     });
 });

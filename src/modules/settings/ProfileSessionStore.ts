@@ -1,7 +1,8 @@
 import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import {
     readStoredBooleanAndClean,
-    safeLocalStorageSet,
+    safeLocalStorageSetWithResult,
+    type SafeLocalStorageMutationResult,
     readTrimmedStringAndClean,
     writeTrimmedStringOrRemove,
 } from '../../utils/storage';
@@ -11,16 +12,16 @@ export class ProfileSessionStore {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP, fallback);
     }
 
-    writeShowProfilePickerOnStartup(enabled: boolean): void {
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP, enabled ? '1' : '0');
+    writeShowProfilePickerOnStartup(enabled: boolean): SafeLocalStorageMutationResult {
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.SHOW_PROFILE_PICKER_ON_STARTUP, enabled ? '1' : '0');
     }
 
     readKeepPlayingInSettingsAndClean(fallback: boolean = false): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, fallback);
     }
 
-    writeKeepPlayingInSettings(enabled: boolean): void {
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, enabled ? '1' : '0');
+    writeKeepPlayingInSettings(enabled: boolean): SafeLocalStorageMutationResult {
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.KEEP_PLAYING_IN_SETTINGS, enabled ? '1' : '0');
     }
 
     readLastProfileIdAndClean(): string | null {

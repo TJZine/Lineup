@@ -65,8 +65,8 @@ describe('AudioSettingsStore', () => {
         expect(() => store.readDtsPassthroughEnabledAndClean()).not.toThrow();
         expect(() => store.readDirectPlayAudioFallbackEnabledAndClean()).not.toThrow();
         expect(() => store.readAudioSetupCompleteAndClean()).not.toThrow();
-        expect(() => store.writeDtsPassthroughEnabled(true)).not.toThrow();
-        expect(() => store.writeDirectPlayAudioFallbackEnabled(true)).not.toThrow();
+        expect(store.writeDtsPassthroughEnabled(true)).toEqual({ ok: false, reason: 'unavailable' });
+        expect(store.writeDirectPlayAudioFallbackEnabled(true)).toEqual({ ok: false, reason: 'unavailable' });
         expect(() => store.writeAudioSetupComplete(true)).not.toThrow();
         expect(() => store.clearDirectPlayAudioFallbackEnabled()).not.toThrow();
 

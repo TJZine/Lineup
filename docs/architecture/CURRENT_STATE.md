@@ -339,7 +339,10 @@ after this extraction.
   timing/backoff/reset mechanics for lifecycle and scheduler callers; the
   callers keep their warning payload schemas.
 - these are the current designated owners for storage-backed state
-- `src/modules/ui/settings/SettingsStore.ts` is a UI-facing facade; `debugLogging` and `subtitleDebugLogging` persistence now routes through `src/modules/settings/DeveloperSettingsStore.ts`
+- `src/modules/ui/settings/SettingsStore.ts` is a UI-facing facade; it translates typed owner-write outcomes into normalized setting targets while controls own optimistic rollback and accessible inline failure status. Runtime setting effects are applied only after persistence succeeds.
+- `src/modules/settings/PlaybackSettingsStore.ts` owns target-aware, two-key HDR fallback writes and exact compensation/effective-mode reporting while preserving force-before-smart read precedence.
+- `src/core/app-shell/runtime/AppThemeController.ts` persists theme selection before changing active runtime/DOM theme state; startup theme normalization remains best-effort.
+- `debugLogging` and `subtitleDebugLogging` persistence routes through `src/modules/settings/DeveloperSettingsStore.ts`.
 - runtime consumers route mapped key families through typed stores (for example `PlayerOsdCoordinator` -> `NowPlayingDisplayStore`, `ProfileSelectScreen` -> `ProfileSessionStore`, `AppThemeController` -> `ThemePreferencesStore`, `EPGInfoPanel` -> `NowPlayingDisplayStore`/`EpgPreferencesStore`, `SettingsStore` -> dedicated settings stores, `AudioSetupScreen`/`Orchestrator`/`AudioTrackManager` -> `AudioSettingsStore` policy reads and setup completion state, `Orchestrator` -> `SubtitlePreferencesStore` subtitle mode policy for burn-in decisions)
 - `src/modules/ui/epg/debug/EPGDebugRuntime.ts` is the bounded EPG-layer owner for `lineup_debug_epg_log` buffering + flush scheduling and debug-flag cache reads used by EPG runtime/UI consumers; it is not a general storage-owner precedent
 - `src/modules/debug/DebugOverridesStore.ts` is the canonical owner for the `lineup_debug_epg` flag

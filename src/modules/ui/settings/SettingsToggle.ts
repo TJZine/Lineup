@@ -18,9 +18,9 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
 
     const meta = document.createElement('span');
     meta.className = 'setup-toggle-meta';
-    meta.textContent = config.disabled && config.disabledReason
-        ? config.disabledReason
-        : config.description ?? '';
+    meta.setAttribute('role', 'status');
+    meta.setAttribute('aria-live', 'polite');
+    restoreMetadata();
 
     const state = document.createElement('span');
     state.className = 'setup-toggle-state';
@@ -32,10 +32,16 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
 
     button.addEventListener('click', () => {
         if (config.disabled) return;
+        const previousValue = config.value;
         const newValue = !config.value;
-        config.value = newValue;
         update(newValue);
-        config.onChange(newValue);
+        const result = config.onChange(newValue);
+        if (!result.ok) {
+            update(result.effectiveValue ?? previousValue);
+            meta.textContent = result.message;
+            return;
+        }
+        restoreMetadata();
     });
 
     function update(value: boolean): void {
@@ -56,7 +62,11 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
         } else {
             button.classList.remove('disabled');
         }
-        meta.textContent = disabled && config.disabledReason
+        restoreMetadata();
+    }
+
+    function restoreMetadata(): void {
+        meta.textContent = config.disabled && config.disabledReason
             ? config.disabledReason
             : config.description ?? '';
     }

@@ -10,6 +10,7 @@ describe('ThemePreferencesStore', () => {
 
     beforeEach(() => {
         localStorage.clear();
+        jest.restoreAllMocks();
         store = new ThemePreferencesStore();
     });
 
@@ -28,5 +29,13 @@ describe('ThemePreferencesStore', () => {
 
         store.writeTheme('  ');
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.THEME)).toBeNull();
+    });
+
+    it('reports blocked theme writes without throwing', () => {
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+
+        expect(store.writeTheme('glass')).toEqual({ ok: false, reason: 'unavailable' });
     });
 });

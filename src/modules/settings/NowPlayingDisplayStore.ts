@@ -3,6 +3,8 @@ import {
     readStoredBooleanAndClean,
     safeLocalStorageGet,
     safeLocalStorageSet,
+    safeLocalStorageSetWithResult,
+    type SafeLocalStorageMutationResult,
 } from '../../utils/storage';
 
 export class NowPlayingDisplayStore {
@@ -10,16 +12,16 @@ export class NowPlayingDisplayStore {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, fallback);
     }
 
-    writeCinematicNowPlayingEnabled(enabled: boolean): void {
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, enabled ? '1' : '0');
+    writeCinematicNowPlayingEnabled(enabled: boolean): SafeLocalStorageMutationResult {
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, enabled ? '1' : '0');
     }
 
     readPreferClearLogosEnabledAndClean(fallback: boolean = true): boolean {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, fallback);
     }
 
-    writePreferClearLogosEnabled(enabled: boolean): void {
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, enabled ? '1' : '0');
+    writePreferClearLogosEnabled(enabled: boolean): SafeLocalStorageMutationResult {
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, enabled ? '1' : '0');
     }
 
     readClampedAutoHideMsAndClean(validOptions: readonly number[], fallback: number): number {
@@ -52,11 +54,11 @@ export class NowPlayingDisplayStore {
         return normalized;
     }
 
-    writeAutoHideMs(value: number, validOptions: readonly number[]): void {
+    writeAutoHideMs(value: number, validOptions: readonly number[]): SafeLocalStorageMutationResult {
         const normalized = validOptions.includes(value)
             ? value
             : (validOptions[0] ?? value);
 
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(normalized));
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(normalized));
     }
 }
