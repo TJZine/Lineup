@@ -1,0 +1,4 @@
+interface:
+  display_name: "TypeScript Test Design"
+  short_description: "Design deterministic behavior-focused Jest tests"
+  default_prompt: "Use $typescript-test-design to design reliable Lineup tests for this change."

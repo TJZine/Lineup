@@ -17,6 +17,7 @@ const sharedConfig = {
         '^@config/(.*)$': '<rootDir>/src/config/$1',
     },
     extensionsToTreatAsEsm: ['.ts'],
+    reporters: ['<rootDir>/tools/jest-summary-reporter.cjs'],
 };
 
 export default sharedConfig;

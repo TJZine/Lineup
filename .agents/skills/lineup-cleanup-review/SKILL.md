@@ -1,27 +1,11 @@
 ---
 name: lineup-cleanup-review
-description: Use when the user explicitly asks for lineup-cleanup-review, invokes the matching Lineup fresh-session launcher workflow, or wants this exact reusable launcher as a skill.
+description: Explicit launcher for an independent read-only review of a Lineup cleanup plan or implementation; do not invoke implicitly.
 ---
 
 # Lineup Cleanup Review
 
-This skill is the skill-based replacement for the legacy `lineup-cleanup-review.md` launcher.
-
-Use the prompt body below as the authoritative workflow instructions for this skill invocation.
-
-Use this only from the Lineup repo.
-
-Read these files in order:
-
-1. `docs/AGENTIC_DEV_WORKFLOW.md`
-2. `agents.md`
-3. `docs/agentic/session-prompts/cleanup-review.md`
-
-Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this repo-local skill.
-
-After invoking this launcher, provide either:
-
-- a pasted `NEXT_SESSION_HANDOFF` block, or
-- one short follow-up message naming the exact artifact under review and checklist linkage when relevant, for example `Review docs/plans/2026-03-26-p1-w1-<slug>.md for ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
-
-If you use the short follow-up form, the session should treat that message as the review target and derive the remaining context from the tracked launcher docs.
+Read `AGENTS.md`, relevant runbook sections, the plan/diff, and boundary skills for
+the changed surface. Review for regressions, incomplete cleanup, owner leakage,
+compatibility residue, changed failure behavior, scope creep, and weak proof. Lead
+with concrete findings ordered by severity and say when no material findings remain.

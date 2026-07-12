@@ -9,16 +9,16 @@ Thin Lineup wrapper for the global `repo-production-review` skill suite.
 
 ## Local Required Reads
 
-Before running the universal review, read and honor:
+Start with:
 
-- `docs/AGENTIC_DEV_WORKFLOW.md`
-- `agents.md`
+- `AGENTS.md`
+- relevant sections of `docs/AGENTIC_DEV_WORKFLOW.md`
 - `.codex/config.toml`
-- `.agents/skills/*/SKILL.md`
 - `docs/architecture/CURRENT_STATE.md`
-- `ARCHITECTURE_CLEANUP_CHECKLIST.md`
-- `docs/agentic/skill-strategy.md`
-- the tracked production-review launcher document, if present
+
+Load only repo-local boundary skills directly implicated by the observed review
+scope. Do not enumerate or preload unrelated peer skills. Load
+`ARCHITECTURE_CLEANUP_CHECKLIST.md` only for a checklist-linked review.
 
 Also open and follow the global orchestrator at:
 
@@ -27,18 +27,16 @@ Also open and follow the global orchestrator at:
 ## Local Role Constraints
 
 - `explorer`: bounded read-only evidence discovery.
-- `explorer_fallback`: only when `explorer` is unavailable.
 - `reviewer`: read-only adversarial review and severity/confidence calibration.
 - `docs_researcher`: read-only official API/framework/platform documentation checks.
 - `planner`: remediation planning only after accepted findings.
 - `monitor`: observation of safe long-running commands only.
-- `monitor_fallback`: only when `monitor` is unavailable.
-- `worker`: not used during the read-only review pass.
+- `worker` and `worker_luna`: not used during the read-only review pass.
 
 Honor local orchestration limits:
 
-- `max_threads = 6`
-- `max_depth = 1`
+- stay within the thread cap configured in `.codex/config.toml`
+- keep `max_depth = 1`
 
 ## Local Review Boundary
 

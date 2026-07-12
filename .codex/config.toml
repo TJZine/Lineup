@@ -6,21 +6,9 @@ max_depth = 1
 description = "Read-only codebase explorer for gathering evidence before changes are proposed."
 config_file = "agents/explorer.toml"
 
-[agents.explorer_fallback]
-description = "Fallback read-only explorer when spark usage is constrained or unavailable."
-config_file = "agents/explorer-fallback.toml"
-
 [agents.reviewer]
 description = "Read-only reviewer focused on correctness, regressions, security, and missing tests."
 config_file = "agents/reviewer.toml"
-
-[agents.maintainability_reviewer]
-description = "Read-only reviewer for code-health, slop, file shape, test brittleness, and maintainability risks; no style-only blocking."
-config_file = "agents/maintainability-reviewer.toml"
-
-[agents.architecture_reviewer]
-description = "Read-only reviewer for hotspots, owner seams, cross-module coupling, persistence, Plex, UI composition/focus/navigation, public contracts, and security-adjacent architecture risk."
-config_file = "agents/architecture-reviewer.toml"
 
 [agents.docs_researcher]
 description = "Read-only documentation specialist for verifying framework and API behavior from official sources."
@@ -30,26 +18,14 @@ config_file = "agents/docs-researcher.toml"
 description = "Planning-focused writer for bounded discovery, tracked plan artifacts, and execution-ready handoffs."
 config_file = "agents/planner.toml"
 
-[agents.planner_deep]
-description = "Deep planning writer for Tier 3, hotspot, priority-exit, cross-boundary, or unresolved architecture/product seam planning; not product-code implementation."
-config_file = "agents/planner-deep.toml"
-
 [agents.worker]
 description = "Implementation-focused role for narrow, disjoint write scopes once the task is understood."
 config_file = "agents/worker.toml"
 
 [agents.worker_luna]
-description = "Cost-optimized write-capable implementer for approved, bounded, exact, cheap-to-verify execution units only."
+description = "Lower-cost implementation role for a Sol-planned, bounded, exact, cheap-to-verify write unit."
 config_file = "agents/worker-luna.toml"
-
-[agents.cleanup_worker]
-description = "Cleanup-loop-specific implementer for approved Tier 3 cleanup-loop implementation passes."
-config_file = "agents/cleanup-worker.toml"
 
 [agents.monitor]
 description = "Long-running command and polling role for status checks, verification waits, and eval monitoring."
 config_file = "agents/monitor.toml"
-
-[agents.monitor_fallback]
-description = "Fallback monitoring role for waits and polling when spark usage is constrained or unavailable."
-config_file = "agents/monitor-fallback.toml"

@@ -1,4 +1,6 @@
 interface:
   display_name: "Lineup Cleanup Plan"
   short_description: "Launch the cleanup planner session"
-  default_prompt: "Use the lineup-cleanup-plan skill for this task."
+  default_prompt: "Use $lineup-cleanup-plan for this task."
+policy:
+  allow_implicit_invocation: false

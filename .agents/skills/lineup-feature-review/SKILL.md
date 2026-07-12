@@ -1,24 +1,12 @@
 ---
 name: lineup-feature-review
-description: Use when the user explicitly asks for lineup-feature-review, invokes the matching Lineup fresh-session launcher workflow, or wants this exact reusable launcher as a skill.
+description: Explicit launcher for an independent read-only review of a Lineup feature plan or implementation; do not invoke implicitly.
 ---
 
 # Lineup Feature Review
 
-This skill is the skill-based replacement for the legacy `lineup-feature-review.md` launcher.
-
-Use the prompt body below as the authoritative workflow instructions for this skill invocation.
-
-Use this only from the Lineup repo.
-
-Read these files in order:
-
-1. `docs/AGENTIC_DEV_WORKFLOW.md`
-2. `agents.md`
-3. `docs/agentic/session-prompts/feature-review.md`
-
-Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this repo-local skill.
-
-After invoking this launcher, accept either:
-- a pasted `NEXT_SESSION_HANDOFF` block, or
-- one short follow-up naming the exact feature/design artifact under review, for example `Review docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
+Read `AGENTS.md`, relevant runbook sections, the plan/diff, and boundary skills for
+the changed surface. Review the bounded artifact against its goal, invariants, public
+behavior, owner boundaries, failure modes, cleanup, and verification. Lead with
+concrete findings ordered by severity. Avoid style-only comments and say when no
+material findings remain.

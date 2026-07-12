@@ -1,0 +1,4 @@
+interface:
+  display_name: "TypeScript Quality Boundaries"
+  short_description: "Protect typed production seams and async behavior"
+  default_prompt: "Use $typescript-quality-boundaries to implement this Lineup TypeScript change safely."

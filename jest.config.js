@@ -48,7 +48,7 @@ const config = {
         },
     },
     coverageDirectory: 'coverage',
-    coverageReporters: ['text', 'lcov'],
+    coverageReporters: ['text-summary', 'lcov'],
 };
 
 export default config;

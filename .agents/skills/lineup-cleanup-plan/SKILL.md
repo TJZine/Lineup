@@ -1,27 +1,11 @@
 ---
 name: lineup-cleanup-plan
-description: Use when the user explicitly asks for lineup-cleanup-plan, invokes the matching Lineup fresh-session launcher workflow, or wants this exact reusable launcher as a skill.
+description: Explicit launcher for planning a Lineup cleanup, refactor, or remediation; do not invoke implicitly.
 ---
 
 # Lineup Cleanup Plan
 
-This skill is the skill-based replacement for the legacy `lineup-cleanup-plan.md` launcher.
-
-Use the prompt body below as the authoritative workflow instructions for this skill invocation.
-
-Use this only from the Lineup repo.
-
-Read these files in order:
-
-1. `docs/AGENTIC_DEV_WORKFLOW.md`
-2. `agents.md`
-3. `docs/agentic/session-prompts/cleanup-plan.md`
-
-Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this repo-local skill.
-
-After invoking this launcher, provide either:
-
-- a pasted `NEXT_SESSION_HANDOFF` block, or
-- one short follow-up message naming the exact checklist item, for example `We are working on ARCHITECTURE_CLEANUP_CHECKLIST.md item P1-W1.`
-
-If you use the short follow-up form, the session should treat that message as the active scope selector and derive the remaining context from the tracked launcher docs.
+Read `AGENTS.md`, the runbook, and only relevant boundary docs. Freeze the intended
+long-term owner, preservation contracts, exact current scope, verification, and
+stop conditions. Do not create package schemas or tracked plans unless the task
+actually needs durable multi-session coordination.

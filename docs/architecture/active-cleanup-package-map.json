@@ -10,8 +10,8 @@
     "assignment_rule": "Each package owns one checklist work item and one matching priority-exit token, keyed by recommended_execution_order."
   },
   "verified_counts": {
-    "total_open": 212,
-    "older_live_non_review": 159,
+    "total_open": 211,
+    "older_live_non_review": 158,
     "fresh_review": 39,
     "fresh_non_review": 14
   },
@@ -22,8 +22,8 @@
     "no_reconciled_closed_issue_included": true
   },
   "validation_details": {
-    "total_open_issues": 212,
-    "assigned_open_issues": 212,
+    "total_open_issues": 211,
+    "assigned_open_issues": 211,
     "unassigned_issue_ids": [],
     "duplicate_assignments": [],
     "closed_audit_ids_included": [],
@@ -843,7 +843,6 @@
       "includes_detectors": [
         "review",
         "signature",
-        "structural",
         "test_coverage"
       ],
       "includes_issue_ids": [
@@ -852,7 +851,6 @@
         "review::.::holistic::type_safety::duplicated_error_code_taxonomies",
         "review::.::holistic::type_safety::unsafe_error_code_coercions",
         "signature::src/__tests__/helpers.ts::signature_variance::flushPromises",
-        "structural::src/__tests__/tools/verifyDocs.test.ts",
         "test_coverage::src/index.ts::untested_module"
       ],
       "includes_review_issue_ids": [
@@ -873,8 +871,8 @@
       "recommended_scope_boundary": "Keep this package on typed surface cleanup, shared test helpers, and fragility-guardrail expansion. Do not absorb broad repo-wide prose/template cleanup or domain runtime decomposition.",
       "recommended_execution_order": 9,
       "estimated_backlog_size": {
-        "total_open": 7,
-        "older_live_non_review": 3,
+        "total_open": 6,
+        "older_live_non_review": 2,
         "fresh_review": 4,
         "fresh_non_review": 0
       },
@@ -894,14 +892,13 @@
       },
       "verified_package_size": {
         "package_name": "Type Safety And Test Guardrails",
-        "total_open": 7,
-        "older_live_non_review": 3,
+        "total_open": 6,
+        "older_live_non_review": 2,
         "fresh_review": 4,
         "fresh_non_review": 0,
         "by_detector": {
           "review": 4,
           "signature": 1,
-          "structural": 1,
           "test_coverage": 1
         }
       }

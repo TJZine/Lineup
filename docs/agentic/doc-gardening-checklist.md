@@ -23,11 +23,11 @@
 
 - stale plan references are updated
 - active-vs-archived plan placement is still correct
-- `npm run plans:check` still passes for active serious plans
+- `npm run verify:docs` still passes for active control-plane structure
 - run `npm run plans:stale` to review active-plan archive candidates without auto-archiving them
 - stale decision index entries are removed or fixed
 - completed sections or standout archived plans are reviewed for updates to `docs/agentic/historical-plan-corpus-review.md`
-- run `npm run harness:ingestion` after archiving a completed section summary and during broader doc-gardening passes
+- promote only durable lessons from archived work; do not create a mandatory ingestion loop
 
 ## Skill Topology Checks
 

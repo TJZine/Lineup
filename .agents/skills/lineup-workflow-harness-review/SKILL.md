@@ -1,20 +1,12 @@
 ---
 name: lineup-workflow-harness-review
-description: Use when the user explicitly asks for lineup-workflow-harness-review, invokes the matching Lineup fresh-session launcher workflow, or wants this exact reusable launcher as a skill.
+description: Explicit read-only review of Lineup workflow, skills, roles, verification, and context efficiency against current first-party guidance.
 ---
 
 # Lineup Workflow Harness Review
 
-This skill is the skill-based replacement for the legacy `lineup-workflow-harness-review.md` launcher.
-
-Use the prompt body below as the authoritative workflow instructions for this skill invocation.
-
-Use this only from the Lineup repo.
-
-Read these files in order:
-
-1. `docs/AGENTIC_DEV_WORKFLOW.md`
-2. `agents.md`
-3. `docs/agentic/session-prompts/workflow-harness-review.md`
-
-Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this repo-local skill.
+Read `AGENTS.md`, the runbook, current skill/role declarations, and the structural
+docs verifier. Consult current official OpenAI and Anthropic guidance. Lead with
+conflicts, unnecessary required context, over-orchestration, brittle enforcement,
+role/skill sprawl, missing outcome proof, and stale guidance. Recommend subtraction
+before adding machinery.

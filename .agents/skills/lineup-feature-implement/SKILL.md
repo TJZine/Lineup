@@ -1,24 +1,12 @@
 ---
 name: lineup-feature-implement
-description: Use when the user explicitly asks for lineup-feature-implement, invokes the matching Lineup fresh-session launcher workflow, or wants this exact reusable launcher as a skill.
+description: Explicit launcher for implementing an approved Lineup feature plan; do not invoke implicitly.
 ---
 
 # Lineup Feature Implement
 
-This skill is the skill-based replacement for the legacy `lineup-feature-implement.md` launcher.
-
-Use the prompt body below as the authoritative workflow instructions for this skill invocation.
-
-Use this only from the Lineup repo.
-
-Read these files in order:
-
-1. `docs/AGENTIC_DEV_WORKFLOW.md`
-2. `agents.md`
-3. `docs/agentic/session-prompts/feature-implement.md`
-
-Then follow the tracked launcher exactly. Keep repo-specific policy in the repo docs, not in this repo-local skill.
-
-After invoking this launcher, accept either:
-- a pasted `NEXT_SESSION_HANDOFF` block, or
-- one short follow-up naming the approved plan path or active run bundle plus the target feature scope, for example `Implement docs/plans/2026-03-27-settings-diagnostics-redesign.md.`
+Read `AGENTS.md`, relevant runbook sections, the approved plan/brief, and matching
+boundary skills. Implement one coherent unit, preserve explicit failure and cleanup
+behavior, update changed authority surfaces, and run targeted plus risk-matched
+proof. Stop if scope, ownership, public behavior, failure semantics, or verification
+diverges from the plan.

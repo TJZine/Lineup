@@ -127,7 +127,6 @@ worktrees/
 agent-memory/
 orchestration-docs/
 .codex/
-AGENTS.md
 CODEX.md
 docs/qa/README.md
 docs/qa/ui-ux-audit-manual-tv-script.md

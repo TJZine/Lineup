@@ -37,8 +37,8 @@ The default move is extraction, not accretion.
 ## Required Reading
 
 1. [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md) for current ownership truth
-2. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) when the task is architecture-affecting
-3. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md) for tiering, verification, and handoff rules
+2. relevant sections of [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md) for verification and handoff rules
+3. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) only when the task explicitly implements or updates a checklist item
 4. the relevant architecture/module reference doc when changing public ownership
 
 ## Boundary Routing
@@ -46,22 +46,24 @@ The default move is extraction, not accretion.
 - If the change touches storage-backed state, also load `persistence-boundaries`.
 - If the change touches Plex auth/discovery/library/stream policy, also load `plex-integration-boundaries`.
 - If the change touches screens, overlays, focus, motion, or TV-visible composition, also load `ui-composition-patterns`.
-- If more than one repo-local boundary skill applies, treat the task as higher risk and make the ownership split explicit before coding.
+- Load `typescript-quality-boundaries` for production TypeScript and
+  `typescript-test-design` when tests or fixtures change.
+- When more than one boundary applies, make the ownership split explicit; determine
+  risk from blast radius, novelty, contracts, and proof difficulty rather than skill count.
 
 ## Discovery Pattern
 
-1. Run a Codanna-first evidence sweep before editing shared code.
-   - start with `semantic_search_with_context`
-   - use `search_documents` when repo-doc context matters
-   - run `analyze_impact` before touching shared/public symbols
-   - fall back to `rg` only when Codanna is insufficient, and note the fallback
+1. Find the current owner with exact search and direct reads. Use Codanna semantic or
+   impact tools when available and materially useful for an unknown or shared seam;
+   do not delay work merely to prove a preferred discovery tool was attempted.
 2. Identify the narrowest responsibility that can move out without inventing new coupling.
 3. Define the target owner before editing.
    - who owns the workflow
    - which module it belongs to
    - what its public API is
    - what lifecycle or persistence contract it preserves
-4. Add or tighten behavior tests around that responsibility.
+4. Identify the existing behavior proof and add or tighten a test when the seam is
+   under-protected or a regression needs durable coverage.
 5. Extract one durable collaborator with clear ownership.
 6. Cross-check the diff against the intended owner map before moving on.
 
@@ -77,10 +79,11 @@ The default move is extraction, not accretion.
 ## Required Checks
 
 - Re-read [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md) and confirm the target ownership still matches present-day truth.
-- Re-read [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) before architecture-affecting work.
-- If a `P#-W#` item is completed, update the checklist in the same delivery pass.
+- When the task is checklist-linked, re-read the exact checklist item and update its
+  status in the same delivery pass.
 - Refresh [`docs/architecture/README.md`](../../../docs/architecture/README.md) or [`docs/architecture/modules.md`](../../../docs/architecture/modules.md) when public ownership changes.
-- For risky/shared-symbol edits, carry the Codanna impact snapshot into the plan or task notes.
+- For risky/shared-symbol edits, record the impacted public callers and owners from
+  the best available source or language tool.
 - Run the repo-appropriate verification depth:
   - `npm run verify` for UI, navigation, Orchestrator, or Plex work
   - at least `npm run typecheck` plus `npm test` for logic-only TypeScript refactors unless broader coverage is required
@@ -92,7 +95,8 @@ The default move is extraction, not accretion.
 - Letting UI modules parse raw storage or Plex payloads
 - Letting composition roots regrow feature workflow logic because extraction feels slower
 - Creating a new owner with no clear lifecycle or module boundary
-- Moving code across a seam without updating docs or checklist ownership
+- Moving code across a seam without updating current ownership docs, or the exact
+  checklist item when the task is checklist-linked
 - Solving a boundary problem with a temporary adapter that becomes permanent coupling
 - Moving logic without first tightening tests around the behavior
 - Treating detector silence or passing tests alone as proof that the architecture improved

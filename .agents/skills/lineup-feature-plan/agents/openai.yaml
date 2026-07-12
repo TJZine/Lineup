@@ -1,4 +1,6 @@
 interface:
   display_name: "Lineup Feature Plan"
   short_description: "Launch the feature/design planner session"
-  default_prompt: "Use the lineup-feature-plan skill for this task."
+  default_prompt: "Use $lineup-feature-plan for this task."
+policy:
+  allow_implicit_invocation: false

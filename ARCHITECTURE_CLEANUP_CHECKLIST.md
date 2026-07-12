@@ -86,9 +86,10 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
   current architecture/API docs at closeout. Delete the detailed active plan
   after closeout unless it contains a reusable architecture decision that must
   be promoted into a durable reference doc.
-- Execute approved packages through planner -> reviewer -> cleanup_worker ->
-  reviewer loops when `cleanup-loop` is used. The checklist names priorities and
-  closeout gates; it does not enumerate endless waves.
+- Execute approved cleanup units through the canonical runbook. Use the normal
+  `worker` for bounded implementation, `worker_luna` only for an explicitly eligible
+  Sol-planned unit, and one independent final review when risk requires it. The
+  checklist names priorities and closeout gates; it does not enumerate endless waves.
 - Keep every implementation package bounded by one owner, one seam, one proof
   surface, and explicit stop/replan triggers.
 - For active packages, do not check a package complete unless every listed
@@ -98,9 +99,10 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
   package-level completion criteria are satisfied.
 - Active cleanup-loop planning must plan coherent execution units or waves when
   the package is large. Do not close a package after one micro-fix while listed
-  issues remain. Parallel `cleanup_worker` slices are allowed only when the
-  approved plan shows disjoint write scopes, disjoint verification surfaces, and
-  one controller-owned integration/closeout path.
+  issues remain. Parallel writers are allowed only when the approved plan proves
+  disjoint files, symbols, fixtures, and verification surfaces. Serialize shared
+  files, composition roots, public contracts, generated authority, and unresolved
+  producer/consumer seams; keep one controller-owned integration/closeout path.
 - Run `npm run verify` for UI, navigation, Orchestrator, Plex, lifecycle,
   settings, persistence, or runtime source work.
 - Run `npm run verify:docs` for checklist, launcher, workflow, or reference-doc
