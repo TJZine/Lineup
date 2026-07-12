@@ -12,6 +12,7 @@ export type {
     AudioTrackReloadResult,
     DisableBurnInSubtitlesResult,
 } from './recovery/PlaybackRecoveryManager';
+export type { PreparedPlaybackStream } from './recovery/PreparedPlaybackStream';
 
 export type {
     VideoPlayerConfig,

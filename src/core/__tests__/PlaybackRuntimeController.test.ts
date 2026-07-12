@@ -12,6 +12,11 @@ import {
 } from '../orchestrator/priority-one/PlaybackRuntimeController';
 import type { OrchestratorPlaybackStateAccessors } from '../orchestrator/runtime/OrchestratorPlaybackStateAccessors';
 
+const requiredPlaybackPreparationStubs = {
+    resolveStreamForProgram: jest.fn(),
+    discardPreparedStream: jest.fn(),
+};
+
 const makePlaybackState = (
     overrides: Partial<jest.Mocked<OrchestratorPlaybackStateAccessors>> = {}
 ): jest.Mocked<OrchestratorPlaybackStateAccessors> => ({
@@ -37,6 +42,7 @@ const makePlaybackMocks = (
 ): jest.Mocked<PlaybackRuntimeControllerDeps['playback']> => ({
     playbackState,
     playbackRecovery: {
+        ...requiredPlaybackPreparationStubs,
         isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(false),
         attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
         handlePlaybackFailure: jest.fn(),
@@ -122,6 +128,7 @@ describe('PlaybackRuntimeController', () => {
             playback: {
                 ...makePlaybackMocks(callOrder),
                 playbackRecovery: {
+                    ...requiredPlaybackPreparationStubs,
                     isStreamRecoveryInProgress: jest.fn().mockReturnValue(true),
                 },
             },
@@ -146,6 +153,7 @@ describe('PlaybackRuntimeController', () => {
             playback: {
                 ...makePlaybackMocks(callOrder),
                 playbackRecovery: {
+                    ...requiredPlaybackPreparationStubs,
                     isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(true),
                     handlePlaybackFailure,
                 },
@@ -253,6 +261,7 @@ describe('PlaybackRuntimeController', () => {
             retryCount: 0,
         };
         const playbackRecovery = {
+            ...requiredPlaybackPreparationStubs,
             handledContext: null as string | null,
             isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(false),
             attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
@@ -286,6 +295,7 @@ describe('PlaybackRuntimeController', () => {
             playback: {
                 ...makePlaybackMocks(callOrder),
                 playbackRecovery: {
+                    ...requiredPlaybackPreparationStubs,
                     isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(false),
                     attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
                     handlePlaybackFailure: jest.fn(() => {
@@ -330,6 +340,7 @@ describe('PlaybackRuntimeController', () => {
             retryCount: 0,
         };
         const playbackRecovery = {
+            ...requiredPlaybackPreparationStubs,
             isStreamRecoveryInProgress: jest.fn<boolean, []>().mockReturnValue(false),
             attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
         };

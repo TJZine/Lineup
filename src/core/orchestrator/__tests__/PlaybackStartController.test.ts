@@ -1,6 +1,12 @@
 import { PlaybackStartController, type PlaybackStartControllerDeps } from '../priority-one/PlaybackStartController';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
-import type { StreamDescriptor } from '../../../modules/player';
+import type { PreparedPlaybackStream, StreamDescriptor } from '../../../modules/player';
+import type { StreamDecision } from '../../../modules/plex/stream';
+
+const makePrepared = (): PreparedPlaybackStream => ({
+    decision: { sessionId: null } as unknown as StreamDecision,
+    descriptor: { url: 'http://test/stream.mp4' } as StreamDescriptor,
+});
 
 const makeProgram = (ratingKey = 'item-1'): ScheduledProgram => ({
     item: {
@@ -24,9 +30,8 @@ const makeDeps = (
             loadStream: jest.fn().mockResolvedValue(undefined),
             play: jest.fn().mockResolvedValue(undefined),
         }),
-        resolveStreamForProgram: jest.fn().mockResolvedValue({
-            url: 'http://test/stream.mp4',
-        } as StreamDescriptor),
+        resolveStreamForProgram: jest.fn().mockResolvedValue(makePrepared()),
+        discardPreparedStream: jest.fn().mockResolvedValue(undefined),
         resetPlaybackFailureGuard: jest.fn(),
         tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
         tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
@@ -40,7 +45,9 @@ const makeDeps = (
         }),
         isProgramStillCurrent: jest.fn().mockReturnValue(true),
         handleProgramStartUiSideEffects: jest.fn(),
+        commitPreparedStream: jest.fn(),
         handleStreamResolved: jest.fn(),
+        reportRecoverableActivationFailure: jest.fn(),
         clearAutoShowInfoBannerAfterAbortedStart: jest.fn(),
         ...overrides,
     };
@@ -58,7 +65,10 @@ describe('PlaybackStartController', () => {
 
         await new PlaybackStartController(deps).handleProgramStart(makeProgram());
 
-        expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith('programStart');
+        expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith(
+            'programStart',
+            undefined
+        );
         expect(deps.handlePlaybackFailure).toHaveBeenCalledWith('programStart', originalError);
         expect(deps.clearAutoShowInfoBannerAfterAbortedStart).toHaveBeenCalledTimes(1);
     });

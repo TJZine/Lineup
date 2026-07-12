@@ -1,4 +1,5 @@
-import type { StreamDescriptor } from '../../../modules/player';
+import type { PreparedPlaybackStream, StreamDescriptor } from '../../../modules/player';
+import type { StreamDecision } from '../../../modules/plex/stream';
 import type {
     ScheduledProgram,
     SchedulerState,
@@ -25,6 +26,11 @@ const makeProgram = (): ScheduledProgram =>
         loopNumber: 0,
         isCurrent: true,
     } as unknown as ScheduledProgram);
+
+const makePrepared = (): PreparedPlaybackStream => ({
+    decision: { sessionId: null } as unknown as StreamDecision,
+    descriptor: { url: 'stream' } as unknown as StreamDescriptor,
+});
 
 const makeSchedulerState = (
     currentProgram: ScheduledProgram | null,
@@ -73,7 +79,8 @@ const makeDeps = (
     playback: {
         playbackState,
         playbackRecovery: {
-            resolveStreamForProgram: jest.fn().mockResolvedValue(null as StreamDescriptor | null),
+            resolveStreamForProgram: jest.fn().mockResolvedValue(makePrepared()),
+            discardPreparedStream: jest.fn().mockResolvedValue(undefined),
             resetPlaybackFailureGuard: jest.fn(),
             tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
             tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
@@ -145,30 +152,4 @@ describe('createPriorityOneControllersAndBinder playbackState wiring', () => {
         expect(playbackState.setPendingNowPlayingChannelId).toHaveBeenCalledWith(null);
     });
 
-    it('treats missing playbackRecovery.resolveStreamForProgram as no stream without reporting failure', async () => {
-        const program = makeProgram();
-        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
-            getCurrentProgramForPlayback: jest.fn().mockReturnValue(null),
-            setCurrentProgramForPlayback: jest.fn(),
-            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
-            setCurrentStreamDescriptor: jest.fn(),
-            getCurrentStreamDecision: jest.fn().mockReturnValue(null),
-            setCurrentStreamDecision: jest.fn(),
-            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
-            setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
-        };
-
-        const deps = makeDeps(playbackState);
-        (deps.playback.playbackRecovery as unknown as { resolveStreamForProgram?: unknown }).resolveStreamForProgram = undefined;
-
-        const priorityOne = createPriorityOneControllersAndBinder(deps);
-
-        await priorityOne.playbackStartController.handleProgramStart(program);
-
-        expect((deps.modules.videoPlayer as unknown as { loadStream: jest.Mock }).loadStream).not.toHaveBeenCalled();
-        expect(deps.playback.playbackRecovery.handlePlaybackFailure).not.toHaveBeenCalled();
-        expect(deps.uiRuntime.onPlaybackStartFailure).not.toHaveBeenCalled();
-    });
 });

@@ -13,7 +13,10 @@ import { PlaybackReloadController, type RecoveryAttemptResult, type RecoveryRelo
 import { PlaybackStreamDescriptorBuilder } from '../streaming/PlaybackStreamDescriptorBuilder';
 import { summarizePlaybackFailureDecision, summarizePlaybackFailureDescriptor, summarizePlaybackFailureReloadAttempt } from './PlaybackFailureDiagnostics';
 import { logPlaybackRecoveryError } from '../../debug/PlayerConsoleLogger';
-import { clampPlaybackOffsetMs } from './playbackRecoveryTiming';
+import {
+    PreparedPlaybackStreamOwner,
+    type PreparedPlaybackStream,
+} from './PreparedPlaybackStream';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -58,6 +61,7 @@ export class PlaybackRecoveryManager {
     private readonly _subtitlePreferencesStore: SubtitlePreferencesStore;
     private readonly _descriptorBuilder: PlaybackStreamDescriptorBuilder;
     private readonly _reloadController: PlaybackReloadController;
+    private readonly _preparedStreamOwner: PreparedPlaybackStreamOwner;
     // Playback failure guard: avoids repeated error surfacing for the same item until playback succeeds or is retried.
     private _playbackFailureCount: number = 0;
     private _playbackFailureSurfacedForGuardKey: string | null = null;
@@ -85,6 +89,13 @@ export class PlaybackRecoveryManager {
             ...(deps.getPlexPreferredSubtitleLanguage
                 ? { getPlexPreferredSubtitleLanguage: deps.getPlexPreferredSubtitleLanguage }
                 : {}),
+        });
+        this._preparedStreamOwner = new PreparedPlaybackStreamOwner({
+            getStreamResolver: deps.getStreamResolver,
+            getCurrentStreamDecision: (): StreamDecision | null =>
+                deps.getCurrentStreamDecision?.() ?? null,
+            buildDescriptor: (program, decision, startOffsetMs): StreamDescriptor =>
+                this._descriptorBuilder.build(program, decision, startOffsetMs),
         });
         this._reloadController = new PlaybackReloadController({
             getVideoPlayer: deps.getVideoPlayer,
@@ -278,22 +289,12 @@ export class PlaybackRecoveryManager {
         return false;
     }
 
-    async resolveStreamForProgram(program: ScheduledProgram): Promise<StreamDescriptor> {
-        const resolver = this.deps.getStreamResolver();
-        if (!resolver) {
-            throw new Error('Stream resolver not initialized');
-        }
+    async resolveStreamForProgram(program: ScheduledProgram): Promise<PreparedPlaybackStream> {
+        return this._preparedStreamOwner.prepare(program);
+    }
 
-        const clampedOffset = clampPlaybackOffsetMs(program.elapsedMs, program.item.durationMs);
-
-        const decision: StreamDecision = await resolver.resolveStream({
-            itemKey: program.item.ratingKey,
-            startOffsetMs: clampedOffset,
-            directPlay: true,
-        });
-        this.deps.setCurrentStreamDecision(decision);
-
-        return this._descriptorBuilder.build(program, decision, clampedOffset);
+    async discardPreparedStream(prepared: PreparedPlaybackStream): Promise<void> {
+        await this._preparedStreamOwner.discard(prepared);
     }
 
     async attemptAudioTrackReloadForCurrentProgram(
@@ -384,13 +385,18 @@ export class PlaybackRecoveryManager {
         return true;
     }
 
-    async attemptTranscodeFallbackForCurrentProgram(reason: string): Promise<boolean> {
+    async attemptTranscodeFallbackForCurrentProgram(
+        reason: string,
+        attemptedStream?: PreparedPlaybackStream
+    ): Promise<boolean> {
         const context = this._reloadController.prepareReload(reason);
         if ('outcome' in context) {
             return false;
         }
 
-        const currentProtocol = this.deps.getCurrentStreamDescriptor()?.protocol ?? null;
+        const currentProtocol = attemptedStream?.descriptor.protocol
+            ?? this.deps.getCurrentStreamDescriptor()?.protocol
+            ?? null;
         if (currentProtocol !== 'direct') {
             return false;
         }

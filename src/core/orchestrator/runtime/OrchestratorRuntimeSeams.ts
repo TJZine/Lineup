@@ -3,6 +3,7 @@ import type { INavigationManager, Screen } from '../../../modules/navigation';
 import type {
     IVideoPlayer,
     PlaybackState,
+    PreparedPlaybackStream,
     StreamDescriptor,
     TimeRange,
 } from '../../../modules/player';
@@ -27,11 +28,15 @@ export type RecoverableAsyncFailureReporter = (
 ) => void;
 
 export interface PriorityOnePlaybackRecoveryPort {
-    resolveStreamForProgram?: (program: ScheduledProgram) => Promise<StreamDescriptor | null | undefined>;
+    resolveStreamForProgram: (program: ScheduledProgram) => Promise<PreparedPlaybackStream>;
+    discardPreparedStream: (prepared: PreparedPlaybackStream) => Promise<void>;
     resetPlaybackFailureGuard?: () => void;
     tryHandleStreamResolverAuthError?: (error: unknown) => boolean;
     tryHandleStreamResolverPermissionError?: (error: unknown) => boolean;
-    attemptTranscodeFallbackForCurrentProgram?: (reason: string) => Promise<boolean>;
+    attemptTranscodeFallbackForCurrentProgram?: (
+        reason: string,
+        attemptedStream?: PreparedPlaybackStream
+    ) => Promise<boolean>;
     handlePlaybackFailure?: (context: string, error: unknown) => void;
     isStreamRecoveryInProgress: () => boolean;
 }

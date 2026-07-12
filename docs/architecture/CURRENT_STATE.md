@@ -312,6 +312,11 @@ after this extraction.
 
 - `src/modules/player/`
 - owns playback runtime, subtitle attachment/conversion, keep-alive, and player recovery behavior
+- `src/modules/player/recovery/PreparedPlaybackStream.ts` owns matching stream
+  decision/descriptor preparation and active-session-safe cleanup without publishing
+  global state. `PlaybackRecoveryManager` composes that owner; the priority-one
+  `PlaybackStartController` owns initial-playback authority and atomically publishes
+  the pair only after load, play, and a final current-start check succeed.
 - `src/modules/player/tracks/AudioTrackManager.ts` consumes player-facing codec
   support input instead of importing Plex stream-policy constants directly; the
   shared baseline codec owner lives in `src/shared/audioCodecSupport.ts` and is

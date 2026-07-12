@@ -1,6 +1,6 @@
 import { PlaybackRecoveryManager, type PlaybackRecoveryDeps } from '../../recovery/PlaybackRecoveryManager';
 import { AppErrorCode } from '../../../../types/app-errors';
-import type { IVideoPlayer, StreamDescriptor } from '../../index';
+import type { IVideoPlayer, PreparedPlaybackStream, StreamDescriptor } from '../../index';
 import type { IPlexStreamResolver, StreamDecision } from '../../../plex/stream';
 import type { PlexStream } from '../../../plex/shared/types';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../../../scheduler/scheduler';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
+import { PlaybackStartController } from '../../../../core/orchestrator/priority-one/PlaybackStartController';
 
 const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgram =>
     ({
@@ -557,7 +558,7 @@ describe('PlaybackRecoveryManager', () => {
         );
     });
 
-    it('resolves stream for program and records decision', async () => {
+    it('prepares a clamped stream without recording its decision', async () => {
         const currentProgram = makeProgram({ elapsedMs: 999999 });
         const { manager, resolver, deps } = setup({
             getCurrentProgramForPlayback: () => currentProgram,
@@ -565,7 +566,7 @@ describe('PlaybackRecoveryManager', () => {
         });
         const setDecision = deps.setCurrentStreamDecision as jest.Mock;
 
-        const stream = await manager.resolveStreamForProgram(makeProgram({ elapsedMs: 999999 }));
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram({ elapsedMs: 999999 }));
 
         expect(resolver.resolveStream).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -574,9 +575,125 @@ describe('PlaybackRecoveryManager', () => {
                 directPlay: true,
             })
         );
-        expect(setDecision).toHaveBeenCalled();
+        expect(setDecision).not.toHaveBeenCalled();
         expect(stream.protocol).toBe('hls');
     });
+
+    it('returns a matching prepared pair without publishing either half', async () => {
+        const decision = makeDecision({ sessionId: 'prepared-session' });
+        const { manager, resolver, deps } = setup();
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(decision);
+
+        const prepared = await manager.resolveStreamForProgram(makeProgram());
+
+        expect(prepared.decision).toBe(decision);
+        expect(prepared.descriptor.url).toBe(decision.playbackUrl);
+        expect(deps.setCurrentStreamDecision).not.toHaveBeenCalled();
+        expect(deps.setCurrentStreamDescriptor).not.toHaveBeenCalled();
+    });
+
+    it('cleans an unaccepted transcode session when descriptor construction fails', async () => {
+        const decision = makeDecision({ sessionId: 'unaccepted-session' });
+        const descriptorError = new Error('descriptor failed');
+        const { manager, resolver, deps } = setup({
+            getMimeType: () => {
+                throw descriptorError;
+            },
+        });
+        (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(decision);
+
+        await expect(manager.resolveStreamForProgram(makeProgram())).rejects.toBe(descriptorError);
+
+        expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('unaccepted-session');
+        expect(deps.setCurrentStreamDecision).not.toHaveBeenCalled();
+        expect(deps.setCurrentStreamDescriptor).not.toHaveBeenCalled();
+    });
+
+    it('does not stop an unaccepted decision when its session is already active', async () => {
+        const decision = makeDecision({ sessionId: 'shared-session' });
+        const { manager, resolver } = setup({
+            getCurrentStreamDecision: () => makeDecision({ sessionId: 'shared-session' }),
+        });
+
+        await manager.discardPreparedStream({
+            decision,
+            descriptor: { protocol: 'hls' } as StreamDescriptor,
+        });
+
+        expect(resolver.stopTranscodeSession).not.toHaveBeenCalled();
+    });
+
+    it.each(['load', 'play'] as const)(
+        'preserves the active pair when initial %s fails through the real recovery seam',
+        async (failureStage) => {
+            const program = makeProgram();
+            const priorDecision = makeDecision({ sessionId: 'active-session' });
+            const priorDescriptor = { protocol: 'hls', url: 'active' } as StreamDescriptor;
+            let currentDecision: StreamDecision | null = priorDecision;
+            let currentDescriptor: StreamDescriptor | null = priorDescriptor;
+            const { manager, resolver, player, deps } = setup({
+                getCurrentProgramForPlayback: () => program,
+                getCurrentProgramIdentityForPlayback: () => makeProgramIdentity(program),
+                getCurrentStreamDecision: () => currentDecision,
+                getCurrentStreamDescriptor: () => currentDescriptor,
+                setCurrentStreamDecision: (decision) => {
+                    currentDecision = decision;
+                },
+                setCurrentStreamDescriptor: (descriptor) => {
+                    currentDescriptor = descriptor;
+                },
+            });
+            (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(
+                makeDecision({ sessionId: 'attempt-session' })
+            );
+            const startError = new Error(`${failureStage} failed`);
+            if (failureStage === 'load') {
+                (player.loadStream as jest.Mock).mockRejectedValueOnce(startError);
+            } else {
+                (player.play as jest.Mock).mockRejectedValueOnce(startError);
+            }
+            const controller = new PlaybackStartController({
+                getVideoPlayer: (): IVideoPlayer => player,
+                resolveStreamForProgram: (currentProgram): Promise<PreparedPlaybackStream> =>
+                    manager.resolveStreamForProgram(currentProgram),
+                discardPreparedStream: (prepared): Promise<void> => manager.discardPreparedStream(prepared),
+                resetPlaybackFailureGuard: (): void => manager.resetPlaybackFailureGuard(),
+                tryHandleStreamResolverAuthError: (error): boolean =>
+                    manager.tryHandleStreamResolverAuthError(error),
+                tryHandleStreamResolverPermissionError: (error): boolean =>
+                    manager.tryHandleStreamResolverPermissionError(error),
+                attemptTranscodeFallbackForCurrentProgram: (reason, attempted): Promise<boolean> =>
+                    manager.attemptTranscodeFallbackForCurrentProgram(reason, attempted),
+                handlePlaybackFailure: jest.fn(),
+                logPlaybackStartFailure: jest.fn(),
+                markProgramStarting: (startingProgram): {
+                    programAtStart: ScheduledProgram;
+                    programIdentityAtStart: ScheduledProgramIdentity;
+                    shouldResetAutoShowInfoBannerOnAbort: boolean;
+                } => ({
+                    programAtStart: startingProgram,
+                    programIdentityAtStart: makeProgramIdentity(startingProgram),
+                    shouldResetAutoShowInfoBannerOnAbort: false,
+                }),
+                isProgramStillCurrent: (): boolean => true,
+                handleProgramStartUiSideEffects: jest.fn(),
+                commitPreparedStream: (prepared): void => {
+                    deps.setCurrentStreamDecision(prepared.decision);
+                    deps.setCurrentStreamDescriptor(prepared.descriptor);
+                },
+                handleStreamResolved: jest.fn(),
+                reportRecoverableActivationFailure: jest.fn(),
+                clearAutoShowInfoBannerAfterAbortedStart: jest.fn(),
+            });
+
+            await controller.handleProgramStart(program);
+
+            expect(currentDecision).toBe(priorDecision);
+            expect(currentDescriptor).toBe(priorDescriptor);
+            expect(resolver.stopTranscodeSession).toHaveBeenCalledTimes(1);
+            expect(resolver.stopTranscodeSession).toHaveBeenCalledWith('attempt-session');
+        }
+    );
 
     it('reloads current program with requested audio track id', async () => {
         expectPlaybackRecoveryWarn({
@@ -878,7 +995,7 @@ describe('PlaybackRecoveryManager', () => {
             })
         );
 
-        const descriptor = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor } = await manager.resolveStreamForProgram(makeProgram());
 
         const defaults = descriptor.audioTracks.filter((t) => t.default).map((t) => t.id);
         expect(defaults).toEqual(['audio-aac']);
@@ -925,7 +1042,7 @@ describe('PlaybackRecoveryManager', () => {
             })
         );
 
-        const descriptor = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor } = await manager.resolveStreamForProgram(makeProgram());
         const defaults = descriptor.audioTracks.filter((t) => t.default).map((t) => t.id);
         expect(defaults).toEqual(['audio-default']);
     });
@@ -940,6 +1057,32 @@ describe('PlaybackRecoveryManager', () => {
         expect(ok).toBe(false);
         expect(resolver.resolveStream).not.toHaveBeenCalled();
         expect(player.loadStream).not.toHaveBeenCalled();
+    });
+
+    it('uses the failed prepared direct attempt for guarded fallback eligibility', async () => {
+        expectPlaybackRecoveryWarn({
+            event: 'transcodeFallback.start',
+            reason: 'programStart',
+            itemKey: 'item-1',
+        });
+        const directDecision = makeDecision({
+            protocol: 'http',
+            isDirectPlay: true,
+            isTranscoding: false,
+        });
+        const { manager, resolver, player } = setup({
+            getCurrentStreamDescriptor: () => ({ protocol: 'hls' } as StreamDescriptor),
+        });
+
+        const applied = await manager.attemptTranscodeFallbackForCurrentProgram('programStart', {
+            decision: directDecision,
+            descriptor: { protocol: 'direct' } as StreamDescriptor,
+        });
+
+        expect(applied).toBe(true);
+        expect(resolver.resolveStream).toHaveBeenCalledWith(expect.objectContaining({ directPlay: false }));
+        expect(player.loadStream).toHaveBeenCalled();
+        expect(player.play).toHaveBeenCalled();
     });
 
     it('attempts transcode fallback when direct protocol and plays', async () => {
@@ -1101,7 +1244,7 @@ describe('PlaybackRecoveryManager', () => {
         const { manager, resolver } = setup({ getPreferredSubtitleLanguage: () => 'en' });
         (resolver.resolveStream as jest.Mock).mockResolvedValue(decision);
 
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
 
         expect(stream.preferredSubtitleTrackId).toBe('sub-full');
     });
@@ -1124,7 +1267,7 @@ describe('PlaybackRecoveryManager', () => {
         const { manager, resolver } = setup();
         (resolver.resolveStream as jest.Mock).mockResolvedValue(decision);
 
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
 
         expect(stream.preferredSubtitleTrackId).toBeNull();
     });
@@ -1155,7 +1298,7 @@ describe('PlaybackRecoveryManager', () => {
         const { manager, resolver } = setup({ notifyToast, notifySubtitleUnavailable });
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(directDecision);
 
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
         const handled = stream.subtitleContext?.onDeactivate?.({
             trackId: 'sub-keyless',
             reason: 'subtitle_text_fetch_failed',
@@ -1177,7 +1320,7 @@ describe('PlaybackRecoveryManager', () => {
         const { manager, resolver } = setup();
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(decision);
 
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
 
         expect(stream.subtitleContext?.resolvedBaseUrl).toBe('https://relay.plex.tv');
     });
@@ -1231,7 +1374,7 @@ describe('PlaybackRecoveryManager', () => {
             .mockResolvedValueOnce(directDecision)
             .mockResolvedValueOnce(burnInDecision);
 
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
         const handled = stream.subtitleContext?.onDeactivate?.({
             trackId: 'sub-keyless',
             reason: 'subtitle_text_fetch_failed',
@@ -1932,7 +2075,7 @@ describe('PlaybackRecoveryManager', () => {
             .mockResolvedValueOnce(directDecision)
             .mockRejectedValueOnce(new Error('burn-in failed'));
 
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
         const handled = stream.subtitleContext?.onDeactivate?.({
             trackId: 'sub-keyless',
             reason: 'subtitle_text_fetch_failed',
@@ -1993,7 +2136,7 @@ describe('PlaybackRecoveryManager', () => {
             .mockResolvedValueOnce(directDecision)
             .mockRejectedValueOnce(new Error('burn-in failed'));
 
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
 
         const firstRecoveryResult = await stream.subtitleContext?.onDeactivateRecovery?.({
             trackId: 'sub-keyless',
@@ -2057,7 +2200,7 @@ describe('PlaybackRecoveryManager', () => {
         });
         (resolver.resolveStream as jest.Mock).mockResolvedValueOnce(directDecision);
 
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
         const handled = stream.subtitleContext?.onDeactivate?.({
             trackId: 'sub-keyless',
             reason: 'subtitle_text_fetch_failed',
@@ -2187,7 +2330,7 @@ describe('PlaybackRecoveryManager', () => {
             getStreamResolver: () => resolver,
             getPreferredSubtitleLanguage: () => 'en',
         });
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
 
         expect(stream.preferredSubtitleTrackId).toBe('sub-forced');
     });
@@ -2206,7 +2349,7 @@ describe('PlaybackRecoveryManager', () => {
             getStreamResolver: () => resolver,
             getPreferredSubtitleLanguage: () => 'en',
         });
-        const stream = await manager.resolveStreamForProgram(makeProgram());
+        const { descriptor: stream } = await manager.resolveStreamForProgram(makeProgram());
 
         expect(stream.preferredSubtitleTrackId).toBe('sub-full');
     });
