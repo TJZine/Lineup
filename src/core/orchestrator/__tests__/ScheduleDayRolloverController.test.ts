@@ -36,6 +36,31 @@ type RolloverHarness = {
 const DAY_1_START = Date.UTC(2026, 2, 18, 0, 0, 0, 0);
 const DAY_2_START = Date.UTC(2026, 2, 19, 0, 0, 0, 0);
 
+const makeResolvedContent = (
+    channelId = 'channel-1',
+    resolvedAt = DAY_2_START + 5_000
+): ResolvedChannelContent => ({
+    channelId,
+    items: [],
+    orderedItems: [],
+    totalDurationMs: 0,
+    resolvedAt,
+});
+
+const makeDeferred = <T>(): {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+    reject: (reason: unknown) => void;
+} => {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((promiseResolve, promiseReject) => {
+        resolve = promiseResolve;
+        reject = promiseReject;
+    });
+    return { promise, resolve, reject };
+};
+
 const makeScheduledProgram = (start: number, end: number): ScheduledProgram => ({
     item: {
         ratingKey: 'item-1',
@@ -172,6 +197,97 @@ describe('ScheduleDayRolloverController', () => {
         expect(scheduler.syncToCurrentTime).toHaveBeenCalledTimes(1);
     });
 
+    it('dedupes repeated direct requests while the apply promise is pending', async () => {
+        const harness = makeHarness();
+        const content = makeDeferred<ResolvedChannelContent>();
+        harness.channelManager.resolveChannelContent.mockReturnValueOnce(content.promise);
+
+        const applyPromise = harness.controller.handleScheduleDayRollover();
+        await harness.controller.handleScheduleDayRollover();
+
+        expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
+
+        content.resolve(makeResolvedContent());
+        await applyPromise;
+
+        expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries the same day after content resolution rejects and advances only on success', async () => {
+        const harness = makeHarness();
+        const error = new Error('resolve failed');
+        harness.channelManager.resolveChannelContent.mockRejectedValueOnce(error);
+
+        await expect(harness.controller.handleScheduleDayRollover()).rejects.toBe(error);
+
+        await harness.controller.handleScheduleDayRollover();
+        await harness.controller.handleScheduleDayRollover();
+
+        expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+        expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries the same day after schedule loading throws and advances only on success', async () => {
+        const harness = makeHarness();
+        const error = new Error('load failed');
+        harness.scheduler.loadChannel.mockImplementationOnce(() => {
+            throw error;
+        });
+
+        await expect(harness.controller.handleScheduleDayRollover()).rejects.toBe(error);
+
+        await harness.controller.handleScheduleDayRollover();
+        await harness.controller.handleScheduleDayRollover();
+
+        expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+        expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(2);
+        expect(harness.scheduler.syncToCurrentTime).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries the same day after EPG refresh rejects and advances only on success', async () => {
+        const harness = makeHarness();
+        const error = new Error('EPG refresh failed');
+        harness.epgCoordinator.refreshEpgSchedules.mockRejectedValueOnce(error);
+
+        await expect(harness.controller.handleScheduleDayRollover()).rejects.toBe(error);
+
+        await harness.controller.handleScheduleDayRollover();
+        await harness.controller.handleScheduleDayRollover();
+
+        expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+        expect(harness.epgCoordinator.refreshEpgSchedules).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports a deferred failure once and permits a later same-day retry without a loop', async () => {
+        const harness = makeHarness();
+        const { controller, scheduler, dayStartMs, nowRef } = harness;
+        const endTime = nowRef.value + 5_000;
+        const error = new Error('deferred resolve failed');
+        scheduler.getCurrentProgram.mockReturnValue(
+            makeScheduledProgram(dayStartMs - 10_000, endTime)
+        );
+        harness.channelManager.resolveChannelContent.mockRejectedValueOnce(error);
+
+        await controller.handleScheduleDayRollover();
+        await jest.advanceTimersByTimeAsync(5_050);
+
+        expect(harness.deps.reportError).toHaveBeenCalledTimes(1);
+        expect(harness.deps.reportError).toHaveBeenCalledWith(
+            '[Orchestrator] Failed to apply day rollover:',
+            error
+        );
+        expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
+        expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+
+        scheduler.getCurrentProgram.mockReturnValue(null);
+        await controller.handleScheduleDayRollover();
+        await controller.handleScheduleDayRollover();
+
+        expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+        expect(harness.deps.reportError).toHaveBeenCalledTimes(1);
+        expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('allows re-scheduling after explicit pending rollover cancellation', async () => {
         const harness = makeHarness();
         const { controller, scheduler, dayStartMs, nowRef } = harness;
@@ -183,5 +299,61 @@ describe('ScheduleDayRolloverController', () => {
         await controller.handleScheduleDayRollover();
 
         expect(setTimeoutSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+        [
+            'explicit cancellation',
+            (controller: ScheduleDayRolloverController): void =>
+                controller.cancelPendingDayRollover(),
+        ],
+        ['dispose', (controller: ScheduleDayRolloverController): void => controller.dispose()],
+    ])(
+        '%s prevents the canceled deferred callback from applying a schedule',
+        async (_label, cancel) => {
+            const harness = makeHarness();
+            const { controller, scheduler, dayStartMs, nowRef } = harness;
+            const endTime = nowRef.value + 5_000;
+            scheduler.getCurrentProgram.mockReturnValue(
+                makeScheduledProgram(dayStartMs - 10_000, endTime)
+            );
+
+            await controller.handleScheduleDayRollover();
+            cancel(controller);
+            await jest.advanceTimersByTimeAsync(5_050);
+
+            expect(harness.channelManager.resolveChannelContent).not.toHaveBeenCalled();
+            expect(scheduler.loadChannel).not.toHaveBeenCalled();
+        }
+    );
+
+    it('does not let an old canceled attempt clear a newer pending attempt for the same day', async () => {
+        const harness = makeHarness();
+        const oldContent = makeDeferred<ResolvedChannelContent>();
+        const newContent = makeDeferred<ResolvedChannelContent>();
+        const oldError = new Error('old attempt failed');
+        harness.channelManager.resolveChannelContent
+            .mockReturnValueOnce(oldContent.promise)
+            .mockReturnValueOnce(newContent.promise);
+
+        const oldAttempt = harness.controller.handleScheduleDayRollover();
+        const oldAttemptResult = expect(oldAttempt).rejects.toBe(oldError);
+        harness.controller.cancelPendingDayRollover();
+        const newAttempt = harness.controller.handleScheduleDayRollover();
+
+        expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+
+        oldContent.reject(oldError);
+        await oldAttemptResult;
+        await harness.controller.handleScheduleDayRollover();
+
+        expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+
+        newContent.resolve(makeResolvedContent());
+        await newAttempt;
+        await harness.controller.handleScheduleDayRollover();
+
+        expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
+        expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(1);
     });
 });
