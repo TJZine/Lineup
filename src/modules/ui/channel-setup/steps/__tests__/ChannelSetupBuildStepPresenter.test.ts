@@ -232,6 +232,46 @@ describe('ChannelSetupBuildStepPresenter', () => {
         );
     });
 
+    it('presents a committed guide interruption as completed and combines bookkeeping warning', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'committed-with-guide-interrupted',
+                result: {
+                    ...DEFAULT_BUILD_RESULT,
+                    created: 2,
+                    skipped: 0,
+                    commitState: 'committed',
+                    guideRefresh: {
+                        kind: 'interrupted',
+                        interruption: { kind: 'aborted', stage: 'refresh_schedules' },
+                    },
+                },
+                bookkeepingError: 'Device storage is full.',
+            }),
+        });
+        const setFocus = jest.fn();
+        deps.screenPorts.getNavigation.mockReturnValue({ setFocus });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        const doneButton = ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement;
+        const backButton = ctx.contentEl.querySelector('#setup-back') as HTMLButtonElement;
+        expect(ctx.statusEl.textContent).toBe('Channels created; guide refresh interrupted.');
+        expect(ctx.errorEl.textContent).toBe(
+            'Channels were created, but setup completion could not be saved: Device storage is full. ' +
+            'Channels were saved, but guide refresh was interrupted. Open the guide again after schedules finish loading.'
+        );
+        expect(doneButton.disabled).toBe(false);
+        expect(backButton.textContent).toBe('Back');
+        expect(deps.focus.unregisterAll).toHaveBeenCalledTimes(1);
+        expect(deps.focus.registerLinear).toHaveBeenCalledWith([doneButton, backButton], null);
+        expect(setFocus).toHaveBeenCalledWith(doneButton.id);
+    });
+
     it('uses degraded success copy when guide refresh is partial or failed', async () => {
         const ctx = createContext();
         document.body.appendChild(ctx.contentEl);

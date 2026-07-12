@@ -290,29 +290,27 @@ export class ChannelSetupSessionRuntime {
                 onProgress: options.onProgress,
             });
 
-            if (token !== state.sessionToken) {
-                return { kind: 'canceled' };
-            }
-
-            if (result.blockedMessage !== undefined) {
+            const committed = result.commitState === 'committed';
+            if (!committed && token !== state.sessionToken) return { kind: 'canceled' };
+            if (!committed && result.blockedMessage !== undefined) {
                 return { kind: 'blocked', message: result.blockedMessage };
             }
-
-            if (result.canceled) {
-                return { kind: 'canceled' };
-            }
+            if (!committed && result.canceled) return { kind: 'canceled' };
             let bookkeepingError: string | undefined;
             try {
                 const completionResult = this._deps.workflowPort.markSetupComplete(serverId, config);
                 bookkeepingError = completionResult.ok ? undefined : completionResult.message;
             } catch (error) {
-                if (isAbortLikeError(error, buildAbortController.signal)) {
+                if (!committed && isAbortLikeError(error, buildAbortController.signal)) {
                     return { kind: 'canceled' };
                 }
                 bookkeepingError = error instanceof Error ? error.message : 'Unable to save setup completion.';
             }
+            if (token !== state.sessionToken) {
+                return { kind: 'canceled' };
+            }
             return {
-                kind: 'success',
+                kind: committed && result.guideRefresh?.kind === 'interrupted' ? 'committed-with-guide-interrupted' : 'success',
                 serverId,
                 config,
                 result,
