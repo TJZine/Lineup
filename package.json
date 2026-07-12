@@ -38,10 +38,12 @@
         "verify:architecture": "eslint src && npm run verify:maintainability",
         "verify:docs": "node tools/verify-docs.mjs",
         "verify:bundle": "node tools/verify-bundle.mjs",
+        "verify:candidate": "node tools/verify-release-candidate.mjs",
         "plans:stale": "node tools/report-stale-plans.mjs",
         "verify": "npm run typecheck && npm run verify:architecture && npm run lint:css && npm run test:coverage && npm run test:tools && npm run test:contracts && npm run test:node-tools && npm run verify:docs && npm run verify:bundle && npm run build",
         "verify:quick": "npm run typecheck && npm run test:all",
-        "package:webos": "npm run build:lean && ares-package dist/"
+        "package:webos:dist": "node tools/package-webos.mjs",
+        "package:webos": "npm run build:lean && npm run package:webos:dist"
     },
     "devDependencies": {
         "@types/jest": "^30.0.0",

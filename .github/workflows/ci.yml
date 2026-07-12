@@ -57,6 +57,10 @@ jobs:
           npm run lint
           npm run lint:css
 
+      - name: Verify maintainability
+        if: matrix.node-version == '24.14.0'
+        run: npm run verify:maintainability
+
 
   type-check:
     name: Type Check (Node ${{ matrix.node-version }})
@@ -106,6 +110,10 @@ jobs:
       - name: Run governance tests (contracts/policy/types)
         if: matrix.node-version == '24.14.0'
         run: npm run test:contracts
+
+      - name: Run tool tests
+        if: matrix.node-version == '24.14.0'
+        run: npm run test:tools
       
       - name: Upload coverage
         if: matrix.node-version == '24.14.0'
@@ -120,6 +128,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [docs, lint, type-check, test]
+    outputs:
+      candidate-digest: ${{ steps.verify-candidate.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
       
@@ -132,15 +142,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Build
-        run: npm run build
+      - name: Build lean analyzed candidate
+        run: npm run build:analyze
+
+      - name: Verify candidate bundle structure
+        run: npm run verify:bundle -- --skip-build
+
+      - name: Remove verification metadata
+        run: rm dist/bundle-stats.json
+
+      - name: Verify final release candidate
+        id: verify-candidate
+        run: |
+          npm run verify:candidate
+          echo "digest=$(node tools/verify-release-candidate.mjs --digest-only)" >> "$GITHUB_OUTPUT"
       
       - name: Upload build artifacts
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
         uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: lean-candidate
           path: dist/
+          include-hidden-files: true
           retention-days: 7
 
   # webOS package job (runs on PR merge to main)
@@ -154,35 +177,34 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: lean-candidate
           path: dist/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.14.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify downloaded release candidate
+        run: npm run verify:candidate -- --expected-digest '${{ needs.build.outputs.candidate-digest }}'
       
       - name: Setup webOS CLI
-        run: |
-          ARES_CLI_PACKAGE="@webos-tools/cli"
-          ARES_CLI_VERSION="3.1.4"
-          if npm install -g "${ARES_CLI_PACKAGE}@${ARES_CLI_VERSION}"; then
-            echo "webOS CLI installed successfully"
-          else
-            echo "WARNING: Failed to install ${ARES_CLI_PACKAGE}@${ARES_CLI_VERSION}"
-            echo "Packaging step will be skipped"
-          fi
+        run: npm install -g @webos-tools/cli@3.2.5
+
+      - name: Verify webOS CLI
+        run: command -v ares-package
       
       - name: Package for webOS
-        run: |
-          if command -v ares-package &> /dev/null; then
-            echo "Creating IPK package for webOS TV..."
-            mkdir -p ./packages
-            ares-package dist/ -o ./packages/
-            ls -la ./packages/
-          else
-            echo "Skipping packaging - webOS CLI not available"
-          fi
+        run: npm run package:webos:dist
 
       - name: Upload webOS package artifacts
-        if: hashFiles('packages/*.ipk') != ''
         uses: actions/upload-artifact@v4
         with:
           name: webos-ipk
           path: packages/*.ipk
+          if-no-files-found: error
           retention-days: 7
