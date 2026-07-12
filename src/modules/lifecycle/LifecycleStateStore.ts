@@ -25,6 +25,8 @@ export class LifecycleStateStore {
     }
 
     public save(state: PersistentState): void {
+        this._rejectFutureVersionOverwrite();
+
         const stateToSave: PersistentState = {
             ...state,
             version: this._currentVersion,
@@ -92,9 +94,9 @@ export class LifecycleStateStore {
             return null;
         }
 
-        // Future versions are accepted and repaired without downgrading.
+        // An older app must not interpret or downgrade a newer persisted schema.
         if (version > this._currentVersion) {
-            return state;
+            return null;
         }
 
         let currentState = state;
@@ -111,6 +113,29 @@ export class LifecycleStateStore {
         }
 
         return currentState;
+    }
+
+    private _rejectFutureVersionOverwrite(): void {
+        const serialized = safeLocalStorageGet(this._storageKey);
+        if (serialized === null) {
+            return;
+        }
+
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(serialized);
+        } catch {
+            // Invalid persisted JSON retains the existing save-and-replace behavior.
+            return;
+        }
+
+        if (this._isMinimalState(parsed) && parsed['version'] > this._currentVersion) {
+            const error = new Error(
+                'Cannot overwrite lifecycle state created by a newer application version'
+            );
+            error.name = 'FutureLifecycleStateVersionError';
+            throw error;
+        }
     }
 
     private _createStorageMutationError(reason: StorageMutationFailureReason): Error {
@@ -135,7 +160,9 @@ export class LifecycleStateStore {
         }
     }
 
-    private _isMinimalState(data: unknown): data is Record<string, unknown> {
+    private _isMinimalState(
+        data: unknown
+    ): data is Record<string, unknown> & { version: number } {
         if (!this._isRecord(data)) {
             return false;
         }

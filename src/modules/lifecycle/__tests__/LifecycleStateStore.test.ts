@@ -97,6 +97,49 @@ describe('LifecycleStateStore', () => {
             expect(saved.lastUpdated).toBeGreaterThan(0);
         });
 
+        it('should reject a save without overwriting future-version state', () => {
+            const serializedFutureState = JSON.stringify({
+                version: STORAGE_CONFIG.STATE_VERSION + 1,
+                userPreferences: {
+                    theme: 'dark',
+                    volume: 100,
+                    subtitleLanguage: null,
+                    audioLanguage: null,
+                },
+                lastUpdated: 123,
+                futureOnlyField: { preserve: 'exactly' },
+            });
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, serializedFutureState);
+            jest.clearAllMocks();
+
+            const thrown = captureThrown(() =>
+                lifecycleStateStore.save(lifecycleStateStore.createDefaultState())
+            );
+
+            expect(thrown).toBeInstanceOf(Error);
+            expect((thrown as Error).name).toBe('FutureLifecycleStateVersionError');
+            expect(localStorage.setItem).not.toHaveBeenCalled();
+            expect(localStorage.removeItem).not.toHaveBeenCalled();
+            expect(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY)).toBe(serializedFutureState);
+        });
+
+        it('should enforce future-version protection in a fresh store instance', () => {
+            const serializedFutureState = JSON.stringify({
+                version: STORAGE_CONFIG.STATE_VERSION + 1,
+                futureOnlyField: true,
+            });
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, serializedFutureState);
+            const freshStore = new LifecycleStateStore();
+            jest.clearAllMocks();
+
+            expect(() => freshStore.save(freshStore.createDefaultState())).toThrow(
+                expect.objectContaining({ name: 'FutureLifecycleStateVersionError' })
+            );
+
+            expect(localStorage.setItem).not.toHaveBeenCalled();
+            expect(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY)).toBe(serializedFutureState);
+        });
+
         it('should handle quota exceeded by cleaning up', async () => {
             const state = lifecycleStateStore.createDefaultState();
 
@@ -232,18 +275,19 @@ describe('LifecycleStateStore', () => {
             expect(loaded).toBeNull();
         });
 
-        it('should handle future version gracefully', async () => {
-            const futureState = {
-                version: 999,
+        it('should reject future-version state without changing its serialized value', async () => {
+            const serializedFutureState = JSON.stringify({
+                version: STORAGE_CONFIG.STATE_VERSION + 1,
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
-                lastUpdated: Date.now(),
-            };
-            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, JSON.stringify(futureState));
+                lastUpdated: 123,
+                futureOnlyField: { preserve: 'exactly' },
+            });
+            mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, serializedFutureState);
 
             const loaded = await lifecycleStateStore.load();
 
-            expect(loaded).not.toBeNull();
-            expect(loaded?.version).toBe(999);
+            expect(loaded).toBeNull();
+            expect(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY)).toBe(serializedFutureState);
         });
 
         it('should ignore persisted plexAuth without wiping lifecycle-owned fields', async () => {
@@ -342,6 +386,20 @@ describe('LifecycleStateStore', () => {
 
             expect(() => lifecycleStateStore.clear()).not.toThrow();
             expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
+        });
+
+        it('should allow a current-version save after clearing future-version state', () => {
+            mockLocalStorage.setItem(
+                STORAGE_CONFIG.STATE_KEY,
+                JSON.stringify({ version: STORAGE_CONFIG.STATE_VERSION + 1, futureOnlyField: true })
+            );
+
+            lifecycleStateStore.clear();
+            lifecycleStateStore.save(lifecycleStateStore.createDefaultState());
+
+            const saved = JSON.parse(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY) as string);
+            expect(saved.version).toBe(STORAGE_CONFIG.STATE_VERSION);
+            expect(saved).not.toHaveProperty('futureOnlyField');
         });
     });
 
