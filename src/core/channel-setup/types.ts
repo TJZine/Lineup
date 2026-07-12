@@ -54,9 +54,12 @@ export type ChannelSetupGuideRefreshFailureStage =
     | 'refresh_schedules';
 
 export type ChannelSetupGuideRefreshSummary =
-    | EpgScheduleRefreshResult
     | {
-        readiness: 'failed';
+        kind: 'completed';
+        result: EpgScheduleRefreshResult;
+    }
+    | {
+        kind: 'failed';
         failure: {
             kind: 'thrown';
             stage: ChannelSetupGuideRefreshFailureStage;

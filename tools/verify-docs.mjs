@@ -633,34 +633,38 @@ function checkRetiredCodexRoleGuidance(errors) {
     }
 }
 
-function checkSubagentTransparencyContract(errors) {
-    const transparencyFiles = [
-        'docs/AGENTIC_DEV_WORKFLOW.md',
-        '.agents/skills/bounded-worker-execution/SKILL.md',
-    ];
-    const requiredMarkers = [
-        'configured toml defaults',
-        'dispatch-time overrides separately',
-        'model and reasoning effort',
-        'runtime identity',
-        'operator-recorded/unverified',
-        'execution surface exposes',
-    ];
+function checkWorkerLunaPolicyOwnership(errors) {
+    const workflow = readRepoFile('docs/AGENTIC_DEV_WORKFLOW.md', errors);
+    const modelSelection = readRepoFile('.agents/skills/model-selection/SKILL.md', errors);
+    if (workflow === null || modelSelection === null) {
+        return;
+    }
 
-    for (const relativePath of transparencyFiles) {
-        const content = readRepoFile(relativePath, errors);
-        if (content === null) {
-            continue;
+    const normalizedWorkflow = normalizeDocText(workflow);
+    const requiredWorkflowMarkers = [
+        'worker luna eligibility is owned here',
+        'implementer role eligibility: worker luna',
+        'exact files and constraints',
+        'explicit verification',
+        'no unresolved product or architecture decision',
+        'stop and escalate on ambiguity',
+        'verification failure that requires diagnosis',
+    ];
+    for (const marker of requiredWorkflowMarkers) {
+        if (!normalizedWorkflow.includes(marker)) {
+            errors.push(`Workflow doc is missing canonical worker_luna eligibility policy marker (${marker})`);
         }
+    }
 
-        const normalizedContent = normalizeDocText(content);
-        for (const marker of requiredMarkers) {
-            if (!normalizedContent.includes(marker)) {
-                errors.push(
-                    `Subagent transparency guidance must distinguish configured defaults, dispatch-time overrides, and verified runtime identity (${marker}): ${relativePath}`
-                );
-            }
-        }
+    const normalizedModelSelection = normalizeDocText(modelSelection);
+    if (
+        !normalizedModelSelection.includes('canonical eligibility policy') ||
+        !normalizedModelSelection.includes('docs/agentic dev workflow.md')
+    ) {
+        errors.push('model-selection skill must reference the canonical worker_luna eligibility policy in docs/AGENTIC_DEV_WORKFLOW.md');
+    }
+    if (normalizedModelSelection.includes('worker luna eligibility requires')) {
+        errors.push('model-selection skill must not duplicate the canonical worker_luna eligibility requirements');
     }
 }
 
@@ -926,6 +930,14 @@ function checkWorkflowRoutingSplit(errors) {
             'feature-implement.md',
             'feature-review.md',
             'Route task family before choosing a tier.',
+            'DELEGATED_PLANNER_AUTHORITY',
+            'REVIEWER_READ_ONLY_CONTRACT',
+            'IMPLEMENTATION_CLOSEOUT_GATE',
+            'SEQUENTIAL_PACKAGE_GATE',
+            'HANDOFF_DELTA_FROM',
+            'CHANGED_FACTS',
+            'npm run verify:docs:fast',
+            'Treat its result as eval evidence, never as the required adversarial review',
         ];
 
         for (const marker of requiredWorkflowMarkers) {
@@ -949,6 +961,31 @@ function checkWorkflowRoutingSplit(errors) {
             errors.push(
                 'Workflow doc Feature Tier 2 workflow sequence must keep feature-plan -> feature-review -> feature-implement -> feature-review ordering'
             );
+        }
+
+        const controlContractsSection = extractMarkdownSection(workflow, 'Reusable Control Contracts');
+        if (controlContractsSection === null) {
+            errors.push('Workflow doc is missing the Reusable Control Contracts section.');
+        } else {
+            const contractLines = normalizeDocLines(controlContractsSection);
+            const contractRequirements = new Map([
+                ['delegated planner authority', ['one selected planner', 'controller does not draft a competing plan']],
+                ['reviewer read only contract', ['bounded artifact/evidence packet', 'stay read-only', 'severity-ordered findings']],
+                ['implementation closeout gate', ['required verification', 'implementation review', 'focused commit', 'truthful residual-risk reporting']],
+                ['sequential package gate', ['one remediation package', 'closed before the next package is selected or planned']],
+            ]);
+            for (const [contractName, markers] of contractRequirements) {
+                const definition = contractLines.find((line) => line.includes(contractName));
+                if (definition === undefined || !includesAllMarkers(definition, markers)) {
+                    errors.push(
+                        `Workflow reusable contract ${contractName} is missing required semantics: ${markers.join(', ')}`
+                    );
+                    continue;
+                }
+                if (includesAnyMarker(definition, ['may skip', 'optional review', 'optional verification'])) {
+                    errors.push(`Workflow reusable contract ${contractName} contains a weakening contradiction.`);
+                }
+            }
         }
     }
 }
@@ -1533,11 +1570,47 @@ function checkCleanupExecutionUnitContracts(errors) {
             'minimum needed to answer an explicit blocker question or resolve a controller-only seam decision',
             'must not author the execution-grade checklist-linked package plan itself just because it now has enough local context',
             'do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning',
+            'compact package execution addendum',
+            'before freezing that addendum or plan, perform one holistic source/caller/side-effect sweep',
+            'one consolidated finding set',
+            'architecture/seam',
+            'mechanical plan hygiene',
+            'any genuinely new cross-boundary design flaw first raised after the one allowed revision',
+            'scope-reset',
+            'do not require both gates',
+            'maintainer may explicitly waive further package-plan review only after every finding is adjudicated',
+            'no unresolved blocking architecture/seam finding remains',
+            'override never waives implementation review, required verification, focused commits, or truthful closeout',
+            'before selecting or planning the next package',
+            'resolve and read its repo-relative artifact at the named revision before applying changed facts',
+            'reject the delta and require a complete handoff instead of reconstructing hidden state',
+            'surface , owner/callers , async boundary , side effects , invariant , and evidence',
+            'use same-reviewer closure when accepted fixes leave ownership, public behavior, persistence/security semantics, verification surface, and reviewed files materially unchanged',
+            'use one fresh final reviewer instead when a fix changes an owner seam, public contract/behavior, persistence or security semantics, the verification surface, or the reviewed file set materially',
+            'do not require both same-reviewer closure and a fresh final review for the same unchanged implementation artifact',
         ];
 
         for (const marker of requiredCleanupLoopMarkers) {
             if (!normalized.includes(marker)) {
                 errors.push(`cleanup-loop prompt doc is missing required execution-unit orchestration marker: ${marker}`);
+            }
+        }
+    }
+
+    const harnessReview = readRepoFile('docs/agentic/session-prompts/workflow-harness-review.md', errors);
+    if (harnessReview !== null) {
+        const normalized = normalizeDocText(harnessReview);
+        const requiredHarnessReviewMarkers = [
+            'declare exactly one review mode before reading',
+            'targeted : one named workflow',
+            'whole-system : the entire control plane',
+            'reading scope',
+            'intentionally omitted surfaces',
+            'omission is invalid when architecture, role routing, tracked/local truth, or verifier behavior depends on that surface',
+        ];
+        for (const marker of requiredHarnessReviewMarkers) {
+            if (!normalized.includes(marker)) {
+                errors.push(`workflow-harness-review prompt is missing scoped-reading marker: ${marker}`);
             }
         }
     }
@@ -1970,7 +2043,7 @@ export function checkTrackedCodexRoleConfig(errors) {
     for (const [role, roleConfig] of roleConfigContents.entries()) {
         const developerInstructions = roleConfig.parsed.developer_instructions;
         const configuredRoleMarkerPattern = new RegExp(
-            `^Begin your first assistant response with \`CONFIGURED ROLE: ${role}\` on its own line\\.`,
+            `^Begin your first assistant response with \`CONFIGURED ROLE: ${escapeRegExp(role)}\` on its own line\\.`,
             'mu'
         );
         if (typeof developerInstructions !== 'string') {
@@ -2124,7 +2197,7 @@ function main() {
     checkInventory(errors, 'docs/agentic/session-prompts', expectedSessionPromptFiles, 'session prompt');
     checkSessionPromptReadme(errors);
     checkRetiredCodexRoleGuidance(errors);
-    checkSubagentTransparencyContract(errors);
+    checkWorkerLunaPolicyOwnership(errors);
     checkEvalPromptReadme(errors);
     checkControlPlaneAuthorityModel(errors);
     checkRepoLocalLauncherSkillReadOrders(errors);

@@ -81,6 +81,8 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### `src/core/initialization/InitializationCoordinator.ts`
 
 - focused startup sequencing collaborator between app shell and orchestrator
+- owns each startup pass's opaque Plex-auth guard through discovery, runtime/EPG work, routing, event wiring, ready/lifecycle publication, queued continuation, resume cleanup, and guarded warmup scheduling
+- every separate phase entry validates stored credentials first; same-pass queued work retains its guard, while queued work after supersession re-enters validation under a fresh lineage
 
 ### `src/core/server-selection/`
 
@@ -205,6 +207,14 @@ after this extraction.
 - `src/modules/plex/library/`
 - `src/modules/plex/stream/`
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
+- `src/modules/plex/discovery/PlexDiscoverySelectionContext.ts` owns discovery-local monotonic context validity, per-invocation latest-selection authority, and snapshot lineage. `PlexServerDiscovery` captures or advances that authority for selection, initialization, storage/profile transitions, clear, and snapshot restore; supersession is a typed discovery rejection exposed only through its public error and narrow predicate, while callers retain no counter or validity authority.
+- selected-server mutation order remains state, selected-id storage, `serverChange`, `connectionChange`, health storage, then success. Each suffix is context-guarded, including synchronous listener re-entry; caller abort is observed before selection-context validity, and standalone connection-probe contracts are unchanged.
+- `src/modules/plex/library/PlexLibraryRequestScope.ts` owns the library-local
+  immutable server URI/auth-header/opaque-key/version snapshot, exact private
+  token-identity comparison, and currentness checks
+  used by `PlexLibrary` and its request client. Scope supersession remains a
+  typed library rejection; callers may classify it through the narrow exported
+  predicate but do not own identity validity or construct scope failures.
 - `src/modules/plex/stream/resolver/PlexStreamResolver.ts` remains the public
   `IPlexStreamResolver` implementation and delegates focused stream
   responsibilities instead of constructing settings/debug storage owners
@@ -228,8 +238,12 @@ after this extraction.
   `PlexStreamResolver.fetchUniversalTranscodeDecision()` remains the public
   delegating contract.
 - `src/modules/plex/auth/PlexAuth.ts` owns the auth credential storage key
-  `lineup_plex_auth`, credential epoch, token validation, PIN flow, and auth /
-  profile event emission
+  `lineup_plex_auth`, private monotonic credential-operation authority, atomic
+  stored-credential validation/reconstruction, token validation, PIN flow, and
+  auth / profile event emission
+- `src/modules/plex/auth/plexStoredCredentialsValidation.ts` owns pure active-token
+  and account-fallback credential reconstruction while `PlexAuth` retains storage,
+  operation-context, commit, and event authority
 - `src/modules/plex/auth/plexHomeProfileClient.ts` owns Plex Home endpoint
   fallback, Home status classification, and profile-switch request/status
   coordination while returning typed auth outcomes to `PlexAuth`

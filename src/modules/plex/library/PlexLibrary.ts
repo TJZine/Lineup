@@ -1,7 +1,6 @@
 import { EventEmitter } from '../../../utils/EventEmitter';
 import type { IDisposable } from '../../../utils/interfaces';
 import { AppErrorCode } from '../../../types/app-errors';
-import { fnv1a32Hex } from '../../../utils/hash';
 import type {
     IPlexLibrary,
     PlexLibraryConfig,
@@ -57,15 +56,18 @@ import { enrichLibrarySectionCounts } from './LibraryCountEnrichment';
 import {
     PlexLibraryRequestClient,
     resolveRequestProfileForIntent,
-    type PlexLibraryRequestProfile,
 } from './PlexLibraryRequestClient';
+import {
+    PlexLibraryRequestScope,
+    type PlexLibraryRequestScopeSnapshot,
+} from './PlexLibraryRequestScope';
 
 // Re-export for consumers
-export { PlexLibraryError } from './PlexLibraryError';
-
-type LibrarySectionsLookupSource =
-    | { kind: 'available'; libraries: PlexLibrarySection[] }
-    | { kind: 'unavailable'; error: PlexLibraryError };
+export {
+    PlexLibraryError,
+    PlexLibraryScopeSupersededError,
+    isPlexLibraryScopeSupersededError,
+} from './PlexLibraryError';
 
 interface MediaPaginationState {
     fetched: number;
@@ -87,10 +89,10 @@ interface MediaPaginationPage {
 }
 
 interface MediaPaginationOptions<TResponse> {
+    scope: PlexLibraryRequestScopeSnapshot;
     operationName: string;
     initialOffset: number;
     pageSize: number;
-    signal?: AbortSignal | null;
     buildUrl: (offset: number, pageSize: number) => string;
     parsePage: (response: TResponse) => MediaPaginationPage;
     shouldContinue: (context: MediaPaginationContinueContext) => boolean;
@@ -103,6 +105,7 @@ export class PlexLibrary implements IPlexLibrary {
     private readonly _state: PlexLibraryState;
     private readonly _logger: NonNullable<PlexLibraryConfig['logger']>;
     private readonly _requestClient: PlexLibraryRequestClient;
+    private readonly _requestScope: PlexLibraryRequestScope;
 
     constructor(config: PlexLibraryConfig) {
         this._config = config;
@@ -111,93 +114,29 @@ export class PlexLibrary implements IPlexLibrary {
         this._state = {
             libraryCache: new Map(),
             isRefreshing: false,
-            cacheScope: null,
         };
+        this._requestScope = new PlexLibraryRequestScope({
+            config,
+            onScopeChange: (): void => {
+                this._state.libraryCache.clear();
+            },
+        });
         this._requestClient = new PlexLibraryRequestClient({
             config,
             logger: this._logger,
             emitAuthExpired: (): void => this._emitter.emit('authExpired', undefined),
+            assertCurrent: (scope, signal): void => this._requestScope.assertCurrent(scope, signal),
         });
     }
-
-    /**
-     * Derive the current cache scope. Do not include raw tokens in keys; use a stable hash.
-     */
-    private _getCacheScope(): string | null {
-        const serverUri = this._config.getServerUri();
-        if (!serverUri) {
-            return null;
-        }
-        const token = this._config.getAuthToken() ?? '';
-        const tokenHash = token ? fnv1a32Hex(token) : 'no-token';
-        return `${serverUri}::${tokenHash}`;
-    }
-
-    /**
-     * Ensure caches are scoped to the active server/account. Clear on scope change.
-     */
-    private _ensureCacheScope(): void {
-        const nextScope = this._getCacheScope();
-        if (this._state.cacheScope === nextScope) {
-            return;
-        }
-        this._state.libraryCache.clear();
-        this._state.cacheScope = nextScope;
-    }
-
-    private async _fetchLibrarySectionsForLookup(
-        libraryId: string,
-        options?: { signal?: AbortSignal | null }
-    ): Promise<LibrarySectionsLookupSource> {
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTIONS);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url, {
-            signal: options?.signal ?? null,
-        });
-
-        if (!response) {
-            return {
-                kind: 'unavailable',
-                error: new PlexLibraryError(
-                    AppErrorCode.SERVER_ERROR,
-                    `Library section lookup unavailable while resolving ${libraryId}`
-                ),
-            };
-        }
-
-        try {
-            const directories = extractLibrarySectionDirectories(
-                response,
-                `library sections payload for library lookup ${libraryId}`
-            );
-            return {
-                kind: 'available',
-                libraries: parseLibrarySections(directories),
-            };
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            return {
-                kind: 'unavailable',
-                error: error instanceof PlexLibraryError
-                    ? error
-                    : new PlexLibraryError(
-                        AppErrorCode.PARSE_ERROR,
-                        `Invalid library section payload while resolving ${libraryId}: ${message}`,
-                        undefined,
-                        { cause: error, context: { libraryId } }
-                    ),
-            };
-        }
-    }
-
-
     async getLibraries(options?: {
         signal?: AbortSignal | null;
         includeItemCounts?: boolean;
         itemCountConcurrency?: number;
     }): Promise<PlexLibrarySection[]> {
-        this._ensureCacheScope();
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTIONS);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(url, { signal: options?.signal ?? null });
+        const scope = this._requestScope.capture(options?.signal ?? null);
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_SECTIONS);
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(scope, url, { signal: scope.signal });
+        this._requestScope.assertCurrent(scope, scope.signal);
 
         if (!response) {
             throw new PlexLibraryError(
@@ -211,12 +150,12 @@ export class PlexLibrary implements IPlexLibrary {
 
         if (options?.includeItemCounts) {
             await enrichLibrarySectionCounts(libraries, {
-                signal: options.signal ?? null,
+                signal: scope.signal,
                 ...(options.itemCountConcurrency !== undefined
                     ? { itemCountConcurrency: options.itemCountConcurrency }
                     : {}),
                 getLibraryItemCount: (libraryId, countOptions) =>
-                    this.getLibraryItemCount(libraryId, countOptions),
+                    this._getLibraryItemCount(scope, libraryId, countOptions ?? {}),
                 logger: this._logger,
             });
         }
@@ -224,9 +163,11 @@ export class PlexLibrary implements IPlexLibrary {
         // Cache all libraries
         const now = Date.now();
         for (const lib of libraries) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             this._state.libraryCache.set(lib.id, { library: lib, cachedAt: now });
         }
 
+        this._requestScope.assertCurrent(scope, scope.signal);
         return libraries;
     }
 
@@ -239,24 +180,62 @@ export class PlexLibrary implements IPlexLibrary {
         libraryId: string,
         options?: { signal?: AbortSignal | null }
     ): Promise<PlexLibrarySection | null> {
-        this._ensureCacheScope();
+        const scope = this._requestScope.capture(options?.signal ?? null);
+        return this._getLibraryWithScope(scope, libraryId);
+    }
+
+    private async _getLibraryWithScope(
+        scope: PlexLibraryRequestScopeSnapshot,
+        libraryId: string
+    ): Promise<PlexLibrarySection | null> {
         // Check cache first
         const cached = this._state.libraryCache.get(libraryId);
         if (cached && Date.now() - cached.cachedAt < PLEX_LIBRARY_CONSTANTS.CACHE_TTL_MS) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return cached.library;
         }
 
-        const lookupSource = await this._fetchLibrarySectionsForLookup(libraryId, options);
-        if (lookupSource.kind === 'unavailable') {
-            throw lookupSource.error;
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_SECTIONS);
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawLibrarySection>>(
+            scope,
+            url,
+            { signal: scope.signal }
+        );
+        this._requestScope.assertCurrent(scope, scope.signal);
+        if (!response) {
+            throw new PlexLibraryError(
+                AppErrorCode.SERVER_ERROR,
+                `Library section lookup unavailable while resolving ${libraryId}`
+            );
+        }
+        let libraries: PlexLibrarySection[];
+        try {
+            const directories = extractLibrarySectionDirectories(
+                response,
+                `library sections payload for library lookup ${libraryId}`
+            );
+            libraries = parseLibrarySections(directories);
+        } catch (error) {
+            if (error instanceof PlexLibraryError) {
+                throw error;
+            }
+            const message = error instanceof Error ? error.message : String(error);
+            throw new PlexLibraryError(
+                AppErrorCode.PARSE_ERROR,
+                `Invalid library section payload while resolving ${libraryId}: ${message}`,
+                undefined,
+                { cause: error, context: { libraryId } }
+            );
         }
 
         const now = Date.now();
-        for (const library of lookupSource.libraries) {
+        for (const library of libraries) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             this._state.libraryCache.set(library.id, { library, cachedAt: now });
         }
 
-        return lookupSource.libraries.find((lib) => lib.id === libraryId) ?? null;
+        this._requestScope.assertCurrent(scope, scope.signal);
+        return libraries.find((lib) => lib.id === libraryId) ?? null;
     }
 
 
@@ -271,16 +250,17 @@ export class PlexLibrary implements IPlexLibrary {
         libraryId: string,
         options: LibraryQueryOptions = {}
     ): Promise<PlexMediaItem[]> {
+        const scope = this._requestScope.capture(options.signal ?? null);
         if (options.limit !== undefined && options.limit <= 0) {
             return [];
         }
 
         const pageSize = options.limit ?? PLEX_LIBRARY_CONSTANTS.DEFAULT_PAGE_SIZE;
         const items = await this._fetchPagedMediaItems<PlexMediaContainer<RawMediaItem>>({
+            scope,
             operationName: 'getLibraryItems',
             initialOffset: options.offset ?? 0,
             pageSize,
-            signal: options.signal ?? null,
             buildUrl: (offset, requestedPageSize) => {
                 const params: Record<string, string | number> = {
                     'X-Plex-Container-Start': offset,
@@ -299,7 +279,7 @@ export class PlexLibrary implements IPlexLibrary {
                     params['includeCollections'] = 1;
                 }
 
-                return this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
+                return this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
             },
             parsePage: (response) => {
                 const metadata = extractMetadataArray(response, `library items for section ${libraryId}`);
@@ -314,9 +294,11 @@ export class PlexLibrary implements IPlexLibrary {
 
         // Trim to exact limit if specified
         if (options.limit !== undefined && items.length > options.limit) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return items.slice(0, options.limit);
         }
 
+        this._requestScope.assertCurrent(scope, scope.signal);
         return items;
     }
 
@@ -327,6 +309,15 @@ export class PlexLibrary implements IPlexLibrary {
     async getLibraryItemCount(
         libraryId: string,
         options: LibraryQueryOptions = {}
+    ): Promise<number | null> {
+        const scope = this._requestScope.capture(options.signal ?? null);
+        return this._getLibraryItemCount(scope, libraryId, options);
+    }
+
+    private async _getLibraryItemCount(
+        scope: PlexLibraryRequestScopeSnapshot,
+        libraryId: string,
+        options: LibraryQueryOptions
     ): Promise<number | null> {
         const params: Record<string, string | number> = {
             'X-Plex-Container-Start': 0,
@@ -345,9 +336,10 @@ export class PlexLibrary implements IPlexLibrary {
             params['includeCollections'] = 1;
         }
 
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options.signal ?? null });
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawMediaItem>>(scope, url, { signal: scope.signal });
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return null;
         }
         const mediaContainer = extractMediaContainer(
@@ -355,6 +347,7 @@ export class PlexLibrary implements IPlexLibrary {
             `library item count for section ${libraryId}`
         );
         const total = mediaContainer.totalSize ?? mediaContainer.size;
+        this._requestScope.assertCurrent(scope, scope.signal);
         return typeof total === 'number' && Number.isFinite(total) ? total : null;
     }
 
@@ -364,19 +357,23 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to item or null if not found
      */
     async getItem(ratingKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem | null> {
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA(ratingKey));
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options?.signal ?? null });
+        const scope = this._requestScope.capture(options?.signal ?? null);
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_METADATA(ratingKey));
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawMediaItem>>(scope, url, { signal: scope.signal });
 
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return null;
         }
 
         const metadata = extractMetadataArray(response, `item lookup for ${ratingKey}`);
         const [item] = metadata;
         if (!item) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return null;
         }
 
+        this._requestScope.assertCurrent(scope, scope.signal);
         return parseMediaItem(item);
     }
 
@@ -387,17 +384,20 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to list of shows
      */
     async getShows(libraryId: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]> {
+        const scope = this._requestScope.capture(options?.signal ?? null);
         const params = {
             type: PLEX_MEDIA_TYPES.SHOW,
         };
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options?.signal ?? null });
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawMediaItem>>(scope, url, { signal: scope.signal });
 
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return [];
         }
 
         const metadata = extractMetadataArray(response, `show list for library ${libraryId}`);
+        this._requestScope.assertCurrent(scope, scope.signal);
         return parseMediaItems(metadata);
     }
 
@@ -407,14 +407,17 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to list of seasons
      */
     async getShowSeasons(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexSeason[]> {
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA_CHILDREN(showKey));
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawSeason>>(url, { signal: options?.signal ?? null });
+        const scope = this._requestScope.capture(options?.signal ?? null);
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_METADATA_CHILDREN(showKey));
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawSeason>>(scope, url, { signal: scope.signal });
 
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return [];
         }
 
         const metadata = extractMetadataArray(response, `season list for show ${showKey}`);
+        this._requestScope.assertCurrent(scope, scope.signal);
         return parseSeasons(metadata);
     }
 
@@ -424,14 +427,17 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to list of episodes
      */
     async getSeasonEpisodes(seasonKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]> {
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_METADATA_CHILDREN(seasonKey));
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options?.signal ?? null });
+        const scope = this._requestScope.capture(options?.signal ?? null);
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_METADATA_CHILDREN(seasonKey));
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawMediaItem>>(scope, url, { signal: scope.signal });
 
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return [];
         }
 
         const metadata = extractMetadataArray(response, `episode list for season ${seasonKey}`);
+        this._requestScope.assertCurrent(scope, scope.signal);
         return parseMediaItems(metadata);
     }
 
@@ -441,12 +447,14 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to all episodes sorted by season/episode
      */
     async getShowEpisodes(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]> {
+        const scope = this._requestScope.capture(options?.signal ?? null);
         const allEpisodes = await this._fetchPagedMediaItems<PlexMediaContainer<RawMediaItem>>({
+            scope,
             operationName: 'getShowEpisodes',
             initialOffset: 0,
             pageSize: PLEX_LIBRARY_CONSTANTS.ALL_LEAVES_PAGE_SIZE,
-            signal: options?.signal ?? null,
-            buildUrl: (offset, pageSize) => this._buildUrl(
+            buildUrl: (offset, pageSize) => this._requestScope.buildUrl(
+                scope,
                 PLEX_ENDPOINTS.LIBRARY_METADATA_ALL_LEAVES(showKey),
                 {
                     'X-Plex-Container-Start': offset,
@@ -480,7 +488,7 @@ export class PlexLibrary implements IPlexLibrary {
                 `(showKey=${showKey}, fetched=${fetched}, offset=${offset}, pageSize=${pageSize}, maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`,
         });
 
-        return allEpisodes.sort((a, b) => {
+        const sortedEpisodes = allEpisodes.sort((a, b) => {
             const aSeason = typeof a.seasonNumber === 'number' ? a.seasonNumber : 0;
             const bSeason = typeof b.seasonNumber === 'number' ? b.seasonNumber : 0;
             const seasonDiff = aSeason - bSeason;
@@ -490,6 +498,8 @@ export class PlexLibrary implements IPlexLibrary {
             const bEpisode = typeof b.episodeNumber === 'number' ? b.episodeNumber : 0;
             return aEpisode - bEpisode;
         });
+        this._requestScope.assertCurrent(scope, scope.signal);
+        return sortedEpisodes;
     }
 
 
@@ -500,6 +510,7 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to matching items
      */
     async search(query: string, options: SearchOptions = {}): Promise<PlexMediaItem[]> {
+        const scope = this._requestScope.capture(options.signal ?? null);
         const params: Record<string, string | number> = {
             query,
         };
@@ -512,12 +523,13 @@ export class PlexLibrary implements IPlexLibrary {
             params['limit'] = options.limit;
         }
 
-        const url = this._buildUrl(PLEX_ENDPOINTS.SEARCH, params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, {
-            signal: options.signal ?? null,
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.SEARCH, params);
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawMediaItem>>(scope, url, {
+            signal: scope.signal,
         });
 
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return [];
         }
 
@@ -553,6 +565,7 @@ export class PlexLibrary implements IPlexLibrary {
             }
         }
 
+        this._requestScope.assertCurrent(scope, scope.signal);
         return items;
     }
 
@@ -567,24 +580,28 @@ export class PlexLibrary implements IPlexLibrary {
         libraryId: string,
         options?: { signal?: AbortSignal | null; requestIntent?: PlexLibraryRequestIntent }
     ): Promise<PlexCollection[]> {
+        const scope = this._requestScope.capture(options?.signal ?? null);
         // Use type=18 (COLLECTION) filter on the library 'all' endpoint
         const params = {
             type: PLEX_MEDIA_TYPES.COLLECTION,
             includeGuids: 1, // Standard metadata
             includeMeta: 1,  // Standard metadata
         };
-        const url = this._buildUrl(PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawCollection>>(
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawCollection>>(
+            scope,
             url,
-            { signal: options?.signal ?? null },
+            { signal: scope.signal },
             resolveRequestProfileForIntent(options?.requestIntent)
         );
 
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return [];
         }
 
         const metadata = extractMetadataArray(response, `collections for library ${libraryId}`);
+        this._requestScope.assertCurrent(scope, scope.signal);
         return parseCollections(metadata);
     }
 
@@ -594,18 +611,21 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to list of items
      */
     async getCollectionItems(collectionKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]> {
+        const scope = this._requestScope.capture(options?.signal ?? null);
         const params = {
             includeGuids: 1,
             includeMeta: 1,
         };
-        const url = this._buildUrl(PLEX_ENDPOINTS.COLLECTION_CHILDREN(collectionKey), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options?.signal ?? null });
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.COLLECTION_CHILDREN(collectionKey), params);
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawMediaItem>>(scope, url, { signal: scope.signal });
 
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return [];
         }
 
         const metadata = extractMetadataArray(response, `collection items for ${collectionKey}`);
+        this._requestScope.assertCurrent(scope, scope.signal);
         return parseMediaItems(metadata);
     }
 
@@ -616,18 +636,22 @@ export class PlexLibrary implements IPlexLibrary {
     async getPlaylists(
         options?: { signal?: AbortSignal | null; requestIntent?: PlexLibraryRequestIntent }
     ): Promise<PlexPlaylist[]> {
-        const url = this._buildUrl(PLEX_ENDPOINTS.PLAYLISTS);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawPlaylist>>(
+        const scope = this._requestScope.capture(options?.signal ?? null);
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.PLAYLISTS);
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawPlaylist>>(
+            scope,
             url,
-            { signal: options?.signal ?? null },
+            { signal: scope.signal },
             resolveRequestProfileForIntent(options?.requestIntent)
         );
 
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return [];
         }
 
         const metadata = extractMetadataArray(response, 'playlists');
+        this._requestScope.assertCurrent(scope, scope.signal);
         return parsePlaylists(metadata);
     }
 
@@ -637,49 +661,57 @@ export class PlexLibrary implements IPlexLibrary {
      * @returns Promise resolving to list of items
      */
     async getPlaylistItems(playlistKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItem[]> {
-        const url = this._buildUrl(PLEX_ENDPOINTS.PLAYLIST_ITEMS(playlistKey));
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawMediaItem>>(url, { signal: options?.signal ?? null });
+        const scope = this._requestScope.capture(options?.signal ?? null);
+        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.PLAYLIST_ITEMS(playlistKey));
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawMediaItem>>(scope, url, { signal: scope.signal });
 
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             return [];
         }
 
         const metadata = extractMetadataArray(response, `playlist items for ${playlistKey}`);
+        this._requestScope.assertCurrent(scope, scope.signal);
         return parseMediaItems(metadata);
     }
 
 
     private async _getLibrarySectionTags(
+        scope: PlexLibraryRequestScopeSnapshot,
         libraryId: string,
         endpoint: (id: string) => string,
         label: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
         const params: Record<string, string | number> = { type: options.type };
-        const url = this._buildUrl(endpoint(libraryId), params);
-        const response = await this._fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(url, {
-            signal: options.signal ?? null,
+        const url = this._requestScope.buildUrl(scope, endpoint(libraryId), params);
+        const response = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawDirectoryTag>>(scope, url, {
+            signal: scope.signal,
         }, resolveRequestProfileForIntent(options.requestIntent));
         if (!response) {
+            this._requestScope.assertCurrent(scope, scope.signal);
             if (options.requireEntries) {
-                this._notifyUnsupportedTagDirectory(options, 'unavailable', label, libraryId);
+                this._notifyUnsupportedTagDirectory(scope, options, 'unavailable', label, libraryId);
             }
             return [];
         }
         const directories = extractTagDirectoryEntries(response, `${label.toLowerCase()} tag directory for library ${libraryId}`);
         if (options.requireEntries === true && directories.length === 0) {
-            this._notifyUnsupportedTagDirectory(options, 'empty', label, libraryId);
+            this._notifyUnsupportedTagDirectory(scope, options, 'empty', label, libraryId);
             return [];
         }
+        this._requestScope.assertCurrent(scope, scope.signal);
         return parseDirectoryTags(directories);
     }
 
     private _notifyUnsupportedTagDirectory(
+        scope: PlexLibraryRequestScopeSnapshot,
         options: PlexTagDirectoryQueryOptions,
         reason: PlexTagDirectoryUnsupportedReason,
         label: string,
         libraryId: string
     ): void {
+        this._requestScope.assertCurrent(scope, options.signal ?? null);
         const detail = reason === 'empty' ? 'returned no directory entries' : 'endpoint unavailable';
         this._logger.warn(`[PlexLibrary] ${label} ${detail} for library ${libraryId}`);
         options.onUnsupported?.(reason);
@@ -694,6 +726,7 @@ export class PlexLibrary implements IPlexLibrary {
         let pageCounter = 0;
 
         while (true) {
+            this._requestScope.assertCurrent(options.scope, options.scope.signal);
             if (++pageCounter > PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
                 const message =
                     `[PlexLibrary] Pagination guard tripped in ${options.operationName} ` +
@@ -707,9 +740,10 @@ export class PlexLibrary implements IPlexLibrary {
             }
 
             const url = options.buildUrl(offset, options.pageSize);
-            const response = await this._fetchWithRetry<TResponse>(url, {
-                signal: options.signal ?? null,
+            const response = await this._requestClient.fetchWithRetry<TResponse>(options.scope, url, {
+                signal: options.scope.signal,
             });
+            this._requestScope.assertCurrent(options.scope, options.scope.signal);
 
             if (!response) {
                 break;
@@ -732,8 +766,10 @@ export class PlexLibrary implements IPlexLibrary {
             })) {
                 break;
             }
+            this._requestScope.assertCurrent(options.scope, options.scope.signal);
         }
 
+        this._requestScope.assertCurrent(options.scope, options.scope.signal);
         return items;
     }
 
@@ -741,35 +777,40 @@ export class PlexLibrary implements IPlexLibrary {
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
-        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_ACTORS, 'Actors', options);
+        const scope = this._requestScope.capture(options.signal ?? null);
+        return this._getLibrarySectionTags(scope, libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_ACTORS, 'Actors', options);
     }
 
     async getStudios(
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
-        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_STUDIOS, 'Studios', options);
+        const scope = this._requestScope.capture(options.signal ?? null);
+        return this._getLibrarySectionTags(scope, libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_STUDIOS, 'Studios', options);
     }
 
     async getGenres(
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
-        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_GENRES, 'Genres', options);
+        const scope = this._requestScope.capture(options.signal ?? null);
+        return this._getLibrarySectionTags(scope, libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_GENRES, 'Genres', options);
     }
 
     async getDirectors(
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
-        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_DIRECTORS, 'Directors', options);
+        const scope = this._requestScope.capture(options.signal ?? null);
+        return this._getLibrarySectionTags(scope, libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_DIRECTORS, 'Directors', options);
     }
 
     async getYears(
         libraryId: string,
         options: PlexTagDirectoryQueryOptions
     ): Promise<PlexTagDirectoryItem[]> {
-        return this._getLibrarySectionTags(libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_YEARS, 'Years', options);
+        const scope = this._requestScope.capture(options.signal ?? null);
+        return this._getLibrarySectionTags(scope, libraryId, PLEX_ENDPOINTS.LIBRARY_SECTION_YEARS, 'Years', options);
     }
 
     getImageUrl(imagePath: string, width?: number, height?: number): string | null {
@@ -807,11 +848,13 @@ export class PlexLibrary implements IPlexLibrary {
     }
 
     async refreshLibrary(libraryId: string): Promise<void> {
-        this._ensureCacheScope();
+        const scope = this._requestScope.capture();
+        this._requestScope.assertCurrent(scope);
         this._state.libraryCache.delete(libraryId);
 
-        await this.getLibrary(libraryId);
+        await this._getLibraryWithScope(scope, libraryId);
 
+        this._requestScope.assertCurrent(scope);
         this._emitter.emit('libraryRefreshed', { libraryId });
     }
 
@@ -828,50 +871,6 @@ export class PlexLibrary implements IPlexLibrary {
         handler: (payload: PlexLibraryEvents[K]) => void
     ): void {
         this._emitter.off(event, handler);
-    }
-
-    private _buildUrl(endpoint: string, params: Record<string, string | number> = {}): string {
-        const serverUri = this._config.getServerUri();
-        if (!serverUri) {
-            throw new PlexLibraryError(
-                AppErrorCode.SERVER_UNREACHABLE,
-                'No server URI available'
-            );
-        }
-
-        const url = new URL(endpoint, serverUri);
-
-        for (const [key, value] of Object.entries(params)) {
-            url.searchParams.set(key, String(value));
-        }
-
-        return url.toString();
-    }
-
-    /**
-     * Fetch with retry and error handling per spec requirements.
-     * 
-     * Error handling:
-     * - Network timeout: NETWORK_TIMEOUT, retry with exponential backoff (max 3)
-     * - 401 Unauthorized: AUTH_EXPIRED, emit event, no retry
-     * - 404 Not Found: return null, log warning
-     * - 429 Rate Limited: backoff per Retry-After header
-     * - 500+ Server Error: retry once after 2s delay
-     * - Empty response: throw PARSE_ERROR
-     * - Parse error: throw PARSE_ERROR and log the response body snippet
-     * - Server unreachable: trigger re-discovery hook
-     * 
-     * @param url - URL to fetch
-     * @param options - Optional fetch options
-     * @returns Parsed JSON response, or `null` only for semantic-not-found outcomes such as 404.
-     * Empty 200 bodies and malformed success payloads throw `PlexLibraryError(PARSE_ERROR)`.
-     */
-    private async _fetchWithRetry<T>(
-        url: string,
-        options: RequestInit = {},
-        requestProfile: PlexLibraryRequestProfile = 'default'
-    ): Promise<T | null> {
-        return this._requestClient.fetchWithRetry<T>(url, options, requestProfile);
     }
 
     /**

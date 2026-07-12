@@ -7,10 +7,12 @@ import type {
     PlexAuthDataV2,
     PlexAuthConfig,
     PlexAuthToken,
-    PlexStoredCredentialsReadResult,
+    PlexAuthValidationGuard,
+    PlexStoredCredentialsValidationResult,
 } from '../../../modules/plex/auth';
 import { PlexAuth } from '../../../modules/plex/auth/PlexAuth';
 import { PLEX_AUTH_CONSTANTS } from '../../../modules/plex/auth/constants';
+import { PlexDiscoverySelectionSupersededError } from '../../../modules/plex/discovery';
 import {
     applyAuthValidationPolicy,
     applyPostReadyRoutingPolicy,
@@ -20,12 +22,9 @@ import {
 
 type PlexAuthGateMock = Pick<
     IPlexAuth,
-    'readStoredCredentialsAndClearCorruption' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
+    'validateStoredCredentials' | 'getHomeUsers'
 > & {
-    readStoredCredentialsAndClearCorruption: jest.MockedFunction<IPlexAuth['readStoredCredentialsAndClearCorruption']>;
-    validateToken: jest.MockedFunction<IPlexAuth['validateToken']>;
-    getCurrentUser: jest.MockedFunction<IPlexAuth['getCurrentUser']>;
-    storeCredentials: jest.MockedFunction<IPlexAuth['storeCredentials']>;
+    validateStoredCredentials: jest.MockedFunction<IPlexAuth['validateStoredCredentials']>;
     getHomeUsers: jest.MockedFunction<IPlexAuth['getHomeUsers']>;
 };
 
@@ -258,6 +257,17 @@ describe('applyServerConnectionPolicy', () => {
         expect(inputs.handlers.registerServerResume).not.toHaveBeenCalled();
         expect(inputs.navigation.goTo).not.toHaveBeenCalled();
     });
+
+    it('rethrows discovery supersession before startup fallback routing', async () => {
+        const inputs = createInputs({ kind: 'skipped_no_servers' });
+        const superseded = new PlexDiscoverySelectionSupersededError();
+        inputs.plexDiscovery.initialize = jest.fn().mockRejectedValue(superseded);
+
+        await expect(applyServerConnectionPolicy(inputs)).rejects.toBe(superseded);
+        expect(inputs.updateModuleStatus).toHaveBeenCalledTimes(1);
+        expect(inputs.handlers.registerServerResume).not.toHaveBeenCalled();
+        expect(inputs.navigation.goTo).not.toHaveBeenCalled();
+    });
 });
 
 const createStoredCredentials = (): PlexAuthDataV2 => ({
@@ -310,20 +320,23 @@ Object.defineProperty(globalThis, 'localStorage', {
     value: mockLocalStorage,
 });
 
-function createPlexAuthMock(
-    storedCredentials: PlexAuthDataV2,
-    overrides: AuthValidationPlexAuthOverrides = {}
-): PlexAuthGateMock {
-    const storedReadResult: PlexStoredCredentialsReadResult = {
-        kind: 'available',
-        credentials: storedCredentials,
-    };
+function createGuard(): PlexAuthValidationGuard {
+    return { signal: new AbortController().signal, assertCurrent: jest.fn() };
+}
+
+function createValidationResult(
+    kind: PlexStoredCredentialsValidationResult['kind'],
+    guard = createGuard()
+): PlexStoredCredentialsValidationResult {
+    return kind === 'corrupted'
+        ? { kind, reason: 'invalid-json', guard }
+        : { kind, guard };
+}
+
+function createPlexAuthMock(overrides: AuthValidationPlexAuthOverrides = {}): PlexAuthGateMock {
     return {
-        validateToken: jest.fn().mockResolvedValue(true),
+        validateStoredCredentials: jest.fn().mockResolvedValue(createValidationResult('active_valid')),
         getHomeUsers: jest.fn().mockResolvedValue([]),
-        readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue(storedReadResult),
-        storeCredentials: jest.fn<void, Parameters<IPlexAuth['storeCredentials']>>(() => undefined),
-        getCurrentUser: jest.fn().mockReturnValue(storedCredentials.activeToken),
         ...overrides,
     };
 }
@@ -342,8 +355,7 @@ function createLifecycleMock(): LifecycleGateMock {
 }
 
 function createInputs(overrides: AuthValidationPlexAuthOverrides = {}): AuthValidationPolicyTestInputs {
-    const storedCredentials = createStoredCredentials();
-    const plexAuth = createPlexAuthMock(storedCredentials, overrides);
+    const plexAuth = createPlexAuthMock(overrides);
     const navigation = createNavigationMock();
     const lifecycle = createLifecycleMock();
 
@@ -362,7 +374,9 @@ function createInputs(overrides: AuthValidationPlexAuthOverrides = {}): AuthVali
     };
 }
 
-function applyPolicy(inputs: AuthValidationPolicyTestInputs): Promise<boolean> {
+function applyPolicy(
+    inputs: AuthValidationPolicyTestInputs
+): ReturnType<typeof applyAuthValidationPolicy> {
     return applyAuthValidationPolicy(inputs);
 }
 
@@ -376,92 +390,21 @@ describe('applyAuthValidationPolicy', () => {
         jest.restoreAllMocks();
     });
 
-    it('rethrows non-auth failures that happen after token validation succeeds', async () => {
-        const error = new Error('storage write failed');
-        const inputs = createInputs({
-            storeCredentials: jest.fn<void, Parameters<IPlexAuth['storeCredentials']>>(() => {
-                throw error;
-            }),
-        });
-
-        await expect(applyPolicy(inputs)).rejects.toThrow('storage write failed');
-
-        expect(inputs.handlers.registerAuthResume).not.toHaveBeenCalled();
-        expect(inputs.navigation.goTo).not.toHaveBeenCalledWith('auth');
-    });
-
-    it('stores a PlexAuthDataV2-compatible credential payload after validation succeeds', async () => {
+    it('continues after the auth owner has committed active credentials', async () => {
         const inputs = createInputs();
-
-        await expect(applyPolicy(inputs)).resolves.toBe(true);
-
-        expect(inputs.plexAuth.storeCredentials).toHaveBeenCalledWith({
-            accountToken: {
-                token: 'account-token',
-                userId: 'account-user',
-                username: 'account',
-                email: 'account@example.com',
-                thumb: '',
-                expiresAt: expect.any(Date),
-                issuedAt: expect.any(Date),
-            },
-            activeToken: {
-                token: 'active-token',
-                userId: 'active-user',
-                username: 'active',
-                email: 'active@example.com',
-                thumb: '',
-                expiresAt: expect.any(Date),
-                issuedAt: expect.any(Date),
-            },
-            activeUserId: 'active-user',
-            selectedServerByUserId: {
-                'active-user': {
-                    serverId: null,
-                    serverUri: null,
-                },
-            },
-            deviceKey: null,
-        });
+        const result = await applyPolicy(inputs);
+        expect(result.kind).toBe('continue');
+        expect(inputs.configureDiscoveryStorage).toHaveBeenCalledTimes(1);
     });
 
-    it('passes the startup signal into active token validation', async () => {
+    it('passes the startup signal into stored credential validation', async () => {
         const controller = new AbortController();
         const inputs = createInputs();
         inputs.signal = controller.signal;
-
-        await expect(applyPolicy(inputs)).resolves.toBe(true);
-
-        expect(inputs.plexAuth.validateToken).toHaveBeenCalledWith(
-            'active-token',
-            { signal: controller.signal }
-        );
-    });
-
-    it('falls back to auth resume for explicit auth failures', async () => {
-        const error = { code: AppErrorCode.AUTH_INVALID };
-        const inputs = createInputs({
-            validateToken: jest.fn().mockRejectedValue(error),
+        await applyPolicy(inputs);
+        expect(inputs.plexAuth.validateStoredCredentials).toHaveBeenCalledWith({
+            signal: controller.signal,
         });
-
-        await expect(applyPolicy(inputs)).resolves.toBe(false);
-
-        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
-        expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
-        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
-    });
-
-    it('falls back to auth resume for expired auth during token validation', async () => {
-        const error = { code: AppErrorCode.AUTH_EXPIRED };
-        const inputs = createInputs({
-            validateToken: jest.fn().mockRejectedValue(error),
-        });
-
-        await expect(applyPolicy(inputs)).resolves.toBe(false);
-
-        expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
-        expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
-        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
     });
 
     it('falls back to auth resume for expired auth while checking profile selection', async () => {
@@ -471,7 +414,7 @@ describe('applyAuthValidationPolicy', () => {
         });
         inputs.readShowProfilePickerOnStartup = jest.fn(() => true);
 
-        await expect(applyPolicy(inputs)).resolves.toBe(false);
+        await expect(applyPolicy(inputs)).resolves.toEqual({ kind: 'stop' });
 
         expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
         expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
@@ -481,7 +424,7 @@ describe('applyAuthValidationPolicy', () => {
     it('rethrows non-auth validation failures instead of forcing auth resume', async () => {
         const error = { code: AppErrorCode.SERVER_UNREACHABLE };
         const inputs = createInputs({
-            validateToken: jest.fn().mockRejectedValue(error),
+            validateStoredCredentials: jest.fn().mockRejectedValue(error),
         });
 
         await expect(applyPolicy(inputs)).rejects.toEqual(error);
@@ -492,13 +435,9 @@ describe('applyAuthValidationPolicy', () => {
 
     it('routes corrupted stored credentials to auth with STORAGE_CORRUPTED status', async () => {
         const inputs = createInputs({
-            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({
-                kind: 'corrupted',
-                reason: 'invalid-json',
-            }),
+            validateStoredCredentials: jest.fn().mockResolvedValue(createValidationResult('corrupted')),
         });
-
-        await expect(applyPolicy(inputs)).resolves.toBe(false);
+        await expect(applyPolicy(inputs)).resolves.toEqual({ kind: 'stop' });
 
         expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending', {
             code: AppErrorCode.STORAGE_CORRUPTED,
@@ -507,15 +446,13 @@ describe('applyAuthValidationPolicy', () => {
         });
         expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
-        expect(inputs.plexAuth.validateToken).not.toHaveBeenCalled();
     });
 
     it('treats missing stored credentials as normal pending-auth startup', async () => {
         const inputs = createInputs({
-            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({ kind: 'missing' }),
+            validateStoredCredentials: jest.fn().mockResolvedValue(createValidationResult('missing')),
         });
-
-        await expect(applyPolicy(inputs)).resolves.toBe(false);
+        await expect(applyPolicy(inputs)).resolves.toEqual({ kind: 'stop' });
 
         expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
         expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
@@ -524,10 +461,9 @@ describe('applyAuthValidationPolicy', () => {
 
     it('preserves pending-auth side-effect order when stored credentials are missing', async () => {
         const inputs = createInputs({
-            readStoredCredentialsAndClearCorruption: jest.fn().mockReturnValue({ kind: 'missing' }),
+            validateStoredCredentials: jest.fn().mockResolvedValue(createValidationResult('missing')),
         });
-
-        await expect(applyPolicy(inputs)).resolves.toBe(false);
+        await expect(applyPolicy(inputs)).resolves.toEqual({ kind: 'stop' });
 
         const updateOrder = inputs.updateModuleStatus.mock.invocationCallOrder[0] ?? 0;
         const resumeOrder = inputs.handlers.registerAuthResume.mock.invocationCallOrder[0] ?? 0;
@@ -538,63 +474,13 @@ describe('applyAuthValidationPolicy', () => {
         expect(resumeOrder).toBeLessThan(navigationOrder);
     });
 
-    it('normalizes to the validated account token before routing to profile-select', async () => {
-        const controller = new AbortController();
+    it('routes an account fallback result to profile-select', async () => {
         const inputs = createInputs({
-            validateToken: jest.fn()
-                .mockResolvedValueOnce(false)
-                .mockResolvedValueOnce(true),
-            getCurrentUser: jest.fn().mockReturnValue(
-                createToken('account-token', 'account-user', 'account', 'account@example.com')
+            validateStoredCredentials: jest.fn().mockResolvedValue(
+                createValidationResult('account_fallback_valid')
             ),
         });
-        inputs.signal = controller.signal;
-
-        await expect(applyPolicy(inputs)).resolves.toBe(false);
-
-        expect(inputs.plexAuth.validateToken).toHaveBeenNthCalledWith(
-            1,
-            'active-token',
-            { signal: controller.signal }
-        );
-        expect(inputs.plexAuth.validateToken).toHaveBeenNthCalledWith(
-            2,
-            'account-token',
-            { signal: controller.signal }
-        );
-
-        expect(inputs.plexAuth.storeCredentials).toHaveBeenCalledWith({
-            accountToken: {
-                token: 'account-token',
-                userId: 'account-user',
-                username: 'account',
-                email: 'account@example.com',
-                thumb: '',
-                expiresAt: expect.any(Date),
-                issuedAt: expect.any(Date),
-            },
-            activeToken: {
-                token: 'account-token',
-                userId: 'account-user',
-                username: 'account',
-                email: 'account@example.com',
-                thumb: '',
-                expiresAt: expect.any(Date),
-                issuedAt: expect.any(Date),
-            },
-            activeUserId: 'account-user',
-            selectedServerByUserId: {
-                'active-user': {
-                    serverId: null,
-                    serverUri: null,
-                },
-                'account-user': {
-                    serverId: null,
-                    serverUri: null,
-                },
-            },
-            deviceKey: null,
-        });
+        await expect(applyPolicy(inputs)).resolves.toEqual({ kind: 'stop' });
         expect(inputs.handlers.registerProfileResume).toHaveBeenCalledTimes(1);
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('profile-select');
     });
@@ -610,7 +496,7 @@ describe('applyAuthValidationPolicy', () => {
         inputs.signal = controller.signal;
         inputs.navigation.getCurrentScreen.mockReturnValue('auth');
 
-        await expect(applyPolicy(inputs)).resolves.toBe(false);
+        await expect(applyPolicy(inputs)).resolves.toEqual({ kind: 'stop' });
 
         expect(inputs.plexAuth.getHomeUsers).toHaveBeenCalledWith({ signal: controller.signal });
         expect(inputs.navigation.goTo).toHaveBeenCalledWith('profile-select');
@@ -628,7 +514,7 @@ describe('applyAuthValidationPolicy', () => {
         );
 
         const plexAuth = new PlexAuth(realPlexAuthConfig);
-        const readSpy = jest.spyOn(plexAuth, 'readStoredCredentialsAndClearCorruption');
+        const validationSpy = jest.spyOn(plexAuth, 'validateStoredCredentials');
 
         expect(plexAuth.getCurrentUser()).toBeNull();
         expect(plexAuth.getActiveUserId()).toBeNull();
@@ -668,12 +554,12 @@ describe('applyAuthValidationPolicy', () => {
         };
 
         try {
-            await expect(applyAuthValidationPolicy(inputs)).resolves.toBe(false);
+            await expect(applyAuthValidationPolicy(inputs)).resolves.toEqual({ kind: 'stop' });
         } finally {
             (globalThis as typeof globalThis & { fetch: typeof previousFetch }).fetch = previousFetch;
         }
 
-        expect(readSpy).toHaveBeenCalledTimes(1);
+        expect(validationSpy).toHaveBeenCalledTimes(1);
         expect(plexAuth.getCurrentUser()).toMatchObject({
             token: 'account-token',
             userId: 'account-user',

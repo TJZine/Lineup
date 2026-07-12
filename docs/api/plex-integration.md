@@ -27,6 +27,9 @@ interface IPlexAuth {
   cancelPin(pinId: number): Promise<void>;
   pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
   validateToken(token: string, options?: { signal?: AbortSignal | null }): Promise<boolean>;
+  validateStoredCredentials(options?: {
+    signal?: AbortSignal | null;
+  }): Promise<PlexStoredCredentialsValidationResult>;
   getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
   switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
   getActiveUserId(): string | null;
@@ -45,6 +48,12 @@ interface IPlexAuth {
 
 Stored-credentials reads distinguish `missing`, `available`, and `corrupted`. Corrupted payloads are cleared by `PlexAuth` and surfaced distinctly from first-run missing state. The stored-credential read/write/clear methods are synchronous local storage and in-memory state operations; they do not imply an async persistence backend.
 
+PIN and credential-capable auth operations use a private monotonic authority owned by `PlexAuth`: the latest-started operation wins. Authority is acquired synchronously before caller-abort observation, so a newer pre-aborted or remotely failing invocation still permanently supersedes older work. `cancelPin()` invalidates only the matching PIN operation. Public `storeCredentials()` and `clearCredentials()` are synchronous authorities; `{ emitAuthChange: false }` suppresses notification only.
+
+`validateStoredCredentials()` owns the stored read, active/account fallback probes, validated credential reconstruction, and conditional commit as one transaction. Its tagged result includes an opaque guard whose `assertCurrent()` and read-only signal protect the remainder of that startup pass without exposing a counter or commit capability. Superseded work is a dedicated auth-local outcome, not invalid credentials and not recoverable pending-auth routing.
+
+PIN, profile-switch, and main-account logout success is fixed immediately after the guarded credential commit and before the first synchronous success event. Listener re-entry may supersede the operation and suppress later notifications, but cannot reject the committed result. `logoutActiveUser()` acquires authority even when no account exists; that path is a mutation-free successful no-op that still supersedes older work. Normal account-present notification order remains `authChange` then `profileChange`.
+
 Caller-provided cancellation signals on `requestPin()`, `checkPinStatus()`, `pollForPin()`, `validateToken()`, `getHomeUsers()`, and `switchHomeUser()` rethrow the caller's raw `AbortError` or abort reason so callers can distinguish explicit cancellation from Plex failures. `cancelPin()` remains the normal best-effort PIN cancellation API.
 
 `PlexAuthConfig.clientIdentifier` is resolved once at config assembly (`createDefaultPlexAuthConfig`) and treated as already-resolved input by `PlexAuth`.
@@ -62,6 +71,12 @@ Retrieving content metadata. Supports libraries, collections, playlists, TV show
 type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';
 
 type PlexLibraryRequestIntent = 'preview' | 'background';
+
+class PlexLibraryScopeSupersededError extends Error {}
+
+function isPlexLibraryScopeSupersededError(
+  error: unknown
+): error is PlexLibraryScopeSupersededError;
 
 interface PlexTagDirectoryQueryOptions {
   type: number;
@@ -146,6 +161,8 @@ interface IPlexLibrary {
 
 `getLibrary()` returns `null` only when the id is not present in a valid fetched section list. Unavailable or malformed section-list fetches throw `PlexLibraryError`.
 Across the rest of the library surface, `null` and empty arrays are reserved for real Plex not-found or empty-success outcomes such as `404` item lookups, empty metadata lists, or unsupported tag directories. Malformed payloads, empty `200` response bodies, timeout failures, and server errors reject with `PlexLibraryError` instead of collapsing into semantic empties.
+Each network/cache operation captures one immutable active-server URI and auth-header snapshot. If the active server/account identity changes before that operation settles, the operation rejects with `PlexLibraryScopeSupersededError`; stale results do not update library caches or emit library transport/refresh/tag callbacks. Callers that intentionally provide partial-result fallbacks must use `isPlexLibraryScopeSupersededError()` to rethrow that exact error before ordinary fallback conversion.
+Caller cancellation remains distinct and takes precedence at each observation boundary: an aborted signal rejects with its raw reason, including on a current cache hit. Count enrichment treats caller abort and scope supersession as fatal for the whole library-list request, while ordinary count failures remain best-effort and leave the affected count unknown.
 `getImageUrl()` returns `null` when no image URL can be built, such as an empty image path, missing active server URI, or a foreign absolute image URL. Plex tokens are only attached to active-server-owned image URLs.
 
 ## Server Discovery (`IPlexServerDiscovery`)
@@ -162,6 +179,12 @@ type PlexServerSelectionResult =
   | { kind: 'selected' }
   | { kind: 'server_not_found' }
   | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
+
+class PlexDiscoverySelectionSupersededError extends Error {}
+
+function isPlexDiscoverySelectionSupersededError(
+  error: unknown
+): error is PlexDiscoverySelectionSupersededError;
 
 type PlexSavedServerRestoreResult =
   | { kind: 'skipped_no_servers' }
@@ -244,6 +267,10 @@ Discovery list and selected-server getters return defensive snapshots. Startup i
 - `selection_failed`: the saved server id could not be selected; inspect `reason` for `server_not_found`, `unreachable`, `auth_required`, or `access_denied`. When a saved id exists but discovery returns no servers, initialization returns `selection_failed` with `server_not_found` and clears that stale saved selection.
 
 Callers may cancel their own discovery wait with `AbortSignal` without canceling the shared in-flight discovery used by other callers. Connection probes and selected-server selection accept caller cancellation signals and rethrow the caller's raw abort reason instead of converting explicit cancellation into an unreachable-server result.
+
+Server selection and saved-server initialization capture one discovery-local monotonic context before discovery or probing. A storage/profile transition, authoritative clear, or snapshot restore supersedes older work even when later storage keys reuse the same text. Superseded selection rejects with `PlexDiscoverySelectionSupersededError`; it is not a selection-result kind, abort, or application error code. Callers may classify it through `isPlexDiscoverySelectionSupersededError()` but do not own or construct selection validity. Caller abort remains the first observation at every continuation and therefore retains its raw reason when cancellation and supersession coincide.
+
+Selection revalidates before each probe continuation and before every selected-state, selected-id, event, health, and successful-return suffix. Snapshot restore validates its discovery-owned capture before advancing the context; clear and restore then guard their own synchronous mutation/event suffixes, so a re-entrant `serverChange` listener cannot continue under a newly selected storage context. Standalone `testConnection()` and `findFastestConnection()` retain their existing transport contracts.
 
 Discovery is endpoint-aware: plex.tv cloud resource discovery `401`/`403` remains an auth recovery failure, while a PMS identity-probe `403` means the active Plex profile lacks permission for that server and surfaces as `access_denied` instead of invalid stored credentials.
 Plex cloud discovery `5xx` responses surface as retryable `SERVER_ERROR` failures after discovery retry policy is exhausted; request failures without an HTTP response remain `SERVER_UNREACHABLE`.

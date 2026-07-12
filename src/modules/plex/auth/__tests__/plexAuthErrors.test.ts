@@ -1,5 +1,9 @@
 import { AppErrorCode } from '../../../../types/app-errors';
-import { isPlexAuthRecoverable } from '../plexAuthErrors';
+import {
+    PlexAuthOperationSupersededError,
+    isPlexAuthOperationSupersededError,
+    isPlexAuthRecoverable,
+} from '../plexAuthErrors';
 
 describe('isPlexAuthRecoverable', () => {
     it.each([
@@ -24,6 +28,14 @@ describe('isPlexAuthRecoverable', () => {
         'error',
         [],
     ])('rejects non-AppError input %#', (error) => {
+        expect(isPlexAuthRecoverable(error)).toBe(false);
+    });
+});
+
+describe('PlexAuthOperationSupersededError', () => {
+    it('is recognized without being classified as recoverable invalid auth', () => {
+        const error = new PlexAuthOperationSupersededError();
+        expect(isPlexAuthOperationSupersededError(error)).toBe(true);
         expect(isPlexAuthRecoverable(error)).toBe(false);
     });
 });

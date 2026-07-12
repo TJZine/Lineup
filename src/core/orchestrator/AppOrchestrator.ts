@@ -30,6 +30,7 @@ import {
 import {
     type IPlexServerDiscovery,
     type PlexServer,
+    isPlexDiscoverySelectionSupersededError,
 } from '../../modules/plex/discovery';
 import {
     type IPlexLibrary,
@@ -1164,7 +1165,11 @@ export class AppOrchestrator {
             });
         }
         await this._plexAuth.clearCredentials();
-        this._plexDiscovery?.clearSelection();
+        try {
+            this._plexDiscovery?.clearSelection();
+        } catch (error) {
+            if (!isPlexDiscoverySelectionSupersededError(error)) throw error;
+        }
         this._clearIdentityScopedRuntimeState({ stopPlayback: true });
         await this._configureChannelManagerStorageForSelectedServer();
         if (this._initCoordinator) {

@@ -2,6 +2,7 @@ import type {
     IPlexLibrary,
     PlexLibrarySection,
 } from '../../../modules/plex/library';
+import { isPlexLibraryScopeSupersededError } from '../../../modules/plex/library';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
 import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
@@ -136,6 +137,9 @@ export class ChannelSetupFacetSnapshotLoadSession {
             });
             this._loadState.playlists.push(...fetched);
         } catch (error) {
+            if (isPlexLibraryScopeSupersededError(error)) {
+                throw error;
+            }
             if (this._callerCanceled()) {
                 throw createAbortError(this._lastTask);
             }

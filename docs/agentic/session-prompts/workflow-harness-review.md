@@ -63,9 +63,28 @@ For a light harness review (aim: ~15-25 minutes total), read these and then jump
 - [`agents.md`](../../../agents.md) (skim, ~3-5m): stable policy map and defaults
 - [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs) (skim, ~3-5m): mechanical enforcement surface (what is actually checked)
 
-## Required Read Order
+## Review Scope And Reading Budget
 
-### Core (must-read for a full review)
+Declare exactly one review mode before reading:
+
+- `targeted`: one named workflow, launcher, skill family, verifier contract, or case study
+- `whole-system`: the entire control plane and every Required Review Axis
+
+For either mode, always read:
+
+1. [`docs/AGENTIC_DEV_WORKFLOW.md`](../../AGENTIC_DEV_WORKFLOW.md)
+2. [`agents.md`](../../../agents.md)
+3. this launcher
+4. the target workflow/launcher/skill and the exact verifier section that enforces it
+5. [`docs/agentic/evals/README.md`](../evals/README.md) for triggered evaluation routing
+
+For `targeted` reviews, load other sources only when the target touches their authority or the evidence sweep reveals a dependency. End with a `READING_SCOPE` record naming the reviewed surfaces, intentionally omitted surfaces, and why each omission could not change the conclusion. Omission is invalid when architecture, role routing, tracked/local truth, or verifier behavior depends on that surface.
+
+For `whole-system` reviews, continue through the full corpus below.
+
+## Whole-System Read Order
+
+### Core
 
 Rationale: these define the authority surfaces, how work is routed, and what is mechanically enforced.
 
@@ -80,7 +99,7 @@ Rationale: these define the authority surfaces, how work is routed, and what is 
 9. [`docs/agentic/evals-roadmap.md`](../evals-roadmap.md) (skim, ~5-8m): planned eval surfaces and prioritization
 10. [`tools/verify-docs.mjs`](../../../tools/verify-docs.mjs) (deep, ~8-12m): exact checks and failure modes
 
-### Supporting context (read as needed)
+### Supporting context
 
 Rationale: these validate the core workflow against steady-state plans, architecture reality, and maintenance discipline.
 

@@ -16,7 +16,11 @@ import type {
     ResolvedContentItem,
 } from '../contracts/types';
 import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
-import type { PlexMediaFile, PlexStream } from '../../../plex/library';
+import {
+    PlexLibraryScopeSupersededError,
+    type PlexMediaFile,
+    type PlexStream,
+} from '../../../plex/library';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import { shuffleWithSeed } from '../../shared/prng';
 import { createMockItem, createMockLibrary } from './channel-manager-test-helpers';
@@ -1140,6 +1144,63 @@ describe('ContentResolver', () => {
             };
 
             await expect(resolver.resolveSource(source)).rejects.toThrow('404');
+        });
+
+        it('rethrows supersession from defensive show expansion without caching a partial source', async () => {
+            const stale = new PlexLibraryScopeSupersededError();
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'movie-lib',
+                libraryType: 'movie',
+                includeWatched: true,
+            };
+            mockLibrary.getLibraryItems.mockResolvedValue([
+                createMockItem({ ratingKey: 'show-1', type: 'show', durationMs: 0 }),
+            ]);
+            mockLibrary.getShowEpisodes
+                .mockRejectedValueOnce(stale)
+                .mockResolvedValueOnce([createMockEpisode(1, 1)]);
+
+            await expect(resolver.resolveSource(source)).rejects.toBe(stale);
+            await expect(resolver.resolveSource(source)).resolves.toHaveLength(1);
+            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(2);
+        });
+
+        it('rethrows supersession before using a cached show-list fallback', async () => {
+            const stale = new PlexLibraryScopeSupersededError();
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+            };
+            mockLibrary.getLibraryItems.mockImplementation((_libraryId, options) => {
+                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    return Promise.resolve([createMockEpisode(1, 1)]);
+                }
+                return Promise.reject(stale);
+            });
+
+            await expect(resolver.resolveSource(source)).rejects.toBe(stale);
+        });
+
+        it('rethrows supersession from collection show expansion without caching a container', async () => {
+            const stale = new PlexLibraryScopeSupersededError();
+            const source: CollectionContentSource = {
+                type: 'collection',
+                collectionKey: 'collection-1',
+                collectionName: 'Shows',
+            };
+            mockLibrary.getCollectionItems.mockResolvedValue([
+                createMockItem({ ratingKey: 'show-1', type: 'show', durationMs: 0 }),
+            ]);
+            mockLibrary.getShowEpisodes
+                .mockRejectedValueOnce(stale)
+                .mockResolvedValueOnce([createMockEpisode(1, 1)]);
+
+            await expect(resolver.resolveSource(source)).rejects.toBe(stale);
+            await expect(resolver.resolveSource(source)).resolves.toHaveLength(1);
+            expect(mockLibrary.getCollectionItems).toHaveBeenCalledTimes(2);
         });
 
         it('should cache show lists for show libraries within TTL', async () => {

@@ -62,6 +62,7 @@ Choose exactly one:
 2. Light execution brief
    - Use when one session is likely enough but a written brief still reduces risk.
    - Include scope, seam, files, invariants, verification, and stop conditions.
+   - When an approved remediation program plan already owns package membership, sequencing, owner intent, and verification class, use a compact package execution addendum in this mode. Record only fresh source/caller/side-effect evidence, changed assumptions, the chosen seam, exact current-unit scope, invariants, verification, and scope-reset triggers; do not restate the program plan.
 3. Serious tracked plan
    - Use when the work needs durable handoff memory, crosses boundaries, spans sessions, or carries enough risk that the tracked plan becomes part of the control plane.
    - Follow the serious-plan standard exactly.

@@ -38,6 +38,7 @@
         "verify:maintainability": "node tools/verify-maintainability.mjs",
         "verify:architecture": "eslint src && npm run verify:maintainability",
         "verify:docs": "node tools/verify-docs.mjs && npm run test:harness-docs && npm run test:verify-docs-contracts",
+        "verify:docs:fast": "node tools/verify-docs.mjs",
         "verify:docs:workspace": "node tools/verify-docs.mjs --workspace && npm run test:harness-docs && npm run test:verify-docs-contracts",
         "verify:bundle": "node tools/verify-bundle.mjs",
         "docs:sync": "node tools/sync-harness-docs.mjs",

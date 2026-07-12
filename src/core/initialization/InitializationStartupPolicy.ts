@@ -2,8 +2,17 @@ import type { AppError, IAppLifecycle } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../types/app-errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import type { INavigationManager } from '../../modules/navigation';
-import { type IPlexAuth, isPlexAuthRecoverable } from '../../modules/plex/auth';
-import type { IPlexServerDiscovery, PlexSavedServerRestoreResult } from '../../modules/plex/discovery';
+import {
+    type IPlexAuth,
+    type PlexAuthValidationGuard,
+    isPlexAuthOperationSupersededError,
+    isPlexAuthRecoverable,
+} from '../../modules/plex/auth';
+import {
+    isPlexDiscoverySelectionSupersededError,
+    type IPlexServerDiscovery,
+    type PlexSavedServerRestoreResult,
+} from '../../modules/plex/discovery';
 import type { IPlexLibrary } from '../../modules/plex/library';
 import type { IPlexStreamResolver } from '../../modules/plex/stream';
 import type { IChannelManager } from '../../modules/scheduler/channel-manager';
@@ -21,7 +30,7 @@ type UpdateModuleStatus = (
 
 type AuthValidationPlexAuth = Pick<
     IPlexAuth,
-    'readStoredCredentialsAndClearCorruption' | 'validateToken' | 'getCurrentUser' | 'storeCredentials' | 'getHomeUsers'
+    'validateStoredCredentials' | 'getHomeUsers'
 >;
 
 type AuthValidationNavigation = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'>;
@@ -64,10 +73,9 @@ export interface PostReadyRoutingInputs extends StartupSignalOptions {
     openServerSelect: () => void;
 }
 
-type AuthStoredCredentials = Extract<
-    Awaited<ReturnType<AuthValidationPlexAuth['readStoredCredentialsAndClearCorruption']>>,
-    { kind: 'available' }
->['credentials'];
+export type AuthValidationPolicyResult =
+    | { kind: 'stop' }
+    | { kind: 'continue'; guard: PlexAuthValidationGuard };
 
 function createSavedServerRestoreError(restoreResult: PlexSavedServerRestoreResult): AppError | undefined {
     if (restoreResult.kind !== 'selection_failed') {
@@ -166,31 +174,16 @@ function assertUnhandledChannelSwitchOutcome(value: never): never {
     throw new Error(`Unhandled initial channel switch outcome: ${String(value)}`);
 }
 
-function buildSelectedServerByUserId(
-    storedCredentials: AuthStoredCredentials,
-    activeUserId: string
-): AuthStoredCredentials['selectedServerByUserId'] {
-    const selectedServerByUserId = {
-        ...(storedCredentials.selectedServerByUserId ?? {}),
-    };
-    if (!selectedServerByUserId[activeUserId]) {
-        selectedServerByUserId[activeUserId] = { serverId: null, serverUri: null };
-    }
-    return selectedServerByUserId;
-}
-
-function resolveValidatedToken<TToken extends AuthStoredCredentials['activeToken']>(
-    currentToken: TToken | null,
-    fallbackToken: TToken
-): TToken {
-    if (currentToken?.token === fallbackToken.token) {
-        return currentToken;
-    }
-    return fallbackToken;
-}
-
-function markAuthReady(inputs: AuthValidationPolicyInputs): void {
+function assertAuthCurrent(
+    inputs: AuthValidationPolicyInputs,
+    guard: PlexAuthValidationGuard
+): void {
     throwIfStartupAborted(inputs.signal);
+    guard.assertCurrent();
+}
+
+function markAuthReady(inputs: AuthValidationPolicyInputs, guard: PlexAuthValidationGuard): void {
+    assertAuthCurrent(inputs, guard);
     inputs.updateModuleStatus(
         'plex-auth',
         'ready',
@@ -199,158 +192,96 @@ function markAuthReady(inputs: AuthValidationPolicyInputs): void {
     );
 
     if (inputs.lifecycle) {
-        throwIfStartupAborted(inputs.signal);
+        assertAuthCurrent(inputs, guard);
         inputs.lifecycle.setPhase('loading_data');
     }
 }
 
-function routeToPendingAuth(inputs: AuthValidationPolicyInputs, error?: AppError): boolean {
-    throwIfStartupAborted(inputs.signal);
+function routeToPendingAuth(
+    inputs: AuthValidationPolicyInputs,
+    guard: PlexAuthValidationGuard,
+    error?: AppError
+): AuthValidationPolicyResult {
+    assertAuthCurrent(inputs, guard);
     if (error) {
         inputs.updateModuleStatus('plex-auth', 'pending', error);
     } else {
         inputs.updateModuleStatus('plex-auth', 'pending');
     }
-    throwIfStartupAborted(inputs.signal);
+    assertAuthCurrent(inputs, guard);
     inputs.handlers.registerAuthResume();
-    throwIfStartupAborted(inputs.signal);
+    assertAuthCurrent(inputs, guard);
     inputs.navigation.goTo('auth');
-    return false;
+    return { kind: 'stop' };
 }
 
-async function maybeRouteToProfileSelect(inputs: AuthValidationPolicyInputs): Promise<boolean> {
-    throwIfStartupAborted(inputs.signal);
+async function maybeRouteToProfileSelect(
+    inputs: AuthValidationPolicyInputs,
+    guard: PlexAuthValidationGuard
+): Promise<AuthValidationPolicyResult> {
+    assertAuthCurrent(inputs, guard);
     const currentScreen = inputs.navigation.getCurrentScreen();
     const isAuthScreen = currentScreen === 'auth';
     const showPickerOnStartup = inputs.readShowProfilePickerOnStartup();
     if (!isAuthScreen && !showPickerOnStartup) {
-        return true;
+        return { kind: 'continue', guard };
     }
 
     try {
-        throwIfStartupAborted(inputs.signal);
+        assertAuthCurrent(inputs, guard);
         const users = await inputs.plexAuth.getHomeUsers({ signal: inputs.signal ?? null });
-        throwIfStartupAborted(inputs.signal);
+        assertAuthCurrent(inputs, guard);
         if (users.length > 1) {
+            assertAuthCurrent(inputs, guard);
             inputs.handlers.registerProfileResume();
-            throwIfStartupAborted(inputs.signal);
+            assertAuthCurrent(inputs, guard);
             inputs.navigation.goTo('profile-select');
-            return false;
+            return { kind: 'stop' };
         }
     } catch (error) {
+        assertAuthCurrent(inputs, guard);
         if (isPlexAuthRecoverable(error)) {
-            return routeToPendingAuth(inputs);
+            return routeToPendingAuth(inputs, guard);
         }
         throw error;
     }
 
-    return true;
+    return { kind: 'continue', guard };
 }
 
-function persistValidatedActiveCredentials(
-    inputs: AuthValidationPolicyInputs,
-    storedCredentials: AuthStoredCredentials
-): void {
+export async function applyAuthValidationPolicy(
+    inputs: AuthValidationPolicyInputs
+): Promise<AuthValidationPolicyResult> {
     throwIfStartupAborted(inputs.signal);
-    const validatedActiveToken = resolveValidatedToken(
-        inputs.plexAuth.getCurrentUser(),
-        storedCredentials.activeToken
-    );
-    const activeUserId = storedCredentials.activeUserId || validatedActiveToken.userId;
-    const accountToken = storedCredentials.accountToken.token === validatedActiveToken.token
-        ? validatedActiveToken
-        : storedCredentials.accountToken;
-
-    throwIfStartupAborted(inputs.signal);
-    inputs.plexAuth.storeCredentials({
-        accountToken,
-        activeToken: validatedActiveToken,
-        activeUserId,
-        selectedServerByUserId: buildSelectedServerByUserId(storedCredentials, activeUserId),
-        deviceKey: storedCredentials.deviceKey ?? null,
-    });
-}
-
-function persistValidatedAccountFallback(
-    inputs: AuthValidationPolicyInputs,
-    storedCredentials: AuthStoredCredentials
-): void {
-    throwIfStartupAborted(inputs.signal);
-    const validatedAccountToken = resolveValidatedToken(
-        inputs.plexAuth.getCurrentUser(),
-        storedCredentials.accountToken
-    );
-
-    throwIfStartupAborted(inputs.signal);
-    inputs.plexAuth.storeCredentials({
-        accountToken: validatedAccountToken,
-        activeToken: validatedAccountToken,
-        activeUserId: validatedAccountToken.userId,
-        selectedServerByUserId: buildSelectedServerByUserId(
-            storedCredentials,
-            validatedAccountToken.userId
-        ),
-        deviceKey: storedCredentials.deviceKey ?? null,
-    });
-}
-
-export async function applyAuthValidationPolicy(inputs: AuthValidationPolicyInputs): Promise<boolean> {
-    throwIfStartupAborted(inputs.signal);
-    const storedReadResult = inputs.plexAuth.readStoredCredentialsAndClearCorruption();
-    throwIfStartupAborted(inputs.signal);
-    if (storedReadResult.kind === 'corrupted') {
-        return routeToPendingAuth(inputs, {
-            code: AppErrorCode.STORAGE_CORRUPTED,
-            message: 'Stored Plex auth credentials were invalid and were cleared.',
-            recoverable: true,
-        });
-    }
-
-    if (storedReadResult.kind !== 'available') {
-        return routeToPendingAuth(inputs);
-    }
-
-    const storedCredentials = storedReadResult.credentials;
-
     try {
-        throwIfStartupAborted(inputs.signal);
-        const activeValid = await inputs.plexAuth.validateToken(
-            storedCredentials.activeToken.token,
-            { signal: inputs.signal ?? null }
-        );
-        throwIfStartupAborted(inputs.signal);
-        if (activeValid) {
-            persistValidatedActiveCredentials(inputs, storedCredentials);
-            throwIfStartupAborted(inputs.signal);
+        const result = await inputs.plexAuth.validateStoredCredentials({
+            signal: inputs.signal ?? null,
+        });
+        assertAuthCurrent(inputs, result.guard);
+        if (result.kind === 'corrupted') {
+            return routeToPendingAuth(inputs, result.guard, {
+                code: AppErrorCode.STORAGE_CORRUPTED,
+                message: 'Stored Plex auth credentials were invalid and were cleared.',
+                recoverable: true,
+            });
+        }
+        if (result.kind === 'missing' || result.kind === 'invalid') {
+            return routeToPendingAuth(inputs, result.guard);
+        }
+        if (result.kind === 'active_valid') {
+            assertAuthCurrent(inputs, result.guard);
             inputs.configureDiscoveryStorage();
-            throwIfStartupAborted(inputs.signal);
-            markAuthReady(inputs);
-            return maybeRouteToProfileSelect(inputs);
+            markAuthReady(inputs, result.guard);
+            return maybeRouteToProfileSelect(inputs, result.guard);
         }
-
-        throwIfStartupAborted(inputs.signal);
-        const accountValid = await inputs.plexAuth.validateToken(
-            storedCredentials.accountToken.token,
-            { signal: inputs.signal ?? null }
-        );
-        throwIfStartupAborted(inputs.signal);
-        if (!accountValid) {
-            return routeToPendingAuth(inputs);
-        }
-
-        persistValidatedAccountFallback(inputs, storedCredentials);
-        throwIfStartupAborted(inputs.signal);
-        markAuthReady(inputs);
-        throwIfStartupAborted(inputs.signal);
+        markAuthReady(inputs, result.guard);
+        assertAuthCurrent(inputs, result.guard);
         inputs.handlers.registerProfileResume();
-        throwIfStartupAborted(inputs.signal);
+        assertAuthCurrent(inputs, result.guard);
         inputs.navigation.goTo('profile-select');
-        return false;
+        return { kind: 'stop' };
     } catch (error) {
-        if (isPlexAuthRecoverable(error)) {
-            return routeToPendingAuth(inputs);
-        }
-
+        if (isPlexAuthOperationSupersededError(error)) return { kind: 'stop' };
         throw error;
     }
 }
@@ -363,6 +294,7 @@ export async function applyServerConnectionPolicy(inputs: ServerConnectionPolicy
         savedServerRestore = await inputs.plexDiscovery.initialize({ signal: inputs.signal ?? null });
         throwIfStartupAborted(inputs.signal);
     } catch (error) {
+        if (isPlexDiscoverySelectionSupersededError(error)) throw error;
         if (isPlexAuthRecoverable(error)) {
             throw error;
         }

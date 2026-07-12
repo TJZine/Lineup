@@ -39,14 +39,14 @@ Start at `0` and add `+1` for each:
   - if asked: use tracked `planner` (`gpt-5.6-sol medium`), tracked `worker` (`gpt-5.6-sol medium`), and tracked `reviewer` (`gpt-5.6-sol high`) when concrete roles are needed
   - planning default: tracked `planner` (`gpt-5.6-sol medium`)
   - implementation default: tracked `worker` (`gpt-5.6-sol medium`)
-  - use `worker_luna` (`gpt-5.6-luna xhigh`) only when the approved `CURRENT_EXECUTION_PACKET` declares `IMPLEMENTER_ROLE_ELIGIBILITY` as exactly `worker_luna` or as an eligibility set containing the exact `worker_luna` role token (for example, `worker_luna | worker | cleanup_worker`), and the unit is exact, bounded, and cheap to verify
+  - use `worker_luna` (`gpt-5.6-luna xhigh`) only when the unit satisfies the canonical eligibility policy in `docs/AGENTIC_DEV_WORKFLOW.md`
   - for tiny read-heavy sidecars, `gpt-5.6-luna low|medium` is acceptable when speed/cost matters more than deep reasoning
 - Score `2-3`
   - include `MODEL_SUGGESTION`
   - planner `gpt-5.6-sol medium` by default
   - planner `gpt-5.6-sol high` can be recommended as a direct model override for ambiguous Tier 2 work or moderate architecture risk when `planner_deep` would be disproportionate
   - implementer `gpt-5.6-sol medium`
-  - implementer `gpt-5.6-luna xhigh` through `worker_luna` only for approved, bounded, exact, cheap-to-verify units with explicit stop/escalation rules
+  - implementer `gpt-5.6-luna xhigh` through `worker_luna` only when the unit satisfies the canonical eligibility policy in `docs/AGENTIC_DEV_WORKFLOW.md`
   - reviewer `gpt-5.6-sol high` through the tracked `reviewer` role for normal adversarial review
   - use `maintainability_reviewer` (`gpt-5.6-sol xhigh`) for code-health, slop, file-shape, test-brittleness, or maintainability-only review
 - Score `4+` or any Tier 3 hotspot/priority-exit review
@@ -59,7 +59,7 @@ Start at `0` and add `+1` for each:
 ## Model And Reasoning Notes
 
 - Use `gpt-5.6-sol` for demanding Lineup planning, normal implementation, and review sessions.
-- Use `gpt-5.6-luna xhigh` through `worker_luna` for approved, bounded, exact, cheap-to-verify execution units.
+- Use `gpt-5.6-luna xhigh` through `worker_luna` only under the canonical eligibility policy in `docs/AGENTIC_DEV_WORKFLOW.md`.
 - Use `gpt-5.6-luna high` for documentation research and `gpt-5.6-luna xhigh` for the explorer fallback.
 - Use `gpt-5.6-luna low` for the monitor fallback and Luna for lighter read-heavy sidecars when correctness risk is low.
 - Keep `gpt-5.3-codex-spark` only for intentionally latency-sensitive, text-only explorer/monitor workflows where the tracked role config already chooses it.
@@ -85,9 +85,8 @@ Start at `0` and add `+1` for each:
   - no security, auth, persistence, or token-sensitive change
   - no priority-exit or checklist-closeout consequence
 - Escalate implementer reasoning to `medium` or `high` when the work requires local judgment, architecture seam decisions, UX/product interpretation, failing verification repair, cross-module work, Plex/navigation/Orchestrator/high-risk UI changes, cleanup/refactor execution, or scope is unclear.
-- `worker_luna` eligibility requires `IMPLEMENTER_ROLE_ELIGIBILITY: worker_luna` or an eligibility set containing `worker_luna`, exact files, exact constraints, explicit verification, and stop/replan triggers; stop on ambiguity, plan contradiction, scope expansion, unexpected cross-boundary coupling, or verification failure needing diagnosis.
 - Keep planner and reviewer recommendations stronger than implementer recommendations. Do not recommend `low` for adversarial review or serious planning.
-- `cleanup_worker` and cleanup/refactor implementers remain `gpt-5.6-sol medium` by default; route only explicitly exact, bounded, cheap-to-verify cleanup units to `worker_luna`.
+- `cleanup_worker` and cleanup/refactor implementers remain `gpt-5.6-sol medium` by default; use `worker_luna` only under the runbook's canonical eligibility policy.
 - Keep Luna `xhigh` as the tracked baseline for `worker_luna` and `explorer_fallback`, and Luna `high` for `docs_researcher`. Compare one level lower on representative tasks only when quality remains stable. Reserve `max` for measured quality-first cases where `xhigh` is insufficient; do not make `max` or host-specific `ultra` a tracked default.
 - Use `gpt-5.5` at the same effort as the reliability fallback for Sol/Luna roles when GPT-5.6 is unavailable. Use `gpt-5.4-mini` only for low-risk cost-sensitive work that would otherwise use a lightweight Luna role.
 

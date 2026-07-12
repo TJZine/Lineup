@@ -14,6 +14,8 @@ Use this prompt when the task is already classified as Tier 3 high-risk cleanup/
 Accept either of these as the task-specific input after the launcher:
 
 - a pasted `NEXT_SESSION_HANDOFF` block; when present, treat `PLAN`, `ARTIFACT`, `FILES`, and `MESSAGE` as required additional reading after the standard read order
+  - when `HANDOFF_DELTA_FROM` is not `none`, resolve and read its repo-relative artifact at the named revision before applying `CHANGED_FACTS`; confirm the base is still authoritative and consistent with `PLAN`/`ARTIFACT`
+  - if the delta base is missing, stale, ambiguous, unavailable at the named revision, or contradicted by current authority, reject the delta and require a complete handoff instead of reconstructing hidden state
 - one short follow-up message naming the exact Tier 3 cleanup scope, for example `Run cleanup-loop for ARCHITECTURE_CLEANUP_CHECKLIST.md item P4-W2.`
 - one short follow-up message naming the approved Tier 3 standalone-remediation scope, for example `Run cleanup-loop for docs/plans/2026-04-16-navigation-remediation.md.`
 
@@ -23,6 +25,8 @@ If the short follow-up form is used, treat the named checklist item or cleanup t
 
 Run the full controller loop only for Tier 3 cleanup/refactor/remediation work. This launcher is not a temporary feature-loop or umbrella controller for feature delivery. The main session is the orchestrator. It keeps the authoritative state in `update_plan`, keeps routing and seam decisions local by default, delegates only the bounded write or review work that materially benefits from delegation, and only edits directly as a last resort for small adjustments or when preserving controller context is materially more reliable than another handoff.
 
+Apply `DELEGATED_PLANNER_AUTHORITY`, `REVIEWER_READ_ONLY_CONTRACT`, `IMPLEMENTATION_CLOSEOUT_GATE`, and `SEQUENTIAL_PACKAGE_GATE` from the workflow runbook. The phase rules below add cleanup-loop-specific behavior.
+
 ## Controller State Machine
 
 Run the loop as an explicit state machine:
@@ -31,13 +35,14 @@ Run the loop as an explicit state machine:
 2. `plan`
 3. `plan-review`
 4. `plan-revise`
-5. `execution-unit-select`
-6. `implement`
-7. `implementation-review`
-8. `implementation-revise`
-9. `closeout`
-10. `done`
-11. `blocked`
+5. `scope-reset`
+6. `execution-unit-select`
+7. `implement`
+8. `implementation-review`
+9. `implementation-revise`
+10. `closeout`
+11. `done`
+12. `blocked`
 
 ### Phase Rules
 
@@ -58,6 +63,8 @@ Run the loop as an explicit state machine:
   - the main thread must not author the execution-grade `checklist-linked` package plan itself just because it now has enough local context; reclaim planning only when delegated planning explicitly blocks, fails, the user explicitly asks the main thread to plan locally, a controller-only seam decision must be resolved before planning can continue, or the narrow long-wait/direct-status-check/follow-up-wait abandonment test is met
   - for `standalone remediation`, the controller may keep the planning pass local when the bounded execution target is already clear, but should still delegate when the same Tier 3 scale/risk factors that justified `cleanup-loop` materially benefit from a separate planning writer
   - have the planning pass write or refresh the implementation plan using the tracked cleanup planning standards
+  - when an approved program remediation plan already defines package membership, sequencing, owner intent, and verification class, keep that plan authoritative and write a compact package execution addendum rather than a duplicate package master plan; the addendum records only freshness evidence, changed assumptions, the chosen seam, exact current-unit scope, invariants, verification, and scope-reset triggers
+  - before freezing that addendum or plan, perform one holistic source/caller/side-effect sweep across the proposed owner, every production caller, async continuation, persistence/event mutation, startup/resume path, and adjacent contract that can invalidate the seam; record it as a compact matrix with `surface`, `owner/callers`, `async boundary`, `side effects`, `invariant`, and `evidence`
   - require the planning pass to optimize for the intended long-term owner shape and repo-preferred practice, not the smallest issue-closing patch; larger rewrites are valid execution units or waves when they stay inside the approved owner boundary and verification envelope
   - reject source-disproved, no-code, deferred, or split-follow-up dispositions when the only reason is fix size; those dispositions need current-source proof that the intended shape already exists, the finding no longer applies, or an explicit unapproved boundary forces stop/replan with one final owner
   - for `checklist-linked` package work, require approved package decomposition, one explicit `ready_now_execution_unit`, and a clear next-slice recommendation inside that unit before implementation starts
@@ -66,16 +73,22 @@ Run the loop as an explicit state machine:
 - `plan-review`
   - run an adversarial plan review using a fresh tracked `reviewer` pass by default; use `architecture_reviewer` for hotspot/boundary/security-adjacent architecture risk and `maintainability_reviewer` for code-health or maintainability-only review
   - launch that reviewer as a fresh bounded-context tracked-role thread instead of a full-history fork for the same role-selection reason
-  - keep that reviewer thread alive for follow-up closure checks on the same plan artifact when findings come back
+  - require the initial reviewer to inspect the whole package packet and return one consolidated finding set, separated into `architecture/seam` and `mechanical plan hygiene`; the reviewer must say that it completed the whole-package pass and must not serially reserve findings reasonably discoverable from the initial packet
+  - keep that reviewer thread alive for a same-reviewer closure check only when confirming disposition of accepted blocking findings on an otherwise unchanged seam
   - treat the plan as implementation-ready only when there are no material findings
   - treat slice parallelism as unavailable unless the approved plan explicitly authorizes it and explains the boundary and verification split
 - `plan-revise`
   - route plan-review findings back to the same planning subagent by default
   - only keep a narrow controller-side plan revision local as a last resort when delegated planning explicitly blocks, fails, the user explicitly asks the main thread to plan locally, a controller-only seam decision must be resolved in the revision itself, or the narrow long-wait/direct-status-check/follow-up-wait abandonment test is met
-  - by default, send the revised plan back to the same reviewer thread for closure checking instead of spawning a brand-new reviewer each round
-  - run a fresh reviewer again only for the final clean approval gate, when the prior reviewer context is no longer trustworthy, or when the controller wants a second opinion because the loop is stuck or scope changed materially
-  - when a same-reviewer closure check clears the findings after a non-clean round, return to `plan-review` for the fresh final approval gate before entering `execution-unit-select`
+  - allow one normal revision round after the consolidated initial review
+  - mechanical scope-list, docs, formatting, or command corrections may be applied and closure-checked without restarting the review state machine or consuming another architecture-discovery round
+  - any genuinely new cross-boundary design flaw first raised after the one allowed revision transitions to `scope-reset`; report it to the controller/user, rebuild the addendum from the corrected boundary, and do not normalize serial design discovery as ordinary rereview
+  - use same-reviewer closure to confirm accepted blocking findings when the seam and review surface are unchanged; use one fresh final review instead when the seam or review surface changed materially, the initial review was not holistic, reviewer context is no longer trustworthy, or the maintainer requests independent confirmation. Do not require both gates for the same unchanged artifact by default
+  - a maintainer may explicitly waive further package-plan review only after every finding is adjudicated, accepted fixes are applied, no unresolved blocking `architecture/seam` finding remains, the package seam is decision-complete, and the residual-risk report names any accepted non-blocking risk. The override never waives implementation review, required verification, focused commits, or truthful closeout
   - do not begin implementation while material plan findings remain
+- `scope-reset`
+  - stop package execution, report the newly proved boundary and why the prior package addendum is invalid, and request direction only when the program plan and user goals do not already resolve the corrected scope
+  - refresh the same package addendum and holistic sweep before returning to one consolidated `plan-review`; do not select or plan the next package
 - `execution-unit-select`
   - keep planning and package closeout package-scoped for `checklist-linked` work, but select implementation scope at approved execution-unit level there
   - for `checklist-linked` work, choose the next incomplete approved execution unit from the tracked plan (`ready_now_execution_unit` first; `ready_now_slice` remains the first slice inside that unit)
@@ -103,15 +116,16 @@ Run the loop as an explicit state machine:
   - after a clean review, return to `execution-unit-select` for remaining checklist-linked work or proceed to `closeout` when the subtype-matched exit conditions are satisfied
 - `implementation-revise`
   - route implementation-review findings back to the same implementation subagent for the current execution unit or bounded execution target
-  - by default, send the revised execution-unit or execution-target artifact back to the same reviewer thread for closure checking instead of spawning a brand-new reviewer each round
-  - run a fresh reviewer again only for the final clean approval gate, when the prior reviewer context is no longer trustworthy, or when the controller wants a second opinion because the loop is stuck or scope changed materially
-  - when a same-reviewer closure check clears the findings after a non-clean round, return to `implementation-review` for the fresh final approval gate before advancing to the next execution unit, next bounded execution target, or `closeout`
+  - use same-reviewer closure when accepted fixes leave ownership, public behavior, persistence/security semantics, verification surface, and reviewed files materially unchanged
+  - use one fresh final reviewer instead when a fix changes an owner seam, public contract/behavior, persistence or security semantics, the verification surface, or the reviewed file set materially, or when prior reviewer context is no longer trustworthy
+  - do not require both same-reviewer closure and a fresh final review for the same unchanged implementation artifact
   - do not advance to the next execution unit, next bounded execution target, or final closeout while material implementation findings remain
 - `closeout`
   - ensure required verification actually ran
   - for `checklist-linked` work, ensure checklist and required doc updates happen in the same pass after the approved execution unit is complete, slice-level accounting inside it is current, and package closeout is earned
   - for `standalone remediation`, do not invent new checklist linkage during closeout
   - if the completed checklist-linked execution unit closes the final planned `P#-W#` item in a priority, ensure the required `P#-EXIT` evidence and status handling are also complete before finishing
+  - for a sequential remediation program, complete implementation review, verification, focused commit, and truthful package closeout before selecting or planning the next package
 - `done`
   - use only when all review loops are clean and all closeout conditions are satisfied
 - `blocked`
@@ -140,7 +154,7 @@ Run the loop as an explicit state machine:
 - ensure delegated write passes use the right repo-local boundary skills
 - keep write-capable delegated passes alive across revision rounds unless there is a specific reason to restart them
 - keep reviewers read-only by default and do not reuse a writer pass as reviewer
-- keep the same reviewer alive for follow-up closure checks on the same artifact by default, and reserve fresh reviewers for the initial adversarial pass plus the final clean approval gate
+- keep the initial review holistic and consolidated; use same-reviewer closure for unchanged-seam finding disposition or one fresh final review for a materially changed/untrusted review surface, not both by default
 - do not ask a tracked read-only reviewer to patch the artifact; if the controller breaks repeated churn with a tiny direct fix or a write-capable pass after reviewer guidance, require a fresh reviewer before the artifact can be treated as clean
 - ensure verification matches risk
 - ensure delegated implementation commits stay focused on implementation artifacts and exclude active tracked plan docs
@@ -149,8 +163,8 @@ Run the loop as an explicit state machine:
 
 ## Loop Discipline
 
-- planner -> fresh reviewer -> planner repeats, with the same reviewer handling rereview closure checks by default until the plan reaches a final clean approval pass
-- for `checklist-linked` work, execution-unit-select -> implementer -> fresh reviewer -> implementer repeats, with the same reviewer handling rereview closure checks by default until the execution unit is ready for a final clean approval pass
+- planner/addendum author -> one consolidated fresh review -> at most one normal revision -> same-reviewer closure or one fresh final review; any genuinely new cross-boundary design flaw first raised after that revision triggers `scope-reset`
+- for `checklist-linked` work, execution-unit-select -> implementer -> fresh reviewer -> implementer repeats until the risk-matched same-reviewer closure or fresh final-review gate is clean
 - after a clean review, return to execution-unit-select until the approved checklist-linked execution units are complete or explicitly deferred by the approved plan; `standalone remediation` proceeds directly to `closeout` once its one bounded execution target is clean
 - large-package execution should review coherent retirement batches, not one tiny fix at a time
 - if the same findings recur, tighten instructions, narrow context, or explicitly resolve the blocked decision in the controller before continuing
@@ -158,16 +172,16 @@ Run the loop as an explicit state machine:
 - if delegated implementation updates plan progress and code in the same pass, keep the worker commit focused on implementation artifacts and let the orchestrator decide whether plan-doc updates should be committed separately
 - do not interrupt a planner or implementer subagent just because a large cleanup package is taking a long time; prefer long waits and progress checks, and only interrupt when there is a concrete wrong-scope, failure, or no-progress signal
 - do not treat planner latency, controller curiosity, or newly gathered local context as a valid reason to reclaim planning while the delegated planner is still active
-- do not spawn a brand-new reviewer for every rereview round by default; prefer reviewer continuity for closure checks, then use a fresh reviewer again for the final clean gate
+- do not spawn a brand-new reviewer for every rereview round or require duplicate clean gates; match the one closure gate to whether the seam changed
 
 ## Completion Gate
 
 Do not treat the task as complete unless all of the following are true:
 
-1. the plan review loop is clean
-   - if the plan ever had material findings, “clean” includes the required fresh final approval pass after any same-reviewer closure checks
+1. the plan review loop is clean, or an explicit maintainer plan-review override and residual-risk record exists
+   - if the plan had material findings, “clean” means either same-reviewer closure on an unchanged seam or one fresh final review on a materially changed/untrusted surface; both are not required by default
 2. each implemented approved execution unit or standalone execution target has a clean implementation review loop, and package closeout only starts when the subtype-matched completion/deferral state matches the approved plan
-   - if an execution-unit or standalone execution-target review ever had material findings, “clean” includes the required fresh final approval pass after any same-reviewer closure checks
+   - after material findings, “clean” means same-reviewer closure for an unchanged review surface or one fresh final review for a materially changed/untrusted surface; both are not required by default
 3. the required verification commands actually ran
 4. the required subtype-matched updates happened in the same pass (`checklist-linked`: checklist/current-state/doc updates; `standalone remediation`: docs/current-state updates without inventing checklist linkage)
 5. if applicable, the required `P#-EXIT` evidence and status handling are complete

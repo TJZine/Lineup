@@ -20,6 +20,34 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     const sessionPromptSetStartMarker = getSessionPromptSetStartMarker();
     const sessionPromptSetEndMarker = getSessionPromptSetEndMarker();
 
+    const expectVerifierFailureAfterMutating = ({
+        mutate,
+        expectedStderr,
+        stageCodexFiles = true,
+    }: {
+        mutate: (repoRoot: string) => void;
+        expectedStderr: string | readonly string[];
+        stageCodexFiles?: boolean;
+    }): void => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        writeRoleWorkflowClaimFixture(repoRoot);
+        writeValidCodexRoleConfigFixture(repoRoot);
+
+        mutate(repoRoot);
+        if (stageCodexFiles) {
+            runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
+        }
+
+        const result = runVerifier(repoRoot);
+        expect(result.status).toBe(1);
+        for (const message of typeof expectedStderr === 'string'
+            ? [expectedStderr]
+            : expectedStderr) {
+            expect(result.stderr).toContain(message);
+        }
+    };
+
     it('fails when agents.md routes authority back through document-map.md', () => {
         const repoRoot = createRepoFixture({
             'agents.md': [
@@ -224,49 +252,38 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     });
 
     it.each([
-        {
-            relativePath: 'docs/AGENTIC_DEV_WORKFLOW.md',
-            original: 'CONFIGURED TOML DEFAULTS',
-            replacement: 'ROLE FILE SETTINGS',
-            marker: 'configured toml defaults',
-        },
-        {
-            relativePath: '.agents/skills/bounded-worker-execution/SKILL.md',
-            original: 'DISPATCH-TIME OVERRIDES separately',
-            replacement: 'REQUEST SETTINGS',
-            marker: 'dispatch-time overrides separately',
-        },
-        {
-            relativePath: '.agents/skills/bounded-worker-execution/SKILL.md',
-            original: 'model and reasoning effort',
-            replacement: 'runtime settings',
-            marker: 'model and reasoning effort',
-        },
-        {
-            relativePath: 'docs/AGENTIC_DEV_WORKFLOW.md',
-            original: 'operator-recorded/unverified',
-            replacement: 'effective',
-            marker: 'operator-recorded/unverified',
-        },
-    ])('fails when $relativePath drops the subagent transparency marker $marker', ({
-        relativePath,
-        original,
-        replacement,
-        marker,
-    }) => {
+        ['DELEGATED_PLANNER_AUTHORITY', 'controller does not draft a competing plan', 'controller may draft a competing plan'],
+        ['REVIEWER_READ_ONLY_CONTRACT', 'stay read-only', 'may patch findings directly'],
+        ['IMPLEMENTATION_CLOSEOUT_GATE', 'required verification', 'optional verification'],
+        ['SEQUENTIAL_PACKAGE_GATE', 'closed before the next package is selected or planned', 'may overlap the next package'],
+    ])('fails when reusable contract %s keeps its name but loses required semantics', (_name, required, weakened) => {
         const repoRoot = createRepoFixture();
         tempRoots.push(repoRoot);
-        const targetPath = path.join(repoRoot, relativePath);
-        const originalContent = readFileSync(targetPath, 'utf8');
-        const mutatedContent = originalContent.split(original).join(replacement);
-        expect(mutatedContent).not.toBe(originalContent);
-        writeFileSync(targetPath, mutatedContent, 'utf8');
+        const workflowPath = path.join(repoRoot, 'docs/AGENTIC_DEV_WORKFLOW.md');
+        const workflow = readFileSync(workflowPath, 'utf8');
+        writeFileSync(workflowPath, workflow.replace(required, weakened), 'utf8');
 
         const result = runVerifier(repoRoot);
+
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            `Subagent transparency guidance must distinguish configured defaults, dispatch-time overrides, and verified runtime identity (${marker}): ${relativePath}`
-        );
+        expect(result.stderr).toContain('Workflow reusable contract');
+    });
+
+    it('fails when the runbook drops canonical worker_luna eligibility policy', () => {
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => {
+                const workflowPath = path.join(repoRoot, 'docs/AGENTIC_DEV_WORKFLOW.md');
+                writeFileSync(
+                    workflowPath,
+                    readFileSync(workflowPath, 'utf8')
+                        .split('exact files and constraints')
+                        .join('bounded scope'),
+                    'utf8'
+                );
+            },
+            expectedStderr:
+                'Workflow doc is missing canonical worker_luna eligibility policy marker (exact files and constraints)',
+        });
     });
 
     it('keeps the tracked worker_luna role aligned with the tracked role model policy', () => {
@@ -373,71 +390,48 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     });
 
     it('fails when worker_luna does not use its approved worker-luna config path', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
-
-        writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        const configPath = path.join(repoRoot, '.codex/config.toml');
-        writeFileSync(
-            configPath,
-            readFileSync(configPath, 'utf8').replace(
-                'config_file = "agents/worker-luna.toml"',
-                'config_file = "agents/worker.toml"'
-            ),
-            'utf8'
-        );
-        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
-
-        const result = runVerifier(repoRoot);
-
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Codex role worker_luna must use config_file="agents/worker-luna.toml" in .codex/config.toml'
-        );
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => {
+                const configPath = path.join(repoRoot, '.codex/config.toml');
+                writeFileSync(
+                    configPath,
+                    readFileSync(configPath, 'utf8').replace(
+                        'config_file = "agents/worker-luna.toml"',
+                        'config_file = "agents/worker.toml"'
+                    ),
+                    'utf8'
+                );
+            },
+            expectedStderr:
+                'Codex role worker_luna must use config_file="agents/worker-luna.toml" in .codex/config.toml',
+        });
     });
 
     it('fails when a role config omits its exact CONFIGURED ROLE marker', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
-
-        writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        writeRepoFile(
-            repoRoot,
-            '.codex/agents/cleanup-worker.toml',
-            'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = """\nOwn one bounded cleanup-loop implementation write scope at a time.\nMake the smallest defensible cleanup change inside the approved execution unit.\nUse this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.\n"""\n'
-        );
-        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
-
-        const result = runVerifier(repoRoot);
-
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Codex role config is missing exact CONFIGURED ROLE marker for cleanup_worker: .codex/agents/cleanup-worker.toml'
-        );
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => writeRepoFile(
+                repoRoot,
+                '.codex/agents/cleanup-worker.toml',
+                'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = """\nOwn one bounded cleanup-loop implementation write scope at a time.\nMake the smallest defensible cleanup change inside the approved execution unit.\nUse this role only for Tier 3 cleanup-loop implementation passes; leave general implementation routing to the worker role.\n"""\n'
+            ),
+            expectedStderr:
+                'Codex role config is missing exact CONFIGURED ROLE marker for cleanup_worker: .codex/agents/cleanup-worker.toml',
+        });
     });
 
     it('fails when current role guidance mentions retired worker_54_high routing', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
-
-        writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        const readmePath = path.join(repoRoot, 'docs/agentic/session-prompts/README.md');
-        writeFileSync(
-            readmePath,
-            `${readFileSync(readmePath, 'utf8')}\nUse worker_54_high for bounded implementation.\n`,
-            'utf8'
-        );
-        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
-
-        const result = runVerifier(repoRoot);
-
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Current Codex role guidance must not mention retired role worker_54_high: docs/agentic/session-prompts/README.md'
-        );
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => {
+                const readmePath = path.join(repoRoot, 'docs/agentic/session-prompts/README.md');
+                writeFileSync(
+                    readmePath,
+                    `${readFileSync(readmePath, 'utf8')}\nUse worker_54_high for bounded implementation.\n`,
+                    'utf8'
+                );
+            },
+            expectedStderr:
+                'Current Codex role guidance must not mention retired role worker_54_high: docs/agentic/session-prompts/README.md',
+        });
     });
 
     it('scans every active launcher from the session-prompt manifest for retired roles', () => {
@@ -476,50 +470,36 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     });
 
     it('fails when tracked codex config redeclares retired worker_54_high', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
-
-        writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        const configPath = path.join(repoRoot, '.codex/config.toml');
-        writeFileSync(
-            configPath,
-            `${readFileSync(configPath, 'utf8')}\n[agents.worker_54_high]\ndescription = "Retired worker"\nconfig_file = "agents/worker-luna.toml"\n`,
-            'utf8'
-        );
-        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
-
-        const result = runVerifier(repoRoot);
-
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Tracked Codex role config must not mention retired role worker_54_high: .codex/config.toml'
-        );
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => {
+                const configPath = path.join(repoRoot, '.codex/config.toml');
+                writeFileSync(
+                    configPath,
+                    `${readFileSync(configPath, 'utf8')}\n[agents.worker_54_high]\ndescription = "Retired worker"\nconfig_file = "agents/worker-luna.toml"\n`,
+                    'utf8'
+                );
+            },
+            expectedStderr:
+                'Tracked Codex role config must not mention retired role worker_54_high: .codex/config.toml',
+        });
     });
 
     it('fails when an agent role config mentions retired worker_54_high guidance', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
-
-        writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        const workerPath = path.join(repoRoot, '.codex/agents/worker.toml');
-        writeFileSync(
-            workerPath,
-            readFileSync(workerPath, 'utf8').replace(
-                '"""\n',
-                '"""\nDo not delegate this unit to worker_54_high.\n'
-            ),
-            'utf8'
-        );
-        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
-
-        const result = runVerifier(repoRoot);
-
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Codex role config must not mention retired role worker_54_high: .codex/agents/worker.toml'
-        );
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => {
+                const workerPath = path.join(repoRoot, '.codex/agents/worker.toml');
+                writeFileSync(
+                    workerPath,
+                    readFileSync(workerPath, 'utf8').replace(
+                        '"""\n',
+                        '"""\nDo not delegate this unit to worker_54_high.\n'
+                    ),
+                    'utf8'
+                );
+            },
+            expectedStderr:
+                'Codex role config must not mention retired role worker_54_high: .codex/agents/worker.toml',
+        });
     });
 
     it('fails when required codex roles are missing from tracked config', () => {
@@ -724,88 +704,87 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
     });
 
     it('fails when a read-only codex role omits read-only sandbox_mode', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
-
-        writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        writeRepoFile(repoRoot, '.codex/agents/reviewer.toml', 'model = "gpt-5.3-codex"\n');
-
-        const result = runVerifier(repoRoot);
-
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Read-only Codex role config must set sandbox_mode = "read-only": .codex/agents/reviewer.toml'
-        );
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => writeRepoFile(
+                repoRoot,
+                '.codex/agents/reviewer.toml',
+                'model = "gpt-5.3-codex"\n'
+            ),
+            expectedStderr:
+                'Read-only Codex role config must set sandbox_mode = "read-only": .codex/agents/reviewer.toml',
+        });
     });
 
     it('fails when tracked codex config declares an unexpected role', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => {
+                const configPath = path.join(repoRoot, '.codex/config.toml');
+                writeFileSync(
+                    configPath,
+                    `${readFileSync(configPath, 'utf8')}\n[agents.unapproved_worker]\ndescription = "Unapproved worker"\n`,
+                    'utf8'
+                );
+            },
+            expectedStderr:
+                'Unexpected Codex agent role declarations in .codex/config.toml: unapproved_worker',
+        });
+    });
 
-        writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        const configPath = path.join(repoRoot, '.codex/config.toml');
-        writeFileSync(
-            configPath,
-            `${readFileSync(configPath, 'utf8')}\n[agents.unapproved_worker]\ndescription = "Unapproved worker"\n`,
-            'utf8'
-        );
-        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
-
-        const result = runVerifier(repoRoot);
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Unexpected Codex agent role declarations in .codex/config.toml: unapproved_worker'
-        );
+    it('reports an unexpected role with regex metacharacters without throwing', () => {
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => {
+                const role = 'unapproved[worker';
+                const configPath = path.join(repoRoot, '.codex/config.toml');
+                writeFileSync(
+                    configPath,
+                    `${readFileSync(configPath, 'utf8')}\n[agents."${role}"]\ndescription = "Unapproved worker"\nconfig_file = "agents/unapproved-worker.toml"\n`,
+                    'utf8'
+                );
+                writeRepoFile(
+                    repoRoot,
+                    '.codex/agents/unapproved-worker.toml',
+                    `model = "gpt-5.6-sol"\nmodel_reasoning_effort = "medium"\ndeveloper_instructions = """\nBegin your first assistant response with \`CONFIGURED ROLE: ${role}\` on its own line.\n"""\n`
+                );
+            },
+            expectedStderr:
+                'Unexpected Codex agent role declarations in .codex/config.toml: unapproved[worker',
+        });
     });
 
     it('fails when a write-capable codex role declares sandbox_mode', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
-
-        writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        const workerPath = path.join(repoRoot, '.codex/agents/worker.toml');
-        writeFileSync(
-            workerPath,
-            readFileSync(workerPath, 'utf8').replace(
-                'model_reasoning_effort = "medium"\n',
-                'model_reasoning_effort = "medium"\nsandbox_mode = "read-only"\n'
-            ),
-            'utf8'
-        );
-        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
-
-        const result = runVerifier(repoRoot);
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Write-capable Codex role config must not declare sandbox_mode: .codex/agents/worker.toml'
-        );
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => {
+                const workerPath = path.join(repoRoot, '.codex/agents/worker.toml');
+                writeFileSync(
+                    workerPath,
+                    readFileSync(workerPath, 'utf8').replace(
+                        'model_reasoning_effort = "medium"\n',
+                        'model_reasoning_effort = "medium"\nsandbox_mode = "read-only"\n'
+                    ),
+                    'utf8'
+                );
+            },
+            expectedStderr:
+                'Write-capable Codex role config must not declare sandbox_mode: .codex/agents/worker.toml',
+        });
     });
 
     it('fails when a read-only codex role requests an elevated sandbox_mode', () => {
-        const repoRoot = createRepoFixture();
-        tempRoots.push(repoRoot);
-
-        writeRoleWorkflowClaimFixture(repoRoot);
-        writeValidCodexRoleConfigFixture(repoRoot);
-        const reviewerPath = path.join(repoRoot, '.codex/agents/reviewer.toml');
-        writeFileSync(
-            reviewerPath,
-            readFileSync(reviewerPath, 'utf8').replace(
-                'sandbox_mode = "read-only"',
-                'sandbox_mode = "danger-full-access"'
-            ),
-            'utf8'
-        );
-        runGit(['add', '.codex/config.toml', '.codex/agents'], repoRoot);
-
-        const result = runVerifier(repoRoot);
-        expect(result.status).toBe(1);
-        expect(result.stderr).toContain(
-            'Read-only Codex role config must set sandbox_mode = "read-only": .codex/agents/reviewer.toml'
-        );
+        expectVerifierFailureAfterMutating({
+            mutate: (repoRoot) => {
+                const reviewerPath = path.join(repoRoot, '.codex/agents/reviewer.toml');
+                writeFileSync(
+                    reviewerPath,
+                    readFileSync(reviewerPath, 'utf8').replace(
+                        'sandbox_mode = "read-only"',
+                        'sandbox_mode = "danger-full-access"'
+                    ),
+                    'utf8'
+                );
+            },
+            expectedStderr:
+                'Read-only Codex role config must set sandbox_mode = "read-only": .codex/agents/reviewer.toml',
+        });
     });
 
     it('fails when tracked codex config allows deeper nested agent spawning than repo policy', () => {
@@ -1275,6 +1254,54 @@ export function registerVerifyDocsRoleRoutingAssertions({ tempRoots }: VerifyDoc
         expect(result.status).toBe(1);
         expect(result.stderr).toContain('cleanup-loop prompt doc is missing required execution-unit orchestration marker');
         expect(result.stderr).toContain('each implemented approved execution unit or standalone execution target has a clean implementation review loop');
+    });
+
+    it('fails when cleanup-loop moves the boundary sweep after the initial review', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        const promptPath = path.join(repoRoot, 'docs/agentic/session-prompts/cleanup-loop.md');
+        const prompt = readFileSync(promptPath, 'utf8').replace(
+            'Before freezing that addendum or plan, perform one holistic source/caller/side-effect sweep.',
+            'Perform one holistic source/caller/side-effect sweep after the initial review.',
+        );
+        writeFileSync(promptPath, prompt);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('holistic source/caller/side-effect sweep');
+    });
+
+    it('fails when cleanup-loop lets a maintainer override waive implementation review', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        const promptPath = path.join(repoRoot, 'docs/agentic/session-prompts/cleanup-loop.md');
+        const prompt = readFileSync(promptPath, 'utf8').replace(
+            'the override never waives implementation review, required verification, focused commits, or truthful closeout',
+            'the override may waive implementation review when residual risk is accepted',
+        );
+        writeFileSync(promptPath, prompt);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('override never waives implementation review');
+    });
+
+    it('fails when cleanup-loop allows planning the next package before current closeout', () => {
+        const repoRoot = createRepoFixture();
+        tempRoots.push(repoRoot);
+        const promptPath = path.join(repoRoot, 'docs/agentic/session-prompts/cleanup-loop.md');
+        const prompt = readFileSync(promptPath, 'utf8').replace(
+            'Close the current package before selecting or planning the next package.',
+            'The next package may be planned while current-package closeout runs.',
+        );
+        writeFileSync(promptPath, prompt);
+
+        const result = runVerifier(repoRoot);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('before selecting or planning the next package');
     });
 
     it('fails when cleanup-loop omits delegated-planner authority and no-competing-local-planning guidance', () => {

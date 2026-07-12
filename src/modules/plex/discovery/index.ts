@@ -1,4 +1,8 @@
 export { PlexServerDiscovery, PlexApiError } from './PlexServerDiscovery';
+export {
+    PlexDiscoverySelectionSupersededError,
+    isPlexDiscoverySelectionSupersededError,
+} from './PlexDiscoverySelectionContext';
 export type {
     IPlexServerDiscovery,
     PlexDiscoverySignalOptions,

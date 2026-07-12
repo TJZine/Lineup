@@ -97,6 +97,19 @@ export type PlexStoredCredentialsReadResult =
     | { kind: 'available'; credentials: PlexAuthData }
     | { kind: 'corrupted'; reason: PlexStoredCredentialsReadCorruptionReason };
 
+/** Owner-bound continuation proof for one successful stored-credential validation. */
+export interface PlexAuthValidationGuard {
+    readonly signal: AbortSignal;
+    assertCurrent(): void;
+}
+
+export type PlexStoredCredentialsValidationResult =
+    | { kind: 'missing'; guard: PlexAuthValidationGuard }
+    | { kind: 'corrupted'; reason: PlexStoredCredentialsReadCorruptionReason; guard: PlexAuthValidationGuard }
+    | { kind: 'invalid'; guard: PlexAuthValidationGuard }
+    | { kind: 'active_valid'; guard: PlexAuthValidationGuard }
+    | { kind: 'account_fallback_valid'; guard: PlexAuthValidationGuard };
+
 export interface PlexAuthState {
     config: PlexAuthConfig;
     accountToken: PlexAuthToken | null;
@@ -138,6 +151,14 @@ export interface IPlexAuth {
     validateToken(token: string, options?: { signal?: AbortSignal | null }): Promise<boolean>;
 
     /**
+     * Validate and conditionally commit the current stored credentials as one auth-owned operation.
+     * The returned opaque guard remains current only until a newer credential authority starts.
+     */
+    validateStoredCredentials(options?: {
+        signal?: AbortSignal | null;
+    }): Promise<PlexStoredCredentialsValidationResult>;
+
+    /**
      * Fetch Plex Home profiles using the account token.
      * @returns [] only when Plex Home is unsupported or no profiles are available
      * @throws PlexApiError AUTH_REQUIRED/AUTH_INVALID for explicit credential failures
@@ -157,6 +178,7 @@ export interface IPlexAuth {
 
     getAccountUserId(): string | null;
 
+    /** Starts credential authority even when no account exists; committed success survives listener re-entry. */
     logoutActiveUser(): Promise<void>;
 
     /**

@@ -8,13 +8,57 @@ import type {
     PlexFastestConnectionProbeResult,
 } from './PlexConnectionProbeTypes';
 
+type PublicProbeResult = number | 'auth_required' | 'access_denied' | null;
+
+export async function findFastestPlexConnection(options: {
+    server: PlexServer;
+    mixedContentConfig: MixedContentConfig;
+    testConnection: (connection: PlexConnection) => Promise<PublicProbeResult>;
+    signal?: AbortSignal | null;
+    assertCurrent?: () => void;
+}): Promise<{
+    connection: PlexConnection | null;
+    authRequired: boolean;
+    authState: 'auth_required' | 'access_denied' | null;
+}> {
+    const summary = await findFastestConnectionProbe({
+        server: options.server,
+        mixedContentConfig: options.mixedContentConfig,
+        probeConnection: async (connection) => mapPublicProbeResult(
+            connection,
+            await options.testConnection(connection)
+        ),
+        ...(options.signal !== undefined ? { signal: options.signal } : {}),
+        ...(options.assertCurrent ? { assertCurrent: options.assertCurrent } : {}),
+    });
+    return {
+        connection: summary.selectedProbe?.connection ?? null,
+        authRequired: summary.authRequired,
+        authState: summary.authState,
+    };
+}
+
+function mapPublicProbeResult(
+    connection: PlexConnection,
+    result: PublicProbeResult
+): PlexConnectionProbeResult {
+    if (typeof result === 'number') {
+        return { connection: { ...connection, latencyMs: result }, outcome: 'reachable' };
+    }
+    if (result === 'auth_required' || result === 'access_denied') {
+        return { connection, outcome: result };
+    }
+    return { connection, outcome: 'unreachable' };
+}
+
 export async function findFastestConnectionProbe(options: {
     server: PlexServer;
     mixedContentConfig: MixedContentConfig;
     probeConnection: (connection: PlexConnection) => Promise<PlexConnectionProbeResult>;
     signal?: AbortSignal | null;
+    assertCurrent?: () => void;
 }): Promise<PlexFastestConnectionProbeResult> {
-    const { server, mixedContentConfig, probeConnection, signal = null } = options;
+    const { server, mixedContentConfig, probeConnection, signal = null, assertCurrent } = options;
     const summary: PlexFastestConnectionProbeResult = {
         selectedProbe: null,
         authRequired: false,
@@ -24,12 +68,16 @@ export async function findFastestConnectionProbe(options: {
 
     for (const tier of probeTiers) {
         throwIfAborted(signal);
+        assertCurrent?.();
         const tierProbes = await runLimitedConnectionProbes(
             tier.connections,
             probeConnection,
             PLEX_DISCOVERY_CONSTANTS.MAX_CONCURRENT_TESTS,
-            signal
+            signal,
+            assertCurrent
         );
+        throwIfAborted(signal);
+        assertCurrent?.();
         const selectedProbe = pickFastestReachableProbe(tierProbes);
 
         tierProbes.forEach((probe) => noteAuthOutcome(summary, probe.outcome));
@@ -67,9 +115,11 @@ function runLimitedConnectionProbes(
     connections: PlexConnection[],
     probeConnection: (connection: PlexConnection) => Promise<PlexConnectionProbeResult>,
     maxConcurrent: number,
-    signal: AbortSignal | null
+    signal: AbortSignal | null,
+    assertCurrent?: () => void
 ): Promise<PlexConnectionProbeResult[]> {
     throwIfAborted(signal);
+    assertCurrent?.();
     if (connections.length === 0) {
         return Promise.resolve([]);
     }
@@ -100,6 +150,7 @@ function runLimitedConnectionProbes(
             if (settled) return;
             try {
                 throwIfAborted(signal);
+                assertCurrent?.();
             } catch (error) {
                 settleReject(error);
                 return;
@@ -112,6 +163,10 @@ function runLimitedConnectionProbes(
 
                 let probeResult: Promise<PlexConnectionProbeResult> | PlexConnectionProbeResult;
                 try {
+                    if (assertCurrent) {
+                        throwIfAborted(signal);
+                        assertCurrent();
+                    }
                     probeResult = probeConnection(connection!);
                 } catch (error: unknown) {
                     activeCount -= 1;
@@ -121,6 +176,8 @@ function runLimitedConnectionProbes(
 
                 Promise.resolve(probeResult)
                     .then((result) => {
+                        throwIfAborted(signal);
+                        assertCurrent?.();
                         results[index] = result;
                     })
                     .then(() => {

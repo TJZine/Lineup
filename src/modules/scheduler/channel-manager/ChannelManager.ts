@@ -247,14 +247,20 @@ export class ChannelManager implements IChannelManager {
         this._retryScheduler.cancelAll();
         try {
             this._persistence.flush(this._getPersistableState());
-        } catch (error) {
+        } catch (flushError) {
             try {
                 this._persistence.reportFailure(
                     'ChannelManager.clearRuntimeState failed while flushing pending saves',
-                    error
+                    flushError
                 );
-            } catch {
-                // Diagnostics cannot block the authoritative runtime/scope transition.
+            } catch (reportingError) {
+                this._logger.error(
+                    'ChannelManager.clearRuntimeState could not report a pending-save flush failure',
+                    {
+                        flushError: summarizeErrorForLog(flushError),
+                        reportingError: summarizeErrorForLog(reportingError),
+                    }
+                );
             }
         }
         this._persistence.supersedePendingSave();

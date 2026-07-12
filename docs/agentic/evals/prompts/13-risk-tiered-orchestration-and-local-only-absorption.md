@@ -34,3 +34,17 @@ Make a small workflow-doc update that is bounded, low-risk, and does not touch a
 - writing durable workflow conclusions only into `docs/runs/<date>-<topic>/` or eval baseline raw artifacts
 - linking tracked docs to local-only run instances or raw eval outputs
 - adding a new one-off workflow doc instead of updating an existing tracked surface
+
+## Efficiency Variant
+
+For workflow-efficiency changes, also require the agent to:
+
+- choose `targeted` rather than `whole-system` harness reading when one named surface is sufficient, while recording `READING_SCOPE` omissions and escalating when an omitted authority can change the conclusion
+- reference reusable control contracts without deleting task-local stop conditions or point-of-action safety rules
+- send a delta handoff only when its repo-relative base artifact can be resolved and read at the named revision and remains authoritative; otherwise send a complete handoff
+- use `npm run verify:docs:fast` only for iteration and retain full `npm run verify:docs` before review, after accepted blocking fixes, and before closeout
+- choose compact eval telemetry unless cost/routing comparison, orchestration-efficiency measurement, or failure diagnosis requires full telemetry
+
+Fail if any optimization saves tokens by hiding architecture context, weakening review/verification, or making a fresh session reconstruct unstated state.
+
+Fresh-session delta cases must include one valid base and one missing or stale base. The valid case loads the base before applying changed facts; the invalid case rejects the delta and requests a complete handoff.

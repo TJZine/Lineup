@@ -1,9 +1,8 @@
-import type { PlexServer } from '../../plex/discovery/types';
+import { isPlexDiscoverySelectionSupersededError, type PlexServer } from '../../plex/discovery';
 import type { ServerSelectScreenPorts, ServerSelectSelectionResult } from './types';
 import type { ServerSelectRuntimeScreenAdapter } from './ServerSelectRuntimeContracts';
 import { ServerSelectStatusPolicy } from './ServerSelectStatusPolicy';
 import { getSelectedServerStatusDetail, getSelectedServerStatusTone } from './ServerSelectSelectionStatus';
-
 type SelectedServerResult = Extract<ServerSelectSelectionResult, { kind: 'selected' }>;
 
 export class ServerSelectRuntimeCoordinator {
@@ -187,6 +186,7 @@ export class ServerSelectRuntimeCoordinator {
                         savedServerUnavailable = true;
                         autoSelectError = new Error(this._statusPolicy.selectionFailureMessage(result.reason));
                     } catch (error) {
+                        if (isPlexDiscoverySelectionSupersededError(error)) throw error;
                         savedServerUnavailable = true;
                         autoSelectError = error;
                     }

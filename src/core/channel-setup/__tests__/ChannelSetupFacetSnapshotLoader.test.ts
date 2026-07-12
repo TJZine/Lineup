@@ -9,7 +9,11 @@ import {
     ChannelSetupPlanningError,
 } from '../planning/ChannelSetupFacetSnapshotLoader';
 import { flushPromises, flushPromisesAndMacrotask } from '../../../__tests__/helpers';
-import type { IPlexLibrary, PlexTagDirectoryItem } from '../../../modules/plex/library';
+import {
+    PlexLibraryScopeSupersededError,
+    type IPlexLibrary,
+    type PlexTagDirectoryItem,
+} from '../../../modules/plex/library';
 import {
     createDeferred,
     createFacetPlanningConfig,
@@ -149,6 +153,30 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
         expect(second).toBe(first);
         expect(getGenres).toHaveBeenCalledTimes(1);
         expect(cachedProgress).not.toHaveBeenCalled();
+    });
+
+    it('does not cache a snapshot rejected by library scope supersession', async () => {
+        const stale = new PlexLibraryScopeSupersededError();
+        const getGenres = jest.fn()
+            .mockRejectedValueOnce(stale)
+            .mockResolvedValueOnce([createFacetPlanningTag({ title: 'Comedy', count: 4 })]);
+        const loader = new ChannelSetupFacetSnapshotLoader({
+            plexLibrary: createPlexLibrary({ getGenres }),
+        });
+
+        await expect(loader.loadSnapshot(
+            createConfig(),
+            [createLibrary()],
+            'preview',
+            createWaitOptions()
+        )).rejects.toBe(stale);
+        await expect(loader.loadSnapshot(
+            createConfig(),
+            [createLibrary()],
+            'preview',
+            createWaitOptions()
+        )).resolves.toMatchObject({ status: 'ready' });
+        expect(getGenres).toHaveBeenCalledTimes(2);
     });
 
     it('caches unsupported blocked snapshots but refetches empty ready, timeout, and error snapshots', async () => {

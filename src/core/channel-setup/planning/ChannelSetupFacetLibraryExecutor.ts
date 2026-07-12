@@ -5,6 +5,7 @@ import type {
     PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
 import { getTagDirectoryMediaTypesForLibraryType } from '../../../modules/plex/library';
+import { isPlexLibraryScopeSupersededError } from '../../../modules/plex/library';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import type { ChannelBuildProgress, ChannelSetupConfig } from '../types';
 import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
@@ -158,6 +159,9 @@ export class ChannelSetupFacetLibraryExecutor {
             this._options.loadState.collectionsByLibraryId.set(library.id, collections);
             return true;
         } catch (error) {
+            if (isPlexLibraryScopeSupersededError(error)) {
+                throw error;
+            }
             if (this._options.callerCanceled()) {
                 throw createAbortError(this._options.getLastTask());
             }
@@ -252,7 +256,16 @@ export class ChannelSetupFacetLibraryExecutor {
             setFirstFailureOnce(countRecoveryFailure);
             return countRecoveryFailure;
         });
-        await Promise.all(recoveryTasks);
+        try {
+            await Promise.all(recoveryTasks);
+        } catch (error) {
+            if (!isPlexLibraryScopeSupersededError(error)) {
+                throw error;
+            }
+            abortLibraryFacetRequests();
+            await Promise.allSettled(recoveryTasks);
+            throw error;
+        }
         return firstFailure;
     }
     private _createNativeFacetDefinitions(library: PlexLibrarySection): NativeFacetTaskDefinition[] {
@@ -286,6 +299,9 @@ export class ChannelSetupFacetLibraryExecutor {
             const index = await buildChannelSetupPeopleSeriesIndexForLibrary({ plexLibrary: this._options.plexLibrary, library, signal: librarySignal });
             this._options.loadState.peopleSeriesIndexByLibraryId.set(library.id, index);
         } catch (error) {
+            if (isPlexLibraryScopeSupersededError(error)) {
+                throw error;
+            }
             if (this._options.callerCanceled()) {
                 throw createAbortError(this._options.getLastTask());
             }
@@ -369,6 +385,9 @@ export class ChannelSetupFacetLibraryExecutor {
             recordFacetTags();
             return null;
         } catch (error) {
+            if (isPlexLibraryScopeSupersededError(error)) {
+                throw error;
+            }
             if (this._options.callerCanceled()) {
                 throw createAbortError(this._options.getLastTask());
             }
@@ -408,6 +427,9 @@ export class ChannelSetupFacetLibraryExecutor {
             definition.tagsByLibraryId.set(library.id, hydrated);
             return null;
         } catch (error) {
+            if (isPlexLibraryScopeSupersededError(error)) {
+                throw error;
+            }
             if (this._options.callerCanceled()) {
                 throw createAbortError(this._options.getLastTask());
             }
