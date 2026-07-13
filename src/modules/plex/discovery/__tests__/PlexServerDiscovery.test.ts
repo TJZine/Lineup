@@ -2586,6 +2586,35 @@ describe('PlexServerDiscovery', () => {
             expect(connectionChange).toHaveBeenCalledWith('https://srv2:32400');
         });
 
+        it('supersedes a pending selection when a newer selection starts already aborted', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const firstProbe = createDeferred<number>();
+            const testConnection = jest.spyOn(discovery, 'testConnection').mockReturnValue(firstProbe.promise);
+            const serverChange = jest.fn();
+            const connectionChange = jest.fn();
+            discovery.on('serverChange', serverChange);
+            discovery.on('connectionChange', connectionChange);
+
+            const firstSelection = discovery.selectServer('srv1');
+            const controller = new AbortController();
+            const abortReason = new Error('caller aborted before selection');
+            controller.abort(abortReason);
+
+            await expect(discovery.selectServer('srv1', { signal: controller.signal })).rejects.toBe(abortReason);
+            firstProbe.resolve(1);
+            await expect(firstSelection).rejects.toBeInstanceOf(PlexDiscoverySelectionSupersededError);
+
+            expect(testConnection).toHaveBeenCalledTimes(1);
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(discovery.getSelectedConnection()).toBeNull();
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBeNull();
+            expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY)).toBeNull();
+            expect(serverChange).not.toHaveBeenCalled();
+            expect(connectionChange).not.toHaveBeenCalled();
+        });
+
         it('stops the successful selection suffix when serverChange switches context', async () => {
             mockFetchJson([resource]);
             const discovery = new PlexServerDiscovery(mockConfig);
