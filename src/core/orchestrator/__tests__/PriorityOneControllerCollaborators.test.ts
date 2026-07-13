@@ -1,5 +1,5 @@
-import type { PreparedPlaybackStream, StreamDescriptor } from '../../../modules/player';
-import type { StreamDecision } from '../../../modules/plex/stream';
+import type { PreparedPlaybackStream } from '../../../modules/player';
+import { makePreparedPlaybackStream } from '../../../__tests__/fixtures/preparedPlaybackStream';
 import type {
     ScheduledProgram,
     SchedulerState,
@@ -33,10 +33,8 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         ...overrides,
     } as unknown as ScheduledProgram);
 
-const makePrepared = (id = 'stream-1'): PreparedPlaybackStream => ({
-    decision: { sessionId: null } as unknown as StreamDecision,
-    descriptor: { id } as unknown as StreamDescriptor,
-});
+const makePrepared = (id = 'stream-1'): PreparedPlaybackStream =>
+    makePreparedPlaybackStream(`https://example.invalid/${id}.m3u8`);
 
 const makeSchedulerState = (
     currentProgram: ScheduledProgram | null,
@@ -245,7 +243,7 @@ describe('PriorityOneControllerCollaborators', () => {
 
         expect(playbackState.setCurrentProgramForPlayback).toHaveBeenCalledWith(program);
         expect(playbackState.setCurrentStreamDecision).toHaveBeenCalledWith(
-            expect.objectContaining({ sessionId: null })
+            expect.objectContaining({ sessionId: 'test-session' })
         );
         expect(playbackState.setCurrentStreamDescriptor).toHaveBeenCalled();
         expect(input.uiRuntime.onProgramStartUiSideEffects).toHaveBeenCalledWith(program);

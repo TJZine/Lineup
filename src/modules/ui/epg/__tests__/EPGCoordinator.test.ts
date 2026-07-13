@@ -319,7 +319,7 @@ describe('EPGCoordinator', () => {
 
         // The exclusive endpoint is extended by overscan once: endIndex = 20 + 7 = 27.
         expect(partitioned.bufferedRange).toEqual({ start: 3, endExclusive: 27 });
-        expect(partitioned.immediateChannels[partitioned.immediateChannels.length - 1]?.id).toBe('c26');
+        expect(partitioned.immediateChannels.at(-1)?.id).toBe('c26');
     });
 
     it('preserves terminal, single-channel, and empty half-open endpoint behavior', () => {
@@ -337,7 +337,7 @@ describe('EPGCoordinator', () => {
             { visibleCount: 2, maxQueuedChannels: 120, aggressive: false }
         );
         expect(terminal.bufferedRange).toEqual({ start: 91, endExclusive: 100 });
-        expect(terminal.immediateChannels[terminal.immediateChannels.length - 1]?.id).toBe('c99');
+        expect(terminal.immediateChannels.at(-1)?.id).toBe('c99');
 
         const single = partitionPrefetchChannels(
             channels,
@@ -346,7 +346,7 @@ describe('EPGCoordinator', () => {
             { visibleCount: 1, maxQueuedChannels: 120, aggressive: false }
         );
         expect(single.bufferedRange).toEqual({ start: 3, endExclusive: 18 });
-        expect(single.immediateChannels[single.immediateChannels.length - 1]?.id).toBe('c17');
+        expect(single.immediateChannels.at(-1)?.id).toBe('c17');
 
         const empty = partitionPrefetchChannels(
             [],

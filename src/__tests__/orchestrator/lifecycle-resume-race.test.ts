@@ -1,5 +1,4 @@
 import type { PreparedPlaybackStream, StreamDescriptor } from '../../modules/player';
-import type { StreamDecision } from '../../modules/plex/stream';
 import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
 import type { IAppLifecycle } from '../../modules/lifecycle';
 import type { IVideoPlayer } from '../../modules/player';
@@ -9,9 +8,10 @@ import { PlaybackRuntimeController } from '../../core/orchestrator/priority-one/
 import { PlaybackStartController } from '../../core/orchestrator/priority-one/PlaybackStartController';
 import type { OrchestratorPlaybackStateAccessors } from '../../core/orchestrator/runtime/OrchestratorPlaybackStateAccessors';
 import { createDeferred, flushPromises } from '../helpers';
+import { makePreparedPlaybackStream } from '../fixtures/preparedPlaybackStream';
 
 const prepareStream = (descriptor: StreamDescriptor): PreparedPlaybackStream => ({
-    decision: { sessionId: null } as unknown as StreamDecision,
+    ...makePreparedPlaybackStream(descriptor.url),
     descriptor,
 });
 

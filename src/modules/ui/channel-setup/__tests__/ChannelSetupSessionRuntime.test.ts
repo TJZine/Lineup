@@ -331,10 +331,11 @@ describe('ChannelSetupSessionRuntime', () => {
             runtime.beginSession();
             state.buildMode = buildMode;
 
-            await expect(runtime.beginBuild({
+            const outcome = await runtime.beginBuild({
                 onProgress: jest.fn(),
                 onStateChange: jest.fn(),
-            })).resolves.toMatchObject({
+            });
+            expect(outcome).toMatchObject({
                 kind: 'committed-with-guide-interrupted',
                 serverId: 'server-1',
                 result: interruptedResult,
@@ -343,6 +344,7 @@ describe('ChannelSetupSessionRuntime', () => {
 
             expect(workflowPort.createChannelsFromSetup).toHaveBeenCalledTimes(1);
             expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
+            expect(outcome).not.toHaveProperty('bookkeepingError');
         }
     );
 

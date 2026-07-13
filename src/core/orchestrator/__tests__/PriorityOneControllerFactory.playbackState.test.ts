@@ -1,5 +1,5 @@
-import type { PreparedPlaybackStream, StreamDescriptor } from '../../../modules/player';
-import type { StreamDecision } from '../../../modules/plex/stream';
+import type { PreparedPlaybackStream } from '../../../modules/player';
+import { makePreparedPlaybackStream } from '../../../__tests__/fixtures/preparedPlaybackStream';
 import type {
     ScheduledProgram,
     SchedulerState,
@@ -27,10 +27,8 @@ const makeProgram = (): ScheduledProgram =>
         isCurrent: true,
     } as unknown as ScheduledProgram);
 
-const makePrepared = (): PreparedPlaybackStream => ({
-    decision: { sessionId: null } as unknown as StreamDecision,
-    descriptor: { url: 'stream' } as unknown as StreamDescriptor,
-});
+const makePrepared = (): PreparedPlaybackStream =>
+    makePreparedPlaybackStream('https://example.invalid/stream.m3u8');
 
 const makeSchedulerState = (
     currentProgram: ScheduledProgram | null,

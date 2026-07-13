@@ -1,6 +1,6 @@
-import type { PreparedPlaybackStream, StreamDescriptor, IVideoPlayer } from '../../modules/player';
-import type { StreamDecision } from '../../modules/plex/stream';
+import type { PreparedPlaybackStream, IVideoPlayer } from '../../modules/player';
 import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
+import { makePreparedPlaybackStream } from '../../__tests__/fixtures/preparedPlaybackStream';
 import {
     PlaybackStartController,
     type PlaybackStartControllerDeps,
@@ -26,10 +26,7 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
 
 type TestVideoPlayer = Pick<IVideoPlayer, 'loadStream' | 'play'>;
 
-const makePrepared = (url: string): PreparedPlaybackStream => ({
-    decision: { sessionId: null } as unknown as StreamDecision,
-    descriptor: { url } as unknown as StreamDescriptor,
-});
+const makePrepared = makePreparedPlaybackStream;
 
 const makeSetup = (
     overrides: Partial<jest.Mocked<PlaybackStartControllerDeps>> = {}
@@ -194,6 +191,11 @@ describe('PlaybackStartController', () => {
             resolveStreamForProgram: jest.fn()
                 .mockReturnValueOnce(firstPreparation)
                 .mockResolvedValueOnce(makePrepared('https://example.invalid/b.m3u8')),
+            markProgramStarting: jest.fn((program: ScheduledProgram) => ({
+                programAtStart: program,
+                programIdentityAtStart: null,
+                shouldResetAutoShowInfoBannerOnAbort: true,
+            })),
         });
 
         const firstStart = controller.handleProgramStart(programA);
@@ -209,6 +211,7 @@ describe('PlaybackStartController', () => {
                 descriptor: expect.objectContaining({ url: 'https://example.invalid/a.m3u8' }),
             })
         );
+        expect(deps.clearAutoShowInfoBannerAfterAbortedStart).toHaveBeenCalledTimes(1);
     });
 
     it('discards a start superseded while play is pending', async () => {

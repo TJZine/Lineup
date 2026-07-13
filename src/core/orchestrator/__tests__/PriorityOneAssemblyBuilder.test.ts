@@ -1,6 +1,5 @@
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
-import type { PreparedPlaybackStream, StreamDescriptor } from '../../../modules/player';
-import type { StreamDecision } from '../../../modules/plex/stream';
+import { makePreparedPlaybackStream } from '../../../__tests__/fixtures/preparedPlaybackStream';
 import type {
     ScheduledProgram,
     SchedulerState,
@@ -30,10 +29,8 @@ const makeProgram = (): ScheduledProgram =>
         isCurrent: true,
     } as unknown as ScheduledProgram);
 
-const makePrepared = (): PreparedPlaybackStream => ({
-    decision: { sessionId: null } as unknown as StreamDecision,
-    descriptor: { id: 'stream-1' } as unknown as StreamDescriptor,
-});
+const makePrepared = (): ReturnType<typeof makePreparedPlaybackStream> =>
+    makePreparedPlaybackStream('https://example.invalid/stream-1.m3u8');
 
 const makeSchedulerState = (
     currentProgram: ScheduledProgram | null,

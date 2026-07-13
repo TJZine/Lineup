@@ -1,12 +1,9 @@
 import { PlaybackStartController, type PlaybackStartControllerDeps } from '../priority-one/PlaybackStartController';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
-import type { PreparedPlaybackStream, StreamDescriptor } from '../../../modules/player';
-import type { StreamDecision } from '../../../modules/plex/stream';
+import { makePreparedPlaybackStream } from '../../../__tests__/fixtures/preparedPlaybackStream';
 
-const makePrepared = (): PreparedPlaybackStream => ({
-    decision: { sessionId: null } as unknown as StreamDecision,
-    descriptor: { url: 'http://test/stream.mp4' } as StreamDescriptor,
-});
+const makePrepared = (): ReturnType<typeof makePreparedPlaybackStream> =>
+    makePreparedPlaybackStream('http://test/stream.mp4');
 
 const makeProgram = (ratingKey = 'item-1'): ScheduledProgram => ({
     item: {
