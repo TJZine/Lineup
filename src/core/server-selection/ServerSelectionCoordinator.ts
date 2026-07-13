@@ -178,30 +178,22 @@ export class ServerSelectionCoordinator {
                 try {
                     startupLineage.assertCurrent();
                 } catch {
-                    const startupHandoff = this._deps.getSupersedingStartupHandoff(startupLineage);
-                    if (startupHandoff) {
-                        await startupHandoff;
-                        throw error;
-                    }
-                    await this._enterQuarantine({
-                        phase: 'discovery_restore',
-                        retry: () => this._restorePreviousScope(discoverySnapshot, evidence),
-                    });
-                    throw error;
+                    await this._handleSupersessionOrQuarantine(
+                        startupLineage,
+                        discoverySnapshot,
+                        evidence,
+                        error
+                    );
                 }
                 try {
                     this._deps.assertSelectionReceiptCurrent(result.receipt);
                 } catch {
-                    const handoff = this._deps.getSupersedingStartupHandoff(startupLineage);
-                    if (handoff) {
-                        await handoff;
-                        throw error;
-                    }
-                    await this._enterQuarantine({
-                        phase: 'discovery_restore',
-                        retry: () => this._restorePreviousScope(discoverySnapshot, evidence),
-                    });
-                    throw error;
+                    await this._handleSupersessionOrQuarantine(
+                        startupLineage,
+                        discoverySnapshot,
+                        evidence,
+                        error
+                    );
                 }
                 await this._rollbackOrQuarantine(discoverySnapshot, evidence);
             }
@@ -209,6 +201,24 @@ export class ServerSelectionCoordinator {
         } finally {
             operation.release();
         }
+    }
+
+    private async _handleSupersessionOrQuarantine(
+        startupLineage: InitializationSelectedServerLineage,
+        discoverySnapshot: PlexDiscoverySelectedServerSnapshot,
+        evidence: SelectedServerPersistenceEvidence,
+        originalError: unknown
+    ): Promise<never> {
+        const handoff = this._deps.getSupersedingStartupHandoff(startupLineage);
+        if (handoff) {
+            await handoff;
+            throw originalError;
+        }
+        await this._enterQuarantine({
+            phase: 'discovery_restore',
+            retry: () => this._restorePreviousScope(discoverySnapshot, evidence),
+        });
+        throw originalError;
     }
 
     private _createOperation(

@@ -44,6 +44,11 @@ export class InitializationStartupHandoff {
     trackStartup(request: StartupRequest, startup: Promise<void>): void {
         const settlement = startup.then(() => undefined, () => undefined);
         this._startupSettlements.set(request.generation, settlement);
+        void settlement.then(() => {
+            if (this._startupSettlements.get(request.generation) === settlement) {
+                this._startupSettlements.delete(request.generation);
+            }
+        });
     }
 
     beginSelectedServerLineage(): InitializationSelectedServerLineage {

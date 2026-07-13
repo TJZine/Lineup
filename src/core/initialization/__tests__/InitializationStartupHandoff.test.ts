@@ -27,6 +27,7 @@ describe('InitializationStartupHandoff', () => {
         expect(handoff).not.toBeNull();
         settle();
         await expect(handoff).resolves.toBeUndefined();
+        expect(owner.getSupersedingStartupHandoff(selected)).toBeNull();
     });
 
     it('does not expose a newer startup through another selected lineage', () => {
@@ -38,5 +39,36 @@ describe('InitializationStartupHandoff', () => {
 
         expect(owner.getSupersedingStartupHandoff(first)).not.toBeNull();
         expect(owner.getSupersedingStartupHandoff(second)).toBeNull();
+    });
+
+    it('keeps a replacement settlement for the same generation until it completes', async () => {
+        const owner = new InitializationStartupHandoff();
+        const selected = owner.beginSelectedServerLineage();
+        const startup = owner.beginStartup();
+        let settleFirst!: () => void;
+        let settleReplacement!: () => void;
+        owner.trackStartup(startup, new Promise<void>((resolve) => { settleFirst = resolve; }));
+        owner.trackStartup(startup, new Promise<void>((resolve) => { settleReplacement = resolve; }));
+        const replacement = owner.getSupersedingStartupHandoff(selected);
+
+        settleFirst();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(owner.getSupersedingStartupHandoff(selected)).toBe(replacement);
+        settleReplacement();
+        await expect(replacement).resolves.toBeUndefined();
+        expect(owner.getSupersedingStartupHandoff(selected)).toBeNull();
+    });
+
+    it('removes rejected startup settlements after they settle', async () => {
+        const owner = new InitializationStartupHandoff();
+        const selected = owner.beginSelectedServerLineage();
+        const startup = owner.beginStartup();
+        owner.trackStartup(startup, Promise.reject(new Error('startup failed')));
+        const settlement = owner.getSupersedingStartupHandoff(selected);
+
+        await expect(settlement).resolves.toBeUndefined();
+        expect(owner.getSupersedingStartupHandoff(selected)).toBeNull();
     });
 });

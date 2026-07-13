@@ -1,4 +1,8 @@
-import type { PlexAuthValidationGuard } from '../../../modules/plex/auth';
+import {
+    PlexAuthOperationSupersededError,
+    type PlexAuthValidationGuard,
+} from '../../../modules/plex/auth';
+import { AppErrorCode } from '../../../types/app-errors';
 import { ChannelInitialTuneAuthority } from '../../channel-tuning/ChannelInitialTuneAuthority';
 import {
     InitializationSelectedServerTransaction,
@@ -174,5 +178,31 @@ describe('InitializationSelectedServerTransaction', () => {
         await new InitializationSelectedServerTransaction(deps).run(request);
 
         expect(request.initialTune).toHaveBeenCalledWith('channel-1', request.lineage);
+    });
+
+    it.each([
+        [
+            new PlexAuthOperationSupersededError(),
+            { kind: 'stopped', reason: 'superseded' },
+        ],
+        [
+            { code: AppErrorCode.AUTH_EXPIRED },
+            { kind: 'stopped', reason: 'auth_required' },
+        ],
+    ] as const)('classifies an outer-catch failure without invalidating the request', async (error, expected) => {
+        const { deps, request, validateStoredCredentials } = createHarness();
+        validateStoredCredentials.mockRejectedValue(error);
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual(expected);
+    });
+
+    it('returns an unrelated outer-catch failure unchanged', async () => {
+        const { deps, request, validateStoredCredentials } = createHarness();
+        const error = new Error('unexpected selected-server initialization failure');
+        validateStoredCredentials.mockRejectedValue(error);
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'failed', error });
     });
 });
