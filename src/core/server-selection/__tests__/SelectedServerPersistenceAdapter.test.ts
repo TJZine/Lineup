@@ -75,6 +75,8 @@ describe('SelectedServerPersistenceAdapter', () => {
         const adapter = createAdapter(port);
         const evidence = adapter.capturePersistenceEvidence();
 
+        expect(Object.isFrozen(evidence)).toBe(true);
+
         expect(adapter.persistCandidateSelection(
             evidence,
             'server-new',

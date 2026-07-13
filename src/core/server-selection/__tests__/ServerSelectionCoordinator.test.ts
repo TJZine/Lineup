@@ -7,7 +7,10 @@ import { ChannelInitialTuneAuthority } from '../../channel-tuning/ChannelInitial
 import type { SelectedServerInitializationResult } from '../../initialization/InitializationSelectedServerTransaction';
 import { InitializationStartupHandoff } from '../../initialization/InitializationStartupHandoff';
 import { ServerSelectionCoordinator, type ServerSelectionCoordinatorDeps } from '../ServerSelectionCoordinator';
-import type { SelectedServerPersistenceEvidence } from '../SelectedServerPersistenceAdapter';
+import {
+    SelectedServerPersistenceAdapter,
+    type SelectedServerPersistenceEvidence,
+} from '../SelectedServerPersistenceAdapter';
 
 const READY_REFRESH = {
     readiness: 'ready' as const,
@@ -36,7 +39,9 @@ function createHarness(snapshot?: PlexDiscoverySelectedServerSnapshot): Coordina
     const selectionContext = new PlexDiscoverySelectionContext();
     const candidateReceipt = selectionContext.issueReceipt(selectionContext.capture(), 'selected');
     const rollbackReceipts: PlexDiscoverySelectionReceipt[] = [];
-    const evidence = Object.freeze({}) as SelectedServerPersistenceEvidence;
+    const evidence = new SelectedServerPersistenceAdapter({
+        getCredentialsPort: (): null => null,
+    }).capturePersistenceEvidence();
     const tuneAuthority = new ChannelInitialTuneAuthority();
     const transferSelectedServerTuningToStartup = jest.fn();
     const startupHandoff = new InitializationStartupHandoff(transferSelectedServerTuningToStartup);

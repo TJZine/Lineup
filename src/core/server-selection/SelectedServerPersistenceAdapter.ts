@@ -10,7 +10,12 @@ export interface SelectedServerCredentialsPort {
 export interface SelectedServerPersistenceAdapterDeps {
     getCredentialsPort(): SelectedServerCredentialsPort | null;
 }
-export type SelectedServerPersistenceEvidence = object;
+const selectedServerPersistenceEvidenceBrand: unique symbol = Symbol(
+    'SelectedServerPersistenceEvidence'
+);
+export type SelectedServerPersistenceEvidence = Readonly<{
+    [selectedServerPersistenceEvidenceBrand]: true;
+}>;
 export type SelectedServerPersistenceProof =
     | { phase: 'candidate'; state: 'updated'; publicResult: 'updated' }
     | {
@@ -48,7 +53,9 @@ export class SelectedServerPersistenceAdapter {
     >();
     constructor(private readonly _deps: SelectedServerPersistenceAdapterDeps) {}
     capturePersistenceEvidence(): SelectedServerPersistenceEvidence {
-        const evidence = Object.freeze({});
+        const evidence: SelectedServerPersistenceEvidence = Object.freeze({
+            [selectedServerPersistenceEvidenceBrand]: true,
+        });
         const port = this._deps.getCredentialsPort();
         if (!port) {
             this._evidence.set(evidence, { kind: 'missing_port', port: null });
