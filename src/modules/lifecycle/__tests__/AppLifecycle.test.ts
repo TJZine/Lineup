@@ -14,6 +14,12 @@ import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
 import { createDeferred, expectConsoleWarn } from '../../../__tests__/helpers';
 
+const absentState = { kind: 'absent' } as const;
+const loadedState = (state: PersistentState): ReturnType<LifecycleStateStore['load']> => ({
+    kind: 'loaded',
+    state,
+});
+
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
     let mockLifecycleStateStore: jest.Mocked<LifecycleStateStore>;
@@ -26,7 +32,7 @@ describe('AppLifecycle', () => {
         // Mock LifecycleStateStore
         mockLifecycleStateStore = {
             save: jest.fn(),
-            load: jest.fn().mockReturnValue(null),
+            load: jest.fn().mockReturnValue(absentState),
             clear: jest.fn(),
             createDefaultState: jest.fn().mockReturnValue({
                 version: 1,
@@ -78,7 +84,7 @@ describe('AppLifecycle', () => {
 
     describe('initialization', () => {
         it('should set phase to initializing then authenticating when no saved state', async () => {
-            mockLifecycleStateStore.load.mockReturnValue(null);
+            mockLifecycleStateStore.load.mockReturnValue(absentState);
 
             await lifecycle.initialize();
 
@@ -91,7 +97,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLifecycleStateStore.load.mockReturnValue(savedState);
+            mockLifecycleStateStore.load.mockReturnValue(loadedState(savedState));
 
             await lifecycle.initialize();
 
@@ -104,7 +110,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLifecycleStateStore.load.mockReturnValue(savedState);
+            mockLifecycleStateStore.load.mockReturnValue(loadedState(savedState));
 
             const handler = jest.fn();
             lifecycle.on('stateRestored', handler);
@@ -120,7 +126,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLifecycleStateStore.load.mockReturnValue(savedState);
+            mockLifecycleStateStore.load.mockReturnValue(loadedState(savedState));
 
             const eventOrder: string[] = [];
             lifecycle.on('phaseChange', ({ from, to }) => {
@@ -136,6 +142,27 @@ describe('AppLifecycle', () => {
                 'phase:initializing->authenticating',
                 'restored:authenticating',
             ]);
+        });
+
+        it('warns once and does not restore state created by a newer version', async () => {
+            mockLifecycleStateStore.load.mockReturnValue({
+                kind: 'future-version',
+                version: 2,
+            });
+            const restored = jest.fn();
+            const warning = jest.fn();
+            lifecycle.on('stateRestored', restored);
+            lifecycle.on('persistenceWarning', warning);
+
+            await lifecycle.initialize();
+            await lifecycle.initialize();
+
+            expect(restored).not.toHaveBeenCalled();
+            expect(warning).toHaveBeenCalledTimes(1);
+            expect(warning).toHaveBeenCalledWith(expect.objectContaining({
+                message: expect.stringContaining('newer Lineup version'),
+                isQuotaError: false,
+            }));
         });
 
         it('should register visibility listeners', async () => {

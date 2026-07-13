@@ -15,6 +15,11 @@ import {
 
 type StorageMutationFailureReason = 'quota-exceeded' | 'unavailable';
 
+export type LifecycleStateLoadResult =
+    | { kind: 'absent' }
+    | { kind: 'loaded'; state: PersistentState }
+    | { kind: 'future-version'; version: number };
+
 export class LifecycleStateStore {
     private readonly _storageKey: string;
     private readonly _currentVersion: number;
@@ -52,27 +57,30 @@ export class LifecycleStateStore {
         }
     }
 
-    public load(): PersistentState | null {
+    public load(): LifecycleStateLoadResult {
         const serialized = safeLocalStorageGet(this._storageKey);
         if (serialized === null) {
-            return null;
+            return { kind: 'absent' };
         }
 
         try {
             const parsed: unknown = JSON.parse(serialized);
             if (!this._isMinimalState(parsed)) {
-                return null;
+                return { kind: 'absent' };
+            }
+            if (parsed['version'] > this._currentVersion) {
+                return { kind: 'future-version', version: parsed['version'] };
             }
 
             const migrated = this._migrateState(parsed as Record<string, unknown>);
             if (migrated === null) {
-                return null;
+                return { kind: 'absent' };
             }
 
-            return this._repairState(migrated);
+            return { kind: 'loaded', state: this._repairState(migrated) };
         } catch {
             // Parse errors are non-fatal; state will be treated as absent.
-            return null;
+            return { kind: 'absent' };
         }
     }
 
@@ -91,11 +99,6 @@ export class LifecycleStateStore {
     private _migrateState(state: Record<string, unknown>): Record<string, unknown> | null {
         const version = state['version'];
         if (typeof version !== 'number') {
-            return null;
-        }
-
-        // An older app must not interpret or downgrade a newer persisted schema.
-        if (version > this._currentVersion) {
             return null;
         }
 

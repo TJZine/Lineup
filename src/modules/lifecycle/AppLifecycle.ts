@@ -114,14 +114,20 @@ export class AppLifecycle implements IAppLifecycle {
         this._memoryMonitor.startMonitoring();
         this._connectivityMonitor.startMonitoring();
 
-        const savedState = this._lifecycleStateStore.load();
+        const loadResult = this._lifecycleStateStore.load();
 
         // Auth is managed by PlexAuth storage; initialization settles in authenticating
         // before restored-state observers run so the phase contract is coherent.
         await this._transitionPhase('authenticating');
 
-        if (savedState !== null) {
-            this._emitter.emit('stateRestored', savedState);
+        if (loadResult.kind === 'loaded') {
+            this._emitter.emit('stateRestored', loadResult.state);
+        } else if (loadResult.kind === 'future-version') {
+            this._emitter.emit('persistenceWarning', {
+                message: 'Lifecycle state was created by a newer Lineup version and was preserved; saving is disabled',
+                isQuotaError: false,
+                timestamp: Date.now(),
+            });
         }
     }
 
@@ -426,8 +432,10 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     private _buildCurrentState(): PersistentState {
-        const existingState =
-            this._lifecycleStateStore.load() ?? this._lifecycleStateStore.createDefaultState();
+        const loadResult = this._lifecycleStateStore.load();
+        const existingState = loadResult.kind === 'loaded'
+            ? loadResult.state
+            : this._lifecycleStateStore.createDefaultState();
 
         // Return lifecycle-owned state with updated timestamp.
         // Other modules own their own persistence boundaries and keys.
