@@ -1,9 +1,11 @@
 import type { AppError } from '../../../modules/lifecycle';
 import type { PlexDiscoverySignalOptions } from '../../../modules/plex/discovery';
-import { AppErrorCode } from '../../../types/app-errors';
 import type { SelectedServerQuarantineCommandState } from '../../server-selection/SelectedServerQuarantineRecoveryState';
 import type { OrchestratorServerSelectionResult } from '../../server-selection/ServerSelectionTypes';
 import type { OrchestratorServerSelectionRuntime } from './OrchestratorServerSelectionRuntime';
+import { createSelectedServerRecoveryAppError } from './SelectedServerRecoveryAppError';
+
+export { createSelectedServerRecoveryGateError } from './SelectedServerRecoveryAppError';
 
 type ReportGlobalError = (error: AppError, context: string) => void;
 
@@ -25,12 +27,12 @@ export class OrchestratorServerSelectionRuntimeProjection {
             return await this._runtime.selectServer(serverId, options);
         } catch (error: unknown) {
             if (this._runtime.getQuarantineState().kind === 'quarantined') {
-                this._reportGlobalError({
-                    code: AppErrorCode.INITIALIZATION_FAILED,
-                    message: 'Selected-server recovery requires user action.',
-                    recoverable: true,
-                    context: { recoveryMode: 'selected-server-quarantine' },
-                }, 'server-selection-quarantine');
+                this._reportGlobalError(
+                    createSelectedServerRecoveryAppError(
+                        'Selected-server recovery requires user action.'
+                    ),
+                    'server-selection-quarantine'
+                );
             }
             throw error;
         }

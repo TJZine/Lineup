@@ -6,23 +6,37 @@ export function summarizeErrorForLog(value: unknown): unknown {
     }
     if (value instanceof Error) {
         const maybeWithCode = value as Error & { code?: unknown };
+        const code = summarizeErrorCode(maybeWithCode.code);
         return {
             name: value.name,
-            ...('code' in maybeWithCode ? { code: maybeWithCode.code } : {}),
+            ...(code !== undefined ? { code } : {}),
             message: redactSensitiveTokens(value.message),
         };
     }
     if (value && typeof value === 'object') {
         const maybe = value as { name?: unknown; message?: unknown; code?: unknown };
+        const code = summarizeErrorCode(maybe.code);
         return {
             ...(typeof maybe.name === 'string' ? { name: maybe.name } : {}),
-            ...('code' in maybe ? { code: maybe.code } : {}),
+            ...(code !== undefined ? { code } : {}),
             ...(typeof maybe.message === 'string'
                 ? { message: redactSensitiveTokens(maybe.message) }
                 : {}),
         };
     }
     return value;
+}
+
+function summarizeErrorCode(code: unknown): unknown {
+    if (typeof code === 'string') return redactSensitiveTokens(code);
+    if (typeof code === 'number') return code;
+    if (!code || typeof code !== 'object') return undefined;
+    const serialized = safeStringifyForLog(code);
+    try {
+        return JSON.parse(serialized) as unknown;
+    } catch {
+        return serialized;
+    }
 }
 
 export function formatErrorDetailForMessage(detail: unknown): string {

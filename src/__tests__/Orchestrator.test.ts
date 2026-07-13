@@ -40,6 +40,7 @@ import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/runtime/OrchestratorRecoverableRuntimeReporter';
+import { OrchestratorServerSelectionRuntimeProjection } from '../core/orchestrator/runtime/OrchestratorServerSelectionRuntimeProjection';
 import { expectConsoleWarn } from './helpers';
 import { EventEmitter } from '../utils/EventEmitter';
 import {
@@ -1478,12 +1479,32 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
             mockNavigation.isRuntimeCommandGated.mockReturnValueOnce(true);
 
-            await expect(orchestrator.clearSelectedServer()).rejects.toThrow(
-                'Runtime command clearSelectedServer is unavailable during selected-server recovery.'
-            );
+            await expect(orchestrator.clearSelectedServer()).rejects.toMatchObject({
+                code: AppErrorCode.INITIALIZATION_FAILED,
+                recoverable: true,
+                message: 'Runtime command clearSelectedServer is unavailable during selected-server recovery.',
+                context: { recoveryMode: 'selected-server-quarantine' },
+            });
 
             expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
             expect(mockPlexDiscovery.clearSelection).not.toHaveBeenCalled();
+        });
+
+        it('allows quarantine retry through the selected-server recovery gate', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockNavigation.isRuntimeCommandGated.mockReturnValue(true);
+            const retry = jest.spyOn(
+                OrchestratorServerSelectionRuntimeProjection.prototype,
+                'retryQuarantineRecovery'
+            ).mockResolvedValue(undefined);
+
+            try {
+                await expect(orchestrator.retryQuarantineRecovery()).resolves.toBeUndefined();
+                expect(retry).toHaveBeenCalledTimes(1);
+            } finally {
+                retry.mockRestore();
+                mockNavigation.isRuntimeCommandGated.mockReturnValue(false);
+            }
         });
 
         it('clears guide-origin focus preservation after selected-server clear', async () => {
@@ -3640,6 +3661,14 @@ describe('AppOrchestrator', () => {
                     method: 'initialize',
                     lifecycle: 'shutdown',
                 }),
+            });
+            await expect(orchestrator.retryQuarantineRecovery()).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: false,
+                context: {
+                    method: 'retryQuarantineRecovery',
+                    lifecycle: 'shutdown',
+                },
             });
         });
 

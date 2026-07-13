@@ -1,5 +1,6 @@
 import type { LifecycleAppError } from '../../../modules/lifecycle/types';
 import type { INavigationManager, NavigationModalPolicy } from '../../../modules/navigation';
+import { emitBestEffortWarning, summarizeErrorForLog } from '../../../utils/errors';
 
 export interface BlockingErrorOverlayAction {
     id?: string;
@@ -224,10 +225,14 @@ export class AppBlockingErrorOverlayPresenter {
                 return;
             }
             this.hide();
-        } catch {
+        } catch (error: unknown) {
             if (version !== this._presentationVersion) {
                 return;
             }
+            emitBestEffortWarning('Blocking error overlay action failed', {
+                action: action.id ?? this._toStableActionId(action.label),
+                error: summarizeErrorForLog(error),
+            });
             this._actionPending = false;
             this._container?.removeAttribute('aria-busy');
             this._setActionsDisabled(false);

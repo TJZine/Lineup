@@ -233,25 +233,44 @@ describe('AppBlockingErrorOverlayPresenter', () => {
     it('keeps the overlay gated on rejection and restores Retry focus with sanitized status', async () => {
         const overlay = createOverlayContainer();
         const nav = createNavigation();
+        const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const actionError = Object.assign(new Error('X-Plex-Token=secret-value'), {
+            code: 'X-Plex-Token=code-secret',
+        });
         const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
         presenter.setContainer(overlay);
         presenter.show(createError(), [{
             id: 'retry',
             label: 'Retry',
             isPrimary: true,
-            action: (): Promise<void> => Promise.reject(new Error('secret credential detail')),
+            action: (): Promise<void> => Promise.reject(actionError),
         }], { modalPolicy: { dismissOnBack: false, blocksBackgroundCommands: true } });
 
-        const button = overlay.querySelector('button') as HTMLButtonElement;
-        button.click();
-        await Promise.resolve();
-        await Promise.resolve();
+        try {
+            const button = overlay.querySelector('button') as HTMLButtonElement;
+            button.click();
+            await Promise.resolve();
+            await Promise.resolve();
 
-        expect(overlay.classList.contains('hidden')).toBe(false);
-        expect(button.disabled).toBe(false);
-        expect(overlay.querySelector('[role="status"]')?.textContent).toBe('Retry failed. Please try again.');
-        expect(overlay.textContent).not.toContain('secret credential detail');
-        expect(nav.setFocus).toHaveBeenLastCalledWith('error-overlay-action-0', { persist: false });
+            expect(overlay.classList.contains('hidden')).toBe(false);
+            expect(button.disabled).toBe(false);
+            expect(overlay.querySelector('[role="status"]')?.textContent).toBe('Retry failed. Please try again.');
+            expect(overlay.textContent).not.toContain('secret-value');
+            expect(nav.setFocus).toHaveBeenLastCalledWith('error-overlay-action-0', { persist: false });
+            expect(warning).toHaveBeenCalledWith(
+                'Blocking error overlay action failed',
+                {
+                    action: 'retry',
+                    error: {
+                        name: 'Error',
+                        code: expect.not.stringContaining('code-secret'),
+                        message: expect.not.stringContaining('secret-value'),
+                    },
+                }
+            );
+        } finally {
+            warning.mockRestore();
+        }
     });
 
     it('ignores stale action completion after disposal', async () => {

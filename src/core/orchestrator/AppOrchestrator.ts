@@ -166,7 +166,7 @@ import { OrchestratorShutdownTeardown } from './runtime/OrchestratorShutdownTear
 import { OrchestratorChannelSwitchRuntime } from './runtime/OrchestratorChannelSwitchRuntime';
 import { OrchestratorPlexAuthRuntime } from './runtime/OrchestratorPlexAuthRuntime';
 import { OrchestratorServerSelectionRuntime } from './runtime/OrchestratorServerSelectionRuntime';
-import { OrchestratorServerSelectionRuntimeProjection } from './runtime/OrchestratorServerSelectionRuntimeProjection';
+import { createSelectedServerRecoveryGateError, OrchestratorServerSelectionRuntimeProjection } from './runtime/OrchestratorServerSelectionRuntimeProjection';
 import { prepareSelectedServerQuarantine } from './runtime/OrchestratorSelectedServerQuarantinePreparation';
 import type { SelectedServerScreenState } from '../server-selection/SelectedServerScreenStateProjection';
 import type { SelectedServerQuarantineCommandState } from '../server-selection/SelectedServerQuarantineRecoveryState';
@@ -281,8 +281,8 @@ export class AppOrchestrator {
         if (this._shutdownStarted) {
             this._throwShutdownPreconditionError(method);
         }
-        if (method !== 'handleGlobalError' && this._navigation?.isRuntimeCommandGated() === true)
-            throw new Error(`Runtime command ${method} is unavailable during selected-server recovery.`);
+        if (method !== 'handleGlobalError' && method !== 'retryQuarantineRecovery' && this._navigation?.isRuntimeCommandGated() === true)
+            throw createSelectedServerRecoveryGateError(method);
     }
     private _getAuthoritativeCurrentProgramForPlayback(): ScheduledProgram | null {
         const schedulerState = this._scheduler?.getState();
@@ -1223,7 +1223,7 @@ export class AppOrchestrator {
 
     getQuarantineState(): SelectedServerQuarantineCommandState { return this._serverSelectionRuntime.getQuarantineState(); }
 
-    retryQuarantineRecovery(): Promise<void> { return this._serverSelectionRuntime.retryQuarantineRecovery(); }
+    async retryQuarantineRecovery(): Promise<void> { this._assertNotShutdown('retryQuarantineRecovery'); await this._serverSelectionRuntime.retryQuarantineRecovery(); }
 
     exitQuarantine(): Promise<void> { return this._serverSelectionRuntime.exitQuarantine(); }
 
