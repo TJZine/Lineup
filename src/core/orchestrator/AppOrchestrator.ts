@@ -1836,8 +1836,7 @@ export class AppOrchestrator {
 
     private _clearIdentityScopedRuntimeState(options: { stopPlayback: boolean }): void {
         clearIdentityScopedRuntimeState({
-            cancelPendingDayRollover: (): void =>
-                this._scheduleDayRolloverController?.cancelPendingDayRollover(),
+            cancelPendingDayRollover: (): void => this._scheduleDayRolloverController?.cancelPendingDayRollover(),
             stopPlayback: (): void => this._stopPlayback(),
             unloadCurrentChannel: (): void => this._scheduler?.unloadChannel(),
             clearPlaybackState: (): void => this._clearPlaybackIdentityState(),
