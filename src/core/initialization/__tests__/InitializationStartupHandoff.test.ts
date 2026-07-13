@@ -27,6 +27,8 @@ describe('InitializationStartupHandoff', () => {
         expect(handoff).not.toBeNull();
         settle();
         await expect(handoff).resolves.toBeUndefined();
+        expect(owner.getSupersedingStartupHandoff(selected)).toBe(handoff);
+        owner.releaseSelectedServerLineage(selected);
         expect(owner.getSupersedingStartupHandoff(selected)).toBeNull();
     });
 
@@ -58,17 +60,41 @@ describe('InitializationStartupHandoff', () => {
         expect(owner.getSupersedingStartupHandoff(selected)).toBe(replacement);
         settleReplacement();
         await expect(replacement).resolves.toBeUndefined();
+        expect(owner.getSupersedingStartupHandoff(selected)).toBe(replacement);
+        owner.releaseSelectedServerLineage(selected);
         expect(owner.getSupersedingStartupHandoff(selected)).toBeNull();
     });
 
-    it('removes rejected startup settlements after they settle', async () => {
-        const owner = new InitializationStartupHandoff();
-        const selected = owner.beginSelectedServerLineage();
-        const startup = owner.beginStartup();
-        owner.trackStartup(startup, Promise.reject(new Error('startup failed')));
-        const settlement = owner.getSupersedingStartupHandoff(selected);
+    it.each(['fulfilled', 'rejected'] as const)(
+        'retains a %s startup settlement for a late selected observer until release',
+        async (outcome) => {
+            const owner = new InitializationStartupHandoff();
+            const selected = owner.beginSelectedServerLineage();
+            const startup = owner.beginStartup();
+            owner.trackStartup(startup, outcome === 'fulfilled'
+                ? Promise.resolve()
+                : Promise.reject(new Error('startup failed')));
+            const settlement = owner.getSupersedingStartupHandoff(selected);
 
+            await expect(settlement).resolves.toBeUndefined();
+            expect(owner.getSupersedingStartupHandoff(selected)).toBe(settlement);
+            owner.releaseSelectedServerLineage(selected);
+            expect(owner.getSupersedingStartupHandoff(selected)).toBeNull();
+        }
+    );
+
+    it('waits for every selected dependent to release before cleanup', async () => {
+        const owner = new InitializationStartupHandoff();
+        const first = owner.beginSelectedServerLineage();
+        const second = owner.beginSelectedServerLineage();
+        const startup = owner.beginStartup();
+        owner.trackStartup(startup, Promise.resolve());
+        const settlement = owner.getSupersedingStartupHandoff(first);
         await expect(settlement).resolves.toBeUndefined();
-        expect(owner.getSupersedingStartupHandoff(selected)).toBeNull();
+
+        owner.releaseSelectedServerLineage(first);
+        expect(owner.getSupersedingStartupHandoff(second)).toBe(settlement);
+        owner.releaseSelectedServerLineage(second);
+        expect(owner.getSupersedingStartupHandoff(second)).toBeNull();
     });
 });

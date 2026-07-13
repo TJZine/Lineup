@@ -522,9 +522,8 @@ export class AppOrchestrator {
                     setReady: (ready: boolean): void => {
                         this._ready = ready;
                     },
-                    setupEventWiring: (): void => {
-                        this._requireEventBinder().bind();
-                    },
+                    setupEventWiring: (): boolean => this._requireEventBinder().bind(),
+                    disposeEventWiring: (): void => this._requireEventBinder().dispose(),
                     transferSelectedServerTuningToStartup: (): void => this._channelSwitchRuntime.resumeAfterScopeTransition(),
                 },
                 serverStorage: {

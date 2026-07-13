@@ -9,6 +9,7 @@ import { RetainedOperationContext, type OperationContextUpstream } from '../../u
 import type { SelectedServerInitializationResult } from '../initialization/InitializationSelectedServerTransaction';
 import type { InitializationSelectedServerLineage } from '../initialization/InitializationStartupHandoff';
 import { throwIfSelectionAborted } from './ServerSelectionAbort';
+import { readAbortSignalReason } from '../../utils/abortSignalReason';
 import type {
     SelectedServerPersistenceEvidence,
     SelectedServerPersistenceProof,
@@ -102,9 +103,18 @@ export class ServerSelectionCoordinator {
     ): Promise<OrchestratorServerSelectionResult> {
         throwIfSelectionAborted(options?.signal);
         const startupLineage = this._deps.beginSelectedServerLineage();
+        const preDiscoveryOperation = this._createPreDiscoveryOperation(
+            startupLineage,
+            options?.signal
+        );
         try {
-            return await this._runSelectedServerTransaction(serverId, startupLineage, options);
+            return await this._runSelectedServerTransaction(
+                serverId,
+                startupLineage,
+                preDiscoveryOperation
+            );
         } finally {
+            preDiscoveryOperation.release();
             this._deps.releaseSelectedServerLineage(startupLineage);
         }
     }
@@ -112,30 +122,31 @@ export class ServerSelectionCoordinator {
     private async _runSelectedServerTransaction(
         serverId: string,
         startupLineage: InitializationSelectedServerLineage,
-        options?: PlexDiscoverySignalOptions
+        preDiscoveryOperation: RetainedOperationContext
     ): Promise<OrchestratorServerSelectionResult> {
         const discoverySnapshot = this._deps.captureDiscoverySelectionSnapshot();
         const evidence = this._deps.capturePersistenceEvidence();
-        let result: PlexServerSelectionResult;
-        try {
-            result = await this._deps.selectServer(serverId, options);
-            throwIfSelectionAborted(options?.signal);
-        } catch (error: unknown) {
-            await this._rollbackOrQuarantine(discoverySnapshot, evidence);
-            throw error;
-        }
-        if (result.kind !== 'selected') {
-            await this._rollbackOrQuarantine(discoverySnapshot, evidence);
-            return {
-                kind: 'selection_failed',
-                reason: result.kind === 'server_not_found' ? 'server_not_found' : result.reason,
-            };
-        }
-
-        const operation = this._createOperation(result.receipt, evidence, options?.signal, true, [startupLineage]);
-        let lineage: ChannelInitialTuneLineage | null = null;
+        let result: PlexServerSelectionResult | null = null;
+        let operation: RetainedOperationContext | null = null;
         let rollbackAttempted = false;
         try {
+            result = await this._deps.selectServer(serverId, {
+                signal: preDiscoveryOperation.signal,
+            });
+            preDiscoveryOperation.assertCurrent();
+            if (result.kind !== 'selected') {
+                rollbackAttempted = true;
+                await this._rollbackOrQuarantine(discoverySnapshot, evidence);
+                return {
+                    kind: 'selection_failed',
+                    reason: result.kind === 'server_not_found' ? 'server_not_found' : result.reason,
+                };
+            }
+
+            operation = this._createOperation(result.receipt, evidence, undefined, true, [
+                preDiscoveryOperation,
+            ]);
+            let lineage: ChannelInitialTuneLineage | null = null;
             operation.assertCurrent();
             await this._deps.suspendAndDrainForScopeTransition();
             operation.assertCurrent();
@@ -165,7 +176,7 @@ export class ServerSelectionCoordinator {
             rollbackAttempted = true;
             await this._rollbackOrQuarantine(discoverySnapshot, evidence);
             if (initialized.kind === 'failed') throw initialized.error;
-            throwIfSelectionAborted(options?.signal);
+            preDiscoveryOperation.assertCurrent();
             if (initialized.reason === 'auth_required') {
                 return { kind: 'selection_failed', reason: 'auth_required' };
             }
@@ -185,22 +196,39 @@ export class ServerSelectionCoordinator {
                         error
                     );
                 }
-                try {
-                    this._deps.assertSelectionReceiptCurrent(result.receipt);
-                } catch {
-                    await this._handleSupersessionOrQuarantine(
-                        startupLineage,
-                        discoverySnapshot,
-                        evidence,
-                        error
-                    );
+                if (result?.kind === 'selected') {
+                    try {
+                        this._deps.assertSelectionReceiptCurrent(result.receipt);
+                    } catch {
+                        await this._handleSupersessionOrQuarantine(
+                            startupLineage,
+                            discoverySnapshot,
+                            evidence,
+                            error
+                        );
+                    }
                 }
                 await this._rollbackOrQuarantine(discoverySnapshot, evidence);
             }
             throw error;
         } finally {
-            operation.release();
+            operation?.release();
         }
+    }
+
+    private _createPreDiscoveryOperation(
+        startupLineage: InitializationSelectedServerLineage,
+        callerSignal?: AbortSignal | null
+    ): RetainedOperationContext {
+        return new RetainedOperationContext([
+            startupLineage,
+            ...(callerSignal ? [{
+                signal: callerSignal,
+                assertCurrent: (): void => {
+                    if (callerSignal.aborted) throw readAbortSignalReason(callerSignal);
+                },
+            }] : []),
+        ]);
     }
 
     private async _handleSupersessionOrQuarantine(

@@ -61,9 +61,9 @@ export class OrchestratorEventBinder {
 
     constructor(private readonly _deps: OrchestratorEventBinderDeps) {}
 
-    public bind(): void {
+    public bind(): boolean {
         if (this._wired) {
-            return;
+            return false;
         }
 
         const cleanups: Array<() => void> = [];
@@ -78,6 +78,7 @@ export class OrchestratorEventBinder {
             this._wireLifecycleEvents(cleanups);
             this._cleanups = cleanups;
             this._wired = true;
+            return true;
         } catch (error) {
             this._runCleanups(cleanups);
             throw error;

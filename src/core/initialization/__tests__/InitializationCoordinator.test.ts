@@ -254,6 +254,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             state: {
                 setReady: legacyCallbacks.setReady,
                 setupEventWiring: legacyCallbacks.setupEventWiring,
+                disposeEventWiring: jest.fn(),
                 transferSelectedServerTuningToStartup: jest.fn(),
             },
             serverStorage: {

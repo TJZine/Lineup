@@ -37,7 +37,8 @@ export interface InitializationSelectedServerTransactionDeps {
     shouldRunChannelSetup(): boolean;
     openServerSelect(): void;
     publishCommitStart(): void;
-    setupEventWiring(): void;
+    setupEventWiring(): boolean;
+    disposeEventWiring(): void;
     setReady(ready: boolean): void;
     publishLifecycleReady(): void;
     clearResumeHandlers(): void;
@@ -47,6 +48,7 @@ export class InitializationSelectedServerTransaction {
     constructor(private readonly _deps: InitializationSelectedServerTransactionDeps) {}
 
     async run(request: SelectedServerInitializationRequest): Promise<SelectedServerInitializationResult> {
+        let establishedEventWiring = false;
         try {
             request.assertCurrent();
             const plexAuth = this._deps.getPlexAuth();
@@ -79,7 +81,7 @@ export class InitializationSelectedServerTransaction {
                 validity.assertCurrent();
                 this._deps.publishCommitStart();
                 validity.assertCurrent();
-                this._deps.setupEventWiring();
+                establishedEventWiring = this._deps.setupEventWiring();
                 validity.assertCurrent();
                 const navigation = this._deps.getNavigation();
                 if (navigation) {
@@ -105,6 +107,13 @@ export class InitializationSelectedServerTransaction {
                 validity.dispose();
             }
         } catch (error: unknown) {
+            if (establishedEventWiring) {
+                try {
+                    this._deps.disposeEventWiring();
+                } catch {
+                    // Best-effort transaction compensation must preserve the primary failure.
+                }
+            }
             try {
                 request.assertCurrent();
             } catch {

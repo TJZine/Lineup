@@ -12,6 +12,10 @@ type SelectedAuthority = {
     lineage: InitializationSelectedServerLineage;
     supersededBy: number | null;
 };
+type StartupSettlement = {
+    promise: Promise<void>;
+    settled: boolean;
+};
 
 export class InitializationSelectedServerSupersededError extends Error {
     constructor() {
@@ -22,7 +26,7 @@ export class InitializationSelectedServerSupersededError extends Error {
 
 export class InitializationStartupHandoff {
     private _generation = 0;
-    private readonly _startupSettlements = new Map<number, Promise<void>>();
+    private readonly _startupSettlements = new Map<number, StartupSettlement>();
     private readonly _selectedAuthorities = new Set<SelectedAuthority>();
     private readonly _authorityByLineage = new WeakMap<InitializationSelectedServerLineage, SelectedAuthority>();
 
@@ -42,12 +46,14 @@ export class InitializationStartupHandoff {
     }
 
     trackStartup(request: StartupRequest, startup: Promise<void>): void {
-        const settlement = startup.then(() => undefined, () => undefined);
-        this._startupSettlements.set(request.generation, settlement);
-        void settlement.then(() => {
-            if (this._startupSettlements.get(request.generation) === settlement) {
-                this._startupSettlements.delete(request.generation);
-            }
+        const entry: StartupSettlement = {
+            promise: startup.then(() => undefined, () => undefined),
+            settled: false,
+        };
+        this._startupSettlements.set(request.generation, entry);
+        void entry.promise.then(() => {
+            entry.settled = true;
+            this._cleanupStartupSettlement(request.generation, entry);
         });
     }
 
@@ -69,13 +75,30 @@ export class InitializationStartupHandoff {
 
     releaseSelectedServerLineage(lineage: InitializationSelectedServerLineage): void {
         const authority = this._authorityByLineage.get(lineage);
-        if (authority) this._selectedAuthorities.delete(authority);
+        if (!authority) return;
+        this._selectedAuthorities.delete(authority);
+        this._authorityByLineage.delete(lineage);
+        if (authority.supersededBy !== null) {
+            this._cleanupStartupSettlement(authority.supersededBy);
+        }
     }
 
     getSupersedingStartupHandoff(lineage: InitializationSelectedServerLineage): Promise<void> | null {
         const generation = this._authorityByLineage.get(lineage)?.supersededBy;
         return generation === null || generation === undefined
             ? null
-            : this._startupSettlements.get(generation) ?? null;
+            : this._startupSettlements.get(generation)?.promise ?? null;
+    }
+
+    private _cleanupStartupSettlement(
+        generation: number,
+        expected?: StartupSettlement
+    ): void {
+        const settlement = this._startupSettlements.get(generation);
+        if (!settlement || (expected && settlement !== expected) || !settlement.settled) return;
+        for (const authority of this._selectedAuthorities) {
+            if (authority.supersededBy === generation) return;
+        }
+        this._startupSettlements.delete(generation);
     }
 }

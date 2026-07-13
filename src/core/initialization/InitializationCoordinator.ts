@@ -130,7 +130,8 @@ export interface InitializationCallbacks {
     };
     state: {
         setReady: (ready: boolean) => void;
-        setupEventWiring: () => void;
+        setupEventWiring: () => boolean;
+        disposeEventWiring: () => void;
         transferSelectedServerTuningToStartup: () => void;
     };
     serverStorage: {

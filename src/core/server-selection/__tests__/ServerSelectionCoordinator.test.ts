@@ -182,6 +182,87 @@ describe('ServerSelectionCoordinator', () => {
         expect(harness.deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledTimes(1);
     });
 
+    it('hands off startup supersession while discovery is pending without restoring older state', async () => {
+        const harness = createHarness();
+        let discoverySignal: AbortSignal | null | undefined;
+        let markDiscoveryStarted!: () => void;
+        const discoveryStarted = new Promise<void>((resolve) => { markDiscoveryStarted = resolve; });
+        harness.deps.selectServer.mockImplementationOnce((_serverId, options) => {
+            discoverySignal = options?.signal;
+            markDiscoveryStarted();
+            return new Promise((_resolve, reject) => {
+                options?.signal?.addEventListener('abort', () => reject(options.signal?.reason), {
+                    once: true,
+                });
+            });
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+        const selection = coordinator.selectServer('candidate');
+        await discoveryStarted;
+
+        let settleStartup!: () => void;
+        const startupRequest = harness.startupHandoff.beginStartup();
+        harness.startupHandoff.trackStartup(startupRequest, new Promise<void>((resolve) => {
+            settleStartup = resolve;
+        }));
+        expect(discoverySignal?.aborted).toBe(true);
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+
+        settleStartup();
+        await expect(selection).rejects.toThrow('superseded by newer startup');
+        expect(harness.deps.getSupersedingStartupHandoff).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(harness.deps.restorePersistenceEvidence).not.toHaveBeenCalled();
+    });
+
+    it('hands off synchronous supersession after discovery commits before full operation construction', async () => {
+        const harness = createHarness();
+        let settleStartup!: () => void;
+        harness.deps.selectServer.mockImplementationOnce(async () => {
+            const startupRequest = harness.startupHandoff.beginStartup();
+            harness.startupHandoff.trackStartup(startupRequest, new Promise<void>((resolve) => {
+                settleStartup = resolve;
+            }));
+            return { kind: 'selected', receipt: harness.candidateReceipt };
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+        const selection = coordinator.selectServer('candidate');
+        for (let index = 0; index < 4; index += 1) await Promise.resolve();
+
+        expect(harness.deps.persistCandidateSelection).not.toHaveBeenCalled();
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        settleStartup();
+
+        await expect(selection).rejects.toThrow('superseded by newer startup');
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(harness.deps.restorePersistenceEvidence).not.toHaveBeenCalled();
+    });
+
+    it('preserves a caller abort reason during discovery and restores the previous scope', async () => {
+        const harness = createHarness();
+        const caller = new AbortController();
+        const reason = new DOMException('cancel discovery', 'AbortError');
+        let markDiscoveryStarted!: () => void;
+        const discoveryStarted = new Promise<void>((resolve) => { markDiscoveryStarted = resolve; });
+        harness.deps.selectServer.mockImplementationOnce((_serverId, options) => {
+            markDiscoveryStarted();
+            return new Promise((_resolve, reject) => {
+                options?.signal?.addEventListener('abort', () => reject(options.signal?.reason), {
+                    once: true,
+                });
+            });
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+        const selection = coordinator.selectServer('candidate', { signal: caller.signal });
+        await discoveryStarted;
+
+        caller.abort(reason);
+
+        await expect(selection).rejects.toBe(reason);
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restorePersistenceEvidence).toHaveBeenCalledTimes(1);
+    });
+
     it('treats candidate receipt invalidation as supersession and publishes no result', async () => {
         const harness = createHarness();
         harness.deps.runSelectedServerInitialization.mockImplementationOnce(async () => {

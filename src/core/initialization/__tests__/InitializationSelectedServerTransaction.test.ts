@@ -54,7 +54,8 @@ function createHarness(): TransactionHarness {
         shouldRunChannelSetup: jest.fn(() => true),
         openServerSelect: jest.fn(),
         publishCommitStart: jest.fn(),
-        setupEventWiring: jest.fn(),
+        setupEventWiring: jest.fn(() => true),
+        disposeEventWiring: jest.fn(),
         setReady: jest.fn(),
         publishLifecycleReady: jest.fn(),
         clearResumeHandlers: jest.fn(),
@@ -178,6 +179,54 @@ describe('InitializationSelectedServerTransaction', () => {
         await new InitializationSelectedServerTransaction(deps).run(request);
 
         expect(request.initialTune).toHaveBeenCalledWith('channel-1', request.lineage);
+    });
+
+    it('disposes wiring newly established by the transaction when routing fails', async () => {
+        const { deps, request } = createHarness();
+        const error = new Error('routing failed');
+        deps.shouldRunChannelSetup.mockImplementation(() => { throw error; });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'failed', error });
+
+        expect(deps.setupEventWiring).toHaveReturnedWith(true);
+        expect(deps.disposeEventWiring).toHaveBeenCalledTimes(1);
+        expect(deps.setReady).not.toHaveBeenCalledWith(true);
+    });
+
+    it('preserves pre-existing wiring when routing fails', async () => {
+        const { deps, request } = createHarness();
+        const error = new Error('routing failed');
+        deps.setupEventWiring.mockReturnValue(false);
+        deps.shouldRunChannelSetup.mockImplementation(() => { throw error; });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'failed', error });
+
+        expect(deps.disposeEventWiring).not.toHaveBeenCalled();
+    });
+
+    it('disposes newly established wiring when the transaction becomes stale during binding', async () => {
+        const { deps, request, transactionController } = createHarness();
+        deps.setupEventWiring.mockImplementation(() => {
+            transactionController.abort(new DOMException('superseded', 'AbortError'));
+            return true;
+        });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'stopped', reason: 'superseded' });
+
+        expect(deps.disposeEventWiring).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not let event-wiring compensation failure mask routing failure', async () => {
+        const { deps, request } = createHarness();
+        const error = new Error('routing failed');
+        deps.shouldRunChannelSetup.mockImplementation(() => { throw error; });
+        deps.disposeEventWiring.mockImplementation(() => { throw new Error('cleanup failed'); });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'failed', error });
     });
 
     it.each([
