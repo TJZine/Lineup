@@ -250,6 +250,35 @@ describe('ChannelTuningCoordinator', () => {
         expect(channelManager.resolveChannelContent).toHaveBeenCalledWith('ch1', { signal: null });
     });
 
+    it.each([
+        ['missing', undefined],
+        ['object', { ratingKey: 'rk-1' }],
+        ['string', 'not-an-item-list'],
+    ] as const)(
+        'falls back to resolved content when guide snapshot orderedItems is %s',
+        async (_label, orderedItems) => {
+            const { coordinator, channelManager } = createCoordinator();
+            const malformedSnapshot = {
+                channelId: 'ch1',
+                ratingKey: 'rk-1',
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 61_000,
+                source: 'resolved-immediate',
+                referenceTimeMs: 10_000,
+                dayKey: 123,
+                ...(orderedItems === undefined ? {} : { orderedItems }),
+            };
+
+            await expect(coordinator.switchToChannel('ch1', {
+                guideSelectionSnapshot: malformedSnapshot as never,
+            })).resolves.toEqual({ kind: 'switched' });
+
+            expect(channelManager.resolveChannelContent).toHaveBeenCalledWith('ch1', {
+                signal: null,
+            });
+        }
+    );
+
     it('uses post-resolve current time for non-snapshot schedule build and day-key stamping', async () => {
         const { coordinator, deps, channelManager, buildDailyScheduleConfig } = createCoordinator();
         let nowValue = 1_000_000;
