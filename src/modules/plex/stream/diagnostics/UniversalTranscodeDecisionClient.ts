@@ -240,7 +240,7 @@ export class UniversalTranscodeDecisionClient {
             const name = match[1];
             if (!name) return null;
             if (token.startsWith('</')) {
-                if (match[2]?.trim() !== '' || stack.at(-1)?.name !== name) return null;
+                if (match[2]?.trim() !== '' || stack[stack.length - 1]?.name !== name) return null;
                 stack.pop();
                 continue;
             }
@@ -250,7 +250,7 @@ export class UniversalTranscodeDecisionClient {
             const attributes = this._parseAttributes(rawAttributes);
             if (!attributes) return null;
             const element: LightweightXmlElement = { name, attributes, children: [] };
-            const parent = stack.at(-1);
+            const parent = stack[stack.length - 1];
             if (parent) parent.children.push(element);
             else roots.push(element);
             if (!selfClosing) stack.push(element);
