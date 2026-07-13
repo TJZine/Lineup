@@ -59,15 +59,16 @@ export class AppBlockingErrorOverlayPresenter {
 
         const content = document.createElement('div');
         content.className = 'error-content';
-        content.setAttribute('role', 'dialog');
-        content.setAttribute('aria-modal', 'true');
+        const accessibleIdPrefix = this._container.id || 'app-blocking-error-overlay';
 
         const title = document.createElement('h2');
+        title.id = `${accessibleIdPrefix}-title`;
         title.className = 'error-title';
         title.textContent = 'Something went wrong';
         content.appendChild(title);
 
         const message = document.createElement('p');
+        message.id = `${accessibleIdPrefix}-message`;
         message.className = 'error-message';
         message.textContent = error.userMessage || error.message;
         content.appendChild(message);
@@ -119,6 +120,9 @@ export class AppBlockingErrorOverlayPresenter {
         content.appendChild(actionsContainer);
         content.appendChild(status);
         this._container.appendChild(content);
+        this._container.removeAttribute('aria-label');
+        this._container.setAttribute('aria-labelledby', title.id);
+        this._container.setAttribute('aria-describedby', message.id);
 
         (primaryButton ?? actionsContainer.querySelector('button'))?.focus();
 

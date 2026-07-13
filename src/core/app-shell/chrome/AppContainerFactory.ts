@@ -182,6 +182,8 @@ export function createAppContainers(root: HTMLElement): AppContainerRefs {
     errorOverlay.setAttribute('role', 'dialog');
     errorOverlay.setAttribute('aria-modal', 'true');
     errorOverlay.setAttribute('aria-label', 'Error');
+    errorOverlay.removeAttribute('aria-labelledby');
+    errorOverlay.removeAttribute('aria-describedby');
 
     const devMenu = ensureCanonicalContainerDiv(root, APP_SHELL_CONTAINER_IDS.DEV_MENU);
     devMenu.style.position = 'absolute';

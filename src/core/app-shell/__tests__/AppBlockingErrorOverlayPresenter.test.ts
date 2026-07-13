@@ -10,6 +10,9 @@ const createOverlayContainer = (): HTMLDivElement => {
     const container = document.createElement('div');
     container.id = APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY;
     container.className = 'error-overlay hidden';
+    container.setAttribute('role', 'dialog');
+    container.setAttribute('aria-modal', 'true');
+    container.setAttribute('aria-label', 'Error');
     return container;
 };
 
@@ -75,8 +78,17 @@ describe('AppBlockingErrorOverlayPresenter', () => {
         presenter.show(createError(), createActions());
 
         expect(overlay.classList.contains('hidden')).toBe(false);
-        expect(overlay.querySelector('.error-title')?.textContent).toBe('Something went wrong');
-        expect(overlay.querySelector('.error-message')?.textContent).toBe('Something failed');
+        const title = overlay.querySelector('.error-title');
+        const message = overlay.querySelector('.error-message');
+        expect(title?.textContent).toBe('Something went wrong');
+        expect(message?.textContent).toBe('Something failed');
+        expect(title?.id).toBe(`${APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY}-title`);
+        expect(message?.id).toBe(`${APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY}-message`);
+        expect(overlay.getAttribute('aria-labelledby')).toBe(title?.id);
+        expect(overlay.getAttribute('aria-describedby')).toBe(message?.id);
+        expect(overlay.hasAttribute('aria-label')).toBe(false);
+        expect(overlay.querySelectorAll('[role="dialog"]')).toHaveLength(0);
+        expect(overlay.querySelector('.error-content')?.hasAttribute('aria-modal')).toBe(false);
 
         const buttons = overlay.querySelectorAll('button');
         expect(buttons).toHaveLength(2);
