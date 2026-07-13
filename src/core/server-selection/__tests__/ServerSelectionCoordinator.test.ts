@@ -108,6 +108,21 @@ function createHarness(snapshot?: PlexDiscoverySelectedServerSnapshot): Coordina
     };
 }
 
+function observeNextSupersedingStartupHandoff(
+    harness: CoordinatorHarness
+): Promise<{ handoff: Promise<void> | null }> {
+    let reportHandoff!: (observation: { handoff: Promise<void> | null }) => void;
+    const handoffObserved = new Promise<{ handoff: Promise<void> | null }>((resolve) => {
+        reportHandoff = resolve;
+    });
+    harness.deps.getSupersedingStartupHandoff.mockImplementationOnce((lineage) => {
+        const handoff = harness.startupHandoff.getSupersedingStartupHandoff(lineage);
+        reportHandoff({ handoff });
+        return handoff;
+    });
+    return handoffObserved;
+}
+
 describe('ServerSelectionCoordinator', () => {
     it.each(['discovery', 'persistence'] as const)(
         'releases selected lineage when %s evidence capture throws',
@@ -222,6 +237,7 @@ describe('ServerSelectionCoordinator', () => {
 
     it('hands off synchronous supersession after discovery commits before full operation construction', async () => {
         const harness = createHarness();
+        const handoffObserved = observeNextSupersedingStartupHandoff(harness);
         let settleStartup!: () => void;
         harness.deps.selectServer.mockImplementationOnce(async () => {
             const startupRequest = harness.startupHandoff.beginStartup();
@@ -232,8 +248,9 @@ describe('ServerSelectionCoordinator', () => {
         });
         const coordinator = new ServerSelectionCoordinator(harness.deps);
         const selection = coordinator.selectServer('candidate');
-        for (let index = 0; index < 4; index += 1) await Promise.resolve();
+        const { handoff } = await handoffObserved;
 
+        expect(handoff).not.toBeNull();
         expect(harness.deps.persistCandidateSelection).not.toHaveBeenCalled();
         expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
         settleStartup();
@@ -287,6 +304,7 @@ describe('ServerSelectionCoordinator', () => {
 
     it('awaits only an initialization-owned strictly newer startup handoff', async () => {
         const harness = createHarness();
+        const handoffObserved = observeNextSupersedingStartupHandoff(harness);
         let settleStartup!: () => void;
         harness.deps.runSelectedServerInitialization.mockImplementationOnce(async () => {
             const startupRequest = harness.startupHandoff.beginStartup();
@@ -297,7 +315,8 @@ describe('ServerSelectionCoordinator', () => {
         const coordinator = new ServerSelectionCoordinator(harness.deps);
 
         const selection = coordinator.selectServer('candidate');
-        for (let index = 0; index < 8; index += 1) await Promise.resolve();
+        const { handoff } = await handoffObserved;
+        expect(handoff).not.toBeNull();
         expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
         expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
         settleStartup();
@@ -390,14 +409,20 @@ describe('ServerSelectionCoordinator', () => {
 
     it('serializes selection transactions through a settling tail', async () => {
         const harness = createHarness();
+        let markFirstInitializationStarted!: () => void;
+        const firstInitializationStarted = new Promise<void>((resolve) => {
+            markFirstInitializationStarted = resolve;
+        });
         let resolveFirst!: (value: SelectedServerInitializationResult) => void;
-        harness.deps.runSelectedServerInitialization.mockImplementationOnce(() =>
-            new Promise((resolve) => { resolveFirst = resolve; }));
+        harness.deps.runSelectedServerInitialization.mockImplementationOnce(() => {
+            markFirstInitializationStarted();
+            return new Promise((resolve) => { resolveFirst = resolve; });
+        });
         const coordinator = new ServerSelectionCoordinator(harness.deps);
 
         const first = coordinator.selectServer('first');
         const second = coordinator.selectServer('second');
-        for (let index = 0; index < 8; index += 1) await Promise.resolve();
+        await firstInitializationStarted;
         expect(harness.deps.selectServer).toHaveBeenCalledTimes(1);
         resolveFirst(COMPLETED);
         await first;

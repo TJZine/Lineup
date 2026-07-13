@@ -227,6 +227,8 @@ describe('InitializationSelectedServerTransaction', () => {
 
         await expect(new InitializationSelectedServerTransaction(deps).run(request))
             .resolves.toEqual({ kind: 'failed', error });
+
+        expect(deps.disposeEventWiring).toHaveBeenCalledTimes(1);
     });
 
     it.each([
