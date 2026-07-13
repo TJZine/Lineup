@@ -285,6 +285,54 @@ describe('AppBlockingErrorOverlayPresenter', () => {
         }
     });
 
+    it('restores focus to a failed non-retry action when Retry is available', async () => {
+        const overlay = createOverlayContainer();
+        const nav = createNavigation();
+        const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const actionError = new Error('X-Plex-Token=secret-value');
+        const retryAction = jest.fn();
+        const exitAction = jest.fn((): Promise<void> => Promise.reject(actionError));
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
+        presenter.setContainer(overlay);
+        presenter.show(createError(), [
+            {
+                id: 'retry',
+                label: 'Retry',
+                isPrimary: true,
+                action: retryAction,
+            },
+            {
+                id: 'exit',
+                label: 'Exit',
+                isPrimary: false,
+                action: exitAction,
+            },
+        ]);
+
+        try {
+            const exitButton = overlay.querySelector<HTMLButtonElement>('[data-action="exit"]');
+            expect(exitButton).not.toBeNull();
+            if (!exitButton) {
+                throw new Error('Expected the Exit action to be rendered.');
+            }
+
+            exitButton.click();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(exitAction).toHaveBeenCalledTimes(1);
+            expect(retryAction).not.toHaveBeenCalled();
+            expect(overlay.classList.contains('hidden')).toBe(false);
+            expect(exitButton.disabled).toBe(false);
+            expect(overlay.querySelector('[role="status"]')?.textContent).toBe('Exit failed. Please try again.');
+            expect(overlay.textContent).not.toContain('secret-value');
+            expect(exitButton.id).toBe('error-overlay-action-1');
+            expect(nav.setFocus).toHaveBeenLastCalledWith(exitButton.id, { persist: false });
+        } finally {
+            warning.mockRestore();
+        }
+    });
+
     it('ignores stale action completion after disposal', async () => {
         const overlay = createOverlayContainer();
         const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
