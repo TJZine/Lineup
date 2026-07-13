@@ -6,7 +6,7 @@
 
 import { AppLifecycle } from '../AppLifecycle';
 import { LifecycleStateStore } from '../LifecycleStateStore';
-import { ErrorRecovery } from '../ErrorRecovery';
+import { LifecycleErrorMessageCatalog } from '../LifecycleErrorMessageCatalog';
 import { NETWORK_CHECK_PROBE_URL, TIMING_CONFIG } from '../constants';
 import { AppErrorCode } from '../../../types/app-errors';
 import { PersistentState } from '../types';
@@ -17,7 +17,7 @@ import { createDeferred, expectConsoleWarn } from '../../../__tests__/helpers';
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
     let mockLifecycleStateStore: jest.Mocked<LifecycleStateStore>;
-    let mockErrorRecovery: jest.Mocked<ErrorRecovery>;
+    let mockErrorMessages: jest.Mocked<LifecycleErrorMessageCatalog>;
     let addEventListenerSpy: jest.SpyInstance;
     let removeEventListenerSpy: jest.SpyInstance;
 
@@ -35,19 +35,9 @@ describe('AppLifecycle', () => {
             }),
         } as unknown as jest.Mocked<LifecycleStateStore>;
 
-        // Mock ErrorRecovery
-        mockErrorRecovery = {
-            handleError: jest.fn().mockReturnValue([]),
-            executeRecovery: jest.fn().mockResolvedValue(true),
-            createError: jest.fn().mockImplementation((code, message, context) => ({
-                code,
-                message,
-                recoverable: true,
-                context,
-            })),
-            registerCallbacks: jest.fn(),
+        mockErrorMessages = {
             getUserMessage: jest.fn().mockReturnValue('Error'),
-        } as unknown as jest.Mocked<ErrorRecovery>;
+        } as jest.Mocked<LifecycleErrorMessageCatalog>;
 
         // Spy on document event listeners
         addEventListenerSpy = jest.spyOn(document, 'addEventListener');
@@ -78,7 +68,7 @@ describe('AppLifecycle', () => {
             configurable: true,
         });
 
-        lifecycle = new AppLifecycle(mockLifecycleStateStore, mockErrorRecovery);
+        lifecycle = new AppLifecycle(mockLifecycleStateStore, mockErrorMessages);
     });
 
     afterEach(() => {
@@ -277,7 +267,7 @@ describe('AppLifecycle', () => {
             };
             const lifecycleWithService = new AppLifecycle(
                 mockLifecycleStateStore,
-                mockErrorRecovery,
+                mockErrorMessages,
                 lifecycleService
             );
 
@@ -402,14 +392,14 @@ describe('AppLifecycle', () => {
             expect(typeof lifecyclePublicSurface.on).toBe('function');
         });
 
-        it('exposes getErrorUserMessage and does not expose getErrorRecovery', () => {
+        it('exposes getErrorUserMessage and does not expose its message catalog', () => {
             const lifecycleWithErrorMessage = lifecycle as unknown as {
                 getErrorUserMessage?: (code: AppErrorCode) => string;
-                getErrorRecovery?: unknown;
+                getErrorMessageCatalog?: unknown;
             };
 
             expect(typeof lifecycleWithErrorMessage.getErrorUserMessage).toBe('function');
-            expect('getErrorRecovery' in lifecycleWithErrorMessage).toBe(false);
+            expect('getErrorMessageCatalog' in lifecycleWithErrorMessage).toBe(false);
         });
     });
 

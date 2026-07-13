@@ -11,7 +11,7 @@ import type {
 } from './types';
 import { AppErrorCode } from '../../types/app-errors';
 import { LifecycleStateStore } from './LifecycleStateStore';
-import { ErrorRecovery } from './ErrorRecovery';
+import { LifecycleErrorMessageCatalog } from './LifecycleErrorMessageCatalog';
 import { LifecycleConnectivityMonitor } from './LifecycleConnectivityMonitor';
 import { LifecycleMemoryMonitor } from './LifecycleMemoryMonitor';
 import { LifecycleStatePersistenceQueue } from './LifecycleStatePersistenceQueue';
@@ -28,7 +28,7 @@ import { createWebOsPlatformServices } from '../../platform';
 export class AppLifecycle implements IAppLifecycle {
     private readonly _emitter: EventEmitter<LifecycleEventMap>;
     private readonly _lifecycleStateStore: LifecycleStateStore;
-    private readonly _errorRecovery: ErrorRecovery;
+    private readonly _errorMessages: LifecycleErrorMessageCatalog;
     private readonly _statePersistenceQueue: LifecycleStatePersistenceQueue;
     private readonly _connectivityMonitor: LifecycleConnectivityMonitor;
     private readonly _memoryMonitor: LifecycleMemoryMonitor;
@@ -54,12 +54,12 @@ export class AppLifecycle implements IAppLifecycle {
 
     constructor(
         lifecycleStateStore?: LifecycleStateStore,
-        errorRecovery?: ErrorRecovery,
+        errorMessages?: LifecycleErrorMessageCatalog,
         lifecycleService?: PlatformLifecycleService
     ) {
         this._emitter = new EventEmitter<LifecycleEventMap>();
         this._lifecycleStateStore = lifecycleStateStore !== undefined ? lifecycleStateStore : new LifecycleStateStore();
-        this._errorRecovery = errorRecovery !== undefined ? errorRecovery : new ErrorRecovery();
+        this._errorMessages = errorMessages ?? new LifecycleErrorMessageCatalog();
         this._lifecycleService = lifecycleService ?? createWebOsPlatformServices().lifecycle;
         this._statePersistenceQueue = new LifecycleStatePersistenceQueue({
             lifecycleStateStore: this._lifecycleStateStore,
@@ -278,7 +278,7 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     public getErrorUserMessage(code: AppErrorCode): string {
-        return this._errorRecovery.getUserMessage(code);
+        return this._errorMessages.getUserMessage(code);
     }
 
     public on<K extends keyof LifecycleEventMap>(
