@@ -513,6 +513,12 @@ neither a recognized Lineup text-sidecar format nor a recognized
 burn-in-required format. It is not evidence that webOS, the HTML video element,
 or PMS native embedded subtitle delivery rendered the subtitle.
 
+Each subtitle fallback fetch keeps header and response-body consumption inside
+one 10-second attempt deadline. Successful subtitle bodies are capped at 16 MiB,
+error-body diagnostic samples at 16 KiB, and unload or destroy cancellation
+aborts the active body reader. The XHR compatibility fallback uses the same
+successful-body limit and aborts once progress exceeds it.
+
 Current PMS playback URL policy is narrower than the Lineup delivery enum:
 
 - Transcode/direct-stream URLs are built as

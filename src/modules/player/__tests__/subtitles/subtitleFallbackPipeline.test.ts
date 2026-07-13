@@ -1,4 +1,5 @@
 import { fetchSubtitleFallbackVtt } from '../../subtitles/subtitleFallbackPipeline';
+import { SUBTITLE_FALLBACK_MAX_RESPONSE_BYTES } from '../../subtitles/subtitleFallbackPipeline';
 import type { SubtitleTrack } from '../../core/types';
 
 function createTrack(overrides: Partial<SubtitleTrack> = {}): SubtitleTrack {
@@ -20,21 +21,12 @@ function createTrack(overrides: Partial<SubtitleTrack> = {}): SubtitleTrack {
 
 function createResponse(
     body: string,
-    init?: { ok?: boolean; status?: number; contentType?: string | null }
-): {
-    ok: boolean;
-    status: number;
-    headers: { get: (name: string) => string | null };
-    text: () => Promise<string>;
-} {
-    return {
-        ok: init?.ok ?? true,
-        status: init?.status ?? 200,
-        headers: {
-            get: (name: string): string | null => (name.toLowerCase() === 'content-type' ? init?.contentType ?? null : null),
-        },
-        text: async (): Promise<string> => body,
-    };
+    init?: { ok?: boolean; status?: number; contentType?: string | null; contentLength?: number }
+): Response {
+    const headers = new Headers();
+    if (init?.contentType) headers.set('content-type', init.contentType);
+    if (init?.contentLength !== undefined) headers.set('content-length', String(init.contentLength));
+    return new Response(body, { status: init?.status ?? 200, headers });
 }
 
 describe('fetchSubtitleFallbackVtt', () => {
@@ -50,6 +42,7 @@ describe('fetchSubtitleFallbackVtt', () => {
     });
 
     afterEach(() => {
+        jest.useRealTimers();
         jest.restoreAllMocks();
         if (originalFetch) {
             globalThis.fetch = originalFetch;
@@ -330,13 +323,15 @@ Hello`));
         const bodyReadStarted = new Promise<void>((resolve) => {
             notifyBodyReadStarted = resolve;
         });
-        fetchMock.mockResolvedValueOnce({
-            ...createResponse(''),
-            text: () => new Promise<string>((resolve) => {
-                resolveBody = resolve;
-                notifyBodyReadStarted();
-            }),
-        });
+        fetchMock.mockResolvedValueOnce(new Response(new ReadableStream<Uint8Array>({
+                pull(controller): void {
+                    notifyBodyReadStarted();
+                    resolveBody = (body: string): void => {
+                        controller.enqueue(new TextEncoder().encode(body));
+                        controller.close();
+                    };
+                },
+            })));
 
         let currentLoad = true;
         const resultPromise = fetchSubtitleFallbackVtt({
@@ -361,6 +356,182 @@ Old`);
         await expect(resultPromise).resolves.toEqual({ kind: 'stale' });
     });
 
+    it('cancels a stalled subtitle body when the caller aborts after headers arrive', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        const cancelBody = jest.fn();
+        let notifyBodyReadStarted: () => void = () => undefined;
+        const bodyReadStarted = new Promise<void>((resolve) => {
+            notifyBodyReadStarted = resolve;
+        });
+        fetchMock.mockResolvedValueOnce(new Response(new ReadableStream<Uint8Array>({
+            pull: (): Promise<void> => {
+                notifyBodyReadStarted();
+                return new Promise<void>(() => undefined);
+            },
+            cancel: cancelBody,
+        })));
+
+        const controller = new AbortController();
+        const resultPromise = fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: controller.signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+        });
+        const settled = jest.fn();
+        void resultPromise.then(settled);
+
+        await bodyReadStarted;
+        controller.abort();
+        for (let index = 0; index < 8; index += 1) await Promise.resolve();
+
+        expect(settled).toHaveBeenCalledWith({ kind: 'stale' });
+        expect(cancelBody).toHaveBeenCalledTimes(1);
+        await expect(resultPromise).resolves.toEqual({ kind: 'stale' });
+    });
+
+    it('keeps the request deadline active while a successful subtitle body is stalled', async () => {
+        jest.useFakeTimers();
+        const fetchMock = globalThis.fetch as jest.Mock;
+        const cancelBody = jest.fn();
+        let notifyBodyReadStarted: () => void = () => undefined;
+        const bodyReadStarted = new Promise<void>((resolve) => {
+            notifyBodyReadStarted = resolve;
+        });
+        fetchMock
+            .mockResolvedValueOnce(new Response(new ReadableStream<Uint8Array>({
+                pull: (): Promise<void> => {
+                    notifyBodyReadStarted();
+                    return new Promise<void>(() => undefined);
+                },
+                cancel: cancelBody,
+            })))
+            .mockResolvedValueOnce(createResponse(`1
+00:00:00,000 --> 00:00:01,000
+Hello`));
+
+        class MockXhr {
+            status = 0;
+            readyState = 4;
+            responseText = '';
+            timeout = 0;
+            onerror: null | (() => void) = null;
+            ontimeout: null | (() => void) = null;
+            onabort: null | (() => void) = null;
+            onload: null | (() => void) = null;
+            open = jest.fn();
+            setRequestHeader = jest.fn();
+            overrideMimeType = jest.fn();
+            abort = jest.fn(() => this.onabort?.());
+            send = jest.fn(() => {
+                void Promise.resolve().then(() => this.onerror?.());
+            });
+        }
+
+        const resultPromise = fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+            createXhr: () => new MockXhr() as unknown as XMLHttpRequest,
+        });
+
+        await bodyReadStarted;
+        await jest.advanceTimersByTimeAsync(10_000);
+
+        await expect(resultPromise).resolves.toMatchObject({ kind: 'success' });
+        expect(cancelBody).toHaveBeenCalledTimes(1);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects oversized successful subtitle bodies without retrying through XHR', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        fetchMock.mockImplementation(async () => createResponse('oversized', {
+            contentLength: SUBTITLE_FALLBACK_MAX_RESPONSE_BYTES + 1,
+        }));
+        const createXhr = jest.fn();
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+            createXhr,
+        });
+
+        expect(result).toEqual({ kind: 'unsupported', reason: 'invalid_source' });
+        expect(createXhr).not.toHaveBeenCalled();
+    });
+
+    it('aborts an oversized XHR fallback before accepting its response text', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+        class MockXhr {
+            status = 200;
+            readyState = 3;
+            responseText = '';
+            timeout = 0;
+            onerror: null | (() => void) = null;
+            ontimeout: null | (() => void) = null;
+            onprogress: null | ((event: ProgressEvent) => void) = null;
+            onabort: null | (() => void) = null;
+            onload: null | (() => void) = null;
+            open = jest.fn();
+            setRequestHeader = jest.fn();
+            overrideMimeType = jest.fn();
+            abort = jest.fn(() => this.onabort?.());
+            send = jest.fn(() => {
+                void Promise.resolve().then(() => this.onprogress?.({
+                    loaded: SUBTITLE_FALLBACK_MAX_RESPONSE_BYTES + 1,
+                    lengthComputable: false,
+                    total: 0,
+                } as ProgressEvent));
+            });
+        }
+        const xhrInstances: MockXhr[] = [];
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+            createXhr: () => {
+                const xhr = new MockXhr();
+                xhrInstances.push(xhr);
+                return xhr as unknown as XMLHttpRequest;
+            },
+        });
+
+        expect(result).toEqual({ kind: 'unsupported', reason: 'invalid_source' });
+        expect(xhrInstances).not.toHaveLength(0);
+        for (const xhr of xhrInstances) expect(xhr.abort).toHaveBeenCalledTimes(1);
+    });
+
     it('returns stale when an error subtitle response becomes stale while reading the body', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         const logDebug = jest.fn();
@@ -371,13 +542,18 @@ Old`);
         const bodyReadStarted = new Promise<void>((resolve) => {
             notifyBodyReadStarted = resolve;
         });
-        fetchMock.mockResolvedValueOnce({
-            ...createResponse('', { ok: false, status: 403, contentType: 'text/plain' }),
-            text: () => new Promise<string>((resolve) => {
-                resolveBody = resolve;
-                notifyBodyReadStarted();
-            }),
-        });
+        fetchMock.mockResolvedValueOnce(new Response(new ReadableStream<Uint8Array>({
+                pull(controller): void {
+                    notifyBodyReadStarted();
+                    resolveBody = (body: string): void => {
+                        controller.enqueue(new TextEncoder().encode(body));
+                        controller.close();
+                    };
+                },
+            }), {
+                status: 403,
+                headers: { 'content-type': 'text/plain' },
+            }));
 
         let currentLoad = true;
         const resultPromise = fetchSubtitleFallbackVtt({

@@ -10,6 +10,8 @@ import type { PlatformSubtitleService } from '../../../../platform';
 import { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
 import { flushPromisesAndMacrotask } from '../../../../__tests__/helpers';
 import { installMockTextTracks } from './text-track-test-helpers';
+import { ReadableStream as NodeReadableStream } from 'node:stream/web';
+import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from 'node:util';
 
 // ============================================
 // Test Helpers
@@ -104,6 +106,38 @@ function installFetchAndBlobMocks(): { fetchMock: jest.Mock; restore: () => void
     return { fetchMock, restore };
 }
 
+function createFetchResponse(body: string, status = 200): Response {
+    const encodedBody = new NodeTextEncoder().encode(body);
+    const responseBody = new NodeReadableStream<Uint8Array>({
+        start(controller): void {
+            controller.enqueue(encodedBody);
+            controller.close();
+        },
+    });
+    return {
+        ok: status >= 200 && status < 300,
+        status,
+        headers: { get: (): null => null },
+        body: responseBody,
+    } as unknown as Response;
+}
+
+function createStalledFetchResponse(onBodyRead: () => void, cancel: () => void): Response {
+    const responseBody = new NodeReadableStream<Uint8Array>({
+        pull: (): Promise<void> => {
+            onBodyRead();
+            return new Promise<void>(() => undefined);
+        },
+        cancel,
+    });
+    return {
+        ok: true,
+        status: 200,
+        headers: { get: (): null => null },
+        body: responseBody,
+    } as unknown as Response;
+}
+
 const flushSubtitleAsync = (): Promise<void> => flushPromisesAndMacrotask(5);
 const flushSubtitleMicrotasks = async (count = 12): Promise<void> => {
     for (let i = 0; i < count; i++) {
@@ -112,6 +146,23 @@ const flushSubtitleMicrotasks = async (count = 12): Promise<void> => {
 };
 
 const developerSettingsStore = new DeveloperSettingsStore();
+
+const originalTextDecoderDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'TextDecoder');
+beforeAll(() => {
+    Object.defineProperty(globalThis, 'TextDecoder', {
+        value: NodeTextDecoder,
+        configurable: true,
+        writable: true,
+    });
+});
+
+afterAll(() => {
+    if (originalTextDecoderDescriptor) {
+        Object.defineProperty(globalThis, 'TextDecoder', originalTextDecoderDescriptor);
+    } else {
+        Reflect.deleteProperty(globalThis, 'TextDecoder');
+    }
+});
 
 function enableSubtitleDebugLogging(): void {
     developerSettingsStore.writeSubtitleDebugLoggingEnabled(true);
@@ -372,14 +423,9 @@ describe('SubtitleManager', () => {
                     embeddedTrack,
                 ];
 
-                fetchMock.mockResolvedValue({
-                    ok: true,
-                    status: 200,
-                    headers: { get: (): null => null },
-                    text: async () => `1
+                fetchMock.mockImplementation(async () => createFetchResponse(`1
 00:00:00,000 --> 00:00:01,000
-Hello`,
-                });
+Hello`));
 
                 const burnInRequired = manager.loadTracks(tracks, {
                     serverUri: 'http://example.com',
@@ -414,12 +460,7 @@ Hello`,
                     fetchableViaKey: false,
                 });
                 delete (embeddedTrack as { key?: string }).key;
-                fetchMock.mockResolvedValue({
-                    ok: false,
-                    status: 404,
-                    headers: { get: (): null => null },
-                    text: async (): Promise<string> => 'Not found',
-                });
+                fetchMock.mockImplementation(async () => createFetchResponse('Not found', 404));
 
                 manager.loadTracks([embeddedTrack], {
                     serverUri: 'http://example.com',
@@ -460,12 +501,7 @@ Hello`,
                     fetchableViaKey: false,
                 });
                 delete (embeddedTrack as { key?: string }).key;
-                fetchMock.mockResolvedValue({
-                    ok: false,
-                    status: 404,
-                    headers: { get: (): null => null },
-                    text: async (): Promise<string> => 'Not found',
-                });
+                fetchMock.mockImplementation(async () => createFetchResponse('Not found', 404));
 
                 manager.loadTracks([embeddedTrack], {
                     serverUri: 'http://example.com',
@@ -504,12 +540,7 @@ Hello`,
                     fetchableViaKey: false,
                 });
                 delete (embeddedTrack as { key?: string }).key;
-                fetchMock.mockResolvedValue({
-                    ok: false,
-                    status: 404,
-                    headers: { get: (): null => null },
-                    text: async (): Promise<string> => 'Not found',
-                });
+                fetchMock.mockImplementation(async () => createFetchResponse('Not found', 404));
 
                 manager.loadTracks([embeddedTrack], {
                     serverUri: 'http://example.com',
@@ -545,12 +576,7 @@ Hello`,
                     fetchableViaKey: false,
                 });
                 delete (embeddedTrack as { key?: string }).key;
-                fetchMock.mockResolvedValue({
-                    ok: false,
-                    status: 403,
-                    headers: { get: (): null => null },
-                    text: async (): Promise<string> => 'Forbidden',
-                });
+                fetchMock.mockImplementation(async () => createFetchResponse('Forbidden', 403));
 
                 manager.loadTracks([embeddedTrack], {
                     serverUri: 'http://example.com',
@@ -608,12 +634,7 @@ Hello`,
                     key: '/library/streams/2',
                 });
                 delete (originalTrack as { key?: string }).key;
-                fetchMock.mockResolvedValue({
-                    ok: false,
-                    status: 404,
-                    headers: { get: (): null => null },
-                    text: async (): Promise<string> => 'Not found',
-                });
+                fetchMock.mockImplementation(async () => createFetchResponse('Not found', 404));
 
                 manager.loadTracks([originalTrack], {
                     serverUri: 'http://example.com',
@@ -744,20 +765,10 @@ Hello`,
                 });
 
                 fetchMock
-                    .mockResolvedValueOnce({
-                        ok: false,
-                        status: 500,
-                        headers: { get: (): null => null },
-                        text: async (): Promise<string> => 'Primary failed',
-                    })
-                    .mockResolvedValueOnce({
-                        ok: true,
-                        status: 200,
-                        headers: { get: (): null => null },
-                        text: async (): Promise<string> => `1
+                    .mockResolvedValueOnce(createFetchResponse('Primary failed', 500))
+                    .mockResolvedValueOnce(createFetchResponse(`1
 00:00:00,000 --> 00:00:01,000
-Hello`,
-                    });
+Hello`));
 
                 injectedManager.loadTracks([track], {
                     serverUri: 'https://ignored.example',
@@ -820,14 +831,9 @@ Hello`,
                 });
                 delete (track as { key?: string }).key;
 
-                fetchMock.mockResolvedValue({
-                    ok: true,
-                    status: 200,
-                    headers: { get: (): null => null },
-                    text: async (): Promise<string> => `1
+                fetchMock.mockImplementation(async () => createFetchResponse(`1
 00:00:00,000 --> 00:00:01,000
-Hello`,
-                });
+Hello`));
 
                 manager.loadTracks([track], {
                     serverUri: 'http://example.com',
@@ -843,6 +849,38 @@ Hello`,
                 expect(manager.getActiveTrackId()).toBeNull();
             } finally {
                 revokeSpy.mockRestore();
+                restore();
+            }
+        });
+
+        it('aborts and cancels a stalled fallback body on unload', async () => {
+            const { fetchMock, restore } = installFetchAndBlobMocks();
+            const cancelBody = jest.fn();
+            let capturedSignal: AbortSignal | undefined;
+            let notifyBodyReadStarted: () => void = () => undefined;
+            const bodyReadStarted = new Promise<void>((resolve) => {
+                notifyBodyReadStarted = resolve;
+            });
+
+            try {
+                fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+                    capturedSignal = init?.signal ?? undefined;
+                    return createStalledFetchResponse(notifyBodyReadStarted, cancelBody);
+                });
+                manager.loadTracks([createMockSubtitleTrack({ id: 'stalled-unload' })], {
+                    serverUri: 'http://example.com',
+                    authHeaders: { 'X-Plex-Token': 'token' },
+                });
+                manager.setActiveTrack('stalled-unload');
+                await bodyReadStarted;
+
+                manager.unloadTracks();
+                await flushSubtitleMicrotasks(20);
+
+                expect(capturedSignal?.aborted).toBe(true);
+                expect(cancelBody).toHaveBeenCalledTimes(1);
+                expect(videoElement.querySelectorAll('track')).toHaveLength(0);
+            } finally {
                 restore();
             }
         });
@@ -917,11 +955,9 @@ Hello`,
             originalFetch = global.fetch;
             originalCreateObjectUrl = global.URL.createObjectURL;
             originalRevokeObjectUrl = global.URL.revokeObjectURL;
-            (global as { fetch?: unknown }).fetch = jest.fn().mockResolvedValue({
-                ok: true,
-                status: 200,
-                text: async () => '1\n00:00:01,000 --> 00:00:02,000\nHello\n',
-            });
+            (global as { fetch?: unknown }).fetch = jest.fn().mockImplementation(
+                async () => createFetchResponse('1\n00:00:01,000 --> 00:00:02,000\nHello\n')
+            );
             global.URL.createObjectURL = jest.fn().mockReturnValue('blob:mock');
             global.URL.revokeObjectURL = jest.fn();
         });
@@ -988,12 +1024,7 @@ Hello`,
 
         it('allows a selected track to retry fallback after a transient fallback failure', async () => {
             const fetchMock = global.fetch as jest.Mock;
-            fetchMock.mockResolvedValue({
-                ok: false,
-                status: 500,
-                headers: { get: (): null => null },
-                text: async () => 'Server error',
-            });
+            fetchMock.mockImplementation(async () => createFetchResponse('Server error', 500));
             const tracks: SubtitleTrack[] = [
                 createMockSubtitleTrack({ id: 'en' }),
             ];
@@ -1003,18 +1034,15 @@ Hello`,
             });
 
             manager.setActiveTrack('en');
-            await flushSubtitleMicrotasks();
+            await flushSubtitleMicrotasks(50);
             expect(global.URL.createObjectURL).not.toHaveBeenCalled();
 
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                headers: { get: (): null => null },
-                text: async () => '1\n00:00:01,000 --> 00:00:02,000\nHello\n',
-            });
+            fetchMock.mockImplementation(
+                async () => createFetchResponse('1\n00:00:01,000 --> 00:00:02,000\nHello\n')
+            );
 
             manager.setActiveTrack('en');
-            await flushSubtitleMicrotasks();
+            await flushSubtitleMicrotasks(50);
 
             expect(global.URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
         });
@@ -1023,12 +1051,9 @@ Hello`,
             enableSubtitleDebugLogging();
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const onDeactivate = jest.fn(() => true);
-            (global.fetch as jest.Mock).mockResolvedValue({
-                ok: false,
-                status: 500,
-                headers: { get: (): null => null },
-                text: async () => 'Server error',
-            });
+            (global.fetch as jest.Mock).mockImplementation(
+                async () => createFetchResponse('Server error', 500)
+            );
             manager.loadTracks([createMockSubtitleTrack({ id: 'transport' })], {
                 serverUri: 'http://example.com',
                 authHeaders: { 'X-Plex-Token': 'token' },
@@ -1064,11 +1089,7 @@ Hello`,
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
             const onDeactivate = jest.fn(() => true);
             const onDeactivateRecovery = jest.fn().mockResolvedValue('handled');
-            (global.fetch as jest.Mock).mockResolvedValue({
-                ok: true,
-                status: 200,
-                text: async () => payload,
-            });
+            (global.fetch as jest.Mock).mockImplementation(async () => createFetchResponse(payload));
             manager.loadTracks([createMockSubtitleTrack({ id: 'bounded' })], {
                 serverUri: 'http://example.com',
                 authHeaders: { 'X-Plex-Token': 'secret-token' },
@@ -1150,11 +1171,9 @@ Hello`,
         });
 
         it('resets the attempt budget for a new load with the same track id', async () => {
-            (global.fetch as jest.Mock).mockResolvedValue({
-                ok: true,
-                status: 200,
-                text: async () => 'WEBVTT\n\n',
-            });
+            (global.fetch as jest.Mock).mockImplementation(
+                async () => createFetchResponse('WEBVTT\n\n')
+            );
             const track = createMockSubtitleTrack({ id: 'same-id' });
             const context = {
                 serverUri: 'http://example.com',
@@ -1177,27 +1196,29 @@ Hello`,
             expect(jest.getTimerCount()).toBe(0);
         });
 
-        it('aborts an in-flight fallback and leaves no timers or elements on destroy', async () => {
+        it('aborts a stalled fallback body and leaves no timers or elements on destroy', async () => {
             let capturedSignal: AbortSignal | undefined;
-            (global.fetch as jest.Mock).mockImplementation(
-                (_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
-                    capturedSignal = init?.signal ?? undefined;
-                    capturedSignal?.addEventListener('abort', () => {
-                        reject(new DOMException('Aborted', 'AbortError'));
-                    });
-                })
-            );
+            const cancelBody = jest.fn();
+            let notifyBodyReadStarted: () => void = () => undefined;
+            const bodyReadStarted = new Promise<void>((resolve) => {
+                notifyBodyReadStarted = resolve;
+            });
+            (global.fetch as jest.Mock).mockImplementation(async (_url: string, init?: RequestInit) => {
+                capturedSignal = init?.signal ?? undefined;
+                return createStalledFetchResponse(notifyBodyReadStarted, cancelBody);
+            });
             manager.loadTracks([createMockSubtitleTrack({ id: 'in-flight' })], {
                 serverUri: 'http://example.com',
                 authHeaders: { 'X-Plex-Token': 'token' },
             });
             manager.setActiveTrack('in-flight');
-            await flushSubtitleMicrotasks();
+            await bodyReadStarted;
 
             manager.destroy();
-            await flushSubtitleMicrotasks();
+            await flushSubtitleMicrotasks(20);
 
             expect(capturedSignal?.aborted).toBe(true);
+            expect(cancelBody).toHaveBeenCalledTimes(1);
             expect(videoElement.querySelectorAll('track')).toHaveLength(0);
             expect(jest.getTimerCount()).toBe(0);
         });
