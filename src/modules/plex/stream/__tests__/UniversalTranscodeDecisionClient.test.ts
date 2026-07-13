@@ -152,6 +152,8 @@ describe('UniversalTranscodeDecisionClient', () => {
         });
         mockFetch.mockResolvedValue(createResponse({
             bodyText:
+                '<?xml version="1.0" encoding="UTF-8"?>' +
+                '<!-- PMS universal decision -->' +
                 '<MediaContainer decisionCode="2000" decisionText="Fallback">' +
                 '<TranscodeSession videoDecision="copy">' +
                 '<Stream id="sub-1" streamType="3" decision="burn" />' +
@@ -215,6 +217,30 @@ describe('UniversalTranscodeDecisionClient', () => {
         ['truncated stream', '<MediaContainer><TranscodeSession><Stream id="sub-1" streamType="3" decision="burn"></TranscodeSession></MediaContainer>'],
         ['mismatched fragment', '<MediaContainer><TranscodeSession></Stream></TranscodeSession></MediaContainer>'],
         ['trailing malformed content', '<MediaContainer><TranscodeSession /></MediaContainer><broken'],
+        [
+            'non-whitespace text gap with false burn evidence',
+            '<MediaContainer><TranscodeSession>rock & roll' +
+            '<Stream id="sub-1" streamType="3" decision="burn" />' +
+            '</TranscodeSession></MediaContainer>',
+        ],
+        [
+            'mid-document XML declaration with false burn evidence',
+            '<MediaContainer><TranscodeSession><?xml version="1.0"?>' +
+            '<Stream id="sub-1" streamType="3" decision="burn" />' +
+            '</TranscodeSession></MediaContainer>',
+        ],
+        [
+            'mid-document processing instruction with false burn evidence',
+            '<MediaContainer><TranscodeSession><?plex decision="continue"?>' +
+            '<Stream id="sub-1" streamType="3" decision="burn" />' +
+            '</TranscodeSession></MediaContainer>',
+        ],
+        [
+            'invalid XML control character with false burn evidence',
+            '<MediaContainer><TranscodeSession>\u0001' +
+            '<Stream id="sub-1" streamType="3" decision="burn" />' +
+            '</TranscodeSession></MediaContainer>',
+        ],
     ])('rejects %s in the lightweight fallback', async (_caseName, bodyText) => {
         const originalDomParser = globalThis.DOMParser;
         Object.defineProperty(globalThis, 'DOMParser', {
