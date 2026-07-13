@@ -62,6 +62,69 @@ function checkRequiredFiles() {
     }
 }
 
+export function distributionContractErrors({ installation, readme, workflow }) {
+    const contractErrors = [];
+    const normalizeProse = (content) => content
+        .replace(/^>\s?/gmu, '')
+        .replace(/([^\n])\n(?!\n)/gu, '$1 ');
+    const normalizedInstallation = normalizeProse(installation);
+    const normalizedReadme = normalizeProse(readme);
+    const installationPolicy = /Lineup does not currently publish a prebuilt IPK on GitHub\s+Releases(?:\s+or the LG\s+Content Store)?\./iu;
+    const readmePolicy = /No prebuilt Lineup IPK is currently published on GitHub\s+Releases\./iu;
+    if (!installationPolicy.test(normalizedInstallation)) {
+        contractErrors.push('installation must state that GitHub Releases has no prebuilt IPK');
+    }
+    const remainingInstallation = normalizedInstallation.replace(installationPolicy, '');
+    const remainingReadme = normalizedReadme.replace(readmePolicy, '');
+    const releaseAcquisitionClaim = /(?:(?:Lineup|IPK|package|artifact)\b[^\n.]{0,180}\b(?:GitHub\s+|Lineup\s+)?Releases\b|(?:GitHub\s+|Lineup\s+)Releases\b[^\n.]{0,180}\b(?:Lineup|IPK|package|artifact)\b)/iu;
+    const lineupReleasesLink = /\]\(https:\/\/github\.com\/TJZine\/Lineup\/releases(?:[/?#][^)]*)?\)/iu;
+    if (
+        releaseAcquisitionClaim.test(remainingInstallation) ||
+        releaseAcquisitionClaim.test(remainingReadme) ||
+        lineupReleasesLink.test(remainingInstallation) ||
+        lineupReleasesLink.test(remainingReadme)
+    ) {
+        contractErrors.push('public docs must not direct users to a nonexistent Lineup Release');
+    }
+    for (const requiredSourceStep of [
+        'npm ci',
+        'npm install -g @webos-tools/cli@3.2.5',
+        'npm run package:webos',
+        'packages/com.lineup.app_<VERSION>_all.ipk',
+    ]) {
+        if (!installation.includes(requiredSourceStep)) {
+            contractErrors.push(`installation source path missing: ${requiredSourceStep}`);
+        }
+    }
+    for (const requiredActionsDetail of ['webos-ipk', 'seven days', 'branch is **main**']) {
+        if (!installation.includes(requiredActionsDetail)) {
+            contractErrors.push(`installation Actions path missing: ${requiredActionsDetail}`);
+        }
+    }
+    if (!readmePolicy.test(normalizedReadme)) {
+        contractErrors.push('README must state the no-prebuilt distribution policy');
+    }
+    for (const workflowContract of [
+        'name: webos-ipk',
+        'path: packages/*.ipk',
+        'retention-days: 7',
+        "if: github.ref == 'refs/heads/main' && github.event_name == 'push'",
+    ]) {
+        if (!workflow.includes(workflowContract)) {
+            contractErrors.push(`CI no longer supports documented Actions detail: ${workflowContract}`);
+        }
+    }
+    return contractErrors;
+}
+
+function checkDistributionContract() {
+    const installation = read('docs/getting-started/installation.md');
+    const readme = read('README.md');
+    const workflow = read('.github/workflows/ci.yml');
+    if (installation === null || readme === null || workflow === null) return;
+    errors.push(...distributionContractErrors({ installation, readme, workflow }));
+}
+
 function checkMarkdownLinks() {
     const tracked = new Set(trackedFiles());
     const markdownFiles = trackedFiles('*.md').filter(
@@ -257,6 +320,7 @@ function checkActivePlans() {
 
 function main() {
     checkRequiredFiles();
+    checkDistributionContract();
     checkMarkdownLinks();
     checkSkills();
     checkRoleConfig();

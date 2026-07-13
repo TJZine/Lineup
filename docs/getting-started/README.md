@@ -24,4 +24,6 @@ Start here if you are installing Lineup for the first time on an LG webOS TV.
 ## Notes
 
 - Lineup is currently installed through LG Developer Mode.
-- If you are working from source instead of an already-built IPK, use [Development Setup](../development/setup.md).
+- Lineup does not currently publish a prebuilt IPK on GitHub Releases.
+- Use the [Installation Guide](installation.md) to build from source or obtain an optional short-lived GitHub Actions artifact.
+- For the broader contributor workflow, use [Development Setup](../development/setup.md).
