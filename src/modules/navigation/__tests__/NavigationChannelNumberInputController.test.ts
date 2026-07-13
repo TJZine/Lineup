@@ -69,4 +69,15 @@ describe('NavigationChannelNumberInputController', () => {
 
         expect(emitChannelNumberEntered).not.toHaveBeenCalled();
     });
+
+    it('cancels active digits once without later committing a channel', () => {
+        controller.handleNumberKey('num4');
+        controller.cancelPendingInput();
+        controller.cancelPendingInput();
+
+        expect(emitChannelInputUpdate).toHaveBeenLastCalledWith({ digits: '', isComplete: true });
+        expect(emitChannelInputUpdate).toHaveBeenCalledTimes(2);
+        jest.advanceTimersByTime(2100);
+        expect(emitChannelNumberEntered).not.toHaveBeenCalled();
+    });
 });

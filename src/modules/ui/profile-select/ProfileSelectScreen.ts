@@ -3,6 +3,7 @@ import type { FocusableElement, INavigationManager, KeyEvent } from '../../navig
 import { PlexApiError } from '../../plex/auth';
 import { AppErrorCode } from '../../../types/app-errors';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
+import { sanitizeDiagnosticText } from '../../../utils/redact';
 import { createScreenShell } from '../common/ScreenShell';
 import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
@@ -487,12 +488,20 @@ export class ProfileSelectScreen {
                     this._handlePinError('Wrong PIN. Try again.');
                     return false;
                 }
-                if (
-                    error.code === AppErrorCode.AUTH_REQUIRED ||
-                    error.code === AppErrorCode.AUTH_INVALID
-                ) {
+                if (error.code === AppErrorCode.AUTH_REQUIRED || error.code === AppErrorCode.AUTH_INVALID) {
+                    this._closePinModal();
                     // Account token is no longer valid; force re-link.
-                    await this._ports.signOutPlex();
+                    try {
+                        await this._ports.signOutPlex();
+                    } catch (signOutError) {
+                        if (this._canUpdateUi(generation)) {
+                            const safeCause = this._sanitizeRecoveryCause(signOutError);
+                            this._errorEl.textContent = safeCause.length > 0
+                                ? `Profile authentication is no longer valid. Unable to sign out: ${safeCause}`
+                                : 'Profile authentication is no longer valid, and Lineup could not sign out. Try again.';
+                            this._setStatus('Profile recovery failed.', { tone: 'error', ariaLive: 'assertive' });
+                        }
+                    }
                     return false;
                 }
             }
@@ -879,7 +888,12 @@ export class ProfileSelectScreen {
     private _clearError(): void {
         this._errorEl.textContent = '';
     }
-
+    private _sanitizeRecoveryCause(error: unknown): string {
+        try {
+            const message = typeof error === 'string' ? error : typeof error === 'object' && error !== null ? (error as { message?: unknown }).message : '';
+            return typeof message === 'string' ? sanitizeDiagnosticText(message, { maxLength: 200 }).trim() : '';
+        } catch { return ''; }
+    }
     private _handleError(error: unknown, fallback: string): void {
         if (error instanceof PlexApiError) {
             this._errorEl.textContent = error.message || fallback;

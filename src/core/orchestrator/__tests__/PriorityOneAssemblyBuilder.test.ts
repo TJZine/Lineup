@@ -1,5 +1,5 @@
 import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
-import type { StreamDescriptor } from '../../../modules/player';
+import { makePreparedPlaybackStream } from '../../../__tests__/fixtures/preparedPlaybackStream';
 import type {
     ScheduledProgram,
     SchedulerState,
@@ -28,6 +28,9 @@ const makeProgram = (): ScheduledProgram =>
         loopNumber: 0,
         isCurrent: true,
     } as unknown as ScheduledProgram);
+
+const makePrepared = (): ReturnType<typeof makePreparedPlaybackStream> =>
+    makePreparedPlaybackStream('https://example.invalid/stream-1.m3u8');
 
 const makeSchedulerState = (
     currentProgram: ScheduledProgram | null,
@@ -145,9 +148,8 @@ describe('createPriorityOneRuntimeAssembly', () => {
             playback: {
                 playbackState,
                 playbackRecovery: {
-                    resolveStreamForProgram: jest.fn().mockResolvedValue({
-                        id: 'stream-1',
-                    } as unknown as StreamDescriptor),
+                    resolveStreamForProgram: jest.fn().mockResolvedValue(makePrepared()),
+                    discardPreparedStream: jest.fn().mockResolvedValue(undefined),
                     resetPlaybackFailureGuard: jest.fn(),
                     tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
                     tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),

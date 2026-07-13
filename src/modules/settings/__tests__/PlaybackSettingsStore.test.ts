@@ -84,6 +84,175 @@ describe('PlaybackSettingsStore', () => {
         expect(store.readHdr10FallbackModeAndClean()).toBe('off');
     });
 
+    it('stops after a failed first HDR write and reports the original effective mode', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, '0');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, '1');
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+
+        expect(store.writeHdr10FallbackModeValue(1)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            effectiveValue: 2,
+        });
+        expect(setSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('restores the exact prior first key after a failed second HDR write', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, 'custom-prior');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, '1');
+        const originalSetItem = Storage.prototype.setItem;
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+            this: Storage,
+            key,
+            value
+        ): void {
+            if (key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK && value === '0') {
+                throw new DOMException('Blocked', 'SecurityError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+
+        expect(store.writeHdr10FallbackModeValue(1)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            effectiveValue: 2,
+            compensationSucceeded: true,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBe('custom-prior');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBe('1');
+        expect(setSpy).toHaveBeenNthCalledWith(3, LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, 'custom-prior');
+    });
+
+    it('reports the deterministic effective mode when HDR compensation also fails', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, '0');
+        const originalSetItem = Storage.prototype.setItem;
+        let writeCount = 0;
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value): void {
+            writeCount += 1;
+            if (writeCount >= 2) {
+                throw new DOMException('Blocked', 'SecurityError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+
+        expect(store.writeHdr10FallbackModeValue(2)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            effectiveValue: 2,
+            compensationSucceeded: false,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBe('1');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBe('1');
+        expect(store.readHdr10FallbackModeValueAndClean()).toBe(2);
+    });
+
+    it('classifies HDR quota failures and restores the prior first key', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, '0');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, '1');
+        const originalSetItem = Storage.prototype.setItem;
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value): void {
+            if (key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK && value === '0') {
+                throw new DOMException('Full', 'QuotaExceededError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+
+        expect(store.writeHdr10FallbackModeValue(1)).toEqual({
+            ok: false,
+            reason: 'quota-exceeded',
+            effectiveValue: 2,
+            compensationSucceeded: true,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBe('0');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBe('1');
+    });
+
+    it('removes a previously absent smart key when compensating a failed smart transition', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, '1');
+        const originalSetItem = Storage.prototype.setItem;
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value): void {
+            if (key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK && value === '0') {
+                throw new DOMException('Blocked', 'SecurityError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+
+        expect(store.writeHdr10FallbackModeValue(1)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            effectiveValue: 2,
+            compensationSucceeded: true,
+        });
+        expect(removeSpy).toHaveBeenCalledWith(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK);
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBe('1');
+    });
+
+    it('restores a previously absent force key when the force transition second write fails', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, '1');
+        const originalSetItem = Storage.prototype.setItem;
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value): void {
+            if (key === LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK && value === '0') {
+                throw new DOMException('Blocked', 'SecurityError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+
+        expect(store.writeHdr10FallbackModeValue(2)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            effectiveValue: 1,
+            compensationSucceeded: true,
+        });
+        expect(removeSpy).toHaveBeenCalledWith(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK);
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBe('1');
+    });
+
+    it('restores the prior smart key when the off transition second write fails', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, '1');
+        const originalSetItem = Storage.prototype.setItem;
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value): void {
+            if (key === LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK && value === '0') {
+                throw new DOMException('Blocked', 'SecurityError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+
+        expect(store.writeHdr10FallbackModeValue(0)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            effectiveValue: 2,
+            compensationSucceeded: true,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK)).toBe('1');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK)).toBe('1');
+    });
+
+    it.each([1, 2])('does not write when raw HDR read %i fails', (failedRead) => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.SMART_HDR10_FALLBACK, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.FORCE_HDR10_FALLBACK, '0');
+        const originalGetItem = Storage.prototype.getItem;
+        let readCount = 0;
+        jest.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key): string | null {
+            readCount += 1;
+            if (readCount === failedRead) {
+                throw new DOMException('Blocked', 'SecurityError');
+            }
+            return originalGetItem.call(this, key);
+        });
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem');
+
+        expect(store.writeHdr10FallbackModeValue(2)).toEqual({ ok: false, reason: 'unavailable' });
+        expect(setSpy).not.toHaveBeenCalled();
+    });
+
     it('reads transcode quality value/option via one normalization path and removes invalid raw values', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.TRANSCODE_QUALITY, '4000-720p');
 
@@ -138,7 +307,7 @@ describe('PlaybackSettingsStore', () => {
         expect(() => store.writeTranscodeCompatEnabled(true)).not.toThrow();
         expect(() => store.writeSmartHdr10FallbackEnabled(true)).not.toThrow();
         expect(() => store.writeForceHdr10FallbackEnabled(true)).not.toThrow();
-        expect(() => store.writeHdr10FallbackModeValue(2)).not.toThrow();
+        expect(store.writeHdr10FallbackModeValue(2)).toEqual({ ok: false, reason: 'unavailable' });
         expect(() => store.writeTranscodeQualityValue(1)).not.toThrow();
 
         getSpy.mockRestore();

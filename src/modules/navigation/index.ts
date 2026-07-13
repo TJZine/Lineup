@@ -7,6 +7,7 @@ export type {
     IFocusManager,
     NavigationConfig,
     NavigationState,
+    NavigationModalPolicy,
     NavigationEventMap,
     FocusableElement,
     FocusGroup,

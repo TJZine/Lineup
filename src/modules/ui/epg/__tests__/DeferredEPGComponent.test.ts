@@ -95,7 +95,7 @@ const makeState = (isVisible: boolean = false): EPGState => ({
         startTime: 0,
         endTime: 0,
         startChannelIndex: 0,
-        endChannelIndex: 0,
+        endChannelIndexExclusive: 0,
     },
     currentTime: 0,
 });

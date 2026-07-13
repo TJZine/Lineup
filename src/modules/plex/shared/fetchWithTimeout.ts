@@ -1,8 +1,12 @@
-import { fetchWithTimeoutCore } from './fetchWithTimeoutCore';
+import { fetchWithTimeoutCore, fetchWithTimeoutCoreAndConsume } from './fetchWithTimeoutCore';
 import type { FetchWithTimeoutCoreArgs } from './fetchWithTimeoutCore';
 import { readAbortSignalReason } from '../../../utils/abortSignalReason';
 
 export type FetchWithTimeoutArgs = FetchWithTimeoutCoreArgs;
+
+export interface FetchWithTimeoutAndConsumeArgs<T> extends FetchWithTimeoutArgs {
+    consume: (response: Response, signal: AbortSignal) => Promise<T>;
+}
 
 type MergedAbortSignal = {
     signal: AbortSignal | null;
@@ -94,6 +98,23 @@ export async function fetchWithTimeout(
             init: args.init,
             timeoutMs: args.timeoutMs,
             upstreamSignal: merged.signal,
+        });
+    } finally {
+        merged.cleanup();
+    }
+}
+
+export async function fetchWithTimeoutAndConsume<T>(
+    args: FetchWithTimeoutAndConsumeArgs<T>
+): Promise<T> {
+    const merged = mergeAbortSignals(args.init.signal ?? null, args.upstreamSignal ?? null);
+    try {
+        return await fetchWithTimeoutCoreAndConsume({
+            url: args.url,
+            init: args.init,
+            timeoutMs: args.timeoutMs,
+            upstreamSignal: merged.signal,
+            consume: args.consume,
         });
     } finally {
         merged.cleanup();

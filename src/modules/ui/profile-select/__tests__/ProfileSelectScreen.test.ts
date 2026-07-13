@@ -413,6 +413,208 @@ describe('ProfileSelectScreen', () => {
         expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', { pin: null });
     });
 
+    it('contains invalid-auth sign-out failure, sanitizes its cause, and allows another switch', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        orchestrator.switchHomeUser
+            .mockRejectedValueOnce(new PlexApiError(AppErrorCode.AUTH_INVALID, 'expired account token'))
+            .mockResolvedValueOnce(undefined);
+        orchestrator.signOutPlex.mockRejectedValueOnce(
+            new Error(
+                `Recovery failed X-Plex-Token=super-secret at https://plex.example.test/path `
+                + `/Users/tristan/private/auth.json ${'x'.repeat(260)}`
+            )
+        );
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        await settleScreen(screen);
+
+        const alert = container.querySelector('.screen-error') as HTMLElement;
+        const status = container.querySelector('.screen-status') as HTMLElement;
+        expect(alert.textContent).toContain(
+            'Profile authentication is no longer valid. Unable to sign out:'
+        );
+        expect(alert.textContent).toContain('[REDACTED');
+        expect(alert.textContent).not.toContain('super-secret');
+        expect(alert.textContent).not.toContain('plex.example.test');
+        expect(alert.textContent).not.toContain('/Users/tristan/private');
+        expect(alert.textContent?.length).toBeLessThanOrEqual(270);
+        expect(alert.getAttribute('role')).toBe('alert');
+        expect(alert.getAttribute('aria-live')).toBe('assertive');
+        expect(status.textContent).toBe('Profile recovery failed.');
+        expect(status.classList.contains('screen-status--error')).toBe(true);
+        expect(status.getAttribute('aria-live')).toBe('assertive');
+
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        await settleScreen(screen);
+
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(2);
+        expect(orchestrator.signOutPlex).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses controlled fallback copy when invalid-auth recovery has no usable cause', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        orchestrator.switchHomeUser.mockRejectedValue(
+            new PlexApiError(AppErrorCode.AUTH_REQUIRED, 'authentication required')
+        );
+        orchestrator.signOutPlex.mockRejectedValue({ reason: 'not safe to stringify' });
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        await settleScreen(screen);
+
+        expect(container.querySelector('.screen-error')?.textContent).toBe(
+            'Profile authentication is no longer valid, and Lineup could not sign out. Try again.'
+        );
+    });
+
+    it('contains a throwing recovery message getter from the protected-profile PIN path', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        orchestrator.switchHomeUser.mockRejectedValue(
+            new PlexApiError(AppErrorCode.AUTH_INVALID, 'expired account token')
+        );
+        const recoveryError = new Error('unused');
+        Object.defineProperty(recoveryError, 'message', {
+            get: () => { throw new Error('message getter escaped'); },
+        });
+        orchestrator.signOutPlex.mockRejectedValue(recoveryError);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        for (const digit of ['1', '2', '3', '4']) {
+            (container.querySelector(`#btn-profile-pin-${digit}`) as HTMLButtonElement).click();
+        }
+        await settleScreen(screen);
+
+        expect(container.querySelector('.screen-error')?.textContent).toBe(
+            'Profile authentication is no longer valid, and Lineup could not sign out. Try again.'
+        );
+        expect(container.querySelector('.screen-status')?.textContent).toBe('Profile recovery failed.');
+        expect((container.querySelector('.profile-pin-modal') as HTMLElement).style.display).toBe('none');
+        expect(orchestrator.getNavigation().closeModal).toHaveBeenCalledWith('profile-pin');
+        for (const id of expectedPinFocusableIds) {
+            expect(orchestrator.getNavigation().unregisterFocusable).toHaveBeenCalledWith(id);
+        }
+        await expect(screen.whenIdle()).resolves.toBeUndefined();
+    });
+
+    it('clears stale recovery state so a shown generation can switch profiles', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const signOutDeferred = createDeferred<void>();
+        orchestrator.switchHomeUser
+            .mockRejectedValueOnce(new PlexApiError(AppErrorCode.AUTH_INVALID, 'expired account token'))
+            .mockResolvedValueOnce(undefined);
+        orchestrator.signOutPlex.mockReturnValue(signOutDeferred.promise);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(orchestrator.signOutPlex).toHaveBeenCalledTimes(1);
+
+        screen.hide();
+        screen.show();
+        await settleScreen(screen);
+        const alertBeforeReject = container.querySelector('.screen-error')?.textContent;
+        const statusBeforeReject = container.querySelector('.screen-status')?.textContent;
+        signOutDeferred.reject(new Error('stale recovery failure'));
+        await Promise.resolve();
+        await Promise.resolve();
+        await screen.whenIdle();
+
+        expect(container.querySelector('.screen-error')?.textContent).toBe(alertBeforeReject);
+        expect(container.querySelector('.screen-status')?.textContent).toBe(statusBeforeReject);
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        await settleScreen(screen);
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(2);
+    });
+
+    it('contains stale invalid-auth recovery after destroy without updating detached DOM', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const signOutDeferred = createDeferred<void>();
+        orchestrator.switchHomeUser.mockRejectedValue(
+            new PlexApiError(AppErrorCode.AUTH_INVALID, 'expired account token')
+        );
+        orchestrator.signOutPlex.mockReturnValue(signOutDeferred.promise);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+
+        const alert = container.querySelector('.screen-error') as HTMLElement;
+        const status = container.querySelector('.screen-status') as HTMLElement;
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        await Promise.resolve();
+        await Promise.resolve();
+        screen.destroy();
+        const alertBeforeReject = alert.textContent;
+        const statusBeforeReject = status.textContent;
+        signOutDeferred.reject(new Error('stale recovery failure'));
+        await Promise.resolve();
+        await Promise.resolve();
+        await screen.whenIdle();
+
+        expect(alert.textContent).toBe(alertBeforeReject);
+        expect(status.textContent).toBe(statusBeforeReject);
+    });
+
     it('opens PIN modal with full focusable list', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },

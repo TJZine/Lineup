@@ -55,6 +55,26 @@ describe('summarizeErrorForLog', () => {
         });
     });
 
+    it('redacts string and structured error codes', () => {
+        const error = new Error('boom') as Error & { code?: unknown };
+        error.code = 'X-Plex-Token=code-secret';
+
+        expect(summarizeErrorForLog(error)).toEqual({
+            name: 'Error',
+            code: 'X-Plex-Token=REDACTED',
+            message: 'boom',
+        });
+        expect(summarizeErrorForLog({
+            name: 'Error',
+            code: { token: 'nested-secret', retryable: true },
+            message: 'boom',
+        })).toEqual({
+            name: 'Error',
+            code: { token: 'REDACTED', retryable: true },
+            message: 'boom',
+        });
+    });
+
     it('passes through non-object non-string values', () => {
         expect(summarizeErrorForLog(null)).toBeNull();
         expect(summarizeErrorForLog(123)).toBe(123);

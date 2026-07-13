@@ -1272,7 +1272,7 @@ describe('PlexServerDiscovery', () => {
                 server.id === 'srv1' ? 1 : null
             );
 
-            await expect(discovery.selectServer('srv1')).resolves.toEqual({ kind: 'selected' });
+            await expect(discovery.selectServer('srv1')).resolves.toMatchObject({ kind: 'selected' });
             await expect(discovery.selectServer('srv2')).resolves.toEqual({
                 kind: 'connection_unavailable',
                 reason: 'unreachable',
@@ -1306,7 +1306,7 @@ describe('PlexServerDiscovery', () => {
             await discovery.discoverServers();
             jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
 
-            await expect(discovery.selectServer('srv1')).resolves.toEqual({ kind: 'selected' });
+            await expect(discovery.selectServer('srv1')).resolves.toMatchObject({ kind: 'selected' });
 
             const selectedServer = expectDefined(discovery.getSelectedServer(), 'Expected selected server');
             const selectedConnection = expectDefined(discovery.getSelectedConnection(), 'Expected selected connection');
@@ -1361,11 +1361,20 @@ describe('PlexServerDiscovery', () => {
             expect(discovery.getSelectedServer()?.id).toBe('srv2');
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv2');
 
-            discovery.restoreSelectedServerSnapshot(snapshot);
+            const firstRestorationReceipt = discovery.restoreSelectedServerSnapshot(snapshot);
 
             expect(discovery.getSelectedServer()?.id).toBe('srv1');
             expect(discovery.getServerUri()).toBe('https://srv1:32400');
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBe('srv1');
+
+            await discovery.selectServer('srv2');
+            const retryRestorationReceipt = discovery.restoreSelectedServerSnapshot(snapshot);
+
+            expect(retryRestorationReceipt).not.toBe(firstRestorationReceipt);
+            expect(discovery.getSelectionReceiptSignal(firstRestorationReceipt).aborted).toBe(true);
+            expect(discovery.getSelectionReceiptSignal(retryRestorationReceipt).aborted).toBe(false);
+            expect(() => discovery.assertSelectionReceiptCurrent(retryRestorationReceipt)).not.toThrow();
+            expect(discovery.getSelectedServer()?.id).toBe('srv1');
         });
 
         it('clears the discovery selected-server storage key when restoring an empty snapshot', async () => {
@@ -2516,7 +2525,7 @@ describe('PlexServerDiscovery', () => {
             const discovery = new PlexServerDiscovery(mockConfig);
             await discovery.discoverServers();
             const testConnection = jest.spyOn(discovery, 'testConnection').mockResolvedValueOnce(1);
-            await expect(discovery.selectServer('srv1')).resolves.toEqual({ kind: 'selected' });
+            await expect(discovery.selectServer('srv1')).resolves.toMatchObject({ kind: 'selected' });
             const snapshot = discovery.captureSelectedServerSnapshot();
             expect(snapshot.server?.id).toBe('srv1');
             const probe = createDeferred<number>();
@@ -2562,7 +2571,7 @@ describe('PlexServerDiscovery', () => {
             const firstSelection = discovery.selectServer('srv1');
             const secondSelection = discovery.selectServer('srv2');
             secondProbe.resolve(2);
-            await expect(secondSelection).resolves.toEqual({ kind: 'selected' });
+            await expect(secondSelection).resolves.toMatchObject({ kind: 'selected' });
             firstProbe.resolve(1);
             await expect(firstSelection).rejects.toMatchObject({
                 name: 'PlexDiscoverySelectionSupersededError',
@@ -2647,6 +2656,68 @@ describe('PlexServerDiscovery', () => {
             await expect(selection).rejects.toMatchObject({ name: 'PlexDiscoverySelectionSupersededError' });
             expect(discovery.getSelectedServer()).toBeNull();
             expect(mockLocalStorage.getItem(PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY)).toBeNull();
+        });
+
+        it('keeps the selected receipt current across a failed candidate and same-key storage configuration', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const testConnection = jest.spyOn(discovery, 'testConnection');
+            testConnection.mockResolvedValueOnce(1);
+
+            const selected = await discovery.selectServer('srv1');
+            expect(selected.kind).toBe('selected');
+            if (selected.kind !== 'selected') throw new Error('Expected selected result.');
+            const signal = discovery.getSelectionReceiptSignal(selected.receipt);
+
+            discovery.setStorageKeys(
+                PLEX_DISCOVERY_CONSTANTS.SELECTED_SERVER_KEY,
+                PLEX_DISCOVERY_CONSTANTS.SERVER_HEALTH_KEY
+            );
+            await expect(discovery.selectServer('unknown')).resolves.toEqual({
+                kind: 'server_not_found',
+            });
+
+            expect(signal.aborted).toBe(false);
+            expect(() => discovery.assertSelectionReceiptCurrent(selected.receipt)).not.toThrow();
+        });
+
+        it('aborts the prior receipt before publishing a successful replacement selection', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
+            const first = await discovery.selectServer('srv1');
+            if (first.kind !== 'selected') throw new Error('Expected selected result.');
+            const firstSignal = discovery.getSelectionReceiptSignal(first.receipt);
+            const observedDuringServerChange: boolean[] = [];
+            discovery.on('serverChange', () => observedDuringServerChange.push(firstSignal.aborted));
+
+            const second = await discovery.selectServer('srv1');
+
+            expect(second.kind).toBe('selected');
+            expect(observedDuringServerChange).toEqual([true]);
+            expect(firstSignal.aborted).toBe(true);
+            expect(() => discovery.assertSelectionReceiptCurrent(first.receipt)).toThrow(
+                expect.objectContaining({ name: 'PlexDiscoverySelectionSupersededError' })
+            );
+        });
+
+        it('returns a current unselected restoration receipt without fabricating a selected receipt', async () => {
+            mockFetchJson([resource]);
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            const emptySnapshot = discovery.captureSelectedServerSnapshot();
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
+            const selected = await discovery.selectServer('srv1');
+            if (selected.kind !== 'selected') throw new Error('Expected selected result.');
+
+            const restorationReceipt = discovery.restoreSelectedServerSnapshot(emptySnapshot);
+
+            expect(discovery.captureCurrentSelectionReceipt()).toBeNull();
+            expect(discovery.getSelectionReceiptSignal(restorationReceipt).aborted).toBe(false);
+            expect(() => discovery.assertSelectionReceiptCurrent(restorationReceipt)).not.toThrow();
+            expect(discovery.getSelectionReceiptSignal(selected.receipt).aborted).toBe(true);
         });
 
         it('rejects initialize when its discovery continuation crosses storage context', async () => {

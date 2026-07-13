@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 
 it('reads current theme from injected runtime callback and writes via injected setter', () => {
-    const setTheme = jest.fn();
+    const setTheme = jest.fn(() => ({ ok: true } as const));
     const getTheme = jest.fn((): 'glass' => 'glass');
     const controller = new SettingsScreenStateController({
         settingsStore: new SettingsStore(),
@@ -130,6 +130,28 @@ it('writes subtitle mode, emits subtitle callback, and invalidates state', () =>
     expect(onStateInvalidated).toHaveBeenCalledTimes(1);
 });
 
+it('does not apply subtitle runtime effects when persistence fails', () => {
+    const settingsStore = new SettingsStore();
+    jest.spyOn(settingsStore, 'writeSubtitleMode').mockReturnValue({ ok: false, reason: 'unavailable' });
+    const onSubtitleModeChange = jest.fn();
+    const onStateInvalidated = jest.fn();
+    const controller = new SettingsScreenStateController({
+        settingsStore,
+        onSubtitleModeChange,
+        onStateInvalidated,
+    });
+    const subtitleMode = controller.getCategories()
+        .find((category) => category.id === 'audio_subtitles')
+        ?.items.find((item) => item.id === 'settings-subtitle-mode') as SettingsSelectConfig;
+
+    expect(subtitleMode.onChange(0)).toEqual({
+        ok: false,
+        message: 'Could not save this setting. Check device storage and try again.',
+    });
+    expect(onSubtitleModeChange).not.toHaveBeenCalled();
+    expect(onStateInvalidated).not.toHaveBeenCalled();
+});
+
 it('writes layout mode and emits the guide layout change', () => {
     const settingsStore = new SettingsStore();
     const writeSpy = jest.spyOn(settingsStore, 'writeEpgLayoutModeValue');
@@ -196,4 +218,64 @@ it('writes debug logging and dispatches the shared debug event', () => {
 
     expect(writeSpy).toHaveBeenCalledWith('debugLogging', true);
     expect(dispatchSpy).toHaveBeenCalledWith(true);
+});
+
+it('gates every guide runtime callback on successful persistence', () => {
+    const settingsStore = new SettingsStore();
+    jest.spyOn(settingsStore, 'writeToggleSetting').mockReturnValue({ ok: false, reason: 'quota-exceeded' });
+    jest.spyOn(settingsStore, 'writeEpgGuideDensityValue').mockReturnValue({ ok: false, reason: 'unavailable' });
+    jest.spyOn(settingsStore, 'writeEpgLayoutModeValue').mockReturnValue({ ok: false, reason: 'unavailable' });
+    jest.spyOn(settingsStore, 'writeEpgPastItemsWindowValue').mockReturnValue({ ok: false, reason: 'unavailable' });
+    jest.spyOn(settingsStore, 'writeEpgInfoBackgroundModeValue').mockReturnValue({ ok: false, reason: 'unavailable' });
+    const onGuideSettingChange = jest.fn();
+    const controller = new SettingsScreenStateController({ settingsStore, onGuideSettingChange });
+    const appearance = controller.getCategories().find((category) => category.id === 'appearance');
+    const ids = [
+        'settings-guide-library-tabs',
+        'settings-epg-now-watching',
+        'settings-epg-aggressive-preload',
+        'settings-epg-density',
+        'settings-epg-layout-mode',
+        'settings-epg-past-items',
+        'settings-epg-info-background-mode',
+    ];
+
+    for (const id of ids) {
+        const item = appearance?.items.find((candidate) => candidate.id === id);
+        if (!item) throw new Error(`Missing guide item ${id}`);
+        if ('options' in item) {
+            item.onChange(item.options[1]?.value ?? item.value);
+        } else {
+            item.onChange(!item.value);
+        }
+    }
+
+    expect(onGuideSettingChange).not.toHaveBeenCalled();
+});
+
+it('translates theme persistence failure into the shared UI failure', () => {
+    const controller = new SettingsScreenStateController({
+        settingsStore: new SettingsStore(),
+        setTheme: (): { ok: false } => ({ ok: false }),
+    });
+    const theme = controller.getCategories()
+        .find((category) => category.id === 'appearance')
+        ?.items.find((item) => item.id === 'settings-theme') as SettingsSelectConfig;
+
+    expect(theme.onChange(1)).toEqual({
+        ok: false,
+        message: 'Could not save this setting. Check device storage and try again.',
+    });
+});
+
+it('fails closed when no theme persistence port is supplied', () => {
+    const controller = new SettingsScreenStateController({ settingsStore: new SettingsStore() });
+    const theme = controller.getCategories()
+        .find((category) => category.id === 'appearance')
+        ?.items.find((item) => item.id === 'settings-theme') as SettingsSelectConfig;
+
+    expect(theme.onChange(1)).toEqual({
+        ok: false,
+        message: 'Could not save this setting. Check device storage and try again.',
+    });
 });

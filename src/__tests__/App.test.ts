@@ -764,6 +764,7 @@ describe('App bootstrap smoke', () => {
         expect(document.activeElement).toBe(retry);
         retry.click();
         expect(action).toHaveBeenCalledTimes(1);
+        await flushPromises();
         expect(overlay?.classList.contains('hidden')).toBe(true);
     });
 
@@ -799,6 +800,7 @@ describe('App bootstrap smoke', () => {
         const setFocus = jest.fn();
         const on = jest.fn();
         const off = jest.fn();
+        const cancelPendingChannelInput = jest.fn();
 
         const startedApp = await bootstrapApp(() => {
             installRecoveryActionSpy();
@@ -811,6 +813,7 @@ describe('App bootstrap smoke', () => {
                 setFocus,
                 on,
                 off,
+                cancelPendingChannelInput,
             } as never);
             getRecoveryActionsSpy.mockReturnValue([
                 { label: 'Retry', isPrimary: true, action: jest.fn() },
@@ -828,6 +831,7 @@ describe('App bootstrap smoke', () => {
         } as never);
 
         expect(openModal).toHaveBeenCalledWith('modal:error-overlay', ['error-overlay-action-0']);
+        expect(cancelPendingChannelInput).toHaveBeenCalledTimes(1);
         expect(registerFocusable).toHaveBeenCalledTimes(1);
         expect(setFocus).toHaveBeenCalledWith('error-overlay-action-0', { persist: false });
 
@@ -836,6 +840,39 @@ describe('App bootstrap smoke', () => {
         expect(closeModal).toHaveBeenCalledWith('modal:error-overlay');
         expect(unregisterFocusable).toHaveBeenCalledWith('error-overlay-action-0');
         expect(off).toHaveBeenCalledWith('modalClose', expect.any(Function));
+    });
+
+    it('presents protected awaited quarantine recovery and closes only after core clears', async () => {
+        const retryQuarantineRecovery = jest.fn().mockResolvedValue(undefined);
+        const getQuarantineState = jest.spyOn(AppOrchestrator.prototype, 'getQuarantineState')
+            .mockReturnValueOnce({ kind: 'quarantined', phase: 'proof', commandPending: false })
+            .mockReturnValue({ kind: 'clear' });
+        const startedApp = await bootstrapApp(() => {
+            jest.spyOn(AppOrchestrator.prototype, 'retryQuarantineRecovery')
+                .mockImplementation(retryQuarantineRecovery);
+        });
+
+        startedApp.showErrorOverlay({
+            code: 'INITIALIZATION_FAILED',
+            message: 'Recovery required',
+            userMessage: 'Recovery required',
+            recoverable: true,
+            phase: 'error',
+            timestamp: Date.now(),
+            actions: [],
+        } as never);
+
+        const overlay = document.getElementById('error-overlay') as HTMLElement;
+        const retry = overlay.querySelector<HTMLButtonElement>('[data-action="retry"]');
+        expect(retry).not.toBeNull();
+        retry?.click();
+        expect(overlay.classList.contains('hidden')).toBe(false);
+
+        await flushPromises();
+
+        expect(retryQuarantineRecovery).toHaveBeenCalledTimes(1);
+        expect(getQuarantineState).toHaveBeenCalledTimes(2);
+        expect(overlay.classList.contains('hidden')).toBe(true);
     });
 
     it.each([

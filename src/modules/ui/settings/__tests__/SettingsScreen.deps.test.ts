@@ -9,8 +9,14 @@ import type { SubtitleMode } from '../../../../shared/subtitle-mode';
 import { activateCategory, createNavigationStub } from './settings-screen-test-helpers';
 
 class TrackingSettingsStore extends SettingsStore {
-    public override readonly writeSubtitleMode = jest.fn();
-    public override readonly writeToggleSetting = jest.fn();
+    public override readonly writeSubtitleMode = jest.fn<
+        ReturnType<SettingsStore['writeSubtitleMode']>,
+        Parameters<SettingsStore['writeSubtitleMode']>
+    >((mode) => ({ ok: true, value: mode }));
+    public override readonly writeToggleSetting = jest.fn<
+        ReturnType<SettingsStore['writeToggleSetting']>,
+        Parameters<SettingsStore['writeToggleSetting']>
+    >((_, value) => ({ ok: true, value }));
 
     override readSubtitleModeAndClean(): SubtitleMode {
         return 'off';
@@ -97,7 +103,7 @@ describe('SettingsScreen deps constructor', () => {
         const onGuideSettingChange = jest.fn();
         const getActiveUsername = jest.fn(() => 'NamedUser');
         const getTheme = jest.fn<ThemeName, []>(() => 'ember-steel');
-        const setTheme = jest.fn();
+        const setTheme = jest.fn(() => ({ ok: true } as const));
 
         const screen = new SettingsScreen({
             container,

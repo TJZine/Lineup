@@ -554,6 +554,24 @@ describe('NavigationManager', () => {
             expect(nav.isModalOpen()).toBe(false);
         });
 
+        it('keeps protected modal open on Back and blocks route commands', () => {
+            nav.openModal('quarantine', [], {
+                dismissOnBack: false,
+                blocksBackgroundCommands: true,
+            });
+
+            dispatchKeyEvent(461);
+            nav.goTo('settings');
+            nav.replaceScreen('player');
+
+            expect(nav.isModalOpen('quarantine')).toBe(true);
+            expect(nav.getCurrentScreen()).toBe('splash');
+            expect(nav.getActiveModalPolicy()).toEqual({
+                dismissOnBack: false,
+                blocksBackgroundCommands: true,
+            });
+        });
+
         it('should support stacked modals', () => {
             nav.openModal('first');
             nav.openModal('second');

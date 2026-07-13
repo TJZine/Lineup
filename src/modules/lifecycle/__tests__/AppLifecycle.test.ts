@@ -5,8 +5,11 @@
  */
 
 import { AppLifecycle } from '../AppLifecycle';
-import { LifecycleStateStore } from '../LifecycleStateStore';
-import { ErrorRecovery } from '../ErrorRecovery';
+import {
+    FutureLifecycleStateVersionError,
+    LifecycleStateStore,
+} from '../LifecycleStateStore';
+import { LifecycleErrorMessageCatalog } from '../LifecycleErrorMessageCatalog';
 import { NETWORK_CHECK_PROBE_URL, TIMING_CONFIG } from '../constants';
 import { AppErrorCode } from '../../../types/app-errors';
 import { PersistentState } from '../types';
@@ -14,10 +17,16 @@ import type { IAppLifecycle } from '../interfaces';
 import type { PlatformLifecycleService } from '../../../platform';
 import { createDeferred, expectConsoleWarn } from '../../../__tests__/helpers';
 
+const absentState = { kind: 'absent' } as const;
+const loadedState = (state: PersistentState): ReturnType<LifecycleStateStore['load']> => ({
+    kind: 'loaded',
+    state,
+});
+
 describe('AppLifecycle', () => {
     let lifecycle: AppLifecycle;
     let mockLifecycleStateStore: jest.Mocked<LifecycleStateStore>;
-    let mockErrorRecovery: jest.Mocked<ErrorRecovery>;
+    let mockErrorMessages: jest.Mocked<LifecycleErrorMessageCatalog>;
     let addEventListenerSpy: jest.SpyInstance;
     let removeEventListenerSpy: jest.SpyInstance;
 
@@ -26,7 +35,7 @@ describe('AppLifecycle', () => {
         // Mock LifecycleStateStore
         mockLifecycleStateStore = {
             save: jest.fn(),
-            load: jest.fn().mockReturnValue(null),
+            load: jest.fn().mockReturnValue(absentState),
             clear: jest.fn(),
             createDefaultState: jest.fn().mockReturnValue({
                 version: 1,
@@ -35,19 +44,9 @@ describe('AppLifecycle', () => {
             }),
         } as unknown as jest.Mocked<LifecycleStateStore>;
 
-        // Mock ErrorRecovery
-        mockErrorRecovery = {
-            handleError: jest.fn().mockReturnValue([]),
-            executeRecovery: jest.fn().mockResolvedValue(true),
-            createError: jest.fn().mockImplementation((code, message, context) => ({
-                code,
-                message,
-                recoverable: true,
-                context,
-            })),
-            registerCallbacks: jest.fn(),
+        mockErrorMessages = {
             getUserMessage: jest.fn().mockReturnValue('Error'),
-        } as unknown as jest.Mocked<ErrorRecovery>;
+        } as jest.Mocked<LifecycleErrorMessageCatalog>;
 
         // Spy on document event listeners
         addEventListenerSpy = jest.spyOn(document, 'addEventListener');
@@ -78,7 +77,7 @@ describe('AppLifecycle', () => {
             configurable: true,
         });
 
-        lifecycle = new AppLifecycle(mockLifecycleStateStore, mockErrorRecovery);
+        lifecycle = new AppLifecycle(mockLifecycleStateStore, mockErrorMessages);
     });
 
     afterEach(() => {
@@ -88,7 +87,7 @@ describe('AppLifecycle', () => {
 
     describe('initialization', () => {
         it('should set phase to initializing then authenticating when no saved state', async () => {
-            mockLifecycleStateStore.load.mockReturnValue(null);
+            mockLifecycleStateStore.load.mockReturnValue(absentState);
 
             await lifecycle.initialize();
 
@@ -101,7 +100,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLifecycleStateStore.load.mockReturnValue(savedState);
+            mockLifecycleStateStore.load.mockReturnValue(loadedState(savedState));
 
             await lifecycle.initialize();
 
@@ -114,7 +113,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLifecycleStateStore.load.mockReturnValue(savedState);
+            mockLifecycleStateStore.load.mockReturnValue(loadedState(savedState));
 
             const handler = jest.fn();
             lifecycle.on('stateRestored', handler);
@@ -130,7 +129,7 @@ describe('AppLifecycle', () => {
                 userPreferences: { theme: 'dark', volume: 100, subtitleLanguage: null, audioLanguage: null },
                 lastUpdated: Date.now(),
             };
-            mockLifecycleStateStore.load.mockReturnValue(savedState);
+            mockLifecycleStateStore.load.mockReturnValue(loadedState(savedState));
 
             const eventOrder: string[] = [];
             lifecycle.on('phaseChange', ({ from, to }) => {
@@ -146,6 +145,33 @@ describe('AppLifecycle', () => {
                 'phase:initializing->authenticating',
                 'restored:authenticating',
             ]);
+        });
+
+        it('warns once and does not restore state created by a newer version', async () => {
+            mockLifecycleStateStore.load.mockReturnValue({
+                kind: 'future-version',
+                version: 2,
+            });
+            const restored = jest.fn();
+            const warning = jest.fn();
+            lifecycle.on('stateRestored', restored);
+            lifecycle.on('persistenceWarning', warning);
+
+            await lifecycle.initialize();
+            await lifecycle.initialize();
+
+            await expect(lifecycle.saveState()).rejects.toBeInstanceOf(
+                FutureLifecycleStateVersionError
+            );
+            await expect(lifecycle.setPhaseAndWait('loading_data')).resolves.toBe(true);
+
+            expect(restored).not.toHaveBeenCalled();
+            expect(mockLifecycleStateStore.save).not.toHaveBeenCalled();
+            expect(warning).toHaveBeenCalledTimes(1);
+            expect(warning).toHaveBeenCalledWith(expect.objectContaining({
+                message: expect.stringContaining('newer Lineup version'),
+                isQuotaError: false,
+            }));
         });
 
         it('should register visibility listeners', async () => {
@@ -277,7 +303,7 @@ describe('AppLifecycle', () => {
             };
             const lifecycleWithService = new AppLifecycle(
                 mockLifecycleStateStore,
-                mockErrorRecovery,
+                mockErrorMessages,
                 lifecycleService
             );
 
@@ -402,14 +428,14 @@ describe('AppLifecycle', () => {
             expect(typeof lifecyclePublicSurface.on).toBe('function');
         });
 
-        it('exposes getErrorUserMessage and does not expose getErrorRecovery', () => {
+        it('exposes getErrorUserMessage and does not expose its message catalog', () => {
             const lifecycleWithErrorMessage = lifecycle as unknown as {
                 getErrorUserMessage?: (code: AppErrorCode) => string;
-                getErrorRecovery?: unknown;
+                getErrorMessageCatalog?: unknown;
             };
 
             expect(typeof lifecycleWithErrorMessage.getErrorUserMessage).toBe('function');
-            expect('getErrorRecovery' in lifecycleWithErrorMessage).toBe(false);
+            expect('getErrorMessageCatalog' in lifecycleWithErrorMessage).toBe(false);
         });
     });
 

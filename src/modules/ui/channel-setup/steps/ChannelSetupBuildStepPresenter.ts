@@ -432,6 +432,9 @@ export class ChannelSetupBuildStepPresenter {
         bookkeepingError: string | undefined,
         guideRefresh: ChannelSetupGuideRefreshSummary | undefined
     ): string {
+        if (guideRefresh?.kind === 'interrupted') {
+            return 'Channels created; guide refresh interrupted.';
+        }
         if (bookkeepingError) {
             return 'Channels created; setup save needed.';
         }
@@ -458,6 +461,10 @@ export class ChannelSetupBuildStepPresenter {
         const warnings: string[] = [];
         if (bookkeepingError) {
             warnings.push(`Channels were created, but setup completion could not be saved: ${bookkeepingError}`);
+        }
+        if (guideRefresh?.kind === 'interrupted') {
+            warnings.push('Channels were saved, but guide refresh was interrupted. Open the guide again after schedules finish loading.');
+            return warnings.join(' ');
         }
         if (guideRefresh?.kind === 'failed') {
             warnings.push('Guide data could not be refreshed. Open the guide again after schedules finish loading.');

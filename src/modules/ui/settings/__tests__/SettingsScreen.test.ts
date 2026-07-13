@@ -5,7 +5,7 @@
 import { SettingsScreen } from '../SettingsScreen';
 import { SettingsStore } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
-import type { GuideSettingChange } from '../types';
+import type { GuideSettingChange, SettingsPersistenceResult } from '../types';
 import { THEME_OPTIONS, THEME_CLASSES, type ThemeName } from '../../theme/themeDefinitions';
 import { activateCategory, createNavigationStub } from './settings-screen-test-helpers';
 
@@ -62,7 +62,7 @@ const createScreen = (
         getNavigation: (): never => nav as unknown as never,
         onGuideSettingChange,
         getTheme: (): ThemeName => currentTheme,
-        setTheme: (theme): void => {
+        setTheme: (theme): SettingsPersistenceResult => {
             currentTheme = theme;
             document.body.classList.remove(...ALL_THEME_CLASSES);
             const themeClass = THEME_CLASSES[theme];
@@ -70,6 +70,7 @@ const createScreen = (
                 document.body.classList.add(themeClass);
             }
             localStorage.setItem(SETTINGS_STORAGE_KEYS.THEME, theme);
+            return { ok: true };
         },
         ...(getActiveUsername ? { getActiveUsername } : {}),
         ...(settingsStore ? { settingsStore } : {}),
@@ -507,6 +508,76 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(nav.getFocusedElement()?.id).toBe('settings-category-appearance');
     });
 
+    it('rolls back a failed remote-key select change and restores metadata after retry', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+        screen.show();
+        activateCategory(container, 'appearance');
+        nav.setFocus('settings-epg-layout-mode');
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        const originalSetItem = Storage.prototype.setItem;
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+            this: Storage,
+            key,
+            value
+        ): void {
+            if (key === SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE) {
+                throw new DOMException('Blocked', 'SecurityError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+
+        keyHandler?.({ handled: false, button: 'right' });
+
+        const select = container.querySelector('#settings-epg-layout-mode') as HTMLButtonElement;
+        expect(select.querySelector('.setup-toggle-value')?.textContent).toBe('Overlay');
+        expect(select.querySelector('.setup-toggle-meta')?.textContent).toBe(
+            'Could not save this setting. Check device storage and try again.'
+        );
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+        expect(onGuideSettingChange).not.toHaveBeenCalled();
+        expect(nav.getFocusedElement()?.id).toBe('settings-epg-layout-mode');
+
+        setSpy.mockRestore();
+        keyHandler?.({ handled: false, button: 'right' });
+        expect(select.querySelector('.setup-toggle-value')?.textContent).toBe('Classic (PIP)');
+        expect(select.querySelector('.setup-toggle-meta')?.textContent).toBe(
+            'Overlay keeps full-screen video; Classic shows PIP'
+        );
+        expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
+    });
+
+    it('rolls back a failed dropdown select change, closes the dropdown, and restores focus', () => {
+        const onGuideSettingChange = jest.fn();
+        const { container, nav, screen } = createScreen(onGuideSettingChange);
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+        screen.show();
+        activateCategory(container, 'appearance');
+        nav.setFocus('settings-epg-layout-mode');
+        nav.focusables.get('settings-epg-layout-mode')?.onSelect?.();
+        const dropdown = container.querySelector('#settings-dropdown') as HTMLElement;
+        const firstNonSelected = dropdown.querySelector(
+            '.settings-dropdown-option:not(.settings-dropdown-option--selected)'
+        ) as HTMLButtonElement;
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('Full', 'QuotaExceededError');
+        });
+
+        nav.focusables.get(firstNonSelected.id)?.onSelect?.();
+
+        const select = container.querySelector('#settings-epg-layout-mode') as HTMLButtonElement;
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+        expect(select.querySelector('.setup-toggle-value')?.textContent).toBe('Overlay');
+        expect(select.querySelector('.setup-toggle-meta')?.textContent).toBe(
+            'Could not save this setting. Check device storage and try again.'
+        );
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+        expect(onGuideSettingChange).not.toHaveBeenCalled();
+        expect(nav.getFocusedElement()?.id).toBe('settings-epg-layout-mode');
+        setSpy.mockRestore();
+    });
+
     it('moves left from non-select detail back to active category without mutating value', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);
@@ -878,6 +949,34 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(nav.setFocus).toHaveBeenCalledWith('settings-subtitle-mode');
         expect(nav.setFocus).not.toHaveBeenCalledWith('settings-category-appearance');
         expect(nav.getFocusedElement()?.id).toBe('settings-subtitle-mode');
+    });
+
+    it.each([
+        ['unavailable', new DOMException('Blocked', 'SecurityError')],
+        ['quota-exceeded', new DOMException('Full', 'QuotaExceededError')],
+    ])('rolls back a %s setting write, announces it inline, and preserves focus', (_, storageError) => {
+        localStorage.removeItem(SETTINGS_STORAGE_KEYS.DTS_PASSTHROUGH);
+        const { container, nav, screen } = createScreen(jest.fn());
+        screen.show();
+        nav.setFocus('settings-dts-passthrough');
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw storageError;
+        });
+        const toggle = container.querySelector('#settings-dts-passthrough') as HTMLButtonElement;
+
+        expect(() => toggle.click()).not.toThrow();
+        expect(toggle.querySelector('.setup-toggle-state')?.textContent).toBe('Off');
+        expect(toggle.querySelector('.setup-toggle-meta')?.textContent).toBe(
+            'Could not save this setting. Check device storage and try again.'
+        );
+        expect(toggle.querySelector('.setup-toggle-meta')?.getAttribute('role')).toBe('status');
+        expect(toggle.querySelector('.setup-toggle-meta')?.getAttribute('aria-live')).toBe('polite');
+        expect(nav.getFocusedElement()?.id).toBe('settings-dts-passthrough');
+
+        setSpy.mockRestore();
+        toggle.click();
+        expect(toggle.querySelector('.setup-toggle-state')?.textContent).toBe('On');
+        expect(toggle.querySelector('.setup-toggle-meta')?.textContent).toBe('Enable if you have an eARC receiver');
     });
 
     it('preserves active category continuity with valid focus on re-open', () => {

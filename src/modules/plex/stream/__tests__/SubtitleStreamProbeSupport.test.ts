@@ -129,4 +129,27 @@ describe('SubtitleStreamProbeSupport', () => {
         expect(result.detected).toBe('webvtt');
         expect(result.sampleLength).toBeGreaterThan('WEBVTT\n\n00:00:00.000 --> 00:00:01.000\ncaf'.length);
     });
+
+    it('caps a single oversized chunk and always cancels the partial probe', async () => {
+        const cancel = jest.fn();
+        const stream = new ReadableStream<Uint8Array>({
+            start(controller): void {
+                controller.enqueue(new TextEncoder().encode(`WEBVTT\n${'x'.repeat(10000)}`));
+            },
+            cancel,
+        });
+
+        const result = await readSubtitleProbeSample(
+            new Response(stream),
+            'vtt',
+            2048
+        );
+
+        expect(result).toMatchObject({
+            detected: 'webvtt',
+            sampleCapped: true,
+            sampleLength: 2048,
+        });
+        expect(cancel).toHaveBeenCalledTimes(1);
+    });
 });

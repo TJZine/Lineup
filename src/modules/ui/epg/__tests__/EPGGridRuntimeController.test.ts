@@ -308,10 +308,40 @@ describe('EPGGridRuntimeController', () => {
         expect(virtualizer.updateScrollPosition).toHaveBeenCalledWith(0);
         expect(virtualizer.renderVisibleCells).toHaveBeenCalledTimes(2);
         expect(visibleRanges).toHaveLength(1);
+        expect(visibleRanges[0]).toEqual({
+            channelStart: 0,
+            channelEndExclusive: 1,
+            timeStartMs: anchor,
+            timeEndMs: anchor + (2 * 60 * 60 * 1000),
+        });
 
         controller.resetVisibleRange();
         controller.renderGridInternal();
         expect(visibleRanges).toHaveLength(2);
+    });
+
+    it('emits a mid-list half-open range and clamps the terminal endpoint to channel count', () => {
+        const { controller, state, visibleRanges } = createHarness();
+        state.channels = Array.from({ length: 10 }, (_, index) => ({
+            id: `ch${index}`,
+            number: index + 1,
+            name: `Channel ${index + 1}`,
+        })) as EPGInternalState['channels'];
+        state.scrollPosition.channelOffset = 4;
+
+        controller.renderGridInternal();
+        expect(visibleRanges[0]).toEqual(expect.objectContaining({
+            channelStart: 2,
+            channelEndExclusive: 8,
+        }));
+
+        controller.resetVisibleRange();
+        state.scrollPosition.channelOffset = 9;
+        controller.renderGridInternal();
+        expect(visibleRanges[1]).toEqual(expect.objectContaining({
+            channelStart: 7,
+            channelEndExclusive: 10,
+        }));
     });
 
     it('updates grid anchor and set-time-to-now through time header and virtualizer collaborators', () => {

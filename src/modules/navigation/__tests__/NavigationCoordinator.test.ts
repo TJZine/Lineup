@@ -688,6 +688,22 @@ describe('NavigationCoordinator', () => {
         expect(navigation.replaceScreen).not.toHaveBeenCalled();
     });
 
+    it('long-press back is consumed while a protected modal is active', () => {
+        const { navigation, epg } = setup();
+        const callback = (navigation.handleLongPress as jest.Mock).mock.calls[0]?.[1] as () => void;
+        (navigation.isInputBlocked as jest.Mock).mockReturnValue(false);
+        navigation.getActiveModalPolicy = jest.fn().mockReturnValue({
+            dismissOnBack: false,
+            blocksBackgroundCommands: true,
+        });
+
+        callback();
+
+        expect(epg.hide).not.toHaveBeenCalled();
+        expect(navigation.closeModal).not.toHaveBeenCalled();
+        expect(navigation.replaceScreen).not.toHaveBeenCalled();
+    });
+
     it('toggles player OSD on ok when in player screen', () => {
         const { handlers, deps } = setup();
         const keyPress = handlers.keyPress;

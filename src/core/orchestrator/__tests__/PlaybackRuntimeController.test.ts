@@ -2,6 +2,11 @@ import { PlaybackRuntimeController, type PlaybackRuntimeControllerDeps } from '.
 import type { PlaybackError } from '../../../modules/player';
 import { AppErrorCode } from '../../../types/app-errors';
 
+const requiredPlaybackPreparationStubs = {
+    resolveStreamForProgram: jest.fn(),
+    discardPreparedStream: jest.fn(),
+};
+
 const flushPromises = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 const makePlaybackError = (): PlaybackError => ({
@@ -25,6 +30,7 @@ const makeDeps = (
             setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         },
         playbackRecovery: {
+            ...requiredPlaybackPreparationStubs,
             isStreamRecoveryInProgress: jest.fn().mockReturnValue(false),
             attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
             handlePlaybackFailure: jest.fn(),
@@ -56,6 +62,7 @@ describe('PlaybackRuntimeController', () => {
             playback: {
                 ...makeDeps().playback,
                 playbackRecovery: {
+                    ...requiredPlaybackPreparationStubs,
                     isStreamRecoveryInProgress: jest.fn().mockReturnValue(false),
                     attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
                 },
@@ -91,6 +98,7 @@ describe('PlaybackRuntimeController', () => {
             playback: {
                 ...makeDeps().playback,
                 playbackRecovery: {
+                    ...requiredPlaybackPreparationStubs,
                     isStreamRecoveryInProgress: jest.fn().mockReturnValue(false),
                     attemptTranscodeFallbackForCurrentProgram: jest.fn().mockRejectedValue(new Error('fallback failed')),
                     handlePlaybackFailure: jest.fn(() => {

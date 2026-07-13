@@ -223,7 +223,7 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
             timeStartMs: 1_000,
             timeEndMs: 2_000,
             channelStart: 0,
-            channelEnd: 4,
+            channelEndExclusive: 4,
         };
         config.epgConfig.onVisibleRangeChange?.(range);
 

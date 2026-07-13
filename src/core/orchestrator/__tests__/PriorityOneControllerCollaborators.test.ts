@@ -1,4 +1,5 @@
-import type { StreamDescriptor } from '../../../modules/player';
+import type { PreparedPlaybackStream } from '../../../modules/player';
+import { makePreparedPlaybackStream } from '../../../__tests__/fixtures/preparedPlaybackStream';
 import type {
     ScheduledProgram,
     SchedulerState,
@@ -31,6 +32,9 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         isCurrent: true,
         ...overrides,
     } as unknown as ScheduledProgram);
+
+const makePrepared = (id = 'stream-1'): PreparedPlaybackStream =>
+    makePreparedPlaybackStream(`https://example.invalid/${id}.m3u8`);
 
 const makeSchedulerState = (
     currentProgram: ScheduledProgram | null,
@@ -114,12 +118,12 @@ const makeInput = (
         playback: {
             playbackState,
             playbackRecovery: {
-                resolveStreamForProgram: jest.fn().mockResolvedValue({
-                    id: 'stream-1',
-                } as unknown as StreamDescriptor),
+                resolveStreamForProgram: jest.fn().mockResolvedValue(makePrepared()),
+                discardPreparedStream: jest.fn().mockResolvedValue(undefined),
                 resetPlaybackFailureGuard: jest.fn(),
                 tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
                 tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
+                attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
                 handlePlaybackFailure: jest.fn(),
                 isStreamRecoveryInProgress: jest.fn().mockReturnValue(false),
             },
@@ -238,10 +242,68 @@ describe('PriorityOneControllerCollaborators', () => {
         } as never);
 
         expect(playbackState.setCurrentProgramForPlayback).toHaveBeenCalledWith(program);
+        expect(playbackState.setCurrentStreamDecision).toHaveBeenCalledWith(
+            expect.objectContaining({ sessionId: 'test-session' })
+        );
         expect(playbackState.setCurrentStreamDescriptor).toHaveBeenCalled();
         expect(input.uiRuntime.onProgramStartUiSideEffects).toHaveBeenCalledWith(program);
         expect(input.playerEvents.onPlayerStateChange).toHaveBeenCalled();
         expect(input.uiRuntime.showInfoBanner).toHaveBeenCalled();
+        expect(
+            playbackState.setCurrentStreamDecision.mock.invocationCallOrder[0]
+        ).toBeLessThan(playbackState.setCurrentStreamDescriptor.mock.invocationCallOrder[0] ?? 0);
+        expect(
+            playbackState.setCurrentStreamDescriptor.mock.invocationCallOrder[0]
+        ).toBeLessThan(
+            (input.uiRuntime.onStreamResolved as jest.Mock).mock.invocationCallOrder[0] ?? 0
+        );
+        expect(
+            (input.uiRuntime.onStreamResolved as jest.Mock).mock.invocationCallOrder[0]
+        ).toBeLessThan(
+            (input.playback.playbackRecovery.resetPlaybackFailureGuard as jest.Mock)
+                .mock.invocationCallOrder[0] ?? 0
+        );
+    });
+
+    it('keeps the committed pair and reports a post-activation debug callback failure', async () => {
+        const program = makeProgram();
+        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+            getCurrentProgramForPlayback: jest.fn().mockReturnValue(program),
+            setCurrentProgramForPlayback: jest.fn(),
+            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
+            setCurrentStreamDescriptor: jest.fn(),
+            getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+            setCurrentStreamDecision: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            setPendingNowPlayingChannelId: jest.fn(),
+            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+        };
+        const input = makeInput(playbackState);
+        const debugError = new Error('debug callback failed');
+        (input.uiRuntime.onStreamResolved as jest.Mock).mockImplementationOnce(() => {
+            throw debugError;
+        });
+
+        await createPlaybackStartController(input).handleProgramStart(program);
+
+        expect(playbackState.setCurrentStreamDecision).toHaveBeenCalledTimes(1);
+        expect(playbackState.setCurrentStreamDescriptor).toHaveBeenCalledTimes(1);
+        expect(input.events.reportRecoverableAsyncFailure).toHaveBeenCalledWith(
+            'orchestrator.playbackStart.onStreamResolved',
+            'Playback stream-resolved callback failed after activation',
+            debugError
+        );
+        expect(input.playback.playbackRecovery.resetPlaybackFailureGuard).toHaveBeenCalledTimes(1);
+        expect(
+            (input.events.reportRecoverableAsyncFailure as jest.Mock).mock.invocationCallOrder[0]
+        ).toBeLessThan(
+            (input.playback.playbackRecovery.resetPlaybackFailureGuard as jest.Mock)
+                .mock.invocationCallOrder[0] ?? 0
+        );
+        expect(input.playback.playbackRecovery.attemptTranscodeFallbackForCurrentProgram).not.toHaveBeenCalled();
+        expect(input.playback.playbackRecovery.discardPreparedStream).not.toHaveBeenCalled();
+        expect(input.playback.playbackRecovery.handlePlaybackFailure).not.toHaveBeenCalled();
     });
 
     it('keeps playback start current across same-occurrence scheduler rematerialization', async () => {
@@ -285,9 +347,7 @@ describe('PriorityOneControllerCollaborators', () => {
             schedulerState = makeSchedulerState(rematerializedProgram, {
                 isActive: true,
             });
-            return ({
-                id: 'stream-1',
-            } as unknown) as StreamDescriptor;
+            return makePrepared();
         });
 
         await createPlaybackStartController(input).handleProgramStart(program);
@@ -335,9 +395,7 @@ describe('PriorityOneControllerCollaborators', () => {
             schedulerState = makeSchedulerState(nextOccurrence, {
                 isActive: true,
             });
-            return ({
-                id: 'stream-1',
-            } as unknown) as StreamDescriptor;
+            return makePrepared();
         });
 
         await createPlaybackStartController(input).handleProgramStart(program);

@@ -1018,5 +1018,230 @@ Hello`,
 
             expect(global.URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
         });
+
+        it('terminates an explicit reselection after two transport failures without another fetch', async () => {
+            enableSubtitleDebugLogging();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const onDeactivate = jest.fn(() => true);
+            (global.fetch as jest.Mock).mockResolvedValue({
+                ok: false,
+                status: 500,
+                headers: { get: (): null => null },
+                text: async () => 'Server error',
+            });
+            manager.loadTracks([createMockSubtitleTrack({ id: 'transport' })], {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+                onDeactivate,
+            });
+
+            manager.setActiveTrack('transport');
+            await flushSubtitleMicrotasks(100);
+            expect(onDeactivate).toHaveBeenCalledTimes(1);
+            manager.setActiveTrack('transport');
+            await flushSubtitleMicrotasks(100);
+            expect(onDeactivate).toHaveBeenCalledTimes(2);
+            const fetchCountAfterTwoAttempts = (global.fetch as jest.Mock).mock.calls.length;
+
+            manager.setActiveTrack('transport');
+            await flushSubtitleMicrotasks();
+
+            expect(global.fetch).toHaveBeenCalledTimes(fetchCountAfterTwoAttempts);
+            expect(onDeactivate).toHaveBeenLastCalledWith({
+                trackId: 'transport',
+                reason: 'subtitle_text_attempt_exhausted',
+            });
+            expect(warnSpy.mock.calls.filter(
+                (call) => call[1] === 'SubtitleManager' && call[2] === 'subtitle_fallback_exhausted'
+            )).toHaveLength(1);
+        });
+
+        it.each([
+            ['cue-less', 'WEBVTT\n\n'],
+            ['malformed', 'this is not a subtitle cue'],
+        ])('bounds repeated %s fallback attachments to two attempts', async (_label, payload) => {
+            enableSubtitleDebugLogging();
+            const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+            const onDeactivate = jest.fn(() => true);
+            const onDeactivateRecovery = jest.fn().mockResolvedValue('handled');
+            (global.fetch as jest.Mock).mockResolvedValue({
+                ok: true,
+                status: 200,
+                text: async () => payload,
+            });
+            manager.loadTracks([createMockSubtitleTrack({ id: 'bounded' })], {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'secret-token' },
+                onDeactivate,
+                onDeactivateRecovery,
+            });
+
+            manager.setActiveTrack('bounded');
+            await flushSubtitleMicrotasks();
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect(global.URL.createObjectURL).toHaveBeenCalledTimes(1);
+
+            jest.advanceTimersByTime(2000);
+            await flushSubtitleMicrotasks();
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+
+            jest.advanceTimersByTime(1000);
+            await flushSubtitleMicrotasks();
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+            expect(global.URL.createObjectURL).toHaveBeenCalledTimes(2);
+            expect(videoElement.querySelectorAll('track#bounded')).toHaveLength(1);
+
+            jest.advanceTimersByTime(3000);
+            await flushSubtitleMicrotasks();
+
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+            expect(global.URL.createObjectURL).toHaveBeenCalledTimes(2);
+            expect(global.URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+            expect(videoElement.querySelectorAll('track#bounded')).toHaveLength(0);
+            expect(jest.getTimerCount()).toBe(0);
+            expect(onDeactivate).toHaveBeenCalledTimes(1);
+            expect(onDeactivate).toHaveBeenCalledWith({
+                trackId: 'bounded',
+                reason: 'subtitle_text_unusable_cues',
+            });
+            expect(onDeactivateRecovery).toHaveBeenCalledTimes(1);
+            const exhaustionLogs = warnSpy.mock.calls.filter(
+                (call) => call[1] === 'SubtitleManager' && call[2] === 'subtitle_fallback_exhausted'
+            );
+            expect(exhaustionLogs).toHaveLength(1);
+            expect(String(exhaustionLogs[0]?.[3])).not.toContain('secret-token');
+
+            const diagnosticCount = warnSpy.mock.calls.length;
+            manager.setActiveTrack('bounded');
+            manager.setActiveTrack('bounded');
+            await flushSubtitleMicrotasks();
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+            expect(warnSpy).toHaveBeenCalledTimes(diagnosticCount);
+        });
+
+        it('keeps the full blob cue window and accepts delayed cues without refetching', async () => {
+            const onDeactivate = jest.fn(() => true);
+            manager.loadTracks([createMockSubtitleTrack({ id: 'delayed' })], {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+                onDeactivate,
+            });
+            manager.setActiveTrack('delayed');
+            await flushSubtitleMicrotasks();
+            const trackElement = getTrackElement(videoElement, 'delayed');
+            const cues = { length: 0 };
+            Object.defineProperty(trackElement, 'track', {
+                configurable: true,
+                value: { cues, mode: 'hidden' },
+            });
+
+            jest.advanceTimersByTime(2000);
+            await flushSubtitleMicrotasks();
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+
+            cues.length = 1;
+            jest.advanceTimersByTime(1000);
+            await flushSubtitleMicrotasks();
+
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect(onDeactivate).not.toHaveBeenCalled();
+            expect(getTrackElement(videoElement, 'delayed')).toBe(trackElement);
+            expect(jest.getTimerCount()).toBe(0);
+        });
+
+        it('resets the attempt budget for a new load with the same track id', async () => {
+            (global.fetch as jest.Mock).mockResolvedValue({
+                ok: true,
+                status: 200,
+                text: async () => 'WEBVTT\n\n',
+            });
+            const track = createMockSubtitleTrack({ id: 'same-id' });
+            const context = {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+                onDeactivate: jest.fn(() => true),
+            };
+            manager.loadTracks([track], context);
+            manager.setActiveTrack('same-id');
+            await flushSubtitleMicrotasks();
+            jest.advanceTimersByTime(6000);
+            await flushSubtitleMicrotasks();
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+
+            manager.loadTracks([track], context);
+            manager.setActiveTrack('same-id');
+            await flushSubtitleMicrotasks();
+
+            expect(global.fetch).toHaveBeenCalledTimes(3);
+            manager.unloadTracks();
+            expect(jest.getTimerCount()).toBe(0);
+        });
+
+        it('aborts an in-flight fallback and leaves no timers or elements on destroy', async () => {
+            let capturedSignal: AbortSignal | undefined;
+            (global.fetch as jest.Mock).mockImplementation(
+                (_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
+                    capturedSignal = init?.signal ?? undefined;
+                    capturedSignal?.addEventListener('abort', () => {
+                        reject(new DOMException('Aborted', 'AbortError'));
+                    });
+                })
+            );
+            manager.loadTracks([createMockSubtitleTrack({ id: 'in-flight' })], {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            });
+            manager.setActiveTrack('in-flight');
+            await flushSubtitleMicrotasks();
+
+            manager.destroy();
+            await flushSubtitleMicrotasks();
+
+            expect(capturedSignal?.aborted).toBe(true);
+            expect(videoElement.querySelectorAll('track')).toHaveLength(0);
+            expect(jest.getTimerCount()).toBe(0);
+        });
+
+        it('keeps newer same-id fallback ownership when an aborted prior load settles late', async () => {
+            const signals: AbortSignal[] = [];
+            const rejectFetches: Array<(reason: unknown) => void> = [];
+            (global.fetch as jest.Mock).mockImplementation(
+                (_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
+                    const signal = init?.signal;
+                    if (signal) signals.push(signal);
+                    rejectFetches.push(reject);
+                })
+            );
+            const track = createMockSubtitleTrack({ id: 'same-id-deferred' });
+            const context = {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            };
+
+            manager.loadTracks([track], context);
+            manager.setActiveTrack(track.id);
+            await flushSubtitleMicrotasks();
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+
+            manager.loadTracks([track], context);
+            expect(signals[0]?.aborted).toBe(true);
+            manager.setActiveTrack(track.id);
+            await flushSubtitleMicrotasks();
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+
+            rejectFetches[0]?.(new DOMException('Late abort', 'AbortError'));
+            await flushSubtitleMicrotasks(30);
+            manager.setActiveTrack(track.id);
+            manager.setActiveTrack(track.id);
+            await flushSubtitleMicrotasks();
+
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+            manager.destroy();
+            expect(signals[1]?.aborted).toBe(true);
+            rejectFetches[1]?.(new DOMException('Destroyed', 'AbortError'));
+            await flushSubtitleMicrotasks(30);
+            expect(videoElement.querySelectorAll('track')).toHaveLength(0);
+            expect(jest.getTimerCount()).toBe(0);
+        });
     });
 });

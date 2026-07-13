@@ -10,6 +10,8 @@ import type {
 import type { PlexMediaFile } from '../../../plex/library';
 import type { PlexMediaType } from '../../../plex/shared/types';
 import type { IDisposable } from '../../../../utils/interfaces';
+import type { OperationContextUpstream } from '../../../../utils/RetainedOperationContext';
+import type { ChannelInitialResolutionAuthorization } from './ChannelResolutionAuthority';
 
 export interface IChannelManager {
     /**
@@ -37,6 +39,45 @@ export interface IChannelManager {
      * active persistence keys or deleting persisted channel data.
      */
     clearRuntimeState(): void;
+
+    /**
+     * Closes general content-resolution admission, cancels retry work, and waits
+     * for every tracked resolution to settle. Individual resolution failures are drained.
+     */
+    supersedeActiveResolutions(): Promise<void>;
+
+    /**
+     * Reopens general content-resolution admission after a completed scope transition.
+     * Calling while admission is already open is a no-op.
+     */
+    resumeActiveResolutions(): void;
+
+    /**
+     * Supersedes and drains active resolutions before clearing identity-scoped
+     * channel and resolver state. Resolution admission remains suspended.
+     */
+    clearRuntimeStateForScopeTransition(): Promise<void>;
+
+    /**
+     * Creates a single-use initial-tune authorization while general resolution
+     * admission is suspended.
+     * @throws AbortError when admission is active or the validator is not current.
+     */
+    createInitialTuneResolutionAuthorization(
+        channelId: string,
+        validator: OperationContextUpstream
+    ): ChannelInitialResolutionAuthorization;
+
+    /**
+     * Resolves the same channel authorized by createInitialTuneResolutionAuthorization.
+     * The authorization must be consumed exactly once before resume or supersession.
+     * @throws ChannelError when the channel does not exist.
+     * @throws AbortError for a mismatched, consumed, or superseded authorization.
+     */
+    resolveChannelContentForInitialTune(
+        channelId: string,
+        authorization: ChannelInitialResolutionAuthorization
+    ): Promise<ResolvedChannelContent>;
 
     getChannelByNumber(number: number): ChannelConfig | null;
 

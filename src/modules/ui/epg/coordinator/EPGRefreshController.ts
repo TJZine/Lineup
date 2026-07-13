@@ -17,6 +17,8 @@ import type { EpgVisibleRange } from '../types';
 import type { EPGScheduleRefreshRuntime } from '../runtime/EPGScheduleRefreshRuntime';
 import { EPGVisibleRangeRefreshQueue } from '../runtime/EPGVisibleRangeRefreshQueue';
 import { throwIfEpgRefreshAborted } from '../runtime/EPGRefreshAbort';
+import type { EpgRefreshInvocationOptions } from '../runtime/EPGGuardedVisibleRangeRefreshQueue';
+import type { EpgRetainedOperationContext } from '../runtime/EPGRetainedOperationContext';
 import {
     computeNormalizedLibraryFilterState,
     computeEpgScheduleRangeMs,
@@ -57,7 +59,7 @@ export interface EPGRefreshControllerDeps {
     ) => ScheduleConfig;
     appendIssueDiagnostic: AppendIssueDiagnostic;
     epgPreferencesStore: EpgPreferencesStore;
-    primeEpgChannels: () => void;
+    primeEpgChannels: (operationContext?: EpgRetainedOperationContext) => void;
 }
 
 type EPGScheduleRefreshRuntimeModule = typeof import('../runtime/EPGScheduleRefreshRuntime');
@@ -72,7 +74,9 @@ export class EPGRefreshController {
     constructor(private readonly _deps: EPGRefreshControllerDeps) {
         this._visibleRangeRefreshQueue = new EPGVisibleRangeRefreshQueue(
             (range: EpgVisibleRange, reason: string, signal?: AbortSignal | null) =>
-                this._refreshEpgSchedulesForRange(range, reason, signal)
+                this._refreshEpgSchedulesForRange(range, reason, signal ? { signal } : undefined),
+            (range: EpgVisibleRange, reason: string, options?: EpgRefreshInvocationOptions) =>
+                this._refreshEpgSchedulesForRange(range, reason, options)
         );
     }
 
@@ -258,21 +262,32 @@ export class EPGRefreshController {
         const epgState = epg.getState();
         const range = {
             channelStart: epgState.viewWindow.startChannelIndex,
-            channelEnd: epgState.viewWindow.endChannelIndex,
+            channelEndExclusive: epgState.viewWindow.endChannelIndexExclusive,
             timeStartMs: epgState.viewWindow.startTime,
             timeEndMs: epgState.viewWindow.endTime,
         };
         const reason = options?.reason ?? 'manual';
         if (options?.debounceMs !== undefined) {
-            return this.refreshEpgSchedulesForRange(range, { reason, debounceMs: options.debounceMs, signal });
+            if (!options.operationContext) {
+                return this.refreshEpgSchedulesForRange(range, { reason, debounceMs: options.debounceMs, signal });
+            }
+            return this.refreshEpgSchedulesForRange(range, {
+                reason,
+                debounceMs: options.debounceMs,
+                ...(signal ? { signal } : {}),
+                ...(options.operationContext ? { operationContext: options.operationContext } : {}),
+            });
         }
-        return this._refreshEpgSchedulesForRange(range, reason, signal);
+        return this._refreshEpgSchedulesForRange(range, reason, {
+            ...(signal ? { signal } : {}),
+            ...(options?.operationContext ? { operationContext: options.operationContext } : {}),
+        });
     }
 
     async refreshEpgSchedulesForRange(
         range: {
             channelStart: number;
-            channelEnd: number;
+            channelEndExclusive: number;
             timeStartMs: number;
             timeEndMs: number;
         },
@@ -282,11 +297,11 @@ export class EPGRefreshController {
     }
 
     async refreshEpgSchedulesForRangeNow(
-        range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
+        range: { channelStart: number; channelEndExclusive: number; timeStartMs: number; timeEndMs: number },
         reason: string,
         signal?: AbortSignal | null
     ): Promise<EpgScheduleRefreshResult> {
-        return this._refreshEpgSchedulesForRange(range, reason, signal);
+        return this._refreshEpgSchedulesForRange(range, reason, signal ? { signal } : undefined);
     }
 
     private _resolveLiveSchedulerRow(options?: {
@@ -455,13 +470,17 @@ export class EPGRefreshController {
     }
 
     private async _refreshEpgSchedulesForRange(
-        range: { channelStart: number; channelEnd: number; timeStartMs: number; timeEndMs: number },
+        range: { channelStart: number; channelEndExclusive: number; timeStartMs: number; timeEndMs: number },
         reason: string,
-        signal?: AbortSignal | null
+        options?: EpgRefreshInvocationOptions
     ): Promise<EpgScheduleRefreshResult> {
+        const signal = options?.signal ?? null;
+        const operationContext = options?.operationContext;
+        operationContext?.assertCurrent();
         throwIfEpgRefreshAborted(signal);
         const invalidation = this._scheduleRefreshRuntimeInvalidation;
         const runtime = await this._getScheduleRefreshRuntime();
+        operationContext?.assertCurrent();
         if (!runtime) {
             return createSkippedEpgScheduleRefreshResult();
         }
@@ -469,8 +488,12 @@ export class EPGRefreshController {
         if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
             return createSkippedEpgScheduleRefreshResult();
         }
-        return (signal
-            ? runtime.refreshForRange(range, reason, { signal })
-            : runtime.refreshForRange(range, reason));
+        const runtimeOptions = {
+            ...(signal ? { signal } : {}),
+            ...(operationContext ? { operationContext } : {}),
+        };
+        return signal || operationContext
+            ? runtime.refreshForRange(range, reason, runtimeOptions)
+            : runtime.refreshForRange(range, reason);
     }
 }

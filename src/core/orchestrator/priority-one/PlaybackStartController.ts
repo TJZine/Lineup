@@ -1,4 +1,4 @@
-import type { StreamDescriptor, IVideoPlayer } from '../../../modules/player';
+import type { PreparedPlaybackStream, IVideoPlayer } from '../../../modules/player';
 import type {
     ScheduledProgram,
     ScheduledProgramIdentity,
@@ -6,11 +6,15 @@ import type {
 
 export interface PlaybackStartControllerDeps {
     getVideoPlayer: () => Pick<IVideoPlayer, 'loadStream' | 'play'> | null;
-    resolveStreamForProgram: (program: ScheduledProgram) => Promise<StreamDescriptor | null | undefined>;
+    resolveStreamForProgram: (program: ScheduledProgram) => Promise<PreparedPlaybackStream>;
+    discardPreparedStream: (prepared: PreparedPlaybackStream) => Promise<void>;
     resetPlaybackFailureGuard: () => void;
     tryHandleStreamResolverAuthError: (error: unknown) => boolean;
     tryHandleStreamResolverPermissionError: (error: unknown) => boolean;
-    attemptTranscodeFallbackForCurrentProgram: (reason: string) => Promise<boolean>;
+    attemptTranscodeFallbackForCurrentProgram: (
+        reason: string,
+        attemptedStream?: PreparedPlaybackStream
+    ) => Promise<boolean>;
     handlePlaybackFailure: (context: string, error: unknown) => void;
     logPlaybackStartFailure: (error: unknown) => void;
     markProgramStarting: (
@@ -25,7 +29,9 @@ export interface PlaybackStartControllerDeps {
         programIdentityAtStart: ScheduledProgramIdentity | null
     ) => boolean;
     handleProgramStartUiSideEffects: (program: ScheduledProgram) => void;
-    handleStreamResolved: (stream: StreamDescriptor) => void;
+    commitPreparedStream: (prepared: PreparedPlaybackStream) => void;
+    handleStreamResolved: (prepared: PreparedPlaybackStream) => void;
+    reportRecoverableActivationFailure: (error: unknown) => void;
     clearAutoShowInfoBannerAfterAbortedStart: () => void;
 }
 
@@ -53,48 +59,70 @@ export class PlaybackStartController {
                 this._deps.clearAutoShowInfoBannerAfterAbortedStart();
             }
         };
+        let prepared: PreparedPlaybackStream | null = null;
+        let accepted: PreparedPlaybackStream | null = null;
+        let discarded = false;
+        const discardPrepared = async (): Promise<void> => {
+            if (!prepared || discarded) {
+                return;
+            }
+            discarded = true;
+            await this._deps.discardPreparedStream(prepared);
+        };
 
         try {
             this._deps.handleProgramStartUiSideEffects(programAtStart);
-            const stream = await this._deps.resolveStreamForProgram(programAtStart);
-
-            if (
-                isStale() ||
-                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart) ||
-                !stream
-            ) {
-                abort();
-                return;
-            }
-
-            this._deps.handleStreamResolved(stream);
-            await videoPlayer.loadStream(stream);
+            prepared = await this._deps.resolveStreamForProgram(programAtStart);
 
             if (
                 isStale() ||
                 !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
             ) {
+                await discardPrepared();
+                abort();
+                return;
+            }
+
+            await videoPlayer.loadStream(prepared.descriptor);
+
+            if (
+                isStale() ||
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
+            ) {
+                await discardPrepared();
                 abort();
                 return;
             }
 
             await videoPlayer.play();
-            this._deps.resetPlaybackFailureGuard();
+            if (
+                isStale() ||
+                !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
+            ) {
+                await discardPrepared();
+                abort();
+                return;
+            }
+
+            accepted = prepared;
         } catch (error) {
             if (
                 isStale() ||
                 !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
             ) {
+                await discardPrepared();
                 abort();
                 return;
             }
 
             if (this._deps.tryHandleStreamResolverAuthError(error)) {
+                await discardPrepared();
                 abort();
                 return;
             }
 
             if (this._deps.tryHandleStreamResolverPermissionError(error)) {
+                await discardPrepared();
                 abort();
                 return;
             }
@@ -102,8 +130,12 @@ export class PlaybackStartController {
             this._deps.logPlaybackStartFailure(error);
             let fallbackApplied = false;
             try {
-                fallbackApplied = await this._deps.attemptTranscodeFallbackForCurrentProgram('programStart');
+                fallbackApplied = await this._deps.attemptTranscodeFallbackForCurrentProgram(
+                    'programStart',
+                    prepared ?? undefined
+                );
             } catch {
+                await discardPrepared();
                 this._deps.handlePlaybackFailure('programStart', error);
                 abort();
                 return;
@@ -113,16 +145,32 @@ export class PlaybackStartController {
                 isStale() ||
                 !this._deps.isProgramStillCurrent(programAtStart, programIdentityAtStart)
             ) {
+                await discardPrepared();
                 abort();
                 return;
             }
 
+            await discardPrepared();
             if (fallbackApplied) {
                 abort();
                 return;
             }
             this._deps.handlePlaybackFailure('programStart', error);
             abort();
+            return;
+        }
+
+        if (!accepted) {
+            return;
+        }
+
+        this._deps.commitPreparedStream(accepted);
+        try {
+            this._deps.handleStreamResolved(accepted);
+        } catch (error: unknown) {
+            this._deps.reportRecoverableActivationFailure(error);
+        } finally {
+            this._deps.resetPlaybackFailureGuard();
         }
     }
 }

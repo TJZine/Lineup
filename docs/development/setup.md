@@ -40,8 +40,12 @@ Open `http://localhost:5173` and use the keyboard as a remote substitute:
 - `Enter`: OK
 - `Backspace` / `Escape`: Back
 - `G`: Guide
-- `Space`: Play/Pause
 - `I`: Info
+- `F1` / `F2` / `F3` / `F4`: Red / Green / Yellow / Blue
+- `Page Up` / `Page Down`: CH+ / CH-
+
+The remote's media Play/Pause keys do not have a keyboard alias. See the
+[Remote Control Reference](../user-guide/remote-keys.md) for context-specific routing.
 
 ## webOS Tooling
 

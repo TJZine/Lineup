@@ -9,6 +9,7 @@ import {
     readStoredBooleanMaybeAndClean,
     safeLocalStorageRemoveWithResult,
     safeLocalStorageSetWithResult,
+    safeLocalStorageGetWithResult,
     safeLocalStorageRemoveByPrefixes,
     writeTrimmedStringOrRemove,
     writeTrimmedStringOrRemoveWithResult,
@@ -22,6 +23,21 @@ describe('storage helpers', () => {
     it('reads booleans from storage keys', () => {
         localStorage.setItem('k', '1');
         expect(readStoredBoolean('k', false)).toBe(true);
+    });
+
+    it('safeLocalStorageGetWithResult distinguishes exact values from unavailable storage', () => {
+        localStorage.setItem('k', 'raw-value');
+        expect(safeLocalStorageGetWithResult('k')).toEqual({ ok: true, value: 'raw-value' });
+        expect(safeLocalStorageGetWithResult('missing')).toEqual({ ok: true, value: null });
+
+        const getSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+            throw new DOMException('blocked', 'SecurityError');
+        });
+        try {
+            expect(safeLocalStorageGetWithResult('k')).toEqual({ ok: false, reason: 'unavailable' });
+        } finally {
+            getSpy.mockRestore();
+        }
     });
 
     it('returns null for invalid stored boolean values and removes invalid entries', () => {

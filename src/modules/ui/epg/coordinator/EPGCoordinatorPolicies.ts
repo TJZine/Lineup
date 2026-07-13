@@ -201,20 +201,19 @@ const getBackgroundLookAheadCount = (
 
 export const partitionPrefetchChannels = (
     channels: ChannelConfig[],
-    range: { channelStart: number; channelEnd: number },
+    range: { channelStart: number; channelEndExclusive: number },
     ids: { liveChannelId: string | null; focusedChannelId: string | null },
     caps: PrefetchCaps
 ): {
     immediateChannels: ChannelConfig[];
     backgroundChannels: ChannelConfig[];
     overscan: number;
-    bufferedRange: { start: number; end: number };
-    backgroundRange: { start: number; end: number };
+    bufferedRange: { start: number; endExclusive: number };
+    backgroundRange: { start: number; endExclusive: number };
 } => {
     const overscan = getChannelOverscanCount(channels.length, caps.aggressive);
-    // `range.channelEnd` is inclusive (see visibleCount computation); Array#slice end is exclusive.
     const startIndex = Math.max(0, range.channelStart - overscan);
-    const endIndex = Math.min(channels.length, range.channelEnd + 1 + overscan);
+    const endIndex = Math.min(channels.length, range.channelEndExclusive + overscan);
 
     const immediateChannels: ChannelConfig[] = [];
     const immediateIds = new Set<string>();
@@ -253,8 +252,8 @@ export const partitionPrefetchChannels = (
         immediateChannels,
         backgroundChannels,
         overscan,
-        bufferedRange: { start: startIndex, end: endIndex },
-        backgroundRange: { start: warmStart, end: warmEnd },
+        bufferedRange: { start: startIndex, endExclusive: endIndex },
+        backgroundRange: { start: warmStart, endExclusive: warmEnd },
     };
 };
 

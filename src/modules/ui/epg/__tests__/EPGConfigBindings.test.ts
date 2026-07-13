@@ -24,7 +24,7 @@ describe('withEpgVisibleRangeChangeBinding', () => {
         };
         const range: EpgVisibleRange = {
             channelStart: 1,
-            channelEnd: 3,
+            channelEndExclusive: 3,
             timeStartMs: 1_000,
             timeEndMs: 2_000,
         };

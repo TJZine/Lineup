@@ -176,7 +176,7 @@ type PlexServerSelectionFailureReason =
   | 'access_denied';
 
 type PlexServerSelectionResult =
-  | { kind: 'selected' }
+  | { kind: 'selected'; receipt: PlexDiscoverySelectionReceipt }
   | { kind: 'server_not_found' }
   | { kind: 'connection_unavailable'; reason: PlexServerSelectionFailureReason };
 
@@ -189,8 +189,8 @@ function isPlexDiscoverySelectionSupersededError(
 type PlexSavedServerRestoreResult =
   | { kind: 'skipped_no_servers' }
   | { kind: 'skipped_no_saved_server' }
-  | { kind: 'already_selected'; serverId: string }
-  | { kind: 'selected'; serverId: string }
+  | { kind: 'already_selected'; serverId: string; receipt: PlexDiscoverySelectionReceipt }
+  | { kind: 'selected'; serverId: string; receipt: PlexDiscoverySelectionReceipt }
   | {
       kind: 'selection_failed';
       serverId: string;
@@ -246,7 +246,15 @@ interface IPlexServerDiscovery {
 
   captureSelectedServerSnapshot(): PlexDiscoverySelectedServerSnapshot;
 
-  restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void;
+  restoreSelectedServerSnapshot(
+    snapshot: PlexDiscoverySelectedServerSnapshot
+  ): PlexDiscoverySelectionReceipt;
+
+  captureCurrentSelectionReceipt(): PlexDiscoverySelectionReceipt | null;
+
+  getSelectionReceiptSignal(receipt: PlexDiscoverySelectionReceipt): AbortSignal;
+
+  assertSelectionReceiptCurrent(receipt: PlexDiscoverySelectionReceipt): void;
 
   getServers(): PlexServer[];
 
@@ -265,6 +273,8 @@ Discovery list and selected-server getters return defensive snapshots. Startup i
 - `already_selected`: the saved server is already the active selection.
 - `selected`: the saved server was restored and selected.
 - `selection_failed`: the saved server id could not be selected; inspect `reason` for `server_not_found`, `unreachable`, `auth_required`, or `access_denied`. When a saved id exists but discovery returns no servers, initialization returns `selection_failed` with `server_not_found` and clears that stale saved selection.
+
+Successful selection and saved-server restore results carry an opaque discovery-owned receipt. Callers may obtain its read-only invalidation signal and assert currentness through the discovery port, but cannot construct, compare, advance, or abort discovery authority. A successful replacement selection, clear, real storage-key change, or snapshot restore aborts prior receipts before mutating selected state. Failed probes and idempotent same-key configuration leave the current receipt valid. Snapshot restoration returns a fresh receipt for the restored selected or unselected scope; `captureCurrentSelectionReceipt()` remains selected-only.
 
 Callers may cancel their own discovery wait with `AbortSignal` without canceling the shared in-flight discovery used by other callers. Connection probes and selected-server selection accept caller cancellation signals and rethrow the caller's raw abort reason instead of converting explicit cancellation into an unreachable-server result.
 

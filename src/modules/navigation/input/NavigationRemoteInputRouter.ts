@@ -1,7 +1,14 @@
-import type { Direction, KeyEvent, RemoteButton } from '../contracts/interfaces';
+import type {
+    Direction,
+    KeyEvent,
+    NavigationModalPolicy,
+    RemoteButton,
+} from '../contracts/interfaces';
 
 interface NavigationRemoteInputRouterDeps {
     isInputBlocked: () => boolean;
+    isRuntimeCommandGated?: () => boolean;
+    getActiveModalPolicy?: () => NavigationModalPolicy | null;
     logInputSuppressed: (reason: string, button?: RemoteButton) => void;
     cancelDirectionalRepeat: () => void;
     emitKeyPress: (event: KeyEvent) => void;
@@ -45,6 +52,21 @@ export class NavigationRemoteInputRouter {
             this.deps.cancelDirectionalRepeat();
         }
 
+        if (
+            this.deps.isRuntimeCommandGated?.() === true
+            && this.deps.getActiveModalPolicy?.()?.blocksBackgroundCommands !== true
+        ) {
+            keyEvent.handled = true;
+            keyEvent.originalEvent.preventDefault();
+            this.deps.logInputSuppressed('runtime_command_gate', keyEvent.button);
+            return;
+        }
+
+        if (this.deps.getActiveModalPolicy?.()?.blocksBackgroundCommands === true) {
+            this._handleProtectedModalKeyEvent(keyEvent);
+            return;
+        }
+
         this.deps.emitKeyPress(keyEvent);
         if (keyEvent.handled) {
             return;
@@ -78,5 +100,21 @@ export class NavigationRemoteInputRouter {
                 }
                 break;
         }
+    }
+
+    private _handleProtectedModalKeyEvent(keyEvent: KeyEvent): void {
+        keyEvent.handled = true;
+        keyEvent.originalEvent.preventDefault();
+        this.deps.repairFocusDesync();
+
+        if (DIRECTIONAL_BUTTONS.has(keyEvent.button)) {
+            this.deps.handleDirectionalKeyDown(keyEvent.button as Direction, keyEvent.isRepeat);
+            return;
+        }
+        if (keyEvent.button === 'ok') {
+            this.deps.handleOk();
+            return;
+        }
+        this.deps.logInputSuppressed('protected_modal', keyEvent.button);
     }
 }

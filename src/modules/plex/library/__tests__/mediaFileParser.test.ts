@@ -84,4 +84,41 @@ describe('mediaFileParser', () => {
             })
         );
     });
+
+    it.each([
+        ['media file', 'duration', { id: '9', duration: '1000' }, 'a finite number'],
+        ['media file', 'videoCodec', { id: '9', videoCodec: 7 }, 'a string'],
+        ['media file', 'videoResolution', { id: '9', videoResolution: false }, 'a string'],
+        ['media part', 'size', { id: '9', Part: [{ id: '12', key: '/part', size: '10' }] }, 'a finite number'],
+        ['media part', 'file', { id: '9', Part: [{ id: '12', key: '/part', file: 10 }] }, 'a string'],
+        ['media part', 'videoProfile', { id: '9', Part: [{ id: '12', key: '/part', videoProfile: {} }] }, 'a string'],
+    ])('rejects a wrong-typed %s %s with a sanitized typed error', (context, field, raw, expected) => {
+        expect(() => parseMediaFiles([raw])).toThrow(expect.objectContaining({
+            code: AppErrorCode.PARSE_ERROR,
+            message: `Invalid ${context} payload: ${field} must be ${expected}`,
+        }));
+    });
+
+    it('keeps missing and null optional/default media values at their existing defaults', () => {
+        const [file] = parseMediaFiles([{
+            id: 9,
+            duration: null,
+            videoCodec: null,
+            Part: [{
+                id: 12,
+                key: '/library/parts/12',
+                size: null,
+                videoProfile: null,
+            }],
+        }]);
+
+        expect(file).toMatchObject({
+            id: '9',
+            duration: 0,
+            bitrate: 0,
+            videoCodec: '',
+            parts: [{ id: '12', size: 0, file: '', container: '' }],
+        });
+        expect(file?.parts[0]?.videoProfile).toBeUndefined();
+    });
 });

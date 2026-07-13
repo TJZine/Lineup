@@ -10,8 +10,11 @@ import type {
     LifecycleAppError,
 } from './types';
 import { AppErrorCode } from '../../types/app-errors';
-import { LifecycleStateStore } from './LifecycleStateStore';
-import { ErrorRecovery } from './ErrorRecovery';
+import {
+    FutureLifecycleStateVersionError,
+    LifecycleStateStore,
+} from './LifecycleStateStore';
+import { LifecycleErrorMessageCatalog } from './LifecycleErrorMessageCatalog';
 import { LifecycleConnectivityMonitor } from './LifecycleConnectivityMonitor';
 import { LifecycleMemoryMonitor } from './LifecycleMemoryMonitor';
 import { LifecycleStatePersistenceQueue } from './LifecycleStatePersistenceQueue';
@@ -28,7 +31,7 @@ import { createWebOsPlatformServices } from '../../platform';
 export class AppLifecycle implements IAppLifecycle {
     private readonly _emitter: EventEmitter<LifecycleEventMap>;
     private readonly _lifecycleStateStore: LifecycleStateStore;
-    private readonly _errorRecovery: ErrorRecovery;
+    private readonly _errorMessages: LifecycleErrorMessageCatalog;
     private readonly _statePersistenceQueue: LifecycleStatePersistenceQueue;
     private readonly _connectivityMonitor: LifecycleConnectivityMonitor;
     private readonly _memoryMonitor: LifecycleMemoryMonitor;
@@ -54,12 +57,12 @@ export class AppLifecycle implements IAppLifecycle {
 
     constructor(
         lifecycleStateStore?: LifecycleStateStore,
-        errorRecovery?: ErrorRecovery,
+        errorMessages?: LifecycleErrorMessageCatalog,
         lifecycleService?: PlatformLifecycleService
     ) {
         this._emitter = new EventEmitter<LifecycleEventMap>();
         this._lifecycleStateStore = lifecycleStateStore !== undefined ? lifecycleStateStore : new LifecycleStateStore();
-        this._errorRecovery = errorRecovery !== undefined ? errorRecovery : new ErrorRecovery();
+        this._errorMessages = errorMessages ?? new LifecycleErrorMessageCatalog();
         this._lifecycleService = lifecycleService ?? createWebOsPlatformServices().lifecycle;
         this._statePersistenceQueue = new LifecycleStatePersistenceQueue({
             lifecycleStateStore: this._lifecycleStateStore,
@@ -114,14 +117,25 @@ export class AppLifecycle implements IAppLifecycle {
         this._memoryMonitor.startMonitoring();
         this._connectivityMonitor.startMonitoring();
 
-        const savedState = this._lifecycleStateStore.load();
+        const loadResult = this._lifecycleStateStore.load();
+        if (loadResult.kind === 'future-version') {
+            this._statePersistenceQueue.blockSaves(
+                new FutureLifecycleStateVersionError(loadResult.version)
+            );
+        }
 
         // Auth is managed by PlexAuth storage; initialization settles in authenticating
         // before restored-state observers run so the phase contract is coherent.
         await this._transitionPhase('authenticating');
 
-        if (savedState !== null) {
-            this._emitter.emit('stateRestored', savedState);
+        if (loadResult.kind === 'loaded') {
+            this._emitter.emit('stateRestored', loadResult.state);
+        } else if (loadResult.kind === 'future-version') {
+            this._emitter.emit('persistenceWarning', {
+                message: 'Lifecycle state was created by a newer Lineup version and was preserved; saving is disabled',
+                isQuotaError: false,
+                timestamp: Date.now(),
+            });
         }
     }
 
@@ -278,7 +292,7 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     public getErrorUserMessage(code: AppErrorCode): string {
-        return this._errorRecovery.getUserMessage(code);
+        return this._errorMessages.getUserMessage(code);
     }
 
     public on<K extends keyof LifecycleEventMap>(
@@ -426,8 +440,10 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     private _buildCurrentState(): PersistentState {
-        const existingState =
-            this._lifecycleStateStore.load() ?? this._lifecycleStateStore.createDefaultState();
+        const loadResult = this._lifecycleStateStore.load();
+        const existingState = loadResult.kind === 'loaded'
+            ? loadResult.state
+            : this._lifecycleStateStore.createDefaultState();
 
         // Return lifecycle-owned state with updated timestamp.
         // Other modules own their own persistence boundaries and keys.

@@ -1,5 +1,6 @@
-import type { StreamDescriptor, IVideoPlayer } from '../../modules/player';
+import type { PreparedPlaybackStream, IVideoPlayer } from '../../modules/player';
 import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
+import { makePreparedPlaybackStream } from '../../__tests__/fixtures/preparedPlaybackStream';
 import {
     PlaybackStartController,
     type PlaybackStartControllerDeps,
@@ -25,6 +26,8 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
 
 type TestVideoPlayer = Pick<IVideoPlayer, 'loadStream' | 'play'>;
 
+const makePrepared = makePreparedPlaybackStream;
+
 const makeSetup = (
     overrides: Partial<jest.Mocked<PlaybackStartControllerDeps>> = {}
 ): {
@@ -40,8 +43,9 @@ const makeSetup = (
     const deps = {
         getVideoPlayer: jest.fn(() => videoPlayer),
         resolveStreamForProgram: jest.fn().mockResolvedValue(
-            { url: 'https://example.invalid/stream.m3u8' } as unknown as StreamDescriptor
+            makePrepared('https://example.invalid/stream.m3u8')
         ),
+        discardPreparedStream: jest.fn().mockResolvedValue(undefined),
         resetPlaybackFailureGuard: jest.fn(),
         tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
         tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
@@ -55,7 +59,9 @@ const makeSetup = (
         })),
         isProgramStillCurrent: jest.fn().mockReturnValue(true),
         handleProgramStartUiSideEffects: jest.fn(),
+        commitPreparedStream: jest.fn(),
         handleStreamResolved: jest.fn(),
+        reportRecoverableActivationFailure: jest.fn(),
         clearAutoShowInfoBannerAfterAbortedStart: jest.fn(),
         ...overrides,
     } as unknown as jest.Mocked<PlaybackStartControllerDeps>;
@@ -76,13 +82,38 @@ describe('PlaybackStartController', () => {
 
         expect(deps.markProgramStarting).toHaveBeenCalledWith(program);
         expect(deps.handleProgramStartUiSideEffects).toHaveBeenCalledWith(program);
-        expect(deps.handleStreamResolved).toHaveBeenCalledWith(
-            expect.objectContaining({ url: 'https://example.invalid/stream.m3u8' })
+        expect(deps.commitPreparedStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                descriptor: expect.objectContaining({ url: 'https://example.invalid/stream.m3u8' }),
+            })
         );
         expect(videoPlayer.loadStream).toHaveBeenCalledWith(
             expect.objectContaining({ url: 'https://example.invalid/stream.m3u8' })
         );
         expect(videoPlayer.play).toHaveBeenCalledTimes(1);
+        expect(deps.resetPlaybackFailureGuard).toHaveBeenCalledTimes(1);
+        expect(deps.discardPreparedStream).not.toHaveBeenCalled();
+    });
+
+    it('activates only after play resolves and the final start remains current', async () => {
+        let resolvePlay: () => void = () => undefined;
+        const playResult = new Promise<void>((resolve) => {
+            resolvePlay = resolve;
+        });
+        const { controller, deps, videoPlayer } = makeSetup();
+        (videoPlayer.play as jest.Mock).mockReturnValueOnce(playResult);
+
+        const start = controller.handleProgramStart(makeProgram());
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(deps.commitPreparedStream).not.toHaveBeenCalled();
+        expect(deps.resetPlaybackFailureGuard).not.toHaveBeenCalled();
+
+        resolvePlay();
+        await start;
+
+        expect(deps.commitPreparedStream).toHaveBeenCalledTimes(1);
         expect(deps.resetPlaybackFailureGuard).toHaveBeenCalledTimes(1);
     });
 
@@ -127,11 +158,11 @@ describe('PlaybackStartController', () => {
                 .mockResolvedValueOnce(undefined),
             play: jest.fn().mockResolvedValue(undefined),
         };
-        const { controller } = makeSetup({
+        const { controller, deps } = makeSetup({
             getVideoPlayer: jest.fn(() => videoPlayer),
             resolveStreamForProgram: jest.fn()
-                .mockResolvedValueOnce({ url: 'https://example.invalid/a.m3u8' } as unknown as StreamDescriptor)
-                .mockResolvedValueOnce({ url: 'https://example.invalid/b.m3u8' } as unknown as StreamDescriptor),
+                .mockResolvedValueOnce(makePrepared('https://example.invalid/a.m3u8'))
+                .mockResolvedValueOnce(makePrepared('https://example.invalid/b.m3u8')),
         });
 
         const firstPromise = controller.handleProgramStart(programA);
@@ -141,6 +172,86 @@ describe('PlaybackStartController', () => {
         await firstPromise;
 
         expect(videoPlayer.play).toHaveBeenCalledTimes(1);
+        expect(deps.commitPreparedStream).toHaveBeenCalledTimes(1);
+        expect(deps.discardPreparedStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                descriptor: expect.objectContaining({ url: 'https://example.invalid/a.m3u8' }),
+            })
+        );
+    });
+
+    it('discards a start superseded while stream preparation is pending', async () => {
+        const programA = makeProgram();
+        const programB = makeProgram({ scheduleIndex: 1 });
+        let resolveFirstPreparation: (prepared: PreparedPlaybackStream) => void = () => undefined;
+        const firstPreparation = new Promise<PreparedPlaybackStream>((resolve) => {
+            resolveFirstPreparation = resolve;
+        });
+        const { controller, deps, videoPlayer } = makeSetup({
+            resolveStreamForProgram: jest.fn()
+                .mockReturnValueOnce(firstPreparation)
+                .mockResolvedValueOnce(makePrepared('https://example.invalid/b.m3u8')),
+            markProgramStarting: jest.fn((program: ScheduledProgram) => ({
+                programAtStart: program,
+                programIdentityAtStart: null,
+                shouldResetAutoShowInfoBannerOnAbort: true,
+            })),
+        });
+
+        const firstStart = controller.handleProgramStart(programA);
+        await controller.handleProgramStart(programB);
+        resolveFirstPreparation(makePrepared('https://example.invalid/a.m3u8'));
+        await firstStart;
+
+        expect(videoPlayer.loadStream).toHaveBeenCalledTimes(1);
+        expect(deps.commitPreparedStream).toHaveBeenCalledTimes(1);
+        expect(deps.discardPreparedStream).toHaveBeenCalledTimes(1);
+        expect(deps.discardPreparedStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                descriptor: expect.objectContaining({ url: 'https://example.invalid/a.m3u8' }),
+            })
+        );
+        expect(deps.clearAutoShowInfoBannerAfterAbortedStart).toHaveBeenCalledTimes(1);
+    });
+
+    it('discards a start superseded while play is pending', async () => {
+        const programA = makeProgram();
+        const programB = makeProgram({ scheduleIndex: 1 });
+        let resolveFirstPlay: () => void = () => undefined;
+        const firstPlay = new Promise<void>((resolve) => {
+            resolveFirstPlay = resolve;
+        });
+        const videoPlayer: TestVideoPlayer = {
+            loadStream: jest.fn().mockResolvedValue(undefined),
+            play: jest.fn()
+                .mockReturnValueOnce(firstPlay)
+                .mockResolvedValueOnce(undefined),
+        };
+        const { controller, deps } = makeSetup({
+            getVideoPlayer: jest.fn(() => videoPlayer),
+            resolveStreamForProgram: jest.fn()
+                .mockResolvedValueOnce(makePrepared('https://example.invalid/a.m3u8'))
+                .mockResolvedValueOnce(makePrepared('https://example.invalid/b.m3u8')),
+        });
+
+        const firstStart = controller.handleProgramStart(programA);
+        await Promise.resolve();
+        await Promise.resolve();
+        await controller.handleProgramStart(programB);
+        resolveFirstPlay();
+        await firstStart;
+
+        expect(deps.commitPreparedStream).toHaveBeenCalledTimes(1);
+        expect(deps.commitPreparedStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                descriptor: expect.objectContaining({ url: 'https://example.invalid/b.m3u8' }),
+            })
+        );
+        expect(deps.discardPreparedStream).toHaveBeenCalledWith(
+            expect.objectContaining({
+                descriptor: expect.objectContaining({ url: 'https://example.invalid/a.m3u8' }),
+            })
+        );
     });
 
     it('suppresses stale in-flight start rejection after a newer program arrives', async () => {
@@ -170,8 +281,8 @@ describe('PlaybackStartController', () => {
         const { controller, deps } = makeSetup({
             getVideoPlayer: jest.fn(() => videoPlayer),
             resolveStreamForProgram: jest.fn()
-                .mockResolvedValueOnce({ url: 'https://example.invalid/a.m3u8' } as unknown as StreamDescriptor)
-                .mockResolvedValueOnce({ url: 'https://example.invalid/b.m3u8' } as unknown as StreamDescriptor),
+                .mockResolvedValueOnce(makePrepared('https://example.invalid/a.m3u8'))
+                .mockResolvedValueOnce(makePrepared('https://example.invalid/b.m3u8')),
         });
 
         const firstPromise = controller.handleProgramStart(programA);
@@ -187,24 +298,6 @@ describe('PlaybackStartController', () => {
         expect(deps.handlePlaybackFailure).not.toHaveBeenCalledWith('programStart', staleError);
     });
 
-    it('clears the pending auto-show flag when an aborted start was carrying it', async () => {
-        const program = makeProgram();
-        const { controller, deps, videoPlayer } = makeSetup({
-            resolveStreamForProgram: jest.fn().mockResolvedValue(null),
-            markProgramStarting: jest.fn((currentProgram: ScheduledProgram) => ({
-                programAtStart: currentProgram,
-                programIdentityAtStart: null,
-                shouldResetAutoShowInfoBannerOnAbort: true,
-            })),
-        });
-
-        await controller.handleProgramStart(program);
-
-        expect(deps.clearAutoShowInfoBannerAfterAbortedStart).toHaveBeenCalledTimes(1);
-        expect(videoPlayer.play).not.toHaveBeenCalled();
-        expect(deps.handlePlaybackFailure).not.toHaveBeenCalled();
-    });
-
     it('attempts transcode fallback before surfacing a playback start failure', async () => {
         const loadError = new Error('direct load failed');
         const { controller, deps, videoPlayer } = makeSetup();
@@ -214,7 +307,10 @@ describe('PlaybackStartController', () => {
         await controller.handleProgramStart(makeProgram());
 
         expect(deps.logPlaybackStartFailure).toHaveBeenCalledWith(loadError);
-        expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith('programStart');
+        expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith(
+            'programStart',
+            expect.objectContaining({ descriptor: expect.any(Object) })
+        );
         expect(deps.handlePlaybackFailure).not.toHaveBeenCalled();
     });
 
@@ -225,7 +321,10 @@ describe('PlaybackStartController', () => {
 
         await controller.handleProgramStart(makeProgram());
 
-        expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith('programStart');
+        expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith(
+            'programStart',
+            expect.objectContaining({ descriptor: expect.any(Object) })
+        );
         expect(deps.handlePlaybackFailure).toHaveBeenCalledWith('programStart', loadError);
     });
 

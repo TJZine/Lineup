@@ -1,65 +1,41 @@
 import type { IPlexAuth } from '../../../modules/plex/auth';
-import {
-    type PlexDiscoverySignalOptions,
-    type IPlexServerDiscovery,
-    type PlexServerSelectionResult,
-    isPlexDiscoverySelectionSupersededError,
-} from '../../../modules/plex/discovery';
 import type {
-    EPGCoordinator,
-    IEPGComponent,
-} from '../../../modules/ui/epg';
-import {
-    InitializationCoordinator,
-    STARTUP_PHASE,
-} from '../../initialization/InitializationCoordinator';
-import {
-    ServerSelectionCoordinator,
-} from '../../server-selection/ServerSelectionCoordinator';
+    IPlexServerDiscovery,
+    PlexDiscoverySelectedServerSnapshot,
+    PlexDiscoverySelectionReceipt,
+    PlexDiscoverySignalOptions,
+    PlexServerSelectionResult,
+} from '../../../modules/plex/discovery';
+import type { EPGCoordinator, IEPGComponent } from '../../../modules/ui/epg';
+import { createEpgRetainedOperationContext } from '../../../modules/ui/epg/runtime/EPGRetainedOperationContext';
+import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
+import type { EpgScheduleRefreshResult } from '../../../shared/epgRefresh';
+import type { OperationContextUpstream } from '../../../utils/RetainedOperationContext';
+import type {
+    ChannelInitialTuneLineage,
+    ChannelInitialTunePermit,
+} from '../../channel-tuning/ChannelInitialTuneAuthority';
+import type {
+    SelectedServerInitializationResult,
+} from '../../initialization/InitializationSelectedServerTransaction';
+import type { InitializationSelectedServerLineage } from '../../initialization/InitializationStartupHandoff';
+import { InitializationCoordinator } from '../../initialization/InitializationCoordinator';
+import { ServerSelectionCoordinator } from '../../server-selection/ServerSelectionCoordinator';
 import {
     SelectedServerPersistenceAdapter,
+    type SelectedServerPersistenceEvidence,
+    type SelectedServerPersistenceProof,
 } from '../../server-selection/SelectedServerPersistenceAdapter';
-import {
-    SelectedServerRuntimeController,
-} from '../../server-selection/SelectedServerRuntimeController';
-import {
-    isSelectionAbortError,
-    throwIfSelectionAborted,
-} from '../../server-selection/ServerSelectionAbort';
+import { SelectedServerRuntimeController } from '../../server-selection/SelectedServerRuntimeController';
+import { clearPersistedSelectedServer } from '../../server-selection/SelectedServerClearPersistence';
 import type {
-    DiscoverySelectedServerSnapshot,
-    OrchestratorServerSelectionReadiness,
+    SelectedServerQuarantineCommandState,
+} from '../../server-selection/SelectedServerQuarantineRecoveryState';
+import { restoreUnselectedServerRuntime } from '../../server-selection/SelectedServerUnselectedRestoration';
+import type {
     OrchestratorServerSelectionResult,
-    PersistedSelectedServerSnapshot,
     SelectedServerPersistenceResult,
-    SelectedServerStartupResumeResult,
 } from '../../server-selection/ServerSelectionTypes';
-import {
-    captureRecoverableRuntimeResultAsync,
-} from './OrchestratorRecoverableRuntimeResult';
-import type {
-    EpgScheduleRefreshOutcome,
-    EpgScheduleRefreshResult,
-} from '../../../shared/epgRefresh';
-
-function toEpgScheduleRefreshOutcome(result: EpgScheduleRefreshResult): EpgScheduleRefreshOutcome {
-    switch (result.readiness) {
-        case 'ready':
-            return { kind: 'succeeded', result: { ...result, readiness: result.readiness } };
-        case 'superseded':
-            return { kind: 'superseded', result: { ...result, readiness: result.readiness } };
-        case 'skipped':
-        case 'partial':
-        case 'failed':
-            return { kind: 'degraded', result: { ...result, readiness: result.readiness } };
-        default:
-            return assertUnhandledEpgRefreshReadiness(result.readiness);
-    }
-}
-
-function assertUnhandledEpgRefreshReadiness(readiness: never): never {
-    throw new Error(`Unhandled EPG refresh readiness: ${String(readiness)}`);
-}
 
 export interface OrchestratorServerSelectionRuntimeDeps {
     assertNotShutdown(method: string): void;
@@ -68,247 +44,195 @@ export interface OrchestratorServerSelectionRuntimeDeps {
     getInitializationCoordinator(): InitializationCoordinator | null;
     getEpg(): IEPGComponent | null;
     getEpgCoordinator(): EPGCoordinator | null;
-    isReady(): boolean;
-    reportError(event: string, message: string, error: unknown, data?: Record<string, unknown>): void;
-    throwModuleInitPreconditionError(
-        message: string,
-        context: Record<string, unknown>
-    ): never;
+    suspendAndDrainForScopeTransition(): Promise<void>;
+    resumeAfterScopeTransition(): void;
+    beginInitialTuneLineage(validators: readonly OperationContextUpstream[]): ChannelInitialTuneLineage;
+    mintInitialTunePermit(lineage: ChannelInitialTuneLineage): ChannelInitialTunePermit;
+    completeInitialTuneLineage(lineage: ChannelInitialTuneLineage): void;
+    switchToInitialChannel(channelId: string, permit: ChannelInitialTunePermit): Promise<ChannelSwitchOutcome>;
+    clearIdentityScopedRuntime(): void;
+    prepareQuarantineRuntime(): Promise<void>;
+    releaseQuarantineRuntimeGate(): void;
+    configureChannelManagerStorage(): Promise<void>;
+    publishPendingServerModules(): void;
+    setReady(ready: boolean): void;
+    publishLoadingLifecycle(): void;
+    openServerSelect(): void;
+    exitApplication(): Promise<void>;
+    throwModuleInitPreconditionError(message: string, context: Record<string, unknown>): never;
 }
 
 export class OrchestratorServerSelectionRuntime {
-    private readonly _selectedServerPersistenceAdapter: SelectedServerPersistenceAdapter;
-    private readonly _selectedServerRuntimeController: SelectedServerRuntimeController;
-    private readonly _serverSelectionCoordinator: ServerSelectionCoordinator;
-    private _serverSwapEpgRollbackPending = false;
+    private readonly _persistence: SelectedServerPersistenceAdapter;
+    private readonly _runtimeController: SelectedServerRuntimeController;
+    private readonly _coordinator: ServerSelectionCoordinator;
 
     constructor(private readonly _deps: OrchestratorServerSelectionRuntimeDeps) {
-        this._selectedServerPersistenceAdapter = new SelectedServerPersistenceAdapter({
+        this._persistence = new SelectedServerPersistenceAdapter({
             getCredentialsPort: (): IPlexAuth | null => this._deps.getPlexAuth(),
         });
-        this._selectedServerRuntimeController = new SelectedServerRuntimeController({
-            capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
-                this._selectedServerPersistenceAdapter.capturePersistedSelectionSnapshot(),
-            persistSelection: (
-                serverId: string | null,
-                serverUri: string | null
-            ): Promise<SelectedServerPersistenceResult> =>
-                this._selectedServerPersistenceAdapter.persistSelection(serverId, serverUri),
-            restorePersistedSelectionSnapshot: (
-                snapshot: PersistedSelectedServerSnapshot
-            ): Promise<SelectedServerPersistenceResult> =>
-                this._selectedServerPersistenceAdapter.restorePersistedSelectionSnapshot(snapshot),
-            resumeStartupAfterSelection: (
-                options?: PlexDiscoverySignalOptions
-            ): Promise<SelectedServerStartupResumeResult> =>
-                this._resumeStartupAfterSelectedServerChange(options),
-            clearDiscoverySelection: (): void => {
-                const plexDiscovery = this._deps.getPlexDiscovery();
-                if (!plexDiscovery) {
-                    this._deps.throwModuleInitPreconditionError(
-                        'IPlexServerDiscovery not initialized while clearing selected server',
-                        {
-                            method: 'clearSelectedServer',
-                            dependency: 'IPlexServerDiscovery',
-                        }
-                    );
-                }
-                try {
-                    plexDiscovery.clearSelection();
-                } catch (error) {
-                    if (!isPlexDiscoverySelectionSupersededError(error)) throw error;
-                }
-            },
+        this._runtimeController = new SelectedServerRuntimeController({
+            clearPersistedSelection: (): Promise<SelectedServerPersistenceResult> =>
+                Promise.resolve(clearPersistedSelectedServer(this._deps.getPlexAuth())),
+            clearDiscoverySelection: (): void => this._requireDiscovery('clearSelectedServer').clearSelection(),
         });
-        this._serverSelectionCoordinator = new ServerSelectionCoordinator({
-            captureDiscoverySelectionSnapshot: (): DiscoverySelectedServerSnapshot =>
-                this._captureDiscoverySelectedServerSnapshot(),
-            restoreDiscoverySelectionSnapshot: (snapshot: DiscoverySelectedServerSnapshot): void => {
-                this._restoreDiscoverySelectedServerSnapshot(snapshot);
-            },
-            capturePersistedSelectionSnapshot: (): Promise<PersistedSelectedServerSnapshot> =>
-                this._selectedServerRuntimeController.capturePersistedSelectionSnapshot(),
-            selectServer: async (
-                serverId: string,
-                options?: PlexDiscoverySignalOptions
-            ): Promise<PlexServerSelectionResult> => {
-                this._deps.getInitializationCoordinator()?.clearServerResume();
-                const plexDiscovery = this._requirePlexDiscovery('selectServer');
-                return plexDiscovery.selectServer(serverId, options);
-            },
+        this._coordinator = new ServerSelectionCoordinator({
+            captureDiscoverySelectionSnapshot: (): PlexDiscoverySelectedServerSnapshot =>
+                this._requireDiscovery('selectServer')
+                .captureSelectedServerSnapshot(),
+            restoreDiscoverySelectionSnapshot: (snapshot): PlexDiscoverySelectionReceipt =>
+                this._requireDiscovery('selectServer')
+                .restoreSelectedServerSnapshot(snapshot),
+            getSelectionReceiptSignal: (receipt): AbortSignal => this._requireDiscovery('selectServer')
+                .getSelectionReceiptSignal(receipt),
+            assertSelectionReceiptCurrent: (receipt): void => this._requireDiscovery('selectServer')
+                .assertSelectionReceiptCurrent(receipt),
+            capturePersistenceEvidence: (): SelectedServerPersistenceEvidence =>
+                this._persistence.capturePersistenceEvidence(),
+            persistCandidateSelection: (evidence, serverId, serverUri): SelectedServerPersistenceProof =>
+                this._persistence.persistCandidateSelection(evidence, serverId, serverUri),
+            restorePersistenceEvidence: (evidence): SelectedServerPersistenceProof =>
+                this._persistence.restorePersistenceEvidence(evidence),
+            assertPersistenceEvidenceCurrent: (evidence): void =>
+                this._persistence.assertPersistenceEvidenceCurrent(evidence),
+            selectServer: (serverId, options): Promise<PlexServerSelectionResult> =>
+                this._requireDiscovery('selectServer')
+                .selectServer(serverId, options),
             getSelectedServerUri: (): string | null =>
-                this._deps.getPlexDiscovery()?.getServerUri() ?? null,
-            persistSelection: async (
-                serverId: string,
-                serverUri: string | null
-            ): Promise<SelectedServerPersistenceResult> =>
-                this._selectedServerRuntimeController.persistSelection(serverId, serverUri),
-            restorePersistedSelectionSnapshot: (
-                snapshot: PersistedSelectedServerSnapshot
-            ): Promise<SelectedServerPersistenceResult> =>
-                this._selectedServerRuntimeController.restorePersistedSelectionSnapshot(snapshot),
-            resumeStartupAfterSelection: (
-                options?: PlexDiscoverySignalOptions
-            ): Promise<SelectedServerStartupResumeResult> =>
-                this._selectedServerRuntimeController.resumeStartupAfterSelection(options),
-            rollbackStartupAfterSelectionFailure: (): void => {
-                this._rollbackServerSwapEpgSideEffects();
-            },
-            getReadiness: (): OrchestratorServerSelectionReadiness =>
-                (this._deps.isReady() ? 'ready' : 'startup_pending'),
+                this._requireDiscovery('selectServer').getServerUri(),
+            suspendAndDrainForScopeTransition: this._deps.suspendAndDrainForScopeTransition,
+            resumeAfterScopeTransition: this._deps.resumeAfterScopeTransition,
+            beginInitialTuneLineage: this._deps.beginInitialTuneLineage,
+            completeInitialTuneLineage: this._deps.completeInitialTuneLineage,
+            beginSelectedServerLineage: (): InitializationSelectedServerLineage =>
+                this._requireInitialization()
+                .beginSelectedServerLineage(),
+            releaseSelectedServerLineage: (lineage): void => this._requireInitialization()
+                .releaseSelectedServerLineage(lineage),
+            getSupersedingStartupHandoff: (
+                lineage: InitializationSelectedServerLineage
+            ): Promise<void> | null => this._requireInitialization()
+                .getSupersedingStartupHandoff(lineage),
+            runSelectedServerInitialization: (options): Promise<SelectedServerInitializationResult> =>
+                this._runSelectedServerInitialization(options),
+            restoreUnselectedRuntime: (operation): Promise<void> =>
+                this._restoreUnselectedRuntime(operation),
+            prepareQuarantineRuntime: this._deps.prepareQuarantineRuntime,
+            releaseQuarantineRuntimeGate: this._deps.releaseQuarantineRuntimeGate,
+            exitQuarantine: this._deps.exitApplication,
         });
     }
 
     getSelectedServerId(): string | null {
-        const plexDiscovery = this._deps.getPlexDiscovery();
-        if (!plexDiscovery) {
-            return null;
-        }
-        if (!plexDiscovery.isConnected() || !plexDiscovery.getSelectedConnection()) {
-            return null;
-        }
-        const server = plexDiscovery.getSelectedServer();
-        return server ? server.id : null;
+        const discovery = this._deps.getPlexDiscovery();
+        if (!discovery?.isConnected() || !discovery.getSelectedConnection()) return null;
+        return discovery.getSelectedServer()?.id ?? null;
     }
 
-    async selectServer(
+    selectServer(
         serverId: string,
         options?: PlexDiscoverySignalOptions
     ): Promise<OrchestratorServerSelectionResult> {
-        this._requirePlexDiscovery('selectServer');
-        return this._serverSelectionCoordinator.selectServer(serverId, options);
+        this._requireDiscovery('selectServer');
+        return this._coordinator.selectServer(serverId, options);
     }
 
     async clearSelectedServer(): Promise<void> {
-        this._requirePlexDiscovery('clearSelectedServer');
-        await this._selectedServerRuntimeController.clearSelection();
+        this._requireDiscovery('clearSelectedServer');
+        await this._runtimeController.clearSelection();
     }
 
-    private _requirePlexDiscovery(method: 'selectServer' | 'clearSelectedServer'): IPlexServerDiscovery {
-        this._deps.assertNotShutdown(method);
-        const plexDiscovery = this._deps.getPlexDiscovery();
-        if (!plexDiscovery) {
-            this._deps.throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
-                method,
-                dependency: 'PlexServerDiscovery',
-            });
-        }
-        return plexDiscovery;
+    getQuarantineState(): SelectedServerQuarantineCommandState {
+        return this._coordinator.getQuarantineState();
     }
 
-    private _captureDiscoverySelectedServerSnapshot(): DiscoverySelectedServerSnapshot {
-        const plexDiscovery = this._deps.getPlexDiscovery();
-        if (!plexDiscovery) {
-            return {
-                server: null,
-                connection: null,
-                storedServerId: null,
-            };
-        }
-
-        return plexDiscovery.captureSelectedServerSnapshot();
+    retryQuarantineRecovery(): Promise<void> {
+        return this._coordinator.retryQuarantineRecovery();
     }
 
-    private _restoreDiscoverySelectedServerSnapshot(snapshot: DiscoverySelectedServerSnapshot): void {
-        this._deps.getPlexDiscovery()?.restoreSelectedServerSnapshot(snapshot);
+    exitQuarantine(): Promise<void> {
+        return this._coordinator.exitQuarantine();
     }
 
-    private async _resumeStartupAfterSelectedServerChange(
-        options?: PlexDiscoverySignalOptions
-    ): Promise<SelectedServerStartupResumeResult> {
-        this._serverSwapEpgRollbackPending = false;
-        const signal = options?.signal;
-        const initCoordinator = this._deps.getInitializationCoordinator();
-        if (!initCoordinator) {
-            return {
-                startup: 'skipped_no_coordinator',
-                epgRefresh: { kind: 'skipped_no_coordinator' },
-            };
-        }
-
-        let step = 'runStartup';
-
-        try {
-            throwIfSelectionAborted(signal);
-            await initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION, options);
-            throwIfSelectionAborted(signal);
-
-            const epgCoordinator = this._deps.getEpgCoordinator();
-            if (!epgCoordinator) {
-                return {
-                    startup: 'completed',
-                    epgRefresh: { kind: 'skipped_no_coordinator' },
-                };
-            }
-            const epg = this._deps.getEpg();
-
-            step = 'clearSelectedChannelScheduleSnapshot';
-            throwIfSelectionAborted(signal);
-            this._serverSwapEpgRollbackPending = true;
-            epgCoordinator.clearSelectedChannelScheduleSnapshot();
-
-            step = 'clearScheduleCaches';
-            epgCoordinator.clearScheduleCaches();
-
-            if (epg) {
-                step = 'clearSchedules';
-                epg.clearSchedules();
-            }
-
-            step = 'primeEpgChannels';
-            epgCoordinator.primeEpgChannels();
-
-            step = 'refreshEpgSchedules';
-            const refreshOptions = signal
-                ? { reason: 'server-swap', signal }
-                : { reason: 'server-swap' };
-            const refreshResult = await captureRecoverableRuntimeResultAsync(
-                async () => epgCoordinator.refreshEpgSchedules(refreshOptions)
-            );
-            if (!refreshResult.ok) {
-                if (isSelectionAbortError(refreshResult.error, signal)) {
-                    throw refreshResult.error;
-                }
-                this._deps.reportError(
-                    'orchestrator.serverSwap.refreshEpgSchedules',
-                    'Post-selection EPG refresh failed',
-                    refreshResult.error,
-                    { step }
-                );
-                this._serverSwapEpgRollbackPending = false;
-                return {
-                    startup: 'completed',
-                    epgRefresh: { kind: 'failed', error: refreshResult.error },
-                };
-            }
-            this._serverSwapEpgRollbackPending = false;
-            return {
-                startup: 'completed',
-                epgRefresh: toEpgScheduleRefreshOutcome(refreshResult.value),
-            };
-        } catch (error) {
-            if (isSelectionAbortError(error, signal)) {
-                throw error;
-            }
-            this._deps.reportError(
-                'orchestrator.serverSwap.runStartup',
-                'Post-selection runtime swap failed',
-                error,
-                { step }
-            );
-            throw error;
-        }
+    private async _runSelectedServerInitialization(options: {
+        lineage: ChannelInitialTuneLineage;
+        startupLineage: InitializationSelectedServerLineage;
+        operation: OperationContextUpstream & { signal: AbortSignal };
+    }): Promise<SelectedServerInitializationResult> {
+        const initialization = this._deps.getInitializationCoordinator();
+        if (!initialization) return { kind: 'failed', error: new Error('Initialization unavailable.') };
+        return initialization.runSelectedServerTransaction({
+            lineage: options.lineage,
+            signal: options.operation.signal,
+            assertCurrent: (): void => options.operation.assertCurrent(),
+            beforeCommit: (operation) => this._refreshEpgForSelectedServer(operation),
+            initialTune: (channelId, lineage) => this._runInitialTune(channelId, lineage),
+        });
     }
 
-    private _rollbackServerSwapEpgSideEffects(): void {
-        if (!this._serverSwapEpgRollbackPending) {
-            return;
-        }
-        this._serverSwapEpgRollbackPending = false;
+    private async _refreshEpgForSelectedServer(
+        operation: OperationContextUpstream
+    ): Promise<EpgScheduleRefreshResult> {
+        operation.assertCurrent();
         const epgCoordinator = this._deps.getEpgCoordinator();
-        const epg = this._deps.getEpg();
-        epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-        epgCoordinator?.clearScheduleCaches();
-        epg?.clearSchedules();
+        if (!epgCoordinator) throw new Error('EPG coordinator unavailable.');
+        const epgOperation = createEpgRetainedOperationContext([operation]);
+        try {
+            epgCoordinator.clearSelectedChannelScheduleSnapshot();
+            operation.assertCurrent();
+            epgCoordinator.clearScheduleCaches();
+            operation.assertCurrent();
+            this._deps.getEpg()?.clearSchedules();
+            operation.assertCurrent();
+            epgCoordinator.primeEpgChannels(epgOperation);
+            operation.assertCurrent();
+            return await epgCoordinator.refreshEpgSchedules({
+                reason: 'server-swap',
+                operationContext: epgOperation,
+            });
+        } finally {
+            epgOperation.release();
+        }
+    }
+
+    private _runInitialTune(
+        channelId: string,
+        lineage: ChannelInitialTuneLineage
+    ): Promise<ChannelSwitchOutcome> {
+        const permit = this._deps.mintInitialTunePermit(lineage);
+        return this._deps.switchToInitialChannel(channelId, permit);
+    }
+
+    private _restoreUnselectedRuntime(
+        operation: OperationContextUpstream & { signal: AbortSignal }
+    ): Promise<void> {
+        return restoreUnselectedServerRuntime({
+            cancelRuntimeWork: this._deps.suspendAndDrainForScopeTransition,
+            clearIdentityScopedRuntime: this._deps.clearIdentityScopedRuntime,
+            configureChannelManagerStorage: this._deps.configureChannelManagerStorage,
+            publishPendingServerModules: this._deps.publishPendingServerModules,
+            setReady: this._deps.setReady,
+            publishLoadingLifecycle: this._deps.publishLoadingLifecycle,
+            openServerSelect: this._deps.openServerSelect,
+        }, (): void => operation.assertCurrent());
+    }
+
+    private _requireDiscovery(method: 'selectServer' | 'clearSelectedServer'): IPlexServerDiscovery {
+        this._deps.assertNotShutdown(method);
+        const discovery = this._deps.getPlexDiscovery();
+        if (discovery) return discovery;
+        return this._deps.throwModuleInitPreconditionError('PlexServerDiscovery not initialized', {
+            method,
+            dependency: 'PlexServerDiscovery',
+        });
+    }
+
+    private _requireInitialization(): InitializationCoordinator {
+        const initialization = this._deps.getInitializationCoordinator();
+        if (initialization) return initialization;
+        return this._deps.throwModuleInitPreconditionError('InitializationCoordinator not initialized', {
+            method: 'selectServer',
+            dependency: 'InitializationCoordinator',
+        });
     }
 }

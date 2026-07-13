@@ -1,6 +1,7 @@
 import { AppErrorCode } from '../../../types/app-errors';
 import { redactSensitiveTokens, redactUrlForLog } from '../../../utils/redact';
-import { fetchWithTimeout } from '../shared/fetchWithTimeout';
+import { readAbortSignalReason } from '../../../utils/abortSignalReason';
+import { fetchWithTimeoutAndConsume } from '../shared/fetchWithTimeout';
 import type { PlexLibraryConfig, PlexLibraryRequestIntent } from './interfaces';
 import { PLEX_LIBRARY_CONSTANTS } from './constants';
 import { PlexLibraryError } from './PlexLibraryError';
@@ -94,25 +95,24 @@ export class PlexLibraryRequestClient {
                     externalSignal.addEventListener('abort', onExternalAbort, { once: true });
                 }
 
-                let response: Response;
+                let responseOutcome: Awaited<ReturnType<typeof classifyFetchResponse<T>>>;
                 try {
-                    response = await fetchWithTimeout({
+                    responseOutcome = await fetchWithTimeoutAndConsume({
                         url,
                         init: buildFetchRequestInit(url, options, scope.headers),
                         timeoutMs: requestPolicy.timeoutMs,
                         upstreamSignal: externalSignal,
+                        consume: (response, signal) => classifyFetchResponse<T>(
+                            response,
+                            url,
+                            this._logger,
+                            redactUrlForLog,
+                            signal
+                        ),
                     });
                 } finally {
                     externalSignal?.removeEventListener('abort', onExternalAbort);
                 }
-                this._assertCurrent(scope, externalSignal);
-
-                const responseOutcome = await classifyFetchResponse<T>(
-                    response,
-                    url,
-                    this._logger,
-                    redactUrlForLog
-                );
                 this._assertCurrent(scope, externalSignal);
 
                 switch (responseOutcome.kind) {
@@ -140,7 +140,7 @@ export class PlexLibraryRequestClient {
                             );
                         }
                         rateLimitRetries++;
-                        await this._delay(responseOutcome.retryAfterMs);
+                        await this._delay(responseOutcome.retryAfterMs, externalSignal);
                         this._assertCurrent(scope, externalSignal);
                         continue;
                     case 'notFound':
@@ -150,7 +150,10 @@ export class PlexLibraryRequestClient {
                         if (!serverErrorRetried) {
                             serverErrorRetried = true;
                             this._logger.warn(`[PlexLibrary] Server error ${responseOutcome.status}, retrying after 2s...`);
-                            await this._delay(PLEX_LIBRARY_CONSTANTS.SERVER_ERROR_RETRY_DELAY);
+                            await this._delay(
+                                PLEX_LIBRARY_CONSTANTS.SERVER_ERROR_RETRY_DELAY,
+                                externalSignal
+                            );
                             this._assertCurrent(scope, externalSignal);
                             continue;
                         }
@@ -181,7 +184,7 @@ export class PlexLibraryRequestClient {
                                 ?? 4000;
                             this._logger.warn(`[PlexLibrary] Network timeout, retry ${timeoutRetries + 1}/${requestPolicy.maxTimeoutRetries} after ${delay}ms`);
                             timeoutRetries++;
-                            await this._delay(delay);
+                            await this._delay(delay, externalSignal);
                             this._assertCurrent(scope, externalSignal);
                             continue;
                         }
@@ -226,7 +229,38 @@ export class PlexLibraryRequestClient {
         }
     }
 
-    private _delay(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
+    private _delay(ms: number, signal: AbortSignal | null): Promise<void> {
+        if (signal?.aborted) {
+            return Promise.reject(readAbortSignalReason(signal));
+        }
+
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const cleanup = (): void => {
+                clearTimeout(timeoutId);
+                signal?.removeEventListener('abort', onAbort);
+            };
+            const resolveOnce = (): void => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                resolve();
+            };
+            const rejectOnce = (reason: unknown): void => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                reject(reason);
+            };
+            const onAbort = (): void => {
+                if (signal) rejectOnce(readAbortSignalReason(signal));
+            };
+            const timeoutId = setTimeout(resolveOnce, ms);
+
+            signal?.addEventListener('abort', onAbort, { once: true });
+            if (signal?.aborted) {
+                onAbort();
+            }
+        });
     }
 }

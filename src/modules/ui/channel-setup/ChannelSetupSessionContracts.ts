@@ -69,18 +69,20 @@ export type ChannelSetupSessionSnapshot = {
     setupContext: ChannelSetupContext;
 };
 
+type ChannelSetupCompletedBuildOutcome = {
+    serverId: string;
+    config: ChannelSetupConfig;
+    result: ChannelBuildSummary;
+    bookkeepingError?: string;
+};
+
 export type ChannelSetupBuildOutcome =
     | { kind: 'missing-server' }
     | { kind: 'canceled' }
     | { kind: 'blocked'; message: string }
     | { kind: 'error'; message: string }
-    | {
-        kind: 'success';
-        serverId: string;
-        config: ChannelSetupConfig;
-        result: ChannelBuildSummary;
-        bookkeepingError?: string;
-    };
+    | ({ kind: 'success' } & ChannelSetupCompletedBuildOutcome)
+    | ({ kind: 'committed-with-guide-interrupted' } & ChannelSetupCompletedBuildOutcome);
 
 export type ChannelSetupBuildHandlers = {
     onProgress: (progress: ChannelBuildProgress) => void;

@@ -3,7 +3,9 @@
 This guide covers the installation of Lineup on your LG Smart TV.
 
 > [!NOTE]
-> Currently, Lineup requires "Developer Mode" installation. We are working on publishing to the official LG Content Store.
+> Lineup does not currently publish a prebuilt IPK on GitHub Releases or the LG
+> Content Store. Installation requires Developer Mode and an IPK built from source
+> or, when available, a short-lived GitHub Actions artifact.
 
 ## Prerequisites
 
@@ -25,18 +27,56 @@ This guide covers the installation of Lineup on your LG Smart TV.
 3. Toggle **Dev Mode Status** to **ON**.
 4. Your TV will restart.
 
-## Step 3: Install Lineup via PC
+## Step 3: Obtain the Lineup IPK
+
+### Option A: Build from Source (Recommended)
+
+This is the reliable path because it does not depend on a temporary CI artifact.
+Install Git, Node `>=22.12.0` (or use the repo-pinned version with `nvm`), and the
+webOS CLI used by Lineup's packaging workflow:
+
+```bash
+git clone https://github.com/TJZine/Lineup.git
+cd Lineup
+nvm install
+npm ci
+npm install -g @webos-tools/cli@3.2.5
+npm run package:webos
+```
+
+If you do not use `nvm`, install a supported Node version and omit `nvm install`.
+The packaging command prints the exact output path. The IPK is written as:
+
+```text
+packages/com.lineup.app_<VERSION>_all.ipk
+```
+
+### Option B: Download a Short-Lived GitHub Actions Artifact
+
+A successful push to `main` may provide the same verified package for seven days:
+
+1. Sign in to GitHub and open the [Lineup CI workflow](https://github.com/TJZine/Lineup/actions/workflows/ci.yml).
+2. Select a successful run whose event is **Push** and branch is **main**.
+3. Confirm the run's commit is the Lineup revision you intend to install.
+4. In the run's **Artifacts** section, download `webos-ipk`.
+5. Extract the downloaded archive to obtain `com.lineup.app_<VERSION>_all.ipk`.
+
+GitHub Actions artifacts are retained for seven days, may require a GitHub sign-in,
+and are not a durable release channel. If `webos-ipk` is absent or expired, build
+from source instead.
+
+## Step 4: Install Lineup via PC
 
 We recommend using the webOS TV CLI tools, but for easier installation, you can use the **webOS Dev Manager** desktop app.
 
-### Option A: webOS Dev Manager (Recommended)
+### Option A: webOS Dev Manager
 
 1. Download [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop/releases) for your OS.
 2. Open the application.
 3. Click **Add Device** and follow the prompts:
    - Enter the **Passphrase** shown in the TV's Developer Mode app.
    - Enter the **IP Address** shown in the TV's Developer Mode app.
-4. Once connected, drag and drop the `com.lineup.app_x.x.x_all.ipk` file (downloaded from Lineup Releases) into the window.
+4. Once connected, drag and drop the `com.lineup.app_<VERSION>_all.ipk` file obtained in Step 3 into the window.
 5. Click **Install**.
 
 ### Option B: Command Line Interface (Advanced)
@@ -51,11 +91,14 @@ ares-setup-device
 # (Select 'add', enter name, ip, etc.)
 
 # 3. Install the application
-# Replace <VERSION> with the filename emitted by the packaging step.
-ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
+# Example source-build path; use the exact path printed by package:webos.
+ares-install --device my-tv packages/com.lineup.app_1.0.0_all.ipk
 ```
 
-## Step 4: First Launch
+For an Actions download, replace the example source-build path with the extracted
+IPK's path. The version in the filename may differ from `1.0.0`.
+
+## Step 5: First Launch
 
 1. Press the **Home** button on your remote.
 2. Scroll to the end of your app list to find **Lineup**.

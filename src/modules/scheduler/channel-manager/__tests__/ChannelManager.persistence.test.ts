@@ -192,6 +192,24 @@ describe('ChannelManager persistence and storage keys', () => {
             expect(mockLocalStorage.getItem('lineup_channels_next_scope')).toBeNull();
         });
 
+        it('cancels a queued candidate save without flushing during scope-transition clear', async () => {
+            const flushSpy = jest.spyOn(ChannelPersistenceCoordinator.prototype, 'flush');
+            const saveSpy = jest.spyOn(ChannelRepository.prototype, 'saveStoredChannelData');
+            await manager.createChannel({
+                name: 'Candidate Scope Channel',
+                contentSource: createMockContentSource('candidate-lib'),
+            });
+            expect(saveSpy).not.toHaveBeenCalled();
+
+            await manager.clearRuntimeStateForScopeTransition();
+            await jest.advanceTimersByTimeAsync(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
+
+            expect(flushSpy).not.toHaveBeenCalled();
+            expect(saveSpy).not.toHaveBeenCalled();
+            expect(mockLocalStorage.getItem(STORAGE_KEY)).toBeNull();
+            expect(manager.getAllChannels()).toEqual([]);
+        });
+
         it('completes runtime clear and key switch when flush and failure reporting throw', async () => {
             const logger = { warn: jest.fn(), error: jest.fn() };
             manager.dispose();

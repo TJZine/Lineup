@@ -21,9 +21,13 @@ export interface ScheduleDayRolloverControllerDeps {
     reportError: (message: string, error: unknown) => void;
 }
 
+interface PendingDayRolloverAttempt {
+    dayKey: number;
+}
+
 export class ScheduleDayRolloverController {
     private _activeScheduleDayKey: number | null = null;
-    private _pendingDayRolloverDayKey: number | null = null;
+    private _pendingDayRolloverAttempt: PendingDayRolloverAttempt | null = null;
     private _pendingDayRolloverTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(private readonly _deps: ScheduleDayRolloverControllerDeps) {}
@@ -49,9 +53,11 @@ export class ScheduleDayRolloverController {
             return;
         }
 
-        if (this._pendingDayRolloverDayKey === dayKey) {
+        if (this._pendingDayRolloverAttempt?.dayKey === dayKey) {
             return;
         }
+
+        const attempt: PendingDayRolloverAttempt = { dayKey };
 
         const dayStart = this._deps.getLocalMidnightMs(now);
         const currentProgram = scheduler.getCurrentProgram();
@@ -62,19 +68,19 @@ export class ScheduleDayRolloverController {
 
         if (spansMidnight) {
             this.cancelPendingDayRollover();
-            this._pendingDayRolloverDayKey = dayKey;
+            this._pendingDayRolloverAttempt = attempt;
             const delayMs = Math.max(0, currentProgram.scheduledEndTime - now + 50);
             this._pendingDayRolloverTimer = globalThis.setTimeout(() => {
                 this._pendingDayRolloverTimer = null;
-                this._applyScheduleDayRollover().catch((error) => {
+                this._applyScheduleDayRollover(attempt).catch((error) => {
                     this._deps.reportError('[Orchestrator] Failed to apply day rollover:', error);
                 });
             }, delayMs);
             return;
         }
 
-        this._pendingDayRolloverDayKey = dayKey;
-        await this._applyScheduleDayRollover();
+        this._pendingDayRolloverAttempt = attempt;
+        await this._applyScheduleDayRollover(attempt);
     }
 
     public cancelPendingDayRollover(): void {
@@ -82,42 +88,58 @@ export class ScheduleDayRolloverController {
             globalThis.clearTimeout(this._pendingDayRolloverTimer);
             this._pendingDayRolloverTimer = null;
         }
-        this._pendingDayRolloverDayKey = null;
+        this._pendingDayRolloverAttempt = null;
     }
 
     public dispose(): void {
         this.cancelPendingDayRollover();
     }
 
-    private async _applyScheduleDayRollover(): Promise<void> {
-        const channelManager = this._deps.getChannelManager();
-        const scheduler = this._deps.getScheduler();
-        if (!channelManager || !scheduler) {
-            return;
-        }
+    private async _applyScheduleDayRollover(attempt: PendingDayRolloverAttempt): Promise<void> {
+        try {
+            if (!this._isCurrentAttempt(attempt)) {
+                return;
+            }
+            const channelManager = this._deps.getChannelManager();
+            const scheduler = this._deps.getScheduler();
+            if (!channelManager || !scheduler) {
+                return;
+            }
 
-        const now = this._deps.now();
-        const dayKey = this._deps.getLocalDayKey(now);
-        if (this._activeScheduleDayKey === dayKey) {
-            this._pendingDayRolloverDayKey = null;
-            return;
-        }
+            const now = this._deps.now();
+            const dayKey = this._deps.getLocalDayKey(now);
+            if (this._activeScheduleDayKey === dayKey) {
+                return;
+            }
 
-        const current = channelManager.getCurrentChannel();
-        if (!current) {
+            const current = channelManager.getCurrentChannel();
+            if (!current) {
+                this._activeScheduleDayKey = dayKey;
+                return;
+            }
+
+            const content = await channelManager.resolveChannelContent(current.id);
+            if (!this._isCurrentAttempt(attempt)) {
+                return;
+            }
+            scheduler.loadChannel(this._deps.buildDailyScheduleConfig(current, content.items, now));
+            scheduler.syncToCurrentTime();
+
+            const epgCoordinator = this._deps.getEpgCoordinator();
+            epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+            await epgCoordinator?.refreshEpgSchedules();
+            if (!this._isCurrentAttempt(attempt)) {
+                return;
+            }
             this._activeScheduleDayKey = dayKey;
-            this._pendingDayRolloverDayKey = null;
-            return;
+        } finally {
+            if (this._isCurrentAttempt(attempt)) {
+                this._pendingDayRolloverAttempt = null;
+            }
         }
+    }
 
-        const content = await channelManager.resolveChannelContent(current.id);
-        scheduler.loadChannel(this._deps.buildDailyScheduleConfig(current, content.items, now));
-        scheduler.syncToCurrentTime();
-
-        const epgCoordinator = this._deps.getEpgCoordinator();
-        epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-        await epgCoordinator?.refreshEpgSchedules();
-        this._activeScheduleDayKey = dayKey;
-        this._pendingDayRolloverDayKey = null;
+    private _isCurrentAttempt(attempt: PendingDayRolloverAttempt): boolean {
+        return this._pendingDayRolloverAttempt === attempt;
     }
 }

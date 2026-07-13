@@ -52,21 +52,17 @@ const makeSelectedServerResult = (overrides: Partial<Extract<
     { kind: 'selected' }
 > => ({
     kind: 'selected' as const,
-    readiness: 'startup_pending',
     persistedSelection: 'updated',
-    startupResume: {
-        startup: 'completed',
-        epgRefresh: {
-            kind: 'succeeded',
-            result: {
-                readiness: 'ready',
-                attemptedChannelCount: 1,
-                immediateReadyChannelCount: 1,
-                backgroundQueuedChannelCount: 0,
-                failedChannelCount: 0,
-                staleCacheChannelCount: 0,
-                firstVisibleScheduleReady: true,
-            },
+    epgRefresh: {
+        kind: 'succeeded',
+        result: {
+            readiness: 'ready',
+            attemptedChannelCount: 1,
+            immediateReadyChannelCount: 1,
+            backgroundQueuedChannelCount: 0,
+            failedChannelCount: 0,
+            staleCacheChannelCount: 0,
+            firstVisibleScheduleReady: true,
         },
     },
     ...overrides,

@@ -1065,7 +1065,7 @@ describe('EPGComponent', () => {
             epg.loadChannels(channels);
 
             const state = epg.getState();
-            expect(state.viewWindow.endChannelIndex).toBe(2);
+            expect(state.viewWindow.endChannelIndexExclusive).toBe(2);
         });
 
         it('should load schedule for channel', () => {

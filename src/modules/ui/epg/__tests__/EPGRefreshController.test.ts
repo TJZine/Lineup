@@ -108,7 +108,7 @@ const makeDeps = (
                 startTime: 0,
                 endTime: 60_000,
                 startChannelIndex: 0,
-                endChannelIndex: 0,
+                endChannelIndexExclusive: 0,
             },
             currentTime: 0,
         }),
@@ -334,7 +334,7 @@ describe('EPGRefreshController', () => {
         resolveChannelContent.mockClear();
 
         await controller.refreshEpgSchedulesForRangeNow(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -366,7 +366,7 @@ describe('EPGRefreshController', () => {
         const controller = new EPGRefreshController(deps);
 
         const refresh = controller.refreshEpgSchedulesForRangeNow(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
         controller.cancelScheduledRefreshWork('close-epg');
@@ -411,7 +411,7 @@ describe('EPGRefreshController', () => {
         resolveChannelContent.mockClear();
 
         await controller.refreshEpgSchedulesForRangeNow(
-            { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 

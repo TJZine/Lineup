@@ -7,6 +7,7 @@ import { ChannelSetupSessionRuntime } from '../ChannelSetupSessionRuntime';
 import { ChannelSetupSessionState } from '../ChannelSetupSessionState';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import { flushPromises } from '../../../../__tests__/helpers';
+import type { ChannelBuildSummary } from '../../../../core/channel-setup/types';
 
 const createUnavailableError = (): Error => {
     const error = new Error('Channel setup not initialized');
@@ -119,6 +120,7 @@ describe('ChannelSetupSessionRuntime', () => {
 
         await expect(loadPromise).resolves.toBeUndefined();
         await expect(buildPromise).resolves.toEqual({ kind: 'canceled' });
+        expect(workflowPort.markSetupComplete).not.toHaveBeenCalled();
     });
 
     it('syncSetupContext keeps recognized contexts and falls back to unknown on unavailable errors', () => {
@@ -309,5 +311,139 @@ describe('ChannelSetupSessionRuntime', () => {
             kind: 'success',
             bookkeepingError: 'Unable to save setup completion.',
         }));
+    });
+
+    it.each(['append', 'merge'] as const)(
+        'returns committed guide interruption and records %s completion exactly once',
+        async (buildMode) => {
+            const interruptedResult: ChannelBuildSummary = {
+                ...DEFAULT_BUILD_RESULT,
+                commitState: 'committed',
+                guideRefresh: {
+                    kind: 'interrupted',
+                    interruption: { kind: 'aborted', stage: 'refresh_schedules' },
+                },
+            };
+            const workflowPort = createWorkflowPort({
+                createChannelsFromSetup: jest.fn().mockResolvedValue(interruptedResult),
+            });
+            const { runtime, state } = createRuntime({ workflowPort });
+            runtime.beginSession();
+            state.buildMode = buildMode;
+
+            const outcome = await runtime.beginBuild({
+                onProgress: jest.fn(),
+                onStateChange: jest.fn(),
+            });
+            expect(outcome).toMatchObject({
+                kind: 'committed-with-guide-interrupted',
+                serverId: 'server-1',
+                result: interruptedResult,
+                config: { buildMode },
+            });
+
+            expect(workflowPort.createChannelsFromSetup).toHaveBeenCalledTimes(1);
+            expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
+            expect(outcome).not.toHaveProperty('bookkeepingError');
+        }
+    );
+
+    it('records a committed stale completion once but returns canceled without reviving ended session state', async () => {
+        const buildDeferred = createDeferred<ChannelBuildSummary>();
+        const workflowPort = createWorkflowPort({
+            createChannelsFromSetup: jest.fn(() => buildDeferred.promise),
+        });
+        const { runtime, state } = createRuntime({ workflowPort });
+        runtime.beginSession();
+        const endedToken = state.sessionToken;
+        const buildPromise = runtime.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        });
+
+        runtime.endSession();
+        buildDeferred.resolve({
+            ...DEFAULT_BUILD_RESULT,
+            commitState: 'committed',
+            guideRefresh: {
+                kind: 'interrupted',
+                interruption: { kind: 'aborted', stage: 'refresh_schedules' },
+            },
+        });
+
+        await expect(buildPromise).resolves.toEqual({ kind: 'canceled' });
+        expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
+        expect(state.sessionToken).toBe(endedToken + 1);
+        expect(state.isBuilding).toBe(false);
+    });
+
+    it('records stale committed work without clearing or overwriting a newer active build', async () => {
+        const firstBuildDeferred = createDeferred<ChannelBuildSummary>();
+        const secondBuildDeferred = createDeferred<ChannelBuildSummary>();
+        const workflowPort = createWorkflowPort({
+            createChannelsFromSetup: jest.fn()
+                .mockImplementationOnce(() => firstBuildDeferred.promise)
+                .mockImplementationOnce(() => secondBuildDeferred.promise),
+        });
+        const { runtime, state } = createRuntime({ workflowPort });
+        runtime.beginSession();
+        const firstBuild = runtime.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        });
+
+        runtime.beginSession();
+        const newerSessionToken = state.sessionToken;
+        const secondBuild = runtime.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        });
+        firstBuildDeferred.resolve({
+            ...DEFAULT_BUILD_RESULT,
+            commitState: 'committed',
+            guideRefresh: {
+                kind: 'interrupted',
+                interruption: { kind: 'aborted', stage: 'refresh_schedules' },
+            },
+        });
+
+        await expect(firstBuild).resolves.toEqual({ kind: 'canceled' });
+        expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
+        expect(state.sessionToken).toBe(newerSessionToken);
+        expect(state.isBuilding).toBe(true);
+
+        expect(runtime.cancelBuild()).toBe(true);
+        secondBuildDeferred.reject(new DOMException('Aborted', 'AbortError'));
+        await expect(secondBuild).resolves.toEqual({ kind: 'canceled' });
+        expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a committed interruption outcome when completion bookkeeping throws', async () => {
+        const interruptedResult: ChannelBuildSummary = {
+            ...DEFAULT_BUILD_RESULT,
+            commitState: 'committed',
+            guideRefresh: {
+                kind: 'interrupted',
+                interruption: { kind: 'aborted', stage: 'ensure_initialized' },
+            },
+        };
+        const workflowPort = createWorkflowPort({
+            createChannelsFromSetup: jest.fn().mockResolvedValue(interruptedResult),
+            markSetupComplete: jest.fn(() => {
+                throw new DOMException('Storage write interrupted', 'AbortError');
+            }),
+        });
+        const { runtime } = createRuntime({ workflowPort });
+        runtime.beginSession();
+
+        await expect(runtime.beginBuild({
+            onProgress: jest.fn(),
+            onStateChange: jest.fn(),
+        })).resolves.toMatchObject({
+            kind: 'committed-with-guide-interrupted',
+            result: interruptedResult,
+            bookkeepingError: 'Storage write interrupted',
+        });
+        expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
     });
 });

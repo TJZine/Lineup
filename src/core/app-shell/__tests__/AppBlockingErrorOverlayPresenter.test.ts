@@ -10,6 +10,9 @@ const createOverlayContainer = (): HTMLDivElement => {
     const container = document.createElement('div');
     container.id = APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY;
     container.className = 'error-overlay hidden';
+    container.setAttribute('role', 'dialog');
+    container.setAttribute('aria-modal', 'true');
+    container.setAttribute('aria-label', 'Error');
     return container;
 };
 
@@ -45,6 +48,7 @@ const createNavigation = (): {
     setFocus: jest.Mock;
     on: jest.Mock;
     off: jest.Mock;
+    cancelPendingChannelInput: jest.Mock;
 } => {
     return {
         openModal: jest.fn(),
@@ -55,6 +59,7 @@ const createNavigation = (): {
         setFocus: jest.fn(),
         on: jest.fn(),
         off: jest.fn(),
+        cancelPendingChannelInput: jest.fn(),
     };
 };
 
@@ -73,8 +78,17 @@ describe('AppBlockingErrorOverlayPresenter', () => {
         presenter.show(createError(), createActions());
 
         expect(overlay.classList.contains('hidden')).toBe(false);
-        expect(overlay.querySelector('.error-title')?.textContent).toBe('Something went wrong');
-        expect(overlay.querySelector('.error-message')?.textContent).toBe('Something failed');
+        const title = overlay.querySelector('.error-title');
+        const message = overlay.querySelector('.error-message');
+        expect(title?.textContent).toBe('Something went wrong');
+        expect(message?.textContent).toBe('Something failed');
+        expect(title?.id).toBe(`${APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY}-title`);
+        expect(message?.id).toBe(`${APP_SHELL_CONTAINER_IDS.ERROR_OVERLAY}-message`);
+        expect(overlay.getAttribute('aria-labelledby')).toBe(title?.id);
+        expect(overlay.getAttribute('aria-describedby')).toBe(message?.id);
+        expect(overlay.hasAttribute('aria-label')).toBe(false);
+        expect(overlay.querySelectorAll('[role="dialog"]')).toHaveLength(0);
+        expect(overlay.querySelector('.error-content')?.hasAttribute('aria-modal')).toBe(false);
 
         const buttons = overlay.querySelectorAll('button');
         expect(buttons).toHaveLength(2);
@@ -191,5 +205,115 @@ describe('AppBlockingErrorOverlayPresenter', () => {
         expect(nav.off).toHaveBeenCalled();
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('error-overlay-action-0');
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('error-overlay-action-1');
+    });
+
+    it('keeps a protected overlay open and deduplicates actions while recovery is pending', async () => {
+        const overlay = createOverlayContainer();
+        const nav = createNavigation();
+        let resolveRecovery: (() => void) | undefined;
+        const action = jest.fn(() => new Promise<void>((resolve) => {
+            resolveRecovery = resolve;
+        }));
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
+        presenter.setContainer(overlay);
+
+        presenter.show(createError(), [{ id: 'retry', label: 'Retry', isPrimary: true, action }], {
+            modalPolicy: { dismissOnBack: false, blocksBackgroundCommands: true },
+        });
+        const button = overlay.querySelector('button') as HTMLButtonElement;
+        button.click();
+        button.click();
+
+        expect(nav.cancelPendingChannelInput.mock.invocationCallOrder[0]).toBeLessThan(
+            nav.openModal.mock.invocationCallOrder[0] as number
+        );
+        expect(nav.openModal).toHaveBeenCalledWith(
+            'modal:error-overlay',
+            ['error-overlay-action-0'],
+            { dismissOnBack: false, blocksBackgroundCommands: true }
+        );
+        expect(button.disabled).toBe(true);
+        expect(overlay.classList.contains('hidden')).toBe(false);
+        expect(action).toHaveBeenCalledTimes(1);
+
+        resolveRecovery?.();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(overlay.classList.contains('hidden')).toBe(true);
+    });
+
+    it('keeps the overlay gated on rejection and restores Retry focus with sanitized status', async () => {
+        const overlay = createOverlayContainer();
+        const nav = createNavigation();
+        const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const actionError = Object.assign(new Error('X-Plex-Token=secret-value'), {
+            code: 'X-Plex-Token=code-secret',
+        });
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
+        presenter.setContainer(overlay);
+        presenter.show(createError(), [{
+            id: 'retry',
+            label: 'Retry',
+            isPrimary: true,
+            action: (): Promise<void> => Promise.reject(actionError),
+        }], { modalPolicy: { dismissOnBack: false, blocksBackgroundCommands: true } });
+
+        try {
+            const button = overlay.querySelector('button') as HTMLButtonElement;
+            button.click();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(overlay.classList.contains('hidden')).toBe(false);
+            expect(button.disabled).toBe(false);
+            expect(overlay.querySelector('[role="status"]')?.textContent).toBe('Retry failed. Please try again.');
+            expect(overlay.textContent).not.toContain('secret-value');
+            expect(nav.setFocus).toHaveBeenLastCalledWith('error-overlay-action-0', { persist: false });
+            expect(warning).toHaveBeenCalledWith(
+                'Blocking error overlay action failed',
+                {
+                    action: 'retry',
+                    error: {
+                        name: 'Error',
+                        code: expect.not.stringContaining('code-secret'),
+                        message: expect.not.stringContaining('secret-value'),
+                    },
+                }
+            );
+        } finally {
+            warning.mockRestore();
+        }
+    });
+
+    it('ignores stale action completion after disposal', async () => {
+        const overlay = createOverlayContainer();
+        const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        let rejectRecovery: ((error: Error) => void) | undefined;
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): null => null });
+        presenter.setContainer(overlay);
+        presenter.show(createError(), [{
+            id: 'retry',
+            label: 'Retry',
+            isPrimary: true,
+            action: (): Promise<void> => new Promise<void>((_resolve, reject) => { rejectRecovery = reject; }),
+        }]);
+        (overlay.querySelector('button') as HTMLButtonElement).click();
+        presenter.dispose();
+
+        try {
+            rejectRecovery?.(new Error('late'));
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(overlay.querySelector('[role="status"]')?.textContent).toBe('Retry in progress…');
+            expect(warning).toHaveBeenCalledWith(
+                'Blocking error overlay action failed',
+                expect.objectContaining({
+                    action: 'retry',
+                    error: expect.objectContaining({ message: 'late' }),
+                })
+            );
+        } finally {
+            warning.mockRestore();
+        }
     });
 });

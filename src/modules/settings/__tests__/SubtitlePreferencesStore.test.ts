@@ -57,4 +57,17 @@ describe('SubtitlePreferencesStore', () => {
         expect(store.readSubtitleLanguageAndClean()).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBeNull();
     });
+
+    it('reports blocked set and remove mutations without throwing', () => {
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+        jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+
+        expect(store.writeSubtitleMode('direct')).toEqual({ ok: false, reason: 'unavailable' });
+        expect(store.writeSubtitlePreferForced(true)).toEqual({ ok: false, reason: 'unavailable' });
+        expect(store.writeSubtitleLanguage(null)).toEqual({ ok: false, reason: 'unavailable' });
+    });
 });

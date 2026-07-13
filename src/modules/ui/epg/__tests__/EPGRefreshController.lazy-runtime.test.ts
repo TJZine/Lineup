@@ -41,7 +41,7 @@ const createDeps = (): EPGRefreshControllerDeps => ({
         getState: jest.fn(() => ({
             viewWindow: {
                 startChannelIndex: 0,
-                endChannelIndex: 0,
+                endChannelIndexExclusive: 0,
                 startTime: 0,
                 endTime: 60_000,
             },
@@ -85,7 +85,7 @@ describe('EPGRefreshController lazy schedule runtime', () => {
 
     it('does not publish a schedule runtime that loads after invalidation', async () => {
         const controller = new EPGRefreshController(createDeps());
-        const range = { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 };
+        const range = { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 };
 
         const canceledRefresh = controller.refreshEpgSchedulesForRangeNow(range, 'visible-range');
         controller.cancelScheduledRefreshWork('close-epg');
@@ -106,7 +106,7 @@ describe('EPGRefreshController lazy schedule runtime', () => {
 
     it('does not build a guide snapshot with a runtime invalidated during the await boundary', async () => {
         const controller = new EPGRefreshController(createDeps());
-        const range = { channelStart: 0, channelEnd: 0, timeStartMs: 0, timeEndMs: 60_000 };
+        const range = { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 };
 
         await controller.refreshEpgSchedulesForRangeNow(range, 'visible-range');
         expect(runtimeInstances).toHaveLength(1);

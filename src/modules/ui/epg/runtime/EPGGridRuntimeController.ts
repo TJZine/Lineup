@@ -241,7 +241,7 @@ export class EPGGridRuntimeController {
 
         const rowBuffer = EPG_CONSTANTS.ROW_BUFFER;
         const channelStart = Math.max(0, state.scrollPosition.channelOffset - rowBuffer);
-        const channelEnd = Math.min(
+        const channelEndExclusive = Math.min(
             state.scrollPosition.channelOffset + config.visibleChannels + rowBuffer,
             state.channels.length
         );
@@ -251,7 +251,7 @@ export class EPGGridRuntimeController {
 
         const range: EpgVisibleRange = {
             channelStart,
-            channelEnd,
+            channelEndExclusive,
             timeStartMs,
             timeEndMs,
         };

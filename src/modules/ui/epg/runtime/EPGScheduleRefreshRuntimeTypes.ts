@@ -6,6 +6,7 @@ import type {
 import type { IChannelScheduler, ShuffleGenerator } from '../../../scheduler/scheduler';
 import type { IEPGComponent } from '../interfaces';
 import type { EpgVisibleRange } from '../types';
+import type { EpgRetainedOperationContext } from './EPGRetainedOperationContext';
 
 export type BackgroundDebugState = {
     refreshId: number;
@@ -55,10 +56,12 @@ export type RefreshMetrics = {
 
 export type RefreshSession = {
     refreshId: number;
+    failurePublicationToken: number;
     reason: string;
     refreshStartedAt: number;
     range: EpgVisibleRange;
     signal?: AbortSignal | null;
+    operation: EpgRetainedOperationContext;
     epg: IEPGComponent;
     channelManager: IChannelManager;
     scheduler: IChannelScheduler | null;
@@ -75,8 +78,8 @@ export type RefreshSession = {
     visibleRangeIds: Set<string>;
     liveChannelId: string | null;
     focusedChannelId: string | null;
-    bufferedRange: { start: number; end: number };
-    backgroundRange: { start: number; end: number };
+    bufferedRange: { start: number; endExclusive: number };
+    backgroundRange: { start: number; endExclusive: number };
     overscan: number;
     shuffler: ShuffleGenerator;
 };

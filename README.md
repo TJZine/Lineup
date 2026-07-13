@@ -23,6 +23,9 @@
 
 > [!NOTE]
 > Lineup is currently a sideloaded webOS app. Installation on a TV requires LG Developer Mode until a store release exists.
+> No prebuilt Lineup IPK is currently published on GitHub Releases. The
+> [Installation Guide](docs/getting-started/installation.md) covers the source build
+> and optional short-lived GitHub Actions artifact paths.
 
 ## Start Here
 

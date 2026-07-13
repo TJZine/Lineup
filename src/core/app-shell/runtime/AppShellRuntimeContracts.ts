@@ -8,7 +8,7 @@ import type {
     ServerHealthStatus,
     ServerHealthType,
 } from '../../../modules/plex/discovery';
-import type { GuideSettingChange } from '../../../modules/ui/settings/types';
+import type { GuideSettingChange, SettingsPersistenceResult } from '../../../modules/ui/settings/types';
 import type { ThemeName } from '../../../modules/ui/theme';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
@@ -20,6 +20,7 @@ import type { IDisposable } from '../../../utils/interfaces';
 import type { AppErrorCode } from '../../../types/app-errors';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { EpgScheduleRefreshOutcome } from '../../../shared/epgRefresh';
+import type { SelectedServerQuarantineCommandState } from '../../server-selection/SelectedServerQuarantineRecoveryState';
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;
@@ -45,17 +46,11 @@ export type AppShellServerSelectionResult =
     }
     | {
         kind: 'selected';
-        readiness: 'ready' | 'startup_pending';
         persistedSelection:
             | 'updated'
             | 'skipped_missing_credentials'
             | 'skipped_corrupted_credentials';
-        startupResume: {
-            startup: 'completed' | 'skipped_no_coordinator';
-            epgRefresh:
-                | EpgScheduleRefreshOutcome
-                | { kind: 'skipped_no_coordinator' };
-        };
+        epgRefresh: EpgScheduleRefreshOutcome;
     };
 
 export type AppShellChannelSetupRerunRequestResult =
@@ -97,7 +92,7 @@ export interface AppShellSettingsRuntimePort {
     onGuideSettingChange(change: GuideSettingChange): void;
     getActiveUsername(): string | null;
     getTheme(): ThemeName;
-    setTheme(theme: ThemeName): void;
+    setTheme(theme: ThemeName): SettingsPersistenceResult;
 }
 
 export type AppShellPlaybackInfoSnapshot = PlaybackInfoSnapshot;
@@ -145,4 +140,7 @@ export interface AppShellOrchestratorRuntime
     ): IDisposable;
     getRecoveryActions(errorCode: AppErrorCode): BlockingErrorOverlayAction[];
     setNowPlayingHandler(handler: ((toast: ToastInput) => void) | null): void;
+    getQuarantineState(): SelectedServerQuarantineCommandState;
+    retryQuarantineRecovery(): Promise<void>;
+    exitQuarantine(): Promise<void>;
 }

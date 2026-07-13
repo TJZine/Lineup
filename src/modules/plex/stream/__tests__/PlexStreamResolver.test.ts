@@ -745,6 +745,11 @@ describe('PlexStreamResolver', () => {
             dvStream.displayTitle = 'Dolby Vision';
             dvStream.doviPresent = true;
             dvStream.doviProfile = '8.1';
+            mockFetch.mockResolvedValue(new Response(new ReadableStream<Uint8Array>({
+                start(controller): void {
+                    controller.error(new Error('decision body unavailable'));
+                },
+            })));
 
             const resolver = new PlexStreamResolver(
                 createMockConfig({ getItem: jest.fn().mockResolvedValue(dvItem) })
@@ -1223,16 +1228,14 @@ describe('PlexStreamResolver', () => {
                     status: 200,
                     text: async () => '',
                 })
-                .mockResolvedValueOnce({
-                    ok: true,
-                    status: 200,
-                    text: async () =>
-                        '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
-                        '<TranscodeSession>' +
-                        '<Stream id="sub-1" streamType="3" decision="burn" />' +
-                        '</TranscodeSession>' +
-                        '</MediaContainer>',
-                });
+                .mockResolvedValueOnce(new Response(
+                    '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                    '<TranscodeSession>' +
+                    '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                    '</TranscodeSession>' +
+                    '</MediaContainer>',
+                    { status: 200, headers: { 'content-type': 'text/xml' } }
+                ));
 
             const resolver = new PlexStreamResolver(createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -1274,16 +1277,14 @@ describe('PlexStreamResolver', () => {
                     status: 200,
                     text: async () => '',
                 })
-                .mockResolvedValueOnce({
-                    ok: true,
-                    status: 200,
-                    text: async () =>
-                        '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
-                        '<TranscodeSession videoDecision="copy" audioDecision="transcode">' +
-                        '<Stream id="sub-1" streamType="3" decision="burn" />' +
-                        '</TranscodeSession>' +
-                        '</MediaContainer>',
-                });
+                .mockResolvedValueOnce(new Response(
+                    '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                    '<TranscodeSession videoDecision="copy" audioDecision="transcode">' +
+                    '<Stream id="sub-1" streamType="3" decision="burn" />' +
+                    '</TranscodeSession>' +
+                    '</MediaContainer>',
+                    { status: 200, headers: { 'content-type': 'text/xml' } }
+                ));
 
             const resolver = new PlexStreamResolver(createMockConfig({
                 getItem: jest.fn().mockResolvedValue(mockItem),
@@ -2027,12 +2028,10 @@ describe('PlexStreamResolver', () => {
             const config = createMockConfig();
             const resolver = new PlexStreamResolver(config);
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                status: 200,
-                text: async () =>
-                    '<MediaContainer decisionCode="1000" decisionText="Transcode"><TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none" /></MediaContainer>',
-            });
+            mockFetch.mockResolvedValue(new Response(
+                '<MediaContainer decisionCode="1000" decisionText="Transcode"><TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none" /></MediaContainer>',
+                { status: 200, headers: { 'content-type': 'text/xml' } }
+            ));
 
             const result = await resolver.fetchUniversalTranscodeDecision('12345', {
                 sessionId: 'sess-1',
@@ -2064,7 +2063,7 @@ describe('PlexStreamResolver', () => {
             setTimeoutSpy.mockRestore();
         });
 
-        it('falls back to regex decision parsing when DOMParser returns parsererror XML', async () => {
+        it('rejects the optional decision when DOMParser returns parsererror XML', async () => {
             const originalDomParser = globalThis.DOMParser;
             Object.defineProperty(globalThis, 'DOMParser', {
                 configurable: true,
@@ -2082,16 +2081,14 @@ describe('PlexStreamResolver', () => {
             const resolver = new PlexStreamResolver(config);
 
             try {
-                mockFetch.mockResolvedValue({
-                    ok: true,
-                    status: 200,
-                    text: async () =>
-                        '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
-                        '<TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none">' +
-                        '</MediaContainer>',
-                });
+                mockFetch.mockResolvedValue(new Response(
+                    '<MediaContainer decisionCode="1000" decisionText="Transcode">' +
+                    '<TranscodeSession videoDecision="copy" audioDecision="transcode" subtitleDecision="none">' +
+                    '</MediaContainer>',
+                    { status: 200, headers: { 'content-type': 'text/xml' } }
+                ));
 
-                const result = await resolver.fetchUniversalTranscodeDecision('12345', {
+                await expect(resolver.fetchUniversalTranscodeDecision('12345', {
                     sessionId: 'sess-1',
                     startOffsetMs: 0,
                     startOffsetSeconds: 0,
@@ -2099,13 +2096,7 @@ describe('PlexStreamResolver', () => {
                     maxBitrateReason: 'explicit',
                     transcodeCompatMode: false,
                     transcodeQuality: null,
-                });
-
-                expect(result?.decisionCode).toBe('1000');
-                expect(result?.decisionText).toBe('Transcode');
-                expect(result?.videoDecision).toBe('copy');
-                expect(result?.audioDecision).toBe('transcode');
-                expect(result?.subtitleDecision).toBe('none');
+                })).rejects.toThrow('Invalid universal transcode decision XML');
             } finally {
                 Object.defineProperty(globalThis, 'DOMParser', {
                     configurable: true,

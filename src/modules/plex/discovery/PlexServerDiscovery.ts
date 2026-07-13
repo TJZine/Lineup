@@ -37,7 +37,9 @@ import { restoreSavedPlexServerSelection } from './PlexSavedServerRestore';
 import {
     PlexDiscoverySelectionCapture,
     PlexDiscoverySelectionContext,
+    PlexDiscoverySelectionReceipt,
 } from './PlexDiscoverySelectionContext';
+import { PlexDiscoverySelectionState } from './PlexDiscoverySelectionState';
 export { PlexApiError };
 export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _state: PlexServerDiscoveryState;
@@ -48,6 +50,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     private _discoveryRequest: PlexDiscoverySharedRequest<PlexServer[]> | null = null;
     private _discoveryContextVersion = 0;
     private readonly _selectionContext = new PlexDiscoverySelectionContext();
+    private readonly _selectionState: PlexDiscoverySelectionState;
     private _selectedServerStorageKey: string;
     private _serverHealthStorageKey: string;
     constructor(config: PlexServerDiscoveryConfig) {
@@ -67,6 +70,12 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             lastRefreshAt: null,
             isDiscovering: false,
         };
+        this._selectionState = new PlexDiscoverySelectionState(
+            this._state,
+            this._serverSelectionStore,
+            this._emitter,
+            this._selectionContext
+        );
     }
     public discoverServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]> {
         const signal = options?.signal ?? null;
@@ -229,61 +238,35 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
             ...server,
             preferredConnection: connection,
         };
-        assertCurrent();
-        this._state.selectedServer = serverWithConnection;
-        assertCurrent();
-        this._state.selectedConnection = connection;
-        assertCurrent();
-        this._serverSelectionStore.writeSelectedServerId(serverId);
-        assertCurrent();
-        this._emitter.emit('serverChange', serverWithConnection);
-        assertCurrent();
-        this._emitter.emit('connectionChange', connection.uri);
-        assertCurrent();
-        this._persistServerHealth(serverId, 'ok', {
-            connection: connection,
-            latency: connection.latencyMs ?? 0
-        });
-        assertCurrent();
-        return { kind: 'selected' };
+        const receipt = this._selectionState.commitSelection(
+            serverId,
+            serverWithConnection,
+            connection,
+            context,
+            signal
+        );
+        return { kind: 'selected', receipt };
     }
 
     public captureSelectedServerSnapshot(): PlexDiscoverySelectedServerSnapshot {
-        return this._selectionContext.retainSnapshot({
-            server: cloneSelectedPlexServer(this._state.selectedServer, this._state.selectedConnection),
-            connection: clonePlexConnection(this._state.selectedConnection),
-            storedServerId: this._serverSelectionStore.readSelectedServerId(),
-        });
+        return this._selectionState.captureSnapshot();
     }
-    public restoreSelectedServerSnapshot(snapshot: PlexDiscoverySelectedServerSnapshot): void {
-        this._selectionContext.assertSnapshotCurrent(snapshot);
-        const context = this._selectionContext.advance();
-        const assertCurrent = (): void => this._selectionContext.assertCurrent(context);
-        const previousServerId = this._state.selectedServer?.id ?? null;
-        const previousConnectionUri = this._state.selectedConnection?.uri ?? null;
-        const nextConnection = clonePlexConnection(snapshot.connection);
-        const nextServer = cloneSelectedPlexServer(snapshot.server, nextConnection);
-        assertCurrent();
-        this._state.selectedServer = nextServer;
-        assertCurrent();
-        this._state.selectedConnection = nextConnection;
-        assertCurrent();
-        if (snapshot.storedServerId) {
-            this._serverSelectionStore.writeSelectedServerId(snapshot.storedServerId);
-        } else {
-            this._serverSelectionStore.clearSelectedServerId();
-        }
-        const nextServerId = nextServer?.id ?? null;
-        const nextConnectionUri = nextConnection?.uri ?? null;
-        if (previousServerId !== nextServerId) {
-            assertCurrent();
-            this._emitter.emit('serverChange', nextServer);
-        }
-        if (previousConnectionUri !== nextConnectionUri) {
-            assertCurrent();
-            this._emitter.emit('connectionChange', nextConnectionUri);
-        }
-        assertCurrent();
+    public restoreSelectedServerSnapshot(
+        snapshot: PlexDiscoverySelectedServerSnapshot
+    ): PlexDiscoverySelectionReceipt {
+        return this._selectionState.restoreSnapshot(snapshot);
+    }
+
+    public captureCurrentSelectionReceipt(): PlexDiscoverySelectionReceipt | null {
+        return this._selectionState.captureCurrentReceipt();
+    }
+
+    public getSelectionReceiptSignal(receipt: PlexDiscoverySelectionReceipt): AbortSignal {
+        return this._selectionState.getReceiptSignal(receipt);
+    }
+
+    public assertSelectionReceiptCurrent(receipt: PlexDiscoverySelectionReceipt): void {
+        this._selectionState.assertReceiptCurrent(receipt);
     }
     public getSelectedServer(): PlexServer | null {
         return cloneSelectedPlexServer(this._state.selectedServer, this._state.selectedConnection);
@@ -325,19 +308,7 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return this.getServerUri();
     }
     public clearSelection(): void {
-        const context = this._selectionContext.advance();
-        const assertCurrent = (): void => this._selectionContext.assertCurrent(context);
-        assertCurrent();
-        this._state.selectedServer = null;
-        assertCurrent();
-        this._state.selectedConnection = null;
-        assertCurrent();
-        this._serverSelectionStore.clearSelectedServerId();
-        assertCurrent();
-        this._emitter.emit('serverChange', null);
-        assertCurrent();
-        this._emitter.emit('connectionChange', null);
-        assertCurrent();
+        this._selectionState.clear();
     }
     public getServers(): PlexServer[] {
         return clonePlexServers(this._state.servers);
@@ -403,9 +374,15 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         if (normalizedServerHealthKey.length === 0) {
             throw new Error('serverHealthKey must be a non-empty string');
         }
+        if (
+            normalizedSelectedServerKey === this._selectedServerStorageKey
+            && normalizedServerHealthKey === this._serverHealthStorageKey
+        ) {
+            return;
+        }
         // Bump context to invalidate any in-flight discovery started under the
         // previous profile/user storage namespace.
-        this._selectionContext.advance();
+        this._selectionContext.advanceStorageNamespace();
         this._discoveryContextVersion += 1;
         this._discoveryRequest = null;
         this._selectedServerStorageKey = normalizedSelectedServerKey;
@@ -546,10 +523,17 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
                     this._state.selectedServer?.id === serverId &&
                     this._state.selectedConnection !== null;
             },
+            captureCurrentSelectionReceipt: (): PlexDiscoverySelectionReceipt | null => {
+                assertCurrent();
+                return this.captureCurrentSelectionReceipt();
+            },
+            assertSelectionReceiptCurrent: (receipt): void => {
+                this._assertReceiptCurrent(signal, receipt);
+            },
             selectSavedServer: (serverId, restoreOptions): Promise<PlexServerSelectionResult> =>
                 this._selectServer(serverId, restoreOptions, this._selectionContext.advanceSelection()),
         }, { signal });
-        assertCurrent();
+        if (result.kind !== 'selected') assertCurrent();
         return result;
     }
 
@@ -559,5 +543,13 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
     ): void {
         throwIfAborted(signal);
         this._selectionContext.assertCurrent(context);
+    }
+
+    private _assertReceiptCurrent(
+        signal: AbortSignal | null,
+        receipt: PlexDiscoverySelectionReceipt
+    ): void {
+        throwIfAborted(signal);
+        this._selectionContext.assertReceiptCurrent(receipt);
     }
 }

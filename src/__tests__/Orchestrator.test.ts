@@ -24,6 +24,7 @@ import type {
 } from '../modules/plex/auth';
 import type { IPlexLibrary } from '../modules/plex/library';
 import { PlexDiscoverySelectionSupersededError } from '../modules/plex/discovery';
+import { PlexDiscoverySelectionContext } from '../modules/plex/discovery/PlexDiscoverySelectionContext';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
 import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
@@ -39,6 +40,7 @@ import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/runtime/OrchestratorRecoverableRuntimeReporter';
+import { OrchestratorServerSelectionRuntimeProjection } from '../core/orchestrator/runtime/OrchestratorServerSelectionRuntimeProjection';
 import { expectConsoleWarn } from './helpers';
 import { EventEmitter } from '../utils/EventEmitter';
 import {
@@ -48,7 +50,7 @@ import {
     restoreOriginalLocalStorage,
 } from './mocks/localStorage';
 
-const READY_EPG_REFRESH_RESULT: EpgScheduleRefreshResult = {
+const READY_EPG_REFRESH_RESULT = {
     readiness: 'ready',
     attemptedChannelCount: 1,
     immediateReadyChannelCount: 1,
@@ -56,17 +58,7 @@ const READY_EPG_REFRESH_RESULT: EpgScheduleRefreshResult = {
     failedChannelCount: 0,
     staleCacheChannelCount: 0,
     firstVisibleScheduleReady: true,
-};
-
-const SKIPPED_EPG_REFRESH_RESULT: EpgScheduleRefreshResult = {
-    readiness: 'skipped',
-    attemptedChannelCount: 0,
-    immediateReadyChannelCount: 0,
-    backgroundQueuedChannelCount: 0,
-    failedChannelCount: 0,
-    staleCacheChannelCount: 0,
-    firstVisibleScheduleReady: false,
-};
+} satisfies EpgScheduleRefreshResult;
 
 installMockLocalStorage();
 
@@ -224,6 +216,10 @@ const mockNavigation = {
     getCurrentScreen: jest.fn().mockReturnValue('player'),
     isModalOpen: jest.fn().mockReturnValue(false),
     isInputBlocked: jest.fn().mockReturnValue(false),
+    activateRuntimeCommandGate: jest.fn(),
+    deactivateRuntimeCommandGate: jest.fn(),
+    isRuntimeCommandGated: jest.fn().mockReturnValue(false),
+    cancelPendingChannelInput: jest.fn(),
     openModal: jest.fn(),
     closeModal: jest.fn(),
     on: jest.fn(() => ({ dispose: jest.fn() })),
@@ -400,6 +396,31 @@ jest.mock('../modules/plex/auth', () => {
 });
 
 // Mock PlexServerDiscovery
+let mockDiscoverySelectionContext = new PlexDiscoverySelectionContext();
+const createSelectedDiscoveryResult = (): { kind: 'selected'; receipt: object } => {
+    const capture = mockDiscoverySelectionContext.advance();
+    return {
+        kind: 'selected',
+        receipt: mockDiscoverySelectionContext.issueReceipt(capture, 'selected'),
+    };
+};
+const restoreDiscoverySnapshot = (): object => {
+    const capture = mockDiscoverySelectionContext.advance();
+    return mockDiscoverySelectionContext.issueReceipt(capture, 'unselected');
+};
+
+const createSavedServerRestoreResult = (): object => {
+    if (!mockPlexDiscovery.isConnected()) {
+        return { kind: 'skipped_no_saved_server' };
+    }
+    const capture = mockDiscoverySelectionContext.capture();
+    return {
+        kind: 'already_selected',
+        serverId: mockPlexDiscovery.getSelectedServer()?.id ?? 'server-1',
+        receipt: mockDiscoverySelectionContext.issueReceipt(capture, 'selected'),
+    };
+};
+
 const mockPlexDiscovery = {
     initialize: jest.fn().mockResolvedValue({ kind: 'skipped_no_saved_server' }),
     isConnected: jest.fn().mockReturnValue(true),
@@ -411,9 +432,12 @@ const mockPlexDiscovery = {
         connection: null,
         storedServerId: null,
     }),
-    restoreSelectedServerSnapshot: jest.fn(),
-    selectServer: jest.fn().mockResolvedValue({ kind: 'selected' }),
-    clearSelection: jest.fn(),
+    restoreSelectedServerSnapshot: jest.fn(restoreDiscoverySnapshot),
+    selectServer: jest.fn().mockImplementation(async () => createSelectedDiscoveryResult()),
+    getSelectionReceiptSignal: jest.fn((receipt) => mockDiscoverySelectionContext.getReceiptSignal(receipt)),
+    assertSelectionReceiptCurrent: jest.fn((receipt) => mockDiscoverySelectionContext.assertReceiptCurrent(receipt)),
+    captureCurrentSelectionReceipt: jest.fn(),
+    clearSelection: jest.fn(() => { mockDiscoverySelectionContext.advance(); }),
     setStorageKeys: jest.fn(),
     on: jest.fn(() => ({ dispose: jest.fn() })),
 };
@@ -482,6 +506,10 @@ const mockChannelManager = {
     replaceAllChannels: jest.fn().mockResolvedValue(undefined),
     getAllChannels: jest.fn().mockReturnValue([mockChannel]),
     clearRuntimeState: jest.fn(),
+    supersedeActiveResolutions: jest.fn().mockResolvedValue(undefined),
+    resumeActiveResolutions: jest.fn(),
+    clearRuntimeStateForScopeTransition: jest.fn().mockResolvedValue(undefined),
+    createInitialTuneResolutionAuthorization: jest.fn().mockReturnValue({}),
     getCurrentChannel: jest.fn().mockReturnValue(mockChannel),
     getChannel: jest.fn().mockReturnValue(mockChannel),
     getChannelByNumber: jest.fn().mockReturnValue(mockChannel),
@@ -490,6 +518,13 @@ const mockChannelManager = {
     setCurrentChannel: jest.fn(),
     deleteChannel: jest.fn().mockResolvedValue(undefined),
     resolveChannelContent: jest.fn().mockResolvedValue({
+        channelId: 'ch1',
+        items: [],
+        orderedItems: [],
+        totalDurationMs: 0,
+        resolvedAt: Date.now(),
+    }),
+    resolveChannelContentForInitialTune: jest.fn().mockResolvedValue({
         channelId: 'ch1',
         items: [],
         orderedItems: [],
@@ -588,7 +623,7 @@ const mockEpg = {
             startTime: 0,
             endTime: 0,
             startChannelIndex: 0,
-            endChannelIndex: 0,
+            endChannelIndexExclusive: 1,
         },
         currentTime: 0,
     }),
@@ -673,7 +708,12 @@ describe('AppOrchestrator', () => {
         mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReset();
         mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
         mockPlexAuth.storeCredentials.mockReset();
-        mockPlexAuth.storeCredentials.mockImplementation(() => undefined);
+        mockPlexAuth.storeCredentials.mockImplementation((credentials) => {
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({
+                kind: 'available',
+                credentials,
+            });
+        });
 
         mockPlexAuth.validateToken.mockReset();
         mockPlexAuth.validateToken.mockResolvedValue(true);
@@ -697,13 +737,31 @@ describe('AppOrchestrator', () => {
         mockPlexDiscovery.getSelectedConnection.mockReturnValue({ uri: 'http://localhost:32400' });
         mockPlexDiscovery.getServerUri.mockReset();
         mockPlexDiscovery.getServerUri.mockReturnValue(null);
+        mockPlexDiscovery.initialize.mockReset();
+        mockPlexDiscovery.initialize.mockImplementation(async () => createSavedServerRestoreResult());
         mockPlexDiscovery.captureSelectedServerSnapshot.mockReset();
         mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue({
             server: null,
             connection: null,
             storedServerId: null,
         });
+        mockDiscoverySelectionContext = new PlexDiscoverySelectionContext();
         mockPlexDiscovery.restoreSelectedServerSnapshot.mockReset();
+        mockPlexDiscovery.restoreSelectedServerSnapshot.mockImplementation(restoreDiscoverySnapshot);
+        mockPlexDiscovery.selectServer.mockReset();
+        mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
+        mockPlexDiscovery.getSelectionReceiptSignal.mockClear();
+        mockPlexDiscovery.assertSelectionReceiptCurrent.mockClear();
+        mockPlexDiscovery.captureCurrentSelectionReceipt.mockClear();
+        mockPlexDiscovery.captureCurrentSelectionReceipt.mockImplementation(() => {
+            const capture = mockDiscoverySelectionContext.capture();
+            return mockDiscoverySelectionContext.issueReceipt(
+                capture,
+                mockPlexDiscovery.isConnected() ? 'selected' : 'unselected'
+            );
+        });
+        mockPlexDiscovery.clearSelection.mockReset();
+        mockPlexDiscovery.clearSelection.mockImplementation(() => { mockDiscoverySelectionContext.advance(); });
         resetMockPlexDiscoveryOn();
 
         mockChannelManager.getAllChannels.mockReset();
@@ -1140,6 +1198,9 @@ describe('AppOrchestrator', () => {
     });
 
     describe('selectServer', () => {
+        beforeEach(() => {
+            mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
+        });
         it('clears EPG schedules and refreshes after selecting a new server', async () => {
             await orchestrator.initialize(mockConfig);
 
@@ -1148,180 +1209,113 @@ describe('AppOrchestrator', () => {
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockResolvedValue(READY_EPG_REFRESH_RESULT);
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
-
             try {
-                mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+                mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
                 mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
 
                 await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
                     kind: 'selected',
-                    readiness: 'startup_pending',
                     persistedSelection: 'updated',
-                    startupResume: {
-                        startup: 'completed',
-                        epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT },
-                    },
+                    epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT },
                 });
 
                 expect(mockPlexDiscovery.selectServer.mock.calls[0]?.[0]).toBe('server-1');
-                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
                 expect(clearSpy).toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).toHaveBeenCalled();
                 expect(primeSpy).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
+                expect(refreshSpy).toHaveBeenCalledWith(expect.objectContaining({ reason: 'server-swap' }));
             } finally {
                 clearSpy.mockRestore();
                 primeSpy.mockRestore();
                 refreshSpy.mockRestore();
-                runStartupSpy.mockRestore();
             }
         });
 
-        it('logs post-selection EPG refresh failures without failing server selection', async () => {
+        it('returns the transaction-owned EPG failure without losing the selected result', async () => {
             await orchestrator.initialize(mockConfig);
 
             const refreshError = new Error('refresh failed');
-            expectConsoleWarn([
-                'Post-selection EPG refresh failed',
-                expect.objectContaining({
-                    step: 'refreshEpgSchedules',
-                    safeError: expect.objectContaining({
-                        message: 'refresh failed',
-                    }),
-                }),
-            ]);
             const refreshSpy = jest
                 .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
                 .mockRejectedValue(refreshError);
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
 
             try {
-                mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+                mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
                 mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
 
                 await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
                     kind: 'selected',
-                    readiness: 'startup_pending',
                     persistedSelection: 'updated',
-                    startupResume: {
-                        startup: 'completed',
-                        epgRefresh: { kind: 'failed', error: refreshError },
-                    },
+                    epgRefresh: { kind: 'failed', error: refreshError },
                 });
-
-                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
-                expect(refreshSpy).toHaveBeenCalledWith({ reason: 'server-swap' });
+                expect(mockPlexDiscovery.restoreSelectedServerSnapshot).not.toHaveBeenCalled();
+                expect(refreshSpy).toHaveBeenCalledWith(expect.objectContaining({ reason: 'server-swap' }));
             } finally {
                 refreshSpy.mockRestore();
-                runStartupSpy.mockRestore();
             }
         });
 
         it('returns selection_failed when discovery reports server_not_found', async () => {
             await orchestrator.initialize(mockConfig);
 
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
             mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'server_not_found' });
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockClear();
+            mockPlexAuth.storeCredentials.mockClear();
 
-            try {
-                await expect(orchestrator.selectServer('missing-server')).resolves.toEqual({
-                    kind: 'selection_failed',
-                    reason: 'server_not_found',
-                });
-                expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).not.toHaveBeenCalled();
-                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy).not.toHaveBeenCalled();
-            } finally {
-                mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
-                mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
-                runStartupSpy.mockRestore();
-            }
+            await expect(orchestrator.selectServer('missing-server')).resolves.toEqual({
+                kind: 'selection_failed',
+                reason: 'server_not_found',
+            });
+            expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).toHaveBeenCalled();
+            expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
         });
 
         it('returns selection_failed when discovery reports connection_unavailable', async () => {
             await orchestrator.initialize(mockConfig);
 
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
             mockPlexDiscovery.selectServer.mockResolvedValue({
                 kind: 'connection_unavailable',
                 reason: 'auth_required',
             });
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockClear();
+            mockPlexAuth.storeCredentials.mockClear();
 
-            try {
-                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
-                    kind: 'selection_failed',
-                    reason: 'auth_required',
-                });
-                expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).not.toHaveBeenCalled();
-                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy).not.toHaveBeenCalled();
-            } finally {
-                runStartupSpy.mockRestore();
-            }
+            await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                kind: 'selection_failed',
+                reason: 'auth_required',
+            });
+            expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).toHaveBeenCalled();
+            expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
         });
 
         it('reports skipped_missing_credentials when selected-server persistence has no stored auth', async () => {
             await orchestrator.initialize(mockConfig);
 
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
-            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
 
-            try {
-                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
-                    kind: 'selected',
-                    readiness: 'startup_pending',
-                    persistedSelection: 'skipped_missing_credentials',
-                    startupResume: {
-                        startup: 'completed',
-                        epgRefresh: { kind: 'degraded', result: SKIPPED_EPG_REFRESH_RESULT },
-                    },
-                });
-                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
-            } finally {
-                runStartupSpy.mockRestore();
-            }
+            await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                kind: 'selected',
+                persistedSelection: 'skipped_missing_credentials',
+                epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT },
+            });
+            expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
         });
 
         it('does not rewrite persisted selected-server state when stored auth is corrupted', async () => {
             await orchestrator.initialize(mockConfig);
 
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
-            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({
-                kind: 'corrupted',
-                reason: 'invalid-json',
-            });
+            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
+            mockPlexAuth.readStoredCredentialsAndClearCorruption
+                .mockReturnValueOnce({ kind: 'corrupted', reason: 'invalid-json' })
+                .mockReturnValue({ kind: 'missing' });
 
-            try {
-                await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
-                    kind: 'selected',
-                    readiness: 'startup_pending',
-                    persistedSelection: 'skipped_corrupted_credentials',
-                    startupResume: {
-                        startup: 'completed',
-                        epgRefresh: { kind: 'degraded', result: SKIPPED_EPG_REFRESH_RESULT },
-                    },
-                });
-                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
-            } finally {
-                runStartupSpy.mockRestore();
-            }
+            await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                kind: 'selected',
+                persistedSelection: 'skipped_corrupted_credentials',
+                epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT },
+            });
+            expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
         });
 
         it('restores the discovery snapshot when selected-server persistence rejects', async () => {
@@ -1342,38 +1336,21 @@ describe('AppOrchestrator', () => {
                 serverUri: 'http://previous.example',
             };
 
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
             mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
-            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
             mockPlexAuth.storeCredentials.mockImplementation(() => { throw persistedSelectionError; });
 
-            try {
-                await expect(orchestrator.selectServer('server-1')).rejects.toBe(persistedSelectionError);
+            await expect(orchestrator.selectServer('server-1')).rejects.toBe(persistedSelectionError);
 
-                expect(mockPlexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-                expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
-                expect(runStartupSpy).not.toHaveBeenCalled();
-            } finally {
-                runStartupSpy.mockRestore();
-            }
+            expect(mockPlexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith(discoverySnapshot);
+            expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
         });
 
-        it('restores discovery and active-user persisted selection when startup resume fails after persistence', async () => {
+        it('restores discovery and active-user persisted selection when selected-server initialization fails', async () => {
             await orchestrator.initialize(mockConfig);
 
             const resumeError = new Error('startup resume failed');
-            expectConsoleWarn([
-                'Post-selection runtime swap failed',
-                expect.objectContaining({
-                    step: 'runStartup',
-                    safeError: expect.objectContaining({
-                        message: 'startup resume failed',
-                    }),
-                }),
-            ]);
             const discoverySnapshot = {
                 server: { id: 'server-prev' },
                 connection: { uri: 'http://previous.example' },
@@ -1388,11 +1365,15 @@ describe('AppOrchestrator', () => {
                 serverUri: 'http://previous.example',
             };
 
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockRejectedValue(resumeError);
+            const selectedServerTransactionSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runSelectedServerTransaction')
+                .mockRejectedValueOnce(resumeError)
+                .mockResolvedValueOnce({
+                    kind: 'completed',
+                    payload: { epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT } },
+                });
             mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
-            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
             mockPlexDiscovery.getServerUri.mockReturnValue('http://next.example');
             mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
 
@@ -1419,7 +1400,7 @@ describe('AppOrchestrator', () => {
                     { emitAuthChange: false }
                 );
             } finally {
-                runStartupSpy.mockRestore();
+                selectedServerTransactionSpy.mockRestore();
             }
         });
 
@@ -1427,49 +1408,33 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
 
             const resumeError = new Error('startup resume failed');
-            expectConsoleWarn([
-                'Post-selection runtime swap failed',
-                expect.objectContaining({
-                    step: 'runStartup',
-                    safeError: expect.objectContaining({
-                        message: 'startup resume failed',
-                    }),
-                }),
-            ]);
             const discoverySnapshot = {
                 server: { id: 'server-prev' },
                 connection: { uri: 'http://previous.example' },
                 storedServerId: 'server-prev',
             };
-            const nextCredentials = createStoredCredentials('valid-token');
             mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
-            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'selected' });
+            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
             mockPlexDiscovery.getServerUri.mockReturnValue('http://next.example');
-            mockPlexAuth.readStoredCredentialsAndClearCorruption
-                .mockReturnValueOnce({ kind: 'missing' })
-                .mockReturnValueOnce(nextCredentials);
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockRejectedValue(resumeError);
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
+            const selectedServerTransactionSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runSelectedServerTransaction')
+                .mockRejectedValueOnce(resumeError)
+                .mockResolvedValueOnce({
+                    kind: 'completed',
+                    payload: { epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT } },
+                });
 
             try {
                 await expect(orchestrator.selectServer('server-1')).rejects.toBe(resumeError);
 
                 expect(mockPlexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-                expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
-                expect(mockPlexAuth.storeCredentials).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        selectedServerByUserId: expect.objectContaining({
-                            'user-1': { serverId: 'server-1', serverUri: 'http://next.example' },
-                        }),
-                    }),
-                    { emitAuthChange: false }
-                );
-                expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).toHaveBeenCalledTimes(2);
+                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
+                expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).toHaveBeenCalled();
             } finally {
                 mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
                 mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
-                runStartupSpy.mockRestore();
+                selectedServerTransactionSpy.mockRestore();
             }
         });
 
@@ -1507,6 +1472,38 @@ describe('AppOrchestrator', () => {
             } finally {
                 clearSelectedSnapshotSpy.mockRestore();
                 clearScheduleCachesSpy.mockRestore();
+            }
+        });
+
+        it('rejects selected-server clear while recovery commands are gated', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockNavigation.isRuntimeCommandGated.mockReturnValueOnce(true);
+
+            await expect(orchestrator.clearSelectedServer()).rejects.toMatchObject({
+                code: AppErrorCode.INITIALIZATION_FAILED,
+                recoverable: true,
+                message: 'Runtime command clearSelectedServer is unavailable during selected-server recovery.',
+                context: { recoveryMode: 'selected-server-quarantine' },
+            });
+
+            expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
+            expect(mockPlexDiscovery.clearSelection).not.toHaveBeenCalled();
+        });
+
+        it('allows quarantine retry through the selected-server recovery gate', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockNavigation.isRuntimeCommandGated.mockReturnValue(true);
+            const retry = jest.spyOn(
+                OrchestratorServerSelectionRuntimeProjection.prototype,
+                'retryQuarantineRecovery'
+            ).mockResolvedValue(undefined);
+
+            try {
+                await expect(orchestrator.retryQuarantineRecovery()).resolves.toBeUndefined();
+                expect(retry).toHaveBeenCalledTimes(1);
+            } finally {
+                retry.mockRestore();
+                mockNavigation.isRuntimeCommandGated.mockReturnValue(false);
             }
         });
 
@@ -1665,7 +1662,9 @@ describe('AppOrchestrator', () => {
                 await Promise.resolve();
                 await Promise.resolve();
 
-                expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id);
+                expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id, {
+                    signal: null,
+                });
                 expect(mockScheduler.loadChannel).toHaveBeenCalled();
                 expect(refreshSpy).toHaveBeenCalledTimes(1);
                 expect(epgRefreshSequence).toEqual([
@@ -2159,7 +2158,7 @@ describe('AppOrchestrator', () => {
             await orchestrator.start();
 
             expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
-            expect(mockPlexAuth.validateStoredCredentials).toHaveBeenCalledWith({ signal: null });
+            expect(mockPlexAuth.validateStoredCredentials).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) });
         });
 
         it('should validate token and proceed if valid', async () => {
@@ -2170,7 +2169,7 @@ describe('AppOrchestrator', () => {
 
             await orchestrator.start();
 
-            expect(mockPlexAuth.validateStoredCredentials).toHaveBeenCalledWith({ signal: null });
+            expect(mockPlexAuth.validateStoredCredentials).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) });
             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
         });
 
@@ -2292,7 +2291,7 @@ describe('AppOrchestrator', () => {
 
             await orchestrator.start();
 
-            expect(mockPlexAuth.validateStoredCredentials).toHaveBeenCalledWith({ signal: null });
+            expect(mockPlexAuth.validateStoredCredentials).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) });
             expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
             expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('auth');
         });
@@ -3662,6 +3661,14 @@ describe('AppOrchestrator', () => {
                     method: 'initialize',
                     lifecycle: 'shutdown',
                 }),
+            });
+            await expect(orchestrator.retryQuarantineRecovery()).rejects.toMatchObject({
+                code: AppErrorCode.MODULE_INIT_FAILED,
+                recoverable: false,
+                context: {
+                    method: 'retryQuarantineRecovery',
+                    lifecycle: 'shutdown',
+                },
             });
         });
 

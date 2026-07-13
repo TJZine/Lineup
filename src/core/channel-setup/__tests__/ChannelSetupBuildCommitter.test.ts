@@ -184,6 +184,7 @@ describe('ChannelSetupBuildCommitter', () => {
         });
 
         expect(result.summary.canceled).toBe(true);
+        expect(result.summary.commitState).toBeUndefined();
         expect(result.summary.lastTask).toBe('create_channels');
         expect(result.summary.created).toBe(0);
         expect(result.summary.skipped).toBe(3);
@@ -330,11 +331,142 @@ describe('ChannelSetupBuildCommitter', () => {
         });
 
         expect(result.summary.initialChannelNumber).toBe(1);
+        expect(result.summary.commitState).toBe('committed');
         expect(result.summary.guideRefresh).toEqual({
             kind: 'completed',
             result: READY_GUIDE_REFRESH,
         });
         expect(result.epgRefreshFailed).toBe(false);
+    });
+
+    it.each([
+        {
+            stage: 'prepare' as const,
+            abortAtStage: (harness: Harness, controller: AbortController): void => {
+                harness.channelManager.replaceAllChannels.mockImplementationOnce(async () => {
+                    controller.abort();
+                });
+            },
+        },
+        {
+            stage: 'ensure_initialized' as const,
+            abortAtStage: (harness: Harness, controller: AbortController): void => {
+                harness.ensureEpgInitialized.mockImplementationOnce(async () => {
+                    controller.abort();
+                });
+            },
+        },
+        {
+            stage: 'prime_channels' as const,
+            abortAtStage: (harness: Harness, controller: AbortController): void => {
+                harness.primeEpgChannels.mockImplementationOnce(() => controller.abort());
+            },
+        },
+        {
+            stage: 'refresh_schedules' as const,
+            abortAtStage: (harness: Harness, controller: AbortController): void => {
+                harness.refreshEpgSchedules.mockImplementationOnce(async () => {
+                    controller.abort();
+                    return READY_GUIDE_REFRESH;
+                });
+            },
+        },
+    ])('keeps committed channels and reports an abort observed at $stage as an interruption', async ({
+        stage,
+        abortAtStage,
+    }) => {
+        const harness = createHarness();
+        const controller = new AbortController();
+        const progress: ProgressEvent[] = [];
+        abortAtStage(harness, controller);
+
+        const result = await harness.committer.commitBuild({
+            buildMode: 'replace',
+            existingChannels: [makeExisting(1)],
+            pendingToCreate: [makePending('One')],
+            skippedCount: 0,
+            reachedMaxChannels: false,
+            errorCount: 0,
+            diff: emptyDiff(),
+            signal: controller.signal,
+            reportProgress: (task, label, detail, current, total): void => {
+                progress.push({ task, label, detail, current, total });
+            },
+        });
+
+        expect(harness.channelManager.replaceAllChannels).toHaveBeenCalledTimes(1);
+        expect(result.summary).toMatchObject({
+            canceled: false,
+            commitState: 'committed',
+            guideRefresh: {
+                kind: 'interrupted',
+                interruption: { kind: 'aborted', stage },
+            },
+        });
+        expect(result.epgRefreshFailed).toBe(false);
+        expect(progress.at(-1)).toEqual({
+            task: 'done',
+            label: 'Done!',
+            detail: 'Built 1 channels (guide refresh interrupted)',
+            current: 1,
+            total: 1,
+        });
+    });
+
+    it.each([
+        {
+            stage: 'prepare' as const,
+            rejectAtStage: (harness: Harness): void => {
+                harness.clearSelectedChannelScheduleSnapshot.mockImplementationOnce(() => {
+                    throw new DOMException('Aborted', 'AbortError');
+                });
+            },
+        },
+        {
+            stage: 'ensure_initialized' as const,
+            rejectAtStage: (harness: Harness): void => {
+                harness.ensureEpgInitialized.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'));
+            },
+        },
+        {
+            stage: 'prime_channels' as const,
+            rejectAtStage: (harness: Harness): void => {
+                harness.primeEpgChannels.mockImplementationOnce(() => {
+                    throw new DOMException('Aborted', 'AbortError');
+                });
+            },
+        },
+        {
+            stage: 'refresh_schedules' as const,
+            rejectAtStage: (harness: Harness): void => {
+                harness.refreshEpgSchedules.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'));
+            },
+        },
+    ])('consumes an abort rejection at $stage after commit', async ({ stage, rejectAtStage }) => {
+        const harness = createHarness();
+        rejectAtStage(harness);
+
+        await expect(harness.committer.commitBuild({
+            buildMode: 'replace',
+            existingChannels: [makeExisting(1)],
+            pendingToCreate: [makePending('One')],
+            skippedCount: 0,
+            reachedMaxChannels: false,
+            errorCount: 0,
+            diff: emptyDiff(),
+            signal: new AbortController().signal,
+            reportProgress: (): void => undefined,
+        })).resolves.toMatchObject({
+            summary: {
+                canceled: false,
+                commitState: 'committed',
+                guideRefresh: {
+                    kind: 'interrupted',
+                    interruption: { kind: 'aborted', stage },
+                },
+            },
+            epgRefreshFailed: false,
+        });
     });
 
     it.each([
@@ -540,7 +672,7 @@ describe('ChannelSetupBuildCommitter', () => {
         });
     });
 
-    it('propagates post-commit EPG refresh aborts without marking refresh failure', async () => {
+    it('consumes post-commit EPG refresh aborts without marking refresh failure', async () => {
         const { committer, refreshEpgSchedules } = createHarness();
         const abortReason = new DOMException('build canceled', 'AbortError');
         const controller = new AbortController();
@@ -559,7 +691,17 @@ describe('ChannelSetupBuildCommitter', () => {
             diff: emptyDiff(),
             signal: controller.signal,
             reportProgress: (): void => undefined,
-        })).rejects.toBe(abortReason);
+        })).resolves.toMatchObject({
+            summary: {
+                canceled: false,
+                commitState: 'committed',
+                guideRefresh: {
+                    kind: 'interrupted',
+                    interruption: { kind: 'aborted', stage: 'refresh_schedules' },
+                },
+            },
+            epgRefreshFailed: false,
+        });
 
         expect(refreshEpgSchedules).toHaveBeenCalledWith({
             reason: 'channel-setup',

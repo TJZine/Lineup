@@ -3,6 +3,7 @@ export {
     PlexDiscoverySelectionSupersededError,
     isPlexDiscoverySelectionSupersededError,
 } from './PlexDiscoverySelectionContext';
+export type { PlexDiscoverySelectionReceipt } from './PlexDiscoverySelectionContext';
 export type {
     IPlexServerDiscovery,
     PlexDiscoverySignalOptions,

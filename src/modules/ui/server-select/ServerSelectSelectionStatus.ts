@@ -3,7 +3,7 @@ import type { ServerSelectSelectionResult } from './types';
 type SelectedServerResult = Extract<ServerSelectSelectionResult, { kind: 'selected' }>;
 
 export function getSelectedServerStatusTone(result: SelectedServerResult): 'success' | 'warning' {
-    const refreshKind = result.startupResume.epgRefresh.kind;
+    const refreshKind = result.epgRefresh.kind;
     return refreshKind === 'degraded' || refreshKind === 'failed' ? 'warning' : 'success';
 }
 
@@ -16,14 +16,14 @@ export function getSelectedServerStatusDetail(
     if (result.persistedSelection === 'skipped_corrupted_credentials') {
         return 'Connected, but saved-server preference was not updated because credentials need repair.';
     }
-    if (result.startupResume.epgRefresh.kind === 'failed') {
+    if (result.epgRefresh.kind === 'failed') {
         return 'Connected, but guide refresh needs retry.';
     }
-    if (result.startupResume.epgRefresh.kind === 'superseded') {
+    if (result.epgRefresh.kind === 'superseded') {
         return 'Connected; guide refresh continued with a newer request.';
     }
-    if (result.startupResume.epgRefresh.kind === 'degraded') {
-        const refreshResult = result.startupResume.epgRefresh.result;
+    if (result.epgRefresh.kind === 'degraded') {
+        const refreshResult = result.epgRefresh.result;
         switch (refreshResult.readiness) {
             case 'partial':
                 return `Connected, but guide refresh is incomplete (${refreshResult.immediateReadyChannelCount}/${refreshResult.attemptedChannelCount} schedules ready).`;
@@ -34,12 +34,6 @@ export function getSelectedServerStatusDetail(
             default:
                 return assertUnhandledRefreshReadiness(refreshResult.readiness);
         }
-    }
-    if (result.startupResume.startup === 'skipped_no_coordinator') {
-        return 'Connected; startup will continue when the app is ready.';
-    }
-    if (result.readiness === 'startup_pending') {
-        return 'Continuing startup...';
     }
     return 'Ready.';
 }

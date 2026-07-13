@@ -49,4 +49,13 @@ describe('ProfileSessionStore', () => {
         expect(store.readLastProfileIdAndClean()).toBeNull();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBeNull();
     });
+
+    it('reports blocked settings writes without throwing', () => {
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('Blocked', 'SecurityError');
+        });
+
+        expect(store.writeShowProfilePickerOnStartup(true)).toEqual({ ok: false, reason: 'unavailable' });
+        expect(store.writeKeepPlayingInSettings(true)).toEqual({ ok: false, reason: 'unavailable' });
+    });
 });

@@ -3,10 +3,19 @@
  * These helpers treat storage as optional and never throw.
  */
 export function safeLocalStorageGet(key: string): string | null {
+    const result = safeLocalStorageGetWithResult(key);
+    return result.ok ? result.value : null;
+}
+
+export type SafeLocalStorageGetResult =
+    | { ok: true; value: string | null }
+    | { ok: false; reason: 'unavailable' };
+
+export function safeLocalStorageGetWithResult(key: string): SafeLocalStorageGetResult {
     try {
-        return localStorage.getItem(key);
+        return { ok: true, value: localStorage.getItem(key) };
     } catch {
-        return null;
+        return { ok: false, reason: 'unavailable' };
     }
 }
 

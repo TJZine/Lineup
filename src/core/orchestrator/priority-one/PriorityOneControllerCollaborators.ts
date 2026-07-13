@@ -1,7 +1,7 @@
 import type {
     IVideoPlayer,
     PlaybackError,
-    StreamDescriptor,
+    PreparedPlaybackStream,
 } from '../../../modules/player';
 import {
     buildScheduledProgramIdentity,
@@ -35,17 +35,6 @@ function getCurrentChannelSnapshot(
     return channel
         ? { number: channel.number, name: channel.name }
         : null;
-}
-
-function resolvePlaybackStartStream(
-    playback: PriorityOneAssemblyInput['playback'],
-    program: ScheduledProgram
-): Promise<StreamDescriptor | null> {
-    if (!playback.playbackRecovery.resolveStreamForProgram) {
-        return Promise.resolve(null);
-    }
-
-    return playback.playbackRecovery.resolveStreamForProgram(program).then((stream) => stream ?? null);
 }
 
 function markProgramStarting(
@@ -135,8 +124,10 @@ function createOverlayRuntimePolicyDeps(
 function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStartControllerDeps {
     return {
         getVideoPlayer: (): IVideoPlayer | null => input.modules.videoPlayer,
-        resolveStreamForProgram: (program): Promise<StreamDescriptor | null> =>
-            resolvePlaybackStartStream(input.playback, program),
+        resolveStreamForProgram: (program): Promise<PreparedPlaybackStream> =>
+            input.playback.playbackRecovery.resolveStreamForProgram(program),
+        discardPreparedStream: (prepared): Promise<void> =>
+            input.playback.playbackRecovery.discardPreparedStream(prepared),
         resetPlaybackFailureGuard: (): void => {
             input.playback.playbackRecovery.resetPlaybackFailureGuard?.();
         },
@@ -144,8 +135,11 @@ function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStart
             input.playback.playbackRecovery.tryHandleStreamResolverAuthError?.(error) ?? false,
         tryHandleStreamResolverPermissionError: (error): boolean =>
             input.playback.playbackRecovery.tryHandleStreamResolverPermissionError?.(error) ?? false,
-        attemptTranscodeFallbackForCurrentProgram: (reason): Promise<boolean> =>
-            input.playback.playbackRecovery.attemptTranscodeFallbackForCurrentProgram?.(reason) ?? Promise.resolve(false),
+        attemptTranscodeFallbackForCurrentProgram: (reason, attemptedStream): Promise<boolean> =>
+            input.playback.playbackRecovery.attemptTranscodeFallbackForCurrentProgram?.(
+                reason,
+                attemptedStream
+            ) ?? Promise.resolve(false),
         handlePlaybackFailure: (context, error): void => {
             input.playback.playbackRecovery.handlePlaybackFailure?.(context, error);
         },
@@ -164,9 +158,19 @@ function createPlaybackStartDeps(input: PriorityOneAssemblyInput): PlaybackStart
         handleProgramStartUiSideEffects: (program): void => {
             input.uiRuntime.onProgramStartUiSideEffects(program);
         },
-        handleStreamResolved: (stream): void => {
-            input.playback.playbackState.setCurrentStreamDescriptor(stream);
-            input.uiRuntime.onStreamResolved(stream);
+        commitPreparedStream: (prepared): void => {
+            input.playback.playbackState.setCurrentStreamDecision(prepared.decision);
+            input.playback.playbackState.setCurrentStreamDescriptor(prepared.descriptor);
+        },
+        handleStreamResolved: (prepared): void => {
+            input.uiRuntime.onStreamResolved(prepared.descriptor);
+        },
+        reportRecoverableActivationFailure: (error): void => {
+            input.events.reportRecoverableAsyncFailure(
+                'orchestrator.playbackStart.onStreamResolved',
+                'Playback stream-resolved callback failed after activation',
+                error
+            );
         },
         clearAutoShowInfoBannerAfterAbortedStart: (): void => {
             input.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay(false);

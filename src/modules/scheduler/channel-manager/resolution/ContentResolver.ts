@@ -17,11 +17,21 @@ import { isPlexLibraryScopeSupersededError } from '../../../plex/library';
 import { ContentItemMapper } from './ContentItemMapper';
 import { ContentSelectionPolicy } from './ContentSelectionPolicy';
 import { SourceResolutionCache } from './SourceResolutionCache';
+import {
+    SourceResolutionScope,
+    type SourceResolutionOperationContext,
+} from './SourceResolutionEntryAuthority';
 import { isAbortLikeError } from '../../../../utils/errors';
 
 
 const CONTENT_RESOLVER_CACHE_TTL_MS = 5 * 60_000;
 const SHOW_CACHE_TTL_MS = CONTENT_RESOLVER_CACHE_TTL_MS;
+
+type ContentResolutionOptions = {
+    signal?: AbortSignal | null;
+    operationContext?: SourceResolutionOperationContext;
+    strict?: boolean;
+};
 
 /**
  * Resolves content from various Plex sources.
@@ -36,6 +46,7 @@ export class ContentResolver {
         { items: PlexMediaItemMinimal[]; cachedAt: number }
     >();
     private readonly _sourceCache = new SourceResolutionCache();
+    private _defaultResolutionScope = new SourceResolutionScope([{ assertCurrent: (): void => undefined }]);
     private readonly _mapper = new ContentItemMapper();
     private readonly _selectionPolicy = new ContentSelectionPolicy();
 
@@ -48,6 +59,9 @@ export class ContentResolver {
     }
 
     clearCaches(): void {
+        this._defaultResolutionScope.close();
+        this._defaultResolutionScope.release();
+        this._defaultResolutionScope = new SourceResolutionScope([{ assertCurrent: (): void => undefined }]);
         this._showCacheByLibraryId.clear();
         this._sourceCache.clear();
     }
@@ -69,26 +83,30 @@ export class ContentResolver {
         }
     }
 
-    /**
-     * Resolve content from any source type.
-     * @param source - Content source configuration
-     * @returns Promise resolving to content items
-     * @throws Error if resolution fails (for cached fallback handling by caller)
-     */
     async resolveSource(
         source: ChannelContentSource,
-        options?: { signal?: AbortSignal | null }
+        options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
-        return this._sourceCache.resolve(
-            source,
-            (sourceToResolve, resolveOptions) => this._resolveSourceUncached(sourceToResolve, resolveOptions),
-            options
-        );
+        const operation = (options?.operationContext ?? this._defaultResolutionScope)
+            .retain('content-resolver');
+        try {
+            return await this._sourceCache.resolveWithOperation(
+                source,
+                (sourceToResolve, entry) => this._resolveSourceUncached(sourceToResolve, {
+                    signal: entry.signal,
+                    operationContext: entry,
+                }),
+                operation,
+                options?.signal
+            );
+        } finally {
+            operation.release();
+        }
     }
 
     private async _resolveSourceUncached(
         source: ChannelContentSource,
-        options?: { signal?: AbortSignal | null }
+        options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         let items: ResolvedContentItem[];
 
@@ -121,6 +139,7 @@ export class ContentResolver {
         // Defensive expansion: Shows are containers, not playable items.
         // Expand any that slipped through (common in Collections containing shows).
         const expanded = await this._expandShowContainers(items, options);
+        options?.operationContext?.assertCurrent();
 
         // Final defensive filter: if any shows remain, drop them and warn.
         const playable = expanded.filter((item) => item.type !== 'show');
@@ -135,7 +154,7 @@ export class ContentResolver {
 
     private async _expandShowContainers(
         items: ResolvedContentItem[],
-        options?: { signal?: AbortSignal | null; strict?: boolean }
+        options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         const expanded: ResolvedContentItem[] = [];
 
@@ -149,6 +168,7 @@ export class ContentResolver {
                 const episodes = await this._library.getShowEpisodes(item.ratingKey, {
                     signal: options?.signal ?? null,
                 });
+                options?.operationContext?.assertCurrent();
                 if (episodes.length === 0) {
                     if (options?.strict) {
                         throw new Error(`Show item returned no episodes during strict expansion (${item.ratingKey})`);
@@ -190,33 +210,14 @@ export class ContentResolver {
         return expanded;
     }
 
-    /**
-     * Apply filters to content items.
-     * @param items - Items to filter
-     * @param filters - Filters to apply (AND logic)
-     * @returns Filtered items
-     */
     applyFilters(items: ResolvedContentItem[], filters: ContentFilter[]): ResolvedContentItem[] {
         return this._selectionPolicy.applyFilters(items, filters);
     }
 
-    /**
-     * Apply sort order to content items.
-     * @param items - Items to sort
-     * @param order - Sort order
-     * @returns Sorted items (new array)
-     */
     applySort(items: ResolvedContentItem[], order: SortOrder): ResolvedContentItem[] {
         return this._selectionPolicy.applySort(items, order);
     }
 
-    /**
-     * Apply playback mode to order items.
-     * @param items - Items to order
-     * @param mode - Playback mode
-     * @param seed - Shuffle seed (used for 'shuffle' mode)
-     * @returns Ordered items
-     */
     applyPlaybackMode(
         items: ResolvedContentItem[],
         mode: PlaybackMode,
@@ -229,22 +230,24 @@ export class ContentResolver {
 
     private async _resolveLibrarySource(
         source: LibraryContentSource,
-        options?: { signal?: AbortSignal | null }
+        options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         if (source.libraryType !== 'show') {
             const optionsWithFilter = source.libraryFilter
-                ? { ...options, filter: source.libraryFilter }
-                : options;
+                ? { signal: options?.signal ?? null, filter: source.libraryFilter }
+                : { signal: options?.signal ?? null };
             const items = await this._library.getLibraryItems(source.libraryId, optionsWithFilter);
+            options?.operationContext?.assertCurrent();
             return items.map((item, index) => this._mapper.toResolvedItem(item, index));
         }
 
         const hasGenreLibraryFilter = source.libraryFilter && 'genre' in source.libraryFilter;
         if (hasGenreLibraryFilter) {
             const items = await this._library.getLibraryItems(source.libraryId, {
-                ...options,
+                signal: options?.signal ?? null,
                 filter: { ...source.libraryFilter, type: PLEX_MEDIA_TYPES.SHOW },
             });
+            options?.operationContext?.assertCurrent();
             const resolvedShows = items.map((item, index) => this._mapper.toResolvedItem(item, index));
             return this._expandShowContainers(resolvedShows, {
                 signal: options?.signal ?? null,
@@ -255,9 +258,10 @@ export class ContentResolver {
         // Show libraries fetch playable episodes directly. Parent show metadata is fetched
         // once per library for decoration, reusing the cached show list when available.
         const episodeItems = await this._library.getLibraryItems(source.libraryId, {
-            ...options,
+            signal: options?.signal ?? null,
             filter: { ...(source.libraryFilter ?? {}), type: PLEX_MEDIA_TYPES.EPISODE },
         });
+        options?.operationContext?.assertCurrent();
 
         const now = Date.now();
         const cached = this._showCacheByLibraryId.get(source.libraryId);
@@ -266,8 +270,12 @@ export class ContentResolver {
             shows = cached.items;
         } else {
             try {
-                shows = await this._library.getLibraryItems(source.libraryId, options);
+                shows = await this._library.getLibraryItems(source.libraryId, {
+                    signal: options?.signal ?? null,
+                });
+                options?.operationContext?.assertCurrent();
                 this._showCacheByLibraryId.set(source.libraryId, { items: shows, cachedAt: now });
+                options?.operationContext?.assertCurrent();
             } catch (error) {
                 if (isPlexLibraryScopeSupersededError(error)) {
                     throw error;
@@ -276,8 +284,10 @@ export class ContentResolver {
                     throw error;
                 }
                 if (cached) {
+                    options?.operationContext?.assertCurrent();
                     this._logger.warn('Show list fetch failed, using cached show list', error);
                     shows = cached.items;
+                    options?.operationContext?.assertCurrent();
                     this._showCacheByLibraryId.set(source.libraryId, { items: cached.items, cachedAt: now });
                 } else {
                     this._logger.warn('Show list fetch failed, continuing without decoration', error);
@@ -325,9 +335,12 @@ export class ContentResolver {
 
     private async _resolveCollectionSource(
         source: CollectionContentSource,
-        options?: { signal?: AbortSignal | null }
+        options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
-        const items = await this._library.getCollectionItems(source.collectionKey, options);
+        const items = await this._library.getCollectionItems(source.collectionKey, {
+            signal: options?.signal ?? null,
+        });
+        options?.operationContext?.assertCurrent();
         const expanded: PlexMediaItemMinimal[] = [];
 
         for (const item of items) {
@@ -337,7 +350,10 @@ export class ContentResolver {
                 item.seasonNumber === undefined
             ) {
                 try {
-                    const episodes = await this._library.getShowEpisodes(item.ratingKey, options);
+                    const episodes = await this._library.getShowEpisodes(item.ratingKey, {
+                        signal: options?.signal ?? null,
+                    });
+                    options?.operationContext?.assertCurrent();
                     if (episodes.length > 0) {
                         const decorated = episodes.map((episode) => {
                             return this._mapper.decorateEpisodeFromParent(episode, {
@@ -370,9 +386,12 @@ export class ContentResolver {
 
     private async _resolveShowSource(
         source: ShowContentSource,
-        options?: { signal?: AbortSignal | null }
+        options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
-        const items = await this._library.getShowEpisodes(source.showKey, options);
+        const items = await this._library.getShowEpisodes(source.showKey, {
+            signal: options?.signal ?? null,
+        });
+        options?.operationContext?.assertCurrent();
 
         let filtered = items;
         const seasonFilter = source.seasonFilter;
@@ -389,15 +408,18 @@ export class ContentResolver {
 
     private async _resolvePlaylistSource(
         source: PlaylistContentSource,
-        options?: { signal?: AbortSignal | null }
+        options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
-        const items = await this._library.getPlaylistItems(source.playlistKey, options);
+        const items = await this._library.getPlaylistItems(source.playlistKey, {
+            signal: options?.signal ?? null,
+        });
+        options?.operationContext?.assertCurrent();
         return items.map((item, index) => this._mapper.toResolvedItem(item, index));
     }
 
     private _resolveManualSource(
         source: ManualContentSource,
-        _options?: { signal?: AbortSignal | null }
+        _options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         const results: ResolvedContentItem[] = [];
 
@@ -433,11 +455,12 @@ export class ContentResolver {
 
     private async _resolveMixedSource(
         source: MixedContentSource,
-        options?: { signal?: AbortSignal | null }
+        options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         const allResolved = await Promise.all(
             source.sources.map((subSource) => this.resolveSource(subSource, options))
         );
+        options?.operationContext?.assertCurrent();
 
         if (source.mixMode === 'sequential') {
             // Append sources in order
@@ -448,27 +471,7 @@ export class ContentResolver {
             }));
         } else {
             // Interleave sources
-            return this._interleave(allResolved);
+            return this._selectionPolicy.interleave(allResolved);
         }
-    }
-
-
-    private _interleave(arrays: ResolvedContentItem[][]): ResolvedContentItem[] {
-        const result: ResolvedContentItem[] = [];
-        const maxLen = Math.max(...arrays.map((arr) => arr.length));
-
-        for (let i = 0; i < maxLen; i++) {
-            for (const arr of arrays) {
-                const item = arr[i];
-                if (item) {
-                    result.push({
-                        ...item,
-                        scheduledIndex: result.length,
-                    });
-                }
-            }
-        }
-
-        return result;
     }
 }

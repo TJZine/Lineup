@@ -1,7 +1,19 @@
 import { PLAYBACK_OPTIONS_CLASSES } from './constants';
 import type { IPlaybackOptionsModal } from './interfaces';
-import type { PlaybackOptionsConfig, PlaybackOptionsSection, PlaybackOptionsViewModel, PlaybackOptionsItem } from './types';
+import type {
+    PlaybackOptionsConfig,
+    PlaybackOptionsItem,
+    PlaybackOptionsSection,
+    PlaybackOptionsSectionId,
+    PlaybackOptionsViewModel,
+} from './types';
 import { createOverlayPrimitives } from '../common/OverlayPrimitives';
+
+const PLAYBACK_OPTIONS_TITLE_ID = 'playback-options-title';
+const PLAYBACK_OPTIONS_SECTION_TITLE_IDS: Record<PlaybackOptionsSectionId, string> = {
+    subtitles: 'playback-options-subtitles-title',
+    audio: 'playback-options-audio-title',
+};
 
 export class PlaybackOptionsModal implements IPlaybackOptionsModal {
     private containerElement: HTMLElement | null = null;
@@ -20,6 +32,8 @@ export class PlaybackOptionsModal implements IPlaybackOptionsModal {
         this.containerElement = container;
         this.containerElement.className = PLAYBACK_OPTIONS_CLASSES.CONTAINER;
         this.containerElement.classList.remove('visible');
+        this.containerElement.setAttribute('role', 'dialog');
+        this.containerElement.setAttribute('aria-modal', 'true');
         this.isVisibleFlag = false;
     }
 
@@ -45,6 +59,9 @@ export class PlaybackOptionsModal implements IPlaybackOptionsModal {
         if (this.containerElement) {
             this.containerElement.textContent = '';
             this.containerElement.classList.remove('visible');
+            this.containerElement.removeAttribute('role');
+            this.containerElement.removeAttribute('aria-modal');
+            this.containerElement.removeAttribute('aria-labelledby');
         }
         this.containerElement = null;
         this.isVisibleFlag = false;
@@ -78,19 +95,27 @@ export class PlaybackOptionsModal implements IPlaybackOptionsModal {
             }
         );
         const panel = primitives.panelEl;
+        if (primitives.titleEl) {
+            primitives.titleEl.id = PLAYBACK_OPTIONS_TITLE_ID;
+            this.containerElement.setAttribute('aria-labelledby', PLAYBACK_OPTIONS_TITLE_ID);
+        }
 
-        panel.appendChild(this.createSection(viewModel.subtitles));
-        panel.appendChild(this.createSection(viewModel.audio));
+        panel.appendChild(this.createSection(viewModel.subtitles, 'subtitles'));
+        panel.appendChild(this.createSection(viewModel.audio, 'audio'));
 
         this.containerElement.appendChild(panel);
     }
 
-    private createSection(section: PlaybackOptionsSection): HTMLElement {
+    private createSection(
+        section: PlaybackOptionsSection,
+        sectionId: PlaybackOptionsSectionId
+    ): HTMLElement {
         const wrapper = document.createElement('div');
         wrapper.className = PLAYBACK_OPTIONS_CLASSES.SECTION;
 
         const title = document.createElement('h2');
         title.className = PLAYBACK_OPTIONS_CLASSES.SECTION_TITLE;
+        title.id = PLAYBACK_OPTIONS_SECTION_TITLE_IDS[sectionId];
         title.textContent = section.title;
         wrapper.appendChild(title);
 
@@ -103,8 +128,11 @@ export class PlaybackOptionsModal implements IPlaybackOptionsModal {
 
         const list = document.createElement('div');
         list.className = PLAYBACK_OPTIONS_CLASSES.LIST;
+        list.setAttribute('role', 'group');
+        list.setAttribute('aria-labelledby', title.id);
 
         if (section.options.length === 0 && section.emptyMessage) {
+            wrapper.appendChild(list);
             const empty = document.createElement('div');
             empty.className = PLAYBACK_OPTIONS_CLASSES.EMPTY;
             empty.textContent = section.emptyMessage;
@@ -132,6 +160,7 @@ export class PlaybackOptionsModal implements IPlaybackOptionsModal {
         button.type = 'button';
         button.id = item.id;
         button.className = `${PLAYBACK_OPTIONS_CLASSES.ITEM}${item.selected ? ' selected' : ''}`;
+        button.setAttribute('aria-pressed', String(Boolean(item.selected)));
         if (item.blocked) {
             button.classList.add('blocked');
             button.setAttribute('aria-disabled', 'true');

@@ -3,7 +3,8 @@ import {
     readStoredBooleanAndClean,
     readStoredBooleanMaybeAndClean,
     safeLocalStorageRemove,
-    safeLocalStorageSet,
+    safeLocalStorageSetWithResult,
+    type SafeLocalStorageMutationResult,
 } from '../../utils/storage';
 
 export class DeveloperSettingsStore {
@@ -15,8 +16,8 @@ export class DeveloperSettingsStore {
         return readStoredBooleanMaybeAndClean(LINEUP_STORAGE_KEYS.DEBUG_LOGGING) !== null;
     }
 
-    writeDebugLoggingEnabled(enabled: boolean): void {
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, enabled ? '1' : '0');
+    writeDebugLoggingEnabled(enabled: boolean): SafeLocalStorageMutationResult {
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.DEBUG_LOGGING, enabled ? '1' : '0');
     }
 
     clearDebugLoggingEnabled(): void {
@@ -27,8 +28,8 @@ export class DeveloperSettingsStore {
         return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, fallback);
     }
 
-    writeSubtitleDebugLoggingEnabled(enabled: boolean): void {
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, enabled ? '1' : '0');
+    writeSubtitleDebugLoggingEnabled(enabled: boolean): SafeLocalStorageMutationResult {
+        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.SUBTITLE_DEBUG_LOGGING, enabled ? '1' : '0');
     }
 
     clearSubtitleDebugLoggingEnabled(): void {

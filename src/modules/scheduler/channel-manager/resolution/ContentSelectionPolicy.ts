@@ -8,6 +8,18 @@ import { shuffleWithSeed } from '../../shared/prng';
 import { applyPlaybackOrdering } from '../../shared/playbackOrdering';
 
 export class ContentSelectionPolicy {
+    interleave(arrays: ResolvedContentItem[][]): ResolvedContentItem[] {
+        const result: ResolvedContentItem[] = [];
+        const maxLength = Math.max(...arrays.map((items) => items.length));
+        for (let index = 0; index < maxLength; index += 1) {
+            for (const items of arrays) {
+                const item = items[index];
+                if (item) result.push({ ...item, scheduledIndex: result.length });
+            }
+        }
+        return result;
+    }
+
     applyFilters(items: ResolvedContentItem[], filters: ContentFilter[]): ResolvedContentItem[] {
         if (!filters.length) {
             return items;

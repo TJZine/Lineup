@@ -127,8 +127,8 @@ describe('DeveloperSettingsStore', () => {
         try {
             expect(() => store.readDebugLoggingEnabledAndClean(false)).not.toThrow();
             expect(() => store.readSubtitleDebugLoggingEnabledAndClean(false)).not.toThrow();
-            expect(() => store.writeDebugLoggingEnabled(true)).not.toThrow();
-            expect(() => store.writeSubtitleDebugLoggingEnabled(true)).not.toThrow();
+            expect(store.writeDebugLoggingEnabled(true)).toEqual({ ok: false, reason: 'unavailable' });
+            expect(store.writeSubtitleDebugLoggingEnabled(true)).toEqual({ ok: false, reason: 'unavailable' });
         } finally {
             getSpy.mockRestore();
             setSpy.mockRestore();

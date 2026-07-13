@@ -682,7 +682,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                 startTime: this.state.gridAnchorTime + (scrollPosition.timeOffset * 60000),
                 endTime: this.state.gridAnchorTime + ((scrollPosition.timeOffset + visibleHours * 60) * 60000),
                 startChannelIndex: scrollPosition.channelOffset,
-                endChannelIndex: Math.min(
+                endChannelIndexExclusive: Math.min(
                     scrollPosition.channelOffset + visibleChannels,
                     this.state.channels.length
                 ),

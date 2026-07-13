@@ -24,11 +24,16 @@ export interface INavigationManager {
     registerFocusGroup(group: FocusGroup): void;
     unregisterFocusGroup(groupId: string): void;
 
-    openModal(modalId: string, focusableIds?: string[]): void;
+    openModal(modalId: string, focusableIds?: string[], policy?: NavigationModalPolicy): void;
     /** Omitting the id closes the topmost modal. */
     closeModal(modalId?: string): void;
     /** Omitting the id checks whether any modal is open. */
     isModalOpen(modalId?: string): boolean;
+    getActiveModalPolicy(): NavigationModalPolicy | null;
+    cancelPendingChannelInput(): void;
+    activateRuntimeCommandGate(): void;
+    deactivateRuntimeCommandGate(): void;
+    isRuntimeCommandGated(): boolean;
 
     blockInput(): void;
     unblockInput(): void;
@@ -123,6 +128,11 @@ export interface NavigationState {
     focusedElementId: string | null;
     modalStack: string[];
     isPointerActive: boolean;
+}
+
+export interface NavigationModalPolicy {
+    dismissOnBack: boolean;
+    blocksBackgroundCommands: boolean;
 }
 
 export interface FocusableElement {

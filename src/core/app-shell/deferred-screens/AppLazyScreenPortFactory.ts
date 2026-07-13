@@ -6,7 +6,7 @@ import type {
     ServerSelectScreenPorts,
     ServerSelectSelectionResult,
 } from '../../../modules/ui/server-select';
-import type { GuideSettingChange } from '../../../modules/ui/settings/types';
+import type { GuideSettingChange, SettingsPersistenceResult } from '../../../modules/ui/settings/types';
 import type { ThemeName } from '../../../modules/ui/theme';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
@@ -84,7 +84,7 @@ export interface AppLazySettingsRuntimePorts {
     onGuideSettingChange: (change: GuideSettingChange) => void;
     getActiveUsername: () => string | null;
     getTheme: () => ThemeName;
-    setTheme: (theme: ThemeName) => void;
+    setTheme: (theme: ThemeName) => SettingsPersistenceResult;
 }
 
 export class AppLazyScreenPortFactory {
@@ -160,9 +160,8 @@ export class AppLazyScreenPortFactory {
                     case 'selected':
                         return {
                             kind: 'selected',
-                            readiness: result.readiness,
                             persistedSelection: result.persistedSelection,
-                            startupResume: result.startupResume,
+                            epgRefresh: result.epgRefresh,
                         };
                     default:
                         return assertUnhandledServerSelectionResult(result);

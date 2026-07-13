@@ -26,6 +26,6 @@ export class EPGVisibleRangeEmitter {
     }
 
     private _buildRangeKey(range: EpgVisibleRange): string {
-        return `${range.channelStart}-${range.channelEnd}-${range.timeStartMs}-${range.timeEndMs}`;
+        return `${range.channelStart}-${range.channelEndExclusive}-${range.timeStartMs}-${range.timeEndMs}`;
     }
 }

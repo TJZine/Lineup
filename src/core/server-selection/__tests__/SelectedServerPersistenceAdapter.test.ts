@@ -42,158 +42,209 @@ const createAdapter = (
         getCredentialsPort: () => port,
     });
 
+const createStatefulPort = (
+    initial: PlexAuthData
+): jest.Mocked<SelectedServerCredentialsPort> => {
+    let credentials = initial;
+    const port = createPort({
+        readStoredCredentialsAndClearCorruption: jest.fn(() => ({
+            kind: 'available',
+            credentials,
+        })),
+        storeCredentials: jest.fn((next) => {
+            credentials = next;
+        }),
+    });
+    return port;
+};
+
 describe('SelectedServerPersistenceAdapter', () => {
-    it('persists selected server for the active Plex user without changing credential schema', async () => {
-        const credentials = makeCredentials({
+    it('uses opaque evidence to persist and strictly restore the active-user selection', () => {
+        const port = createStatefulPort(makeCredentials({
             selectedServerByUserId: {
-                'other-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
+                'active-user': {
+                    serverId: 'server-old',
+                    serverUri: 'https://old.example.invalid',
+                },
+                'foreign-user': {
+                    serverId: 'foreign-server',
+                    serverUri: 'https://foreign.example.invalid',
+                },
+            },
+        }));
+        const adapter = createAdapter(port);
+        const evidence = adapter.capturePersistenceEvidence();
+
+        expect(adapter.persistCandidateSelection(
+            evidence,
+            'server-new',
+            'https://new.example.invalid'
+        )).toEqual({ phase: 'candidate', state: 'updated', publicResult: 'updated' });
+        expect(adapter.restorePersistenceEvidence(evidence)).toEqual({
+            phase: 'rollback',
+            state: 'restored_available_selected',
+            selection: { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
+        });
+
+        const lastWrite = port.storeCredentials.mock.calls.at(-1)?.[0];
+        expect(lastWrite?.selectedServerByUserId).toEqual({
+            'active-user': {
+                serverId: 'server-old',
+                serverUri: 'https://old.example.invalid',
+            },
+            'foreign-user': {
+                serverId: 'foreign-server',
+                serverUri: 'https://foreign.example.invalid',
             },
         });
+    });
+
+    it('preserves the original corrupted result after capture cleaned storage to missing', () => {
+        const reads = [
+            { kind: 'corrupted' as const, reason: 'invalid-json' as const },
+            { kind: 'missing' as const },
+            { kind: 'missing' as const },
+        ];
+        const port = createPort({
+            readStoredCredentialsAndClearCorruption: jest.fn(() => {
+                const next = reads.shift();
+                if (!next) throw new Error('Unexpected credentials read.');
+                return next;
+            }),
+        });
+        const adapter = createAdapter(port);
+        const evidence = adapter.capturePersistenceEvidence();
+
+        expect(adapter.persistCandidateSelection(
+            evidence,
+            'server-new',
+            'https://new.example.invalid'
+        )).toEqual({
+            phase: 'candidate',
+            state: 'corruption_cleaned_to_missing',
+            publicResult: 'skipped_corrupted_credentials',
+        });
+        expect(adapter.restorePersistenceEvidence(evidence)).toEqual({
+            phase: 'rollback',
+            state: 'corruption_cleaned_to_missing',
+        });
+        expect(port.storeCredentials).not.toHaveBeenCalled();
+    });
+
+    it('proves stable missing evidence without writing credentials', () => {
+        const port = createPort({
+            readStoredCredentialsAndClearCorruption: jest.fn(() => ({ kind: 'missing' })),
+        });
+        const adapter = createAdapter(port);
+        const evidence = adapter.capturePersistenceEvidence();
+
+        expect(adapter.persistCandidateSelection(
+            evidence,
+            'server-new',
+            'https://new.example.invalid'
+        )).toEqual({
+            phase: 'candidate',
+            state: 'stable_missing',
+            publicResult: 'skipped_missing_credentials',
+        });
+        expect(adapter.restorePersistenceEvidence(evidence)).toEqual({
+            phase: 'rollback',
+            state: 'stable_missing',
+        });
+        expect(port.storeCredentials).not.toHaveBeenCalled();
+    });
+
+    it('restores an explicit available null selection as an unselected proof', () => {
+        const port = createStatefulPort(makeCredentials({
+            selectedServerByUserId: {
+                'active-user': { serverId: null, serverUri: null },
+            },
+        }));
+        const adapter = createAdapter(port);
+        const evidence = adapter.capturePersistenceEvidence();
+
+        expect(adapter.persistCandidateSelection(
+            evidence,
+            'server-new',
+            'https://new.example.invalid'
+        )).toEqual({ phase: 'candidate', state: 'updated', publicResult: 'updated' });
+        expect(adapter.restorePersistenceEvidence(evidence)).toEqual({
+            phase: 'rollback',
+            state: 'restored_available_unselected',
+            selection: { serverId: null, serverUri: null },
+        });
+        expect(port.storeCredentials.mock.calls.at(-1)?.[0].selectedServerByUserId['active-user'])
+            .toEqual({ serverId: null, serverUri: null });
+    });
+
+    it('rejects candidate persistence when the credentials port does not store the exact pair', () => {
         const port = createPort({
             readStoredCredentialsAndClearCorruption: jest.fn(() => ({
                 kind: 'available',
-                credentials,
+                credentials: makeCredentials({
+                    selectedServerByUserId: {
+                        'active-user': { serverId: null, serverUri: null },
+                    },
+                }),
             })),
         });
         const adapter = createAdapter(port);
+        const evidence = adapter.capturePersistenceEvidence();
 
-        await expect(adapter.persistSelection('server-1', 'https://server.example.invalid')).resolves.toBe('updated');
-
-        expect(port.storeCredentials).toHaveBeenCalledWith(
-            {
-                accountToken: credentials.accountToken,
-                activeToken: credentials.activeToken,
-                activeUserId: 'active-user',
-                selectedServerByUserId: {
-                    'other-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
-                    'active-user': { serverId: 'server-1', serverUri: 'https://server.example.invalid' },
-                },
-                deviceKey: null,
-            },
-            { emitAuthChange: false }
-        );
+        expect(() => adapter.persistCandidateSelection(
+            evidence,
+            'server-new',
+            'https://new.example.invalid'
+        )).toThrow('Selected-server persistence evidence is no longer current.');
     });
 
-    it('uses the current session active user when stored credentials disagree', async () => {
-        const credentials = makeCredentials({
-            activeUserId: 'stored-user',
-            selectedServerByUserId: {
-                'stored-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
-            },
+    it('rejects partial available evidence and active-user drift without writing', () => {
+        const partialPort = createPort({
+            readStoredCredentialsAndClearCorruption: jest.fn(() => ({
+                kind: 'available',
+                credentials: makeCredentials({
+                    selectedServerByUserId: {
+                        'active-user': { serverId: 'partial', serverUri: null },
+                    },
+                }),
+            })),
         });
+        expect(() => createAdapter(partialPort).capturePersistenceEvidence()).toThrow(
+            'Selected-server persistence evidence is no longer current.'
+        );
+
+        const port = createStatefulPort(makeCredentials({
+            selectedServerByUserId: {
+                'active-user': { serverId: null, serverUri: null },
+            },
+        }));
+        const adapter = createAdapter(port);
+        const evidence = adapter.capturePersistenceEvidence();
+        port.getActiveUserId.mockReturnValue('new-user');
+
+        expect(() => adapter.persistCandidateSelection(evidence, 'server-new', null)).toThrow(
+            'Selected-server persistence evidence is no longer current.'
+        );
+        expect(port.storeCredentials).not.toHaveBeenCalled();
+    });
+
+    it('rejects a stored active-user envelope that disagrees with the session owner', () => {
         const port = createPort({
             getActiveUserId: jest.fn(() => 'session-user'),
             readStoredCredentialsAndClearCorruption: jest.fn(() => ({
                 kind: 'available',
-                credentials,
-            })),
-        });
-        const adapter = createAdapter(port);
-
-        await expect(adapter.persistSelection('server-1', 'https://server.example.invalid')).resolves.toBe('updated');
-
-        // Current session authority is intentional: port.getActiveUserId() overwrites stored activeUserId.
-        expect(port.storeCredentials).toHaveBeenCalledWith(
-            expect.objectContaining({
-                activeUserId: 'session-user',
-                selectedServerByUserId: expect.objectContaining({
-                    'session-user': { serverId: 'server-1', serverUri: 'https://server.example.invalid' },
-                    'stored-user': { serverId: 'server-old', serverUri: 'https://old.example.invalid' },
-                }),
-            }),
-            { emitAuthChange: false }
-        );
-    });
-
-    it('preserves missing and corrupted credential semantics when persisting', async () => {
-        const missingPort = createPort({
-            readStoredCredentialsAndClearCorruption: jest.fn(() => ({ kind: 'missing' })),
-        });
-        const corruptedPort = createPort({
-            readStoredCredentialsAndClearCorruption: jest.fn(() => ({
-                kind: 'corrupted',
-                reason: 'invalid-json',
-            })),
-        });
-
-        await expect(createAdapter(null).persistSelection('server-1', null)).resolves.toBe('skipped_missing_credentials');
-        await expect(createAdapter(missingPort).persistSelection('server-1', null)).resolves.toBe('skipped_missing_credentials');
-        await expect(createAdapter(corruptedPort).persistSelection('server-1', null)).resolves.toBe('skipped_corrupted_credentials');
-
-        expect(missingPort.storeCredentials).not.toHaveBeenCalled();
-        expect(corruptedPort.storeCredentials).not.toHaveBeenCalled();
-    });
-
-    it('captures selected-server snapshots for the active user without persisting', async () => {
-        const port = createPort({
-            readStoredCredentialsAndClearCorruption: jest.fn(() => ({
-                kind: 'available',
                 credentials: makeCredentials({
+                    activeUserId: 'stored-user',
                     selectedServerByUserId: {
-                        'active-user': {
-                            serverId: 'server-1',
-                            serverUri: 'https://server.example.invalid',
-                        },
+                        'session-user': { serverId: null, serverUri: null },
                     },
                 }),
             })),
         });
-        const adapter = createAdapter(port);
 
-        await expect(adapter.capturePersistedSelectionSnapshot()).resolves.toEqual({
-            kind: 'available',
-            selection: {
-                serverId: 'server-1',
-                serverUri: 'https://server.example.invalid',
-            },
-        });
-
+        expect(() => createAdapter(port).capturePersistenceEvidence()).toThrow(
+            'Selected-server persistence evidence is no longer current.'
+        );
         expect(port.storeCredentials).not.toHaveBeenCalled();
-    });
-
-    it('restores selected-server snapshots by replacing the active-user selection exactly', async () => {
-        const port = createPort({
-            readStoredCredentialsAndClearCorruption: jest.fn(() => ({
-                kind: 'available',
-                credentials: makeCredentials({
-                    selectedServerByUserId: {
-                        'active-user': {
-                            serverId: 'server-1',
-                            serverUri: 'https://server.example.invalid',
-                        },
-                        'foreign-user': {
-                            serverId: 'foreign-server',
-                            serverUri: 'https://foreign.example.invalid',
-                        },
-                    },
-                }),
-            })),
-        });
-        const adapter = createAdapter(port);
-
-        await expect(adapter.restorePersistedSelectionSnapshot({
-            kind: 'available',
-            selection: {
-                serverId: 'server-2',
-                serverUri: 'https://server-2.example.invalid',
-            },
-        })).resolves.toBe('updated');
-
-        expect(port.storeCredentials).toHaveBeenCalledTimes(1);
-        expect(port.storeCredentials).toHaveBeenCalledWith(
-            expect.objectContaining({
-                selectedServerByUserId: {
-                    'active-user': {
-                        serverId: 'server-2',
-                        serverUri: 'https://server-2.example.invalid',
-                    },
-                    'foreign-user': {
-                        serverId: 'foreign-server',
-                        serverUri: 'https://foreign.example.invalid',
-                    },
-                },
-            }),
-            { emitAuthChange: false }
-        );
     });
 });

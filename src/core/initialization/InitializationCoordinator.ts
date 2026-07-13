@@ -32,6 +32,7 @@ import {
     applyServerConnectionPolicy,
     applyPostReadyRoutingPolicy,
     type AuthValidationPolicyResult,
+    type ServerConnectionPolicyResult,
 } from './InitializationStartupPolicy';
 import {
     isStartupAbortError,
@@ -43,7 +44,22 @@ import {
 import { InitializationStartupQueue } from './InitializationStartupQueue';
 import { toRecoverableModuleStatusError } from './RecoverableModuleStatusError';
 import type { RecoverableAsyncFailureReporter } from '../orchestrator/runtime/OrchestratorRuntimeSeams';
-
+import {
+    InitializationSelectedServerTransaction,
+    type SelectedServerInitializationRequest,
+    type SelectedServerInitializationResult,
+} from './InitializationSelectedServerTransaction';
+import { initializeCoreInfrastructure } from './InitializationCoreInfrastructure';
+import { createInitializationSelectedServerTransaction } from './InitializationSelectedServerTransactionFactory';
+import {
+    InitializationStartupHandoff,
+    type InitializationSelectedServerLineage,
+} from './InitializationStartupHandoff';
+import {
+    reportInitializationResumeFailure,
+    type StartupResumePhase,
+} from './InitializationResumeFailure';
+import { InitializationQuarantineAuthority, InitializationQuarantinedError } from './InitializationQuarantineAuthority';
 // Numeric order is significant for queued phase collapsing.
 export const STARTUP_PHASE = {
     FULL_STARTUP: 1,
@@ -54,24 +70,6 @@ export const STARTUP_PHASE = {
 } as const;
 
 export type StartupPhase = typeof STARTUP_PHASE[keyof typeof STARTUP_PHASE];
-type StartupResumePhase =
-    | typeof STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE
-    | typeof STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION;
-
-const STARTUP_RESUME_FAILURES: Record<
-    StartupResumePhase,
-    { context: string; message: string }
-> = {
-    [STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE]: {
-        context: 'initialization.resume.afterAuthChange',
-        message: 'Background startup resume after auth change failed',
-    },
-    [STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION]: {
-        context: 'initialization.resume.afterServerSelection',
-        message: 'Background startup resume after server selection failed',
-    },
-};
-
 /**
  * Dependencies injected by Orchestrator.
  * These are module references the coordinator needs.
@@ -133,6 +131,7 @@ export interface InitializationCallbacks {
     state: {
         setReady: (ready: boolean) => void;
         setupEventWiring: () => void;
+        transferSelectedServerTuningToStartup: () => void;
     };
     serverStorage: {
         configureDiscoveryStorage: () => void;
@@ -149,13 +148,6 @@ export interface InitializationCallbacks {
         buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
     };
 }
-/**
- * InitializationCoordinator - Manages the named startup sequence.
- *
- * Extracted from Orchestrator to reduce its size and improve modularity.
- * The coordinator is instantiated by Orchestrator with injected dependencies
- * and callbacks, allowing bidirectional communication without tight coupling.
- */
 export class InitializationCoordinator {
     private static readonly EPG_WARMUP_DELAY_MS = 1500;
     private _startupInProgress = false;
@@ -165,34 +157,80 @@ export class InitializationCoordinator {
     private _profileResumeDisposable: IDisposable | null = null;
     private _epgInitPromise: Promise<void> | null = null;
     private _epgWarmupTimerId: ReturnType<typeof setTimeout> | null = null;
-
+    private _epgWarmupPromise: Promise<void> | null = null;
+    private readonly _selectedServerTransaction: InitializationSelectedServerTransaction;
+    private readonly _startupHandoff: InitializationStartupHandoff;
+    private readonly _quarantineAuthority = new InitializationQuarantineAuthority();
     constructor(
         private readonly _config: OrchestratorConfig,
         private readonly _deps: InitializationDependencies,
         private readonly _callbacks: InitializationCallbacks
-    ) { }
-    async runStartup(startPhase: StartupPhase, options?: StartupSignalOptions): Promise<void> {
+    ) {
+        this._startupHandoff = new InitializationStartupHandoff(this._callbacks.state.transferSelectedServerTuningToStartup);
+        this._selectedServerTransaction = createInitializationSelectedServerTransaction({
+            dependencies: this._deps,
+            callbacks: this._callbacks,
+            initializePlaybackRuntime: (signal) => this._initializePlaybackRuntime(signal),
+            ensureCorePlayerUiInitialized: (signal) => this._ensureCorePlayerUiInitialized(signal),
+            initializeEpg: (signal) => this._initializeEpg({ ensureCorePlayerUi: false, signal }),
+            clearResumeHandlers: () => {
+                this.clearAuthResume();
+                this.clearServerResume();
+                this.clearProfileResume();
+            },
+        });
+    }
+    runSelectedServerTransaction(request: SelectedServerInitializationRequest): Promise<SelectedServerInitializationResult> {
+        this._cancelEpgWarmup();
+        return this._selectedServerTransaction.run(request);
+    }
+    runStartup(startPhase: StartupPhase, options?: StartupSignalOptions): Promise<void> {
+        const lease = this._quarantineAuthority.begin(options?.signal);
+        if (!lease) return Promise.reject(new InitializationQuarantinedError());
+        const request = this._startupHandoff.beginStartup();
+        const startup = this._runStartup(startPhase, { signal: lease.signal, preferQueuedSignal: Boolean(options?.signal) });
+        this._startupHandoff.trackStartup(request, startup);
+        return lease.track(startup);
+    }
+    async prepareForSelectedServerQuarantine(): Promise<void> {
+        const drainage = this._quarantineAuthority.prepare();
+        this.clearAuthResume(); this.clearServerResume(); this.clearProfileResume();
+        await Promise.all([drainage, this._epgWarmupPromise ?? Promise.resolve()]);
+    }
+    releaseSelectedServerQuarantine(): void { this._quarantineAuthority.release(); }
+    beginSelectedServerLineage(): InitializationSelectedServerLineage {
+        return this._startupHandoff.beginSelectedServerLineage(); }
+    getSupersedingStartupHandoff(lineage: InitializationSelectedServerLineage): Promise<void> | null {
+        return this._startupHandoff.getSupersedingStartupHandoff(lineage); }
+    releaseSelectedServerLineage(lineage: InitializationSelectedServerLineage): void {
+        this._startupHandoff.releaseSelectedServerLineage(lineage); }
+    private async _runStartup(startPhase: StartupPhase, options?: StartupSignalOptions & {
+        preferQueuedSignal?: boolean;
+    }): Promise<void> {
         let activeCallerSignal = options?.signal;
         throwIfStartupAborted(activeCallerSignal);
         this._cancelEpgWarmup();
         if (this._startupInProgress) {
-            return this._startupQueue.queue(startPhase, activeCallerSignal);
+            return this._startupQueue.queue(startPhase, activeCallerSignal, options?.preferQueuedSignal);
         }
-
         this._startupInProgress = true;
         let phaseToRun: StartupPhase = startPhase;
         let caughtError: unknown;
         let passValidity: StartupPassValidity | null = null;
         let retainedGuard: PlexAuthValidationGuard | null = null;
-
         try {
             while (true) {
                 throwIfStartupAborted(activeCallerSignal);
                 const willRunInitializePlaybackRuntime = phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES;
                 const shouldEagerlyInitEpgForPass = phaseToRun > STARTUP_PHASE.FULL_STARTUP;
-
                 if (phaseToRun <= STARTUP_PHASE.FULL_STARTUP) {
-                    await this._initCoreInfrastructure(activeCallerSignal);
+                    await initializeCoreInfrastructure({
+                        config: this._config,
+                        lifecycle: this._deps.modules.lifecycle,
+                        navigation: this._deps.modules.navigation,
+                        updateModuleStatus: this._callbacks.status.updateModuleStatus,
+                        signal: activeCallerSignal,
+                    });
                 }
 
                 const authResult: AuthValidationPolicyResult = retainedGuard
@@ -207,15 +245,15 @@ export class InitializationCoordinator {
                     continue;
                 }
                 passValidity = createStartupPassValidity(activeCallerSignal, authResult.guard);
-                const activeSignal = passValidity.signal;
+                let activeSignal = passValidity.signal;
                 passValidity.assertCurrent();
                 this._callbacks.state.setReady(false);
 
                 try {
                     if (phaseToRun <= STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION) {
-                        const plexConnected = await this._connectPlexServer(activeSignal);
+                        const serverConnection = await this._connectPlexServer(activeSignal);
                         passValidity!.assertCurrent();
-                        if (!plexConnected) {
+                        if (serverConnection.kind === 'stop') {
                             const queuedWork = this._startupQueue.consumeQueuedWork();
                             passValidity.dispose();
                             passValidity = null;
@@ -225,6 +263,15 @@ export class InitializationCoordinator {
                             retainedGuard = authResult.guard;
                             continue;
                         }
+                        const plexDiscovery = this._deps.modules.plexDiscovery;
+                        if (!plexDiscovery) throw new Error('Plex discovery unavailable after connection.');
+                        passValidity.dispose();
+                        passValidity = createStartupPassValidity(activeCallerSignal, authResult.guard, {
+                            signal: plexDiscovery.getSelectionReceiptSignal(serverConnection.receipt),
+                            assertCurrent: (): void =>
+                                plexDiscovery.assertSelectionReceiptCurrent(serverConnection.receipt),
+                        });
+                        activeSignal = passValidity.signal;
                     }
 
                     if (phaseToRun <= STARTUP_PHASE.RESUME_RUNTIME_MODULES) {
@@ -328,14 +375,12 @@ export class InitializationCoordinator {
             throw caughtError;
         }
     }
-
     isStartupInProgress(): boolean {
         return this._startupInProgress;
     }
     async ensureEPGInitialized(): Promise<void> {
         await this._initializeEpg();
     }
-
     clearAuthResume(): void {
         this._cancelEpgWarmup();
         if (this._authResumeDisposable) {
@@ -381,45 +426,6 @@ export class InitializationCoordinator {
         await this.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
     }
 
-    private async _initCoreInfrastructure(signal: AbortSignal | null | undefined): Promise<void> {
-        const startTime = Date.now();
-        throwIfStartupAborted(signal);
-        this._callbacks.status.updateModuleStatus('event-emitter', 'ready', undefined, 0);
-
-        const promises: Promise<void>[] = [];
-        if (this._deps.modules.lifecycle) {
-            throwIfStartupAborted(signal);
-            this._callbacks.status.updateModuleStatus('app-lifecycle', 'initializing');
-            promises.push(
-                this._deps.modules.lifecycle.initialize().then(() => {
-                    throwIfStartupAborted(signal);
-                    this._callbacks.status.updateModuleStatus(
-                        'app-lifecycle',
-                        'ready',
-                        undefined,
-                        Date.now() - startTime
-                    );
-                })
-            );
-        }
-
-        if (this._deps.modules.navigation && this._config) {
-            throwIfStartupAborted(signal);
-            this._callbacks.status.updateModuleStatus('navigation', 'initializing');
-            this._deps.modules.navigation.initialize(this._config.navConfig);
-            throwIfStartupAborted(signal);
-            this._callbacks.status.updateModuleStatus(
-                'navigation',
-                'ready',
-                undefined,
-                Date.now() - startTime
-            );
-        }
-
-        await Promise.all(promises);
-        throwIfStartupAborted(signal);
-    }
-
     private async _validateAuthentication(signal: AbortSignal | null | undefined): Promise<AuthValidationPolicyResult> {
         const startTime = Date.now();
         throwIfStartupAborted(signal);
@@ -454,7 +460,9 @@ export class InitializationCoordinator {
         return applyAuthValidationPolicy(authGateInputs);
     }
 
-    private async _connectPlexServer(signal: AbortSignal | null | undefined): Promise<boolean> {
+    private async _connectPlexServer(
+        signal: AbortSignal | null | undefined
+    ): Promise<ServerConnectionPolicyResult> {
         const startTime = Date.now();
         if (
             !this._deps.modules.plexDiscovery ||
@@ -462,7 +470,7 @@ export class InitializationCoordinator {
             !this._deps.modules.plexStreamResolver ||
             !this._deps.modules.navigation
         ) {
-            return false;
+            return { kind: 'stop', reason: 'selection_failed' };
         }
         try {
             return await applyServerConnectionPolicy({
@@ -496,7 +504,7 @@ export class InitializationCoordinator {
             throwIfStartupAborted(signal);
             this._deps.modules.navigation.goTo('auth');
             this._callbacks.errors.handleGlobalError(moduleError, 'plex-server-discovery');
-            return false;
+            return { kind: 'stop', reason: 'selection_failed' };
         }
     }
     private async _initializePlaybackRuntime(signal: AbortSignal | null | undefined): Promise<void> {
@@ -656,20 +664,17 @@ export class InitializationCoordinator {
             await this._ensureCorePlayerUiInitialized(signal);
         }
     }
-
     private async _ensureCorePlayerUiInitialized(signal: AbortSignal | null | undefined): Promise<void> {
         throwIfStartupAborted(signal);
         await this._deps.startupUiInitializer.ensureCorePlayerUiInitialized();
         throwIfStartupAborted(signal);
     }
-
     private _cancelEpgWarmup(): void {
         if (this._epgWarmupTimerId !== null) {
             clearTimeout(this._epgWarmupTimerId);
             this._epgWarmupTimerId = null;
         }
     }
-
     private _scheduleEpgWarmup(assertCurrent?: () => void): void {
         this._cancelEpgWarmup();
         this._epgWarmupTimerId = setTimeout(() => {
@@ -679,17 +684,19 @@ export class InitializationCoordinator {
             } catch {
                 return;
             }
-            void this.ensureEPGInitialized().catch(() => {
+            const warmup = this.ensureEPGInitialized().catch(() => {
                 // Best-effort warmup.
+            });
+            this._epgWarmupPromise = warmup;
+            void warmup.finally(() => {
+                if (this._epgWarmupPromise === warmup) this._epgWarmupPromise = null;
             });
         }, InitializationCoordinator.EPG_WARMUP_DELAY_MS);
     }
-
     private _registerAuthResume(): void {
         if (!this._deps.modules.plexAuth) {
             return;
         }
-
         this.clearAuthResume();
         const disposable = this._deps.modules.plexAuth.on('authChange', (isAuthenticated) => {
             if (!isAuthenticated) {
@@ -725,7 +732,11 @@ export class InitializationCoordinator {
         this.clearProfileResume();
         const disposable = this._deps.modules.plexAuth.on('profileChange', () => {
             void this.resumeStartupAfterProfileSwitch().catch((error: unknown) => {
-                this._reportResumeFailure(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION, error);
+                reportInitializationResumeFailure(
+                    STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION,
+                    this._callbacks.diagnostics.reportRecoverableAsyncFailure,
+                    error
+                );
             });
         });
         this._profileResumeDisposable = disposable;
@@ -733,21 +744,11 @@ export class InitializationCoordinator {
 
     private _resumeStartupFrom(phase: StartupResumePhase): void {
         void this.runStartup(phase).catch((error: unknown) => {
-            this._reportResumeFailure(phase, error);
-        });
-    }
-
-    private _reportResumeFailure(phase: StartupResumePhase, error: unknown): void {
-        // runStartup reports fatal failures; consume resume rejection to avoid an unhandled promise.
-        try {
-            const failure = STARTUP_RESUME_FAILURES[phase];
-            this._callbacks.diagnostics.reportRecoverableAsyncFailure(
-                failure.context,
-                failure.message,
+            reportInitializationResumeFailure(
+                phase,
+                this._callbacks.diagnostics.reportRecoverableAsyncFailure,
                 error
             );
-        } catch {
-            // Diagnostics stay best-effort.
-        }
+        });
     }
 }

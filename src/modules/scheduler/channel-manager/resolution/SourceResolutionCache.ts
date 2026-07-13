@@ -1,4 +1,10 @@
 import type { ChannelContentSource, ResolvedContentItem } from '../contracts/types';
+import { RetainedOperationContext } from '../../../../utils/RetainedOperationContext';
+import {
+    SourceResolutionEntryAuthority,
+    SourceResolutionScope,
+    type SourceResolutionOperationContext,
+} from './SourceResolutionEntryAuthority';
 
 const SOURCE_CACHE_TTL_MS = 5 * 60_000;
 const SOURCE_CACHE_MAX_ENTRIES = 24;
@@ -8,17 +14,25 @@ type SourceCacheEntry = {
     cachedAt: number;
     epoch: number;
     generation: number;
+    scopeAuthority: SourceResolutionOperationContext['authority'];
 };
 
 type SourceInFlightEntry = {
-    controller: AbortController;
+    authority: SourceResolutionEntryAuthority;
     promise: Promise<ResolvedContentItem[]>;
     waiters: number;
     epoch: number;
     generation: number;
+    completed: boolean;
+    released: boolean;
 };
 
 type ResolveSourceUncached = (
+    source: ChannelContentSource,
+    operation: SourceResolutionOperationContext
+) => Promise<ResolvedContentItem[]>;
+
+type ResolveSourceUncachedLegacy = (
     source: ChannelContentSource,
     options: { signal: AbortSignal }
 ) => Promise<ResolvedContentItem[]>;
@@ -28,82 +42,111 @@ export class SourceResolutionCache {
     private readonly _sourceCacheGenerationByKey = new Map<string, number>();
     private readonly _sourceCache = new Map<string, SourceCacheEntry>();
     private readonly _sourceInFlight = new Map<string, SourceInFlightEntry>();
-    // Child -> parent links outlive child cache entries while a mixed parent is cached.
-    // _registerParentDependencies records those links for mixed parents, and
-    // _unregisterParentDependencies removes them when the parent leaves the cache.
-    // This lets a later child invalidation still bump live parent generations.
+    private _defaultScope = new SourceResolutionScope([{ assertCurrent: (): void => undefined }]);
     private readonly _parentKeysByChildKey = new Map<string, Set<string>>();
     private readonly _childKeysByParentKey = new Map<string, Set<string>>();
 
     clear(): void {
+        this._defaultScope.close();
+        this._defaultScope.release();
+        this._defaultScope = new SourceResolutionScope([{ assertCurrent: (): void => undefined }]);
         this._cacheEpoch += 1;
         this._sourceCache.clear();
         this._sourceCacheGenerationByKey.clear();
         this._parentKeysByChildKey.clear();
         this._childKeysByParentKey.clear();
-        for (const entry of this._sourceInFlight.values()) {
-            entry.controller.abort();
-        }
+        for (const entry of this._sourceInFlight.values()) this._closeEntry(entry);
         this._sourceInFlight.clear();
     }
 
     invalidate(source: ChannelContentSource): void {
-        const invalidatedKeys = new Set<string>();
-        this._invalidateSource(source, invalidatedKeys);
+        this._invalidateSource(source, new Set<string>());
     }
 
     async resolve(
         source: ChannelContentSource,
-        resolveUncached: ResolveSourceUncached,
+        resolveUncached: ResolveSourceUncachedLegacy,
         options?: { signal?: AbortSignal | null }
     ): Promise<ResolvedContentItem[]> {
+        const operation = this._defaultScope.retain('default-source-resolution');
+        try {
+            return await this.resolveWithOperation(
+                source,
+                (nextSource, entry) => resolveUncached(nextSource, { signal: entry.signal }),
+                operation,
+                options?.signal
+            );
+        } finally {
+            operation.release();
+        }
+    }
+
+    async resolveWithOperation(
+        source: ChannelContentSource,
+        resolveUncached: ResolveSourceUncached,
+        operation: SourceResolutionOperationContext,
+        callerSignal?: AbortSignal | null
+    ): Promise<ResolvedContentItem[]> {
+        operation.assertCurrent();
+        throwIfAborted(callerSignal);
         const cacheKey = this.buildKey(source);
         const epoch = this._cacheEpoch;
         const generation = this._getSourceCacheGeneration(cacheKey);
-        const cached = this._getCachedSourceItems(cacheKey);
+        const cached = this._getCachedSourceItems(cacheKey, operation);
         if (cached) {
+            operation.assertCurrent();
+            throwIfAborted(callerSignal);
             return cached;
         }
 
         const inFlight = this._sourceInFlight.get(cacheKey);
         if (inFlight) {
-            if (inFlight.epoch === epoch && inFlight.generation === generation) {
-                return this._awaitInFlight(cacheKey, inFlight, options?.signal ?? null);
+            if (
+                inFlight.epoch === epoch
+                && inFlight.generation === generation
+                && inFlight.authority.scope.authority === operation.authority
+            ) {
+                return this._awaitInFlight(cacheKey, inFlight, operation, callerSignal ?? null);
             }
-            inFlight.controller.abort();
+            this._closeEntry(inFlight);
             this._sourceInFlight.delete(cacheKey);
         }
 
-        if (options?.signal?.aborted) {
-            return Promise.reject(this._createAbortError());
-        }
-
-        const controller = new AbortController();
-        const resolvePromise = resolveUncached(source, { signal: controller.signal })
-            .then((items) => {
-                this._setCachedSourceItems(cacheKey, source, items, { epoch, generation });
-                return items;
-            })
-            .finally(() => {
-                const current = this._sourceInFlight.get(cacheKey);
-                if (current && current.promise === resolvePromise) {
-                    this._sourceInFlight.delete(cacheKey);
-                }
-            });
-
+        const entryScope = retainSourceOperation(operation, `source-entry:${cacheKey}`);
+        const authority = new SourceResolutionEntryAuthority(entryScope);
         const entry: SourceInFlightEntry = {
-            controller,
-            promise: resolvePromise,
+            authority,
+            promise: Promise.resolve([]),
             waiters: 0,
             epoch,
             generation,
+            completed: false,
+            released: false,
         };
+        const resolvePromise = resolveUncached(source, {
+            authority: operation.authority,
+            signal: authority.signal,
+            assertCurrent: (): void => authority.assertCurrent(),
+            release: (): void => undefined,
+            retain: (label): SourceResolutionOperationContext => authority.retain(label),
+        }).then((items) => {
+            authority.assertCurrent();
+            if (this._sourceInFlight.get(cacheKey) !== entry) throw createAbortError();
+            this._setCachedSourceItems(cacheKey, source, items, entry);
+            authority.assertCurrent();
+            return items;
+        }).finally(() => {
+            entry.completed = true;
+            if (this._sourceInFlight.get(cacheKey) === entry) this._sourceInFlight.delete(cacheKey);
+            if (entry.waiters === 0) this._releaseEntry(entry);
+        });
+        entry.promise = resolvePromise;
         this._sourceInFlight.set(cacheKey, entry);
-        return this._awaitInFlight(cacheKey, entry, options?.signal ?? null);
+        return this._awaitInFlight(cacheKey, entry, operation, callerSignal ?? null);
     }
 
     buildKey(source: ChannelContentSource): string {
-        return this._stableSerialize(source);
+        return stableSerialize(source);
     }
 
     cloneItems(items: ReadonlyArray<ResolvedContentItem>): ResolvedContentItem[] {
@@ -111,241 +154,105 @@ export class SourceResolutionCache {
     }
 
     cloneItem(item: ResolvedContentItem, scheduledIndex = item.scheduledIndex): ResolvedContentItem {
-        const cloned: ResolvedContentItem = {
+        return {
             ...item,
             scheduledIndex,
+            ...(item.genres ? { genres: [...item.genres] } : {}),
+            ...(item.directors ? { directors: [...item.directors] } : {}),
+            ...(item.mediaInfo ? { mediaInfo: { ...item.mediaInfo } } : {}),
         };
-        if (item.genres) {
-            cloned.genres = [...item.genres];
-        }
-        if (item.directors) {
-            cloned.directors = [...item.directors];
-        }
-        if (item.mediaInfo) {
-            cloned.mediaInfo = { ...item.mediaInfo };
-        }
-        return cloned;
+    }
+
+    private _awaitInFlight(
+        key: string,
+        entry: SourceInFlightEntry,
+        operation: SourceResolutionOperationContext,
+        callerSignal: AbortSignal | null
+    ): Promise<ResolvedContentItem[]> {
+        const waiter = new RetainedOperationContext([
+            operation,
+            {
+                signal: callerSignal,
+                assertCurrent: (): void => throwIfAborted(callerSignal),
+            },
+            entry.authority,
+        ]);
+        entry.waiters += 1;
+        const aborted = new Promise<ResolvedContentItem[]>((_, reject) => {
+            const onAbort = (): void => reject(waiter.signal.reason ?? createAbortError());
+            waiter.signal.addEventListener('abort', onAbort, { once: true });
+        });
+        return Promise.race([entry.promise, aborted]).then((items) => {
+            waiter.assertCurrent();
+            return this.cloneItems(items);
+        }).finally(() => {
+            waiter.release();
+            entry.waiters -= 1;
+            if (entry.waiters === 0 && this._sourceInFlight.get(key) === entry) {
+                this._sourceInFlight.delete(key);
+                this._closeEntry(entry);
+            }
+            if (entry.waiters === 0 && entry.completed) this._releaseEntry(entry);
+        });
+    }
+
+    private _closeEntry(entry: SourceInFlightEntry): void {
+        entry.authority.close();
+    }
+
+    private _releaseEntry(entry: SourceInFlightEntry): void {
+        if (entry.released) return;
+        entry.released = true;
+        entry.authority.release();
     }
 
     private _getSourceCacheGeneration(key: string): number {
         return this._sourceCacheGenerationByKey.get(key) ?? 0;
     }
 
-    private _bumpSourceCacheGeneration(key: string): number {
-        const next = (this._sourceCacheGenerationByKey.get(key) ?? 0) + 1;
-        this._sourceCacheGenerationByKey.set(key, next);
-        return next;
+    private _bumpSourceCacheGeneration(key: string): void {
+        this._sourceCacheGenerationByKey.set(key, this._getSourceCacheGeneration(key) + 1);
     }
 
     private _invalidateSourceKey(key: string, invalidatedKeys: Set<string>): void {
-        if (invalidatedKeys.has(key)) {
-            return;
-        }
+        if (invalidatedKeys.has(key)) return;
         invalidatedKeys.add(key);
-
         const parentKeys = [...(this._parentKeysByChildKey.get(key) ?? [])];
         this._bumpSourceCacheGeneration(key);
         this._sourceCache.delete(key);
         this._unregisterParentDependencies(key);
-
         const inFlight = this._sourceInFlight.get(key);
         if (inFlight) {
-            inFlight.controller.abort();
             this._sourceInFlight.delete(key);
+            this._closeEntry(inFlight);
         }
-
-        for (const parentKey of parentKeys) {
-            this._invalidateSourceKey(parentKey, invalidatedKeys);
-        }
+        for (const parentKey of parentKeys) this._invalidateSourceKey(parentKey, invalidatedKeys);
     }
 
     private _invalidateSource(source: ChannelContentSource, invalidatedKeys: Set<string>): void {
         this._invalidateSourceKey(this.buildKey(source), invalidatedKeys);
-
-        if (source.type !== 'mixed') {
-            return;
-        }
-
-        for (const subSource of source.sources) {
-            this._invalidateSource(subSource, invalidatedKeys);
+        if (source.type === 'mixed') {
+            for (const subSource of source.sources) this._invalidateSource(subSource, invalidatedKeys);
         }
     }
 
-    private _registerParentDependencies(parentKey: string, childKeys: string[]): void {
-        this._unregisterParentDependencies(parentKey);
-
-        if (childKeys.length === 0) {
-            return;
-        }
-
-        const uniqueChildKeys = new Set(childKeys);
-        this._childKeysByParentKey.set(parentKey, uniqueChildKeys);
-        for (const childKey of uniqueChildKeys) {
-            const parentKeys = this._parentKeysByChildKey.get(childKey) ?? new Set<string>();
-            parentKeys.add(parentKey);
-            this._parentKeysByChildKey.set(childKey, parentKeys);
-        }
-    }
-
-    private _unregisterParentDependencies(parentKey: string): void {
-        const childKeys = this._childKeysByParentKey.get(parentKey);
-        if (!childKeys) {
-            return;
-        }
-
-        for (const childKey of childKeys) {
-            const parentKeys = this._parentKeysByChildKey.get(childKey);
-            if (!parentKeys) {
-                continue;
-            }
-            parentKeys.delete(parentKey);
-            if (parentKeys.size === 0) {
-                this._parentKeysByChildKey.delete(childKey);
-            }
-        }
-
-        this._childKeysByParentKey.delete(parentKey);
-    }
-
-    private _createAbortError(): unknown {
-        try {
-            return new DOMException('Aborted', 'AbortError');
-        } catch {
-            const error = new Error('Aborted');
-            error.name = 'AbortError';
-            return error;
-        }
-    }
-
-    private _awaitInFlight(
+    private _getCachedSourceItems(
         key: string,
-        entry: SourceInFlightEntry,
-        signal: AbortSignal | null
-    ): Promise<ResolvedContentItem[]> {
-        if (signal?.aborted || entry.controller.signal.aborted) {
-            return Promise.reject(this._createAbortError());
-        }
-
-        entry.waiters += 1;
-        let released = false;
-        const release = (): void => {
-            if (released) return;
-            released = true;
-            entry.waiters -= 1;
-            if (entry.waiters > 0) {
-                return;
-            }
-            const current = this._sourceInFlight.get(key);
-            if (current !== entry) {
-                return;
-            }
-            entry.controller.abort();
-            this._sourceInFlight.delete(key);
-        };
-
-        let onCallerAbort: (() => void) | null = null;
-        let onEntryAbort: (() => void) | null = null;
-        const abortPromise = new Promise<ResolvedContentItem[]>((_, reject) => {
-            const rejectAborted = (): void => reject(this._createAbortError());
-            onCallerAbort = rejectAborted;
-            onEntryAbort = rejectAborted;
-            signal?.addEventListener('abort', onCallerAbort, { once: true });
-            entry.controller.signal.addEventListener('abort', onEntryAbort, { once: true });
-        });
-
-        return Promise.race([
-            entry.promise.then((items) => this.cloneItems(items)),
-            abortPromise,
-        ]).finally(() => {
-            if (onCallerAbort) {
-                signal?.removeEventListener('abort', onCallerAbort);
-            }
-            if (onEntryAbort) {
-                entry.controller.signal.removeEventListener('abort', onEntryAbort);
-            }
-            release();
-        });
-    }
-
-    private _stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
-        if (value === undefined) {
-            return JSON.stringify(null);
-        }
-        if (value === null) {
-            return JSON.stringify(value);
-        }
-        const valueType = typeof value;
-        if (valueType === 'string' || valueType === 'boolean') {
-            return JSON.stringify(value);
-        }
-        if (valueType === 'number') {
-            if (!Number.isFinite(value)) {
-                throw new Error('Unsupported content source cache key value: non-finite number');
-            }
-            return JSON.stringify(value);
-        }
-        if (valueType === 'function' || valueType === 'bigint' || valueType === 'symbol') {
-            throw new Error(`Unsupported content source cache key value type: ${valueType}`);
-        }
-
-        const objectValue = value as object;
-        if (seen.has(objectValue)) {
-            throw new Error('Cannot build content source cache key for circular source data');
-        }
-
-        seen.add(objectValue);
-        try {
-            if (Array.isArray(value)) {
-                return `[${value.map((entry) => this._stableSerialize(entry, seen)).join(',')}]`;
-            }
-
-            const entries = Object
-                .entries(value as Record<string, unknown>)
-                .filter(([, entry]) => entry !== undefined)
-                .sort(([left], [right]) => left.localeCompare(right));
-            return `{${entries.map(([key, entry]) =>
-                `${JSON.stringify(key)}:${this._stableSerialize(entry, seen)}`
-            ).join(',')}}`;
-        } finally {
-            seen.delete(objectValue);
-        }
-    }
-
-    private _buildDescendantSourceKeys(source: ChannelContentSource): string[] {
-        if (source.type !== 'mixed') {
-            return [];
-        }
-
-        const childKeys: string[] = [];
-        const pending = [...source.sources];
-        for (let index = 0; index < pending.length; index += 1) {
-            const child = pending[index]!;
-            childKeys.push(this.buildKey(child));
-            if (child.type === 'mixed') {
-                pending.push(...child.sources);
-            }
-        }
-        return childKeys;
-    }
-
-    private _getCachedSourceItems(key: string): ResolvedContentItem[] | null {
+        operation: SourceResolutionOperationContext
+    ): ResolvedContentItem[] | null {
         const cached = this._sourceCache.get(key);
-        if (!cached) {
-            return null;
-        }
-
-        if (cached.epoch !== this._cacheEpoch || cached.generation !== this._getSourceCacheGeneration(key)) {
+        if (!cached) return null;
+        if (
+            cached.epoch !== this._cacheEpoch
+            || cached.generation !== this._getSourceCacheGeneration(key)
+            || cached.scopeAuthority !== operation.authority
+            || Date.now() - cached.cachedAt > SOURCE_CACHE_TTL_MS
+        ) {
             this._sourceCache.delete(key);
             this._unregisterParentDependencies(key);
             return null;
         }
-
-        if (Date.now() - cached.cachedAt > SOURCE_CACHE_TTL_MS) {
-            this._sourceCache.delete(key);
-            this._unregisterParentDependencies(key);
-            return null;
-        }
-
+        operation.assertCurrent();
         this._sourceCache.delete(key);
         this._sourceCache.set(key, cached);
         return this.cloneItems(cached.items);
@@ -355,34 +262,114 @@ export class SourceResolutionCache {
         key: string,
         source: ChannelContentSource,
         items: ResolvedContentItem[],
-        scope: { epoch: number; generation: number }
+        entry: SourceInFlightEntry
     ): void {
-        if (scope.epoch !== this._cacheEpoch) {
-            return;
-        }
-        if (scope.generation !== this._getSourceCacheGeneration(key)) {
-            return;
-        }
-
+        entry.authority.assertCurrent();
+        if (
+            entry.epoch !== this._cacheEpoch
+            || entry.generation !== this._getSourceCacheGeneration(key)
+        ) throw createAbortError();
         this._sourceCache.delete(key);
         this._unregisterParentDependencies(key);
         this._sourceCache.set(key, {
             items: this.cloneItems(items),
             cachedAt: Date.now(),
-            epoch: scope.epoch,
-            generation: scope.generation,
+            epoch: entry.epoch,
+            generation: entry.generation,
+            scopeAuthority: entry.authority.scope.authority,
         });
+        entry.authority.assertCurrent();
         if (source.type === 'mixed') {
-            this._registerParentDependencies(key, this._buildDescendantSourceKeys(source));
+            this._registerParentDependencies(key, buildDescendantSourceKeys(source));
         }
-
         while (this._sourceCache.size > SOURCE_CACHE_MAX_ENTRIES) {
+            entry.authority.assertCurrent();
             const oldest = this._sourceCache.keys().next().value;
-            if (oldest === undefined) {
-                break;
-            }
+            if (oldest === undefined) break;
             this._sourceCache.delete(oldest);
             this._unregisterParentDependencies(oldest);
         }
     }
+
+    private _registerParentDependencies(parentKey: string, childKeys: string[]): void {
+        this._unregisterParentDependencies(parentKey);
+        if (childKeys.length === 0) return;
+        const uniqueChildKeys = new Set(childKeys);
+        this._childKeysByParentKey.set(parentKey, uniqueChildKeys);
+        for (const childKey of uniqueChildKeys) {
+            const parents = this._parentKeysByChildKey.get(childKey) ?? new Set<string>();
+            parents.add(parentKey);
+            this._parentKeysByChildKey.set(childKey, parents);
+        }
+    }
+
+    private _unregisterParentDependencies(parentKey: string): void {
+        const children = this._childKeysByParentKey.get(parentKey);
+        if (!children) return;
+        for (const childKey of children) {
+            const parents = this._parentKeysByChildKey.get(childKey);
+            parents?.delete(parentKey);
+            if (parents?.size === 0) this._parentKeysByChildKey.delete(childKey);
+        }
+        this._childKeysByParentKey.delete(parentKey);
+    }
+}
+
+function retainSourceOperation(
+    operation: SourceResolutionOperationContext,
+    label: string
+): SourceResolutionOperationContext {
+    return operation.retain(label);
+}
+
+function buildDescendantSourceKeys(source: ChannelContentSource): string[] {
+    if (source.type !== 'mixed') return [];
+    const keys: string[] = [];
+    const pending = [...source.sources];
+    for (let index = 0; index < pending.length; index += 1) {
+        const child = pending[index];
+        if (!child) continue;
+        keys.push(stableSerialize(child));
+        if (child.type === 'mixed') pending.push(...child.sources);
+    }
+    return keys;
+}
+
+function stableSerialize(value: unknown, seen = new WeakSet<object>()): string {
+    if (value === undefined || value === null) return JSON.stringify(value ?? null);
+    if (typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value);
+    if (typeof value === 'number') {
+        if (!Number.isFinite(value)) {
+            throw new Error('Unsupported content source cache key value: non-finite number');
+        }
+        return JSON.stringify(value);
+    }
+    if (typeof value !== 'object') throw new Error(`Unsupported source key type: ${typeof value}`);
+    if (seen.has(value)) {
+        throw new Error('Cannot build content source cache key for circular source data');
+    }
+    seen.add(value);
+    try {
+        if (Array.isArray(value)) {
+            return `[${value.map((entry) => stableSerialize(entry, seen)).join(',')}]`;
+        }
+        const entries = Object.entries(value)
+            .filter(([, entry]) => entry !== undefined)
+            .sort(([left], [right]) => left.localeCompare(right));
+        return `{${entries.map(([key, entry]) =>
+            `${JSON.stringify(key)}:${stableSerialize(entry, seen)}`).join(',')}}`;
+    } finally {
+        seen.delete(value);
+    }
+}
+
+function throwIfAborted(signal: AbortSignal | null | undefined): void {
+    if (signal?.aborted) throw signal.reason ?? createAbortError();
+}
+
+function createAbortError(): Error {
+    if (typeof DOMException !== 'undefined') return new DOMException('Aborted', 'AbortError');
+    const error = new Error('Aborted');
+    error.name = 'AbortError';
+    return error;
 }

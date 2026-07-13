@@ -24,6 +24,8 @@ export interface EPGBackgroundWarmQueueStartOptions {
     channels: ChannelConfig[];
     refreshChannelSchedule: (channel: ChannelConfig) => Promise<void>;
     concurrency: number;
+    onSettled?: () => void;
+    assertCurrent?: () => void;
 }
 
 interface BackgroundWarmQueueState extends EPGBackgroundWarmQueueStartOptions {
@@ -92,13 +94,20 @@ export class EPGBackgroundWarmQueue {
             this._idleHandle = null;
         }
 
-        this._deps.onCancel?.(reason, previousState ? {
+        let canPublishCancellation = true;
+        try {
+            previousState?.assertCurrent?.();
+        } catch {
+            canPublishCancellation = false;
+        }
+        if (canPublishCancellation) this._deps.onCancel?.(reason, previousState ? {
             refreshId: previousState.refreshId,
             reason: previousState.reason,
             channels: previousState.channels,
             refreshChannelSchedule: previousState.refreshChannelSchedule,
             concurrency: previousState.concurrency,
         } : null);
+        previousState?.onSettled?.();
         this._resolveIdleIfSettled();
     }
 
@@ -207,7 +216,12 @@ export class EPGBackgroundWarmQueue {
                     try {
                         await state.refreshChannelSchedule(channel);
                     } catch (error) {
-                        this._reportBatchError(error);
+                        try {
+                            state.assertCurrent?.();
+                            this._reportBatchError(error);
+                        } catch {
+                            // Superseded detached work has no publication authority.
+                        }
                     }
                     if (this._state !== state) return;
                 }

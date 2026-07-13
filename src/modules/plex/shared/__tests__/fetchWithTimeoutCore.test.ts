@@ -128,4 +128,19 @@ describe('fetchWithTimeoutCore', () => {
             abortSpy.mockRestore();
         }
     });
+
+    it('returns an unconsumed usable body from the header-only operation', async () => {
+        const response = new Response('body remains readable', { status: 200 });
+        mockFetch.mockResolvedValue(response);
+
+        const result = await fetchWithTimeoutCore({
+            url: 'http://example.test/header-only-response',
+            init: { method: 'GET' },
+            timeoutMs: 5_000,
+        });
+
+        expect(result).toBe(response);
+        expect(result.bodyUsed).toBe(false);
+        await expect(result.text()).resolves.toBe('body remains readable');
+    });
 });

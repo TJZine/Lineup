@@ -1,13 +1,16 @@
-import { ServerSelectionCoordinator } from '../ServerSelectionCoordinator';
 import type {
-    DiscoverySelectedServerSnapshot,
-    PersistedSelectedServerSnapshot,
-} from '../ServerSelectionTypes';
-import type { EpgReadyScheduleRefreshResult } from '../../../shared/epgRefresh';
-import { PlexDiscoverySelectionSupersededError } from '../../../modules/plex/discovery';
+    PlexDiscoverySelectedServerSnapshot,
+    PlexDiscoverySelectionReceipt,
+} from '../../../modules/plex/discovery';
+import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
+import { ChannelInitialTuneAuthority } from '../../channel-tuning/ChannelInitialTuneAuthority';
+import type { SelectedServerInitializationResult } from '../../initialization/InitializationSelectedServerTransaction';
+import { InitializationStartupHandoff } from '../../initialization/InitializationStartupHandoff';
+import { ServerSelectionCoordinator, type ServerSelectionCoordinatorDeps } from '../ServerSelectionCoordinator';
+import type { SelectedServerPersistenceEvidence } from '../SelectedServerPersistenceAdapter';
 
-const readyEpgRefreshResult: EpgReadyScheduleRefreshResult = {
-    readiness: 'ready',
+const READY_REFRESH = {
+    readiness: 'ready' as const,
     attemptedChannelCount: 1,
     immediateReadyChannelCount: 1,
     backgroundQueuedChannelCount: 0,
@@ -15,546 +18,380 @@ const readyEpgRefreshResult: EpgReadyScheduleRefreshResult = {
     staleCacheChannelCount: 0,
     firstVisibleScheduleReady: true,
 };
-
-const discoverySnapshot: DiscoverySelectedServerSnapshot = {
-    server: null,
-    connection: null,
-    storedServerId: null,
+const COMPLETED: SelectedServerInitializationResult = {
+    kind: 'completed',
+    payload: { epgRefresh: { kind: 'succeeded', result: READY_REFRESH } },
 };
 
-const persistedSnapshot: PersistedSelectedServerSnapshot = {
-    kind: 'available',
-    selection: { serverId: 'server-prev', serverUri: 'http://previous.example' },
-};
+interface CoordinatorHarness {
+    deps: jest.Mocked<ServerSelectionCoordinatorDeps>;
+    candidateReceipt: PlexDiscoverySelectionReceipt;
+    selectionContext: PlexDiscoverySelectionContext;
+    rollbackReceipts: PlexDiscoverySelectionReceipt[];
+    startupHandoff: InitializationStartupHandoff;
+    transferSelectedServerTuningToStartup: jest.Mock;
+}
 
-const startupResumeSucceeded = {
-    startup: 'completed',
-    epgRefresh: { kind: 'succeeded', result: readyEpgRefreshResult },
-} as const;
-
-function createDeferred<T>(): {
-    promise: Promise<T>;
-    resolve: (value: T) => void;
-    reject: (reason: unknown) => void;
-} {
-    let resolve!: (value: T) => void;
-    let reject!: (reason: unknown) => void;
-    const promise = new Promise<T>((promiseResolve, promiseReject) => {
-        resolve = promiseResolve;
-        reject = promiseReject;
-    });
-    return { promise, resolve, reject };
+function createHarness(snapshot?: PlexDiscoverySelectedServerSnapshot): CoordinatorHarness {
+    const selectionContext = new PlexDiscoverySelectionContext();
+    const candidateReceipt = selectionContext.issueReceipt(selectionContext.capture(), 'selected');
+    const rollbackReceipts: PlexDiscoverySelectionReceipt[] = [];
+    const evidence = Object.freeze({}) as SelectedServerPersistenceEvidence;
+    const tuneAuthority = new ChannelInitialTuneAuthority();
+    const transferSelectedServerTuningToStartup = jest.fn();
+    const startupHandoff = new InitializationStartupHandoff(transferSelectedServerTuningToStartup);
+    const deps: jest.Mocked<ServerSelectionCoordinatorDeps> = {
+        captureDiscoverySelectionSnapshot: jest.fn(() => snapshot ?? ({
+            server: { id: 'old-server' },
+            connection: { uri: 'https://old.example.invalid' },
+            storedServerId: 'old-server',
+        } as PlexDiscoverySelectedServerSnapshot)),
+        restoreDiscoverySelectionSnapshot: jest.fn((_snapshot: PlexDiscoverySelectedServerSnapshot) => {
+            const receipt = selectionContext.issueReceipt(selectionContext.advance(), 'selected');
+            rollbackReceipts.push(receipt);
+            return receipt;
+        }),
+        getSelectionReceiptSignal: jest.fn((receipt: PlexDiscoverySelectionReceipt) =>
+            selectionContext.getReceiptSignal(receipt)),
+        assertSelectionReceiptCurrent: jest.fn((receipt: PlexDiscoverySelectionReceipt) =>
+            selectionContext.assertReceiptCurrent(receipt)),
+        capturePersistenceEvidence: jest.fn(() => evidence),
+        persistCandidateSelection: jest.fn((
+            _evidence: SelectedServerPersistenceEvidence,
+            _serverId: string,
+            _serverUri: string
+        ) => ({
+            phase: 'candidate' as const,
+            state: 'updated' as const,
+            publicResult: 'updated' as const,
+        })),
+        restorePersistenceEvidence: jest.fn((_evidence: SelectedServerPersistenceEvidence) => snapshot?.server === null
+            ? {
+                phase: 'rollback' as const,
+                state: 'restored_available_unselected' as const,
+                selection: { serverId: null, serverUri: null },
+            }
+            : {
+                phase: 'rollback' as const,
+                state: 'restored_available_selected' as const,
+                selection: {
+                    serverId: snapshot?.server?.id ?? 'old-server',
+                    serverUri: snapshot?.connection?.uri ?? 'https://old.example.invalid',
+                },
+            }),
+        assertPersistenceEvidenceCurrent: jest.fn(),
+        selectServer: jest.fn().mockResolvedValue({ kind: 'selected', receipt: candidateReceipt }),
+        getSelectedServerUri: jest.fn(() => 'https://candidate.example.invalid'),
+        suspendAndDrainForScopeTransition: jest.fn().mockResolvedValue(undefined),
+        resumeAfterScopeTransition: jest.fn(),
+        beginInitialTuneLineage: jest.fn((validators) => tuneAuthority.beginLineage(validators)),
+        completeInitialTuneLineage: jest.fn((lineage) => tuneAuthority.completeLineage(lineage)),
+        beginSelectedServerLineage: jest.fn(() => startupHandoff.beginSelectedServerLineage()),
+        releaseSelectedServerLineage: jest.fn((lineage) =>
+            startupHandoff.releaseSelectedServerLineage(lineage)),
+        getSupersedingStartupHandoff: jest.fn((lineage) =>
+            startupHandoff.getSupersedingStartupHandoff(lineage)),
+        runSelectedServerInitialization: jest.fn().mockResolvedValue(COMPLETED),
+        restoreUnselectedRuntime: jest.fn().mockResolvedValue(undefined),
+        prepareQuarantineRuntime: jest.fn().mockResolvedValue(undefined),
+        releaseQuarantineRuntimeGate: jest.fn(),
+        exitQuarantine: jest.fn().mockResolvedValue(undefined),
+    };
+    return {
+        deps, candidateReceipt, selectionContext, rollbackReceipts,
+        startupHandoff, transferSelectedServerTuningToStartup,
+    };
 }
 
 describe('ServerSelectionCoordinator', () => {
-    it('returns selection_failed without persistence or runtime swap when discovery cannot select a server', async () => {
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'server_not_found' as const })),
-            getSelectedServerUri: jest.fn(() => null),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'startup_pending' as const),
-        };
+    it.each(['discovery', 'persistence'] as const)(
+        'releases selected lineage when %s evidence capture throws',
+        async (capture) => {
+            const harness = createHarness();
+            const captureError = new Error(`${capture} capture failed`);
+            if (capture === 'discovery') {
+                harness.deps.captureDiscoverySelectionSnapshot.mockImplementationOnce(() => { throw captureError; });
+            } else {
+                harness.deps.capturePersistenceEvidence.mockImplementationOnce(() => { throw captureError; });
+            }
+            const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+            await expect(coordinator.selectServer('candidate')).rejects.toBe(captureError);
+            expect(harness.deps.releaseSelectedServerLineage).toHaveBeenCalledTimes(1);
+            harness.startupHandoff.beginStartup();
+            expect(harness.transferSelectedServerTuningToStartup).not.toHaveBeenCalled();
+        }
+    );
+
+    it('constructs the exact selected result after strict forward commit', async () => {
+        const { deps } = createHarness();
+        const epgRefresh = COMPLETED.kind === 'completed' ? COMPLETED.payload.epgRefresh : neverValue();
         const coordinator = new ServerSelectionCoordinator(deps);
 
-        await expect(coordinator.selectServer('missing-server')).resolves.toEqual({
-            kind: 'selection_failed',
-            reason: 'server_not_found',
-        });
-        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.persistSelection).not.toHaveBeenCalled();
-        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-        expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
-    });
+        const result = await coordinator.selectServer('candidate');
 
-    it('restores discovery state when Plex selection rejects', async () => {
-        const selectionError = new Error('selection failed');
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => {
-                throw selectionError;
-            }),
-            getSelectedServerUri: jest.fn(() => null),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'startup_pending' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
-
-        await expect(coordinator.selectServer('server-1')).rejects.toBe(selectionError);
-
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.persistSelection).not.toHaveBeenCalled();
-        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
-    });
-
-    it('rethrows discovery supersession without rollback, persistence, or startup', async () => {
-        const superseded = new PlexDiscoverySelectionSupersededError();
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => { throw superseded; }),
-            getSelectedServerUri: jest.fn(() => null),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'startup_pending' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
-
-        await expect(coordinator.selectServer('server-1')).rejects.toBe(superseded);
+        expect(result).toEqual({ kind: 'selected', persistedSelection: 'updated', epgRefresh });
+        expect(Object.keys(result).sort()).toEqual(['epgRefresh', 'kind', 'persistedSelection']);
+        expect((result as Record<string, unknown>).startupResume).toBeUndefined();
+        expect((result as Record<string, unknown>).readiness).toBeUndefined();
+        expect(deps.suspendAndDrainForScopeTransition).toHaveBeenCalled();
+        expect(deps.completeInitialTuneLineage).toHaveBeenCalledTimes(1);
+        expect(deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(1);
         expect(deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.persistSelection).not.toHaveBeenCalled();
-        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
     });
 
-    it('persists the selection, resumes startup, and returns the app-facing selected result', async () => {
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
+    it('restores the old selected scope with a fresh receipt after initialization failure', async () => {
+        const harness = createHarness();
+        const error = new Error('startup failed');
+        harness.deps.runSelectedServerInitialization
+            .mockResolvedValueOnce({ kind: 'failed', error })
+            .mockResolvedValueOnce(COMPLETED);
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        await expect(coordinator.selectServer('server-1')).resolves.toEqual({
-            kind: 'selected',
-            readiness: 'ready',
-            persistedSelection: 'updated',
-            startupResume: startupResumeSucceeded,
+        await expect(coordinator.selectServer('candidate')).rejects.toBe(error);
+
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restorePersistenceEvidence).toHaveBeenCalledTimes(1);
+        expect(harness.deps.runSelectedServerInitialization).toHaveBeenCalledTimes(2);
+        expect(harness.rollbackReceipts).toHaveLength(1);
+    });
+
+    it('restores an unselected scope without running selected startup', async () => {
+        const harness = createHarness({ server: null, connection: null, storedServerId: null });
+        const error = new Error('candidate failed');
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({ kind: 'failed', error });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+        await expect(coordinator.selectServer('candidate')).rejects.toBe(error);
+
+        expect(harness.deps.runSelectedServerInitialization).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restoreUnselectedRuntime).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets caller abort win while still restoring the previous scope', async () => {
+        const harness = createHarness();
+        const caller = new AbortController();
+        const reason = new DOMException('selection cancelled', 'AbortError');
+        harness.deps.runSelectedServerInitialization.mockImplementationOnce(async () => {
+            caller.abort(reason);
+            return COMPLETED;
         });
-        expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
-        expect(deps.persistSelection).toHaveBeenCalledWith('server-1', 'http://example.com');
-        expect(deps.persistSelection).toHaveBeenCalledTimes(1);
-        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
-        expect(deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+        await expect(coordinator.selectServer('candidate', { signal: caller.signal })).rejects.toBe(reason);
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledTimes(1);
     });
 
-    it('passes caller discovery options through the selection transaction', async () => {
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
-        const options = { signal: new AbortController().signal };
-
-        await expect(coordinator.selectServer('server-1', options)).resolves.toEqual({
-            kind: 'selected',
-            readiness: 'ready',
-            persistedSelection: 'updated',
-            startupResume: startupResumeSucceeded,
+    it('treats candidate receipt invalidation as supersession and publishes no result', async () => {
+        const harness = createHarness();
+        harness.deps.runSelectedServerInitialization.mockImplementationOnce(async () => {
+            harness.selectionContext.advance();
+            return COMPLETED;
         });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        expect(deps.selectServer).toHaveBeenCalledWith('server-1', options);
-        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledWith(options);
+        await expect(coordinator.selectServer('candidate')).rejects.toBeDefined();
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(coordinator.getQuarantineState()).toEqual({
+            kind: 'quarantined',
+            phase: 'discovery_restore',
+            commandPending: false,
+        });
     });
 
-    it('rejects without side effects when the caller aborts before selection starts', async () => {
-        const abortReason = new DOMException('selection hidden', 'AbortError');
-        const controller = new AbortController();
-        controller.abort(abortReason);
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
+    it('awaits only an initialization-owned strictly newer startup handoff', async () => {
+        const harness = createHarness();
+        let settleStartup!: () => void;
+        harness.deps.runSelectedServerInitialization.mockImplementationOnce(async () => {
+            const startupRequest = harness.startupHandoff.beginStartup();
+            const startup = new Promise<void>((resolve) => { settleStartup = resolve; });
+            harness.startupHandoff.trackStartup(startupRequest, startup);
+            return COMPLETED;
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        await expect(
-            coordinator.selectServer('server-1', { signal: controller.signal })
-        ).rejects.toBe(abortReason);
+        const selection = coordinator.selectServer('candidate');
+        for (let index = 0; index < 8; index += 1) await Promise.resolve();
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
+        settleStartup();
 
-        expect(deps.captureDiscoverySelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.selectServer).not.toHaveBeenCalled();
-        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.persistSelection).not.toHaveBeenCalled();
-        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+        await expect(selection).rejects.toBeDefined();
+        expect(harness.deps.getSupersedingStartupHandoff).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
     });
 
-    it('rolls back discovery state when the caller aborts after Plex selection succeeds', async () => {
-        const abortReason = new DOMException('selection hidden', 'AbortError');
-        const controller = new AbortController();
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => {
-                controller.abort(abortReason);
-                return { kind: 'selected' as const };
-            }),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
+    it('quarantines selected-lineage invalidation when no newer startup owns settlement', async () => {
+        const harness = createHarness();
+        harness.deps.runSelectedServerInitialization.mockImplementationOnce(async () => {
+            harness.startupHandoff.beginStartup();
+            return COMPLETED;
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        await expect(
-            coordinator.selectServer('server-1', { signal: controller.signal })
-        ).rejects.toBe(abortReason);
+        await expect(coordinator.selectServer('candidate')).rejects.toBeDefined();
 
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-        expect(deps.capturePersistedSelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.persistSelection).not.toHaveBeenCalled();
-        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+        expect(coordinator.getQuarantineState()).toMatchObject({
+            kind: 'quarantined',
+            phase: 'discovery_restore',
+        });
+        expect(harness.deps.prepareQuarantineRuntime).toHaveBeenCalledTimes(1);
     });
 
-    it('rolls back discovery and persisted state when the caller aborts after persistence', async () => {
-        const abortReason = new DOMException('selection hidden', 'AbortError');
-        const controller = new AbortController();
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => {
-                controller.abort(abortReason);
-                return 'updated' as const;
-            }),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
+    it.each([
+        [
+            { server: null, connection: null, storedServerId: null },
+            'restored_available_selected',
+        ],
+        [
+            {
+                server: { id: 'old-server' },
+                connection: { uri: 'https://old.example.invalid' },
+                storedServerId: 'old-server',
+            },
+            'restored_available_unselected',
+        ],
+    ] as const)('quarantines rollback scope mismatch %#', async (snapshot, proofState) => {
+        const harness = createHarness(snapshot as PlexDiscoverySelectedServerSnapshot);
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({
+            kind: 'failed', error: new Error('forward failed'),
+        });
+        harness.deps.restorePersistenceEvidence.mockReturnValue(proofState === 'restored_available_selected'
+            ? {
+                phase: 'rollback',
+                state: proofState,
+                selection: { serverId: 'old-server', serverUri: 'https://old.example.invalid' },
+            }
+            : { phase: 'rollback', state: proofState, selection: { serverId: null, serverUri: null } });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        await expect(
-            coordinator.selectServer('server-1', { signal: controller.signal })
-        ).rejects.toBe(abortReason);
-
-        expect(deps.persistSelection).toHaveBeenCalledWith('server-1', 'http://example.com');
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-        expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshot);
-        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+        await expect(coordinator.selectServer('candidate')).rejects.toThrow('persistence_restore');
+        expect(coordinator.getQuarantineState().kind).toBe('quarantined');
     });
 
-    it('restores discovery runtime state without touching persisted selection when persistence rejects', async () => {
-        const persistenceError = new Error('persist failed');
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => {
-                throw persistenceError;
-            }),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
+    it('quarantines rollback when discovery and persistence restore different selected identities', async () => {
+        const harness = createHarness();
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({
+            kind: 'failed', error: new Error('forward failed'),
+        });
+        harness.deps.restorePersistenceEvidence.mockReturnValue({
+            phase: 'rollback',
+            state: 'restored_available_selected',
+            selection: { serverId: 'other-server', serverUri: 'https://other.example.invalid' },
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        await expect(coordinator.selectServer('server-1')).rejects.toBe(persistenceError);
-
-        expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-        expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
+        await expect(coordinator.selectServer('candidate')).rejects.toThrow('persistence_restore');
+        expect(coordinator.getQuarantineState().kind).toBe('quarantined');
     });
 
-    it('restores discovery runtime state when persisted snapshot capture rejects', async () => {
-        const snapshotError = new Error('read stored credentials failed');
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => {
-                throw snapshotError;
-            }),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
-
-        await expect(coordinator.selectServer('server-1')).rejects.toBe(snapshotError);
-
-        expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-        expect(deps.persistSelection).not.toHaveBeenCalled();
-        expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
-    });
-
-    it('preserves persistence failure when discovery rollback also fails', async () => {
-        const persistenceError = new Error('persist failed');
-        const rollbackError = new Error('discovery rollback failed');
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(() => {
-                throw rollbackError;
-            }),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => {
-                throw persistenceError;
-            }),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResumeSucceeded),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
-
-        await expect(coordinator.selectServer('server-1')).rejects.toBe(persistenceError);
-
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-        expect(deps.restorePersistedSelectionSnapshot).not.toHaveBeenCalled();
-        expect(deps.resumeStartupAfterSelection).not.toHaveBeenCalled();
-    });
-
-    it('restores discovery runtime state and the prior persisted record when startup resume fails', async () => {
-        const resumeError = new Error('startup resume failed');
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => {
-                throw resumeError;
-            }),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
-
-        await expect(coordinator.selectServer('server-1')).rejects.toBe(resumeError);
-
-        expect(deps.capturePersistedSelectionSnapshot).toHaveBeenCalledTimes(1);
-        expect(deps.persistSelection).toHaveBeenCalledWith('server-1', 'http://example.com');
-        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-        expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshot);
-    });
-
-    it('serializes overlapping selections so a failed earlier transaction rolls back before the next starts', async () => {
-        const discoverySnapshotA: DiscoverySelectedServerSnapshot = {
-            server: null,
+    it('rejects a partial discovery snapshot before restoring it and quarantines', async () => {
+        const harness = createHarness({
+            server: { id: 'old-server' },
             connection: null,
-            storedServerId: 'server-a-previous',
-        };
-        const discoverySnapshotB: DiscoverySelectedServerSnapshot = {
-            server: null,
-            connection: null,
-            storedServerId: 'server-b-previous',
-        };
-        const persistedSnapshotA: PersistedSelectedServerSnapshot = {
-            kind: 'available',
-            selection: { serverId: 'server-a-previous', serverUri: 'http://a-previous.example' },
-        };
-        const persistedSnapshotB: PersistedSelectedServerSnapshot = {
-            kind: 'available',
-            selection: { serverId: 'server-b-previous', serverUri: 'http://b-previous.example' },
-        };
-        const resumeError = new Error('startup resume failed');
-        const startupResumeDeferred = createDeferred<typeof startupResumeSucceeded>();
-        const firstResumeStarted = createDeferred<void>();
-        const events: string[] = [];
-        let discoverySnapshotCaptureCount = 0;
-        let persistedSnapshotCaptureCount = 0;
-        let resumeCallCount = 0;
-
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => {
-                discoverySnapshotCaptureCount += 1;
-                events.push(`capture-discovery:${discoverySnapshotCaptureCount}`);
-                return discoverySnapshotCaptureCount === 1 ? discoverySnapshotA : discoverySnapshotB;
-            }),
-            restoreDiscoverySelectionSnapshot: jest.fn(
-                (snapshot: DiscoverySelectedServerSnapshot) => {
-                    events.push(`restore-discovery:${snapshot.storedServerId ?? 'none'}`);
-                }
-            ),
-            capturePersistedSelectionSnapshot: jest.fn(async () => {
-                persistedSnapshotCaptureCount += 1;
-                events.push(`capture-persisted:${persistedSnapshotCaptureCount}`);
-                return persistedSnapshotCaptureCount === 1 ? persistedSnapshotA : persistedSnapshotB;
-            }),
-            selectServer: jest.fn(async (serverId: string) => {
-                events.push(`select:${serverId}`);
-                return { kind: 'selected' as const };
-            }),
-            getSelectedServerUri: jest.fn(() => 'http://selected.example'),
-            persistSelection: jest.fn(async (serverId: string) => {
-                events.push(`persist:${serverId}`);
-                return 'updated' as const;
-            }),
-            restorePersistedSelectionSnapshot: jest.fn(
-                async (snapshot: PersistedSelectedServerSnapshot) => {
-                    events.push(
-                        `restore-persisted:${
-                            snapshot.kind === 'available' ? snapshot.selection.serverId : snapshot.kind
-                        }`
-                    );
-                    return 'updated' as const;
-                }
-            ),
-            resumeStartupAfterSelection: jest.fn(() => {
-                resumeCallCount += 1;
-                events.push(`resume:${resumeCallCount}`);
-                if (resumeCallCount === 1) {
-                    firstResumeStarted.resolve();
-                    return startupResumeDeferred.promise;
-                }
-                return Promise.resolve(startupResumeSucceeded);
-            }),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
-
-        const selectionA = coordinator.selectServer('server-a');
-        await firstResumeStarted.promise;
-
-        expect(deps.persistSelection).toHaveBeenCalledWith('server-a', 'http://selected.example');
-        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(1);
-
-        const selectionB = coordinator.selectServer('server-b');
-        await Promise.resolve();
-
-        expect(deps.selectServer).toHaveBeenCalledTimes(1);
-        expect(deps.selectServer.mock.calls[0]?.[0]).toBe('server-a');
-
-        startupResumeDeferred.reject(resumeError);
-        await expect(selectionA).rejects.toBe(resumeError);
-
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshotA);
-        expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshotA);
-
-        await expect(selectionB).resolves.toEqual({
-            kind: 'selected',
-            readiness: 'ready',
-            persistedSelection: 'updated',
-            startupResume: startupResumeSucceeded,
+            storedServerId: 'old-server',
+        } as PlexDiscoverySelectedServerSnapshot);
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({
+            kind: 'failed', error: new Error('forward failed'),
         });
-        expect(deps.selectServer).toHaveBeenCalledTimes(2);
-        expect(deps.selectServer.mock.calls[1]?.[0]).toBe('server-b');
-        expect(deps.persistSelection).toHaveBeenNthCalledWith(
-            2,
-            'server-b',
-            'http://selected.example'
-        );
-        expect(deps.resumeStartupAfterSelection).toHaveBeenCalledTimes(2);
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        const expectEventIndex = (event: string): number => {
-            const index = events.indexOf(event);
-            expect(index).toBeGreaterThanOrEqual(0);
-            return index;
-        };
-        const restoreDiscoveryIndex = expectEventIndex('restore-discovery:server-a-previous');
-        const captureDiscoveryIndex = expectEventIndex('capture-discovery:2');
-        const restorePersistedIndex = expectEventIndex('restore-persisted:server-a-previous');
-        const capturePersistedIndex = expectEventIndex('capture-persisted:2');
-        const selectServerBIndex = expectEventIndex('select:server-b');
-
-        expect(restoreDiscoveryIndex).toBeLessThan(captureDiscoveryIndex);
-        expect(restorePersistedIndex).toBeLessThan(capturePersistedIndex);
-        expect(restoreDiscoveryIndex).toBeLessThan(selectServerBIndex);
-        expect(restorePersistedIndex).toBeLessThan(selectServerBIndex);
+        await expect(coordinator.selectServer('candidate')).rejects.toThrow('discovery_restore');
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(coordinator.getQuarantineState().kind).toBe('quarantined');
     });
 
-    it('preserves startup resume failure when both rollback attempts fail', async () => {
-        const resumeError = new Error('startup resume failed');
-        const discoveryRollbackError = new Error('discovery rollback failed');
-        const persistedRollbackError = new Error('persisted rollback failed');
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(() => {
-                throw discoveryRollbackError;
-            }),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => {
-                throw persistedRollbackError;
-            }),
-            resumeStartupAfterSelection: jest.fn(async () => {
-                throw resumeError;
-            }),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
+    it('serializes selection transactions through a settling tail', async () => {
+        const harness = createHarness();
+        let resolveFirst!: (value: SelectedServerInitializationResult) => void;
+        harness.deps.runSelectedServerInitialization.mockImplementationOnce(() =>
+            new Promise((resolve) => { resolveFirst = resolve; }));
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        await expect(coordinator.selectServer('server-1')).rejects.toBe(resumeError);
-
-        expect(deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-        expect(deps.restorePersistedSelectionSnapshot).toHaveBeenCalledWith(persistedSnapshot);
+        const first = coordinator.selectServer('first');
+        const second = coordinator.selectServer('second');
+        for (let index = 0; index < 8; index += 1) await Promise.resolve();
+        expect(harness.deps.selectServer).toHaveBeenCalledTimes(1);
+        resolveFirst(COMPLETED);
+        await first;
+        await second;
+        expect(harness.deps.selectServer).toHaveBeenCalledTimes(2);
     });
 
-    it('returns recoverable startup-resume details with the selected result', async () => {
-        const startupResume = {
-            startup: 'completed',
-            epgRefresh: { kind: 'failed', error: new Error('refresh failed') },
-        } as const;
-        const deps = {
-            captureDiscoverySelectionSnapshot: jest.fn(() => discoverySnapshot),
-            restoreDiscoverySelectionSnapshot: jest.fn(),
-            capturePersistedSelectionSnapshot: jest.fn(async () => persistedSnapshot),
-            selectServer: jest.fn(async () => ({ kind: 'selected' as const })),
-            getSelectedServerUri: jest.fn(() => 'http://example.com'),
-            persistSelection: jest.fn(async () => 'updated' as const),
-            restorePersistedSelectionSnapshot: jest.fn(async () => 'updated' as const),
-            resumeStartupAfterSelection: jest.fn(async () => startupResume),
-            rollbackStartupAfterSelectionFailure: jest.fn(),
-            getReadiness: jest.fn(() => 'ready' as const),
-        };
-        const coordinator = new ServerSelectionCoordinator(deps);
+    it('enters quarantine on rollback failure and Retry clears it only after full recovery', async () => {
+        const harness = createHarness();
+        const forwardError = new Error('startup failed');
+        const rollbackError = new Error('restore failed');
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({ kind: 'failed', error: forwardError });
+        harness.deps.restorePersistenceEvidence.mockImplementationOnce(() => { throw rollbackError; });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        await expect(coordinator.selectServer('server-1')).resolves.toEqual({
-            kind: 'selected',
-            readiness: 'ready',
-            persistedSelection: 'updated',
-            startupResume,
+        await expect(coordinator.selectServer('candidate')).rejects.toMatchObject({
+            message: 'Selected-server recovery failed during persistence_restore.',
         });
+        expect(coordinator.getQuarantineState()).toEqual({
+            kind: 'quarantined',
+            phase: 'persistence_restore',
+            commandPending: false,
+        });
+        await expect(coordinator.selectServer('blocked')).rejects.toThrow('quarantined');
+
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce(COMPLETED);
+        await coordinator.retryQuarantineRecovery();
+        expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
+        expect(harness.rollbackReceipts).toHaveLength(2);
+        expect(harness.rollbackReceipts[1]).not.toBe(harness.rollbackReceipts[0]);
+        expect(harness.deps.releaseQuarantineRuntimeGate).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps quarantine after a failed Retry and exposes awaited Exit', async () => {
+        const harness = createHarness();
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({
+            kind: 'failed',
+            error: new Error('forward failed'),
+        });
+        harness.deps.restoreDiscoverySelectionSnapshot.mockImplementationOnce(() => {
+            throw new Error('restore failed');
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+        await expect(coordinator.selectServer('candidate')).rejects.toThrow('discovery_restore');
+        harness.deps.restoreDiscoverySelectionSnapshot.mockImplementationOnce(() => {
+            throw new Error('retry failed');
+        });
+
+        await expect(coordinator.retryQuarantineRecovery()).rejects.toThrow('discovery_restore');
+        expect(coordinator.getQuarantineState().kind).toBe('quarantined');
+        expect(harness.deps.releaseQuarantineRuntimeGate).not.toHaveBeenCalled();
+        await coordinator.exitQuarantine();
+        expect(harness.deps.exitQuarantine).toHaveBeenCalledTimes(1);
+    });
+
+    it('reruns failed quarantine preparation before rollback recovery and gate release', async () => {
+        const harness = createHarness();
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({
+            kind: 'failed', error: new Error('forward failed'),
+        });
+        harness.deps.restoreDiscoverySelectionSnapshot.mockImplementationOnce(() => {
+            throw new Error('restore failed');
+        });
+        harness.deps.prepareQuarantineRuntime
+            .mockRejectedValueOnce(new Error('preparation failed'))
+            .mockResolvedValueOnce(undefined);
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+        await expect(coordinator.selectServer('candidate')).rejects.toThrow('preparation');
+        expect(coordinator.getQuarantineState()).toMatchObject({ kind: 'quarantined', phase: 'preparation' });
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce(COMPLETED);
+        await coordinator.retryQuarantineRecovery();
+
+        expect(harness.deps.prepareQuarantineRuntime).toHaveBeenCalledTimes(2);
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledTimes(2);
+        expect(harness.deps.releaseQuarantineRuntimeGate).toHaveBeenCalledTimes(1);
+        expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
     });
 });
+
+function neverValue(): never {
+    throw new Error('Unexpected result branch.');
+}

@@ -16,6 +16,7 @@ import {
 } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../types/app-errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+import type { ChannelInitialTuneLineage, ChannelInitialTunePermit } from '../channel-tuning/ChannelInitialTuneAuthority';
 import {
     type INavigationManager,
     type Screen,
@@ -165,11 +166,11 @@ import { OrchestratorShutdownTeardown } from './runtime/OrchestratorShutdownTear
 import { OrchestratorChannelSwitchRuntime } from './runtime/OrchestratorChannelSwitchRuntime';
 import { OrchestratorPlexAuthRuntime } from './runtime/OrchestratorPlexAuthRuntime';
 import { OrchestratorServerSelectionRuntime } from './runtime/OrchestratorServerSelectionRuntime';
+import { createSelectedServerRecoveryGateError, OrchestratorServerSelectionRuntimeProjection } from './runtime/OrchestratorServerSelectionRuntimeProjection';
+import { prepareSelectedServerQuarantine } from './runtime/OrchestratorSelectedServerQuarantinePreparation';
 import type { SelectedServerScreenState } from '../server-selection/SelectedServerScreenStateProjection';
-
+import type { SelectedServerQuarantineCommandState } from '../server-selection/SelectedServerQuarantineRecoveryState';
 const QA_003B_ISSUE_ID = 'QA-003b';
-
-
 /**
  * AppOrchestrator - Central coordinator for all application modules.
  *
@@ -224,7 +225,6 @@ export class AppOrchestrator {
     private _lastChannelChangeSource: 'remote' | 'number' | 'guide' | null = null;
     private _scheduleDayRolloverController: ScheduleDayRolloverController | null = null;
     private _subtitleTrackRecoveryController: SubtitleTrackRecoveryController | null = null;
-
     private _config: OrchestratorConfig | null = null;
     private _moduleStatus: Map<string, ModuleStatus> = new Map();
     private _errorHandlers: Map<string, (error: AppError) => boolean> = new Map();
@@ -239,7 +239,6 @@ export class AppOrchestrator {
     private _overlayRuntimePolicyController: OverlayRuntimePolicyController | null = null;
     private _profileSwitchCleanupController: ProfileSwitchCleanupController | null = null;
     private _priorityOneControllersInitializing = false;
-
     private _currentProgramForPlayback: ScheduledProgram | null = null;
     private _currentStreamDescriptor: StreamDescriptor | null = null;
     private _currentStreamDecision: StreamDecision | null = null;
@@ -253,12 +252,11 @@ export class AppOrchestrator {
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
     private readonly _channelSwitchRuntime: OrchestratorChannelSwitchRuntime;
     private readonly _plexAuthRuntime: OrchestratorPlexAuthRuntime;
-    private readonly _serverSelectionRuntime: OrchestratorServerSelectionRuntime;
+    private readonly _serverSelectionRuntime: OrchestratorServerSelectionRuntimeProjection;
     private readonly _schedulePolicy = new OrchestratorSchedulePolicy();
     private readonly _reportedModuleStatusCloneFallbackContexts = new WeakSet<object>();
     private _shutdownStarted = false;
     private _shutdownPromise: Promise<void> | null = null;
-
     private _throwModuleInitPreconditionError(
         message: string,
         context: Record<string, unknown>
@@ -269,7 +267,6 @@ export class AppOrchestrator {
             context,
         } satisfies Pick<AppError, 'code' | 'recoverable' | 'context'>);
     }
-
     private _throwShutdownPreconditionError(method: string): never {
         throw Object.assign(new Error('AppOrchestrator cannot be used after shutdown; create a new instance.'), {
             code: AppErrorCode.MODULE_INIT_FAILED,
@@ -280,13 +277,13 @@ export class AppOrchestrator {
             },
         } satisfies Pick<AppError, 'code' | 'recoverable' | 'context'>);
     }
-
     private _assertNotShutdown(method: string): void {
         if (this._shutdownStarted) {
             this._throwShutdownPreconditionError(method);
         }
+        if (method !== 'handleGlobalError' && method !== 'retryQuarantineRecovery' && this._navigation?.isRuntimeCommandGated() === true)
+            throw createSelectedServerRecoveryGateError(method);
     }
-
     private _getAuthoritativeCurrentProgramForPlayback(): ScheduledProgram | null {
         const schedulerState = this._scheduler?.getState();
         if (schedulerState?.isActive) {
@@ -294,7 +291,6 @@ export class AppOrchestrator {
         }
         return this._currentProgramForPlayback;
     }
-
     private _warnRecoverableRuntimeIssue(
         event: string,
         message: string,
@@ -302,7 +298,6 @@ export class AppOrchestrator {
     ): void {
         this._recoverableRuntimeReporter.reportIssue(event, message, data);
     }
-
     private _warnRecoverableRuntimeError(
         event: string,
         message: string,
@@ -311,7 +306,6 @@ export class AppOrchestrator {
     ): void {
         this._recoverableRuntimeReporter.reportError(event, message, error, data);
     }
-
     private readonly _reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter = (
         event,
         message,
@@ -320,31 +314,52 @@ export class AppOrchestrator {
     ): void => {
         this._warnRecoverableRuntimeError(event, message, error, data);
     };
-
     constructor(platformServices?: PlatformServices) {
         this._platformServices = platformServices ?? createWebOsPlatformServices();
         this._recoverableRuntimeReporter = createDefaultRecoverableRuntimeIssueReporter(
             QA_003B_ISSUE_ID,
             this._issueDiagnosticsStore.append.bind(this._issueDiagnosticsStore)
         );
-        this._serverSelectionRuntime = new OrchestratorServerSelectionRuntime({
-            assertNotShutdown: this._assertNotShutdown.bind(this),
+        const serverSelectionRuntime = new OrchestratorServerSelectionRuntime({
+            assertNotShutdown: (method): void => { if (this._shutdownStarted) this._throwShutdownPreconditionError(method); },
             getPlexAuth: (): IPlexAuth | null => this._plexAuth,
             getPlexDiscovery: (): IPlexServerDiscovery | null => this._plexDiscovery,
             getInitializationCoordinator: (): InitializationCoordinator | null => this._initCoordinator,
             getEpg: (): IEPGComponent | null => this._epg,
             getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
-            isReady: (): boolean => this._ready,
-            reportError: (
-                event: string,
-                message: string,
-                error: unknown,
-                data?: Record<string, unknown>
-            ): void => {
-                this._warnRecoverableRuntimeError(event, message, error, data);
+            suspendAndDrainForScopeTransition: (): Promise<void> => this._channelSwitchRuntime.suspendAndDrainForScopeTransition(),
+            resumeAfterScopeTransition: (): void => this._channelSwitchRuntime.resumeAfterScopeTransition(),
+            beginInitialTuneLineage: (validators): ChannelInitialTuneLineage => this._channelSwitchRuntime.beginInitialTuneLineage(validators),
+            mintInitialTunePermit: (lineage): ChannelInitialTunePermit => this._channelSwitchRuntime.mintInitialTunePermit(lineage),
+            completeInitialTuneLineage: (lineage): void => this._channelSwitchRuntime.completeInitialTuneLineage(lineage),
+            switchToInitialChannel: (channelId, permit): Promise<ChannelSwitchOutcome> => this._channelSwitchRuntime.switchToInitialChannel(channelId, permit),
+            clearIdentityScopedRuntime: (): void => this._clearIdentityScopedRuntimeState({ stopPlayback: true }),
+            prepareQuarantineRuntime: (): Promise<void> => prepareSelectedServerQuarantine({
+                navigation: this._navigation, lifecycle: this._lifecycle, channelManager: this._channelManager,
+                scheduler: this._scheduler, epgCoordinator: this._epgCoordinator, epg: this._epg,
+                initializationCoordinator: this._initCoordinator,
+                setReadyFalse: (): void => { this._ready = false; },
+                suspendAndDrainTuning: (): Promise<void> => this._channelSwitchRuntime.suspendAndDrainForScopeTransition(),
+                stopPlayback: (): void => this._stopPlayback(), clearPlaybackState: (): void => this._clearPlaybackIdentityState(), disposeEventWiring: (): void => this._eventBinder?.dispose(),
+            }),
+            releaseQuarantineRuntimeGate: (): void => {
+                this._initCoordinator?.releaseSelectedServerQuarantine();
+                this._navigation?.deactivateRuntimeCommandGate();
             },
+            configureChannelManagerStorage: (): Promise<void> => this._configureChannelManagerStorageForSelectedServer(),
+            publishPendingServerModules: (): void => {
+                this._updateModuleStatus('plex-server-discovery', 'pending');
+                this._updateModuleStatus('plex-library', 'pending');
+                this._updateModuleStatus('plex-stream-resolver', 'pending');
+            },
+            setReady: (ready): void => { this._ready = ready; },
+            publishLoadingLifecycle: (): void => this._lifecycle?.setPhase('loading_data'),
+            openServerSelect: (): void => this._navigation?.goTo('server-select', { allowAutoConnect: false }),
+            exitApplication: (): Promise<void> => this.shutdown(),
             throwModuleInitPreconditionError: this._throwModuleInitPreconditionError.bind(this),
         });
+        this._serverSelectionRuntime = new OrchestratorServerSelectionRuntimeProjection(
+            serverSelectionRuntime, this.handleGlobalError.bind(this));
         this._storageContext = new OrchestratorStorageContext({
             getActiveUserId: this._getActiveUserId.bind(this),
             getSelectedServerId: (): string | null => this._serverSelectionRuntime.getSelectedServerId(),
@@ -409,12 +424,10 @@ export class AppOrchestrator {
         });
         this._initializeModuleStatus();
     }
-
     async initialize(config: OrchestratorConfig): Promise<void> {
         this._assertNotShutdown('initialize');
         const orchestratorConfig = this._prepareConfig(config);
         this._config = orchestratorConfig;
-
         const modules = createOrchestratorModules({
             config: orchestratorConfig,
             platformServices: this._platformServices,
@@ -446,9 +459,7 @@ export class AppOrchestrator {
         this._sleepTimer = modules.sleepTimer;
         this._epgDebugRuntime?.destroy();
         this._epgDebugRuntime = new EPGDebugRuntime();
-
         this._configureDiscoveryStorageKeysForActiveUser();
-
         const startupUiInitializer = createAppStartupUiInitializer(
             orchestratorConfig,
             {
@@ -514,6 +525,7 @@ export class AppOrchestrator {
                     setupEventWiring: (): void => {
                         this._requireEventBinder().bind();
                     },
+                    transferSelectedServerTuningToStartup: (): void => this._channelSwitchRuntime.resumeAfterScopeTransition(),
                 },
                 serverStorage: {
                     configureDiscoveryStorage: this._configureDiscoveryStorageKeysForActiveUser.bind(this),
@@ -1196,18 +1208,24 @@ export class AppOrchestrator {
         return this._plexDiscovery.discoverServers({ signal: options?.signal ?? null });
     }
 
-    async selectServer(
-        serverId: string,
-        options?: { signal?: AbortSignal | null }
-    ): Promise<OrchestratorServerSelectionResult> {
+    async selectServer(serverId: string, options?: {
+        signal?: AbortSignal | null;
+    }): Promise<OrchestratorServerSelectionResult> {
         return this._serverSelectionRuntime.selectServer(serverId, options);
     }
 
     async clearSelectedServer(): Promise<void> {
+        this._assertNotShutdown('clearSelectedServer');
         await this._serverSelectionRuntime.clearSelectedServer();
         this._clearIdentityScopedRuntimeState({ stopPlayback: true });
         await this._configureChannelManagerStorageForSelectedServer();
     }
+
+    getQuarantineState(): SelectedServerQuarantineCommandState { return this._serverSelectionRuntime.getQuarantineState(); }
+
+    async retryQuarantineRecovery(): Promise<void> { this._assertNotShutdown('retryQuarantineRecovery'); await this._serverSelectionRuntime.retryQuarantineRecovery(); }
+
+    exitQuarantine(): Promise<void> { return this._serverSelectionRuntime.exitQuarantine(); }
 
     private async _resumeStartupAfterProfileSwitch(initCoordinator: InitializationCoordinator): Promise<void> {
         this._navigation?.goTo('splash');
@@ -1375,15 +1393,7 @@ export class AppOrchestrator {
                     this._navigation.goTo('settings');
                 }
             },
-            retryStart: (): void => {
-                this.start().catch((error: unknown) => {
-                    this._warnRecoverableRuntimeError(
-                        'orchestrator.recovery.retryStart',
-                        'Retry start failed',
-                        error
-                    );
-                });
-            },
+            retryStart: (): Promise<void> => this.start(),
             retryPlayback: (): void => {
                 try {
                     const scheduler = this._scheduler;
@@ -1405,15 +1415,7 @@ export class AppOrchestrator {
                     }, 'playback');
                 }
             },
-            exitApp: (): void => {
-                this.shutdown().catch((error: unknown) => {
-                    this._warnRecoverableRuntimeError(
-                        'orchestrator.recovery.exitApp',
-                        'Shutdown failed',
-                        error
-                    );
-                });
-            },
+            exitApp: (): Promise<void> => this.shutdown(),
             skipToNext: (): void => {
                 if (this._scheduler) {
                     this._scheduler.skipToNext();

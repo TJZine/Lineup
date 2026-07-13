@@ -212,26 +212,69 @@ export class ChannelSetupBuildCommitter {
         }
 
         await this._deps.channelManager.replaceAllChannels(finalChannels, { currentChannelId });
+        summary.commitState = 'committed';
         const initialChannelNumber = chooseInitialChannelNumber(finalChannels, currentChannelId);
         if (initialChannelNumber !== undefined) {
             summary.initialChannelNumber = initialChannelNumber;
         }
 
-        reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
         summary.lastTask = 'refresh_epg';
         let refreshStage: ChannelSetupGuideRefreshFailureStage = 'prepare';
-        try {
+        const markGuideInterrupted = (): void => {
+            summary.guideRefresh = {
+                kind: 'interrupted',
+                interruption: {
+                    kind: 'aborted',
+                    stage: refreshStage,
+                },
+            };
+            reportProgress(
+                'refresh_epg',
+                'Refreshing guide...',
+                'Guide refresh interrupted (channels saved)',
+                0,
+                null
+            );
+        };
+
+        const refreshGuideAfterCommit = async (): Promise<void> => {
+            if (checkCanceled()) {
+                markGuideInterrupted();
+                return;
+            }
+
+            reportProgress('refresh_epg', 'Refreshing guide...', 'Loading schedules', 0, null);
             this._deps.clearSelectedChannelScheduleSnapshot();
+            if (checkCanceled()) {
+                markGuideInterrupted();
+                return;
+            }
+
             refreshStage = 'ensure_initialized';
             await this._deps.ensureEpgInitialized();
+            if (checkCanceled()) {
+                markGuideInterrupted();
+                return;
+            }
+
             refreshStage = 'prime_channels';
             this._deps.primeEpgChannels();
+            if (checkCanceled()) {
+                markGuideInterrupted();
+                return;
+            }
+
             refreshStage = 'refresh_schedules';
             const guideRefresh = await this._deps.refreshEpgSchedules({
                 reason: 'channel-setup',
                 debounceMs: 0,
                 signal: request.signal,
             });
+            if (checkCanceled()) {
+                markGuideInterrupted();
+                return;
+            }
+
             summary.guideRefresh = {
                 kind: 'completed',
                 result: guideRefresh,
@@ -240,23 +283,30 @@ export class ChannelSetupBuildCommitter {
                 epgRefreshFailed = true;
                 addWarning('[ChannelSetup] EPG refresh completed with degraded guide readiness', guideRefresh);
             }
+        };
+
+        try {
+            await refreshGuideAfterCommit();
         } catch (error: unknown) {
             if (isAbortLikeError(error, request.signal ?? undefined)) {
-                throw error;
+                markGuideInterrupted();
+            } else {
+                epgRefreshFailed = true;
+                summary.guideRefresh = {
+                    kind: 'failed',
+                    failure: {
+                        kind: 'thrown',
+                        stage: refreshStage,
+                    },
+                };
+                addWarning('[ChannelSetup] EPG refresh failed after commit', error);
+                reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);
             }
-            epgRefreshFailed = true;
-            summary.guideRefresh = {
-                kind: 'failed',
-                failure: {
-                    kind: 'thrown',
-                    stage: refreshStage,
-                },
-            };
-            addWarning('[ChannelSetup] EPG refresh failed after commit', error);
-            reportProgress('refresh_epg', 'Refreshing guide...', 'Guide refresh failed (channels saved)', 0, null);
         }
 
-        const finalDetail = epgRefreshFailed
+        const finalDetail = summary.guideRefresh?.kind === 'interrupted'
+            ? `Built ${summary.created} channels (guide refresh interrupted)`
+            : epgRefreshFailed
             ? `Built ${summary.created} channels (guide refresh failed)`
             : `Built ${summary.created} channels`;
         summary.lastTask = 'done';

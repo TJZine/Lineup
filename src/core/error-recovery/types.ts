@@ -3,8 +3,9 @@ import type { AppErrorCode } from '../../types/app-errors';
 
 /** User-facing action button for error recovery overlay. */
 export interface ErrorRecoveryAction {
+    id?: string;
     label: string;
-    action: () => void;
+    action: () => void | Promise<void>;
     isPrimary: boolean;
     requiresNetwork: boolean;
 }
@@ -14,9 +15,9 @@ export interface RecoveryActionDeps {
     goToServerSelect: () => void; // must internally no-op if navigation missing
     goToChannelEdit: () => void; // must internally no-op if navigation missing
     goToSettings: () => void; // must internally no-op if navigation missing
-    retryStart: () => void; // MUST call start() and catch (no unhandled rejection)
+    retryStart: () => Promise<void>;
     retryPlayback: () => void; // must retry the current loaded program and internally no-op if unavailable
-    exitApp: () => void; // MUST call shutdown() and catch (no unhandled rejection)
+    exitApp: () => Promise<void>;
     skipToNext: () => void; // must internally no-op if scheduler missing
 }
 

@@ -198,7 +198,7 @@ export class AppScreenVisibilityCoordinator {
     ): void {
         const existingScreen = getScreen();
         if (existingScreen) {
-            if (this._getCurrentScreen() !== expectedScreen) return;
+            if (!this._isCurrentScreen(expectedScreen)) return;
             this._hideInactiveStartupScreens(expectedScreen);
             if (onShow) {
                 onShow(existingScreen);
@@ -216,7 +216,7 @@ export class AppScreenVisibilityCoordinator {
         pendingScreen
             .then((startupScreen) => {
                 if (!startupScreen) return;
-                if (this._getCurrentScreen() !== expectedScreen) return;
+                if (!this._isCurrentScreen(expectedScreen)) return;
                 this._hideInactiveStartupScreens(expectedScreen);
                 if (onShow) {
                     onShow(startupScreen);
@@ -226,6 +226,7 @@ export class AppScreenVisibilityCoordinator {
                 this._getSplashScreen()?.hide();
             })
             .catch((error: unknown) => {
+                if (!this._isCurrentScreen(expectedScreen)) return;
                 this._onLazyScreenError(error);
             });
     }
@@ -242,11 +243,16 @@ export class AppScreenVisibilityCoordinator {
         pendingScreen
             .then((screenInstance) => {
                 if (!screenInstance) return;
-                if (this._getCurrentScreen() !== expectedScreen) return;
+                if (!this._isCurrentScreen(expectedScreen)) return;
                 screenInstance.show();
             })
             .catch((error: unknown) => {
+                if (!this._isCurrentScreen(expectedScreen)) return;
                 this._onLazyScreenError(error);
             });
+    }
+
+    private _isCurrentScreen(expectedScreen: string): boolean {
+        return this._getCurrentScreen() === expectedScreen;
     }
 }

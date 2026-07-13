@@ -42,6 +42,9 @@ const AUDIO_CHOICES: AudioChoice[] = [
     },
 ];
 
+const AUDIO_SETTINGS_FAILURE_MESSAGE = 'Could not save audio settings. Check device storage and try again.';
+const AUDIO_SETTINGS_HINT = 'This helps optimize audio playback. You can change this later in Settings.';
+
 /**
  * Audio setup screen component.
  * Displayed during onboarding to configure audio preferences.
@@ -165,8 +168,11 @@ export class AudioSetupScreen {
         panel.appendChild(helper);
 
         const hint = document.createElement('p');
+        hint.id = 'audio-setup-status';
         hint.className = 'screen-detail';
-        hint.textContent = 'This helps optimize audio playback. You can change this later in Settings.';
+        hint.setAttribute('role', 'status');
+        hint.setAttribute('aria-live', 'polite');
+        hint.textContent = AUDIO_SETTINGS_HINT;
         panel.appendChild(hint);
 
         const actions = document.createElement('div');
@@ -184,6 +190,7 @@ export class AudioSetupScreen {
     }
 
     private _selectChoice(choiceId: AudioChoice['id']): void {
+        this._restoreStatus();
         this._didUserExplicitlyChoose = true;
         this._selectedChoice = choiceId;
         this._setLastFocusedChoiceId(`audio-choice-${choiceId}`);
@@ -209,16 +216,39 @@ export class AudioSetupScreen {
     private _applyAndContinue(): void {
         if (!this._selectedChoice) return;
 
-        if (this._selectedChoice === 'external') {
-            this._audioSettingsStore.writeDtsPassthroughEnabled(true);
-        } else {
-            this._audioSettingsStore.writeDtsPassthroughEnabled(false);
+        const dtsResult = this._audioSettingsStore.writeDtsPassthroughEnabled(
+            this._selectedChoice === 'external'
+        );
+        if (!dtsResult.ok) {
+            this._showPersistenceFailure();
+            return;
         }
 
-        this._audioSettingsStore.writeAudioSetupComplete(true);
-        this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(this._directPlayFallbackEnabled);
+        const fallbackResult = this._audioSettingsStore.writeDirectPlayAudioFallbackEnabled(
+            this._directPlayFallbackEnabled
+        );
+        if (!fallbackResult.ok) {
+            this._showPersistenceFailure();
+            return;
+        }
 
+        const setupCompleteResult = this._audioSettingsStore.writeAudioSetupComplete(true);
+        if (!setupCompleteResult.ok) {
+            this._showPersistenceFailure();
+            return;
+        }
         this._onComplete();
+    }
+
+    private _showPersistenceFailure(): void {
+        const status = this._container.querySelector('#audio-setup-status');
+        if (status) status.textContent = AUDIO_SETTINGS_FAILURE_MESSAGE;
+        this._getNavigation()?.setFocus('audio-setup-continue');
+    }
+
+    private _restoreStatus(): void {
+        const status = this._container.querySelector('#audio-setup-status');
+        if (status) status.textContent = AUDIO_SETTINGS_HINT;
     }
 
     public static isSetupComplete(): boolean {

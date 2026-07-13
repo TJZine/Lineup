@@ -12,6 +12,8 @@ import {
     type InitializationDependencies,
 } from '../InitializationCoordinator';
 import { createDeferred } from '../../../__tests__/helpers';
+import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
+import type { PlexSavedServerRestoreResult } from '../../../modules/plex/discovery';
 
 const config: PlexAuthConfig = {
     clientIdentifier: 'integration-client', product: 'Lineup', version: '1', platform: 'webOS',
@@ -48,6 +50,11 @@ describe('selected-server auth resume integration', () => {
             },
         });
         const firstDiscoveryStarted = createDeferred<() => void>();
+        const selectionContext = new PlexDiscoverySelectionContext();
+        const createRestoreResult = (): PlexSavedServerRestoreResult => {
+            const receipt = selectionContext.issueReceipt(selectionContext.capture(), 'selected');
+            return { kind: 'already_selected' as const, serverId: 'server-1', receipt };
+        };
         let discoveryCalls = 0;
         const discovery = {
             initialize: jest.fn(() => {
@@ -55,13 +62,15 @@ describe('selected-server auth resume integration', () => {
                 if (discoveryCalls === 1) {
                     return new Promise((resolve) => {
                         firstDiscoveryStarted.resolve(
-                            (): void => resolve({ kind: 'skipped_no_saved_server' })
+                            (): void => resolve(createRestoreResult())
                         );
                     });
                 }
-                return Promise.resolve({ kind: 'skipped_no_saved_server' });
+                return Promise.resolve(createRestoreResult());
             }),
             isConnected: jest.fn().mockReturnValue(true),
+            getSelectionReceiptSignal: jest.fn((receipt) => selectionContext.getReceiptSignal(receipt)),
+            assertSelectionReceiptCurrent: jest.fn((receipt) => selectionContext.assertReceiptCurrent(receipt)),
             on: jest.fn(() => ({ dispose: jest.fn() })),
         };
         const setReady = jest.fn();
@@ -143,7 +152,16 @@ describe('selected-server auth resume integration', () => {
         ]);
         const authEvents: boolean[] = [];
         auth.on('authChange', (authenticated) => authEvents.push(authenticated));
-        expect(await adapter.persistSelection('server-1', 'http://server-1')).toBe('updated');
+        const persistenceEvidence = adapter.capturePersistenceEvidence();
+        expect(adapter.persistCandidateSelection(
+            persistenceEvidence,
+            'server-1',
+            'http://server-1'
+        )).toEqual({
+            phase: 'candidate',
+            state: 'updated',
+            publicResult: 'updated',
+        });
         const queuedRun = coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
         expect(setupEventWiring).not.toHaveBeenCalled();
         expect(openServerSelect).not.toHaveBeenCalled();

@@ -1,4 +1,4 @@
-import type { StreamDescriptor } from '../../modules/player';
+import type { PreparedPlaybackStream, StreamDescriptor } from '../../modules/player';
 import type { ScheduledProgram } from '../../modules/scheduler/scheduler';
 import type { IAppLifecycle } from '../../modules/lifecycle';
 import type { IVideoPlayer } from '../../modules/player';
@@ -8,6 +8,12 @@ import { PlaybackRuntimeController } from '../../core/orchestrator/priority-one/
 import { PlaybackStartController } from '../../core/orchestrator/priority-one/PlaybackStartController';
 import type { OrchestratorPlaybackStateAccessors } from '../../core/orchestrator/runtime/OrchestratorPlaybackStateAccessors';
 import { createDeferred, flushPromises } from '../helpers';
+import { makePreparedPlaybackStream } from '../fixtures/preparedPlaybackStream';
+
+const prepareStream = (descriptor: StreamDescriptor): PreparedPlaybackStream => ({
+    ...makePreparedPlaybackStream(descriptor.url),
+    descriptor,
+});
 
 const wireLifecycleResumeHarness = (overrides: {
     scheduler: {
@@ -24,7 +30,7 @@ const wireLifecycleResumeHarness = (overrides: {
     };
     lifecycle: Pick<IAppLifecycle, 'onPause' | 'onResume'>;
     playbackRecovery: {
-        resolveStreamForProgram: (program: ScheduledProgram) => Promise<StreamDescriptor | null | undefined>;
+        resolveStreamForProgram: (program: ScheduledProgram) => Promise<PreparedPlaybackStream>;
         resetPlaybackFailureGuard: () => void;
         tryHandleStreamResolverAuthError: (error: unknown) => boolean;
         handlePlaybackFailure: (context: string, error: unknown) => void;
@@ -48,8 +54,9 @@ const wireLifecycleResumeHarness = (overrides: {
 
     const playbackStartController = new PlaybackStartController({
         getVideoPlayer: (): typeof overrides.videoPlayer => overrides.videoPlayer,
-        resolveStreamForProgram: (program): Promise<StreamDescriptor | null | undefined> =>
+        resolveStreamForProgram: (program): Promise<PreparedPlaybackStream> =>
             overrides.playbackRecovery.resolveStreamForProgram(program),
+        discardPreparedStream: (): Promise<void> => Promise.resolve(),
         resetPlaybackFailureGuard: (): void => overrides.playbackRecovery.resetPlaybackFailureGuard(),
         tryHandleStreamResolverAuthError: (error): boolean =>
             overrides.playbackRecovery.tryHandleStreamResolverAuthError(error),
@@ -73,7 +80,9 @@ const wireLifecycleResumeHarness = (overrides: {
         isProgramStillCurrent: (program): boolean =>
             playbackState.getCurrentProgramForPlayback() === program,
         handleProgramStartUiSideEffects: (): void => undefined,
+        commitPreparedStream: (): void => undefined,
         handleStreamResolved: (): void => undefined,
+        reportRecoverableActivationFailure: (): void => undefined,
         clearAutoShowInfoBannerAfterAbortedStart: (): void => undefined,
     });
 
@@ -81,6 +90,9 @@ const wireLifecycleResumeHarness = (overrides: {
         playback: {
             playbackState,
             playbackRecovery: {
+                resolveStreamForProgram: (program): Promise<PreparedPlaybackStream> =>
+                    overrides.playbackRecovery.resolveStreamForProgram(program),
+                discardPreparedStream: (): Promise<void> => Promise.resolve(),
                 isStreamRecoveryInProgress: (): boolean => false,
                 handlePlaybackFailure: (): void => undefined,
             },
@@ -204,7 +216,7 @@ describe('AppOrchestrator lifecycle resume', () => {
         };
 
         const playbackRecovery = {
-            resolveStreamForProgram: jest.fn().mockResolvedValue(stream),
+            resolveStreamForProgram: jest.fn().mockResolvedValue(prepareStream(stream)),
             resetPlaybackFailureGuard: jest.fn(),
             tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
             handlePlaybackFailure: jest.fn(),
@@ -288,8 +300,8 @@ describe('AppOrchestrator lifecycle resume', () => {
 
         const playbackRecovery = {
             resolveStreamForProgram: jest.fn()
-                .mockResolvedValueOnce(streamA)
-                .mockResolvedValueOnce(streamB),
+                .mockResolvedValueOnce(prepareStream(streamA))
+                .mockResolvedValueOnce(prepareStream(streamB)),
             resetPlaybackFailureGuard: jest.fn(),
             tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
             handlePlaybackFailure: jest.fn(),

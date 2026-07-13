@@ -14,6 +14,8 @@ describe('OrchestratorRuntimeSeams', () => {
         const cleanupCallbacks: Array<() => void> = [];
         const reportRecoverableAsyncFailure: RecoverableAsyncFailureReporter = jest.fn();
         const playbackRecovery: PriorityOnePlaybackRecoveryPort = {
+            resolveStreamForProgram: jest.fn(),
+            discardPreparedStream: jest.fn(),
             isStreamRecoveryInProgress: () => false,
         };
         const modules: PriorityOneRequiredRuntimeModules = {

@@ -64,6 +64,13 @@ export type ChannelSetupGuideRefreshSummary =
             kind: 'thrown';
             stage: ChannelSetupGuideRefreshFailureStage;
         };
+    }
+    | {
+        kind: 'interrupted';
+        interruption: {
+            kind: 'aborted';
+            stage: ChannelSetupGuideRefreshFailureStage;
+        };
     };
 
 export interface ChannelBuildSummary {
@@ -72,6 +79,7 @@ export interface ChannelBuildSummary {
     reachedMaxChannels: boolean;
     errorCount: number;
     canceled: boolean;
+    commitState?: 'committed';
     blockedMessage?: string;
     warnings?: string[];
     guideRefresh?: ChannelSetupGuideRefreshSummary;

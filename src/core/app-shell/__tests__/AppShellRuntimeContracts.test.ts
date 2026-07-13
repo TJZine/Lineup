@@ -25,9 +25,11 @@ describe('AppShellRuntimeContracts boundaries', () => {
         expect(source).not.toMatch(/from ['"].*server-selection\/ServerSelectionTypes['"]/);
         expect(source).not.toContain('OrchestratorServerSelectionResult');
         expect(source).toContain('AppShellServerSelectionResult');
-        expect(source).toContain('readiness');
         expect(source).toContain('persistedSelection');
-        expect(source).toContain('startupResume');
+        expect(source).toContain('epgRefresh');
+        expect(source).not.toContain('startupResume');
+        expect(source).not.toContain('startup_pending');
+        expect(source).not.toContain('skipped_no_coordinator');
     });
 
     it('does not expose diagnostics on the channel setup screen runtime port', () => {

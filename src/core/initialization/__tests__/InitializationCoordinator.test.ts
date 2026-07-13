@@ -13,8 +13,18 @@ import { EpgPreferencesStore, type EpgLayoutMode } from '../../../modules/settin
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
+import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
+import type { PlexSavedServerRestoreResult } from '../../../modules/plex/discovery';
 
 const SKIPPED_SAVED_SERVER_RESTORE = { kind: 'skipped_no_saved_server' } as const;
+const createSelectedSavedServerRestore = (): Extract<
+    PlexSavedServerRestoreResult,
+    { kind: 'selected' }
+> => {
+    const context = new PlexDiscoverySelectionContext();
+    const receipt = context.issueReceipt(context.capture(), 'selected');
+    return { kind: 'selected', serverId: 'server-1', receipt } as const;
+};
 const createAuthGuard = (): { signal: AbortSignal; assertCurrent: jest.Mock } => ({
     signal: new AbortController().signal,
     assertCurrent: jest.fn(),
@@ -153,6 +163,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
         const plexDiscovery = {
             initialize: jest.fn().mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE),
             isConnected: jest.fn().mockReturnValue(false),
+            getSelectionReceiptSignal: jest.fn(() => new AbortController().signal),
+            assertSelectionReceiptCurrent: jest.fn(),
             on: jest.fn(() => ({ dispose: jest.fn() })),
         } as unknown as LegacyInitializationDependencies['plexDiscovery'];
 
@@ -242,6 +254,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             state: {
                 setReady: legacyCallbacks.setReady,
                 setupEventWiring: legacyCallbacks.setupEventWiring,
+                transferSelectedServerTuningToStartup: jest.fn(),
             },
             serverStorage: {
                 configureDiscoveryStorage: legacyCallbacks.configureDiscoveryStorage,
@@ -572,7 +585,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         });
         plexDiscovery.initialize.mockImplementation(async () => {
             order.push('init');
-            return SKIPPED_SAVED_SERVER_RESTORE;
+            return createSelectedSavedServerRestore();
         });
         plexDiscovery.isConnected.mockReturnValue(true);
 
@@ -672,7 +685,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
         ]);
-        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
+        plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
         plexDiscovery.isConnected.mockReturnValue(true);
         navigation.getCurrentScreen.mockReturnValue('auth');
         (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
@@ -754,7 +767,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
         ]);
-        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
+        plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
         plexDiscovery.isConnected.mockReturnValue(true);
         navigation.getCurrentScreen.mockReturnValue('auth');
         (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
@@ -1149,7 +1162,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             isConnected: jest.Mock;
         };
 
-        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
+        plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
         plexDiscovery.isConnected.mockReturnValue(true);
         (callbacks.setReady as jest.Mock).mockImplementation((ready: boolean) => {
             if (ready) {
@@ -1201,7 +1214,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
         ]);
-        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
+        plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
         plexDiscovery.isConnected.mockReturnValue(true);
         navigation.getCurrentScreen.mockReturnValue('auth');
 
@@ -1216,11 +1229,11 @@ describe('InitializationCoordinator (Plex Home)', () => {
         plexDiscovery.initialize.mockImplementation(() => {
             initializeCallCount += 1;
             if (initializeCallCount === 1) {
-                return new Promise<typeof SKIPPED_SAVED_SERVER_RESTORE>((resolve) => {
-                    releaseDiscoveryInitialize = (): void => resolve(SKIPPED_SAVED_SERVER_RESTORE);
+                return new Promise<ReturnType<typeof createSelectedSavedServerRestore>>((resolve) => {
+                    releaseDiscoveryInitialize = (): void => resolve(createSelectedSavedServerRestore());
                 });
             }
-            return Promise.resolve(SKIPPED_SAVED_SERVER_RESTORE);
+            return Promise.resolve(createSelectedSavedServerRestore());
         });
 
         const runPromise = coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
@@ -1261,8 +1274,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
         let releaseDiscoveryInitialize: (() => void) | null = null;
         plexDiscovery.initialize.mockImplementation(
             () =>
-                new Promise<typeof SKIPPED_SAVED_SERVER_RESTORE>((resolve) => {
-                    releaseDiscoveryInitialize = (): void => resolve(SKIPPED_SAVED_SERVER_RESTORE);
+                new Promise<ReturnType<typeof createSelectedSavedServerRestore>>((resolve) => {
+                    releaseDiscoveryInitialize = (): void => resolve(createSelectedSavedServerRestore());
                 })
         );
         plexDiscovery.isConnected.mockReturnValue(true);
@@ -1305,8 +1318,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
         let releaseDiscoveryInitialize: (() => void) | null = null;
         plexDiscovery.initialize.mockImplementation(
             () =>
-                new Promise<typeof SKIPPED_SAVED_SERVER_RESTORE>((resolve) => {
-                    releaseDiscoveryInitialize = (): void => resolve(SKIPPED_SAVED_SERVER_RESTORE);
+                new Promise<ReturnType<typeof createSelectedSavedServerRestore>>((resolve) => {
+                    releaseDiscoveryInitialize = (): void => resolve(createSelectedSavedServerRestore());
                 })
         );
         plexDiscovery.isConnected.mockReturnValue(true);
@@ -1378,8 +1391,8 @@ describe('InitializationCoordinator (Plex Home)', () => {
         let releaseDiscoveryInitialize: (() => void) | null = null;
         plexDiscovery.initialize.mockImplementation(
             () =>
-                new Promise<typeof SKIPPED_SAVED_SERVER_RESTORE>((resolve) => {
-                    releaseDiscoveryInitialize = (): void => resolve(SKIPPED_SAVED_SERVER_RESTORE);
+                new Promise<ReturnType<typeof createSelectedSavedServerRestore>>((resolve) => {
+                    releaseDiscoveryInitialize = (): void => resolve(createSelectedSavedServerRestore());
                 })
         );
         plexDiscovery.isConnected.mockReturnValue(true);
@@ -1443,7 +1456,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                     markValidateTokenStarted?.();
                 })
         );
-        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
+        plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
         plexDiscovery.isConnected.mockReturnValue(true);
 
         const firstRun = coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
@@ -1513,7 +1526,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                     });
                 })
         );
-        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
+        plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
         plexDiscovery.isConnected.mockReturnValue(true);
 
         const firstRun = coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
@@ -1638,7 +1651,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                 createStoredCredentials('active-token', 'account-token')
             );
             plexAuth.validateToken.mockResolvedValue(true);
-            plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
+            plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
             plexDiscovery.isConnected.mockReturnValue(true);
 
             await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
@@ -1653,6 +1666,91 @@ describe('InitializationCoordinator (Plex Home)', () => {
         } finally {
             jest.useRealTimers();
         }
+    });
+
+    it('cancels deferred EPG warmup and keeps ordinary startup admission closed until recovery release', async () => {
+        jest.useFakeTimers();
+        const epgReadiness = { ensureReady: jest.fn(async () => undefined) } as NonNullable<LegacyInitializationDependencies['epgReadiness']>;
+        const { coordinator, deps } = makeCoordinator({
+            epg: { initialize: jest.fn() } as unknown as LegacyInitializationDependencies['epg'],
+            epgReadiness,
+        });
+        const plexDiscovery = deps.plexDiscovery as unknown as { initialize: jest.Mock; isConnected: jest.Mock };
+        try {
+            plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
+            plexDiscovery.isConnected.mockReturnValue(true);
+            await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
+
+            await coordinator.prepareForSelectedServerQuarantine();
+            await jest.advanceTimersByTimeAsync(1500);
+            expect(epgReadiness.ensureReady).not.toHaveBeenCalled();
+            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).rejects.toThrow(
+                'Ordinary startup is unavailable during selected-server recovery.'
+            );
+
+            coordinator.releaseSelectedServerQuarantine();
+            await expect(coordinator.runStartup(STARTUP_PHASE.RESUME_EPG_ONLY)).resolves.toBeUndefined();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('drains an EPG warmup that fired before quarantine preparation', async () => {
+        jest.useFakeTimers();
+        let releaseWarmup!: () => void;
+        const epgReadiness = {
+            ensureReady: jest.fn(() => new Promise<void>((resolve) => { releaseWarmup = resolve; })),
+        } as NonNullable<LegacyInitializationDependencies['epgReadiness']>;
+        const { coordinator, deps } = makeCoordinator({
+            epg: { initialize: jest.fn() } as unknown as LegacyInitializationDependencies['epg'],
+            epgReadiness,
+        });
+        const plexDiscovery = deps.plexDiscovery as unknown as { initialize: jest.Mock; isConnected: jest.Mock };
+        try {
+            plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
+            plexDiscovery.isConnected.mockReturnValue(true);
+            await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
+            await jest.advanceTimersByTimeAsync(1500);
+            expect(epgReadiness.ensureReady).toHaveBeenCalledTimes(1);
+
+            const preparation = coordinator.prepareForSelectedServerQuarantine();
+            let prepared = false;
+            void preparation.then(() => { prepared = true; });
+            await Promise.resolve();
+            expect(prepared).toBe(false);
+
+            releaseWarmup();
+            await preparation;
+            expect(prepared).toBe(true);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('disposes resume admission and prevents a stale resume callback from publishing during quarantine', async () => {
+        const { coordinator, deps, callbacks } = makeCoordinator();
+        const plexDiscovery = deps.plexDiscovery as unknown as { initialize: jest.Mock; isConnected: jest.Mock; on: jest.Mock };
+        let connectionHandler: ((uri: string | null) => void) | null = null;
+        const dispose = jest.fn();
+        plexDiscovery.on.mockImplementation((event: string, handler: (uri: string | null) => void) => {
+            if (event === 'connectionChange') connectionHandler = handler;
+            return { dispose };
+        });
+        plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
+        plexDiscovery.isConnected.mockReturnValue(false);
+        await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
+        if (!connectionHandler) throw new Error('Expected server resume handler.');
+        const setupEventWiring = callbacks.setupEventWiring as jest.Mock;
+        const reportRecoverableAsyncFailure = callbacks.reportRecoverableAsyncFailure as jest.Mock;
+        const setupCalls = setupEventWiring.mock.calls.length;
+
+        await coordinator.prepareForSelectedServerQuarantine();
+        expect(dispose).toHaveBeenCalledTimes(1);
+        (connectionHandler as (uri: string) => void)('https://server.example.invalid');
+        await flushUntil(() => reportRecoverableAsyncFailure.mock.calls.length > 0);
+
+        expect(setupEventWiring).toHaveBeenCalledTimes(setupCalls);
+        expect(callbacks.state.transferSelectedServerTuningToStartup).not.toHaveBeenCalled();
     });
 
 	    describe('post-ready routing policy', () => {
@@ -1687,7 +1785,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
                     createStoredCredentials('active-token', 'account-token')
                 );
                 plexAuth.validateToken.mockResolvedValue(true);
-                plexDiscovery.initialize.mockResolvedValue(SKIPPED_SAVED_SERVER_RESTORE);
+                plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
                 plexDiscovery.isConnected.mockReturnValue(true);
                 (callbacks.switchToChannel as jest.Mock).mockRejectedValueOnce(new Error('route failed'));
 

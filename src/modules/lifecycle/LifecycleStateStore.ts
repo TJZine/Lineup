@@ -15,6 +15,20 @@ import {
 
 type StorageMutationFailureReason = 'quota-exceeded' | 'unavailable';
 
+export type LifecycleStateLoadResult =
+    | { kind: 'absent' }
+    | { kind: 'loaded'; state: PersistentState }
+    | { kind: 'future-version'; version: number };
+
+export class FutureLifecycleStateVersionError extends Error {
+    public constructor(public readonly storedVersion: number) {
+        super(
+            `Cannot overwrite lifecycle state version ${storedVersion} created by a newer application version`
+        );
+        this.name = 'FutureLifecycleStateVersionError';
+    }
+}
+
 export class LifecycleStateStore {
     private readonly _storageKey: string;
     private readonly _currentVersion: number;
@@ -25,6 +39,8 @@ export class LifecycleStateStore {
     }
 
     public save(state: PersistentState): void {
+        this._rejectFutureVersionOverwrite();
+
         const stateToSave: PersistentState = {
             ...state,
             version: this._currentVersion,
@@ -50,32 +66,35 @@ export class LifecycleStateStore {
         }
     }
 
-    public load(): PersistentState | null {
+    public load(): LifecycleStateLoadResult {
         const serialized = safeLocalStorageGet(this._storageKey);
         if (serialized === null) {
-            return null;
+            return { kind: 'absent' };
         }
 
         try {
             const parsed: unknown = JSON.parse(serialized);
             if (!this._isMinimalState(parsed)) {
-                return null;
+                return { kind: 'absent' };
+            }
+            if (parsed['version'] > this._currentVersion) {
+                return { kind: 'future-version', version: parsed['version'] };
             }
 
             const migrated = this._migrateState(parsed as Record<string, unknown>);
             if (migrated === null) {
-                return null;
+                return { kind: 'absent' };
             }
 
-            return this._repairState(migrated);
+            return { kind: 'loaded', state: this._repairState(migrated) };
         } catch {
             // Parse errors are non-fatal; state will be treated as absent.
-            return null;
+            return { kind: 'absent' };
         }
     }
 
-    public clear(): void {
-        safeLocalStorageRemove(this._storageKey);
+    public clear(): boolean {
+        return safeLocalStorageRemove(this._storageKey);
     }
 
     public createDefaultState(): PersistentState {
@@ -92,11 +111,6 @@ export class LifecycleStateStore {
             return null;
         }
 
-        // Future versions are accepted and repaired without downgrading.
-        if (version > this._currentVersion) {
-            return state;
-        }
-
         let currentState = state;
         let currentVersion = version;
 
@@ -111,6 +125,25 @@ export class LifecycleStateStore {
         }
 
         return currentState;
+    }
+
+    private _rejectFutureVersionOverwrite(): void {
+        const serialized = safeLocalStorageGet(this._storageKey);
+        if (serialized === null) {
+            return;
+        }
+
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(serialized);
+        } catch {
+            // Invalid persisted JSON retains the existing save-and-replace behavior.
+            return;
+        }
+
+        if (this._isMinimalState(parsed) && parsed['version'] > this._currentVersion) {
+            throw new FutureLifecycleStateVersionError(parsed['version']);
+        }
     }
 
     private _createStorageMutationError(reason: StorageMutationFailureReason): Error {
@@ -135,7 +168,9 @@ export class LifecycleStateStore {
         }
     }
 
-    private _isMinimalState(data: unknown): data is Record<string, unknown> {
+    private _isMinimalState(
+        data: unknown
+    ): data is Record<string, unknown> & { version: number } {
         if (!this._isRecord(data)) {
             return false;
         }
