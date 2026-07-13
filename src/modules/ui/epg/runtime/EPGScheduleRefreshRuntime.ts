@@ -386,6 +386,7 @@ export class EPGScheduleRefreshRuntime {
 
         return {
             refreshId,
+            failurePublicationToken: refreshId,
             reason,
             refreshStartedAt,
             range,
@@ -685,6 +686,9 @@ export class EPGScheduleRefreshRuntime {
                 return;
             }
             session.operation.assertCurrent();
+            if (session.failurePublicationToken !== this._scheduleLoadToken) {
+                return;
+            }
             if (session.debugEnabled) {
                 this._deps.appendDebugLog('EPG.refreshEpgSchedulesForRange.channelLoad.error', {
                     channelId: channel.id,
@@ -787,22 +791,34 @@ export class EPGScheduleRefreshRuntime {
     }
 
     private _bindRefreshAbort(session: RefreshSession): () => void {
-        const signals = new Set<AbortSignal>([session.operation.signal]);
-        if (session.signal) {
-            signals.add(session.signal);
-        }
-        const onAbort = (): void => {
-            if (session.refreshId !== this._scheduleLoadToken) return;
-            this._invalidateRefreshWork('external-abort', { abortInFlight: true });
-        };
-        for (const signal of signals) {
+        const bindings: Array<{ signal: AbortSignal; onAbort: () => void }> = [];
+        const bindSignal = (
+            signal: AbortSignal,
+            source: 'operation' | 'caller'
+        ): void => {
+            const onAbort = (): void => {
+                if (session.refreshId !== this._scheduleLoadToken) {
+                    return;
+                }
+                this._invalidateRefreshWork('external-abort', { abortInFlight: true });
+                if (source === 'caller') {
+                    session.failurePublicationToken = this._scheduleLoadToken;
+                }
+            };
             signal.addEventListener('abort', onAbort, { once: true });
+            bindings.push({ signal, onAbort });
+            if (signal.aborted) {
+                onAbort();
+            }
+        };
+
+        bindSignal(session.operation.signal, 'operation');
+        if (session.signal && session.signal !== session.operation.signal) {
+            bindSignal(session.signal, 'caller');
         }
-        if ([...signals].some((signal) => signal.aborted)) {
-            onAbort();
-        }
+
         return () => {
-            for (const signal of signals) {
+            for (const { signal, onAbort } of bindings) {
                 signal.removeEventListener('abort', onAbort);
             }
         };

@@ -56,6 +56,7 @@ export type RefreshMetrics = {
 
 export type RefreshSession = {
     refreshId: number;
+    failurePublicationToken: number;
     reason: string;
     refreshStartedAt: number;
     range: EpgVisibleRange;

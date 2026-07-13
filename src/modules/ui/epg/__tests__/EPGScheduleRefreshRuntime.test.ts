@@ -9,6 +9,7 @@ import type { IChannelScheduler, ScheduleConfig, ScheduleWindow } from '../../..
 import type { IEPGComponent } from '../interfaces';
 import { createEpgRetainedOperationContext } from '../runtime/EPGRetainedOperationContext';
 import type { EpgRetainedOperationContext } from '../runtime/EPGRetainedOperationContext';
+import { createDeferred } from '../../../../__tests__/helpers';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -758,6 +759,120 @@ describe('EPGScheduleRefreshRuntime', () => {
                     message: 'resolver failed after abort',
                 }),
             })
+        );
+    });
+
+    it('suppresses a delayed non-abort failure after a newer refresh takes ownership', async () => {
+        let signalFirstLoadStarted: () => void = () => undefined;
+        let signalSecondLoadStarted: () => void = () => undefined;
+        const firstLoadStarted = new Promise<void>((resolve) => {
+            signalFirstLoadStarted = resolve;
+        });
+        const secondLoadStarted = new Promise<void>((resolve) => {
+            signalSecondLoadStarted = resolve;
+        });
+        const pendingLoads: Array<{
+            resolve: (value: ResolvedChannelContent) => void;
+            reject: (reason?: unknown) => void;
+            signal: AbortSignal | null | undefined;
+        }> = [];
+        const staleFailure = new Error('late stale resolver failure');
+        const { runtime, deps } = createRuntime({
+            isDebugEnabled: () => true,
+            channelManager: {
+                resolveChannelContent: jest.fn(
+                    (_channelId: string, options?: { signal?: AbortSignal | null }) =>
+                        new Promise<ResolvedChannelContent>((resolve, reject) => {
+                            pendingLoads.push({ resolve, reject, signal: options?.signal });
+                            if (pendingLoads.length === 1) {
+                                signalFirstLoadStarted();
+                            } else if (pendingLoads.length === 2) {
+                                signalSecondLoadStarted();
+                            }
+                        })
+                ),
+            },
+        });
+
+        const firstRefresh = runtime.refreshForRange(
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        await firstLoadStarted;
+
+        const secondRefresh = runtime.refreshForRange(
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 60_000, timeEndMs: 120_000 },
+            'visible-range'
+        );
+        await secondLoadStarted;
+
+        expect(pendingLoads[0]?.signal?.aborted).toBe(true);
+        pendingLoads[0]?.reject(staleFailure);
+        pendingLoads[1]?.resolve(createResolvedContent('c1'));
+
+        await expect(firstRefresh).resolves.toEqual(expect.objectContaining({
+            readiness: 'superseded',
+            failedChannelCount: 0,
+        }));
+        await expect(secondRefresh).resolves.toEqual(expect.objectContaining({
+            readiness: 'ready',
+            failedChannelCount: 0,
+        }));
+        expect(deps.appendDebugLog).not.toHaveBeenCalledWith(
+            'EPG.refreshEpgSchedulesForRange.channelLoad.error',
+            expect.anything()
+        );
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleLoadFailed',
+            expect.anything()
+        );
+    });
+
+    it('revokes caller-cancellation failure publication when a newer refresh starts', async () => {
+        const callerController = new AbortController();
+        const callerAbortReason = new DOMException('caller canceled', 'AbortError');
+        const firstLoad = createDeferred<ResolvedChannelContent>();
+        const secondLoad = createDeferred<ResolvedChannelContent>();
+        const { runtime, deps } = createRuntime({
+            isDebugEnabled: () => true,
+            channelManager: {
+                resolveChannelContent: jest.fn()
+                    .mockReturnValueOnce(firstLoad.promise)
+                    .mockReturnValueOnce(secondLoad.promise),
+            },
+        });
+
+        const firstRefresh = runtime.refreshForRange(
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range',
+            { signal: callerController.signal }
+        );
+        await Promise.resolve();
+        callerController.abort(callerAbortReason);
+
+        const secondRefresh = runtime.refreshForRange(
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 60_000, timeEndMs: 120_000 },
+            'visible-range'
+        );
+        await Promise.resolve();
+
+        firstLoad.reject(new Error('late failure after caller cancellation'));
+        secondLoad.resolve(createResolvedContent('c1'));
+
+        await expect(firstRefresh).rejects.toBe(callerAbortReason);
+        await expect(secondRefresh).resolves.toEqual(expect.objectContaining({
+            readiness: 'ready',
+            failedChannelCount: 0,
+        }));
+        expect(deps.appendDebugLog).not.toHaveBeenCalledWith(
+            'EPG.refreshEpgSchedulesForRange.channelLoad.error',
+            expect.anything()
+        );
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleLoadFailed',
+            expect.anything()
         );
     });
 
