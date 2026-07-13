@@ -9,6 +9,7 @@ import {
     ScheduleDayRolloverController,
     type ScheduleDayRolloverControllerDeps,
 } from '../controllers/ScheduleDayRolloverController';
+import { clearIdentityScopedRuntimeState } from '../runtime/clearIdentityScopedRuntimeState';
 
 type RolloverHarness = {
     controller: ScheduleDayRolloverController;
@@ -283,6 +284,48 @@ describe('ScheduleDayRolloverController', () => {
 
         expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(2);
         expect(harness.epgCoordinator.refreshEpgSchedules).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not let late rollover work publish after identity-scoped cleanup begins', async () => {
+        const harness = makeHarness();
+        const content = makeDeferred<ResolvedChannelContent>();
+        const cleanupSequence: string[] = [];
+        let resolutionSignal: AbortSignal | null | undefined;
+        harness.channelManager.resolveChannelContent.mockImplementationOnce(
+            (_channelId, options) => {
+                resolutionSignal = options?.signal;
+                return content.promise;
+            }
+        );
+
+        const rollover = harness.controller.handleScheduleDayRollover();
+        expect(resolutionSignal?.aborted).toBe(false);
+
+        clearIdentityScopedRuntimeState({
+            cancelPendingDayRollover: (): void => {
+                cleanupSequence.push('cancelPendingDayRollover');
+                harness.controller.cancelPendingDayRollover();
+            },
+            stopPlayback: jest.fn(),
+            unloadCurrentChannel: jest.fn(),
+            clearPlaybackState: jest.fn(),
+            clearChannelManagerRuntimeState: jest.fn(),
+            clearEpgScheduleState: (): void => {
+                cleanupSequence.push('clearEpgScheduleState');
+            },
+            reportFailure: jest.fn(),
+        }, { stopPlayback: true });
+
+        expect(resolutionSignal?.aborted).toBe(true);
+        expect(cleanupSequence).toEqual(['cancelPendingDayRollover', 'clearEpgScheduleState']);
+
+        content.resolve(makeResolvedContent());
+        await rollover;
+
+        expect(harness.scheduler.loadChannel).not.toHaveBeenCalled();
+        expect(harness.scheduler.syncToCurrentTime).not.toHaveBeenCalled();
+        expect(harness.epgCoordinator.clearSelectedChannelScheduleSnapshot).not.toHaveBeenCalled();
+        expect(harness.epgCoordinator.refreshEpgSchedules).not.toHaveBeenCalled();
     });
 
     it('retries the same day after content resolution rejects and advances only on success', async () => {

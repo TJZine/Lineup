@@ -39,6 +39,7 @@ import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerI
 import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
+import { ScheduleDayRolloverController } from '../core/orchestrator/controllers/ScheduleDayRolloverController';
 import * as recoverableRuntimeReporterModule from '../core/orchestrator/runtime/OrchestratorRecoverableRuntimeReporter';
 import { OrchestratorServerSelectionRuntimeProjection } from '../core/orchestrator/runtime/OrchestratorServerSelectionRuntimeProjection';
 import { expectConsoleWarn } from './helpers';
@@ -1440,6 +1441,10 @@ describe('AppOrchestrator', () => {
 
         it('clears discovery selection and persisted selected-server state', async () => {
             await orchestrator.initialize(mockConfig);
+            const cancelRolloverSpy = jest.spyOn(
+                ScheduleDayRolloverController.prototype,
+                'cancelPendingDayRollover'
+            );
             const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
             const clearScheduleCachesSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const storedCredentials = createStoredCredentials('valid-token');
@@ -1469,7 +1474,15 @@ describe('AppOrchestrator', () => {
                 expect(clearScheduleCachesSpy).toHaveBeenCalledTimes(1);
                 expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+                expect(cancelRolloverSpy).toHaveBeenCalledTimes(1);
+                const cancelCallOrder = cancelRolloverSpy.mock.invocationCallOrder[0];
+                const epgClearCallOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
+                if (cancelCallOrder === undefined || epgClearCallOrder === undefined) {
+                    throw new Error('Expected rollover cancellation and EPG clearing to run');
+                }
+                expect(cancelCallOrder).toBeLessThan(epgClearCallOrder);
             } finally {
+                cancelRolloverSpy.mockRestore();
                 clearSelectedSnapshotSpy.mockRestore();
                 clearScheduleCachesSpy.mockRestore();
             }
@@ -1586,14 +1599,31 @@ describe('AppOrchestrator', () => {
         it('clears selected-library filter scope after sign-out clears identity', async () => {
             await orchestrator.initialize(mockConfig);
             const scopeSpy = jest.spyOn(EpgPreferencesStore.prototype, 'setLibraryFilterScope');
+            const cancelRolloverSpy = jest.spyOn(
+                ScheduleDayRolloverController.prototype,
+                'cancelPendingDayRollover'
+            );
+            const clearSelectedSnapshotSpy = jest.spyOn(
+                EPGCoordinator.prototype,
+                'clearSelectedChannelScheduleSnapshot'
+            );
             scopeSpy.mockClear();
 
             try {
                 await orchestrator.signOutPlex();
 
                 expect(scopeSpy).toHaveBeenLastCalledWith(null);
+                expect(cancelRolloverSpy).toHaveBeenCalledTimes(1);
+                const cancelCallOrder = cancelRolloverSpy.mock.invocationCallOrder[0];
+                const epgClearCallOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
+                if (cancelCallOrder === undefined || epgClearCallOrder === undefined) {
+                    throw new Error('Expected rollover cancellation and EPG clearing to run');
+                }
+                expect(cancelCallOrder).toBeLessThan(epgClearCallOrder);
             } finally {
                 scopeSpy.mockRestore();
+                cancelRolloverSpy.mockRestore();
+                clearSelectedSnapshotSpy.mockRestore();
             }
         });
 

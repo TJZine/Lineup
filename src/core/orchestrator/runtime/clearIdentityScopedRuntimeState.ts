@@ -1,4 +1,5 @@
 export type IdentityScopedRuntimeCleanupStep =
+    | 'cancelPendingDayRollover'
     | 'stopPlayback'
     | 'unloadCurrentChannel'
     | 'clearPlaybackState'
@@ -13,6 +14,7 @@ export type IdentityScopedRuntimeCleanupFailureReporter = (
 ) => void;
 
 export interface IdentityScopedRuntimeStateResetDeps {
+    cancelPendingDayRollover(): void;
     stopPlayback(): void;
     unloadCurrentChannel(): void;
     clearPlaybackState(): void;
@@ -25,6 +27,7 @@ export function clearIdentityScopedRuntimeState(
     deps: IdentityScopedRuntimeStateResetDeps,
     options: { stopPlayback: boolean }
 ): void {
+    runCleanupStep(deps, 'cancelPendingDayRollover', deps.cancelPendingDayRollover);
     if (options.stopPlayback) {
         runCleanupStep(deps, 'stopPlayback', deps.stopPlayback);
     }
