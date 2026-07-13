@@ -4,8 +4,20 @@ import {
     distributionContractErrors,
     hasExplicitOnlyPolicy,
     isValidMaxDepth,
+    pqrHandoffContractErrors,
     requiresExplicitInvocation,
 } from '../verify-docs.mjs';
+
+const validPqrChecklist = `
+## Fresh-Session Handoff
+
+- Next safe start: \`PQR-EXIT\` is the sole open PQR cleanup gate.
+
+## Rubric Basis
+
+${Array.from({ length: 7 }, (_, index) => `### [x] \`PQR-${index + 1}\``).join('\n')}
+### [ ] \`PQR-EXIT\`
+`;
 
 const validDistributionContract = {
     installation: `
@@ -110,4 +122,21 @@ test('rejects Actions artifacts that are no longer limited to main pushes', () =
         });
         assert.ok(errors.some((error) => error.includes("github.ref == 'refs/heads/main'")));
     }
+});
+
+test('accepts the PQR-EXIT fresh-session handoff without changing package state', () => {
+    assert.deepEqual(pqrHandoffContractErrors(validPqrChecklist), []);
+});
+
+test('rejects stale PQR-1 routing and PQR status drift', () => {
+    const errors = pqrHandoffContractErrors(
+        validPqrChecklist
+            .replace('`PQR-EXIT` is the sole open PQR cleanup gate', '`PQR-1` is the next cleanup start')
+            .replace('### [x] `PQR-4`', '### [ ] `PQR-4`')
+            .replace('### [ ] `PQR-EXIT`', '### [x] `PQR-EXIT`')
+    );
+    assert.ok(errors.some((error) => error.includes('sole open PQR-EXIT')));
+    assert.ok(errors.some((error) => error.includes('completed PQR-1')));
+    assert.ok(errors.some((error) => error.includes('PQR-4 must remain complete')));
+    assert.ok(errors.some((error) => error.includes('PQR-EXIT must remain open')));
 });

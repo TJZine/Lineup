@@ -19,8 +19,10 @@ should not drive the next cleanup task by default.
   maintainer-admitted rubric input for the `PQR-*` source-audit packages below;
   it is not raw issue membership, closeout proof, or permission to skip
   current-source discovery.
-- Next safe start: `PQR-1` is the next cleanup start if the maintainer chooses
-  to pursue the production-quality refresh before port work. Windows port
+- Next safe start: `PQR-EXIT` is the sole open PQR cleanup gate if the maintainer
+  chooses to complete the production-quality refresh before port work. It owns
+  the final source audit, verification record, and optional score rebaseline.
+  Windows port
   planning may still start from the completed `FCP-25` final-gate handoff only
   if the maintainer explicitly defers the `PQR-*` refresh. No `FCP-26` or
   Windows implementation work is admitted by this checklist without a separate

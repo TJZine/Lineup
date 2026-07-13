@@ -125,6 +125,38 @@ function checkDistributionContract() {
     errors.push(...distributionContractErrors({ installation, readme, workflow }));
 }
 
+export function pqrHandoffContractErrors(checklist) {
+    const contractErrors = [];
+    const handoff = checklist.match(
+        /^## Fresh-Session Handoff\s*$([\s\S]*?)^## /mu
+    )?.[1] ?? '';
+    if (!/Next safe start:\s+`PQR-EXIT` is the sole open PQR cleanup gate/iu.test(handoff)) {
+        contractErrors.push('fresh-session handoff must route to sole open PQR-EXIT');
+    }
+    if (/`PQR-1` is the next cleanup start/iu.test(handoff)) {
+        contractErrors.push('fresh-session handoff must not route to completed PQR-1');
+    }
+    for (let packageNumber = 1; packageNumber <= 7; packageNumber += 1) {
+        const completedHeading = new RegExp(
+            `^### \\[x\\] \`PQR-${packageNumber}\``,
+            'mu'
+        );
+        if (!completedHeading.test(checklist)) {
+            contractErrors.push(`PQR-${packageNumber} must remain complete`);
+        }
+    }
+    if (!/^### \[ \] `PQR-EXIT`/mu.test(checklist)) {
+        contractErrors.push('PQR-EXIT must remain open');
+    }
+    return contractErrors;
+}
+
+function checkPqrHandoffContract() {
+    const checklist = read('ARCHITECTURE_CLEANUP_CHECKLIST.md');
+    if (checklist === null) return;
+    errors.push(...pqrHandoffContractErrors(checklist));
+}
+
 function checkMarkdownLinks() {
     const tracked = new Set(trackedFiles());
     const markdownFiles = trackedFiles('*.md').filter(
@@ -321,6 +353,7 @@ function checkActivePlans() {
 function main() {
     checkRequiredFiles();
     checkDistributionContract();
+    checkPqrHandoffContract();
     checkMarkdownLinks();
     checkSkills();
     checkRoleConfig();
