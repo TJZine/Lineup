@@ -22,6 +22,7 @@ export class LifecycleStatePersistenceQueue {
     private _saveDebounceTimer: number | null = null;
     private _pendingState: PersistentState | null = null;
     private _pendingSaveWaiters: PendingSaveWaiter[] = [];
+    private _saveBlockError: Error | null = null;
     private readonly _persistenceWarningPolicy = new PersistenceWarningBackoffPolicy();
 
     public constructor(deps: LifecycleStatePersistenceQueueDeps) {
@@ -31,6 +32,10 @@ export class LifecycleStatePersistenceQueue {
     }
 
     public saveState(): Promise<void> {
+        if (this._saveBlockError !== null) {
+            return Promise.reject(this._saveBlockError);
+        }
+
         let state: PersistentState;
         try {
             state = this._buildState();
@@ -53,6 +58,10 @@ export class LifecycleStatePersistenceQueue {
     }
 
     public async flush(options?: { finalShutdown?: boolean }): Promise<void> {
+        if (this._saveBlockError !== null) {
+            return;
+        }
+
         if (this._saveDebounceTimer !== null) {
             clearTimeout(this._saveDebounceTimer);
             this._saveDebounceTimer = null;
@@ -80,6 +89,20 @@ export class LifecycleStatePersistenceQueue {
             this._handleSaveError(error);
             throw error;
         }
+    }
+
+    public blockSaves(error: Error): void {
+        if (this._saveBlockError !== null) {
+            return;
+        }
+
+        this._saveBlockError = error;
+        if (this._saveDebounceTimer !== null) {
+            clearTimeout(this._saveDebounceTimer);
+            this._saveDebounceTimer = null;
+        }
+        this._pendingState = null;
+        this._rejectPendingSaveWaiters(error);
     }
 
     private _handleSaveError(error: unknown): void {

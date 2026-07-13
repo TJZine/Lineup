@@ -1,6 +1,7 @@
 export { AppLifecycle } from './AppLifecycle';
 export { LifecycleErrorMessageCatalog } from './LifecycleErrorMessageCatalog';
 export {
+    FutureLifecycleStateVersionError,
     LifecycleStateStore,
     type LifecycleStateLoadResult,
 } from './LifecycleStateStore';

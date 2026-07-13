@@ -20,6 +20,15 @@ export type LifecycleStateLoadResult =
     | { kind: 'loaded'; state: PersistentState }
     | { kind: 'future-version'; version: number };
 
+export class FutureLifecycleStateVersionError extends Error {
+    public constructor(public readonly storedVersion: number) {
+        super(
+            `Cannot overwrite lifecycle state version ${storedVersion} created by a newer application version`
+        );
+        this.name = 'FutureLifecycleStateVersionError';
+    }
+}
+
 export class LifecycleStateStore {
     private readonly _storageKey: string;
     private readonly _currentVersion: number;
@@ -84,8 +93,8 @@ export class LifecycleStateStore {
         }
     }
 
-    public clear(): void {
-        safeLocalStorageRemove(this._storageKey);
+    public clear(): boolean {
+        return safeLocalStorageRemove(this._storageKey);
     }
 
     public createDefaultState(): PersistentState {
@@ -133,11 +142,7 @@ export class LifecycleStateStore {
         }
 
         if (this._isMinimalState(parsed) && parsed['version'] > this._currentVersion) {
-            const error = new Error(
-                'Cannot overwrite lifecycle state created by a newer application version'
-            );
-            error.name = 'FutureLifecycleStateVersionError';
-            throw error;
+            throw new FutureLifecycleStateVersionError(parsed['version']);
         }
     }
 

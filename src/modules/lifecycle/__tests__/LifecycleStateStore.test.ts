@@ -4,6 +4,7 @@
  */
 
 import {
+    FutureLifecycleStateVersionError,
     LifecycleStateStore,
     type LifecycleStateLoadResult,
 } from '../LifecycleStateStore';
@@ -76,7 +77,7 @@ describe('LifecycleStateStore', () => {
 
             const result = lifecycleStateStore.clear();
 
-            expect(result).toBeUndefined();
+            expect(result).toBe(true);
             expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
         });
     });
@@ -126,7 +127,11 @@ describe('LifecycleStateStore', () => {
             );
 
             expect(thrown).toBeInstanceOf(Error);
-            expect((thrown as Error).name).toBe('FutureLifecycleStateVersionError');
+            expect(thrown).toBeInstanceOf(FutureLifecycleStateVersionError);
+            expect(thrown).toMatchObject({
+                name: 'FutureLifecycleStateVersionError',
+                storedVersion: STORAGE_CONFIG.STATE_VERSION + 1,
+            });
             expect(localStorage.setItem).not.toHaveBeenCalled();
             expect(localStorage.removeItem).not.toHaveBeenCalled();
             expect(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY)).toBe(serializedFutureState);
@@ -371,11 +376,12 @@ describe('LifecycleStateStore', () => {
     });
 
     describe('clear', () => {
-        it('should remove stored state', async () => {
+        it('reports successful stored-state removal', () => {
             mockLocalStorage.setItem(STORAGE_CONFIG.STATE_KEY, '{}');
 
-            await lifecycleStateStore.clear();
+            const cleared = lifecycleStateStore.clear();
 
+            expect(cleared).toBe(true);
             expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
         });
 
@@ -384,7 +390,7 @@ describe('LifecycleStateStore', () => {
                 throw new DOMException('blocked', 'SecurityError');
             });
 
-            expect(() => lifecycleStateStore.clear()).not.toThrow();
+            expect(lifecycleStateStore.clear()).toBe(false);
             expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_CONFIG.STATE_KEY);
         });
 
@@ -394,7 +400,7 @@ describe('LifecycleStateStore', () => {
                 JSON.stringify({ version: STORAGE_CONFIG.STATE_VERSION + 1, futureOnlyField: true })
             );
 
-            lifecycleStateStore.clear();
+            expect(lifecycleStateStore.clear()).toBe(true);
             lifecycleStateStore.save(lifecycleStateStore.createDefaultState());
 
             const saved = JSON.parse(mockLocalStorage.getItem(STORAGE_CONFIG.STATE_KEY) as string);

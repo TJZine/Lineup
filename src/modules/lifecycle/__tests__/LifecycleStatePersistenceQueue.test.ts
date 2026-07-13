@@ -66,6 +66,32 @@ describe('LifecycleStatePersistenceQueue', () => {
         expect(lifecycleStateStore.save).toHaveBeenCalledWith(secondState);
     });
 
+    it('rejects saves without building or flushing state after persistence is blocked', async () => {
+        const queue = createQueue();
+        const blockError = new Error('Saving disabled');
+
+        queue.blockSaves(blockError);
+
+        await expect(queue.saveState()).rejects.toBe(blockError);
+        await expect(queue.flush()).resolves.toBeUndefined();
+        expect(buildState).not.toHaveBeenCalled();
+        expect(lifecycleStateStore.save).not.toHaveBeenCalled();
+        expect(emitPersistenceWarning).not.toHaveBeenCalled();
+    });
+
+    it('cancels pending work and rejects its waiters when persistence becomes blocked', async () => {
+        const queue = createQueue();
+        const blockError = new Error('Saving disabled');
+        const pendingSave = queue.saveState();
+
+        queue.blockSaves(blockError);
+        jest.advanceTimersByTime(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
+
+        await expect(pendingSave).rejects.toBe(blockError);
+        expect(lifecycleStateStore.save).not.toHaveBeenCalled();
+        expect(emitPersistenceWarning).not.toHaveBeenCalled();
+    });
+
     it('rejects pending waiters with the original persistence error', async () => {
         const saveError = new DOMException('Quota exceeded', 'QuotaExceededError');
         lifecycleStateStore.save.mockImplementation(() => {

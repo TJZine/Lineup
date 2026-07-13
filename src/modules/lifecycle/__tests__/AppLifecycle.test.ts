@@ -5,7 +5,10 @@
  */
 
 import { AppLifecycle } from '../AppLifecycle';
-import { LifecycleStateStore } from '../LifecycleStateStore';
+import {
+    FutureLifecycleStateVersionError,
+    LifecycleStateStore,
+} from '../LifecycleStateStore';
 import { LifecycleErrorMessageCatalog } from '../LifecycleErrorMessageCatalog';
 import { NETWORK_CHECK_PROBE_URL, TIMING_CONFIG } from '../constants';
 import { AppErrorCode } from '../../../types/app-errors';
@@ -157,7 +160,13 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             await lifecycle.initialize();
 
+            await expect(lifecycle.saveState()).rejects.toBeInstanceOf(
+                FutureLifecycleStateVersionError
+            );
+            await expect(lifecycle.setPhaseAndWait('loading_data')).resolves.toBe(true);
+
             expect(restored).not.toHaveBeenCalled();
+            expect(mockLifecycleStateStore.save).not.toHaveBeenCalled();
             expect(warning).toHaveBeenCalledTimes(1);
             expect(warning).toHaveBeenCalledWith(expect.objectContaining({
                 message: expect.stringContaining('newer Lineup version'),

@@ -186,7 +186,7 @@ after this extraction.
 
 - `src/modules/lifecycle/`
 - owns lifecycle state, visibility, persistence coordination, and recovery concerns
-- `src/modules/lifecycle/LifecycleStateStore.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations. The empty `MIGRATIONS` registry is package-internal lifecycle persistence policy, exported from `constants.ts` only for `LifecycleStateStore` consumption and intentionally absent from the lifecycle barrel. Older persisted versions without an approved migration are rejected; future versions are treated as absent and protected from overwrite until the lifecycle state is explicitly cleared.
+- `src/modules/lifecycle/LifecycleStateStore.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations. The empty `MIGRATIONS` registry is package-internal lifecycle persistence policy, exported from `constants.ts` only for `LifecycleStateStore` consumption and intentionally absent from the lifecycle barrel. Older persisted versions without an approved migration are rejected. Future versions are treated as absent, protected from overwrite, and disable the active lifecycle save queue for the remainder of the session; explicit lifecycle-state removal reports success so a later session can safely resume saving.
 
 ### Navigation
 

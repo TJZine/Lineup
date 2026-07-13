@@ -10,7 +10,10 @@ import type {
     LifecycleAppError,
 } from './types';
 import { AppErrorCode } from '../../types/app-errors';
-import { LifecycleStateStore } from './LifecycleStateStore';
+import {
+    FutureLifecycleStateVersionError,
+    LifecycleStateStore,
+} from './LifecycleStateStore';
 import { LifecycleErrorMessageCatalog } from './LifecycleErrorMessageCatalog';
 import { LifecycleConnectivityMonitor } from './LifecycleConnectivityMonitor';
 import { LifecycleMemoryMonitor } from './LifecycleMemoryMonitor';
@@ -115,6 +118,11 @@ export class AppLifecycle implements IAppLifecycle {
         this._connectivityMonitor.startMonitoring();
 
         const loadResult = this._lifecycleStateStore.load();
+        if (loadResult.kind === 'future-version') {
+            this._statePersistenceQueue.blockSaves(
+                new FutureLifecycleStateVersionError(loadResult.version)
+            );
+        }
 
         // Auth is managed by PlexAuth storage; initialization settles in authenticating
         // before restored-state observers run so the phase contract is coherent.
