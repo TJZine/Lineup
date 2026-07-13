@@ -169,6 +169,7 @@ jobs:
   # webOS package job (runs on PR merge to main)
   package-webos:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:

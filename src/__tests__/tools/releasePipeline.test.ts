@@ -64,6 +64,7 @@ describe('release candidate CI contract', () => {
         expect(packageWebosJob).toContain('npm install -g @webos-tools/cli@3.2.5');
         expect(packageWebosJob).toContain('run: command -v ares-package');
         expect(packageWebosJob).toContain('run: npm run package:webos:dist');
+        expect(packageWebosJob).toContain('timeout-minutes: 10');
         expect(packageWebosJob).toContain('path: packages/*.ipk');
         expect(packageWebosJob).toContain('if-no-files-found: error');
         expect(`${buildJob}\n${packageWebosJob}`).not.toMatch(/hashFiles|Skipping packaging|WARNING: Failed/iu);
