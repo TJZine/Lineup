@@ -148,6 +148,12 @@ export function pqrHandoffContractErrors(checklist) {
     if (!/^### \[ \] `PQR-EXIT`/mu.test(checklist)) {
         contractErrors.push('PQR-EXIT must remain open');
     }
+    const otherOpenPqrPackages = [...checklist.matchAll(
+        /^### \[ \] `PQR-(?!EXIT`)([^`]+)`/gmu
+    )].map((match) => match[1]);
+    if (otherOpenPqrPackages.length > 0) {
+        contractErrors.push(`PQR-EXIT must be the sole open PQR gate; also open: ${otherOpenPqrPackages.join(', ')}`);
+    }
     return contractErrors;
 }
 
@@ -155,6 +161,71 @@ function checkPqrHandoffContract() {
     const checklist = read('ARCHITECTURE_CLEANUP_CHECKLIST.md');
     if (checklist === null) return;
     errors.push(...pqrHandoffContractErrors(checklist));
+}
+
+export function remoteKeyContractErrors({
+    developmentSetup,
+    guide,
+    inputRouter,
+    keyModeRouter,
+    navigationCoordinator,
+    platformKeyMap,
+}) {
+    const contractErrors = [];
+    const guideContracts = [
+        [/\|\s*\*\*Red\*\*\s*\|\s*F1\s*\|\s*Toggle the Now Playing information overlay/iu, 'Red must toggle Now Playing'],
+        [/\|\s*\*\*Info\*\*\s*\|\s*`I`\s*\|\s*Open server selection[^\n]*sign-in/iu, 'Info must open server selection or sign-in'],
+        [/\|\s*\*\*Blue\*\*\s*\|\s*F4\s*\|\s*Same server-selection action as Info/iu, 'Blue must match Info'],
+        [/\|\s*\*\*Yellow\*\*\s*\|\s*F3\s*\|\s*Open Settings from the Player or EPG/iu, 'Yellow must be scoped to Player or EPG'],
+        [/\|\s*\*\*CH \+\*\*[^\n]*Previous channel[^\n]*page up/iu, 'CH+ must mean previous/page up'],
+        [/\|\s*\*\*CH -\*\*[^\n]*Next channel[^\n]*page down/iu, 'CH- must mean next/page down'],
+        [/\|\s*\*\*Player, no overlay open\*\*[^\n]*Down or OK opens Player controls[^\n]*Opens Exit confirmation/iu, 'Player OK/Back context is stale'],
+        [/\|\s*\*\*Now Playing information\*\*[^\n]*OK closes Now Playing and opens Playback Options[^\n]*Closes Now Playing/iu, 'Now Playing OK/Back context is stale'],
+        [/\|\s*\*\*Protected recovery modal\*\*[^\n]*Only D-Pad and OK are accepted[^\n]*Suppressed/iu, 'protected-modal input contract is stale'],
+    ];
+    for (const [pattern, message] of guideContracts) {
+        if (!pattern.test(guide)) contractErrors.push(message);
+    }
+    if (/Space[^\n]*Play\s*\/\s*Pause/iu.test(developmentSetup)) {
+        contractErrors.push('development setup must not claim a Space Play/Pause alias');
+    }
+    if (!/media Play\/Pause keys do not have a keyboard alias/iu.test(developmentSetup)) {
+        contractErrors.push('development setup must document the missing media-key alias');
+    }
+
+    const sourceContracts = [
+        [keyModeRouter, /case 'red':[\s\S]{0,180}toggleOverlay\(\)/u, 'router Red binding changed'],
+        [keyModeRouter, /case 'channelUp':[\s\S]{0,500}switchToPreviousChannel\(\)/u, 'router CH+ binding changed'],
+        [keyModeRouter, /case 'channelDown':[\s\S]{0,500}switchToNextChannel\(\)/u, 'router CH- binding changed'],
+        [keyModeRouter, /case 'info':\s*case 'blue':[\s\S]{0,500}goTo\('server-select'/u, 'router Info/Blue binding changed'],
+        [keyModeRouter, /isAuthenticatedForServerSelection\(\)[\s\S]{0,180}goTo\('auth'\)/u, 'router Info/Blue sign-in fallback changed'],
+        [keyModeRouter, /isNowPlayingModalOpen && event\.button === 'ok'[\s\S]{0,500}playbackOptions\.prepare\('subtitles'\)/u, 'router Now Playing OK binding changed'],
+        [keyModeRouter, /const prep = this\.deps\.modals\.exitConfirm\.prepare\(\)/u, 'router Player Back binding changed'],
+        [inputRouter, /case 'guide':\s*case 'green':[\s\S]{0,100}emitGuide\(\)/u, 'input Guide/Green binding changed'],
+        [inputRouter, /case 'yellow':[\s\S]{0,100}emitSettings\(\)/u, 'input Yellow binding changed'],
+        [navigationCoordinator, /currentScreen === 'player' \|\| currentScreen === 'guide'[\s\S]{0,120}goTo\('settings'\)/u, 'coordinator Yellow screen gate changed'],
+        [platformKeyMap, /\[33, 'channelUp'\]/u, 'platform CH+ key mapping changed'],
+        [platformKeyMap, /\[34, 'channelDown'\]/u, 'platform CH- key mapping changed'],
+        [platformKeyMap, /\[73, 'info'\]/u, 'keyboard Info mapping changed'],
+        [platformKeyMap, /\[71, 'guide'\]/u, 'keyboard Guide mapping changed'],
+    ];
+    for (const [source, pattern, message] of sourceContracts) {
+        if (!pattern.test(source)) contractErrors.push(message);
+    }
+    return contractErrors;
+}
+
+function checkRemoteKeyContract() {
+    const files = {
+        developmentSetup: read('docs/development/setup.md'),
+        guide: read('docs/user-guide/remote-keys.md'),
+        inputRouter: read('src/modules/navigation/input/NavigationRemoteInputRouter.ts'),
+        keyModeRouter: read('src/modules/navigation/handlers/NavigationKeyModeRouter.ts'),
+        navigationCoordinator: read('src/modules/navigation/coordinator/NavigationCoordinator.ts'),
+        platformKeyMap: read('src/platform/webosPlatformServices.ts'),
+    };
+    if (Object.values(files).some((content) => content === null)) return;
+    errors.push(...remoteKeyContractErrors(files));
 }
 
 function checkMarkdownLinks() {
@@ -354,6 +425,7 @@ function main() {
     checkRequiredFiles();
     checkDistributionContract();
     checkPqrHandoffContract();
+    checkRemoteKeyContract();
     checkMarkdownLinks();
     checkSkills();
     checkRoleConfig();

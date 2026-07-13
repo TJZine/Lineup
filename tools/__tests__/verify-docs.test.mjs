@@ -5,6 +5,7 @@ import {
     hasExplicitOnlyPolicy,
     isValidMaxDepth,
     pqrHandoffContractErrors,
+    remoteKeyContractErrors,
     requiresExplicitInvocation,
 } from '../verify-docs.mjs';
 
@@ -18,6 +19,32 @@ const validPqrChecklist = `
 ${Array.from({ length: 7 }, (_, index) => `### [x] \`PQR-${index + 1}\``).join('\n')}
 ### [ ] \`PQR-EXIT\`
 `;
+
+const validRemoteKeyContract = {
+    developmentSetup: 'The remote media Play/Pause keys do not have a keyboard alias.',
+    guide: `
+| **Red** | F1 | Toggle the Now Playing information overlay |
+| **Info** | \`I\` | Open server selection or sign-in |
+| **Blue** | F4 | Same server-selection action as Info |
+| **Yellow** | F3 | Open Settings from the Player or EPG |
+| **CH +** | Page Up | Previous channel; page up |
+| **CH -** | Page Down | Next channel; page down |
+| **Player, no overlay open** | Down or OK opens Player controls | Opens Exit confirmation |
+| **Now Playing information** | OK closes Now Playing and opens Playback Options | Closes Now Playing |
+| **Protected recovery modal** | Only D-Pad and OK are accepted | Suppressed |
+`,
+    inputRouter: `case 'guide': case 'green': this.deps.emitGuide(); case 'yellow': this.deps.emitSettings();`,
+    keyModeRouter: `
+case 'red': this.deps.nowPlayingInfo.toggleOverlay();
+case 'channelUp': this.deps.channelSwitching.switchToPreviousChannel();
+case 'channelDown': this.deps.channelSwitching.switchToNextChannel();
+case 'info': case 'blue': if (!isAuthenticatedForServerSelection()) navigation.goTo('auth'); else navigation.goTo('server-select');
+isNowPlayingModalOpen && event.button === 'ok'; this.deps.modals.playbackOptions.prepare('subtitles');
+const prep = this.deps.modals.exitConfirm.prepare();
+`,
+    platformKeyMap: "[33, 'channelUp'] [34, 'channelDown'] [73, 'info'] [71, 'guide']",
+    navigationCoordinator: "if (currentScreen === 'player' || currentScreen === 'guide') navigation.goTo('settings');",
+};
 
 const validDistributionContract = {
     installation: `
@@ -134,9 +161,34 @@ test('rejects stale PQR-1 routing and PQR status drift', () => {
             .replace('`PQR-EXIT` is the sole open PQR cleanup gate', '`PQR-1` is the next cleanup start')
             .replace('### [x] `PQR-4`', '### [ ] `PQR-4`')
             .replace('### [ ] `PQR-EXIT`', '### [x] `PQR-EXIT`')
+            .concat('\n### [ ] `PQR-8`\n')
     );
     assert.ok(errors.some((error) => error.includes('sole open PQR-EXIT')));
     assert.ok(errors.some((error) => error.includes('completed PQR-1')));
     assert.ok(errors.some((error) => error.includes('PQR-4 must remain complete')));
     assert.ok(errors.some((error) => error.includes('PQR-EXIT must remain open')));
+    assert.ok(errors.some((error) => error.includes('sole open PQR gate')));
+});
+
+test('accepts the context-aware remote-key contract', () => {
+    assert.deepEqual(remoteKeyContractErrors(validRemoteKeyContract), []);
+});
+
+test('rejects remote-guide, keyboard-alias, and router drift', () => {
+    const errors = remoteKeyContractErrors({
+        ...validRemoteKeyContract,
+        developmentSetup: 'Space: Play/Pause',
+        guide: validRemoteKeyContract.guide.replace('Previous channel; page up', 'Next channel'),
+        keyModeRouter: validRemoteKeyContract.keyModeRouter.replace(
+            'switchToPreviousChannel()',
+            'switchToNextChannel()'
+        ).replace("navigation.goTo('auth');", ''),
+        navigationCoordinator: "navigation.goTo('settings');",
+    });
+    assert.ok(errors.some((error) => error.includes('CH+ must mean previous/page up')));
+    assert.ok(errors.some((error) => error.includes('Space Play/Pause alias')));
+    assert.ok(errors.some((error) => error.includes('missing media-key alias')));
+    assert.ok(errors.some((error) => error.includes('router CH+ binding changed')));
+    assert.ok(errors.some((error) => error.includes('sign-in fallback changed')));
+    assert.ok(errors.some((error) => error.includes('Yellow screen gate changed')));
 });
