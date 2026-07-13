@@ -14,15 +14,21 @@ export class ChannelTuningOperationContext {
     capture(signal?: AbortSignal): RetainedOperationLease {
         if (this._suspended) throw createTuningSuspendedError();
         const scopeLease = this._scope.retain('channel-tune');
-        const context = new RetainedOperationContext([
-            scopeLease,
-            ...(signal ? [{
-                signal,
-                assertCurrent: (): void => {
-                    if (signal.aborted) throw signal.reason ?? createTuningSuspendedError();
-                },
-            }] : []),
-        ]);
+        let context: RetainedOperationContext;
+        try {
+            context = new RetainedOperationContext([
+                scopeLease,
+                ...(signal ? [{
+                    signal,
+                    assertCurrent: (): void => {
+                        if (signal.aborted) throw signal.reason ?? createTuningSuspendedError();
+                    },
+                }] : []),
+            ]);
+        } catch (error: unknown) {
+            scopeLease.release();
+            throw error;
+        }
         return {
             signal: context.signal,
             assertCurrent: (): void => context.assertCurrent(),

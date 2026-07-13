@@ -8,6 +8,7 @@ import type {
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow } from '../../../scheduler/scheduler';
 import type { IEPGComponent } from '../interfaces';
 import { createEpgRetainedOperationContext } from '../runtime/EPGRetainedOperationContext';
+import type { EpgRetainedOperationContext } from '../runtime/EPGRetainedOperationContext';
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -168,6 +169,92 @@ const settleBackgroundRefresh = async (runtime: EPGScheduleRefreshRuntime): Prom
 };
 
 describe('EPGScheduleRefreshRuntime', () => {
+    const createObservedRetainedOperation = (
+        assertCurrent: () => void
+    ): {
+        operationContext: EpgRetainedOperationContext;
+        release: jest.Mock;
+        dispose(): void;
+    } => {
+        const root = createEpgRetainedOperationContext([]);
+        const release = jest.fn();
+        const retained: EpgRetainedOperationContext = {
+            authority: root.authority,
+            signal: root.signal,
+            assertCurrent,
+            retain: (label): EpgRetainedOperationContext => root.retain(label),
+            release,
+        };
+        return {
+            operationContext: {
+                ...root,
+                retain: (): EpgRetainedOperationContext => retained,
+            },
+            release,
+            dispose: (): void => root.release(),
+        };
+    };
+
+    it('releases retained authority when pre-session validation fails', async () => {
+        const reason = new DOMException('refresh authority superseded', 'AbortError');
+        const observed = createObservedRetainedOperation(() => { throw reason; });
+        const { runtime } = createRuntime();
+
+        try {
+            await expect(runtime.refreshForRange(
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'server-swap',
+                { operationContext: observed.operationContext }
+            )).rejects.toBe(reason);
+            expect(observed.release).toHaveBeenCalledTimes(1);
+        } finally {
+            observed.dispose();
+        }
+    });
+
+    it('releases retained authority when refresh-session construction fails', async () => {
+        const reason = new Error('EPG dependency failed');
+        const observed = createObservedRetainedOperation(() => undefined);
+        const { runtime } = createRuntime({
+            getEpg: (): never => { throw reason; },
+        });
+
+        try {
+            await expect(runtime.refreshForRange(
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'server-swap',
+                { operationContext: observed.operationContext }
+            )).rejects.toBe(reason);
+            expect(observed.release).toHaveBeenCalledTimes(1);
+        } finally {
+            observed.dispose();
+        }
+    });
+
+    it('releases retained authority when abort-listener cleanup throws', async () => {
+        const cleanupError = new Error('listener cleanup failed');
+        const caller = new AbortController();
+        const remove = jest.spyOn(caller.signal, 'removeEventListener')
+            .mockImplementation(() => { throw cleanupError; });
+        const observed = createObservedRetainedOperation(() => undefined);
+        const { runtime } = createRuntime();
+
+        try {
+            await expect(runtime.refreshForRange(
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'server-swap',
+                {
+                    signal: caller.signal,
+                    operationContext: observed.operationContext,
+                }
+            )).rejects.toBe(cleanupError);
+            expect(observed.release).toHaveBeenCalledTimes(1);
+        } finally {
+            remove.mockRestore();
+            observed.dispose();
+        }
+    });
+
     it('makes the stateful publication suffix inert when transaction authority is superseded', async () => {
         const authorityController = new AbortController();
         const superseded = new DOMException('server transaction superseded', 'AbortError');

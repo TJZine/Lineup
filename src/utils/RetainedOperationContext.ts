@@ -20,21 +20,26 @@ export class RetainedOperationContext implements RetainedOperationLease {
     private _closedReason: unknown;
 
     constructor(private readonly _upstreams: readonly OperationContextUpstream[]) {
-        this._assertUpstreamsCurrent();
-        for (const upstream of _upstreams) {
-            const signal = upstream.signal;
-            if (!signal || this._abortListeners.has(signal)) continue;
-            const onAbort = (): void => this.close(readAbortSignalReason(signal));
-            this._abortListeners.set(signal, onAbort);
-            signal.addEventListener('abort', onAbort, { once: true });
-        }
-        for (const signal of this._abortListeners.keys()) {
-            if (signal.aborted) {
-                this.close(readAbortSignalReason(signal));
-                break;
+        try {
+            this._assertUpstreamsCurrent();
+            for (const upstream of _upstreams) {
+                const signal = upstream.signal;
+                if (!signal || this._abortListeners.has(signal)) continue;
+                const onAbort = (): void => this.close(readAbortSignalReason(signal));
+                this._abortListeners.set(signal, onAbort);
+                signal.addEventListener('abort', onAbort, { once: true });
             }
+            for (const signal of this._abortListeners.keys()) {
+                if (signal.aborted) {
+                    this.close(readAbortSignalReason(signal));
+                    break;
+                }
+            }
+            this.assertCurrent();
+        } catch (error: unknown) {
+            this.release();
+            throw error;
         }
-        this.assertCurrent();
     }
 
     get signal(): AbortSignal {

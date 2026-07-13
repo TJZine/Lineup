@@ -53,4 +53,26 @@ describe('RetainedOperationContext', () => {
             expect.objectContaining({ name: 'AbortError' })
         );
     });
+
+    it('removes installed abort listeners when final construction validation fails', () => {
+        const controller = new AbortController();
+        const reason = new Error('upstream changed during construction');
+        const add = jest.spyOn(controller.signal, 'addEventListener');
+        const remove = jest.spyOn(controller.signal, 'removeEventListener');
+        const assertCurrent = jest.fn()
+            .mockImplementationOnce(() => undefined)
+            .mockImplementationOnce(() => { throw reason; });
+
+        expect(() => new RetainedOperationContext([{
+            signal: controller.signal,
+            assertCurrent,
+        }])).toThrow(reason);
+
+        expect(add).toHaveBeenCalledTimes(1);
+        expect(remove).toHaveBeenCalledTimes(1);
+        expect(remove).toHaveBeenCalledWith(
+            'abort',
+            add.mock.calls[0]?.[1]
+        );
+    });
 });

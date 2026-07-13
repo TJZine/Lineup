@@ -37,7 +37,12 @@ export class ChannelResolutionOperationContext {
 
     run<T>(signal: AbortSignal | null | undefined, work: (lease: ChannelResolutionLease) => Promise<T>): Promise<T> {
         if (this._suspended) return Promise.reject(createResolutionAbortError());
-        const scopeLease = this._scope.retain('channel-resolution');
+        let scopeLease: SourceResolutionOperationContext;
+        try {
+            scopeLease = this._scope.retain('channel-resolution');
+        } catch (error: unknown) {
+            return Promise.reject(error);
+        }
         const callerUpstream = signal
             ? {
                 signal,
@@ -46,10 +51,16 @@ export class ChannelResolutionOperationContext {
                 },
             }
             : { assertCurrent: (): void => undefined };
-        const retained = new RetainedOperationContext([
-            scopeLease,
-            callerUpstream,
-        ]);
+        let retained: RetainedOperationContext;
+        try {
+            retained = new RetainedOperationContext([
+                scopeLease,
+                callerUpstream,
+            ]);
+        } catch (error: unknown) {
+            scopeLease.release();
+            return Promise.reject(error);
+        }
         const lease: ChannelResolutionLease = {
             authority: scopeLease.authority,
             signal: retained.signal,
@@ -66,10 +77,12 @@ export class ChannelResolutionOperationContext {
             },
             release: (): void => retained.release(),
         };
-        const promise = work(lease).finally(() => {
-            lease.release();
-            scopeLease.release();
-        });
+        const promise = Promise.resolve()
+            .then(() => work(lease))
+            .finally(() => {
+                lease.release();
+                scopeLease.release();
+            });
         this._active.add(promise);
         void promise.then(
             () => this._active.delete(promise),
@@ -126,9 +139,15 @@ export class ChannelResolutionOperationContext {
         ) {
             return Promise.reject(createResolutionAbortError());
         }
-        authority.context.assertCurrent();
-        authority.consumed = true;
-        return this._runWithScope(authority.context, work).finally(() => {
+        let resolution: Promise<T>;
+        try {
+            authority.context.assertCurrent();
+            authority.consumed = true;
+            resolution = this._runWithScope(authority.context, work);
+        } catch (error: unknown) {
+            resolution = Promise.reject(error);
+        }
+        return resolution.finally(() => {
             authority.context.release();
         });
     }
@@ -143,10 +162,12 @@ export class ChannelResolutionOperationContext {
     ): Promise<T> {
         const scope = new SourceResolutionScope([upstream]);
         const lease = scope.retain('authorized-channel-resolution');
-        const promise = work(lease).finally(() => {
-            lease.release();
-            scope.release();
-        });
+        const promise = Promise.resolve()
+            .then(() => work(lease))
+            .finally(() => {
+                lease.release();
+                scope.release();
+            });
         this._active.add(promise);
         void promise.then(
             () => this._active.delete(promise),

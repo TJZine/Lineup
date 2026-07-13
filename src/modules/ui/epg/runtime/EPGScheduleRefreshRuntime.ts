@@ -263,15 +263,15 @@ export class EPGScheduleRefreshRuntime {
         const operation = options?.operationContext
             ? options.operationContext.retain('schedule-refresh')
             : createEpgRetainedOperationContext([]);
-        operation.assertCurrent();
-        const session = this._createRefreshSession(range, reason, signal, operation);
-        if (!session) {
-            operation.release();
-            return createSkippedEpgScheduleRefreshResult();
-        }
-        const cleanup = this._bindRefreshAbort(session);
+        let cleanup = (): void => undefined;
 
         try {
+            operation.assertCurrent();
+            const session = this._createRefreshSession(range, reason, signal, operation);
+            if (!session) {
+                return createSkippedEpgScheduleRefreshResult();
+            }
+            cleanup = this._bindRefreshAbort(session);
             const metrics = createRefreshMetrics();
             runIfEpgRefreshCurrent(session, () => this._initializeBackgroundDebugState(session));
             runIfEpgRefreshCurrent(session, () => this._logRefreshStart(session));
@@ -285,8 +285,11 @@ export class EPGScheduleRefreshRuntime {
             runIfEpgRefreshCurrent(session, () => this._restoreFocusAfterRefresh(session));
             return runIfEpgRefreshCurrent(session, () => buildRefreshResult(session, metrics));
         } finally {
-            cleanup();
-            operation.release();
+            try {
+                cleanup();
+            } finally {
+                operation.release();
+            }
         }
     }
 

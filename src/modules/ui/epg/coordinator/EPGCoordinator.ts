@@ -98,7 +98,8 @@ export class EPGCoordinator {
                 referenceTimeMs: number
             ): ScheduleConfig => this.deps.buildDailyScheduleConfig(channel, items, referenceTimeMs),
             epgPreferencesStore: this._epgPreferencesStore,
-            primeEpgChannels: (): void => this.primeEpgChannels(),
+            primeEpgChannels: (operationContext?: EpgRetainedOperationContext): void =>
+                this.primeEpgChannels(operationContext),
             appendIssueDiagnostic: (issue: string, event: string, data: unknown): void =>
                 this.deps.appendIssueDiagnostic(issue, event, data),
         });
