@@ -526,6 +526,11 @@ describe('ProfileSelectScreen', () => {
             'Profile authentication is no longer valid, and Lineup could not sign out. Try again.'
         );
         expect(container.querySelector('.screen-status')?.textContent).toBe('Profile recovery failed.');
+        expect((container.querySelector('.profile-pin-modal') as HTMLElement).style.display).toBe('none');
+        expect(orchestrator.getNavigation().closeModal).toHaveBeenCalledWith('profile-pin');
+        for (const id of expectedPinFocusableIds) {
+            expect(orchestrator.getNavigation().unregisterFocusable).toHaveBeenCalledWith(id);
+        }
         await expect(screen.whenIdle()).resolves.toBeUndefined();
     });
 

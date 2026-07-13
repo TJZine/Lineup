@@ -265,9 +265,11 @@ describe('EPGScheduleRefreshRuntime', () => {
             },
         }]);
         let resolveContent: ((value: ResolvedChannelContent) => void) | null = null;
+        let contentSignal: AbortSignal | null = null;
         const { runtime, epg, deps } = createRuntime({
             channelManager: {
-                resolveChannelContent: jest.fn(() => new Promise<ResolvedChannelContent>((resolve) => {
+                resolveChannelContent: jest.fn((_channelId, options) => new Promise<ResolvedChannelContent>((resolve) => {
+                    contentSignal = options?.signal ?? null;
                     resolveContent = resolve;
                 })),
             },
@@ -280,6 +282,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
         await Promise.resolve();
         authorityController.abort(superseded);
+        expect((contentSignal as AbortSignal | null)?.aborted).toBe(true);
         (resolveContent as unknown as (value: ResolvedChannelContent) => void)(createResolvedContent('c1'));
 
         await expect(refresh).rejects.toBe(superseded);

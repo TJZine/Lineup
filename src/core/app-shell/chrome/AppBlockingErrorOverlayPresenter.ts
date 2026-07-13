@@ -226,13 +226,13 @@ export class AppBlockingErrorOverlayPresenter {
             }
             this.hide();
         } catch (error: unknown) {
-            if (version !== this._presentationVersion) {
-                return;
-            }
             emitBestEffortWarning('Blocking error overlay action failed', {
                 action: action.id ?? this._toStableActionId(action.label),
                 error: summarizeErrorForLog(error),
             });
+            if (version !== this._presentationVersion) {
+                return;
+            }
             this._actionPending = false;
             this._container?.removeAttribute('aria-busy');
             this._setActionsDisabled(false);

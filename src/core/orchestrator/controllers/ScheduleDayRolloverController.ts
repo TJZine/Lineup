@@ -97,6 +97,9 @@ export class ScheduleDayRolloverController {
 
     private async _applyScheduleDayRollover(attempt: PendingDayRolloverAttempt): Promise<void> {
         try {
+            if (!this._isCurrentAttempt(attempt)) {
+                return;
+            }
             const channelManager = this._deps.getChannelManager();
             const scheduler = this._deps.getScheduler();
             if (!channelManager || !scheduler) {
@@ -116,17 +119,27 @@ export class ScheduleDayRolloverController {
             }
 
             const content = await channelManager.resolveChannelContent(current.id);
+            if (!this._isCurrentAttempt(attempt)) {
+                return;
+            }
             scheduler.loadChannel(this._deps.buildDailyScheduleConfig(current, content.items, now));
             scheduler.syncToCurrentTime();
 
             const epgCoordinator = this._deps.getEpgCoordinator();
             epgCoordinator?.clearSelectedChannelScheduleSnapshot();
             await epgCoordinator?.refreshEpgSchedules();
+            if (!this._isCurrentAttempt(attempt)) {
+                return;
+            }
             this._activeScheduleDayKey = dayKey;
         } finally {
-            if (this._pendingDayRolloverAttempt === attempt) {
+            if (this._isCurrentAttempt(attempt)) {
                 this._pendingDayRolloverAttempt = null;
             }
         }
+    }
+
+    private _isCurrentAttempt(attempt: PendingDayRolloverAttempt): boolean {
+        return this._pendingDayRolloverAttempt === attempt;
     }
 }

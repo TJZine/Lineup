@@ -213,6 +213,39 @@ describe('ScheduleDayRolloverController', () => {
         expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(1);
     });
 
+    it('does not commit a canceled attempt after content resolution settles', async () => {
+        const harness = makeHarness();
+        const content = makeDeferred<ResolvedChannelContent>();
+        harness.channelManager.resolveChannelContent.mockReturnValueOnce(content.promise);
+
+        const applyPromise = harness.controller.handleScheduleDayRollover();
+        harness.controller.cancelPendingDayRollover();
+        content.resolve(makeResolvedContent());
+        await applyPromise;
+
+        expect(harness.scheduler.loadChannel).not.toHaveBeenCalled();
+        expect(harness.scheduler.syncToCurrentTime).not.toHaveBeenCalled();
+        expect(harness.epgCoordinator.clearSelectedChannelScheduleSnapshot).not.toHaveBeenCalled();
+        expect(harness.epgCoordinator.refreshEpgSchedules).not.toHaveBeenCalled();
+    });
+
+    it('does not mark a canceled attempt active after EPG refresh settles', async () => {
+        const harness = makeHarness();
+        const refresh = makeDeferred<void>();
+        harness.epgCoordinator.refreshEpgSchedules.mockReturnValueOnce(refresh.promise);
+
+        const canceledAttempt = harness.controller.handleScheduleDayRollover();
+        await Promise.resolve();
+        harness.controller.cancelPendingDayRollover();
+        refresh.resolve();
+        await canceledAttempt;
+
+        await harness.controller.handleScheduleDayRollover();
+
+        expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(2);
+        expect(harness.epgCoordinator.refreshEpgSchedules).toHaveBeenCalledTimes(2);
+    });
+
     it('retries the same day after content resolution rejects and advances only on success', async () => {
         const harness = makeHarness();
         const error = new Error('resolve failed');

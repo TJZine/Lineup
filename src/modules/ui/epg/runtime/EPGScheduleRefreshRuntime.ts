@@ -787,14 +787,25 @@ export class EPGScheduleRefreshRuntime {
     }
 
     private _bindRefreshAbort(session: RefreshSession): () => void {
-        const signal = session.signal ?? null;
-        if (!signal) return () => undefined;
+        const signals = new Set<AbortSignal>([session.operation.signal]);
+        if (session.signal) {
+            signals.add(session.signal);
+        }
         const onAbort = (): void => {
             if (session.refreshId !== this._scheduleLoadToken) return;
             this._invalidateRefreshWork('external-abort', { abortInFlight: true });
         };
-        signal.addEventListener('abort', onAbort, { once: true });
-        return () => signal.removeEventListener('abort', onAbort);
+        for (const signal of signals) {
+            signal.addEventListener('abort', onAbort, { once: true });
+        }
+        if ([...signals].some((signal) => signal.aborted)) {
+            onAbort();
+        }
+        return () => {
+            for (const signal of signals) {
+                signal.removeEventListener('abort', onAbort);
+            }
+        };
     }
 
     private _isRefreshSessionActive(session: RefreshSession): boolean {

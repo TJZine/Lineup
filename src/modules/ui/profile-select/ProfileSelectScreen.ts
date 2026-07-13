@@ -488,10 +488,8 @@ export class ProfileSelectScreen {
                     this._handlePinError('Wrong PIN. Try again.');
                     return false;
                 }
-                if (
-                    error.code === AppErrorCode.AUTH_REQUIRED ||
-                    error.code === AppErrorCode.AUTH_INVALID
-                ) {
+                if (error.code === AppErrorCode.AUTH_REQUIRED || error.code === AppErrorCode.AUTH_INVALID) {
+                    this._closePinModal();
                     // Account token is no longer valid; force re-link.
                     try {
                         await this._ports.signOutPlex();

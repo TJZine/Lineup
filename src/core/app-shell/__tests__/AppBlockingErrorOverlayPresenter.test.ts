@@ -275,6 +275,7 @@ describe('AppBlockingErrorOverlayPresenter', () => {
 
     it('ignores stale action completion after disposal', async () => {
         const overlay = createOverlayContainer();
+        const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         let rejectRecovery: ((error: Error) => void) | undefined;
         const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): null => null });
         presenter.setContainer(overlay);
@@ -287,9 +288,20 @@ describe('AppBlockingErrorOverlayPresenter', () => {
         (overlay.querySelector('button') as HTMLButtonElement).click();
         presenter.dispose();
 
-        rejectRecovery?.(new Error('late'));
-        await Promise.resolve();
-        await Promise.resolve();
-        expect(overlay.querySelector('[role="status"]')?.textContent).toBe('Retry in progress…');
+        try {
+            rejectRecovery?.(new Error('late'));
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(overlay.querySelector('[role="status"]')?.textContent).toBe('Retry in progress…');
+            expect(warning).toHaveBeenCalledWith(
+                'Blocking error overlay action failed',
+                expect.objectContaining({
+                    action: 'retry',
+                    error: expect.objectContaining({ message: 'late' }),
+                })
+            );
+        } finally {
+            warning.mockRestore();
+        }
     });
 });
