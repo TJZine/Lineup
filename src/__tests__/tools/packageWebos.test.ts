@@ -25,6 +25,15 @@ function writeFakeCli(root: string, body: string): string {
     return cliPath;
 }
 
+function writeFakeWindowsCli(root: string): string {
+    const cliPath = path.join(root, 'fake-ares-package.cmd');
+    writeFileSync(cliPath, [
+        '@echo off',
+        'node -e "const fs=require(\'node:fs\');const path=require(\'node:path\');const args=process.argv.slice(1);const output=args[args.indexOf(\'-o\')+1];fs.writeFileSync(path.join(output,\'com.lineup.app_1.0.0_all.ipk\'),\'ipk\')" %*',
+    ].join('\r\n'));
+    return cliPath;
+}
+
 function runPackageTool(
     root: string,
     cliPath: string,
@@ -138,4 +147,15 @@ describe('package-webos public CLI', () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toMatch(/must not overlap/iu);
     });
+
+    (process.platform === 'win32' ? it : it.skip)(
+        'executes a Windows npm .cmd shim without shell-string construction',
+        () => {
+            const root = tempRoot();
+            const result = runPackageTool(root, writeFakeWindowsCli(root));
+
+            expect(result.status).toBe(0);
+            expect(result.stdout).toContain('com.lineup.app_1.0.0_all.ipk');
+        }
+    );
 });

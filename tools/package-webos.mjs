@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import crossSpawn from 'cross-spawn';
 import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -99,13 +99,12 @@ export function packageWebos({ aresPackage, distDir, outputDir }) {
     }
     mkdirSync(outputDir, { recursive: true });
 
-    const result = spawnSync(aresPackage, [distDir, '-o', outputDir], {
+    const result = crossSpawn.sync(aresPackage, [distDir, '-o', outputDir], {
         encoding: 'utf8',
-        shell: false,
         windowsHide: true,
     });
     const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
-    if (result.error !== undefined) {
+    if (result.error instanceof Error) {
         fail(`Failed to run ares-package: ${result.error.message}`);
     }
     if (result.status !== 0) {
