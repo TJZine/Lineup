@@ -10,7 +10,7 @@ The default output is a compact count; use
 
 - Over 500 lines: when changed, record the compact architecture disposition from
   the `architecture-boundaries` skill.
-- Over 800 lines: when changed, obtain a fresh independent Sol-high architecture
+- Over 800 lines: when changed, obtain a fresh independent `reviewer` architecture
   and YAGNI review of the whole owner.
 - Composition roots and hotspots named in current architecture guidance require
   the same fresh review regardless of their current line count.

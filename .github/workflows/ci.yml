@@ -114,6 +114,10 @@ jobs:
       - name: Run tool tests
         if: matrix.node-version == '24.14.0'
         run: npm run test:tools
+
+      - name: Run Node tool tests
+        if: matrix.node-version == '24.14.0'
+        run: npm run test:node-tools
       
       - name: Upload coverage
         if: matrix.node-version == '24.14.0'

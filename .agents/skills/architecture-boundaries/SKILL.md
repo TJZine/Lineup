@@ -49,8 +49,7 @@ ownership, not automatic justification for another collaborator.
 
 - A changed production file over 800 lines, a composition root, or a hotspot named
   in current architecture guidance requires a fresh independent `reviewer`
-  architecture/YAGNI pass. The reviewer uses Sol high and reviews the whole owner,
-  not only changed lines.
+  architecture/YAGNI pass over the whole owner, not only changed lines.
 - The 500/800 thresholds trigger attention and review; they never require a split,
   prohibit cohesive growth, or fail verification by themselves.
 - Re-review only after a material finding or material review-surface change.

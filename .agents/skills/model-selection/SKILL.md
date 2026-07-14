@@ -18,8 +18,9 @@ and representative independent benchmark evidence justify a change:
   verify directly;
 - `reviewer`: independent read-only review.
 
-Use medium reasoning for routine bounded work and high for ambiguous planning or
-adversarial review. Keep both lower-cost workers behind exact scope, direct
-verification, and explicit stop conditions. Use Luna high; do not add or route to
-Luna max without new task-specific evidence. Increase effort only when measured
-quality improves enough to justify cost.
+Treat `.codex/agents/<role>.toml` as the sole authority for exact model,
+reasoning-effort, sandbox, and fallback settings. Keep both lower-cost workers
+behind exact scope, direct verification, and explicit stop conditions. Do not
+duplicate exact settings in plans, prompts, or workflow prose, or add a tracked
+role until current guidance and representative evidence justify the recurring
+need and coordination cost.

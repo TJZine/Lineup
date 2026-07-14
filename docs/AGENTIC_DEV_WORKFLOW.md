@@ -155,7 +155,7 @@ Production LOC is an attention signal, not a design rule. When changing a produc
 file over 500 lines, record the compact architecture disposition defined by
 `architecture-boundaries`. A production file over 800 lines, a composition root,
 or a hotspot named in current architecture guidance requires a fresh independent
-Sol-high `reviewer` pass over the whole owner. These thresholds neither force a
+`reviewer` pass over the whole owner. These thresholds neither force a
 split nor prohibit cohesive growth. Re-review only after a material finding or
 material review-surface change.
 

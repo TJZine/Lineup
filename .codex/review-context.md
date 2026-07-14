@@ -158,11 +158,15 @@ Preserve read-only reviewer/research roles versus write-capable planner/worker b
 
 ## Model Policy
 
-- Use GPT-5.6 Sol medium for normal implementation and Sol high when a separate
-  planner or adversarial reviewer is justified.
-- Use GPT-5.6 Sol low for bounded implementation with settled ownership and direct proof.
-- Use GPT-5.6 Luna high only for frozen, low-ambiguity, directly verifiable execution.
-- Use GPT-5.6 Sol high for difficult adversarial review. Change role defaults only from current official guidance and representative independent benchmark evidence.
+- Select the role whose scope matches the work. Treat `.codex/agents/*.toml` as
+  the sole authority for exact model and reasoning-effort settings; do not copy
+  those values into plans, prompts, or workflow guidance.
+- Use `worker` for normal implementation, `worker_sol_low` for bounded work with
+  settled ownership and direct proof, and `worker_luna` only for frozen,
+  low-ambiguity, directly verifiable execution.
+- Use `planner` or `reviewer` only when the planning or independent-review gate
+  is actually met. Change role defaults only after current official guidance and
+  representative independent evidence justify the change.
 
 ## Pure Docs / Assets Exclusion Rule
 
