@@ -21,7 +21,7 @@ function createTrack(overrides: Partial<SubtitleTrack> = {}): SubtitleTrack {
 
 function createResponse(
     body: string,
-    init?: { ok?: boolean; status?: number; contentType?: string | null; contentLength?: number }
+    init?: { status?: number; contentType?: string | null; contentLength?: number }
 ): Response {
     const headers = new Headers();
     if (init?.contentType) headers.set('content-type', init.contentType);
@@ -54,7 +54,7 @@ describe('fetchSubtitleFallbackVtt', () => {
     it('fetches subtitle text with query auth before falling back to header auth', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock
-            .mockResolvedValueOnce(createResponse('not ready', { ok: false, status: 501 }))
+            .mockResolvedValueOnce(createResponse('not ready', { status: 501 }))
             .mockResolvedValueOnce(createResponse(`1
 00:00:00,000 --> 00:00:01,000
 Hello`));
@@ -96,7 +96,7 @@ Hello`));
             () => new URL('http://192.168.50.19:32400/library/streams/1')
         );
         fetchMock
-            .mockResolvedValueOnce(createResponse('nope', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse('nope', { status: 500 }))
             .mockResolvedValueOnce(createResponse(`1
 00:00:00,000 --> 00:00:01,000
 Hello`));
@@ -128,7 +128,7 @@ Hello`));
             (url: URL) => new URL(`http://192.168.50.19:32400${url.pathname}${url.search}`)
         );
         fetchMock
-            .mockResolvedValueOnce(createResponse('nope', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse('nope', { status: 500 }))
             .mockResolvedValueOnce(createResponse(`1
 00:00:00,000 --> 00:00:01,000
 Hello`));
@@ -168,11 +168,11 @@ Hello`));
             (url: URL) => new URL(`http://192.168.50.19:32400${url.pathname}${url.search}`)
         );
         fetchMock
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 500 }))
             .mockResolvedValueOnce(createResponse(`1
 00:00:00,000 --> 00:00:01,000
 Hello`));
@@ -256,7 +256,7 @@ Hello`));
         const dirtyBody =
             'error http://10.0.0.2:32400/library/streams/1?X-Plex-Token=secret /Users/tristan/subtitles/movie.srt';
         fetchMock
-            .mockResolvedValueOnce(createResponse(dirtyBody, { ok: false, status: 500, contentType: 'text/plain' }))
+            .mockResolvedValueOnce(createResponse(dirtyBody, { status: 500, contentType: 'text/plain' }))
             .mockResolvedValueOnce(createResponse(`1
 00:00:00,000 --> 00:00:01,000
 Hello`));
@@ -389,11 +389,10 @@ Old`);
 
         await bodyReadStarted;
         controller.abort();
-        for (let index = 0; index < 8; index += 1) await Promise.resolve();
 
+        await expect(resultPromise).resolves.toEqual({ kind: 'stale' });
         expect(settled).toHaveBeenCalledWith({ kind: 'stale' });
         expect(cancelBody).toHaveBeenCalledTimes(1);
-        await expect(resultPromise).resolves.toEqual({ kind: 'stale' });
     });
 
     it('keeps the request deadline active while a successful subtitle body is stalled', async () => {
@@ -532,6 +531,54 @@ Hello`));
         for (const xhr of xhrInstances) expect(xhr.abort).toHaveBeenCalledTimes(1);
     });
 
+    it('rejects an oversized XHR response when progress does not report its size', async () => {
+        const fetchMock = globalThis.fetch as jest.Mock;
+        fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+        const oversizedResponseText = 'x'.repeat(SUBTITLE_FALLBACK_MAX_RESPONSE_BYTES + 1);
+
+        class MockXhr {
+            status = 200;
+            readyState = 4;
+            responseText = oversizedResponseText;
+            timeout = 0;
+            onerror: null | (() => void) = null;
+            ontimeout: null | (() => void) = null;
+            onprogress: null | ((event: ProgressEvent) => void) = null;
+            onabort: null | (() => void) = null;
+            onload: null | (() => void) = null;
+            open = jest.fn();
+            setRequestHeader = jest.fn();
+            overrideMimeType = jest.fn();
+            abort = jest.fn();
+            send = jest.fn(() => {
+                void Promise.resolve().then(() => this.onload?.());
+            });
+        }
+        const xhrInstances: MockXhr[] = [];
+
+        const result = await fetchSubtitleFallbackVtt({
+            track: createTrack(),
+            initialUrl: new URL('http://example.com/library/streams/1?X-Plex-Token=token'),
+            context: {
+                serverUri: 'http://example.com',
+                authHeaders: { 'X-Plex-Token': 'token' },
+            },
+            signal: new AbortController().signal,
+            isCurrentLoad: () => true,
+            deriveLanHttpUrl: () => null,
+            logDebug: jest.fn(),
+            createXhr: () => {
+                const xhr = new MockXhr();
+                xhrInstances.push(xhr);
+                return xhr as unknown as XMLHttpRequest;
+            },
+        });
+
+        expect(result).toEqual({ kind: 'unsupported', reason: 'invalid_source' });
+        expect(xhrInstances).not.toHaveLength(0);
+        for (const xhr of xhrInstances) expect(xhr.abort).not.toHaveBeenCalled();
+    });
+
     it('returns stale when an error subtitle response becomes stale while reading the body', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         const logDebug = jest.fn();
@@ -580,12 +627,12 @@ Hello`));
     it('classifies auth failures distinctly from unsupported failures', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock
-            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
-            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
-            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
-            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
-            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }))
-            .mockResolvedValueOnce(createResponse('denied', { ok: false, status: 403 }));
+            .mockResolvedValueOnce(createResponse('denied', { status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { status: 403 }))
+            .mockResolvedValueOnce(createResponse('denied', { status: 403 }));
 
         const result = await fetchSubtitleFallbackVtt({
             track: createTrack(),
@@ -615,12 +662,12 @@ Hello`));
     it('classifies server failures distinctly from permanent unsupported failures', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 500 }));
+            .mockResolvedValueOnce(createResponse('bad', { status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 500 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 500 }));
 
         const result = await fetchSubtitleFallbackVtt({
             track: createTrack(),
@@ -646,7 +693,7 @@ Hello`));
 
     it('classifies HTTP request timeout status as a timeout transient failure', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
-        fetchMock.mockResolvedValue(createResponse('timeout', { ok: false, status: 408 }));
+        fetchMock.mockResolvedValue(createResponse('timeout', { status: 408 }));
 
         const result = await fetchSubtitleFallbackVtt({
             track: createTrack(),
@@ -673,10 +720,10 @@ Hello`));
     it('falls back to the universal subtitles endpoint when stream fetch attempts fail', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
             .mockResolvedValueOnce(createResponse(`1
 00:00:00,000 --> 00:00:01,000
 Hello`));
@@ -719,10 +766,10 @@ Hello`));
     it('falls back to XHR when the transcode fetch throws', async () => {
         const fetchMock = globalThis.fetch as jest.Mock;
         fetchMock
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
-            .mockResolvedValueOnce(createResponse('bad', { ok: false, status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
+            .mockResolvedValueOnce(createResponse('bad', { status: 501 }))
             .mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
         class MockXhr {

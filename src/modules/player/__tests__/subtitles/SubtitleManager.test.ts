@@ -8,7 +8,7 @@ import { SubtitleManager } from '../../subtitles/SubtitleManager';
 import type { SubtitleTrack } from '../../core/types';
 import type { PlatformSubtitleService } from '../../../../platform';
 import { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
-import { flushPromisesAndMacrotask } from '../../../../__tests__/helpers';
+import { createDeferred } from '../../../../__tests__/helpers';
 import { installMockTextTracks } from './text-track-test-helpers';
 import { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from 'node:util';
@@ -42,6 +42,29 @@ function createMockVideoElement(): HTMLVideoElement {
 
 function getTrackElement(video: HTMLVideoElement, trackId: string): HTMLTrackElement | null {
     return video.querySelector(`track#${trackId}`);
+}
+
+function waitForTrackElement(
+    video: HTMLVideoElement,
+    trackId: string,
+    previous: HTMLTrackElement | null = null
+): Promise<HTMLTrackElement> {
+    const findReplacement = (): HTMLTrackElement | null => {
+        const candidate = getTrackElement(video, trackId);
+        return candidate && candidate !== previous ? candidate : null;
+    };
+    const existing = findReplacement();
+    if (existing) return Promise.resolve(existing);
+
+    return new Promise<HTMLTrackElement>((resolve) => {
+        const observer = new MutationObserver(() => {
+            const candidate = findReplacement();
+            if (!candidate) return;
+            observer.disconnect();
+            resolve(candidate);
+        });
+        observer.observe(video, { childList: true });
+    });
 }
 
 function createMockSubtitleTrack(
@@ -137,13 +160,6 @@ function createStalledFetchResponse(onBodyRead: () => void, cancel: () => void):
         body: responseBody,
     } as unknown as Response;
 }
-
-const flushSubtitleAsync = (): Promise<void> => flushPromisesAndMacrotask(5);
-const flushSubtitleMicrotasks = async (count = 12): Promise<void> => {
-    for (let i = 0; i < count; i++) {
-        await Promise.resolve();
-    }
-};
 
 const developerSettingsStore = new DeveloperSettingsStore();
 
@@ -434,12 +450,18 @@ Hello`));
                 });
                 expect(burnInRequired).toHaveLength(0);
 
+                const directTrackElement = getTrackElement(videoElement, 'embedded-srt');
+                const blobTrackAttached = waitForTrackElement(
+                    videoElement,
+                    'embedded-srt',
+                    directTrackElement
+                );
                 manager.setActiveTrack('embedded-srt');
 
                 expect(manager.getActiveTrackId()).toBe('embedded-srt');
                 expect(onDeactivate).not.toHaveBeenCalled();
 
-                await flushSubtitleAsync();
+                await blobTrackAttached;
                 expect(fetchMock).toHaveBeenCalled();
             } finally {
                 restore();
@@ -451,7 +473,11 @@ Hello`));
 
             try {
                 const onDeactivate = jest.fn(() => true);
-                const onDeactivateRecovery = jest.fn().mockResolvedValue('handled');
+                const recoveryInvoked = createDeferred<void>();
+                const onDeactivateRecovery = jest.fn(async () => {
+                    recoveryInvoked.resolve(undefined);
+                    return 'handled' as const;
+                });
                 const onUnavailable = jest.fn();
                 const embeddedTrack = createMockSubtitleTrack({
                     id: 'embedded-srt',
@@ -471,7 +497,18 @@ Hello`));
                 });
 
                 manager.setActiveTrack('embedded-srt');
-                await flushSubtitleAsync();
+                await recoveryInvoked.promise;
+                fetchMock.mockImplementation(async () => createFetchResponse(`1
+00:00:00,000 --> 00:00:01,000
+Hello`));
+                const currentTrackElement = getTrackElement(videoElement, 'embedded-srt');
+                const recoveredTrackAttached = waitForTrackElement(
+                    videoElement,
+                    'embedded-srt',
+                    currentTrackElement
+                );
+                manager.setActiveTrack('embedded-srt');
+                await recoveredTrackAttached;
 
                 expect(onDeactivate).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
@@ -493,7 +530,8 @@ Hello`));
             try {
                 const onDeactivate = jest.fn(() => true);
                 const onDeactivateRecovery = jest.fn().mockResolvedValue('failed');
-                const onUnavailable = jest.fn();
+                const unavailableNotified = createDeferred<void>();
+                const onUnavailable = jest.fn(() => unavailableNotified.resolve(undefined));
                 const embeddedTrack = createMockSubtitleTrack({
                     id: 'embedded-srt',
                     codec: 'srt',
@@ -512,7 +550,7 @@ Hello`));
                 });
 
                 manager.setActiveTrack('embedded-srt');
-                await flushSubtitleAsync();
+                await unavailableNotified.promise;
 
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
@@ -532,7 +570,8 @@ Hello`));
                 const onDeactivateRecovery = jest.fn(() => {
                     throw new Error('sync recovery failure');
                 });
-                const onUnavailable = jest.fn();
+                const unavailableNotified = createDeferred<void>();
+                const onUnavailable = jest.fn(() => unavailableNotified.resolve(undefined));
                 const embeddedTrack = createMockSubtitleTrack({
                     id: 'embedded-srt',
                     codec: 'srt',
@@ -551,7 +590,7 @@ Hello`));
                 });
 
                 manager.setActiveTrack('embedded-srt');
-                await flushSubtitleAsync();
+                await unavailableNotified.promise;
 
                 expect(onDeactivateRecovery).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
@@ -568,7 +607,11 @@ Hello`));
 
             try {
                 const onDeactivate = jest.fn(() => true);
-                const onDeactivateRecovery = jest.fn().mockResolvedValue('handled');
+                const recoveryInvoked = createDeferred<void>();
+                const onDeactivateRecovery = jest.fn(async () => {
+                    recoveryInvoked.resolve(undefined);
+                    return 'handled' as const;
+                });
                 const embeddedTrack = createMockSubtitleTrack({
                     id: 'embedded-srt',
                     codec: 'srt',
@@ -586,7 +629,7 @@ Hello`));
                 });
 
                 manager.setActiveTrack('embedded-srt');
-                await flushSubtitleAsync();
+                await recoveryInvoked.promise;
 
                 expect(onDeactivate).toHaveBeenCalledWith({
                     trackId: 'embedded-srt',
@@ -606,19 +649,14 @@ Hello`));
 
             try {
                 const onDeactivate = jest.fn(() => true);
-                const recoveryDeferred: {
-                    resolve: (result: 'handled' | 'failed') => void;
-                } = {
-                    resolve: () => {
-                        throw new Error('Recovery promise was not initialized');
-                    },
-                };
-                const onDeactivateRecovery = jest.fn().mockImplementation(
-                    () => new Promise<'handled' | 'failed'>((resolve) => {
-                        recoveryDeferred.resolve = resolve;
-                    })
-                );
-                const originalUnavailable = jest.fn();
+                const recoveryStarted = createDeferred<void>();
+                const recoveryResult = createDeferred<'handled' | 'failed'>();
+                const onDeactivateRecovery = jest.fn(() => {
+                    recoveryStarted.resolve(undefined);
+                    return recoveryResult.promise;
+                });
+                const originalUnavailableNotified = createDeferred<void>();
+                const originalUnavailable = jest.fn(() => originalUnavailableNotified.resolve(undefined));
                 const replacementUnavailable = jest.fn();
                 const originalTrack = createMockSubtitleTrack({
                     id: 'embedded-srt',
@@ -645,7 +683,7 @@ Hello`));
                 });
 
                 manager.setActiveTrack('embedded-srt');
-                await flushSubtitleAsync();
+                await recoveryStarted.promise;
 
                 manager.loadTracks([replacementTrack], {
                     serverUri: 'http://example.com',
@@ -653,8 +691,8 @@ Hello`));
                     onUnavailable: replacementUnavailable,
                 });
 
-                recoveryDeferred.resolve('failed');
-                await flushSubtitleAsync();
+                recoveryResult.resolve('failed');
+                await originalUnavailableNotified.promise;
 
                 expect(originalUnavailable).toHaveBeenCalledTimes(1);
                 expect(replacementUnavailable).not.toHaveBeenCalled();
@@ -689,7 +727,7 @@ Hello`));
             }
         });
 
-        it('suppresses text fallback when server burn-in was requested but not confirmed', async () => {
+        it('suppresses text fallback when server burn-in was requested but not confirmed', () => {
             const { fetchMock, restore } = installFetchAndBlobMocks();
 
             try {
@@ -712,7 +750,6 @@ Hello`));
                 });
 
                 manager.setActiveTrack('unconfirmed-text');
-                await flushSubtitleAsync();
 
                 expect(manager.getActiveTrackId()).toBe('unconfirmed-text');
                 expect(fetchMock).not.toHaveBeenCalled();
@@ -725,6 +762,9 @@ Hello`));
             const { fetchMock, restore } = installFetchAndBlobMocks();
 
             try {
+                fetchMock.mockImplementation(async () => createFetchResponse(`1
+00:00:00,000 --> 00:00:01,000
+Hello`));
                 const track = createMockSubtitleTrack({
                     id: 'ordinary-text',
                     codec: 'srt',
@@ -738,8 +778,14 @@ Hello`));
                     confirmedBurnedInSubtitleTrackId: null,
                 });
 
+                const directTrackElement = getTrackElement(videoElement, 'ordinary-text');
+                const blobTrackAttached = waitForTrackElement(
+                    videoElement,
+                    'ordinary-text',
+                    directTrackElement
+                );
                 manager.setActiveTrack('ordinary-text');
-                await flushSubtitleAsync();
+                await blobTrackAttached;
 
                 expect(fetchMock).toHaveBeenCalled();
             } finally {
@@ -753,7 +799,8 @@ Hello`));
                 deriveLanHttpSubtitleUrl: jest.fn((original) => new URL(`http://10.0.0.1:32400${original.pathname}${original.search}`)),
             };
             const injectedManager = new SubtitleManager(subtitleService);
-            injectedManager.initialize(createMockVideoElement());
+            const injectedVideoElement = createMockVideoElement();
+            injectedManager.initialize(injectedVideoElement);
 
             try {
                 const track = createMockSubtitleTrack({
@@ -775,8 +822,14 @@ Hello`));
                     authHeaders: { 'X-Plex-Token': 'token' },
                 });
 
+                const directTrackElement = getTrackElement(injectedVideoElement, 'srt-1');
+                const blobTrackAttached = waitForTrackElement(
+                    injectedVideoElement,
+                    'srt-1',
+                    directTrackElement
+                );
                 injectedManager.setActiveTrack('srt-1');
-                await flushSubtitleAsync();
+                await blobTrackAttached;
 
                 expect(subtitleService.deriveLanHttpSubtitleUrl).toHaveBeenCalledTimes(2);
                 expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
@@ -839,8 +892,14 @@ Hello`));
                     serverUri: 'http://example.com',
                     authHeaders: { 'X-Plex-Token': 'token' },
                 });
+                const directTrackElement = getTrackElement(videoElement, 'embedded-srt');
+                const blobTrackAttached = waitForTrackElement(
+                    videoElement,
+                    'embedded-srt',
+                    directTrackElement
+                );
                 manager.setActiveTrack('embedded-srt');
-                await flushSubtitleAsync();
+                await blobTrackAttached;
 
                 manager.unloadTracks();
 
@@ -855,7 +914,8 @@ Hello`));
 
         it('aborts and cancels a stalled fallback body on unload', async () => {
             const { fetchMock, restore } = installFetchAndBlobMocks();
-            const cancelBody = jest.fn();
+            const bodyCancelled = createDeferred<void>();
+            const cancelBody = jest.fn(() => bodyCancelled.resolve(undefined));
             let capturedSignal: AbortSignal | undefined;
             let notifyBodyReadStarted: () => void = () => undefined;
             const bodyReadStarted = new Promise<void>((resolve) => {
@@ -875,7 +935,7 @@ Hello`));
                 await bodyReadStarted;
 
                 manager.unloadTracks();
-                await flushSubtitleMicrotasks(20);
+                await bodyCancelled.promise;
 
                 expect(capturedSignal?.aborted).toBe(true);
                 expect(cancelBody).toHaveBeenCalledTimes(1);
@@ -1024,6 +1084,12 @@ Hello`));
 
         it('allows a selected track to retry fallback after a transient fallback failure', async () => {
             const fetchMock = global.fetch as jest.Mock;
+            const fallbackFailed = createDeferred<void>();
+            const blobCreated = createDeferred<Blob>();
+            (global.URL.createObjectURL as jest.Mock).mockImplementation((blob: Blob) => {
+                blobCreated.resolve(blob);
+                return 'blob:mock';
+            });
             fetchMock.mockImplementation(async () => createFetchResponse('Server error', 500));
             const tracks: SubtitleTrack[] = [
                 createMockSubtitleTrack({ id: 'en' }),
@@ -1031,10 +1097,11 @@ Hello`));
             manager.loadTracks(tracks, {
                 serverUri: 'http://example.com',
                 authHeaders: { 'X-Plex-Token': 'token' },
+                onUnavailable: () => fallbackFailed.resolve(undefined),
             });
 
             manager.setActiveTrack('en');
-            await flushSubtitleMicrotasks(50);
+            await fallbackFailed.promise;
             expect(global.URL.createObjectURL).not.toHaveBeenCalled();
 
             fetchMock.mockImplementation(
@@ -1042,15 +1109,25 @@ Hello`));
             );
 
             manager.setActiveTrack('en');
-            await flushSubtitleMicrotasks(50);
+            const blob = await blobCreated.promise;
 
-            expect(global.URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+            expect(blob).toBeInstanceOf(Blob);
+            expect(global.URL.createObjectURL).toHaveBeenCalledWith(blob);
         });
 
         it('terminates an explicit reselection after two transport failures without another fetch', async () => {
             enableSubtitleDebugLogging();
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-            const onDeactivate = jest.fn(() => true);
+            const firstDeactivation = createDeferred<void>();
+            const secondDeactivation = createDeferred<void>();
+            const exhaustedDeactivation = createDeferred<void>();
+            const deactivationSignals = [firstDeactivation, secondDeactivation, exhaustedDeactivation];
+            let deactivationCount = 0;
+            const onDeactivate = jest.fn(() => {
+                deactivationSignals[deactivationCount]?.resolve(undefined);
+                deactivationCount += 1;
+                return true;
+            });
             (global.fetch as jest.Mock).mockImplementation(
                 async () => createFetchResponse('Server error', 500)
             );
@@ -1061,15 +1138,15 @@ Hello`));
             });
 
             manager.setActiveTrack('transport');
-            await flushSubtitleMicrotasks(100);
+            await firstDeactivation.promise;
             expect(onDeactivate).toHaveBeenCalledTimes(1);
             manager.setActiveTrack('transport');
-            await flushSubtitleMicrotasks(100);
+            await secondDeactivation.promise;
             expect(onDeactivate).toHaveBeenCalledTimes(2);
             const fetchCountAfterTwoAttempts = (global.fetch as jest.Mock).mock.calls.length;
 
             manager.setActiveTrack('transport');
-            await flushSubtitleMicrotasks();
+            await exhaustedDeactivation.promise;
 
             expect(global.fetch).toHaveBeenCalledTimes(fetchCountAfterTwoAttempts);
             expect(onDeactivate).toHaveBeenLastCalledWith({
@@ -1087,8 +1164,16 @@ Hello`));
         ])('bounds repeated %s fallback attachments to two attempts', async (_label, payload) => {
             enableSubtitleDebugLogging();
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-            const onDeactivate = jest.fn(() => true);
-            const onDeactivateRecovery = jest.fn().mockResolvedValue('handled');
+            const fallbackTerminated = createDeferred<void>();
+            const recoveryCompleted = createDeferred<void>();
+            const onDeactivate = jest.fn(() => {
+                fallbackTerminated.resolve(undefined);
+                return true;
+            });
+            const onDeactivateRecovery = jest.fn(async () => {
+                recoveryCompleted.resolve(undefined);
+                return 'handled' as const;
+            });
             (global.fetch as jest.Mock).mockImplementation(async () => createFetchResponse(payload));
             manager.loadTracks([createMockSubtitleTrack({ id: 'bounded' })], {
                 serverUri: 'http://example.com',
@@ -1097,23 +1182,26 @@ Hello`));
                 onDeactivateRecovery,
             });
 
+            const directTrackElement = getTrackElement(videoElement, 'bounded');
+            const firstBlobTrackAttached = waitForTrackElement(videoElement, 'bounded', directTrackElement);
             manager.setActiveTrack('bounded');
-            await flushSubtitleMicrotasks();
+            const firstBlobTrackElement = await firstBlobTrackAttached;
             expect(global.fetch).toHaveBeenCalledTimes(1);
             expect(global.URL.createObjectURL).toHaveBeenCalledTimes(1);
 
             jest.advanceTimersByTime(2000);
-            await flushSubtitleMicrotasks();
             expect(global.fetch).toHaveBeenCalledTimes(1);
 
+            const secondBlobTrackAttached = waitForTrackElement(videoElement, 'bounded', firstBlobTrackElement);
             jest.advanceTimersByTime(1000);
-            await flushSubtitleMicrotasks();
+            await secondBlobTrackAttached;
             expect(global.fetch).toHaveBeenCalledTimes(2);
             expect(global.URL.createObjectURL).toHaveBeenCalledTimes(2);
             expect(videoElement.querySelectorAll('track#bounded')).toHaveLength(1);
 
             jest.advanceTimersByTime(3000);
-            await flushSubtitleMicrotasks();
+            await fallbackTerminated.promise;
+            await recoveryCompleted.promise;
 
             expect(global.fetch).toHaveBeenCalledTimes(2);
             expect(global.URL.createObjectURL).toHaveBeenCalledTimes(2);
@@ -1135,7 +1223,6 @@ Hello`));
             const diagnosticCount = warnSpy.mock.calls.length;
             manager.setActiveTrack('bounded');
             manager.setActiveTrack('bounded');
-            await flushSubtitleMicrotasks();
             expect(global.fetch).toHaveBeenCalledTimes(2);
             expect(warnSpy).toHaveBeenCalledTimes(diagnosticCount);
         });
@@ -1147,9 +1234,10 @@ Hello`));
                 authHeaders: { 'X-Plex-Token': 'token' },
                 onDeactivate,
             });
+            const directTrackElement = getTrackElement(videoElement, 'delayed');
+            const blobTrackAttached = waitForTrackElement(videoElement, 'delayed', directTrackElement);
             manager.setActiveTrack('delayed');
-            await flushSubtitleMicrotasks();
-            const trackElement = getTrackElement(videoElement, 'delayed');
+            const trackElement = await blobTrackAttached;
             const cues = { length: 0 };
             Object.defineProperty(trackElement, 'track', {
                 configurable: true,
@@ -1157,12 +1245,10 @@ Hello`));
             });
 
             jest.advanceTimersByTime(2000);
-            await flushSubtitleMicrotasks();
             expect(global.fetch).toHaveBeenCalledTimes(1);
 
             cues.length = 1;
             jest.advanceTimersByTime(1000);
-            await flushSubtitleMicrotasks();
 
             expect(global.fetch).toHaveBeenCalledTimes(1);
             expect(onDeactivate).not.toHaveBeenCalled();
@@ -1181,15 +1267,32 @@ Hello`));
                 onDeactivate: jest.fn(() => true),
             };
             manager.loadTracks([track], context);
+            const firstDirectTrackElement = getTrackElement(videoElement, 'same-id');
+            const firstBlobTrackAttached = waitForTrackElement(
+                videoElement,
+                'same-id',
+                firstDirectTrackElement
+            );
             manager.setActiveTrack('same-id');
-            await flushSubtitleMicrotasks();
-            jest.advanceTimersByTime(6000);
-            await flushSubtitleMicrotasks();
+            const firstBlobTrackElement = await firstBlobTrackAttached;
+            const secondBlobTrackAttached = waitForTrackElement(
+                videoElement,
+                'same-id',
+                firstBlobTrackElement
+            );
+            jest.advanceTimersByTime(3000);
+            await secondBlobTrackAttached;
             expect(global.fetch).toHaveBeenCalledTimes(2);
 
             manager.loadTracks([track], context);
+            const reloadedDirectTrackElement = getTrackElement(videoElement, 'same-id');
+            const reloadedBlobTrackAttached = waitForTrackElement(
+                videoElement,
+                'same-id',
+                reloadedDirectTrackElement
+            );
             manager.setActiveTrack('same-id');
-            await flushSubtitleMicrotasks();
+            await reloadedBlobTrackAttached;
 
             expect(global.fetch).toHaveBeenCalledTimes(3);
             manager.unloadTracks();
@@ -1198,7 +1301,8 @@ Hello`));
 
         it('aborts a stalled fallback body and leaves no timers or elements on destroy', async () => {
             let capturedSignal: AbortSignal | undefined;
-            const cancelBody = jest.fn();
+            const bodyCancelled = createDeferred<void>();
+            const cancelBody = jest.fn(() => bodyCancelled.resolve(undefined));
             let notifyBodyReadStarted: () => void = () => undefined;
             const bodyReadStarted = new Promise<void>((resolve) => {
                 notifyBodyReadStarted = resolve;
@@ -1215,7 +1319,8 @@ Hello`));
             await bodyReadStarted;
 
             manager.destroy();
-            await flushSubtitleMicrotasks(20);
+            await bodyCancelled.promise;
+            await jest.advanceTimersByTimeAsync(0);
 
             expect(capturedSignal?.aborted).toBe(true);
             expect(cancelBody).toHaveBeenCalledTimes(1);
@@ -1241,26 +1346,23 @@ Hello`));
 
             manager.loadTracks([track], context);
             manager.setActiveTrack(track.id);
-            await flushSubtitleMicrotasks();
             expect(global.fetch).toHaveBeenCalledTimes(1);
 
             manager.loadTracks([track], context);
             expect(signals[0]?.aborted).toBe(true);
             manager.setActiveTrack(track.id);
-            await flushSubtitleMicrotasks();
             expect(global.fetch).toHaveBeenCalledTimes(2);
 
             rejectFetches[0]?.(new DOMException('Late abort', 'AbortError'));
-            await flushSubtitleMicrotasks(30);
+            await jest.advanceTimersByTimeAsync(0);
             manager.setActiveTrack(track.id);
             manager.setActiveTrack(track.id);
-            await flushSubtitleMicrotasks();
 
             expect(global.fetch).toHaveBeenCalledTimes(2);
             manager.destroy();
             expect(signals[1]?.aborted).toBe(true);
             rejectFetches[1]?.(new DOMException('Destroyed', 'AbortError'));
-            await flushSubtitleMicrotasks(30);
+            await jest.advanceTimersByTimeAsync(0);
             expect(videoElement.querySelectorAll('track')).toHaveLength(0);
             expect(jest.getTimerCount()).toBe(0);
         });
