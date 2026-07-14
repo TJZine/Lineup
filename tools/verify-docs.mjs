@@ -20,6 +20,7 @@ const roleContracts = new Map([
     ['docs_researcher', { configFile: 'agents/docs-researcher.toml', models: ['gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4-mini'] }],
     ['planner', { configFile: 'agents/planner.toml', models: ['gpt-5.6-sol', 'gpt-5.5'] }],
     ['worker', { configFile: 'agents/worker.toml', models: ['gpt-5.6-sol', 'gpt-5.5'] }],
+    ['worker_sol_low', { configFile: 'agents/worker-sol-low.toml', models: ['gpt-5.6-sol'] }],
     ['worker_luna', { configFile: 'agents/worker-luna.toml', models: ['gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4-mini'] }],
     ['monitor', { configFile: 'agents/monitor.toml', models: ['gpt-5.3-codex-spark'] }],
 ]);

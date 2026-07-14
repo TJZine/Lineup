@@ -148,7 +148,8 @@ Preferred roles:
 - `explorer`: read-only source discovery
 - `reviewer`: packet-focused correctness, architecture, maintainability, security, or workflow review
 - `worker`: bounded implementation
-- `worker_luna`: lower-cost execution of a decision-complete Sol-planned unit
+- `worker_sol_low`: bounded implementation with settled ownership that still needs repository comprehension
+- `worker_luna`: frozen, low-ambiguity, cheap-to-verify execution
 - `planner`: separate planning only when justified
 - `docs_researcher`: official-source checks
 - `monitor`: long waits and status checks
@@ -157,10 +158,11 @@ Preserve read-only reviewer/research roles versus write-capable planner/worker b
 
 ## Model Policy
 
-- Use GPT-5.6 Sol medium for normal planning and implementation.
-- Use GPT-5.6 Luna xhigh only for an explicitly eligible, low-ambiguity,
-  directly verifiable unit planned by the Sol planner.
-- Use GPT-5.6 Sol high for difficult adversarial review. Change role defaults only from representative eval evidence.
+- Use GPT-5.6 Sol medium for normal implementation and Sol high when a separate
+  planner or adversarial reviewer is justified.
+- Use GPT-5.6 Sol low for bounded implementation with settled ownership and direct proof.
+- Use GPT-5.6 Luna high only for frozen, low-ambiguity, directly verifiable execution.
+- Use GPT-5.6 Sol high for difficult adversarial review. Change role defaults only from current official guidance and representative independent benchmark evidence.
 
 ## Pure Docs / Assets Exclusion Rule
 

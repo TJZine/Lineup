@@ -1,15 +1,17 @@
 ---
 name: bounded-worker-execution
-description: Use when a Sol planner has produced a decision-complete Lineup implementation unit suitable for the lower-cost worker_luna role.
+description: Use when Lineup has a decision-complete implementation unit suitable for worker_sol_low or the lower-cost worker_luna role.
 ---
 
 # Bounded Worker Execution
 
-Use `worker_luna` only after the configured Sol planner freezes exact files,
-invariants, verification, and stop conditions. The unit must be bounded,
-low-ambiguity, disjoint from other writers, and cheap to verify.
+Freeze exact files, ownership, invariants, verification, and stop conditions before
+delegation. The unit must be bounded, disjoint from other writers, and cheap to
+verify.
 
-Do not use Luna to discover ownership, design public behavior, diagnose failures,
-change architecture, or repair an incomplete plan. The controller reviews the diff,
-integrates it, and reruns the required proof. Route other delegation through
+Use `worker_sol_low` when local implementation still needs repository comprehension.
+Use `worker_luna` only for frozen, repeatable, low-ambiguity execution. Neither role
+may discover ownership, design public behavior, diagnose unknown failures, change
+architecture, or repair an incomplete packet. The controller reviews the diff,
+integrates it, and reruns the proof. Route other delegation through
 `parallel-sidecars`.

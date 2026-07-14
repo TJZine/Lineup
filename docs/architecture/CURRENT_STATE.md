@@ -10,9 +10,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ## Steady-State Guardrails
 
-- Production file-shape exceptions and baselines live in [`file-shape-guardrails.md`](./file-shape-guardrails.md).
-- `npm run verify:maintainability` blocks unreviewed growth in production files over 500 lines and requires explicit decomposition or revisit triggers for production files over 800 lines.
-- Current oversized production files are accepted baselines, not automatic cleanup obligations. Any baseline increase requires same-change rationale and a decomposition or revisit trigger.
+- Production file-size attention and review triggers live in [`file-shape-guardrails.md`](./file-shape-guardrails.md).
+- `npm run verify:maintainability` reports production files over 500 and 800 lines; it does not fail growth or require decomposition.
+- When changed, files over 500 lines require an architecture disposition. Files over 800 lines, composition roots, and named hotspots require a fresh independent architecture/YAGNI review of the whole owner.
 
 ## Product Invariants
 
@@ -151,7 +151,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### DCR-12-S1 AppOrchestrator Source Audit
 
 Current source audit on 2026-05-17 records `src/core/orchestrator/AppOrchestrator.ts`
-at 1884 lines, matching the production file-shape guardrail baseline after
+at 1884 lines, making it an architecture-review trigger after
 extracting the frozen `DCR-12-A1` closure set. The remaining
 large-file shape is the public runtime facade, module field ownership, lifecycle
 composition, coordinator/controller assembly, and cross-module wiring. The file no

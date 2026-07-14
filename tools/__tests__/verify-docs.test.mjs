@@ -30,6 +30,7 @@ const codexFiles = [
     '.codex/agents/planner.toml',
     '.codex/agents/reviewer.toml',
     '.codex/agents/worker-luna.toml',
+    '.codex/agents/worker-sol-low.toml',
     '.codex/agents/worker.toml',
 ];
 

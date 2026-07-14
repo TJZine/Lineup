@@ -1,5 +1,5 @@
 model = "gpt-5.6-sol"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 developer_instructions = """
 Begin your first assistant response with `CONFIGURED ROLE: planner` on its own line.
 Own bounded planning work, not product-code implementation. Write only requested planning or handoff artifacts.

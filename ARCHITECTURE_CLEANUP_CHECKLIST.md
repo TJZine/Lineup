@@ -89,9 +89,10 @@ source, tests, architecture docs, and reviewer judgment for actual task intake.
   after closeout unless it contains a reusable architecture decision that must
   be promoted into a durable reference doc.
 - Execute approved cleanup units through the canonical runbook. Use the normal
-  `worker` for bounded implementation, `worker_luna` only for an explicitly eligible
-  Sol-planned unit, and one independent final review when risk requires it. The
-  checklist names priorities and closeout gates; it does not enumerate endless waves.
+  `worker` for bounded implementation, `worker_sol_low` for settled units that still
+  need repository comprehension, `worker_luna` only for frozen low-ambiguity units,
+  and one independent final review when risk requires it. The checklist names
+  priorities and closeout gates; it does not enumerate endless waves.
 - Keep every implementation package bounded by one owner, one seam, one proof
   surface, and explicit stop/replan triggers.
 - For active packages, do not check a package complete unless every listed

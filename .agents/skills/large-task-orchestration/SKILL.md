@@ -40,8 +40,10 @@ Route work deliberately:
 - use read-only explorers, documentation researchers, test/log analysts, and
   monitors for independent evidence or waits;
 - use the normal Sol worker for bounded implementation that still needs judgment;
-- use `worker_luna` only through `bounded-worker-execution` for an exact,
-  Sol-planned, low-ambiguity, cheap-to-verify unit;
+- use `worker_sol_low` through `bounded-worker-execution` when an exact unit still
+  needs repository comprehension;
+- use `worker_luna` through `bounded-worker-execution` only for frozen,
+  low-ambiguity, repeatable, cheap-to-verify execution;
 - use a fresh read-only reviewer for the final independent review when the work is
   high risk, novel, broad, or supported by weak verification evidence.
 

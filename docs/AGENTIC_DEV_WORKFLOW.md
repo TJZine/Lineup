@@ -71,7 +71,7 @@ Choose the task family and risk before editing.
 | --- | --- | --- | --- |
 | Low | docs, comments, tiny isolated cleanup | one agent | focused check + diff audit |
 | Medium | bounded feature, bug fix, internal refactor | one agent plans and implements | focused tests + type/lint as applicable |
-| High | public contract, hotspot, Plex/security/persistence, broad UI/runtime, cross-session, or material workflow/control-plane change affecting entrypoints, routing, skills, roles, launchers, or verifier scope | explicit plan when needed + implementation + one independent final review | surface-specific proof; for control-plane changes, `npm run verify:docs`, `git diff --check`, and the relevant manual workflow eval when workflow behavior or operative guidance changes materially |
+| High | public contract, hotspot, Plex/security/persistence, broad UI/runtime, cross-session, or material workflow/control-plane change affecting entrypoints, routing, skills, roles, launchers, or verifier scope | explicit plan when needed + implementation + one independent final review | surface-specific proof; for control-plane changes, `npm run verify:docs`, `git diff --check`, and a direct consistency check of materially changed operative guidance |
 
 Escalate only when the lower tier would materially weaken reliability.
 
@@ -110,8 +110,10 @@ exceeds coordination cost:
 - write candidates: approved units with exact files, invariants, verification,
   stop conditions, and no overlap with another writer.
 
-A Sol planner may hand an explicitly eligible, low-ambiguity, cheap-to-verify unit
-to `worker_luna`. The plan must name exact files, invariants, verification, and stop
+A decision-complete packet may route a bounded unit to `worker_sol_low` when
+ownership is settled but implementation still needs repository comprehension, or
+to `worker_luna` when execution is frozen, repeatable, low ambiguity, and cheap to
+verify. The packet must name exact files, invariants, verification, and stop
 conditions. The main agent reviews the diff, integrates it, and reruns the proof.
 
 The main agent owns decisions, integration, and final verification. Keep depth at
@@ -133,7 +135,12 @@ For every non-trivial change:
 - keep `src/App.ts` and `src/Orchestrator.ts` as composition roots;
 - keep storage, Plex transport/auth, UI focus/navigation, and lifecycle policy in
   their documented owners;
-- do not grow hotspots when an existing focused owner can carry the work;
+- choose ownership by cohesion: keep behavior with the owner when it shares the
+  same invariants, state, lifecycle, dependency direction, and reason to change;
+- extract only a distinct present-day responsibility, lifecycle/resource owner,
+  trust boundary, policy, translation, or real consumer; line count, private-test
+  access, speculative reuse, and preferred patterns are not sufficient reasons;
+- reject both responsibility accumulation and pass-through fragmentation;
 - preserve one public shape per operation and explicit side-effect criticality;
 - reject compatibility wrappers, fallback APIs, speculative helpers, and new
   dependencies unless the task proves they are needed;
@@ -144,6 +151,14 @@ For every non-trivial change:
 If ownership, product intent, security behavior, or a public contract is unclear,
 stop and resolve it before implementation.
 
+Production LOC is an attention signal, not a design rule. When changing a production
+file over 500 lines, record the compact architecture disposition defined by
+`architecture-boundaries`. A production file over 800 lines, a composition root,
+or a hotspot named in current architecture guidance requires a fresh independent
+Sol-high `reviewer` pass over the whole owner. These thresholds neither force a
+split nor prohibit cohesive growth. Re-review only after a material finding or
+material review-surface change.
+
 ## Verification
 
 Choose the smallest proof that covers the changed surface:
@@ -151,6 +166,8 @@ Choose the smallest proof that covers the changed surface:
 - logic-only: focused tests, `npm run typecheck`, and relevant lint;
 - UI/navigation/Orchestrator/Plex/runtime/build: `npm run verify` plus any manual
   or device proof required by the task;
+- architecture attention evidence: `npm run verify:maintainability`; this reports
+  production files over 500/800 lines but does not decide or enforce extraction;
 - workflow/control-plane-only: `npm run verify:docs` and `git diff --check`;
 - docs outside the control plane: link/source inspection and the smallest relevant
   docs check.
@@ -198,10 +215,9 @@ Only stage, commit, push, or open a PR when requested. Keep commits focused.
 ## Harness Maintenance
 
 Treat every workflow component as a hypothesis about what the current model cannot
-reliably do alone. When models or tooling change, remove one non-load-bearing
-component at a time and compare representative tasks on outcome correctness,
-escaped defects, rework rounds, agent passes, wall time, and observed token/cost
-data when available.
+reliably do alone. Revisit components against current first-party guidance,
+representative independent benchmark evidence, and observed repository failures;
+remove non-load-bearing machinery one component at a time.
 
 Do not add a new role, verifier rule, launcher, eval artifact, or authority document
 without a concrete recurring failure it prevents and a removal/revisit trigger.
