@@ -75,7 +75,9 @@ export function parseCliArgs(argv) {
             throw new Error(`Unknown verify-maintainability option: ${argv[index]}`);
         } else {
             const value = argv[index + 1];
-            if (value === undefined) throw new Error('Missing value for --root.');
+            if (value === undefined || value.startsWith('--')) {
+                throw new Error('Missing value for --root.');
+            }
             repoRoot = path.resolve(value);
             index += 1;
         }

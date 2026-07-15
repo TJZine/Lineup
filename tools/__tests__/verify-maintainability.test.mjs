@@ -73,8 +73,12 @@ test('counts logical lines consistently across newline forms', () => {
 
 test('parses a root and rejects unsupported options', () => {
     const repoRoot = path.join(os.tmpdir(), 'lineup-maintainability-root');
-    assert.equal(parseCliArgs(['--root', repoRoot]).repoRoot, repoRoot);
+    assert.deepEqual(parseCliArgs(['--root', repoRoot, '--details']), {
+        details: true,
+        repoRoot,
+    });
     assert.equal(parseCliArgs(['--details']).details, true);
     assert.throws(() => parseCliArgs(['--unknown']), /Unknown verify-maintainability option/u);
     assert.throws(() => parseCliArgs(['--root']), /Missing value for --root/u);
+    assert.throws(() => parseCliArgs(['--root', '--details']), /Missing value for --root/u);
 });

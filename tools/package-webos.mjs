@@ -28,7 +28,7 @@ function parseOptions(argv) {
             fail(`Unknown package-webos option: ${option}`);
         }
         const value = argv[index + 1];
-        if (value === undefined) {
+        if (value === undefined || value.startsWith('--')) {
             fail(`Missing value for ${option}.`);
         }
         options[key] = key === 'aresPackage' ? value : path.resolve(process.cwd(), value);
