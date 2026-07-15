@@ -75,14 +75,15 @@ This runs the lean production build and packages `dist/` into an IPK.
 ## Install to a TV
 
 ```bash
-ares-install --device my-tv packages/com.lineup.app_<VERSION>_all.ipk
+IPK_PATH="packages/com.lineup.app_<VERSION>_all.ipk"
+ares-install --device my-tv "$IPK_PATH"
 ares-launch --device my-tv com.lineup.app
 ```
 
 Replace:
 
 - `my-tv` with the device name from `ares-setup-device`
-- `<VERSION>` with the package filename emitted by the packaging step
+- `IPK_PATH` with the exact output path printed by `npm run package:webos`
 
 ## Remote Debugging
 
