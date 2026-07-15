@@ -8,7 +8,7 @@ import { SubtitleManager } from '../../subtitles/SubtitleManager';
 import type { SubtitleTrack } from '../../core/types';
 import type { PlatformSubtitleService } from '../../../../platform';
 import { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
-import { createDeferred } from '../../../../__tests__/helpers';
+import { createDeferred, withTestTimeout } from '../../../../__tests__/helpers';
 import { installMockTextTracks } from './text-track-test-helpers';
 import { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { TextDecoder as NodeTextDecoder, TextEncoder as NodeTextEncoder } from 'node:util';
@@ -44,10 +44,13 @@ function getTrackElement(video: HTMLVideoElement, trackId: string): HTMLTrackEle
     return video.querySelector(`track#${trackId}`);
 }
 
+const TRACK_ELEMENT_WAIT_TIMEOUT_MS = 4_000;
+
 function waitForTrackElement(
     video: HTMLVideoElement,
     trackId: string,
-    previous: HTMLTrackElement | null = null
+    previous: HTMLTrackElement | null = null,
+    timeoutMs = TRACK_ELEMENT_WAIT_TIMEOUT_MS
 ): Promise<HTMLTrackElement> {
     const findReplacement = (): HTMLTrackElement | null => {
         const candidate = getTrackElement(video, trackId);
@@ -56,14 +59,25 @@ function waitForTrackElement(
     const existing = findReplacement();
     if (existing) return Promise.resolve(existing);
 
-    return new Promise<HTMLTrackElement>((resolve) => {
-        const observer = new MutationObserver(() => {
+    let observer: MutationObserver | null = null;
+    const replacement = new Promise<HTMLTrackElement>((resolve) => {
+        const resolveIfPresent = (): void => {
             const candidate = findReplacement();
             if (!candidate) return;
-            observer.disconnect();
             resolve(candidate);
-        });
+        };
+
+        observer = new MutationObserver(resolveIfPresent);
         observer.observe(video, { childList: true });
+        // Close the gap between the initial check and observer registration.
+        resolveIfPresent();
+    });
+
+    return withTestTimeout(replacement, {
+        timeoutMs,
+        errorMessage: `Timed out after ${timeoutMs}ms waiting for replacement track "${trackId}".`,
+    }).finally(() => {
+        observer?.disconnect();
     });
 }
 
@@ -206,6 +220,31 @@ describe('SubtitleManager', () => {
     afterEach(() => {
         clearSubtitleDebugLogging();
         manager.destroy();
+    });
+
+    describe('track element wait helper', () => {
+        beforeEach(() => {
+            jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+            jest.restoreAllMocks();
+        });
+
+        it('rejects with the track id and disconnects the observer when replacement times out', async () => {
+            const disconnectSpy = jest.spyOn(MutationObserver.prototype, 'disconnect');
+            const wait = waitForTrackElement(videoElement, 'missing-track', null, 100);
+            const rejection = expect(wait).rejects.toThrow(
+                'Timed out after 100ms waiting for replacement track "missing-track".'
+            );
+
+            jest.advanceTimersByTime(100);
+
+            await rejection;
+            expect(disconnectSpy).toHaveBeenCalledTimes(1);
+            expect(jest.getTimerCount()).toBe(0);
+        });
     });
 
     // ========================================

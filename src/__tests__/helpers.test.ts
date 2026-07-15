@@ -13,6 +13,7 @@ import {
     flushPromisesAndTimers,
     sharedConsoleOutputGuard,
     TestConsoleOutputGuard,
+    withTestTimeout,
 } from './helpers';
 
 describe('flushPromises', () => {
@@ -274,6 +275,64 @@ describe('advanceTimersUntil', () => {
                 timeoutMs: 0,
             })
         ).rejects.toThrow('advanceTimersUntil requires timeoutMs > 0 (received 0).');
+    });
+});
+
+describe('withTestTimeout', () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    it('clears its timer when the operation resolves first', async () => {
+        const deferred = createDeferred<string>();
+        const bounded = withTestTimeout(deferred.promise, {
+            timeoutMs: 100,
+            errorMessage: 'operation timed out',
+        });
+
+        deferred.resolve('done');
+
+        await expect(bounded).resolves.toBe('done');
+        expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('clears its timer when the operation rejects first', async () => {
+        const deferred = createDeferred<never>();
+        const bounded = withTestTimeout(deferred.promise, {
+            timeoutMs: 100,
+            errorMessage: 'operation timed out',
+        });
+        const rejection = expect(bounded).rejects.toThrow('operation failed');
+
+        deferred.reject(new Error('operation failed'));
+
+        await rejection;
+        expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('rejects with the supplied diagnostic and consumes its timer', async () => {
+        const bounded = withTestTimeout(new Promise<never>(() => undefined), {
+            timeoutMs: 100,
+            errorMessage: 'operation timed out',
+        });
+        const rejection = expect(bounded).rejects.toThrow('operation timed out');
+
+        await jest.advanceTimersByTimeAsync(100);
+
+        await rejection;
+        expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('throws before scheduling work for invalid timeout budgets', () => {
+        expect(() => withTestTimeout(Promise.resolve(), {
+            timeoutMs: 0,
+            errorMessage: 'operation timed out',
+        })).toThrow('withTestTimeout requires a finite timeoutMs > 0 (received 0).');
+        expect(jest.getTimerCount()).toBe(0);
     });
 });
 

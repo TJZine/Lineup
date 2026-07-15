@@ -68,6 +68,7 @@ Prefer the shared helpers in `src/__tests__/helpers.ts` before adding local asyn
 | --- | --- | --- | --- |
 | Flush promise-only work | `flushPromises()` | the code under test only needs microtask turns | a timer or DOM-task turn is part of the contract |
 | Control async completion directly | `createDeferred()` | the test owns when an async dependency resolves or rejects | the production code already exposes a concrete promise you can await directly |
+| Bound async test infrastructure with a diagnostic timeout | `withTestTimeout()` | an observer or test-owned operation could otherwise remain pending, and its owner cleans up resources when the bound settles | elapsed time is the behavior under test or a concrete production promise can be awaited directly |
 | Advance fake timers and settle follow-up promise work | `flushPromisesAndTimers()` | fake-timer callbacks schedule more promise work before the next assertion | the suite uses real timers |
 | Poll a fake-timer condition with an explicit timeout budget | `advanceTimersUntil()` | the assertion should become true after bounded timer advancement | a single direct timer advance or awaited promise is enough |
 | Cross one real macrotask turn after promise work | `flushPromisesAndMacrotask()` | a real-timer integration boundary only becomes observable after promises and one queued macrotask both complete | the suite uses fake timers or just needs a generic wait |
