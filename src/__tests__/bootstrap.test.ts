@@ -460,7 +460,7 @@ describe('bootstrap seam', () => {
         expectBootstrapLifecycleSuccess();
         expectConsoleError([
             'Uncaught error:',
-            expect.objectContaining({ message: 'X-Plex-Token=REDACTED' }),
+            expect.objectContaining({ message: expect.stringContaining('X-Plex-Token=REDACTED') }),
         ]);
         expectConsoleError([
             'Uncaught error:',
@@ -473,9 +473,11 @@ describe('bootstrap seam', () => {
 
         await importBootstrapModule({ expectLifecycleSuccess: false });
 
+        const sensitiveErrorMessage = `X-Plex-Token=abc123 at https://plex.example.test/private `
+            + `/Users/tristan/private/auth.json ${'x'.repeat(260)}`;
         const errorEvent = new ErrorEvent('error', {
-            message: 'X-Plex-Token=abc123',
-            error: new Error('X-Plex-Token=abc123'),
+            message: sensitiveErrorMessage,
+            error: new Error(sensitiveErrorMessage),
             cancelable: true,
         });
         const errorDispatch = window.dispatchEvent(errorEvent);
@@ -484,8 +486,14 @@ describe('bootstrap seam', () => {
         expect(errorDispatch).toBe(false);
         expect(preventDefault).toHaveBeenCalled();
         expect(overlaysAfterError).toHaveLength(1);
-        expect(overlaysAfterError[0]?.textContent ?? '').toContain('X-Plex-Token=REDACTED');
-        expect(overlaysAfterError[0]?.textContent ?? '').not.toContain('abc123');
+        const errorDetail = document.getElementById('global-error-overlay-detail');
+        expect(errorDetail?.textContent ?? '').toContain('X-Plex-Token=REDACTED');
+        expect(errorDetail?.textContent ?? '').toContain('[REDACTED_URL]');
+        expect(errorDetail?.textContent ?? '').toContain('[REDACTED_PATH]');
+        expect(errorDetail?.textContent ?? '').not.toContain('abc123');
+        expect(errorDetail?.textContent ?? '').not.toContain('plex.example.test');
+        expect(errorDetail?.textContent ?? '').not.toContain('/Users/tristan/private');
+        expect(errorDetail?.textContent?.length ?? 0).toBeLessThanOrEqual(240);
 
         window.dispatchEvent(
             new ErrorEvent('error', {
