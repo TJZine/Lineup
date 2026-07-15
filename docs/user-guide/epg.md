@@ -6,9 +6,9 @@ The EPG is your main interface for browsing what's playing across all channels, 
 
 | Method | Action |
 |--------|--------|
-| **Remote** | Press the **Guide** button, or press **OK/Back** while watching to open the overlay, then select "Guide" |
+| **Remote** | Press the **Guide** button |
 | **Keyboard** | Press **G** |
-| **Color Button** | Press the **Green** button (F2 on keyboard) as a fallback |
+| **Color Button** | Press the **Green** button (F2 on keyboard) when the remote has no Guide button |
 
 ## Grid Layout
 

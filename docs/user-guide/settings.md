@@ -34,7 +34,7 @@ Controls for video playback, HDR, and Dolby Vision behavior.
 | Setting | Description |
 |---------|-------------|
 | **Keep Playback Running in Settings** | Avoid pausing video when opening Settings (uses more CPU/GPU) |
-| **HDR Fallback** | For Dolby Vision MKV only: Off / Smart (Recommended) / Force |
+| **HDR Fallback** | For Dolby Vision MKV only: Off / Prefer HDR10 (Direct Play) / Force HLS/Transcode |
 | **Transcode Quality** | Caps Plex transcoding bitrate/resolution (Direct Play is unaffected) |
 | **Transcode Compat Mode** | Advanced: sends a minimal parameter set to Plex (only use if transcoding fails) |
 

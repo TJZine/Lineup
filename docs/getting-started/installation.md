@@ -13,6 +13,11 @@ This guide covers the installation of Lineup on your LG Smart TV.
 - **LG Smart TV** (2021+ / webOS 6.0+) connected to the same network
 - **LG Developer Account** (Free, create at [webostv.developer.lge.com](https://webostv.developer.lge.com))
 
+> [!IMPORTANT]
+> Extend the Developer Mode session before it expires. If Developer Mode is
+> disabled after expiry, LG uninstalls Developer Mode-installed apps; re-enable
+> Developer Mode and reinstall Lineup.
+
 ## Step 1: Install Developer Mode App on TV
 
 1. Turn on your LG TV.

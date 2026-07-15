@@ -4,11 +4,16 @@ Common issues and how to fix them.
 
 ## Installation Issues
 
-### "Developer Mode" expires
+### Developer Mode is expiring or has expired
 
-**Issue**: The app stops working after Developer Mode expires.
+**Before expiry**: Open the **Developer Mode** app and select **Extend Session**.
+Extending the session before it expires keeps sideloaded apps installed.
 
-**Fix**: Open the **Developer Mode** app on your TV and click **"Extend Session"**. You do not need to reinstall Lineup.
+**After Developer Mode is disabled**: LG uninstalls Developer Mode-installed
+apps. Re-enable Developer Mode, then reinstall the Lineup IPK using the
+[Installation Guide](../getting-started/installation.md).
+See LG's [Developer Mode app documentation](https://webostv.developer.lge.com/develop/getting-started/developer-mode-app)
+for the platform lifecycle.
 
 ### "Connection Refused" when installing
 
@@ -45,9 +50,9 @@ See the dedicated guide: [Subtitles](subtitles.md).
 
 ### Dolby Vision MKV shows dark letterbox bars
 
-- Enable **HDR Fallback** (Settings → Playback & HDR → HDR Fallback → Smart) to switch DV MKV to HDR10 for cinematic aspect ratios.
+- Set **HDR Fallback** to **Prefer HDR10 (Direct Play)** (Settings → Playback & HDR) to prefer the HDR10 base layer without forcing a transcode.
 - The setting only affects MKV; MP4/TS Dolby Vision behavior is unchanged.
-- If the issue persists, set **HDR Fallback** to **Force** to apply HDR10 whenever the base layer is available.
+- If the issue persists, use **Force HLS/Transcode** to request an HLS session with the HDR10 base layer.
 
 ## EPG & Channel Issues
 
