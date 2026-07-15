@@ -23,9 +23,7 @@ export const lineupArchitectureRules = {
         restrictedGlobals: ['localStorage', 'sessionStorage'],
         allowedFiles: [
             'src/utils/storage.ts',
-            'src/modules/lifecycle/StateManager.ts',
             'src/modules/plex/auth/PlexAuth.ts',
-            'src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts',
         ],
     },
     runtimeUiBoundary: {
