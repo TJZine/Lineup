@@ -75,6 +75,7 @@ export class ProfileSelectScreen {
     private _isSwitching: boolean = false;
     private _activeLoadGeneration: number | null = null;
     private _activeSwitchGeneration: number | null = null;
+    private _profileSwitchController: AbortController | null = null;
     private _pinJustFilledTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _pinErrorTimeoutId: ReturnType<typeof setTimeout> | null = null;
     private _idlePromise: Promise<void> = Promise.resolve();
@@ -222,6 +223,13 @@ export class ProfileSelectScreen {
 
     show(): void {
         if (this._isDestroyed) return;
+        const profileSwitchController = this._profileSwitchController;
+        if (profileSwitchController?.signal.aborted
+            && this._profileSwitchController === profileSwitchController) {
+            this._profileSwitchController = null;
+            this._isSwitching = false;
+            this._activeSwitchGeneration = null;
+        }
         this._isVisible = true;
         this._visibilityGeneration += 1;
         const generation = this._visibilityGeneration;
@@ -248,6 +256,7 @@ export class ProfileSelectScreen {
     hide(): void {
         this._isVisible = false;
         this._visibilityGeneration += 1;
+        this._profileSwitchController?.abort();
         this._unregisterFocusables();
         this._unregisterKeyHandler();
         this._closePinModal();
@@ -475,12 +484,20 @@ export class ProfileSelectScreen {
         this._ensureIdlePromise();
         this._isSwitching = true;
         this._activeSwitchGeneration = generation;
+        const controller = new AbortController();
+        this._profileSwitchController = controller;
         try {
-            await this._ports.switchHomeUser(userId, { pin: pin ?? null });
+            await this._ports.switchHomeUser(userId, {
+                pin: pin ?? null,
+                signal: controller.signal,
+            });
+            if (this._profileSwitchController !== controller || this._isDestroyed) {
+                return false;
+            }
             this.profileSessionStore.writeLastProfileId(userId);
             return true;
         } catch (error) {
-            if (!this._canUpdateUi(generation)) {
+            if (this._profileSwitchController !== controller || !this._canUpdateUi(generation)) {
                 return false;
             }
             if (error instanceof PlexApiError) {
@@ -508,9 +525,12 @@ export class ProfileSelectScreen {
             this._handleError(error, 'Unable to switch profile.');
             return false;
         } finally {
-            if (this._activeSwitchGeneration === generation) {
-                this._isSwitching = false;
-                this._activeSwitchGeneration = null;
+            if (this._profileSwitchController === controller) {
+                this._profileSwitchController = null;
+                if (this._activeSwitchGeneration === generation) {
+                    this._isSwitching = false;
+                    this._activeSwitchGeneration = null;
+                }
             }
             this._resolveIdleIfSettled();
         }
