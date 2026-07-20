@@ -167,6 +167,7 @@ import { OrchestratorChannelSwitchRuntime } from './runtime/OrchestratorChannelS
 import { OrchestratorPlexAuthRuntime } from './runtime/OrchestratorPlexAuthRuntime';
 import { OrchestratorServerSelectionRuntime } from './runtime/OrchestratorServerSelectionRuntime';
 import { createSelectedServerRecoveryGateError, OrchestratorServerSelectionRuntimeProjection } from './runtime/OrchestratorServerSelectionRuntimeProjection';
+import { createSelectedServerRecoveryLogData } from './runtime/SelectedServerRecoveryAppError';
 import { prepareSelectedServerQuarantine } from './runtime/OrchestratorSelectedServerQuarantinePreparation';
 import type { SelectedServerScreenState } from '../server-selection/SelectedServerScreenStateProjection';
 import type {
@@ -1678,7 +1679,8 @@ export class AppOrchestrator {
         this._warnRecoverableRuntimeError(
             'orchestrator.globalError',
             `Global error in ${context}`,
-            error
+            error,
+            createSelectedServerRecoveryLogData(error)
         );
 
         for (const [moduleId, handler] of this._errorHandlers) {

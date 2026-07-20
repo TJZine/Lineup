@@ -108,10 +108,48 @@ export function retainSelectedServerPreparationFailures(
     });
 }
 
+export function projectSelectedServerRecoveryDiagnosticForLog(
+    value: unknown
+): SelectedServerRecoveryDiagnostic | null {
+    const record = toRecord(value);
+    const operationFailure = projectStepDiagnostic(record?.['operationFailure']);
+    const recoveryFailure = projectStepDiagnostic(record?.['recoveryFailure']);
+    if (!operationFailure || !recoveryFailure) return null;
+    const rawPreparationFailures = record?.['preparationFailures'];
+    const preparationFailures = Array.isArray(rawPreparationFailures)
+        ? rawPreparationFailures
+            .slice(0, 8)
+            .map(projectStepDiagnostic)
+            .filter((failure): failure is SelectedServerRecoveryStepDiagnostic => failure !== null)
+        : [];
+    return Object.freeze({
+        operationFailure,
+        recoveryFailure,
+        ...(preparationFailures.length > 0
+            ? { preparationFailures: Object.freeze(preparationFailures) }
+            : {}),
+    });
+}
+
 function toErrorLike(error: unknown): ErrorLike | null {
     if (error instanceof Error) return error;
     if (error && typeof error === 'object') return error as ErrorLike;
     return null;
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+        ? value as Record<string, unknown>
+        : null;
+}
+
+function projectStepDiagnostic(value: unknown): SelectedServerRecoveryStepDiagnostic | null {
+    const record = toRecord(value);
+    if (!record || typeof record['step'] !== 'string' || !('error' in record)) return null;
+    return Object.freeze({
+        step: sanitizeDiagnosticText(record['step'], { maxLength: 80 }),
+        error: createSelectedServerSafeErrorDiagnostic(record['error']),
+    });
 }
 
 function createSafeCode(code: unknown): string | number | undefined {

@@ -285,8 +285,14 @@ export class SelectedServerPersistenceAdapter {
                 .filter(([userId]) => userId !== activeUserId)
         );
         return JSON.stringify({
-            accountToken: credentials.accountToken,
-            activeToken: credentials.activeToken,
+            accountCredential: {
+                token: credentials.accountToken.token,
+                userId: credentials.accountToken.userId,
+            },
+            activeCredential: {
+                token: credentials.activeToken.token,
+                userId: credentials.activeToken.userId,
+            },
             activeUserId: credentials.activeUserId,
             deviceKey: credentials.deviceKey ?? null,
             otherSelections,
