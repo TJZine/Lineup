@@ -200,18 +200,38 @@ describe('ServerSelectionCoordinator', () => {
         expect(resumeOrder).toBeLessThan(publicationOrder);
     });
 
-    it('lets caller abort win while still restoring the previous scope', async () => {
+    it('lets caller abort before commit win while still restoring the previous scope', async () => {
         const harness = createHarness();
         const caller = new AbortController();
         const reason = new DOMException('selection cancelled', 'AbortError');
+        harness.deps.runSelectedServerInitialization.mockImplementationOnce(async () => {
+            caller.abort(reason);
+            return { kind: 'stopped', reason: 'superseded' };
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+        await expect(coordinator.selectServer('candidate', { signal: caller.signal })).rejects.toBe(reason);
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not roll back a committed selection when its own routing hides the caller', async () => {
+        const harness = createHarness();
+        const caller = new AbortController();
+        const reason = new DOMException('Server select hidden.', 'AbortError');
         harness.deps.runSelectedServerInitialization.mockImplementationOnce(async () => {
             caller.abort(reason);
             return COMPLETED;
         });
         const coordinator = new ServerSelectionCoordinator(harness.deps);
 
-        await expect(coordinator.selectServer('candidate', { signal: caller.signal })).rejects.toBe(reason);
-        expect(harness.deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledTimes(1);
+        await expect(coordinator.selectServer('candidate', { signal: caller.signal }))
+            .resolves.toEqual({
+                kind: 'selected',
+                persistedSelection: 'updated',
+                epgRefresh: COMPLETED.payload.epgRefresh,
+            });
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
+        expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(1);
     });
 
     it('hands off startup supersession while discovery is pending without restoring older state', async () => {

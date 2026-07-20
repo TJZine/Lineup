@@ -12,6 +12,7 @@ export async function restoreSelectedServerRuntime(options: {
         lineage: ChannelInitialTuneLineage;
         startupLineage: InitializationSelectedServerLineage;
         operation: OperationContextUpstream & { signal: AbortSignal };
+        commitOperation: OperationContextUpstream & { signal: AbortSignal };
     }): Promise<SelectedServerInitializationResult>;
     completeInitialTuneLineage(lineage: ChannelInitialTuneLineage): void;
 }): Promise<void> {
@@ -23,6 +24,7 @@ export async function restoreSelectedServerRuntime(options: {
         lineage,
         startupLineage: options.startupLineage,
         operation: options.operation,
+        commitOperation: options.operation,
     });
     options.operation.assertCurrent();
     if (result.kind !== 'completed') {

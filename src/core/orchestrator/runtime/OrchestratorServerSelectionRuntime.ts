@@ -167,6 +167,7 @@ export class OrchestratorServerSelectionRuntime {
         lineage: ChannelInitialTuneLineage;
         startupLineage: InitializationSelectedServerLineage;
         operation: OperationContextUpstream & { signal: AbortSignal };
+        commitOperation: OperationContextUpstream & { signal: AbortSignal };
     }): Promise<SelectedServerInitializationResult> {
         const initialization = this._deps.getInitializationCoordinator();
         if (!initialization) return { kind: 'failed', error: new Error('Initialization unavailable.') };
@@ -174,6 +175,7 @@ export class OrchestratorServerSelectionRuntime {
             lineage: options.lineage,
             signal: options.operation.signal,
             assertCurrent: (): void => options.operation.assertCurrent(),
+            commitOperation: options.commitOperation,
             beforeCommit: (operation) => this._refreshEpgForSelectedServer(operation),
             initialTune: (channelId, lineage) => this._runInitialTune(channelId, lineage),
         });

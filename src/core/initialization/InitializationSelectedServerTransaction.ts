@@ -21,6 +21,7 @@ export interface SelectedServerInitializationRequest {
     lineage: ChannelInitialTuneLineage;
     signal: AbortSignal;
     assertCurrent(): void;
+    commitOperation: OperationContextUpstream & { signal: AbortSignal };
     beforeCommit(operation: OperationContextUpstream): Promise<EpgScheduleRefreshResult>;
     initialTune(channelId: string, lineage: ChannelInitialTuneLineage): Promise<ChannelSwitchOutcome>;
 }
@@ -63,7 +64,7 @@ export class InitializationSelectedServerTransaction {
                 return { kind: 'stopped', reason: 'server_unavailable' };
             }
 
-            const validity = createStartupPassValidity(undefined, auth.guard, {
+            let validity = createStartupPassValidity(undefined, auth.guard, {
                 signal: request.signal,
                 assertCurrent: request.assertCurrent,
             });
@@ -80,6 +81,13 @@ export class InitializationSelectedServerTransaction {
                 const epgRefresh = await this._runEpgBeforeCommit(request, validity);
                 validity.assertCurrent();
                 this._deps.publishCommitStart();
+                validity.assertCurrent();
+                validity.dispose();
+                validity = createStartupPassValidity(
+                    undefined,
+                    auth.guard,
+                    request.commitOperation
+                );
                 validity.assertCurrent();
                 establishedEventWiring = this._deps.setupEventWiring();
                 validity.assertCurrent();

@@ -67,6 +67,7 @@ export interface ServerSelectionCoordinatorDeps {
         lineage: ChannelInitialTuneLineage;
         startupLineage: InitializationSelectedServerLineage;
         operation: CurrentOperation;
+        commitOperation: CurrentOperation;
     }): Promise<SelectedServerInitializationResult>;
     restoreUnselectedRuntime(operation: CurrentOperation): Promise<void>;
     clearSelectedServerSelection(): Promise<void>;
@@ -159,6 +160,7 @@ export class ServerSelectionCoordinator {
         const evidence = this._deps.capturePersistenceEvidence();
         let result: PlexServerSelectionResult | null = null;
         let operation: RetainedOperationContext | null = null;
+        let commitOperation: RetainedOperationContext | null = null;
         let rollbackAttempted = false;
         try {
             result = await this._deps.selectServer(serverId, {
@@ -191,19 +193,24 @@ export class ServerSelectionCoordinator {
             if (!serverUri) throw new Error('Selected Plex server URI is unavailable.');
             const proof = this._deps.persistCandidateSelection(evidence, serverId, serverUri);
             operation.assertCurrent();
-            lineage = this._deps.beginInitialTuneLineage([operation]);
+            commitOperation = this._createOperation(result.receipt, evidence, undefined, true, [
+                startupLineage,
+            ]);
+            commitOperation.assertCurrent();
+            lineage = this._deps.beginInitialTuneLineage([commitOperation]);
             const initialized = await this._deps.runSelectedServerInitialization({
                 lineage,
                 startupLineage,
                 operation,
+                commitOperation,
             });
-            operation.assertCurrent();
             if (initialized.kind === 'completed') {
+                commitOperation.assertCurrent();
                 this._deps.completeInitialTuneLineage(lineage);
                 lineage = null;
-                operation.assertCurrent();
+                commitOperation.assertCurrent();
                 this._deps.resumeAfterScopeTransition();
-                operation.assertCurrent();
+                commitOperation.assertCurrent();
                 return {
                     kind: 'selected',
                     persistedSelection: this._candidatePublicResult(proof),
@@ -252,6 +259,7 @@ export class ServerSelectionCoordinator {
             }
             throw error;
         } finally {
+            commitOperation?.release();
             operation?.release();
         }
     }
