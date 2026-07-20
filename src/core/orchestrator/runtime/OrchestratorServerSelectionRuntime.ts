@@ -30,6 +30,7 @@ import { SelectedServerRuntimeController } from '../../server-selection/Selected
 import { clearPersistedSelectedServer } from '../../server-selection/SelectedServerClearPersistence';
 import type {
     SelectedServerQuarantineCommandState,
+    SelectedServerQuarantineRecoveryPresentation,
 } from '../../server-selection/SelectedServerQuarantineRecoveryState';
 import { restoreUnselectedServerRuntime } from '../../server-selection/SelectedServerUnselectedRestoration';
 import type {
@@ -124,6 +125,7 @@ export class OrchestratorServerSelectionRuntime {
                     signal: new AbortController().signal,
                     assertCurrent: (): void => undefined,
                 }),
+            publishUnselectedRuntimePresentation: this._deps.openServerSelect,
             prepareQuarantineRuntime: this._deps.prepareQuarantineRuntime,
             releaseQuarantineRuntimeGate: this._deps.releaseQuarantineRuntimeGate,
             exitQuarantine: this._deps.exitApplication,
@@ -153,7 +155,7 @@ export class OrchestratorServerSelectionRuntime {
         return this._coordinator.getQuarantineState();
     }
 
-    retryQuarantineRecovery(): Promise<void> {
+    retryQuarantineRecovery(): Promise<SelectedServerQuarantineRecoveryPresentation> {
         return this._coordinator.retryQuarantineRecovery();
     }
 
@@ -220,7 +222,6 @@ export class OrchestratorServerSelectionRuntime {
             publishPendingServerModules: this._deps.publishPendingServerModules,
             setReady: this._deps.setReady,
             publishLoadingLifecycle: this._deps.publishLoadingLifecycle,
-            openServerSelect: this._deps.openServerSelect,
         }, (): void => operation.assertCurrent());
     }
 

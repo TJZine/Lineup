@@ -49,8 +49,9 @@ function createPlexAuth(): jest.Mocked<IPlexAuth> {
     } as unknown as jest.Mocked<IPlexAuth>;
 }
 
-function createDiscovery(): jest.Mocked<IPlexServerDiscovery> {
-    const context = new PlexDiscoverySelectionContext();
+function createDiscovery(
+    context = new PlexDiscoverySelectionContext()
+): jest.Mocked<IPlexServerDiscovery> {
     let selectedId: string | null = 'old-server';
     let selectedUri = 'https://old.example';
     const discovery = {
@@ -89,12 +90,14 @@ interface RuntimeHarness {
     epg: IEPGComponent;
     epgCoordinator: jest.Mocked<EPGCoordinator>;
     initialization: jest.Mocked<InitializationCoordinator>;
+    selectionContext: PlexDiscoverySelectionContext;
     epgOutcome: { kind: 'succeeded'; result: typeof READY_EPG_REFRESH };
 }
 
 function createHarness(): RuntimeHarness {
     const plexAuth = createPlexAuth();
-    const discovery = createDiscovery();
+    const selectionContext = new PlexDiscoverySelectionContext();
+    const discovery = createDiscovery(selectionContext);
     const tuning = new ChannelInitialTuneAuthority();
     const epg = { clearSchedules: jest.fn() } as unknown as IEPGComponent;
     const epgCoordinator = {
@@ -148,7 +151,16 @@ function createHarness(): RuntimeHarness {
             _context: Record<string, unknown>
         ) => { throw new Error(message); }),
     };
-    return { deps, plexAuth, discovery, epg, epgCoordinator, initialization, epgOutcome };
+    return {
+        deps,
+        plexAuth,
+        discovery,
+        epg,
+        epgCoordinator,
+        initialization,
+        selectionContext,
+        epgOutcome,
+    };
 }
 
 describe('OrchestratorServerSelectionRuntime', () => {
@@ -250,5 +262,28 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(harness.deps.setReady).toHaveBeenLastCalledWith(false);
         expect(harness.deps.publishLoadingLifecycle).toHaveBeenCalledTimes(2);
         expect(harness.deps.openServerSelect).toHaveBeenCalledTimes(2);
+    });
+
+    it('commits unselected rollback before server-select publication can supersede discovery', async () => {
+        const harness = createHarness();
+        const runtime = new OrchestratorServerSelectionRuntime(harness.deps);
+
+        await runtime.clearSelectedServer();
+        harness.discovery.selectServer.mockImplementationOnce(async () => {
+            harness.selectionContext.advanceSelection();
+            return { kind: 'connection_unavailable', reason: 'unreachable' };
+        });
+        harness.deps.openServerSelect.mockImplementationOnce(() => {
+            harness.selectionContext.advance();
+        });
+
+        await expect(runtime.selectServer('candidate')).resolves.toEqual({
+            kind: 'selection_failed',
+            reason: 'unreachable',
+        });
+
+        expect(runtime.getQuarantineState()).toEqual({ kind: 'clear' });
+        expect(harness.deps.prepareQuarantineRuntime).not.toHaveBeenCalled();
+        expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(2);
     });
 });

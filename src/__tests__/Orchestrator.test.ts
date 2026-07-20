@@ -729,6 +729,7 @@ describe('AppOrchestrator', () => {
 
         mockNavigation.isModalOpen.mockReset();
         mockNavigation.isModalOpen.mockReturnValue(false);
+        mockNavigation.goTo.mockReset();
 
         mockEpg.isVisible.mockReset();
         mockEpg.isVisible.mockReturnValue(false);
@@ -1489,6 +1490,45 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('reselects cleanly after channel setup, server-select back navigation, and clear', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockChannelManager.getAllChannels.mockReturnValue([]);
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
+            mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
+            mockLocalStorage.getItem.mockImplementation((key: string) =>
+                key === LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE ? '1' : null
+            );
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
+                createStoredCredentials('valid-token')
+            );
+            mockNavigation.goTo.mockImplementation((screen: string) => {
+                if (screen === 'server-select') {
+                    mockDiscoverySelectionContext.advance();
+                }
+            });
+
+            await expect(orchestrator.selectServer('server-1')).resolves.toMatchObject({
+                kind: 'selected',
+            });
+            expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+
+            orchestrator.openServerSelect();
+            await orchestrator.clearSelectedServer();
+            mockPlexDiscovery.selectServer.mockImplementationOnce(async () => {
+                mockDiscoverySelectionContext.advanceSelection();
+                return { kind: 'connection_unavailable', reason: 'unreachable' };
+            });
+
+            await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                kind: 'selection_failed',
+                reason: 'unreachable',
+            });
+            expect(mockNavigation.activateRuntimeCommandGate).not.toHaveBeenCalled();
+            expect(mockNavigation.goTo).toHaveBeenLastCalledWith('server-select', {
+                allowAutoConnect: false,
+            });
+        });
+
         it('rejects selected-server clear while recovery commands are gated', async () => {
             await orchestrator.initialize(mockConfig);
             mockNavigation.isRuntimeCommandGated.mockReturnValueOnce(true);
@@ -1510,10 +1550,10 @@ describe('AppOrchestrator', () => {
             const retry = jest.spyOn(
                 OrchestratorServerSelectionRuntimeProjection.prototype,
                 'retryQuarantineRecovery'
-            ).mockResolvedValue(undefined);
+            ).mockResolvedValue('none');
 
             try {
-                await expect(orchestrator.retryQuarantineRecovery()).resolves.toBeUndefined();
+                await expect(orchestrator.retryQuarantineRecovery()).resolves.toBe('none');
                 expect(retry).toHaveBeenCalledTimes(1);
             } finally {
                 retry.mockRestore();

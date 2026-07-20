@@ -5,7 +5,6 @@ export interface SelectedServerUnselectedRestorationDeps {
     publishPendingServerModules(): void;
     setReady(ready: boolean): void;
     publishLoadingLifecycle(): Promise<void>;
-    openServerSelect(): void;
 }
 
 export async function restoreUnselectedServerRuntime(
@@ -24,7 +23,5 @@ export async function restoreUnselectedServerRuntime(
     deps.setReady(false);
     assertCurrent();
     await deps.publishLoadingLifecycle();
-    assertCurrent();
-    deps.openServerSelect();
     assertCurrent();
 }

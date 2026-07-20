@@ -19,6 +19,7 @@ import {
     type SelectedServerQuarantineCommandState,
     type SelectedServerQuarantinePhase,
     type SelectedServerQuarantineRecovery,
+    type SelectedServerQuarantineRecoveryPresentation,
 } from './SelectedServerQuarantineRecoveryState';
 import {
     createSelectedServerRecoveryDiagnostic,
@@ -70,6 +71,7 @@ export interface ServerSelectionCoordinatorDeps {
     restoreUnselectedRuntime(operation: CurrentOperation): Promise<void>;
     clearSelectedServerSelection(): Promise<void>;
     restoreClearedUnselectedRuntime(): Promise<void>;
+    publishUnselectedRuntimePresentation(): void;
     prepareQuarantineRuntime(): Promise<void>;
     releaseQuarantineRuntimeGate(): void;
     exitQuarantine(): Promise<void>;
@@ -102,6 +104,7 @@ export class ServerSelectionCoordinator {
                 await this._enterQuarantine(this._createClearedRuntimeRecovery(error));
                 throw error;
             }
+            this._deps.publishUnselectedRuntimePresentation();
         });
     }
 
@@ -109,9 +112,10 @@ export class ServerSelectionCoordinator {
         return this._quarantine.getState();
     }
 
-    async retryQuarantineRecovery(): Promise<void> {
-        await this._quarantine.retry();
+    async retryQuarantineRecovery(): Promise<SelectedServerQuarantineRecoveryPresentation> {
+        const presentation = await this._quarantine.retry();
         this._deps.releaseQuarantineRuntimeGate();
+        return presentation;
     }
 
     exitQuarantine(): Promise<void> {
@@ -314,7 +318,8 @@ export class ServerSelectionCoordinator {
         selectionFailure: unknown
     ): Promise<void> {
         try {
-            await this._restorePreviousScope(snapshot, evidence);
+            const presentation = await this._restorePreviousScope(snapshot, evidence);
+            this._publishRecoveryPresentation(presentation);
         } catch (error: unknown) {
             const phase = getRecoveryFailurePhase(error);
             await this._enterQuarantine(this._createRollbackRecovery(
@@ -344,9 +349,9 @@ export class ServerSelectionCoordinator {
         return {
             phase,
             diagnostic,
-            retry: async (priorDiagnostic): Promise<void> => {
+            retry: async (priorDiagnostic): Promise<SelectedServerQuarantineRecoveryPresentation> => {
                 try {
-                    await this._restorePreviousScope(snapshot, evidence);
+                    return await this._restorePreviousScope(snapshot, evidence);
                 } catch (error: unknown) {
                     const retryPhase = getRecoveryFailurePhase(error);
                     const nextRecovery = this._createRollbackRecovery(
@@ -379,10 +384,11 @@ export class ServerSelectionCoordinator {
         return {
             phase: 'unselected_runtime_restore',
             diagnostic,
-            retry: async (priorDiagnostic): Promise<void> => {
+            retry: async (priorDiagnostic): Promise<SelectedServerQuarantineRecoveryPresentation> => {
                 try {
                     await this._deps.restoreClearedUnselectedRuntime();
                     this._deps.resumeAfterScopeTransition();
+                    return 'server-select';
                 } catch (error: unknown) {
                     const nextRecovery = this._createClearedRuntimeRecovery(
                         operationFailure,
@@ -435,14 +441,14 @@ export class ServerSelectionCoordinator {
         return {
             phase: 'preparation',
             diagnostic,
-            retry: async (): Promise<void> => {
+            retry: async (): Promise<SelectedServerQuarantineRecoveryPresentation> => {
                 try {
                     await this._deps.prepareQuarantineRuntime();
                 } catch (error: unknown) {
                     this._quarantine.enter(this._createPreparationRecovery(recovery, error));
                     throw new SelectedServerRecoveryError('preparation', error);
                 }
-                await recovery.retry(diagnostic);
+                return recovery.retry(diagnostic);
             },
         };
     }
@@ -450,8 +456,9 @@ export class ServerSelectionCoordinator {
     private async _restorePreviousScope(
         snapshot: PlexDiscoverySelectedServerSnapshot,
         evidence: SelectedServerPersistenceEvidence
-    ): Promise<void> {
+    ): Promise<SelectedServerQuarantineRecoveryPresentation> {
         let phase: SelectedServerQuarantinePhase = 'discovery_restore';
+        let publishUnselectedRuntimePresentation = false;
         try {
             const rollbackScope = classifySelectedServerRollbackScope(snapshot);
             const receipt = this._deps.restoreDiscoverySelectionSnapshot(snapshot);
@@ -470,22 +477,23 @@ export class ServerSelectionCoordinator {
                     operation.assertCurrent();
                     if (rollbackScope.kind === 'selected') {
                         phase = 'selected_runtime_restore';
-                    const startupLineage = this._deps.beginSelectedServerLineage();
-                    try {
-                    await restoreSelectedServerRuntime({
-                        operation,
-                        startupLineage,
-                        suspendAndDrain: this._deps.suspendAndDrainForScopeTransition,
-                        beginInitialTuneLineage: this._deps.beginInitialTuneLineage,
-                        runInitialization: this._deps.runSelectedServerInitialization,
-                        completeInitialTuneLineage: this._deps.completeInitialTuneLineage,
-                    });
-                    } finally {
-                        this._deps.releaseSelectedServerLineage(startupLineage);
-                    }
+                        const startupLineage = this._deps.beginSelectedServerLineage();
+                        try {
+                            await restoreSelectedServerRuntime({
+                                operation,
+                                startupLineage,
+                                suspendAndDrain: this._deps.suspendAndDrainForScopeTransition,
+                                beginInitialTuneLineage: this._deps.beginInitialTuneLineage,
+                                runInitialization: this._deps.runSelectedServerInitialization,
+                                completeInitialTuneLineage: this._deps.completeInitialTuneLineage,
+                            });
+                        } finally {
+                            this._deps.releaseSelectedServerLineage(startupLineage);
+                        }
                     } else {
                         phase = 'unselected_runtime_restore';
                         await this._deps.restoreUnselectedRuntime(operation);
+                        publishUnselectedRuntimePresentation = true;
                     }
                     operation.assertCurrent();
                     this._deps.resumeAfterScopeTransition();
@@ -498,6 +506,15 @@ export class ServerSelectionCoordinator {
             }
         } catch (error: unknown) {
             throw new SelectedServerRecoveryError(phase, error);
+        }
+        return publishUnselectedRuntimePresentation ? 'server-select' : 'none';
+    }
+
+    private _publishRecoveryPresentation(
+        presentation: SelectedServerQuarantineRecoveryPresentation
+    ): void {
+        if (presentation === 'server-select') {
+            this._deps.publishUnselectedRuntimePresentation();
         }
     }
 

@@ -169,7 +169,10 @@ import { OrchestratorServerSelectionRuntime } from './runtime/OrchestratorServer
 import { createSelectedServerRecoveryGateError, OrchestratorServerSelectionRuntimeProjection } from './runtime/OrchestratorServerSelectionRuntimeProjection';
 import { prepareSelectedServerQuarantine } from './runtime/OrchestratorSelectedServerQuarantinePreparation';
 import type { SelectedServerScreenState } from '../server-selection/SelectedServerScreenStateProjection';
-import type { SelectedServerQuarantineCommandState } from '../server-selection/SelectedServerQuarantineRecoveryState';
+import type {
+    SelectedServerQuarantineCommandState,
+    SelectedServerQuarantineRecoveryPresentation,
+} from '../server-selection/SelectedServerQuarantineRecoveryState';
 const QA_003B_ISSUE_ID = 'QA-003b';
 /**
  * AppOrchestrator - Central coordinator for all application modules.
@@ -1227,7 +1230,10 @@ export class AppOrchestrator {
 
     getQuarantineState(): SelectedServerQuarantineCommandState { return this._serverSelectionRuntime.getQuarantineState(); }
 
-    async retryQuarantineRecovery(): Promise<void> { this._assertNotShutdown('retryQuarantineRecovery'); await this._serverSelectionRuntime.retryQuarantineRecovery(); }
+    async retryQuarantineRecovery(): Promise<SelectedServerQuarantineRecoveryPresentation> {
+        this._assertNotShutdown('retryQuarantineRecovery');
+        return this._serverSelectionRuntime.retryQuarantineRecovery();
+    }
 
     exitQuarantine(): Promise<void> { return this._serverSelectionRuntime.exitQuarantine(); }
 

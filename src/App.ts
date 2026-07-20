@@ -408,9 +408,13 @@ export class App {
                         if (!orchestrator) {
                             throw new Error('Recovery runtime is unavailable.');
                         }
-                        await orchestrator.retryQuarantineRecovery();
+                        const presentation = await orchestrator.retryQuarantineRecovery();
                         if (orchestrator.getQuarantineState().kind !== 'clear') {
                             throw new Error('Recovery did not clear quarantine.');
+                        }
+                        this._blockingErrorOverlayPresenter.hide();
+                        if (presentation === 'server-select') {
+                            orchestrator.openServerSelect();
                         }
                     },
                 },

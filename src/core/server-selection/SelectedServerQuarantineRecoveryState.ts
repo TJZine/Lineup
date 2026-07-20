@@ -17,10 +17,14 @@ export type SelectedServerQuarantineCommandState =
         diagnostic: SelectedServerRecoveryDiagnostic;
     };
 
+export type SelectedServerQuarantineRecoveryPresentation = 'none' | 'server-select';
+
 export type SelectedServerQuarantineRecovery = {
     phase: SelectedServerQuarantinePhase;
     diagnostic: SelectedServerRecoveryDiagnostic;
-    retry(priorDiagnostic?: SelectedServerRecoveryDiagnostic): Promise<void>;
+    retry(
+        priorDiagnostic?: SelectedServerRecoveryDiagnostic
+    ): Promise<SelectedServerQuarantineRecoveryPresentation>;
 };
 
 export class SelectedServerQuarantineRecoveryState {
@@ -49,12 +53,13 @@ export class SelectedServerQuarantineRecoveryState {
         if (this._recovery) throw new Error('Selected-server recovery is quarantined.');
     }
 
-    retry(): Promise<void> {
+    retry(): Promise<SelectedServerQuarantineRecoveryPresentation> {
         return this._enqueue(async () => {
             const recovery = this._recovery;
-            if (!recovery) return;
-            await recovery.retry();
+            if (!recovery) return 'none';
+            const presentation = await recovery.retry();
             if (this._recovery === recovery) this._recovery = null;
+            return presentation;
         });
     }
 
@@ -62,11 +67,11 @@ export class SelectedServerQuarantineRecoveryState {
         return this._enqueue(() => this._exit());
     }
 
-    private _enqueue(command: () => Promise<void>): Promise<void> {
+    private _enqueue<T>(command: () => Promise<T>): Promise<T> {
         const run = this._commandTail.then(async () => {
             this._commandPending = true;
             try {
-                await command();
+                return await command();
             } finally {
                 this._commandPending = false;
             }

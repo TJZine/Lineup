@@ -11,6 +11,7 @@ import {
     SelectedServerPersistenceAdapter,
     type SelectedServerPersistenceEvidence,
 } from '../SelectedServerPersistenceAdapter';
+import { SelectedServerQuarantinePreparationError } from '../SelectedServerRecoveryDiagnostics';
 
 const READY_REFRESH = {
     readiness: 'ready' as const,
@@ -100,6 +101,7 @@ function createHarness(snapshot?: PlexDiscoverySelectedServerSnapshot): Coordina
         restoreUnselectedRuntime: jest.fn().mockResolvedValue(undefined),
         clearSelectedServerSelection: jest.fn().mockResolvedValue(undefined),
         restoreClearedUnselectedRuntime: jest.fn().mockResolvedValue(undefined),
+        publishUnselectedRuntimePresentation: jest.fn(),
         prepareQuarantineRuntime: jest.fn().mockResolvedValue(undefined),
         releaseQuarantineRuntimeGate: jest.fn(),
         exitQuarantine: jest.fn().mockResolvedValue(undefined),
@@ -188,6 +190,14 @@ describe('ServerSelectionCoordinator', () => {
 
         expect(harness.deps.runSelectedServerInitialization).toHaveBeenCalledTimes(1);
         expect(harness.deps.restoreUnselectedRuntime).toHaveBeenCalledTimes(1);
+        expect(harness.deps.publishUnselectedRuntimePresentation).toHaveBeenCalledTimes(1);
+        const resumeOrder = harness.deps.resumeAfterScopeTransition.mock.invocationCallOrder[0];
+        const publicationOrder =
+            harness.deps.publishUnselectedRuntimePresentation.mock.invocationCallOrder[0];
+        if (resumeOrder === undefined || publicationOrder === undefined) {
+            throw new Error('Expected rollback resume and presentation publication');
+        }
+        expect(resumeOrder).toBeLessThan(publicationOrder);
     });
 
     it('lets caller abort win while still restoring the previous scope', async () => {
@@ -504,6 +514,55 @@ describe('ServerSelectionCoordinator', () => {
         expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
     });
 
+    it('reports the original operation and named preparation failures without secrets', async () => {
+        const harness = createHarness();
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({
+            kind: 'failed',
+            error: new Error(
+                'GET https://candidate.example/library?X-Plex-Token=operation-secret failed'
+            ),
+        });
+        harness.deps.restoreDiscoverySelectionSnapshot.mockImplementationOnce(() => {
+            throw new Error('Authorization: Bearer recovery-secret');
+        });
+        harness.deps.prepareQuarantineRuntime.mockRejectedValueOnce(
+            new SelectedServerQuarantinePreparationError([{
+                step: 'lifecycle',
+                error: new Error(
+                    'GET https://candidate.example/status?X-Plex-Token=preparation-secret failed'
+                ),
+            }])
+        );
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+        await expect(coordinator.selectServer('candidate')).rejects.toThrow('preparation');
+
+        const state = coordinator.getQuarantineState();
+        expect(state).toMatchObject({
+            kind: 'quarantined',
+            phase: 'preparation',
+            diagnostic: {
+                operationFailure: {
+                    step: 'selection',
+                    error: { message: 'GET [REDACTED_URL] failed' },
+                },
+                recoveryFailure: {
+                    step: 'discovery_restore',
+                    error: { message: 'Authorization: Bearer REDACTED' },
+                },
+                preparationFailures: [{
+                    step: 'lifecycle',
+                    error: { message: 'GET [REDACTED_URL] failed' },
+                }],
+            },
+        });
+        const serializedState = JSON.stringify(state);
+        expect(serializedState).not.toContain('operation-secret');
+        expect(serializedState).not.toContain('recovery-secret');
+        expect(serializedState).not.toContain('preparation-secret');
+        expect(serializedState).not.toContain('candidate.example');
+    });
+
     it('retains preparation diagnostics when the later rollback Retry fails', async () => {
         const harness = createHarness();
         harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({
@@ -588,6 +647,7 @@ describe('ServerSelectionCoordinator', () => {
         expect(harness.deps.clearSelectedServerSelection).toHaveBeenCalledTimes(1);
         expect(harness.deps.restoreClearedUnselectedRuntime).toHaveBeenCalledTimes(1);
         expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(2);
+        expect(harness.deps.publishUnselectedRuntimePresentation).toHaveBeenCalledTimes(1);
     });
 
     it('quarantines failed clear restoration and Retry clears only after full recovery', async () => {
@@ -616,11 +676,12 @@ describe('ServerSelectionCoordinator', () => {
         });
         expect(harness.deps.resumeAfterScopeTransition).not.toHaveBeenCalled();
 
-        await coordinator.retryQuarantineRecovery();
+        await expect(coordinator.retryQuarantineRecovery()).resolves.toBe('server-select');
 
         expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
         expect(harness.deps.restoreClearedUnselectedRuntime).toHaveBeenCalledTimes(2);
         expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(1);
+        expect(harness.deps.publishUnselectedRuntimePresentation).not.toHaveBeenCalled();
         expect(harness.deps.releaseQuarantineRuntimeGate).toHaveBeenCalledTimes(1);
     });
 

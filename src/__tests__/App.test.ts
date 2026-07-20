@@ -843,7 +843,18 @@ describe('App bootstrap smoke', () => {
     });
 
     it('presents protected awaited quarantine recovery and closes only after core clears', async () => {
-        const retryQuarantineRecovery = jest.fn().mockResolvedValue(undefined);
+        const retryQuarantineRecovery = jest.fn().mockResolvedValue('server-select');
+        const openServerSelect = jest.spyOn(AppOrchestrator.prototype, 'openServerSelect')
+            .mockImplementation(() => undefined);
+        const openModal = jest.fn();
+        const closeModal = jest.fn();
+        const isModalOpen = jest.fn().mockReturnValue(false);
+        const registerFocusable = jest.fn();
+        const unregisterFocusable = jest.fn();
+        const setFocus = jest.fn();
+        const on = jest.fn();
+        const off = jest.fn();
+        const cancelPendingChannelInput = jest.fn();
         const getQuarantineState = jest.spyOn(AppOrchestrator.prototype, 'getQuarantineState')
             .mockReturnValueOnce({
                 kind: 'quarantined',
@@ -864,6 +875,17 @@ describe('App bootstrap smoke', () => {
         const startedApp = await bootstrapApp(() => {
             jest.spyOn(AppOrchestrator.prototype, 'retryQuarantineRecovery')
                 .mockImplementation(retryQuarantineRecovery);
+            jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue({
+                openModal,
+                closeModal,
+                isModalOpen,
+                registerFocusable,
+                unregisterFocusable,
+                setFocus,
+                on,
+                off,
+                cancelPendingChannelInput,
+            } as never);
         });
 
         startedApp.showErrorOverlay({
@@ -887,6 +909,14 @@ describe('App bootstrap smoke', () => {
         expect(retryQuarantineRecovery).toHaveBeenCalledTimes(1);
         expect(getQuarantineState).toHaveBeenCalledTimes(2);
         expect(overlay.classList.contains('hidden')).toBe(true);
+        expect(closeModal).toHaveBeenCalledWith('modal:error-overlay');
+        expect(openServerSelect).toHaveBeenCalledTimes(1);
+        const modalCloseOrder = closeModal.mock.invocationCallOrder.at(-1);
+        const serverSelectOrder = openServerSelect.mock.invocationCallOrder[0];
+        if (modalCloseOrder === undefined || serverSelectOrder === undefined) {
+            throw new Error('Expected modal dismissal before server-select recovery presentation');
+        }
+        expect(modalCloseOrder).toBeLessThan(serverSelectOrder);
     });
 
     it.each([

@@ -1,6 +1,9 @@
 import type { AppError } from '../../../modules/lifecycle';
 import type { PlexDiscoverySignalOptions } from '../../../modules/plex/discovery';
-import type { SelectedServerQuarantineCommandState } from '../../server-selection/SelectedServerQuarantineRecoveryState';
+import type {
+    SelectedServerQuarantineCommandState,
+    SelectedServerQuarantineRecoveryPresentation,
+} from '../../server-selection/SelectedServerQuarantineRecoveryState';
 import type { OrchestratorServerSelectionResult } from '../../server-selection/ServerSelectionTypes';
 import type { OrchestratorServerSelectionRuntime } from './OrchestratorServerSelectionRuntime';
 import { createSelectedServerRecoveryAppError } from './SelectedServerRecoveryAppError';
@@ -62,7 +65,7 @@ export class OrchestratorServerSelectionRuntimeProjection {
         return this._runtime.getQuarantineState();
     }
 
-    retryQuarantineRecovery(): Promise<void> {
+    retryQuarantineRecovery(): Promise<SelectedServerQuarantineRecoveryPresentation> {
         return this._runtime.retryQuarantineRecovery();
     }
 

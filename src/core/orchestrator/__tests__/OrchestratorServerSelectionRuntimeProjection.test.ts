@@ -22,7 +22,7 @@ function createRuntime(): jest.Mocked<OrchestratorServerSelectionRuntime> {
         }),
         clearSelectedServer: jest.fn().mockResolvedValue(undefined),
         getQuarantineState: jest.fn().mockReturnValue({ kind: 'clear' }),
-        retryQuarantineRecovery: jest.fn().mockResolvedValue(undefined),
+        retryQuarantineRecovery: jest.fn().mockResolvedValue('none'),
         exitQuarantine: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<OrchestratorServerSelectionRuntime>;
 }
@@ -37,7 +37,7 @@ describe('OrchestratorServerSelectionRuntimeProjection', () => {
             kind: 'selection_failed',
             reason: 'server_not_found',
         });
-        await projection.retryQuarantineRecovery();
+        await expect(projection.retryQuarantineRecovery()).resolves.toBe('none');
         await projection.exitQuarantine();
 
         expect(reportGlobalError).not.toHaveBeenCalled();
