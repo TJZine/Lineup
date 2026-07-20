@@ -29,16 +29,7 @@ export class OrchestratorServerSelectionRuntimeProjection {
         try {
             return await this._runtime.selectServer(serverId, options);
         } catch (error: unknown) {
-            const quarantine = this._runtime.getQuarantineState();
-            if (quarantine.kind === 'quarantined') {
-                this._reportGlobalError(
-                    createSelectedServerRecoveryAppError(
-                        'Selected-server recovery requires user action.',
-                        quarantine
-                    ),
-                    'server-selection-quarantine'
-                );
-            }
+            this._reportQuarantineIfPresent();
             throw error;
         }
     }
@@ -47,16 +38,7 @@ export class OrchestratorServerSelectionRuntimeProjection {
         try {
             await this._runtime.clearSelectedServer();
         } catch (error: unknown) {
-            const quarantine = this._runtime.getQuarantineState();
-            if (quarantine.kind === 'quarantined') {
-                this._reportGlobalError(
-                    createSelectedServerRecoveryAppError(
-                        'Selected-server recovery requires user action.',
-                        quarantine
-                    ),
-                    'server-selection-quarantine'
-                );
-            }
+            this._reportQuarantineIfPresent();
             throw error;
         }
     }
@@ -71,5 +53,20 @@ export class OrchestratorServerSelectionRuntimeProjection {
 
     exitQuarantine(): Promise<void> {
         return this._runtime.exitQuarantine();
+    }
+
+    private _reportQuarantineIfPresent(): void {
+        const quarantine = this._runtime.getQuarantineState();
+        if (quarantine.kind !== 'quarantined') {
+            return;
+        }
+
+        this._reportGlobalError(
+            createSelectedServerRecoveryAppError(
+                'Selected-server recovery requires user action.',
+                quarantine
+            ),
+            'server-selection-quarantine'
+        );
     }
 }

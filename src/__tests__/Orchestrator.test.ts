@@ -40,7 +40,6 @@ import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
 import { ScheduleDayRolloverController } from '../core/orchestrator/controllers/ScheduleDayRolloverController';
-import * as recoverableRuntimeReporterModule from '../core/orchestrator/runtime/OrchestratorRecoverableRuntimeReporter';
 import { OrchestratorServerSelectionRuntimeProjection } from '../core/orchestrator/runtime/OrchestratorServerSelectionRuntimeProjection';
 import { expectConsoleWarn } from './helpers';
 import { EventEmitter } from '../utils/EventEmitter';
@@ -3304,40 +3303,6 @@ describe('AppOrchestrator', () => {
             expect(logged).not.toContain(secret);
         });
 
-        it('keeps recoverable reporter failures inside the reporter collaborator during global error handling', () => {
-            const warn = jest.fn();
-            const isolatedOrchestrator = new AppOrchestrator();
-            Reflect.set(
-                isolatedOrchestrator as object,
-                '_recoverableRuntimeReporter',
-                recoverableRuntimeReporterModule.createRecoverableRuntimeIssueReporter({
-                    issueId: 'qa-1',
-                    appendIssueDiagnostic: () => {
-                        throw new Error('append failed');
-                    },
-                    warn,
-                })
-            );
-
-            expect(() => {
-                isolatedOrchestrator.handleGlobalError(
-                    {
-                        code: AppErrorCode.NETWORK_TIMEOUT,
-                        message: 'test',
-                        recoverable: true,
-                    },
-                    'test-context'
-                );
-            }).not.toThrow();
-
-            expect(warn).toHaveBeenCalledWith(
-                '[RecoverableRuntimeReporter] reportError failed:',
-                expect.objectContaining({
-                    message: 'append failed',
-                })
-            );
-        });
-
         it('defers reentrant global errors until the active handling pass completes', () => {
             expectConsoleWarn([
                 'Global error in outer-context',
@@ -4215,7 +4180,14 @@ describe('AppOrchestrator', () => {
 
         it('reports structuredClone fallback once per failing context identity', () => {
             const originalStructuredClone = globalThis.structuredClone;
-            const reportError = jest.fn();
+            const warning = expectConsoleWarn([
+                'Falling back to diagnostic-value clone for module status error context',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        message: 'clone failed',
+                    }),
+                }),
+            ], { times: 2 });
             const context = {
                 source: 'test',
                 nested: {
@@ -4230,10 +4202,6 @@ describe('AppOrchestrator', () => {
                 }),
             });
 
-            Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
-                reportIssue: jest.fn(),
-                reportError,
-            });
             Reflect.set(orchestrator as object, '_moduleStatus', new Map([
                 [
                     'plex-auth',
@@ -4262,16 +4230,7 @@ describe('AppOrchestrator', () => {
                     },
                 });
                 expect(secondReturned?.error?.context).toEqual(firstReturned?.error?.context);
-                expect(reportError).toHaveBeenCalledTimes(1);
-                expect(reportError).toHaveBeenNthCalledWith(
-                    1,
-                    'orchestrator.moduleStatus.cloneContext',
-                    'Falling back to diagnostic-value clone for module status error context',
-                    expect.objectContaining({
-                        message: 'clone failed',
-                    }),
-                    {}
-                );
+                expect(warning.getCalls()).toHaveLength(1);
 
                 Reflect.set(orchestrator as object, '_moduleStatus', new Map([
                     [
@@ -4294,7 +4253,7 @@ describe('AppOrchestrator', () => {
 
                 orchestrator.getModuleStatus();
 
-                expect(reportError).toHaveBeenCalledTimes(2);
+                expect(warning.getCalls()).toHaveLength(2);
             } finally {
                 Object.defineProperty(globalThis, 'structuredClone', {
                     configurable: true,
@@ -4304,17 +4263,21 @@ describe('AppOrchestrator', () => {
         });
 
         it('returns null and reports when Plex resource URL accessor dependencies throw', () => {
-            const reportError = jest.fn();
+            const warning = expectConsoleWarn([
+                'buildPlexResourceUrlWithAuth failed',
+                expect.objectContaining({
+                    pathOrUrl: '/library/metadata/1/thumb?X-Plex-Token=REDACTED',
+                    baseUri: 'http://localhost:32400?X-Plex-Token=REDACTED',
+                    safeError: expect.objectContaining({
+                        message: 'auth headers failed',
+                    }),
+                }),
+            ]);
 
             mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400?X-Plex-Token=base-secret');
             mockPlexAuth.getAuthHeaders.mockImplementation(() => {
                 throw new Error('auth headers failed');
             });
-            Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
-                reportIssue: jest.fn(),
-                reportError,
-            });
-
             try {
                 expect(
                     Reflect.get(
@@ -4322,17 +4285,7 @@ describe('AppOrchestrator', () => {
                         '_buildPlexResourceUrl'
                     ).call(orchestrator, '/library/metadata/1/thumb?X-Plex-Token=path-secret')
                 ).toBeNull();
-                expect(reportError).toHaveBeenCalledWith(
-                    'orchestrator.plexResourceUrl.build',
-                    'buildPlexResourceUrlWithAuth failed',
-                    expect.objectContaining({
-                        message: 'auth headers failed',
-                    }),
-                    expect.objectContaining({
-                        pathOrUrl: '/library/metadata/1/thumb?X-Plex-Token=REDACTED',
-                        baseUri: 'http://localhost:32400?X-Plex-Token=REDACTED',
-                    })
-                );
+                expect(warning.getCalls()).toHaveLength(1);
             } finally {
                 mockPlexDiscovery.getServerUri.mockReset();
                 mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');

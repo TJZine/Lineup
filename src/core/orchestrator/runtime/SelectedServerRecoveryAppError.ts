@@ -1,19 +1,10 @@
 import type { AppError } from '../../../modules/lifecycle';
 import { AppErrorCode } from '../../../types/app-errors';
-import type {
-    SelectedServerQuarantineCommandState,
-    SelectedServerQuarantinePhase,
+import {
+    isSelectedServerQuarantinePhase,
+    type SelectedServerQuarantineCommandState,
 } from '../../server-selection/SelectedServerQuarantineRecoveryState';
 import { projectSelectedServerRecoveryDiagnosticForLog } from '../../server-selection/SelectedServerRecoveryDiagnostics';
-
-const RECOVERY_PHASES = new Set<SelectedServerQuarantinePhase>([
-    'discovery_restore',
-    'persistence_restore',
-    'selected_runtime_restore',
-    'unselected_runtime_restore',
-    'preparation',
-    'proof',
-]);
 
 export function createSelectedServerRecoveryAppError(
     message: string,
@@ -47,8 +38,7 @@ export function createSelectedServerRecoveryLogData(
     if (
         !context
         || context['recoveryMode'] !== 'selected-server-quarantine'
-        || typeof context['recoveryPhase'] !== 'string'
-        || !RECOVERY_PHASES.has(context['recoveryPhase'] as SelectedServerQuarantinePhase)
+        || !isSelectedServerQuarantinePhase(context['recoveryPhase'])
     ) {
         return undefined;
     }

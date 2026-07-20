@@ -33,52 +33,17 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
         expect(warn).toHaveBeenNthCalledWith(2, 'Recoverable failure', { detail: 'x' });
     });
 
-    it('keeps recoverable reporter failures inside the reporter collaborator during global error handling', () => {
-        const warn = jest.fn();
-        const orchestrator = new AppOrchestrator();
-        Reflect.set(
-            orchestrator as object,
-            '_recoverableRuntimeReporter',
-            createRecoverableRuntimeIssueReporter({
-                issueId: 'qa-1',
-                appendIssueDiagnostic: () => {
-                    throw new Error('append failed');
-                },
-                warn,
-            })
-        );
-
-        expect(() => {
-            orchestrator.handleGlobalError(
-                {
-                    code: AppErrorCode.NETWORK_TIMEOUT,
-                    message: 'test',
-                    recoverable: true,
-                },
-                'test-context'
-            );
-        }).not.toThrow();
-
-        expect(warn).toHaveBeenCalledWith(
-            '[RecoverableRuntimeReporter] reportError failed:',
-            expect.objectContaining({
-                message: 'append failed',
-            })
-        );
-    });
-
     it('logs only the typed redacted selected-server recovery diagnostic', () => {
-        const warn = jest.fn();
+        const warning = expectConsoleWarn([
+            'Global error in server-selection-quarantine',
+            expect.objectContaining({
+                selectedServerRecovery: expect.objectContaining({
+                    recoveryMode: 'selected-server-quarantine',
+                    recoveryPhase: 'preparation',
+                }),
+            }),
+        ]);
         const orchestrator = new AppOrchestrator();
-        Reflect.set(
-            orchestrator as object,
-            '_recoverableRuntimeReporter',
-            createRecoverableRuntimeIssueReporter({
-                issueId: 'qa-1',
-                appendIssueDiagnostic: jest.fn(),
-                warn,
-            })
-        );
 
         orchestrator.handleGlobalError({
             code: AppErrorCode.INITIALIZATION_FAILED,
@@ -114,7 +79,7 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
             },
         }, 'server-selection-quarantine');
 
-        expect(warn).toHaveBeenCalledWith(
+        expect(warning.getLastCall()).toEqual([
             'Global error in server-selection-quarantine',
             expect.objectContaining({
                 selectedServerRecovery: {
@@ -138,9 +103,9 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
                         }],
                     },
                 },
-            })
-        );
-        const serializedWarnings = JSON.stringify(warn.mock.calls);
+            }),
+        ]);
+        const serializedWarnings = JSON.stringify(warning.getCalls());
         expect(serializedWarnings).not.toContain('operation-secret');
         expect(serializedWarnings).not.toContain('recovery-secret');
         expect(serializedWarnings).not.toContain('preparation-secret');

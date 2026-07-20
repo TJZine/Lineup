@@ -1,12 +1,26 @@
 import type { SelectedServerRecoveryDiagnostic } from './SelectedServerRecoveryDiagnostics';
 
+export const SELECTED_SERVER_QUARANTINE_PHASES = [
+    'discovery_restore',
+    'persistence_restore',
+    'selected_runtime_restore',
+    'unselected_runtime_restore',
+    'preparation',
+    'proof',
+] as const;
+
 export type SelectedServerQuarantinePhase =
-    | 'discovery_restore'
-    | 'persistence_restore'
-    | 'selected_runtime_restore'
-    | 'unselected_runtime_restore'
-    | 'preparation'
-    | 'proof';
+    typeof SELECTED_SERVER_QUARANTINE_PHASES[number];
+
+const SELECTED_SERVER_QUARANTINE_PHASE_SET: ReadonlySet<string> =
+    new Set(SELECTED_SERVER_QUARANTINE_PHASES);
+
+export function isSelectedServerQuarantinePhase(
+    value: unknown
+): value is SelectedServerQuarantinePhase {
+    return typeof value === 'string'
+        && SELECTED_SERVER_QUARANTINE_PHASE_SET.has(value);
+}
 
 export type SelectedServerQuarantineCommandState =
     | { kind: 'clear' }

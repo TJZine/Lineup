@@ -230,7 +230,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
             handleGlobalError: jest.fn(),
             reportRecoverableAsyncFailure: jest.fn(),
             setReady: jest.fn(),
-            setupEventWiring: jest.fn(),
+            setupEventWiring: jest.fn(() => true),
             configureDiscoveryStorage: jest.fn(),
             configureChannelManagerStorage: jest.fn().mockResolvedValue(undefined),
             getSelectedServerId: jest.fn().mockReturnValue(null),
@@ -1285,6 +1285,7 @@ describe('InitializationCoordinator (Plex Home)', () => {
         let setupEventWiringWasCompleteWhenQueuedResolved: boolean | null = null;
         (callbacks.setupEventWiring as jest.Mock).mockImplementation(() => {
             setupEventWiringCompleted = true;
+            return true;
         });
 
         const firstRunPromise = coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
