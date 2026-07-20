@@ -1,16 +1,24 @@
 import type { AppError } from '../../../modules/lifecycle';
 import { AppErrorCode } from '../../../types/app-errors';
+import type {
+    SelectedServerQuarantineCommandState,
+} from '../../server-selection/SelectedServerQuarantineRecoveryState';
 
-const SELECTED_SERVER_RECOVERY_CONTEXT = Object.freeze({
-    recoveryMode: 'selected-server-quarantine',
-});
-
-export function createSelectedServerRecoveryAppError(message: string): AppError {
+export function createSelectedServerRecoveryAppError(
+    message: string,
+    quarantine?: Extract<SelectedServerQuarantineCommandState, { kind: 'quarantined' }>
+): AppError {
     return {
         code: AppErrorCode.INITIALIZATION_FAILED,
         message,
         recoverable: true,
-        context: SELECTED_SERVER_RECOVERY_CONTEXT,
+        context: Object.freeze({
+            recoveryMode: 'selected-server-quarantine',
+            ...(quarantine ? {
+                recoveryPhase: quarantine.phase,
+                recoveryDiagnostic: quarantine.diagnostic,
+            } : {}),
+        }),
     };
 }
 

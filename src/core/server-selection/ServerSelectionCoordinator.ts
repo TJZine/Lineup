@@ -18,7 +18,14 @@ import {
     SelectedServerQuarantineRecoveryState,
     type SelectedServerQuarantineCommandState,
     type SelectedServerQuarantinePhase,
+    type SelectedServerQuarantineRecovery,
 } from './SelectedServerQuarantineRecoveryState';
+import {
+    createSelectedServerRecoveryDiagnostic,
+    retainSelectedServerPreparationFailures,
+    withSelectedServerPreparationFailures,
+    type SelectedServerRecoveryDiagnostic,
+} from './SelectedServerRecoveryDiagnostics';
 import type {
     OrchestratorServerSelectionResult,
     SelectedServerPersistenceResult,
@@ -61,6 +68,8 @@ export interface ServerSelectionCoordinatorDeps {
         operation: CurrentOperation;
     }): Promise<SelectedServerInitializationResult>;
     restoreUnselectedRuntime(operation: CurrentOperation): Promise<void>;
+    clearSelectedServerSelection(): Promise<void>;
+    restoreClearedUnselectedRuntime(): Promise<void>;
     prepareQuarantineRuntime(): Promise<void>;
     releaseQuarantineRuntimeGate(): void;
     exitQuarantine(): Promise<void>;
@@ -76,12 +85,24 @@ export class ServerSelectionCoordinator {
         serverId: string,
         options?: PlexDiscoverySignalOptions
     ): Promise<OrchestratorServerSelectionResult> {
-        const selection = this._selectionTail.then(() => {
+        return this._enqueue(async () => {
             this._quarantine.assertSelectionAllowed();
             return this._selectServerTransaction(serverId, options);
         });
-        this._selectionTail = selection.then(() => undefined, () => undefined);
-        return selection;
+    }
+
+    clearSelectedServer(): Promise<void> {
+        return this._enqueue(async () => {
+            this._quarantine.assertSelectionAllowed();
+            await this._deps.clearSelectedServerSelection();
+            try {
+                await this._deps.restoreClearedUnselectedRuntime();
+                this._deps.resumeAfterScopeTransition();
+            } catch (error: unknown) {
+                await this._enterQuarantine(this._createClearedRuntimeRecovery(error));
+                throw error;
+            }
+        });
     }
 
     getQuarantineState(): SelectedServerQuarantineCommandState {
@@ -95,6 +116,12 @@ export class ServerSelectionCoordinator {
 
     exitQuarantine(): Promise<void> {
         return this._quarantine.exit();
+    }
+
+    private _enqueue<T>(command: () => Promise<T>): Promise<T> {
+        const result = this._selectionTail.then(command);
+        this._selectionTail = result.then(() => undefined, () => undefined);
+        return result;
     }
 
     private async _selectServerTransaction(
@@ -136,7 +163,13 @@ export class ServerSelectionCoordinator {
             preDiscoveryOperation.assertCurrent();
             if (result.kind !== 'selected') {
                 rollbackAttempted = true;
-                await this._rollbackOrQuarantine(discoverySnapshot, evidence);
+                await this._rollbackOrQuarantine(
+                    discoverySnapshot,
+                    evidence,
+                    new Error(`Server selection failed: ${
+                        result.kind === 'server_not_found' ? 'server_not_found' : result.reason
+                    }`)
+                );
                 return {
                     kind: 'selection_failed',
                     reason: result.kind === 'server_not_found' ? 'server_not_found' : result.reason,
@@ -174,7 +207,10 @@ export class ServerSelectionCoordinator {
                 };
             }
             rollbackAttempted = true;
-            await this._rollbackOrQuarantine(discoverySnapshot, evidence);
+            const selectionFailure = initialized.kind === 'failed'
+                ? initialized.error
+                : new Error(`Selected-server initialization stopped: ${initialized.reason}`);
+            await this._rollbackOrQuarantine(discoverySnapshot, evidence, selectionFailure);
             if (initialized.kind === 'failed') throw initialized.error;
             preDiscoveryOperation.assertCurrent();
             if (initialized.reason === 'auth_required') {
@@ -208,7 +244,7 @@ export class ServerSelectionCoordinator {
                         );
                     }
                 }
-                await this._rollbackOrQuarantine(discoverySnapshot, evidence);
+                await this._rollbackOrQuarantine(discoverySnapshot, evidence, error);
             }
             throw error;
         } finally {
@@ -242,10 +278,14 @@ export class ServerSelectionCoordinator {
             await handoff;
             throw originalError;
         }
-        await this._enterQuarantine({
-            phase: 'discovery_restore',
-            retry: () => this._restorePreviousScope(discoverySnapshot, evidence),
-        });
+        const recoveryFailure = new Error('Selected-server scope was superseded without a startup handoff.');
+        await this._enterQuarantine(this._createRollbackRecovery(
+            discoverySnapshot,
+            evidence,
+            originalError,
+            recoveryFailure,
+            'discovery_restore'
+        ));
         throw originalError;
     }
 
@@ -270,37 +310,141 @@ export class ServerSelectionCoordinator {
 
     private async _rollbackOrQuarantine(
         snapshot: PlexDiscoverySelectedServerSnapshot,
-        evidence: SelectedServerPersistenceEvidence
+        evidence: SelectedServerPersistenceEvidence,
+        selectionFailure: unknown
     ): Promise<void> {
         try {
             await this._restorePreviousScope(snapshot, evidence);
         } catch (error: unknown) {
             const phase = getRecoveryFailurePhase(error);
-            await this._enterQuarantine({
-                phase,
-                retry: () => this._restorePreviousScope(snapshot, evidence),
-            });
+            await this._enterQuarantine(this._createRollbackRecovery(
+                snapshot,
+                evidence,
+                selectionFailure,
+                error,
+                phase
+            ));
             throw error;
         }
     }
 
-    private async _enterQuarantine(recovery: {
-        phase: SelectedServerQuarantinePhase;
-        retry(): Promise<void>;
-    }): Promise<void> {
+    private _createRollbackRecovery(
+        snapshot: PlexDiscoverySelectedServerSnapshot,
+        evidence: SelectedServerPersistenceEvidence,
+        selectionFailure: unknown,
+        recoveryFailure: unknown,
+        phase: SelectedServerQuarantinePhase
+    ): SelectedServerQuarantineRecovery {
+        const diagnostic = createSelectedServerRecoveryDiagnostic(
+            'selection',
+            selectionFailure,
+            phase,
+            recoveryFailure
+        );
+        return {
+            phase,
+            diagnostic,
+            retry: async (priorDiagnostic): Promise<void> => {
+                try {
+                    await this._restorePreviousScope(snapshot, evidence);
+                } catch (error: unknown) {
+                    const retryPhase = getRecoveryFailurePhase(error);
+                    const nextRecovery = this._createRollbackRecovery(
+                        snapshot,
+                        evidence,
+                        selectionFailure,
+                        error,
+                        retryPhase
+                    );
+                    this._quarantine.enter(this._retainPreparationHistory(
+                        nextRecovery,
+                        priorDiagnostic
+                    ));
+                    throw error;
+                }
+            },
+        };
+    }
+
+    private _createClearedRuntimeRecovery(
+        operationFailure: unknown,
+        recoveryFailure: unknown = operationFailure
+    ): SelectedServerQuarantineRecovery {
+        const diagnostic = createSelectedServerRecoveryDiagnostic(
+            'clear',
+            operationFailure,
+            'unselected_runtime_restore',
+            recoveryFailure
+        );
+        return {
+            phase: 'unselected_runtime_restore',
+            diagnostic,
+            retry: async (priorDiagnostic): Promise<void> => {
+                try {
+                    await this._deps.restoreClearedUnselectedRuntime();
+                    this._deps.resumeAfterScopeTransition();
+                } catch (error: unknown) {
+                    const nextRecovery = this._createClearedRuntimeRecovery(
+                        operationFailure,
+                        error
+                    );
+                    this._quarantine.enter(this._retainPreparationHistory(
+                        nextRecovery,
+                        priorDiagnostic
+                    ));
+                    throw new SelectedServerRecoveryError('unselected_runtime_restore', error);
+                }
+            },
+        };
+    }
+
+    private async _enterQuarantine(recovery: SelectedServerQuarantineRecovery): Promise<void> {
         this._quarantine.enter(recovery);
         try {
             await this._deps.prepareQuarantineRuntime();
         } catch (error: unknown) {
-            this._quarantine.enter({
-                phase: 'preparation',
-                retry: async () => {
-                    await this._deps.prepareQuarantineRuntime();
-                    await recovery.retry();
-                },
-            });
+            this._quarantine.enter(this._createPreparationRecovery(recovery, error));
             throw new SelectedServerRecoveryError('preparation', error);
         }
+    }
+
+    private _retainPreparationHistory(
+        recovery: SelectedServerQuarantineRecovery,
+        priorDiagnostic?: SelectedServerRecoveryDiagnostic
+    ): SelectedServerQuarantineRecovery {
+        const diagnostic = retainSelectedServerPreparationFailures(
+            recovery.diagnostic,
+            priorDiagnostic
+        );
+        if (diagnostic === recovery.diagnostic) return recovery;
+        return {
+            ...recovery,
+            diagnostic,
+            retry: () => recovery.retry(diagnostic),
+        };
+    }
+
+    private _createPreparationRecovery(
+        recovery: SelectedServerQuarantineRecovery,
+        preparationFailure: unknown
+    ): SelectedServerQuarantineRecovery {
+        const diagnostic = withSelectedServerPreparationFailures(
+            recovery.diagnostic,
+            preparationFailure
+        );
+        return {
+            phase: 'preparation',
+            diagnostic,
+            retry: async (): Promise<void> => {
+                try {
+                    await this._deps.prepareQuarantineRuntime();
+                } catch (error: unknown) {
+                    this._quarantine.enter(this._createPreparationRecovery(recovery, error));
+                    throw new SelectedServerRecoveryError('preparation', error);
+                }
+                await recovery.retry(diagnostic);
+            },
+        };
     }
 
     private async _restorePreviousScope(

@@ -353,7 +353,14 @@ export class AppOrchestrator {
                 this._updateModuleStatus('plex-stream-resolver', 'pending');
             },
             setReady: (ready): void => { this._ready = ready; },
-            publishLoadingLifecycle: (): void => this._lifecycle?.setPhase('loading_data'),
+            publishLoadingLifecycle: async (): Promise<void> => {
+                if (
+                    this._lifecycle
+                    && !await this._lifecycle.setPhaseAndWait('loading_data')
+                ) {
+                    throw new Error('Lifecycle rejected the unselected server phase.');
+                }
+            },
             openServerSelect: (): void => this._navigation?.goTo('server-select', { allowAutoConnect: false }),
             exitApplication: (): Promise<void> => this.shutdown(),
             throwModuleInitPreconditionError: this._throwModuleInitPreconditionError.bind(this),
@@ -1216,8 +1223,6 @@ export class AppOrchestrator {
     async clearSelectedServer(): Promise<void> {
         this._assertNotShutdown('clearSelectedServer');
         await this._serverSelectionRuntime.clearSelectedServer();
-        this._clearIdentityScopedRuntimeState({ stopPlayback: true });
-        await this._configureChannelManagerStorageForSelectedServer();
     }
 
     getQuarantineState(): SelectedServerQuarantineCommandState { return this._serverSelectionRuntime.getQuarantineState(); }

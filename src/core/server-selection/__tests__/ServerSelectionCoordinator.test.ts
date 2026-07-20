@@ -98,6 +98,8 @@ function createHarness(snapshot?: PlexDiscoverySelectedServerSnapshot): Coordina
             startupHandoff.getSupersedingStartupHandoff(lineage)),
         runSelectedServerInitialization: jest.fn().mockResolvedValue(COMPLETED),
         restoreUnselectedRuntime: jest.fn().mockResolvedValue(undefined),
+        clearSelectedServerSelection: jest.fn().mockResolvedValue(undefined),
+        restoreClearedUnselectedRuntime: jest.fn().mockResolvedValue(undefined),
         prepareQuarantineRuntime: jest.fn().mockResolvedValue(undefined),
         releaseQuarantineRuntimeGate: jest.fn(),
         exitQuarantine: jest.fn().mockResolvedValue(undefined),
@@ -295,7 +297,7 @@ describe('ServerSelectionCoordinator', () => {
 
         await expect(coordinator.selectServer('candidate')).rejects.toBeDefined();
         expect(harness.deps.restoreDiscoverySelectionSnapshot).not.toHaveBeenCalled();
-        expect(coordinator.getQuarantineState()).toEqual({
+        expect(coordinator.getQuarantineState()).toMatchObject({
             kind: 'quarantined',
             phase: 'discovery_restore',
             commandPending: false,
@@ -441,7 +443,7 @@ describe('ServerSelectionCoordinator', () => {
         await expect(coordinator.selectServer('candidate')).rejects.toMatchObject({
             message: 'Selected-server recovery failed during persistence_restore.',
         });
-        expect(coordinator.getQuarantineState()).toEqual({
+        expect(coordinator.getQuarantineState()).toMatchObject({
             kind: 'quarantined',
             phase: 'persistence_restore',
             commandPending: false,
@@ -500,6 +502,207 @@ describe('ServerSelectionCoordinator', () => {
         expect(harness.deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledTimes(2);
         expect(harness.deps.releaseQuarantineRuntimeGate).toHaveBeenCalledTimes(1);
         expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
+    });
+
+    it('retains preparation diagnostics when the later rollback Retry fails', async () => {
+        const harness = createHarness();
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({
+            kind: 'failed',
+            error: new Error('forward failed'),
+        });
+        harness.deps.restoreDiscoverySelectionSnapshot.mockImplementationOnce(() => {
+            throw new Error('initial restore failed');
+        });
+        harness.deps.prepareQuarantineRuntime
+            .mockRejectedValueOnce(new Error('preparation failed'))
+            .mockResolvedValueOnce(undefined);
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+        await expect(coordinator.selectServer('candidate')).rejects.toThrow('preparation');
+
+        harness.deps.restorePersistenceEvidence.mockImplementationOnce(() => {
+            throw new Error('retry persistence failed');
+        });
+        await expect(coordinator.retryQuarantineRecovery()).rejects.toThrow('persistence_restore');
+
+        expect(coordinator.getQuarantineState()).toMatchObject({
+            kind: 'quarantined',
+            phase: 'persistence_restore',
+            diagnostic: {
+                recoveryFailure: {
+                    step: 'persistence_restore',
+                    error: { message: 'retry persistence failed' },
+                },
+                preparationFailures: [{
+                    step: 'preparation',
+                    error: { message: 'preparation failed' },
+                }],
+            },
+        });
+        expect(harness.deps.releaseQuarantineRuntimeGate).not.toHaveBeenCalled();
+
+        harness.deps.restorePersistenceEvidence.mockImplementationOnce(() => {
+            throw new Error('second retry persistence failed');
+        });
+        await expect(coordinator.retryQuarantineRecovery()).rejects.toThrow(
+            'persistence_restore'
+        );
+        expect(coordinator.getQuarantineState()).toMatchObject({
+            kind: 'quarantined',
+            phase: 'persistence_restore',
+            diagnostic: {
+                recoveryFailure: {
+                    error: { message: 'second retry persistence failed' },
+                },
+                preparationFailures: [{
+                    step: 'preparation',
+                    error: { message: 'preparation failed' },
+                }],
+            },
+        });
+    });
+
+    it('serializes clear with selection and completes a coherent unselected restoration', async () => {
+        const harness = createHarness();
+        let releaseSelection!: () => void;
+        let markSelectionStarted!: () => void;
+        const selectionStarted = new Promise<void>((resolve) => {
+            markSelectionStarted = resolve;
+        });
+        harness.deps.runSelectedServerInitialization.mockImplementationOnce((): Promise<SelectedServerInitializationResult> =>
+            new Promise((resolve) => {
+                markSelectionStarted();
+                releaseSelection = (): void => resolve(COMPLETED);
+            })
+        );
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+        const selection = coordinator.selectServer('candidate');
+        const clear = coordinator.clearSelectedServer();
+        await selectionStarted;
+
+        expect(harness.deps.clearSelectedServerSelection).not.toHaveBeenCalled();
+        releaseSelection();
+        await selection;
+        await clear;
+
+        expect(harness.deps.clearSelectedServerSelection).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restoreClearedUnselectedRuntime).toHaveBeenCalledTimes(1);
+        expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(2);
+    });
+
+    it('quarantines failed clear restoration and Retry clears only after full recovery', async () => {
+        const harness = createHarness();
+        const firstFailure = new Error('storage reconfiguration failed');
+        harness.deps.restoreClearedUnselectedRuntime
+            .mockRejectedValueOnce(firstFailure)
+            .mockResolvedValueOnce(undefined);
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+        await expect(coordinator.clearSelectedServer()).rejects.toBe(firstFailure);
+
+        expect(coordinator.getQuarantineState()).toMatchObject({
+            kind: 'quarantined',
+            phase: 'unselected_runtime_restore',
+            diagnostic: {
+                operationFailure: {
+                    step: 'clear',
+                    error: { message: 'storage reconfiguration failed' },
+                },
+                recoveryFailure: {
+                    step: 'unselected_runtime_restore',
+                    error: { message: 'storage reconfiguration failed' },
+                },
+            },
+        });
+        expect(harness.deps.resumeAfterScopeTransition).not.toHaveBeenCalled();
+
+        await coordinator.retryQuarantineRecovery();
+
+        expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
+        expect(harness.deps.restoreClearedUnselectedRuntime).toHaveBeenCalledTimes(2);
+        expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(1);
+        expect(harness.deps.releaseQuarantineRuntimeGate).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves the original clear cause when a later clear recovery Retry fails', async () => {
+        const harness = createHarness();
+        harness.deps.restoreClearedUnselectedRuntime
+            .mockRejectedValueOnce(new Error('original clear restoration failed'))
+            .mockRejectedValueOnce(new Error('retry restoration failed'));
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+        await expect(coordinator.clearSelectedServer()).rejects.toThrow(
+            'original clear restoration failed'
+        );
+
+        await expect(coordinator.retryQuarantineRecovery()).rejects.toThrow(
+            'unselected_runtime_restore'
+        );
+
+        expect(coordinator.getQuarantineState()).toMatchObject({
+            kind: 'quarantined',
+            phase: 'unselected_runtime_restore',
+            diagnostic: {
+                operationFailure: {
+                    step: 'clear',
+                    error: { message: 'original clear restoration failed' },
+                },
+                recoveryFailure: {
+                    step: 'unselected_runtime_restore',
+                    error: { message: 'retry restoration failed' },
+                },
+            },
+        });
+        expect(harness.deps.releaseQuarantineRuntimeGate).not.toHaveBeenCalled();
+    });
+
+    it('updates quarantine phase and safe cause when Retry fails in a later rollback step', async () => {
+        const harness = createHarness();
+        const tokenUrl = 'https://host/path?X-Plex-Token=secret';
+        harness.deps.runSelectedServerInitialization.mockResolvedValueOnce({
+            kind: 'failed',
+            error: Object.assign(new Error(`initialization failed at ${tokenUrl}`), {
+                code: 'PMS_INIT',
+                headers: { 'X-Plex-Token': 'must-not-escape' },
+            }),
+        });
+        harness.deps.restoreDiscoverySelectionSnapshot
+            .mockImplementationOnce(() => {
+                throw new Error('first discovery restore failed');
+            });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+        await expect(coordinator.selectServer('candidate')).rejects.toThrow('discovery_restore');
+
+        harness.deps.restorePersistenceEvidence.mockImplementationOnce(() => {
+            throw Object.assign(new Error(`retry persistence failed at ${tokenUrl}`), {
+                payload: { token: 'must-not-escape' },
+            });
+        });
+        await expect(coordinator.retryQuarantineRecovery()).rejects.toThrow('persistence_restore');
+
+        const state = coordinator.getQuarantineState();
+        expect(state).toMatchObject({
+            kind: 'quarantined',
+            phase: 'persistence_restore',
+            diagnostic: {
+                operationFailure: {
+                    step: 'selection',
+                    error: {
+                        name: 'Error',
+                        code: 'PMS_INIT',
+                        message: 'initialization failed at [REDACTED_URL]',
+                    },
+                },
+                recoveryFailure: {
+                    step: 'persistence_restore',
+                    error: {
+                        name: 'Error',
+                        message: 'retry persistence failed at [REDACTED_URL]',
+                    },
+                },
+            },
+        });
+        expect(JSON.stringify(state)).not.toContain('secret');
+        expect(JSON.stringify(state)).not.toContain('must-not-escape');
     });
 });
 

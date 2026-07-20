@@ -1,3 +1,5 @@
+import type { SelectedServerRecoveryDiagnostic } from './SelectedServerRecoveryDiagnostics';
+
 export type SelectedServerQuarantinePhase =
     | 'discovery_restore'
     | 'persistence_restore'
@@ -8,27 +10,38 @@ export type SelectedServerQuarantinePhase =
 
 export type SelectedServerQuarantineCommandState =
     | { kind: 'clear' }
-    | { kind: 'quarantined'; phase: SelectedServerQuarantinePhase; commandPending: boolean };
+    | {
+        kind: 'quarantined';
+        phase: SelectedServerQuarantinePhase;
+        commandPending: boolean;
+        diagnostic: SelectedServerRecoveryDiagnostic;
+    };
 
-type Recovery = {
+export type SelectedServerQuarantineRecovery = {
     phase: SelectedServerQuarantinePhase;
-    retry(): Promise<void>;
+    diagnostic: SelectedServerRecoveryDiagnostic;
+    retry(priorDiagnostic?: SelectedServerRecoveryDiagnostic): Promise<void>;
 };
 
 export class SelectedServerQuarantineRecoveryState {
-    private _recovery: Recovery | null = null;
+    private _recovery: SelectedServerQuarantineRecovery | null = null;
     private _commandTail: Promise<void> = Promise.resolve();
     private _commandPending = false;
 
     constructor(private readonly _exit: () => Promise<void>) {}
 
-    enter(recovery: Recovery): void {
+    enter(recovery: SelectedServerQuarantineRecovery): void {
         this._recovery = Object.freeze({ ...recovery });
     }
 
     getState(): SelectedServerQuarantineCommandState {
         return this._recovery
-            ? { kind: 'quarantined', phase: this._recovery.phase, commandPending: this._commandPending }
+            ? {
+                kind: 'quarantined',
+                phase: this._recovery.phase,
+                commandPending: this._commandPending,
+                diagnostic: this._recovery.diagnostic,
+            }
             : { kind: 'clear' };
     }
 

@@ -5,10 +5,11 @@ import type { IChannelScheduler } from '../../../modules/scheduler/scheduler';
 import type { IEPGComponent } from '../../../modules/ui/epg';
 import type { EPGCoordinator } from '../../../modules/ui/epg/coordinator/EPGCoordinator';
 import type { InitializationCoordinator } from '../../initialization/InitializationCoordinator';
+import { SelectedServerQuarantinePreparationError } from '../../server-selection/SelectedServerRecoveryDiagnostics';
 
 export interface OrchestratorSelectedServerQuarantinePreparationDeps {
     navigation: Pick<INavigationManager, 'activateRuntimeCommandGate' | 'cancelPendingChannelInput'> | null;
-    lifecycle: Pick<IAppLifecycle, 'setPhase'> | null;
+    lifecycle: Pick<IAppLifecycle, 'setPhaseAndWait'> | null;
     channelManager: Pick<IChannelManager, 'clearRuntimeStateForScopeTransition'> | null;
     scheduler: Pick<IChannelScheduler, 'unloadChannel'> | null;
     epgCoordinator: Pick<EPGCoordinator, 'clearSelectedChannelScheduleSnapshot' | 'clearScheduleCaches'> | null;
@@ -24,31 +25,51 @@ export interface OrchestratorSelectedServerQuarantinePreparationDeps {
 export async function prepareSelectedServerQuarantine(
     deps: OrchestratorSelectedServerQuarantinePreparationDeps
 ): Promise<void> {
-    const failures: unknown[] = [];
-    const run = (step: () => void): void => { try { step(); } catch (error: unknown) { failures.push(error); } };
-    const start = (step: () => Promise<void>): Promise<void> => {
-        try { return step(); } catch (error: unknown) { return Promise.reject(error); }
+    const failures: Array<{ step: string; error: unknown }> = [];
+    const run = (name: string, step: () => void): void => {
+        try { step(); } catch (error: unknown) { failures.push({ step: name, error }); }
     };
-    run(() => deps.navigation?.activateRuntimeCommandGate());
-    run(() => deps.navigation?.cancelPendingChannelInput());
-    run(deps.setReadyFalse);
-    run(() => deps.lifecycle?.setPhase('loading_data'));
+    const start = (name: string, step: () => Promise<void>): Promise<void> => {
+        try {
+            return step().catch((error: unknown) => {
+                failures.push({ step: name, error });
+            });
+        } catch (error: unknown) {
+            failures.push({ step: name, error });
+            return Promise.resolve();
+        }
+    };
+    run('runtime_command_gate', () => deps.navigation?.activateRuntimeCommandGate());
+    run('pending_channel_input', () => deps.navigation?.cancelPendingChannelInput());
+    run('ready_state', deps.setReadyFalse);
     const drains = [
-        start(deps.suspendAndDrainTuning),
-        start(() => deps.channelManager?.clearRuntimeStateForScopeTransition() ?? Promise.resolve()),
-        start(() => deps.initializationCoordinator?.prepareForSelectedServerQuarantine() ?? Promise.resolve()),
+        start('lifecycle', async () => {
+            const lifecycle = deps.lifecycle;
+            if (!lifecycle) return;
+            if (!await lifecycle.setPhaseAndWait('loading_data')) {
+                throw new Error('Lifecycle rejected selected-server recovery phase.');
+            }
+        }),
+        start('tuning', deps.suspendAndDrainTuning),
+        start(
+            'channel_runtime',
+            () => deps.channelManager?.clearRuntimeStateForScopeTransition() ?? Promise.resolve()
+        ),
+        start(
+            'initialization',
+            () => deps.initializationCoordinator?.prepareForSelectedServerQuarantine()
+                ?? Promise.resolve()
+        ),
     ];
-    run(deps.stopPlayback);
-    run(() => deps.scheduler?.unloadChannel());
-    run(deps.clearPlaybackState);
-    run(deps.disposeEventWiring);
-    for (const result of await Promise.allSettled(drains)) {
-        if (result.status === 'rejected') failures.push(result.reason);
-    }
-    run(() => deps.epgCoordinator?.clearSelectedChannelScheduleSnapshot());
-    run(() => deps.epgCoordinator?.clearScheduleCaches());
-    run(() => deps.epg?.clearSchedules());
+    run('playback', deps.stopPlayback);
+    run('scheduler', () => deps.scheduler?.unloadChannel());
+    run('playback_state', deps.clearPlaybackState);
+    run('event_wiring', deps.disposeEventWiring);
+    await Promise.all(drains);
+    run('epg_selected_channel', () => deps.epgCoordinator?.clearSelectedChannelScheduleSnapshot());
+    run('epg_cache', () => deps.epgCoordinator?.clearScheduleCaches());
+    run('epg_schedules', () => deps.epg?.clearSchedules());
     if (failures.length > 0) {
-        throw Object.assign(new Error('Selected-server quarantine preparation failed.'), { failures });
+        throw new SelectedServerQuarantinePreparationError(failures);
     }
 }

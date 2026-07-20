@@ -845,7 +845,21 @@ describe('App bootstrap smoke', () => {
     it('presents protected awaited quarantine recovery and closes only after core clears', async () => {
         const retryQuarantineRecovery = jest.fn().mockResolvedValue(undefined);
         const getQuarantineState = jest.spyOn(AppOrchestrator.prototype, 'getQuarantineState')
-            .mockReturnValueOnce({ kind: 'quarantined', phase: 'proof', commandPending: false })
+            .mockReturnValueOnce({
+                kind: 'quarantined',
+                phase: 'proof',
+                commandPending: false,
+                diagnostic: {
+                    operationFailure: {
+                        step: 'selection',
+                        error: { name: 'Error', message: 'selection failed' },
+                    },
+                    recoveryFailure: {
+                        step: 'proof',
+                        error: { name: 'Error', message: 'rollback proof failed' },
+                    },
+                },
+            })
             .mockReturnValue({ kind: 'clear' });
         const startedApp = await bootstrapApp(() => {
             jest.spyOn(AppOrchestrator.prototype, 'retryQuarantineRecovery')

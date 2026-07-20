@@ -13,7 +13,7 @@ describe('prepareSelectedServerQuarantine', () => {
             activateRuntimeCommandGate: jest.fn(),
             cancelPendingChannelInput: jest.fn(),
         };
-        const lifecycle = { setPhase: jest.fn() };
+        const lifecycle = { setPhaseAndWait: jest.fn().mockResolvedValue(true) };
         const channelManager = { clearRuntimeStateForScopeTransition: jest.fn(() => resolutionDrain) };
         const scheduler = { unloadChannel: jest.fn() };
         const epgCoordinator = {
@@ -42,7 +42,7 @@ describe('prepareSelectedServerQuarantine', () => {
         expect(navigation.activateRuntimeCommandGate).toHaveBeenCalledTimes(1);
         expect(navigation.cancelPendingChannelInput).toHaveBeenCalledTimes(1);
         expect(deps.setReadyFalse).toHaveBeenCalledTimes(1);
-        expect(lifecycle.setPhase).toHaveBeenCalledWith('loading_data');
+        expect(lifecycle.setPhaseAndWait).toHaveBeenCalledWith('loading_data');
         expect(channelManager.clearRuntimeStateForScopeTransition).toHaveBeenCalledTimes(1);
         expect(deps.stopPlayback).toHaveBeenCalledTimes(1);
         expect(scheduler.unloadChannel).toHaveBeenCalledTimes(1);
@@ -73,7 +73,7 @@ describe('prepareSelectedServerQuarantine', () => {
                 activateRuntimeCommandGate: jest.fn(() => { throw new Error('gate failed'); }),
                 cancelPendingChannelInput: jest.fn(),
             },
-            lifecycle: { setPhase: jest.fn() },
+            lifecycle: { setPhaseAndWait: jest.fn().mockResolvedValue(true) },
             channelManager: { clearRuntimeStateForScopeTransition: resolutionDrain },
             scheduler,
             epgCoordinator: {
@@ -95,5 +95,65 @@ describe('prepareSelectedServerQuarantine', () => {
         expect(scheduler.unloadChannel).toHaveBeenCalledTimes(1);
         expect(disposeEventWiring).toHaveBeenCalledTimes(1);
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
+    });
+
+    it('is retryable when lifecycle is already in the recovery phase', async () => {
+        const lifecycle = { setPhaseAndWait: jest.fn().mockResolvedValue(true) };
+        const deps: OrchestratorSelectedServerQuarantinePreparationDeps = {
+            navigation: {
+                activateRuntimeCommandGate: jest.fn(),
+                cancelPendingChannelInput: jest.fn(),
+            },
+            lifecycle,
+            channelManager: null,
+            scheduler: null,
+            epgCoordinator: null,
+            epg: null,
+            initializationCoordinator: null,
+            setReadyFalse: jest.fn(),
+            suspendAndDrainTuning: jest.fn().mockResolvedValue(undefined),
+            stopPlayback: jest.fn(),
+            clearPlaybackState: jest.fn(),
+            disposeEventWiring: jest.fn(),
+        };
+
+        await prepareSelectedServerQuarantine(deps);
+        await prepareSelectedServerQuarantine(deps);
+
+        expect(lifecycle.setPhaseAndWait).toHaveBeenCalledTimes(2);
+        expect(deps.suspendAndDrainTuning).toHaveBeenCalledTimes(2);
+    });
+
+    it('retains only named, redacted failure diagnostics', async () => {
+        const deps: OrchestratorSelectedServerQuarantinePreparationDeps = {
+            navigation: null,
+            lifecycle: {
+                setPhaseAndWait: jest.fn().mockRejectedValue(
+                    new Error('GET https://host/path?X-Plex-Token=secret failed')
+                ),
+            },
+            channelManager: null,
+            scheduler: null,
+            epgCoordinator: null,
+            epg: null,
+            initializationCoordinator: null,
+            setReadyFalse: jest.fn(),
+            suspendAndDrainTuning: jest.fn().mockResolvedValue(undefined),
+            stopPlayback: jest.fn(),
+            clearPlaybackState: jest.fn(),
+            disposeEventWiring: jest.fn(),
+        };
+
+        await expect(prepareSelectedServerQuarantine(deps)).rejects.toMatchObject({
+            name: 'SelectedServerQuarantinePreparationError',
+            failureDiagnostics: [{
+                step: 'lifecycle',
+                error: {
+                    name: 'Error',
+                    message: 'GET [REDACTED_URL] failed',
+                },
+            }],
+        });
+        await expect(prepareSelectedServerQuarantine(deps)).rejects.not.toHaveProperty('failures');
     });
 });

@@ -26,10 +26,12 @@ export class OrchestratorServerSelectionRuntimeProjection {
         try {
             return await this._runtime.selectServer(serverId, options);
         } catch (error: unknown) {
-            if (this._runtime.getQuarantineState().kind === 'quarantined') {
+            const quarantine = this._runtime.getQuarantineState();
+            if (quarantine.kind === 'quarantined') {
                 this._reportGlobalError(
                     createSelectedServerRecoveryAppError(
-                        'Selected-server recovery requires user action.'
+                        'Selected-server recovery requires user action.',
+                        quarantine
                     ),
                     'server-selection-quarantine'
                 );
@@ -38,8 +40,22 @@ export class OrchestratorServerSelectionRuntimeProjection {
         }
     }
 
-    clearSelectedServer(): Promise<void> {
-        return this._runtime.clearSelectedServer();
+    async clearSelectedServer(): Promise<void> {
+        try {
+            await this._runtime.clearSelectedServer();
+        } catch (error: unknown) {
+            const quarantine = this._runtime.getQuarantineState();
+            if (quarantine.kind === 'quarantined') {
+                this._reportGlobalError(
+                    createSelectedServerRecoveryAppError(
+                        'Selected-server recovery requires user action.',
+                        quarantine
+                    ),
+                    'server-selection-quarantine'
+                );
+            }
+            throw error;
+        }
     }
 
     getQuarantineState(): SelectedServerQuarantineCommandState {

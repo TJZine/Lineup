@@ -228,6 +228,9 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     private _setPhaseAndTrack(phase: AppPhase): Promise<boolean> {
+        if (this._phase === phase) {
+            return Promise.resolve(true);
+        }
         const validTransitions = VALID_PHASE_TRANSITIONS[this._phase];
         if (validTransitions && !validTransitions.includes(phase)) {
             console.warn(
