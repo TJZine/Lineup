@@ -212,6 +212,12 @@ after this extraction.
 - owns Plex-facing auth, discovery, library metadata, and stream/subtitle policy
 - `src/modules/plex/discovery/PlexDiscoverySelectionContext.ts` owns discovery-local monotonic context validity, per-invocation latest-selection authority, snapshot lineage, and opaque selected/restored-scope receipts with discovery-owned invalidation signals. `PlexDiscoverySelectionState.ts` owns receipt-aware selected-state commit, snapshot restore, current-receipt capture, clear ordering, and synchronous listener gates; `PlexServerDiscovery` delegates those transitions while capturing or advancing discovery authority for selection, initialization, and storage/profile transitions. Supersession is a typed discovery rejection exposed only through its public error and narrow predicate, while callers retain no counter, receipt construction, or mutation authority.
 - selected-server mutation order remains state, selected-id storage, `serverChange`, `connectionChange`, health storage, then success. Each suffix is context-guarded, including synchronous listener re-entry; caller abort is observed before selection-context validity, and standalone connection-probe contracts are unchanged.
+- `PlexServerDiscovery` retains each plex.tv resource's opaque, user-scoped PMS
+  access token in memory, owns selected-server PMS header/token projection, and owns
+  guarded resource-token refresh. Cloud credential changes invalidate cached
+  resources even when the storage namespace text is unchanged; public server views,
+  snapshots, and events are token-free, and PMS consumers never default to the Plex
+  Home cloud credential.
 - `src/modules/plex/library/PlexLibraryRequestScope.ts` owns the library-local
   immutable server URI/auth-header/opaque-key/version snapshot, exact private
   token-identity comparison, and currentness checks
@@ -222,7 +228,9 @@ after this extraction.
   `IPlexStreamResolver` implementation and delegates focused stream
   responsibilities instead of constructing settings/debug storage owners
   directly. It receives typed policy readers and a subtitle-debug logging port
-  from composition wiring.
+  from composition wiring. Direct PMS stream requests carry the discovery-owned
+  selected-server receipt through refresh, retry, response consumption, and cloud
+  classification, so identical resource-token text cannot bridge two selections.
 - `src/modules/plex/stream/capabilities/PlaybackCapabilityProfile.ts` owns the
   durable playback capability snapshot consumed by local direct-play decisions,
   Plex `X-Plex-Client-Capabilities` serialization, and public

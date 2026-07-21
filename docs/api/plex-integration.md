@@ -21,6 +21,12 @@ These are composed at the application composition root, not through interface in
 Pin-based OAuth flow for TV devices. Supports Plex Home user switching.
 
 ```typescript
+type PlexCurrentCredentialValidity =
+  | { kind: 'active_valid' }
+  | { kind: 'managed_profile_invalid'; accountValid: true }
+  | { kind: 'account_expired' }
+  | { kind: 'superseded' };
+
 interface IPlexAuth {
   requestPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
   checkPinStatus(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
@@ -30,6 +36,9 @@ interface IPlexAuth {
   validateStoredCredentials(options?: {
     signal?: AbortSignal | null;
   }): Promise<PlexStoredCredentialsValidationResult>;
+  probeCurrentCredentialValidity(options?: {
+    signal?: AbortSignal | null;
+  }): Promise<PlexCurrentCredentialValidity>;
   getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]>;
   switchHomeUser(userId: string, options?: { pin?: string | null; signal?: AbortSignal | null }): Promise<void>;
   getActiveUserId(): string | null;
@@ -40,6 +49,7 @@ interface IPlexAuth {
   clearCredentials(): void;
   isAuthenticated(): boolean;
   getCurrentUser(): PlexAuthToken | null;
+  // Plex.tv account/Home credential headers; PMS callers use discovery-owned resource headers.
   getAuthHeaders(): Record<string, string>;
   on(event: 'authChange', handler: (isAuthenticated: boolean) => void): IDisposable;
   on(event: 'profileChange', handler: (payload: { fromUserId: string | null; toUserId: string }) => void): IDisposable;
@@ -52,6 +62,11 @@ PIN and credential-capable auth operations use a private monotonic authority own
 
 `validateStoredCredentials()` owns the stored read, active/account fallback probes, validated credential reconstruction, and conditional commit as one transaction. Its tagged result includes an opaque guard whose `assertCurrent()` and read-only signal protect the remainder of that startup pass without exposing a counter or commit capability. Superseded work is a dedicated auth-local outcome, not invalid credentials and not recoverable pending-auth routing.
 
+Stored-token validation reuses the persisted username and email only when Plex omits
+those account-style fields from an otherwise valid managed-profile response. A
+distinct managed-profile token preserves its stored Plex Home `activeUserId` scope
+across validation; an account-active token adopts the freshly validated account id.
+
 PIN, profile-switch, and main-account logout success is fixed immediately after the guarded credential commit and before the first synchronous success event. Listener re-entry may supersede the operation and suppress later notifications, but cannot reject the committed result. `logoutActiveUser()` acquires authority even when no account exists; that path is a mutation-free successful no-op that still supersedes older work. Normal account-present notification order remains `authChange` then `profileChange`.
 
 Caller-provided cancellation signals on `requestPin()`, `checkPinStatus()`, `pollForPin()`, `validateToken()`, `getHomeUsers()`, and `switchHomeUser()` rethrow the caller's raw `AbortError` or abort reason so callers can distinguish explicit cancellation from Plex failures. `cancelPin()` remains the normal best-effort PIN cancellation API.
@@ -59,6 +74,11 @@ Caller-provided cancellation signals on `requestPin()`, `checkPinStatus()`, `pol
 `PlexAuthConfig.clientIdentifier` is resolved once at config assembly (`createDefaultPlexAuthConfig`) and treated as already-resolved input by `PlexAuth`.
 Canonical Plex identity metadata and identity-header assembly live in `src/modules/plex/auth/config.ts`; auth transport, platform identity, and stream callers consume or adapt those values instead of generating independent product/device metadata.
 `validateToken()` returns `false` only for explicit auth-invalid (`401`/`403`) outcomes. Timeout, service/network failures, and malformed success payloads throw typed `PlexApiError` failures; caller-triggered aborts are rethrown as raw aborts instead.
+`probeCurrentCredentialValidity()` is a read-only, race-aware cloud probe for PMS
+authorization classification. It does not acquire credential authority or expose
+tokens. It distinguishes a valid active credential, an invalid managed credential
+whose account credential remains valid, genuine account expiry, and concurrent
+credential supersession.
 Plex cloud `5xx` responses surface as retryable `SERVER_ERROR` failures; transport-level failures that do not produce an HTTP response remain server/network reachability failures.
 `getHomeUsers()` and `switchHomeUser()` throw typed auth failures for explicit credential problems instead of collapsing those outcomes into empty profile lists.
 `PlexHomeUser.restricted` is informational-only metadata in profile select UI and does not enforce startup or playback gating.
@@ -86,8 +106,13 @@ interface PlexTagDirectoryQueryOptions {
   requestIntent?: PlexLibraryRequestIntent;
 }
 
+type PlexLibraryAuthorizationFailure =
+  | { kind: 'account_auth_expired' }
+  | { kind: 'managed_profile_auth_invalid' }
+  | { kind: 'profile_server_access_denied' };
+
 interface PlexLibraryEvents {
-  authExpired: undefined;
+  authorizationFailure: PlexLibraryAuthorizationFailure;
   libraryRefreshed: { libraryId: string };
 }
 
@@ -162,6 +187,26 @@ interface IPlexLibrary {
 `getLibrary()` returns `null` only when the id is not present in a valid fetched section list. Unavailable or malformed section-list fetches throw `PlexLibraryError`.
 Across the rest of the library surface, `null` and empty arrays are reserved for real Plex not-found or empty-success outcomes such as `404` item lookups, empty metadata lists, or unsupported tag directories. Malformed payloads, empty `200` response bodies, timeout failures, and server errors reject with `PlexLibraryError` instead of collapsing into semantic empties.
 Each network/cache operation captures one immutable active-server URI and auth-header snapshot. If the active server/account identity changes before that operation settles, the operation rejects with `PlexLibraryScopeSupersededError`; stale results do not update library caches or emit library transport/refresh/tag callbacks. Callers that intentionally provide partial-result fallbacks must use `isPlexLibraryScopeSupersededError()` to rethrow that exact error before ordinary fallback conversion.
+PMS library `401` responses are handled inside the Plex boundary before recovery is
+emitted. The request client refreshes plex.tv resources once under the active cloud
+credential. When the selected resource returns a different PMS access token, the
+library adopts a new immutable selected-server scope and retries the PMS request
+exactly once. An unchanged token, a rejected one-time retry, or an unavailable
+selected resource then proceeds to cloud credential classification. There is no
+account-token fallback and no repeated resource refresh or PMS retry.
+
+A stale profile/server/resource-token scope remains
+`PlexLibraryScopeSupersededError`; a cloud-invalid managed credential with a
+still-valid account emits
+`managed_profile_auth_invalid`; a cloud-valid active credential rejected by PMS emits
+`profile_server_access_denied`; only cloud rejection of the owning account emits
+`account_auth_expired` and maps to global sign-in. These outcomes contain no token or
+token-bearing URL data.
+If resource refresh or the cloud credential probe times out, is rate-limited, or is
+unavailable, Lineup does not guess at credential or PMS access state and emits no
+authorization failure event. The typed cloud transport result is preserved; cloud service or
+reachability failures translate to `PLEX_CLOUD_UNAVAILABLE`, whose recovery is Retry
+or Exit rather than profile, account sign-in, or PMS server selection.
 Caller cancellation remains distinct and takes precedence at each observation boundary: an aborted signal rejects with its raw reason, including on a current cache hit. Count enrichment treats caller abort and scope supersession as fatal for the whole library-list request, while ordinary count failures remain best-effort and leave the affected count unknown.
 `getImageUrl()` returns `null` when no image URL can be built, such as an empty image path, missing active server URI, or a foreign absolute image URL. Plex tokens are only attached to active-server-owned image URLs.
 
@@ -207,6 +252,11 @@ interface PlexDiscoverySignalOptions {
   signal?: AbortSignal | null;
 }
 
+type PlexSelectedServerAccessTokenRefreshResult =
+  | { kind: 'updated' }
+  | { kind: 'unchanged' }
+  | { kind: 'selected_server_unavailable' };
+
 interface IPlexServerDiscovery {
   discoverServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
 
@@ -235,6 +285,15 @@ interface IPlexServerDiscovery {
   getSelectedConnection(): PlexConnection | null;
 
   getServerUri(): string | null;
+
+  getSelectedServerAuthHeaders(): Record<string, string>;
+
+  getSelectedServerAccessToken(): string | null;
+
+  refreshSelectedServerAccessToken(
+    expectedAccessToken: string,
+    options?: PlexDiscoverySignalOptions
+  ): Promise<PlexSelectedServerAccessTokenRefreshResult>;
 
   getHttpsConnection(): PlexConnection | null;
 
@@ -285,9 +344,31 @@ Selection revalidates before each probe continuation and before every selected-s
 Discovery is endpoint-aware: plex.tv cloud resource discovery `401`/`403` remains an auth recovery failure, while a PMS identity-probe `403` means the active Plex profile lacks permission for that server and surfaces as `access_denied` instead of invalid stored credentials.
 Plex cloud discovery `5xx` responses surface as retryable `SERVER_ERROR` failures after discovery retry policy is exhausted; request failures without an HTTP response remain `SERVER_UNREACHABLE`.
 
+The active account or Plex Home token is used only for plex.tv resource discovery.
+Discovery privately retains the opaque, user-scoped `accessToken` returned by
+`/api/v2/resources`; PMS identity probes and all selected-server consumers use that
+resource token with the normal Plex client identity headers. Resource tokens stay in
+memory and are preserved behind discovery-owned selection snapshots, rollback, and
+selected-server replacement. Public server lists, getters, and events are token-free.
+A profile/storage namespace or cloud-credential
+change invalidates cached resources before saved-server restoration so a token from
+another Home profile cannot be reused.
+The public `serverChange` event uses a token-free selected-server projection; callers
+that need PMS authorization use the dedicated selected-server header/token seams.
+
 ## Stream Resolution (`IPlexStreamResolver`)
 
 Converting metadata into a playable URL with codec analysis, direct-play eligibility, and transcode session management.
+
+Direct PMS stream transports use the same bounded authorization policy as library
+requests. A `401` refreshes the selected resource once; a changed PMS token permits
+exactly one retry. An unchanged or rejected replacement token is classified through
+the active Plex cloud credential as profile/server denial, managed-profile expiry,
+or account expiry. Cloud transport failures remain typed, and no account token is
+sent to PMS as a fallback. Universal-decision, selected-part subtitle, and transcode
+stop requests also retain the discovery-owned selection receipt across every async
+continuation. A replacement selection supersedes the request before retry or
+classification even when both resources happen to expose the same PMS token.
 
 ```typescript
 type StreamResolverErrorStage =
