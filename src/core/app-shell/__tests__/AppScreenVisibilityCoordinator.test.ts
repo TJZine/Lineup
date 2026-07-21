@@ -214,6 +214,79 @@ describe('AppScreenVisibilityCoordinator', () => {
         expect(serverSelectScreen.hide).not.toHaveBeenCalled();
     });
 
+    it('ignores an old startup success after an A to B to A route sequence', async () => {
+        currentScreen = 'server-select';
+        serverSelectParams = { allowAutoConnect: true };
+        registry.getServerSelectScreen.mockReturnValue(null);
+
+        let resolveOldServerSelect!: (screen: ServerSelectScreen) => void;
+        let resolveCurrentServerSelect!: (screen: ServerSelectScreen) => void;
+        registry.ensureServerSelectScreen
+            .mockReturnValueOnce(new Promise((resolve) => {
+                resolveOldServerSelect = resolve;
+            }))
+            .mockReturnValueOnce(new Promise((resolve) => {
+                resolveCurrentServerSelect = resolve;
+            }));
+
+        const coordinator = createCoordinator();
+        coordinator.apply('server-select');
+
+        currentScreen = 'auth';
+        coordinator.apply('auth');
+
+        currentScreen = 'server-select';
+        coordinator.apply('server-select');
+        jest.clearAllMocks();
+
+        resolveOldServerSelect(serverSelectScreen);
+        await Promise.resolve();
+
+        expect(serverSelectScreen.show).not.toHaveBeenCalled();
+        expect(authScreen.hide).not.toHaveBeenCalled();
+        expect(profileSelectScreen.hide).not.toHaveBeenCalled();
+        expect(registry.scheduleChannelSetupPrefetch).not.toHaveBeenCalled();
+        expect(splashScreen.hide).not.toHaveBeenCalled();
+
+        resolveCurrentServerSelect(serverSelectScreen);
+        await Promise.resolve();
+
+        expect(authScreen.hide).toHaveBeenCalledTimes(1);
+        expect(profileSelectScreen.hide).toHaveBeenCalledTimes(1);
+        expect(serverSelectScreen.show).toHaveBeenCalledTimes(1);
+        expect(serverSelectScreen.show).toHaveBeenCalledWith({ allowAutoConnect: true });
+        expect(registry.scheduleChannelSetupPrefetch).toHaveBeenCalledTimes(1);
+        expect(splashScreen.hide).toHaveBeenCalledTimes(1);
+    });
+
+    it('supersedes an old lazy success when the same route is applied again', async () => {
+        currentScreen = 'settings';
+        const oldSettingsScreen = createScreen();
+        const currentSettingsScreen = createScreen();
+
+        let resolveOldSettings!: (screen: Screen) => void;
+        let resolveCurrentSettings!: (screen: Screen) => void;
+        registry.ensureSettingsScreen
+            .mockReturnValueOnce(new Promise((resolve) => {
+                resolveOldSettings = resolve;
+            }))
+            .mockReturnValueOnce(new Promise((resolve) => {
+                resolveCurrentSettings = resolve;
+            }));
+
+        const coordinator = createCoordinator();
+        coordinator.apply('settings');
+        coordinator.apply('settings');
+
+        resolveOldSettings(oldSettingsScreen);
+        await Promise.resolve();
+        expect(oldSettingsScreen.show).not.toHaveBeenCalled();
+
+        resolveCurrentSettings(currentSettingsScreen);
+        await Promise.resolve();
+        expect(currentSettingsScreen.show).toHaveBeenCalledTimes(1);
+    });
+
     it('cancels channel setup prefetch when leaving server-select to a non-startup screen', () => {
         const coordinator = createCoordinator();
         coordinator.apply('settings');
@@ -295,6 +368,42 @@ describe('AppScreenVisibilityCoordinator', () => {
         await Promise.resolve();
 
         expect(lazyScreenErrorHandler).not.toHaveBeenCalled();
+    });
+
+    it('ignores an old lazy failure but reports the current failure after an A to B to A route sequence', async () => {
+        currentScreen = 'settings';
+
+        let rejectOldSettings!: (error: unknown) => void;
+        let rejectCurrentSettings!: (error: unknown) => void;
+        registry.ensureSettingsScreen
+            .mockReturnValueOnce(new Promise((_resolve, reject) => {
+                rejectOldSettings = reject;
+            }))
+            .mockReturnValueOnce(new Promise((_resolve, reject) => {
+                rejectCurrentSettings = reject;
+            }));
+
+        const coordinator = createCoordinator();
+        coordinator.apply('settings');
+
+        currentScreen = 'player';
+        coordinator.apply('player');
+
+        currentScreen = 'settings';
+        coordinator.apply('settings');
+
+        const oldError = new Error('old settings chunk load failed');
+        rejectOldSettings(oldError);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(lazyScreenErrorHandler).not.toHaveBeenCalled();
+
+        const currentError = new Error('current settings chunk load failed');
+        rejectCurrentSettings(currentError);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(lazyScreenErrorHandler).toHaveBeenCalledTimes(1);
+        expect(lazyScreenErrorHandler).toHaveBeenCalledWith(currentError);
     });
 
     it.each(['channel-setup', 'settings'])(

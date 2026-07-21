@@ -68,7 +68,6 @@ export const STARTUP_PHASE = {
     RESUME_RUNTIME_MODULES: 4,
     RESUME_EPG_ONLY: 5,
 } as const;
-
 export type StartupPhase = typeof STARTUP_PHASE[keyof typeof STARTUP_PHASE];
 /**
  * Dependencies injected by Orchestrator.
@@ -130,7 +129,8 @@ export interface InitializationCallbacks {
     };
     state: {
         setReady: (ready: boolean) => void;
-        setupEventWiring: () => void;
+        setupEventWiring: () => boolean;
+        disposeEventWiring: () => void;
         transferSelectedServerTuningToStartup: () => void;
     };
     serverStorage: {

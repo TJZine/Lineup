@@ -41,8 +41,8 @@ npm run test:timings:tools
 | `npm run test:contracts` | Governance | Separate contract, policy, and type test surface. |
 | `npm run test:all` | Comprehensive Jest | Unit + tools + contracts. |
 | `npm run verify` | Full verification | Broader than `test:all`: typecheck, architecture lint, CSS lint, product/runtime coverage, tooling/docs suites, contracts, docs verification, and the production build. |
-| `npm run verify:maintainability` | Production file-shape guard | Runs `tools/verify-maintainability.mjs` against `src/**` production `.ts`, `.tsx`, `.css`, and `.html` files and the architecture allowlist. |
-| `npm run verify:architecture` | Architecture/static guard | Runs ESLint over `src` and then `verify:maintainability`, so production file-shape growth is part of the architecture gate. |
+| `npm run verify:maintainability` | Architecture-attention evidence | Reports `src/**` production `.ts`, `.tsx`, `.css`, and `.html` files over the 500/800-line attention thresholds; size alone does not fail the command or require extraction. |
+| `npm run verify:architecture` | Architecture/static guard | Runs the enforceable ESLint architecture rules, then reports file-size attention evidence. |
 | `npm run verify:bundle` | Release bundle guard | Runs `tools/verify-bundle.mjs`, which builds the lean analyzed bundle and verifies startup chunk size/deferred-module expectations. |
 | `npm run verify:docs` | Structural workflow/docs verification | Runs the small Node checker for required tracked entrypoints, local links, skill metadata, role TOML/read-only safety, and minimal active-plan sections. It does not duplicate `test:tools` or enforce prose. |
 
@@ -68,6 +68,7 @@ Prefer the shared helpers in `src/__tests__/helpers.ts` before adding local asyn
 | --- | --- | --- | --- |
 | Flush promise-only work | `flushPromises()` | the code under test only needs microtask turns | a timer or DOM-task turn is part of the contract |
 | Control async completion directly | `createDeferred()` | the test owns when an async dependency resolves or rejects | the production code already exposes a concrete promise you can await directly |
+| Bound async test infrastructure with a diagnostic timeout | `withTestTimeout()` | an observer or test-owned operation could otherwise remain pending, and its owner cleans up resources when the bound settles | elapsed time is the behavior under test or a concrete production promise can be awaited directly |
 | Advance fake timers and settle follow-up promise work | `flushPromisesAndTimers()` | fake-timer callbacks schedule more promise work before the next assertion | the suite uses real timers |
 | Poll a fake-timer condition with an explicit timeout budget | `advanceTimersUntil()` | the assertion should become true after bounded timer advancement | a single direct timer advance or awaited promise is enough |
 | Cross one real macrotask turn after promise work | `flushPromisesAndMacrotask()` | a real-timer integration boundary only becomes observable after promises and one queued macrotask both complete | the suite uses fake timers or just needs a generic wait |

@@ -241,8 +241,14 @@ export class AppBlockingErrorOverlayPresenter {
             this._container?.removeAttribute('aria-busy');
             this._setActionsDisabled(false);
             status.textContent = `${action.label} failed. Please try again.`;
-            const retryButton = this._container?.querySelector<HTMLButtonElement>('[data-action="retry"]');
-            const focusTarget = retryButton ?? selectedButton;
+            const selectedButtonIsAvailable =
+                this._container?.contains(selectedButton) === true && !selectedButton.disabled;
+            const focusTarget = selectedButtonIsAvailable
+                ? selectedButton
+                : this._container?.querySelector<HTMLButtonElement>('[data-action="retry"]');
+            if (!focusTarget) {
+                return;
+            }
             const navigation = this._getNavigation();
             if (navigation && focusTarget.id) {
                 navigation.setFocus(focusTarget.id, { persist: false });

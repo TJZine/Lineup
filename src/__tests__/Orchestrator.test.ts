@@ -39,7 +39,7 @@ import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerI
 import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
-import * as recoverableRuntimeReporterModule from '../core/orchestrator/runtime/OrchestratorRecoverableRuntimeReporter';
+import { ScheduleDayRolloverController } from '../core/orchestrator/controllers/ScheduleDayRolloverController';
 import { OrchestratorServerSelectionRuntimeProjection } from '../core/orchestrator/runtime/OrchestratorServerSelectionRuntimeProjection';
 import { expectConsoleWarn } from './helpers';
 import { EventEmitter } from '../utils/EventEmitter';
@@ -189,6 +189,7 @@ const mockLifecycle = {
     initialize: jest.fn().mockResolvedValue(undefined),
     shutdown: jest.fn().mockResolvedValue(undefined),
     setPhase: jest.fn(),
+    setPhaseAndWait: jest.fn().mockResolvedValue(true),
     getPhase: jest.fn().mockReturnValue('ready'),
     getErrorUserMessage: jest.fn().mockReturnValue('Test message'),
     restoreState: jest.fn().mockResolvedValue(null),
@@ -727,6 +728,7 @@ describe('AppOrchestrator', () => {
 
         mockNavigation.isModalOpen.mockReset();
         mockNavigation.isModalOpen.mockReturnValue(false);
+        mockNavigation.goTo.mockReset();
 
         mockEpg.isVisible.mockReset();
         mockEpg.isVisible.mockReturnValue(false);
@@ -1440,6 +1442,10 @@ describe('AppOrchestrator', () => {
 
         it('clears discovery selection and persisted selected-server state', async () => {
             await orchestrator.initialize(mockConfig);
+            const cancelRolloverSpy = jest.spyOn(
+                ScheduleDayRolloverController.prototype,
+                'cancelPendingDayRollover'
+            );
             const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
             const clearScheduleCachesSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
             const storedCredentials = createStoredCredentials('valid-token');
@@ -1469,10 +1475,57 @@ describe('AppOrchestrator', () => {
                 expect(clearScheduleCachesSpy).toHaveBeenCalledTimes(1);
                 expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+                expect(cancelRolloverSpy).toHaveBeenCalledTimes(1);
+                const cancelCallOrder = cancelRolloverSpy.mock.invocationCallOrder[0];
+                const epgClearCallOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
+                if (cancelCallOrder === undefined || epgClearCallOrder === undefined) {
+                    throw new Error('Expected rollover cancellation and EPG clearing to run');
+                }
+                expect(cancelCallOrder).toBeLessThan(epgClearCallOrder);
             } finally {
+                cancelRolloverSpy.mockRestore();
                 clearSelectedSnapshotSpy.mockRestore();
                 clearScheduleCachesSpy.mockRestore();
             }
+        });
+
+        it('reselects cleanly after channel setup, server-select back navigation, and clear', async () => {
+            await orchestrator.initialize(mockConfig);
+            mockChannelManager.getAllChannels.mockReturnValue([]);
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
+            mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
+            mockLocalStorage.getItem.mockImplementation((key: string) =>
+                key === LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE ? '1' : null
+            );
+            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
+                createStoredCredentials('valid-token')
+            );
+            mockNavigation.goTo.mockImplementation((screen: string) => {
+                if (screen === 'server-select') {
+                    mockDiscoverySelectionContext.advance();
+                }
+            });
+
+            await expect(orchestrator.selectServer('server-1')).resolves.toMatchObject({
+                kind: 'selected',
+            });
+            expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+
+            orchestrator.openServerSelect();
+            await orchestrator.clearSelectedServer();
+            mockPlexDiscovery.selectServer.mockImplementationOnce(async () => {
+                mockDiscoverySelectionContext.advanceSelection();
+                return { kind: 'connection_unavailable', reason: 'unreachable' };
+            });
+
+            await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
+                kind: 'selection_failed',
+                reason: 'unreachable',
+            });
+            expect(mockNavigation.activateRuntimeCommandGate).not.toHaveBeenCalled();
+            expect(mockNavigation.goTo).toHaveBeenLastCalledWith('server-select', {
+                allowAutoConnect: false,
+            });
         });
 
         it('rejects selected-server clear while recovery commands are gated', async () => {
@@ -1496,10 +1549,10 @@ describe('AppOrchestrator', () => {
             const retry = jest.spyOn(
                 OrchestratorServerSelectionRuntimeProjection.prototype,
                 'retryQuarantineRecovery'
-            ).mockResolvedValue(undefined);
+            ).mockResolvedValue('none');
 
             try {
-                await expect(orchestrator.retryQuarantineRecovery()).resolves.toBeUndefined();
+                await expect(orchestrator.retryQuarantineRecovery()).resolves.toBe('none');
                 expect(retry).toHaveBeenCalledTimes(1);
             } finally {
                 retry.mockRestore();
@@ -1586,14 +1639,31 @@ describe('AppOrchestrator', () => {
         it('clears selected-library filter scope after sign-out clears identity', async () => {
             await orchestrator.initialize(mockConfig);
             const scopeSpy = jest.spyOn(EpgPreferencesStore.prototype, 'setLibraryFilterScope');
+            const cancelRolloverSpy = jest.spyOn(
+                ScheduleDayRolloverController.prototype,
+                'cancelPendingDayRollover'
+            );
+            const clearSelectedSnapshotSpy = jest.spyOn(
+                EPGCoordinator.prototype,
+                'clearSelectedChannelScheduleSnapshot'
+            );
             scopeSpy.mockClear();
 
             try {
                 await orchestrator.signOutPlex();
 
                 expect(scopeSpy).toHaveBeenLastCalledWith(null);
+                expect(cancelRolloverSpy).toHaveBeenCalledTimes(1);
+                const cancelCallOrder = cancelRolloverSpy.mock.invocationCallOrder[0];
+                const epgClearCallOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
+                if (cancelCallOrder === undefined || epgClearCallOrder === undefined) {
+                    throw new Error('Expected rollover cancellation and EPG clearing to run');
+                }
+                expect(cancelCallOrder).toBeLessThan(epgClearCallOrder);
             } finally {
                 scopeSpy.mockRestore();
+                cancelRolloverSpy.mockRestore();
+                clearSelectedSnapshotSpy.mockRestore();
             }
         });
 
@@ -3233,40 +3303,6 @@ describe('AppOrchestrator', () => {
             expect(logged).not.toContain(secret);
         });
 
-        it('keeps recoverable reporter failures inside the reporter collaborator during global error handling', () => {
-            const warn = jest.fn();
-            const isolatedOrchestrator = new AppOrchestrator();
-            Reflect.set(
-                isolatedOrchestrator as object,
-                '_recoverableRuntimeReporter',
-                recoverableRuntimeReporterModule.createRecoverableRuntimeIssueReporter({
-                    issueId: 'qa-1',
-                    appendIssueDiagnostic: () => {
-                        throw new Error('append failed');
-                    },
-                    warn,
-                })
-            );
-
-            expect(() => {
-                isolatedOrchestrator.handleGlobalError(
-                    {
-                        code: AppErrorCode.NETWORK_TIMEOUT,
-                        message: 'test',
-                        recoverable: true,
-                    },
-                    'test-context'
-                );
-            }).not.toThrow();
-
-            expect(warn).toHaveBeenCalledWith(
-                '[RecoverableRuntimeReporter] reportError failed:',
-                expect.objectContaining({
-                    message: 'append failed',
-                })
-            );
-        });
-
         it('defers reentrant global errors until the active handling pass completes', () => {
             expectConsoleWarn([
                 'Global error in outer-context',
@@ -4144,7 +4180,14 @@ describe('AppOrchestrator', () => {
 
         it('reports structuredClone fallback once per failing context identity', () => {
             const originalStructuredClone = globalThis.structuredClone;
-            const reportError = jest.fn();
+            const warning = expectConsoleWarn([
+                'Falling back to diagnostic-value clone for module status error context',
+                expect.objectContaining({
+                    safeError: expect.objectContaining({
+                        message: 'clone failed',
+                    }),
+                }),
+            ], { times: 2 });
             const context = {
                 source: 'test',
                 nested: {
@@ -4159,10 +4202,6 @@ describe('AppOrchestrator', () => {
                 }),
             });
 
-            Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
-                reportIssue: jest.fn(),
-                reportError,
-            });
             Reflect.set(orchestrator as object, '_moduleStatus', new Map([
                 [
                     'plex-auth',
@@ -4191,16 +4230,7 @@ describe('AppOrchestrator', () => {
                     },
                 });
                 expect(secondReturned?.error?.context).toEqual(firstReturned?.error?.context);
-                expect(reportError).toHaveBeenCalledTimes(1);
-                expect(reportError).toHaveBeenNthCalledWith(
-                    1,
-                    'orchestrator.moduleStatus.cloneContext',
-                    'Falling back to diagnostic-value clone for module status error context',
-                    expect.objectContaining({
-                        message: 'clone failed',
-                    }),
-                    {}
-                );
+                expect(warning.getCalls()).toHaveLength(1);
 
                 Reflect.set(orchestrator as object, '_moduleStatus', new Map([
                     [
@@ -4223,7 +4253,7 @@ describe('AppOrchestrator', () => {
 
                 orchestrator.getModuleStatus();
 
-                expect(reportError).toHaveBeenCalledTimes(2);
+                expect(warning.getCalls()).toHaveLength(2);
             } finally {
                 Object.defineProperty(globalThis, 'structuredClone', {
                     configurable: true,
@@ -4233,17 +4263,21 @@ describe('AppOrchestrator', () => {
         });
 
         it('returns null and reports when Plex resource URL accessor dependencies throw', () => {
-            const reportError = jest.fn();
+            const warning = expectConsoleWarn([
+                'buildPlexResourceUrlWithAuth failed',
+                expect.objectContaining({
+                    pathOrUrl: '/library/metadata/1/thumb?X-Plex-Token=REDACTED',
+                    baseUri: 'http://localhost:32400?X-Plex-Token=REDACTED',
+                    safeError: expect.objectContaining({
+                        message: 'auth headers failed',
+                    }),
+                }),
+            ]);
 
             mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400?X-Plex-Token=base-secret');
             mockPlexAuth.getAuthHeaders.mockImplementation(() => {
                 throw new Error('auth headers failed');
             });
-            Reflect.set(orchestrator as object, '_recoverableRuntimeReporter', {
-                reportIssue: jest.fn(),
-                reportError,
-            });
-
             try {
                 expect(
                     Reflect.get(
@@ -4251,17 +4285,7 @@ describe('AppOrchestrator', () => {
                         '_buildPlexResourceUrl'
                     ).call(orchestrator, '/library/metadata/1/thumb?X-Plex-Token=path-secret')
                 ).toBeNull();
-                expect(reportError).toHaveBeenCalledWith(
-                    'orchestrator.plexResourceUrl.build',
-                    'buildPlexResourceUrlWithAuth failed',
-                    expect.objectContaining({
-                        message: 'auth headers failed',
-                    }),
-                    expect.objectContaining({
-                        pathOrUrl: '/library/metadata/1/thumb?X-Plex-Token=REDACTED',
-                        baseUri: 'http://localhost:32400?X-Plex-Token=REDACTED',
-                    })
-                );
+                expect(warning.getCalls()).toHaveLength(1);
             } finally {
                 mockPlexDiscovery.getServerUri.mockReset();
                 mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');

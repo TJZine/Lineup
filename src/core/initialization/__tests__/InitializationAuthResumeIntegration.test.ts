@@ -73,7 +73,7 @@ function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationC
         status: { updateModuleStatus: jest.fn(), getModuleStatus: jest.fn() },
         errors: { handleGlobalError: jest.fn() },
         diagnostics: { reportRecoverableAsyncFailure: jest.fn() },
-        state: { setReady, setupEventWiring: jest.fn() },
+        state: { setReady, setupEventWiring: jest.fn(() => true) },
         serverStorage: {
             configureDiscoveryStorage: jest.fn(),
             configureChannelManagerStorage: jest.fn().mockResolvedValue(undefined),

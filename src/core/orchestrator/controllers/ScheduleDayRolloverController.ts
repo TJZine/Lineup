@@ -23,6 +23,7 @@ export interface ScheduleDayRolloverControllerDeps {
 
 interface PendingDayRolloverAttempt {
     dayKey: number;
+    abortController: AbortController;
 }
 
 export class ScheduleDayRolloverController {
@@ -57,8 +58,6 @@ export class ScheduleDayRolloverController {
             return;
         }
 
-        const attempt: PendingDayRolloverAttempt = { dayKey };
-
         const dayStart = this._deps.getLocalMidnightMs(now);
         const currentProgram = scheduler.getCurrentProgram();
         const spansMidnight =
@@ -66,9 +65,14 @@ export class ScheduleDayRolloverController {
             currentProgram.scheduledStartTime < dayStart &&
             currentProgram.scheduledEndTime > dayStart;
 
+        this.cancelPendingDayRollover();
+        const attempt: PendingDayRolloverAttempt = {
+            dayKey,
+            abortController: new AbortController(),
+        };
+        this._pendingDayRolloverAttempt = attempt;
+
         if (spansMidnight) {
-            this.cancelPendingDayRollover();
-            this._pendingDayRolloverAttempt = attempt;
             const delayMs = Math.max(0, currentProgram.scheduledEndTime - now + 50);
             this._pendingDayRolloverTimer = globalThis.setTimeout(() => {
                 this._pendingDayRolloverTimer = null;
@@ -79,7 +83,6 @@ export class ScheduleDayRolloverController {
             return;
         }
 
-        this._pendingDayRolloverAttempt = attempt;
         await this._applyScheduleDayRollover(attempt);
     }
 
@@ -88,7 +91,9 @@ export class ScheduleDayRolloverController {
             globalThis.clearTimeout(this._pendingDayRolloverTimer);
             this._pendingDayRolloverTimer = null;
         }
+        const attempt = this._pendingDayRolloverAttempt;
         this._pendingDayRolloverAttempt = null;
+        attempt?.abortController.abort();
     }
 
     public dispose(): void {
@@ -118,7 +123,8 @@ export class ScheduleDayRolloverController {
                 return;
             }
 
-            const content = await channelManager.resolveChannelContent(current.id);
+            const signal = attempt.abortController.signal;
+            const content = await channelManager.resolveChannelContent(current.id, { signal });
             if (!this._isCurrentAttempt(attempt)) {
                 return;
             }
@@ -127,11 +133,16 @@ export class ScheduleDayRolloverController {
 
             const epgCoordinator = this._deps.getEpgCoordinator();
             epgCoordinator?.clearSelectedChannelScheduleSnapshot();
-            await epgCoordinator?.refreshEpgSchedules();
+            await epgCoordinator?.refreshEpgSchedules({ signal });
             if (!this._isCurrentAttempt(attempt)) {
                 return;
             }
             this._activeScheduleDayKey = dayKey;
+        } catch (error) {
+            if (!this._isCurrentAttempt(attempt)) {
+                return;
+            }
+            throw error;
         } finally {
             if (this._isCurrentAttempt(attempt)) {
                 this._pendingDayRolloverAttempt = null;
@@ -140,6 +151,6 @@ export class ScheduleDayRolloverController {
     }
 
     private _isCurrentAttempt(attempt: PendingDayRolloverAttempt): boolean {
-        return this._pendingDayRolloverAttempt === attempt;
+        return this._pendingDayRolloverAttempt === attempt && !attempt.abortController.signal.aborted;
     }
 }

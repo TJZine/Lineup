@@ -3,7 +3,7 @@ import { LINEUP_EVENT_NAMES } from './config/events';
 import { LINEUP_STORAGE_KEYS } from './config/storageKeys';
 import { DeveloperSettingsStore } from './modules/settings/DeveloperSettingsStore';
 import { APP_SHELL_CONTAINER_IDS } from './modules/ui/common/appShellContainerIds';
-import { redactSensitiveTokens } from './utils/redact';
+import { sanitizeDiagnosticText } from './utils/redact';
 import { summarizeErrorForLog } from './utils/errors';
 import {
     parseStoredBoolean,
@@ -157,10 +157,10 @@ function isDebugSurfaceEnabled(): boolean {
 
 function toSafeErrorMessage(value: unknown): string {
     if (value instanceof Error) {
-        return redactSensitiveTokens(value.message);
+        return sanitizeDiagnosticText(value.message);
     }
     if (typeof value === 'string') {
-        return redactSensitiveTokens(value);
+        return sanitizeDiagnosticText(value);
     }
     return 'An unexpected error occurred.';
 }

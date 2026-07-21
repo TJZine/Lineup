@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const verifierPath = path.resolve(process.cwd(), 'tools/verify-release-candidate.mjs');
+const TEST_SUBPROCESS_TIMEOUT_MS = 10_000;
 
 function createCandidate(root: string): string {
     const distDir = path.join(root, 'dist');
@@ -22,6 +23,7 @@ function runVerifier(distDir: string, options: string[] = []): ReturnType<typeof
     return spawnSync(process.execPath, [verifierPath, '--dist-dir', distDir, ...options], {
         cwd: process.cwd(),
         encoding: 'utf8',
+        timeout: TEST_SUBPROCESS_TIMEOUT_MS,
     });
 }
 

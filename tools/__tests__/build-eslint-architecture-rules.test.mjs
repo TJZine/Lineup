@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 
 import {
     architectureRuleMessages,
@@ -66,17 +67,15 @@ test('App restriction patterns block both module roots and descendants', () => {
     }
 });
 
-test('storage ownership allowlist names the channel persistence owner, not ChannelManager', () => {
-    assert.ok(
-        lineupArchitectureRules.storageOwnership.allowedFiles.includes(
-            'src/modules/scheduler/channel-manager/ChannelPersistenceStore.ts'
-        )
-    );
-    assert.ok(
-        !lineupArchitectureRules.storageOwnership.allowedFiles.includes(
-            'src/modules/scheduler/channel-manager/ChannelManager.ts'
-        )
-    );
+test('storage ownership allowlist contains only existing direct-global owners', () => {
+    assert.deepEqual(lineupArchitectureRules.storageOwnership.allowedFiles, [
+        'src/utils/storage.ts',
+        'src/modules/plex/auth/PlexAuth.ts',
+    ]);
+    for (const file of lineupArchitectureRules.storageOwnership.allowedFiles) {
+        const ownerUrl = new URL(`../../${file}`, import.meta.url);
+        assert.ok(existsSync(ownerUrl), `expected storage owner to exist: ${file}`);
+    }
 });
 
 test('runtime UI boundary config preserves composition-root import restrictions', () => {

@@ -10,9 +10,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ## Steady-State Guardrails
 
-- Production file-shape exceptions and baselines live in [`file-shape-guardrails.md`](./file-shape-guardrails.md).
-- `npm run verify:maintainability` blocks unreviewed growth in production files over 500 lines and requires explicit decomposition or revisit triggers for production files over 800 lines.
-- Current oversized production files are accepted baselines, not automatic cleanup obligations. Any baseline increase requires same-change rationale and a decomposition or revisit trigger.
+- Production file-size attention and review triggers live in [`file-shape-guardrails.md`](./file-shape-guardrails.md).
+- `npm run verify:maintainability` reports production files over 500 and 800 lines; it does not fail growth or require decomposition.
+- When changed, files over 500 lines require an architecture disposition. Files over 800 lines, composition roots, and named hotspots require a fresh independent architecture/YAGNI review of the whole owner.
 
 ## Product Invariants
 
@@ -89,9 +89,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### `src/core/server-selection/`
 
 - focused server-selection collaborators shared between app shell and orchestrator
-- `ServerSelectionCoordinator.selectServer()` serializes the full selected-server transaction, retains the exact discovery receipt plus opaque persistence evidence across every continuation, suspends/drains ordinary tuning before scope work, and is the sole production constructor of `{ kind: 'selected', persistedSelection, epgRefresh }`
+- `ServerSelectionCoordinator` serializes select and clear commands on one tail. `selectServer()` retains the exact discovery receipt plus opaque persistence evidence across every continuation, suspends/drains ordinary tuning before scope work, and is the sole production constructor of `{ kind: 'selected', persistedSelection, epgRefresh }`. Caller cancellation remains authoritative through preparation; after commit starts, routing is guarded by auth plus selected-scope authority so the successful screen transition cannot cancel itself. Clear completes the coherent unselected runtime restoration before the command settles. Unselected server-select presentation is published only after restoration proof and runtime resume, so navigation-triggered discovery cannot retroactively invalidate a committed rollback; successful quarantine Retry returns presentation intent for the app shell to publish only after dismissing its blocking modal
 - app-shell/server-select callers consume the narrowed app-shell result owned by `src/core/app-shell/runtime/AppShellRuntimeContracts.ts` and adapted through `src/core/app-shell/deferred-screens/AppLazyScreenPortFactory.ts`
-- `SelectedServerPersistenceAdapter` owns strict opaque evidence for candidate persistence and exact selected/unselected rollback proof, rejecting port, profile, envelope, and partial-pair drift; clear-selection persistence remains a separate focused command
+- `SelectedServerPersistenceAdapter` owns strict opaque evidence for candidate persistence and exact selected/unselected rollback proof. Evidence rejects port, active-profile, token/user identity, device-key, other-user selection, and partial-pair drift while allowing validation-owned refreshes of non-identity token metadata; clear-selection persistence remains a separate focused command
 - rollback restores discovery first for a fresh selected or unselected receipt, then proves persistence and runs the matching runtime restoration. Retained discovery snapshots remain reusable for Retry only within their original storage/profile namespace; a real namespace change permanently invalidates them. Failure enters `SelectedServerQuarantineRecoveryState`, keeps tuning/resolution suspended, blocks further selection, and exposes awaited Retry/Exit command state; protected-modal presentation and navigation policy remain outside this owner
 - `SelectedServerRuntimeController` owns only the ordered persisted-selection then discovery clear command; it does not own selected startup, EPG mapping, or rollback
 
@@ -151,7 +151,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### DCR-12-S1 AppOrchestrator Source Audit
 
 Current source audit on 2026-05-17 records `src/core/orchestrator/AppOrchestrator.ts`
-at 1884 lines, matching the production file-shape guardrail baseline after
+at 1884 lines, making it an architecture-review trigger after
 extracting the frozen `DCR-12-A1` closure set. The remaining
 large-file shape is the public runtime facade, module field ownership, lifecycle
 composition, coordinator/controller assembly, and cross-module wiring. The file no

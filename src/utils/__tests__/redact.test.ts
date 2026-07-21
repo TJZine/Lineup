@@ -34,6 +34,21 @@ describe('redactSensitiveTokens', () => {
     it('redacts standalone header-style token forms', () => {
         expect(redactSensitiveTokens('token: abc123')).toBe('token: REDACTED');
     });
+
+    it('redacts bearer credentials in header and JSON-ish forms', () => {
+        expect(redactSensitiveTokens('Authorization: Bearer secret')).toBe(
+            'Authorization: Bearer REDACTED'
+        );
+        expect(redactSensitiveTokens('Authorization: Bearer "secret"')).toBe(
+            'Authorization: Bearer REDACTED'
+        );
+        expect(redactSensitiveTokens('{"Authorization":"Bearer secret"}')).toBe(
+            '{"Authorization":"Bearer REDACTED"}'
+        );
+        expect(redactSensitiveTokens("{'Authorization':'Bearer secret'}")).toBe(
+            "{'Authorization':'Bearer REDACTED'}"
+        );
+    });
 });
 
 describe('safeStringifyForLog', () => {
@@ -87,6 +102,7 @@ describe('sanitizeDiagnosticText', () => {
         const text = [
             'decision http://10.0.0.2:32400/video/:/transcode?X-Plex-Token=secret',
             'X-Plex-Token: secret',
+            'Authorization: Bearer bearer-secret',
             'file:///Users/tristan/subtitles/movie.srt',
             'file:///Users/tristan/subtitles/Movie (2020)/English [SDH].srt',
             '/Users/tristan/Library/Application Support/Plex Media Server/media.srt',
@@ -103,6 +119,7 @@ describe('sanitizeDiagnosticText', () => {
         expect(sanitized).toContain('[REDACTED_FILE_URL]');
         expect(sanitized).toContain('[REDACTED_PATH]');
         expect(sanitized).toContain('X-Plex-Token: REDACTED');
+        expect(sanitized).toContain('Authorization: Bearer REDACTED');
         expect(sanitized).not.toContain('10.0.0.2');
         expect(sanitized).not.toContain('secret');
         expect(sanitized).not.toContain('file:///');

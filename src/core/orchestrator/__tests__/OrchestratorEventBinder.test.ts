@@ -87,6 +87,13 @@ function createBinder(
 }
 
 describe('OrchestratorEventBinder', () => {
+    it('reports whether a bind established wiring', () => {
+        const { binder } = createBinder();
+
+        expect(binder.bind()).toBe(true);
+        expect(binder.bind()).toBe(false);
+    });
+
     it('reports synchronous program-start failures through recoverable diagnostics instead of throwing', () => {
         const failure = new Error('sync boom');
         const { binder, deps, schedulerHandlers } = createBinder({

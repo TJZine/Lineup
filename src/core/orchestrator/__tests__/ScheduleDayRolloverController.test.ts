@@ -9,6 +9,7 @@ import {
     ScheduleDayRolloverController,
     type ScheduleDayRolloverControllerDeps,
 } from '../controllers/ScheduleDayRolloverController';
+import { clearIdentityScopedRuntimeState } from '../runtime/clearIdentityScopedRuntimeState';
 
 type RolloverHarness = {
     controller: ScheduleDayRolloverController;
@@ -23,12 +24,17 @@ type RolloverHarness = {
     channelManager: {
         getCurrentChannel: jest.MockedFunction<() => ChannelConfig | null>;
         resolveChannelContent: jest.MockedFunction<
-            (channelId: string) => Promise<ResolvedChannelContent>
+            (
+                channelId: string,
+                options?: { signal?: AbortSignal | null }
+            ) => Promise<ResolvedChannelContent>
         >;
     };
     epgCoordinator: {
         clearSelectedChannelScheduleSnapshot: jest.MockedFunction<() => void>;
-        refreshEpgSchedules: jest.MockedFunction<() => Promise<void>>;
+        refreshEpgSchedules: jest.MockedFunction<
+            (options?: { signal?: AbortSignal | null; reason?: string }) => Promise<void>
+        >;
     };
     deps: jest.Mocked<ScheduleDayRolloverControllerDeps>;
 };
@@ -105,13 +111,15 @@ const makeHarness = (): RolloverHarness => {
 
     const channelManager = {
         getCurrentChannel: jest.fn(() => channel),
-        resolveChannelContent: jest.fn(async (channelId: string) => ({
-            channelId,
-            items: [],
-            orderedItems: [],
-            totalDurationMs: 0,
-            resolvedAt: nowRef.value,
-        })),
+        resolveChannelContent: jest.fn(
+            async (channelId: string, _options?: { signal?: AbortSignal | null }) => ({
+                channelId,
+                items: [],
+                orderedItems: [],
+                totalDurationMs: 0,
+                resolvedAt: nowRef.value,
+            })
+        ),
     };
 
     const scheduler = {
@@ -213,37 +221,111 @@ describe('ScheduleDayRolloverController', () => {
         expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(1);
     });
 
-    it('does not commit a canceled attempt after content resolution settles', async () => {
-        const harness = makeHarness();
-        const content = makeDeferred<ResolvedChannelContent>();
-        harness.channelManager.resolveChannelContent.mockReturnValueOnce(content.promise);
+    it.each([
+        [
+            'explicit cancellation',
+            (controller: ScheduleDayRolloverController): void =>
+                controller.cancelPendingDayRollover(),
+        ],
+        ['dispose', (controller: ScheduleDayRolloverController): void => controller.dispose()],
+    ])(
+        '%s aborts content resolution without committing the canceled attempt',
+        async (_label, cancel) => {
+            const harness = makeHarness();
+            const content = makeDeferred<ResolvedChannelContent>();
+            let resolutionSignal: AbortSignal | null | undefined;
+            harness.channelManager.resolveChannelContent.mockImplementationOnce(
+                (_channelId, options) => {
+                    resolutionSignal = options?.signal;
+                    return content.promise;
+                }
+            );
 
-        const applyPromise = harness.controller.handleScheduleDayRollover();
-        harness.controller.cancelPendingDayRollover();
-        content.resolve(makeResolvedContent());
-        await applyPromise;
+            const applyPromise = harness.controller.handleScheduleDayRollover();
+            expect(resolutionSignal?.aborted).toBe(false);
+            cancel(harness.controller);
+            expect(resolutionSignal?.aborted).toBe(true);
+            content.resolve(makeResolvedContent());
+            await applyPromise;
 
-        expect(harness.scheduler.loadChannel).not.toHaveBeenCalled();
-        expect(harness.scheduler.syncToCurrentTime).not.toHaveBeenCalled();
-        expect(harness.epgCoordinator.clearSelectedChannelScheduleSnapshot).not.toHaveBeenCalled();
-        expect(harness.epgCoordinator.refreshEpgSchedules).not.toHaveBeenCalled();
-    });
+            expect(harness.scheduler.loadChannel).not.toHaveBeenCalled();
+            expect(harness.scheduler.syncToCurrentTime).not.toHaveBeenCalled();
+            expect(harness.epgCoordinator.clearSelectedChannelScheduleSnapshot).not.toHaveBeenCalled();
+            expect(harness.epgCoordinator.refreshEpgSchedules).not.toHaveBeenCalled();
+        }
+    );
 
     it('does not mark a canceled attempt active after EPG refresh settles', async () => {
         const harness = makeHarness();
         const refresh = makeDeferred<void>();
-        harness.epgCoordinator.refreshEpgSchedules.mockReturnValueOnce(refresh.promise);
+        const refreshStarted = makeDeferred<void>();
+        const stalePublication = jest.fn();
+        let refreshSignal: AbortSignal | null | undefined;
+        harness.epgCoordinator.refreshEpgSchedules.mockImplementationOnce(async (options) => {
+            refreshSignal = options?.signal;
+            refreshStarted.resolve();
+            await refresh.promise;
+            if (!options?.signal?.aborted) {
+                stalePublication();
+            }
+        });
 
         const canceledAttempt = harness.controller.handleScheduleDayRollover();
-        await Promise.resolve();
+        await refreshStarted.promise;
+        expect(refreshSignal?.aborted).toBe(false);
         harness.controller.cancelPendingDayRollover();
+        expect(refreshSignal?.aborted).toBe(true);
         refresh.resolve();
         await canceledAttempt;
+
+        expect(stalePublication).not.toHaveBeenCalled();
 
         await harness.controller.handleScheduleDayRollover();
 
         expect(harness.scheduler.loadChannel).toHaveBeenCalledTimes(2);
         expect(harness.epgCoordinator.refreshEpgSchedules).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not let late rollover work publish after identity-scoped cleanup begins', async () => {
+        const harness = makeHarness();
+        const content = makeDeferred<ResolvedChannelContent>();
+        const cleanupSequence: string[] = [];
+        let resolutionSignal: AbortSignal | null | undefined;
+        harness.channelManager.resolveChannelContent.mockImplementationOnce(
+            (_channelId, options) => {
+                resolutionSignal = options?.signal;
+                return content.promise;
+            }
+        );
+
+        const rollover = harness.controller.handleScheduleDayRollover();
+        expect(resolutionSignal?.aborted).toBe(false);
+
+        clearIdentityScopedRuntimeState({
+            cancelPendingDayRollover: (): void => {
+                cleanupSequence.push('cancelPendingDayRollover');
+                harness.controller.cancelPendingDayRollover();
+            },
+            stopPlayback: jest.fn(),
+            unloadCurrentChannel: jest.fn(),
+            clearPlaybackState: jest.fn(),
+            clearChannelManagerRuntimeState: jest.fn(),
+            clearEpgScheduleState: (): void => {
+                cleanupSequence.push('clearEpgScheduleState');
+            },
+            reportFailure: jest.fn(),
+        }, { stopPlayback: true });
+
+        expect(resolutionSignal?.aborted).toBe(true);
+        expect(cleanupSequence).toEqual(['cancelPendingDayRollover', 'clearEpgScheduleState']);
+
+        content.resolve(makeResolvedContent());
+        await rollover;
+
+        expect(harness.scheduler.loadChannel).not.toHaveBeenCalled();
+        expect(harness.scheduler.syncToCurrentTime).not.toHaveBeenCalled();
+        expect(harness.epgCoordinator.clearSelectedChannelScheduleSnapshot).not.toHaveBeenCalled();
+        expect(harness.epgCoordinator.refreshEpgSchedules).not.toHaveBeenCalled();
     });
 
     it('retries the same day after content resolution rejects and advances only on success', async () => {
@@ -334,6 +416,44 @@ describe('ScheduleDayRolloverController', () => {
         expect(setTimeoutSpy).toHaveBeenCalledTimes(2);
     });
 
+    it('aborts replaced authority before scheduling a new midnight-spanning attempt', async () => {
+        const harness = makeHarness();
+        const oldContent = makeDeferred<ResolvedChannelContent>();
+        const newContent = makeDeferred<ResolvedChannelContent>();
+        let oldSignal: AbortSignal | null | undefined;
+        let newSignal: AbortSignal | null | undefined;
+        harness.channelManager.resolveChannelContent
+            .mockImplementationOnce((_channelId, options) => {
+                oldSignal = options?.signal;
+                return oldContent.promise;
+            })
+            .mockImplementationOnce((_channelId, options) => {
+                newSignal = options?.signal;
+                return newContent.promise;
+            });
+
+        const oldAttempt = harness.controller.handleScheduleDayRollover();
+        expect(oldSignal?.aborted).toBe(false);
+
+        harness.deps.getLocalDayKey.mockReturnValue(3);
+        const endTime = harness.nowRef.value + 5_000;
+        harness.scheduler.getCurrentProgram.mockReturnValue(
+            makeScheduledProgram(harness.dayStartMs - 10_000, endTime)
+        );
+
+        await harness.controller.handleScheduleDayRollover();
+        expect(oldSignal?.aborted).toBe(true);
+
+        await jest.advanceTimersByTimeAsync(5_050);
+        expect(newSignal?.aborted).toBe(false);
+
+        oldContent.resolve(makeResolvedContent());
+        await oldAttempt;
+        harness.controller.cancelPendingDayRollover();
+        expect(newSignal?.aborted).toBe(true);
+        newContent.resolve(makeResolvedContent());
+    });
+
     it.each([
         [
             'explicit cancellation',
@@ -370,14 +490,13 @@ describe('ScheduleDayRolloverController', () => {
             .mockReturnValueOnce(newContent.promise);
 
         const oldAttempt = harness.controller.handleScheduleDayRollover();
-        const oldAttemptResult = expect(oldAttempt).rejects.toBe(oldError);
         harness.controller.cancelPendingDayRollover();
         const newAttempt = harness.controller.handleScheduleDayRollover();
 
         expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
 
         oldContent.reject(oldError);
-        await oldAttemptResult;
+        await expect(oldAttempt).resolves.toBeUndefined();
         await harness.controller.handleScheduleDayRollover();
 
         expect(harness.channelManager.resolveChannelContent).toHaveBeenCalledTimes(2);

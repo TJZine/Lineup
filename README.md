@@ -54,6 +54,7 @@
 | Plex | Plex Media Server plus a Plex account |
 | Node.js (development) | `>=22.12.0` |
 | Recommended local Node | Use the version pinned in `.nvmrc` |
+| webOS packaging | `@webos-tools/cli@3.2.5` (provides `ares-package`) |
 
 ## Quick Start
 
@@ -75,10 +76,13 @@ cd Lineup
 nvm install
 npm ci
 npm run verify
+npm install -g @webos-tools/cli@3.2.5
 npm run package:webos
 ```
 
-`npm run package:webos` produces the build and packages `dist/` into an installable IPK. For the full environment and deployment flow, see [Development Setup](docs/development/setup.md).
+`npm run package:webos` produces the build and writes the installable IPK under
+`packages/`. For the full environment and deployment flow, see
+[Development Setup](docs/development/setup.md).
 
 ## Documentation
 

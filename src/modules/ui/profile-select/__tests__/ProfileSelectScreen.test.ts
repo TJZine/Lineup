@@ -366,6 +366,108 @@ describe('ProfileSelectScreen', () => {
         expect(container.textContent).toContain('Loading profiles...');
     });
 
+    it('cancels a hidden profile switch so a shown generation can switch without stale persistence', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const firstSwitchDeferred = createDeferred<void>();
+        const writeLastProfileIdSpy = jest.spyOn(profileSessionStore, 'writeLastProfileId');
+        const receivedSignals: AbortSignal[] = [];
+        let abortObserved = false;
+        orchestrator.switchHomeUser
+            .mockImplementationOnce((
+                _userId: string,
+                options?: { pin?: string | null; signal?: AbortSignal | null }
+            ) => {
+                const signal = options?.signal ?? null;
+                if (signal) {
+                    receivedSignals.push(signal);
+                }
+                signal?.addEventListener('abort', () => {
+                    abortObserved = true;
+                }, { once: true });
+                return firstSwitchDeferred.promise;
+            })
+            .mockResolvedValueOnce(undefined);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+
+        (container.querySelector('#btn-profile-1') as HTMLButtonElement).click();
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
+
+        screen.hide();
+        screen.show();
+
+        expect(receivedSignals[0]?.aborted).toBe(true);
+        expect(abortObserved).toBe(true);
+        await settleScreen(screen);
+
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        await settleScreen(screen);
+
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(2);
+        expect(writeLastProfileIdSpy).toHaveBeenCalledTimes(1);
+        expect(writeLastProfileIdSpy).toHaveBeenCalledWith('2');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('2');
+
+        screen.hide();
+        screen.show();
+        await settleScreen(screen);
+
+        firstSwitchDeferred.resolve();
+        await firstSwitchDeferred.promise;
+        await Promise.resolve();
+
+        expect(writeLastProfileIdSpy).toHaveBeenCalledTimes(1);
+        expect(writeLastProfileIdSpy).toHaveBeenCalledWith('2');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('2');
+        expect(container.querySelector('#btn-profile-1')?.getAttribute('aria-current')).toBeNull();
+        expect(container.querySelector('#btn-profile-2')?.getAttribute('aria-current')).toBe('true');
+    });
+
+    it('persists a successful profile switch that completes after the screen hides', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const switchDeferred = createDeferred<void>();
+        const writeLastProfileIdSpy = jest.spyOn(profileSessionStore, 'writeLastProfileId');
+        orchestrator.switchHomeUser.mockReturnValueOnce(switchDeferred.promise);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        const signal = orchestrator.switchHomeUser.mock.calls[0]?.[1]?.signal;
+
+        screen.hide();
+
+        expect(signal?.aborted).toBe(true);
+        switchDeferred.resolve();
+        await switchDeferred.promise;
+        await Promise.resolve();
+
+        expect(writeLastProfileIdSpy).toHaveBeenCalledTimes(1);
+        expect(writeLastProfileIdSpy).toHaveBeenCalledWith('2');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('2');
+    });
+
     it('opens PIN modal for protected users', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
@@ -410,7 +512,10 @@ describe('ProfileSelectScreen', () => {
 
         const modal = container.querySelector('.profile-pin-modal') as HTMLElement;
         expect(modal.style.display).toBe('none');
-        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', { pin: null });
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', {
+            pin: null,
+            signal: expect.any(AbortSignal),
+        });
     });
 
     it('contains invalid-auth sign-out failure, sanitizes its cause, and allows another switch', async () => {
@@ -734,7 +839,10 @@ describe('ProfileSelectScreen', () => {
         await settleScreen(screen);
 
         expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
-        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', { pin: '1234' });
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', {
+            pin: '1234',
+            signal: expect.any(AbortSignal),
+        });
         expect(writeLastProfileIdSpy).toHaveBeenCalledWith('2');
         expect(nav.goTo).not.toHaveBeenCalledWith('server-select', { allowAutoConnect: true });
     });
@@ -818,7 +926,10 @@ describe('ProfileSelectScreen', () => {
         await settleScreen(screen);
 
         expect(orchestrator.switchHomeUser).toHaveBeenCalledTimes(1);
-        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', { pin: '1234' });
+        expect(orchestrator.switchHomeUser).toHaveBeenCalledWith('2', {
+            pin: '1234',
+            signal: expect.any(AbortSignal),
+        });
     });
 
     it('shows wrong PIN error styling and clears it after timeout', async () => {

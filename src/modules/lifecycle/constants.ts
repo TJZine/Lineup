@@ -59,10 +59,10 @@ export const VALID_PHASE_TRANSITIONS: Record<string, readonly string[]> = {
     initializing: ['authenticating', 'loading_data', 'error'],
     authenticating: ['loading_data', 'error'],
     loading_data: ['ready', 'error'],
-    ready: ['backgrounded', 'terminating', 'error'],
+    ready: ['loading_data', 'backgrounded', 'terminating', 'error'],
     backgrounded: ['ready', 'resuming', 'terminating'],
     resuming: ['ready', 'error'],
-    error: ['authenticating', 'ready', 'terminating'],
+    error: ['authenticating', 'loading_data', 'ready', 'terminating'],
     terminating: [],
 } as const;
 

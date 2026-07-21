@@ -85,6 +85,31 @@ export const advanceTimersUntil = async (
     throw new Error(`advanceTimersUntil timed out after ${elapsedMs}ms.${reason}`);
 };
 
+/**
+ * Adds a diagnostic failure bound to async test infrastructure while ensuring
+ * the underlying timer is cleared when the operation settles first.
+ */
+export const withTestTimeout = <T>(
+    operation: Promise<T>,
+    options: { timeoutMs: number; errorMessage: string }
+): Promise<T> => {
+    const { timeoutMs, errorMessage } = options;
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+        throw new Error(`withTestTimeout requires a finite timeoutMs > 0 (received ${timeoutMs}).`);
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<T>((_resolve, reject) => {
+        timeoutId = globalThis.setTimeout(() => {
+            reject(new Error(errorMessage));
+        }, timeoutMs);
+    });
+
+    return Promise.race([operation, timeout]).finally(() => {
+        if (timeoutId !== undefined) globalThis.clearTimeout(timeoutId);
+    });
+};
+
 export type Deferred<T> = {
     promise: Promise<T>;
     resolve: (value: T | PromiseLike<T>) => void;

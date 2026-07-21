@@ -12,6 +12,14 @@ interface LightweightXmlElement {
 }
 
 const UNIVERSAL_DECISION_MAX_RESPONSE_BYTES = 1024 * 1024;
+const XML_WHITESPACE_SOURCE = '[\\u0009\\u000A\\u000D\\u0020]';
+const SUPPORTED_PMS_XML_DECLARATION_PATTERN = new RegExp(
+    '^<\\?xml' + XML_WHITESPACE_SOURCE + '+version' + XML_WHITESPACE_SOURCE + '*=' +
+    XML_WHITESPACE_SOURCE + '*(?:"1\\.0"|\'1\\.0\')' +
+    '(?:' + XML_WHITESPACE_SOURCE + '+encoding' + XML_WHITESPACE_SOURCE + '*=' +
+    XML_WHITESPACE_SOURCE + '*(?:"[Uu][Tt][Ff]-8"|\'[Uu][Tt][Ff]-8\'))?' +
+    XML_WHITESPACE_SOURCE + '*\\?>$'
+);
 
 interface UniversalTranscodeDecisionClientConfig {
     getAuthHeaders: () => Record<string, string>;
@@ -222,20 +230,33 @@ export class UniversalTranscodeDecisionClient {
     }
 
     private _parseCompleteXml(raw: string): LightweightXmlElement | null {
-        const source = raw.trim();
+        if (!this._containsOnlyValidXmlCharacters(raw)) return null;
+
+        const source = raw;
         const tokenPattern = /<\?[^<>]*\?>|<!--[^]*?-->|<\/?([A-Za-z_][\w:.-]*)([^<>]*)>/g;
         const roots: LightweightXmlElement[] = [];
         const stack: LightweightXmlElement[] = [];
+        let declarationSeen = false;
         let cursor = 0;
         let match: RegExpExecArray | null;
 
         while ((match = tokenPattern.exec(source)) !== null) {
             const gap = source.slice(cursor, match.index);
-            if (gap.includes('<') || gap.includes('>')) return null;
-            if (stack.length === 0 && gap.trim() !== '') return null;
+            if (!this._containsOnlyXmlWhitespace(gap)) return null;
             cursor = tokenPattern.lastIndex;
             const token = match[0];
-            if (token.startsWith('<?') || token.startsWith('<!--')) continue;
+            if (token.startsWith('<?')) {
+                if (declarationSeen || match.index !== 0 || !this._isSupportedXmlDeclaration(token)) {
+                    return null;
+                }
+                declarationSeen = true;
+                continue;
+            }
+            if (token.startsWith('<!--')) {
+                const comment = token.slice(4, -3);
+                if (comment.includes('--') || comment.endsWith('-')) return null;
+                continue;
+            }
 
             const name = match[1];
             if (!name) return null;
@@ -257,10 +278,42 @@ export class UniversalTranscodeDecisionClient {
         }
 
         const tail = source.slice(cursor);
-        if (tail.trim() !== '' || stack.length > 0 || roots.length !== 1) {
+        if (!this._containsOnlyXmlWhitespace(tail) || stack.length > 0 || roots.length !== 1) {
             return null;
         }
         return roots[0] ?? null;
+    }
+
+    private _containsOnlyXmlWhitespace(value: string): boolean {
+        return /^[\u0009\u000A\u000D\u0020]*$/.test(value);
+    }
+
+    private _isSupportedXmlDeclaration(token: string): boolean {
+        return SUPPORTED_PMS_XML_DECLARATION_PATTERN.test(token);
+    }
+
+    private _containsOnlyValidXmlCharacters(value: string): boolean {
+        for (let index = 0; index < value.length; index += 1) {
+            const first = value.charCodeAt(index);
+            if (first >= 0xD800 && first <= 0xDBFF) {
+                const second = value.charCodeAt(index + 1);
+                if (second < 0xDC00 || second > 0xDFFF) return false;
+                const codePoint = 0x10000 + ((first - 0xD800) * 0x400) + (second - 0xDC00);
+                if (!this._isValidXmlCodePoint(codePoint)) return false;
+                index += 1;
+                continue;
+            }
+            if (first >= 0xDC00 && first <= 0xDFFF) return false;
+            if (!this._isValidXmlCodePoint(first)) return false;
+        }
+        return true;
+    }
+
+    private _isValidXmlCodePoint(codePoint: number): boolean {
+        return codePoint === 0x9 || codePoint === 0xA || codePoint === 0xD ||
+            (codePoint >= 0x20 && codePoint <= 0xD7FF) ||
+            (codePoint >= 0xE000 && codePoint <= 0xFFFD) ||
+            (codePoint >= 0x10000 && codePoint <= 0x10FFFF);
     }
 
     private _parseAttributes(raw: string): ReadonlyMap<string, string> | null {
@@ -322,11 +375,7 @@ export class UniversalTranscodeDecisionClient {
         if (!validDigits) return null;
 
         const codePoint = Number.parseInt(digits, isHex ? 16 : 10);
-        const validXmlCodePoint = codePoint === 0x9 || codePoint === 0xA || codePoint === 0xD ||
-            (codePoint >= 0x20 && codePoint <= 0xD7FF) ||
-            (codePoint >= 0xE000 && codePoint <= 0xFFFD) ||
-            (codePoint >= 0x10000 && codePoint <= 0x10FFFF);
-        return validXmlCodePoint ? String.fromCodePoint(codePoint) : null;
+        return this._isValidXmlCodePoint(codePoint) ? String.fromCodePoint(codePoint) : null;
     }
 
     private _findFirstElement(

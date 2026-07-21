@@ -1,6 +1,9 @@
 import type { AppError } from '../../../modules/lifecycle';
 import type { PlexDiscoverySignalOptions } from '../../../modules/plex/discovery';
-import type { SelectedServerQuarantineCommandState } from '../../server-selection/SelectedServerQuarantineRecoveryState';
+import type {
+    SelectedServerQuarantineCommandState,
+    SelectedServerQuarantineRecoveryPresentation,
+} from '../../server-selection/SelectedServerQuarantineRecoveryState';
 import type { OrchestratorServerSelectionResult } from '../../server-selection/ServerSelectionTypes';
 import type { OrchestratorServerSelectionRuntime } from './OrchestratorServerSelectionRuntime';
 import { createSelectedServerRecoveryAppError } from './SelectedServerRecoveryAppError';
@@ -26,31 +29,44 @@ export class OrchestratorServerSelectionRuntimeProjection {
         try {
             return await this._runtime.selectServer(serverId, options);
         } catch (error: unknown) {
-            if (this._runtime.getQuarantineState().kind === 'quarantined') {
-                this._reportGlobalError(
-                    createSelectedServerRecoveryAppError(
-                        'Selected-server recovery requires user action.'
-                    ),
-                    'server-selection-quarantine'
-                );
-            }
+            this._reportQuarantineIfPresent();
             throw error;
         }
     }
 
-    clearSelectedServer(): Promise<void> {
-        return this._runtime.clearSelectedServer();
+    async clearSelectedServer(): Promise<void> {
+        try {
+            await this._runtime.clearSelectedServer();
+        } catch (error: unknown) {
+            this._reportQuarantineIfPresent();
+            throw error;
+        }
     }
 
     getQuarantineState(): SelectedServerQuarantineCommandState {
         return this._runtime.getQuarantineState();
     }
 
-    retryQuarantineRecovery(): Promise<void> {
+    retryQuarantineRecovery(): Promise<SelectedServerQuarantineRecoveryPresentation> {
         return this._runtime.retryQuarantineRecovery();
     }
 
     exitQuarantine(): Promise<void> {
         return this._runtime.exitQuarantine();
+    }
+
+    private _reportQuarantineIfPresent(): void {
+        const quarantine = this._runtime.getQuarantineState();
+        if (quarantine.kind !== 'quarantined') {
+            return;
+        }
+
+        this._reportGlobalError(
+            createSelectedServerRecoveryAppError(
+                'Selected-server recovery requires user action.',
+                quarantine
+            ),
+            'server-selection-quarantine'
+        );
     }
 }

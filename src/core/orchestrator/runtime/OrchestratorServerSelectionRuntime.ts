@@ -30,6 +30,7 @@ import { SelectedServerRuntimeController } from '../../server-selection/Selected
 import { clearPersistedSelectedServer } from '../../server-selection/SelectedServerClearPersistence';
 import type {
     SelectedServerQuarantineCommandState,
+    SelectedServerQuarantineRecoveryPresentation,
 } from '../../server-selection/SelectedServerQuarantineRecoveryState';
 import { restoreUnselectedServerRuntime } from '../../server-selection/SelectedServerUnselectedRestoration';
 import type {
@@ -56,7 +57,7 @@ export interface OrchestratorServerSelectionRuntimeDeps {
     configureChannelManagerStorage(): Promise<void>;
     publishPendingServerModules(): void;
     setReady(ready: boolean): void;
-    publishLoadingLifecycle(): void;
+    publishLoadingLifecycle(): Promise<void>;
     openServerSelect(): void;
     exitApplication(): Promise<void>;
     throwModuleInitPreconditionError(message: string, context: Record<string, unknown>): never;
@@ -117,6 +118,14 @@ export class OrchestratorServerSelectionRuntime {
                 this._runSelectedServerInitialization(options),
             restoreUnselectedRuntime: (operation): Promise<void> =>
                 this._restoreUnselectedRuntime(operation),
+            clearSelectedServerSelection: (): Promise<void> =>
+                this._runtimeController.clearSelection().then(() => undefined),
+            restoreClearedUnselectedRuntime: (): Promise<void> =>
+                this._restoreUnselectedRuntime({
+                    signal: new AbortController().signal,
+                    assertCurrent: (): void => undefined,
+                }),
+            publishUnselectedRuntimePresentation: this._deps.openServerSelect,
             prepareQuarantineRuntime: this._deps.prepareQuarantineRuntime,
             releaseQuarantineRuntimeGate: this._deps.releaseQuarantineRuntimeGate,
             exitQuarantine: this._deps.exitApplication,
@@ -139,14 +148,14 @@ export class OrchestratorServerSelectionRuntime {
 
     async clearSelectedServer(): Promise<void> {
         this._requireDiscovery('clearSelectedServer');
-        await this._runtimeController.clearSelection();
+        await this._coordinator.clearSelectedServer();
     }
 
     getQuarantineState(): SelectedServerQuarantineCommandState {
         return this._coordinator.getQuarantineState();
     }
 
-    retryQuarantineRecovery(): Promise<void> {
+    retryQuarantineRecovery(): Promise<SelectedServerQuarantineRecoveryPresentation> {
         return this._coordinator.retryQuarantineRecovery();
     }
 
@@ -158,6 +167,7 @@ export class OrchestratorServerSelectionRuntime {
         lineage: ChannelInitialTuneLineage;
         startupLineage: InitializationSelectedServerLineage;
         operation: OperationContextUpstream & { signal: AbortSignal };
+        commitOperation: OperationContextUpstream & { signal: AbortSignal };
     }): Promise<SelectedServerInitializationResult> {
         const initialization = this._deps.getInitializationCoordinator();
         if (!initialization) return { kind: 'failed', error: new Error('Initialization unavailable.') };
@@ -165,6 +175,7 @@ export class OrchestratorServerSelectionRuntime {
             lineage: options.lineage,
             signal: options.operation.signal,
             assertCurrent: (): void => options.operation.assertCurrent(),
+            commitOperation: options.commitOperation,
             beforeCommit: (operation) => this._refreshEpgForSelectedServer(operation),
             initialTune: (channelId, lineage) => this._runInitialTune(channelId, lineage),
         });
@@ -213,7 +224,6 @@ export class OrchestratorServerSelectionRuntime {
             publishPendingServerModules: this._deps.publishPendingServerModules,
             setReady: this._deps.setReady,
             publishLoadingLifecycle: this._deps.publishLoadingLifecycle,
-            openServerSelect: this._deps.openServerSelect,
         }, (): void => operation.assertCurrent());
     }
 

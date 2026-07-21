@@ -5,6 +5,7 @@ import type {
 } from '../runtime/clearIdentityScopedRuntimeState';
 
 const createDeps = (): jest.Mocked<IdentityScopedRuntimeStateResetDeps> => ({
+    cancelPendingDayRollover: jest.fn(),
     stopPlayback: jest.fn(),
     unloadCurrentChannel: jest.fn(),
     clearPlaybackState: jest.fn(),
@@ -14,6 +15,7 @@ const createDeps = (): jest.Mocked<IdentityScopedRuntimeStateResetDeps> => ({
 });
 
 const cleanupSteps: readonly IdentityScopedRuntimeCleanupStep[] = [
+    'cancelPendingDayRollover',
     'stopPlayback',
     'unloadCurrentChannel',
     'clearPlaybackState',
@@ -27,6 +29,7 @@ describe('clearIdentityScopedRuntimeState', () => {
 
         clearIdentityScopedRuntimeState(deps, { stopPlayback: true });
 
+        expect(deps.cancelPendingDayRollover).toHaveBeenCalledTimes(1);
         expect(deps.stopPlayback).toHaveBeenCalledTimes(1);
         expect(deps.unloadCurrentChannel).toHaveBeenCalledTimes(1);
         expect(deps.clearPlaybackState).toHaveBeenCalledTimes(1);
@@ -39,11 +42,27 @@ describe('clearIdentityScopedRuntimeState', () => {
 
         clearIdentityScopedRuntimeState(deps, { stopPlayback: false });
 
+        expect(deps.cancelPendingDayRollover).toHaveBeenCalledTimes(1);
         expect(deps.stopPlayback).not.toHaveBeenCalled();
         expect(deps.unloadCurrentChannel).toHaveBeenCalledTimes(1);
         expect(deps.clearPlaybackState).toHaveBeenCalledTimes(1);
         expect(deps.clearChannelManagerRuntimeState).toHaveBeenCalledTimes(1);
         expect(deps.clearEpgScheduleState).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels rollover authority before clearing identity-scoped EPG state', () => {
+        const sequence: string[] = [];
+        const deps = createDeps();
+        deps.cancelPendingDayRollover.mockImplementation(() => {
+            sequence.push('cancelPendingDayRollover');
+        });
+        deps.clearEpgScheduleState.mockImplementation(() => {
+            sequence.push('clearEpgScheduleState');
+        });
+
+        clearIdentityScopedRuntimeState(deps, { stopPlayback: true });
+
+        expect(sequence).toEqual(['cancelPendingDayRollover', 'clearEpgScheduleState']);
     });
 
     it.each(cleanupSteps)('reports %s failure and continues through later cleanup steps', (failingStep) => {

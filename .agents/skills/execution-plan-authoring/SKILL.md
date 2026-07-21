@@ -13,5 +13,7 @@ contracts, invariants, verification, rollback, and stop conditions. Leave helper
 names, local control flow, and test organization to implementation. Stop if product
 intent, ownership, or proof depth remains unresolved.
 
-When selecting `worker_luna`, also state why the unit is low ambiguity and cheap to
-verify; otherwise route implementation to the normal Sol worker.
+When selecting `worker_sol_low`, state why ownership and contracts are settled but
+repository comprehension is still useful. When selecting `worker_luna`, state why
+the work is frozen, repeatable, low ambiguity, and cheap to verify. Otherwise route
+implementation to the normal Sol worker.

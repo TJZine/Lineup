@@ -202,8 +202,9 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         options?: PlexDiscoverySignalOptions
     ): Promise<PlexServerSelectionResult> {
         const signal = options?.signal ?? null;
+        const context = this._selectionContext.advanceSelection();
         throwIfAborted(signal);
-        return this._selectServer(serverId, options, this._selectionContext.advanceSelection());
+        return this._selectServer(serverId, options, context);
     }
     private async _selectServer(
         serverId: string,

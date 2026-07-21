@@ -1,5 +1,17 @@
 import type { OrchestratorServerSelectionRuntime } from '../runtime/OrchestratorServerSelectionRuntime';
 import { OrchestratorServerSelectionRuntimeProjection } from '../runtime/OrchestratorServerSelectionRuntimeProjection';
+import type { SelectedServerRecoveryDiagnostic } from '../../server-selection/SelectedServerRecoveryDiagnostics';
+
+const RECOVERY_DIAGNOSTIC: SelectedServerRecoveryDiagnostic = {
+    operationFailure: {
+        step: 'selection',
+        error: { name: 'Error', message: 'initialization failed' },
+    },
+    recoveryFailure: {
+        step: 'proof',
+        error: { name: 'Error', message: 'rollback proof failed' },
+    },
+};
 
 function createRuntime(): jest.Mocked<OrchestratorServerSelectionRuntime> {
     return {
@@ -10,7 +22,7 @@ function createRuntime(): jest.Mocked<OrchestratorServerSelectionRuntime> {
         }),
         clearSelectedServer: jest.fn().mockResolvedValue(undefined),
         getQuarantineState: jest.fn().mockReturnValue({ kind: 'clear' }),
-        retryQuarantineRecovery: jest.fn().mockResolvedValue(undefined),
+        retryQuarantineRecovery: jest.fn().mockResolvedValue('none'),
         exitQuarantine: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<OrchestratorServerSelectionRuntime>;
 }
@@ -25,7 +37,7 @@ describe('OrchestratorServerSelectionRuntimeProjection', () => {
             kind: 'selection_failed',
             reason: 'server_not_found',
         });
-        await projection.retryQuarantineRecovery();
+        await expect(projection.retryQuarantineRecovery()).resolves.toBe('none');
         await projection.exitQuarantine();
 
         expect(reportGlobalError).not.toHaveBeenCalled();
@@ -41,6 +53,7 @@ describe('OrchestratorServerSelectionRuntimeProjection', () => {
             kind: 'quarantined',
             phase: 'proof',
             commandPending: false,
+            diagnostic: RECOVERY_DIAGNOSTIC,
         });
         const reportGlobalError = jest.fn();
         const projection = new OrchestratorServerSelectionRuntimeProjection(runtime, reportGlobalError);
@@ -51,8 +64,49 @@ describe('OrchestratorServerSelectionRuntimeProjection', () => {
             code: 'INITIALIZATION_FAILED',
             message: 'Selected-server recovery requires user action.',
             recoverable: true,
-            context: { recoveryMode: 'selected-server-quarantine' },
+            context: {
+                recoveryMode: 'selected-server-quarantine',
+                recoveryPhase: 'proof',
+                recoveryDiagnostic: RECOVERY_DIAGNOSTIC,
+            },
         }, 'server-selection-quarantine');
+        expect(JSON.stringify(reportGlobalError.mock.calls)).not.toContain(error.message);
+    });
+
+    it('reports the same guarded recovery presentation when clear restoration enters quarantine', async () => {
+        const error = new Error('clear restoration internal detail');
+        const runtime = createRuntime();
+        runtime.clearSelectedServer.mockRejectedValue(error);
+        runtime.getQuarantineState.mockReturnValue({
+            kind: 'quarantined',
+            phase: 'unselected_runtime_restore',
+            commandPending: false,
+            diagnostic: {
+                operationFailure: {
+                    step: 'clear',
+                    error: { name: 'Error', message: 'safe clear failure' },
+                },
+                recoveryFailure: {
+                    step: 'unselected_runtime_restore',
+                    error: { name: 'Error', message: 'safe restore failure' },
+                },
+            },
+        });
+        const reportGlobalError = jest.fn();
+        const projection = new OrchestratorServerSelectionRuntimeProjection(runtime, reportGlobalError);
+
+        await expect(projection.clearSelectedServer()).rejects.toBe(error);
+
+        expect(reportGlobalError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                recoverable: true,
+                context: expect.objectContaining({
+                    recoveryMode: 'selected-server-quarantine',
+                    recoveryPhase: 'unselected_runtime_restore',
+                }),
+            }),
+            'server-selection-quarantine'
+        );
         expect(JSON.stringify(reportGlobalError.mock.calls)).not.toContain(error.message);
     });
 });

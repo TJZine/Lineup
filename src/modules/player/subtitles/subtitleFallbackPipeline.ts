@@ -5,7 +5,8 @@ import type {
     SubtitleTrack,
 } from '../core/types';
 import { looksLikeHtml, normalizeSubtitleToVtt } from './subtitleConversion';
-import { fetchWithTimeout } from '../../plex/shared/fetchWithTimeout';
+import { fetchWithTimeoutAndConsume } from '../../plex/shared/fetchWithTimeout';
+import { readBoundedResponseText } from '../../plex/shared/boundedResponseText';
 import {
     buildPlexSubtitleFetchAttempts,
     buildPlexSubtitleTranscodeUrl,
@@ -15,6 +16,10 @@ import {
 import { redactSensitiveTokens, sanitizeDiagnosticText } from '../../../utils/redact';
 
 export type SubtitleFallbackPipelineContext = PlexSubtitleFallbackContext;
+
+export const SUBTITLE_FALLBACK_FETCH_TIMEOUT_MS = 10_000;
+export const SUBTITLE_FALLBACK_MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+const SUBTITLE_FALLBACK_ERROR_SAMPLE_MAX_BYTES = 16 * 1024;
 
 interface SubtitleFallbackLogger {
     (event: string, contextFactory: () => Record<string, unknown>): void;
@@ -217,25 +222,33 @@ async function fetchSubtitleTextWithFallbacks({
     for (const entry of requestsToTry) {
         const suffix = entry.variant === 'lan_http' ? '_lan_http' : '';
         try {
-            const response = await fetchWithTimeout({
+            const { response, text } = await fetchWithTimeoutAndConsume({
                 url: entry.url.toString(),
                 init: { headers: entry.headers },
-                timeoutMs: 10_000,
+                timeoutMs: SUBTITLE_FALLBACK_FETCH_TIMEOUT_MS,
                 upstreamSignal: signal,
+                consume: async (response, bodySignal) => {
+                    try {
+                        return {
+                            response,
+                            text: await readBoundedResponseText(response, {
+                                maxBytes: response.ok
+                                    ? SUBTITLE_FALLBACK_MAX_RESPONSE_BYTES
+                                    : SUBTITLE_FALLBACK_ERROR_SAMPLE_MAX_BYTES,
+                                signal: bodySignal,
+                            }),
+                        };
+                    } catch (error) {
+                        if (response.ok || signal.aborted || !isCurrentLoad()) throw error;
+                        return { response, text: '' };
+                    }
+                },
             });
             if (!isCurrentLoad()) return staleFailure();
             if (!response.ok) {
-                let bodyText = '';
                 let bodySample: string | null = null;
-                let contentType: string | null = null;
-                try {
-                    contentType = response.headers.get('content-type');
-                    bodyText = await response.text();
-                } catch {
-                    // ignore
-                }
-                if (!isCurrentLoad()) return staleFailure();
-                bodySample = bodyText.length > 0 ? sanitizeDiagnosticText(bodyText, { maxLength: 200 }) : null;
+                const contentType = response.headers.get('content-type');
+                bodySample = text.length > 0 ? sanitizeDiagnosticText(text, { maxLength: 200 }) : null;
                 logDebug('subtitle_fetch_error', () => ({
                     id: trackId,
                     status: response.status,
@@ -246,8 +259,6 @@ async function fetchSubtitleTextWithFallbacks({
                 }));
                 lastFailure = classifyStatusFailure(response.status);
             } else {
-                const text = await response.text();
-                if (!isCurrentLoad()) return staleFailure();
                 return { kind: 'success', text };
             }
         } catch (error) {
@@ -260,6 +271,11 @@ async function fetchSubtitleTextWithFallbacks({
                 attempt: `subtitle_text_fetch_failed${suffix}`,
                 url: redactSensitiveTokens(entry.url.toString()),
             }));
+
+            if (error instanceof RangeError) {
+                lastFailure = unsupportedFailure('invalid_source');
+                continue;
+            }
 
             const xhrResult = await xhrGetText({
                 url: entry.url.toString(),
@@ -305,6 +321,7 @@ function xhrGetText({
     return new Promise((resolve) => {
         let xhr: XMLHttpRequest | null = null;
         let settled = false;
+        let responseTooLarge = false;
         const finish = (value: SubtitleFetchTextResult): void => {
             if (settled) return;
             settled = true;
@@ -372,8 +389,29 @@ function xhrGetText({
                 }));
                 finish(transientFailure('timeout'));
             };
+            xhr.onprogress = (event): void => {
+                if (
+                    event.loaded <= SUBTITLE_FALLBACK_MAX_RESPONSE_BYTES
+                    && (!event.lengthComputable || event.total <= SUBTITLE_FALLBACK_MAX_RESPONSE_BYTES)
+                ) {
+                    return;
+                }
+                responseTooLarge = true;
+                try {
+                    xhrRef.abort();
+                } catch {
+                    // Completion below remains authoritative.
+                }
+                finish(unsupportedFailure('invalid_source'));
+            };
             xhr.onabort = (): void => {
-                finish(signal.aborted || !isCurrentLoad() ? staleFailure() : transientFailure('timeout'));
+                finish(
+                    responseTooLarge
+                        ? unsupportedFailure('invalid_source')
+                        : signal.aborted || !isCurrentLoad()
+                            ? staleFailure()
+                            : transientFailure('timeout')
+                );
             };
             xhr.onload = (): void => {
                 if (!isCurrentLoad()) {
@@ -395,9 +433,14 @@ function xhrGetText({
                     finish(classifyStatusFailure(xhrRef.status));
                     return;
                 }
+                const responseText = typeof xhrRef.responseText === 'string' ? xhrRef.responseText : '';
+                if (new Blob([responseText]).size > SUBTITLE_FALLBACK_MAX_RESPONSE_BYTES) {
+                    finish(unsupportedFailure('invalid_source'));
+                    return;
+                }
                 finish({
                     kind: 'success',
-                    text: typeof xhrRef.responseText === 'string' ? xhrRef.responseText : '',
+                    text: responseText,
                 });
             };
 

@@ -4,6 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyReleaseCandidate } from './verify-release-candidate.mjs';
 
+const DEFAULT_ARES_PACKAGE_TIMEOUT_MS = 5 * 60 * 1000;
+
 function fail(message) {
     throw new Error(message);
 }
@@ -26,7 +28,7 @@ function parseOptions(argv) {
             fail(`Unknown package-webos option: ${option}`);
         }
         const value = argv[index + 1];
-        if (value === undefined) {
+        if (value === undefined || value.startsWith('--')) {
             fail(`Missing value for ${option}.`);
         }
         options[key] = key === 'aresPackage' ? value : path.resolve(process.cwd(), value);
@@ -66,7 +68,12 @@ function isWithinOrEqual(parentPath, childPath) {
     );
 }
 
-export function packageWebos({ aresPackage, distDir, outputDir }) {
+export function packageWebos({
+    aresPackage,
+    distDir,
+    outputDir,
+    timeoutMs = DEFAULT_ARES_PACKAGE_TIMEOUT_MS,
+}) {
     const candidate = verifyReleaseCandidate(distDir);
     const expectedName = expectedPackageName(candidate.appInfo);
     const canonicalCandidateDir = canonicalizePotentialPath(distDir);
@@ -101,9 +108,13 @@ export function packageWebos({ aresPackage, distDir, outputDir }) {
 
     const result = crossSpawn.sync(aresPackage, [distDir, '-o', outputDir], {
         encoding: 'utf8',
+        timeout: timeoutMs,
         windowsHide: true,
     });
     const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+    if (result.error?.code === 'ETIMEDOUT') {
+        fail(`ares-package timed out after ${timeoutMs}ms.`);
+    }
     if (result.error instanceof Error) {
         fail(`Failed to run ares-package: ${result.error.message}`);
     }

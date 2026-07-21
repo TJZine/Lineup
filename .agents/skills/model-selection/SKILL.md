@@ -5,17 +5,22 @@ description: Use when choosing a model or reasoning effort for a Lineup task or 
 
 # Model Selection
 
-Use the configured role defaults unless representative evals justify a change:
+Use the configured role defaults. Revisit them only when current official guidance
+and representative independent benchmark evidence justify a change:
 
 - `explorer` and `monitor`: fast read-only work;
 - `docs_researcher`: official-source research;
 - `planner`: only when separate planning is justified;
 - `worker`: bounded implementation;
-- `worker_luna`: lower-cost execution only for a decision-complete unit explicitly
-  planned by the Sol planner;
+- `worker_sol_low`: bounded implementation with established ownership that still
+  needs repository comprehension;
+- `worker_luna`: frozen, repeatable, low-ambiguity implementation that is cheap to
+  verify directly;
 - `reviewer`: independent read-only review.
 
-Use medium reasoning for routine bounded work and high for ambiguous planning or
-adversarial review. Keep Luna behind exact scope, direct verification, and explicit
-stop conditions. Increase effort only when measured quality improves enough to
-justify cost.
+Treat `.codex/agents/<role>.toml` as the sole authority for exact model,
+reasoning-effort, sandbox, and fallback settings. Keep both lower-cost workers
+behind exact scope, direct verification, and explicit stop conditions. Do not
+duplicate exact settings in plans, prompts, or workflow prose, or add a tracked
+role until current guidance and representative evidence justify the recurring
+need and coordination cost.

@@ -49,8 +49,9 @@ function createPlexAuth(): jest.Mocked<IPlexAuth> {
     } as unknown as jest.Mocked<IPlexAuth>;
 }
 
-function createDiscovery(): jest.Mocked<IPlexServerDiscovery> {
-    const context = new PlexDiscoverySelectionContext();
+function createDiscovery(
+    context = new PlexDiscoverySelectionContext()
+): jest.Mocked<IPlexServerDiscovery> {
     let selectedId: string | null = 'old-server';
     let selectedUri = 'https://old.example';
     const discovery = {
@@ -89,12 +90,14 @@ interface RuntimeHarness {
     epg: IEPGComponent;
     epgCoordinator: jest.Mocked<EPGCoordinator>;
     initialization: jest.Mocked<InitializationCoordinator>;
+    selectionContext: PlexDiscoverySelectionContext;
     epgOutcome: { kind: 'succeeded'; result: typeof READY_EPG_REFRESH };
 }
 
 function createHarness(): RuntimeHarness {
     const plexAuth = createPlexAuth();
-    const discovery = createDiscovery();
+    const selectionContext = new PlexDiscoverySelectionContext();
+    const discovery = createDiscovery(selectionContext);
     const tuning = new ChannelInitialTuneAuthority();
     const epg = { clearSchedules: jest.fn() } as unknown as IEPGComponent;
     const epgCoordinator = {
@@ -140,7 +143,7 @@ function createHarness(): RuntimeHarness {
         configureChannelManagerStorage: jest.fn().mockResolvedValue(undefined),
         publishPendingServerModules: jest.fn(),
         setReady: jest.fn(),
-        publishLoadingLifecycle: jest.fn(),
+        publishLoadingLifecycle: jest.fn().mockResolvedValue(undefined),
         openServerSelect: jest.fn(),
         exitApplication: jest.fn().mockResolvedValue(undefined),
         throwModuleInitPreconditionError: jest.fn((
@@ -148,7 +151,16 @@ function createHarness(): RuntimeHarness {
             _context: Record<string, unknown>
         ) => { throw new Error(message); }),
     };
-    return { deps, plexAuth, discovery, epg, epgCoordinator, initialization, epgOutcome };
+    return {
+        deps,
+        plexAuth,
+        discovery,
+        epg,
+        epgCoordinator,
+        initialization,
+        selectionContext,
+        epgOutcome,
+    };
 }
 
 describe('OrchestratorServerSelectionRuntime', () => {
@@ -198,5 +210,80 @@ describe('OrchestratorServerSelectionRuntime', () => {
             { emitAuthChange: false }
         );
         expect(harness.discovery.clearSelection).toHaveBeenCalledTimes(1);
+        expect(harness.deps.suspendAndDrainForScopeTransition).toHaveBeenCalledTimes(1);
+        expect(harness.deps.clearIdentityScopedRuntime).toHaveBeenCalledTimes(1);
+        expect(harness.deps.configureChannelManagerStorage).toHaveBeenCalledTimes(1);
+        expect(harness.deps.publishPendingServerModules).toHaveBeenCalledTimes(1);
+        expect(harness.deps.setReady).toHaveBeenCalledWith(false);
+        expect(harness.deps.publishLoadingLifecycle).toHaveBeenCalledTimes(1);
+        expect(harness.deps.openServerSelect).toHaveBeenCalledTimes(1);
+        expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(1);
+    });
+
+    it('completes clear then selects another server through the public runtime seam', async () => {
+        const harness = createHarness();
+        const runtime = new OrchestratorServerSelectionRuntime(harness.deps);
+
+        await runtime.clearSelectedServer();
+        const result = await runtime.selectServer('candidate');
+
+        expect(result).toEqual({
+            kind: 'selected',
+            persistedSelection: 'updated',
+            epgRefresh: harness.epgOutcome,
+        });
+        expect(harness.discovery.clearSelection).toHaveBeenCalledTimes(1);
+        expect(harness.discovery.selectServer).toHaveBeenCalledWith(
+            'candidate',
+            expect.objectContaining({ signal: expect.any(AbortSignal) })
+        );
+        expect(harness.deps.publishLoadingLifecycle).toHaveBeenCalledTimes(1);
+        expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(2);
+        expect(runtime.getQuarantineState()).toEqual({ kind: 'clear' });
+    });
+
+    it('restores the coherent unselected runtime after post-clear selection failure', async () => {
+        const harness = createHarness();
+        const runtime = new OrchestratorServerSelectionRuntime(harness.deps);
+        const selectionError = new Error('candidate initialization failed');
+
+        await runtime.clearSelectedServer();
+        harness.initialization.runSelectedServerTransaction.mockResolvedValueOnce({
+            kind: 'failed',
+            error: selectionError,
+        });
+
+        await expect(runtime.selectServer('candidate')).rejects.toBe(selectionError);
+
+        expect(runtime.getSelectedServerId()).toBeNull();
+        expect(runtime.getQuarantineState()).toEqual({ kind: 'clear' });
+        expect(harness.deps.clearIdentityScopedRuntime).toHaveBeenCalledTimes(2);
+        expect(harness.deps.publishPendingServerModules).toHaveBeenCalledTimes(2);
+        expect(harness.deps.setReady).toHaveBeenLastCalledWith(false);
+        expect(harness.deps.publishLoadingLifecycle).toHaveBeenCalledTimes(2);
+        expect(harness.deps.openServerSelect).toHaveBeenCalledTimes(2);
+    });
+
+    it('commits unselected rollback before server-select publication can supersede discovery', async () => {
+        const harness = createHarness();
+        const runtime = new OrchestratorServerSelectionRuntime(harness.deps);
+
+        await runtime.clearSelectedServer();
+        harness.discovery.selectServer.mockImplementationOnce(async () => {
+            harness.selectionContext.advanceSelection();
+            return { kind: 'connection_unavailable', reason: 'unreachable' };
+        });
+        harness.deps.openServerSelect.mockImplementationOnce(() => {
+            harness.selectionContext.advance();
+        });
+
+        await expect(runtime.selectServer('candidate')).resolves.toEqual({
+            kind: 'selection_failed',
+            reason: 'unreachable',
+        });
+
+        expect(runtime.getQuarantineState()).toEqual({ kind: 'clear' });
+        expect(harness.deps.prepareQuarantineRuntime).not.toHaveBeenCalled();
+        expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(2);
     });
 });

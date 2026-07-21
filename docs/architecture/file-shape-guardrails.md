@@ -1,62 +1,33 @@
-# Production File-Shape Guardrails
+# Production File-Shape Attention
 
-This document owns the current production file-shape guardrail for Lineup.
+`npm run verify:maintainability` reports production files under `src/**` that
+exceed the architecture-attention thresholds. It excludes `__tests__` and
+`*.test.*` files and does not fail because a file is large or has grown.
+The default output is a compact count; use
+`npm run verify:maintainability -- --details` when exact paths are useful.
 
-The mechanical check is `npm run verify:maintainability`, which is also enforced through `npm run verify:architecture` and therefore through `npm run verify`.
+## Thresholds
 
-## Policy
+- Over 500 lines: when changed, record the compact architecture disposition from
+  the `architecture-boundaries` skill.
+- Over 800 lines: when changed, obtain a fresh independent `reviewer` architecture
+  and YAGNI review of the whole owner.
+- Composition roots and hotspots named in current architecture guidance require
+  the same fresh review regardless of their current line count.
 
-- Count production files under `src/**` with `.ts`, `.tsx`, `.css`, and `.html` extensions.
-- Exclude tests via `__tests__` path segments and `*.test.*` filenames.
-- Count `src/**/build/**` as production source unless a separate source-backed review proves a path is generated.
-- Production files over 500 lines require an allowlist row below.
-- Production files over 800 lines require an explicit decomposition or revisit trigger.
-- Allowlisted files must not grow beyond their recorded baseline without same-change review of the rationale and trigger.
-- Remove the row when an allowlisted file shrinks to 500 lines or fewer.
+These are attention and review triggers, not decomposition requirements. A large
+cohesive owner may grow; a smaller owner mixing independent responsibilities may
+need extraction. Never split solely to cross a numeric threshold.
 
-## Allowlist
+## Decision Standard
 
-The table below is parsed by `tools/verify-maintainability.mjs`. Keep the marker comments and column names intact.
+Keep behavior together when it shares invariants, state, lifecycle, dependency
+direction, and reason to change. Extract only a distinct present-day
+responsibility, lifecycle/resource owner, trust boundary, policy, translation, or
+real consumer. An extraction must own meaningful behavior rather than forward
+calls through another layer.
 
-Regenerate candidate rows with:
-
-```bash
-node tools/verify-maintainability.mjs --print-allowlist
-```
-
-Do not update this table as routine bookkeeping. A baseline increase is an architecture exception that needs the same change to explain why growth is necessary and what decomposition or revisit condition remains.
-
-<!-- file-shape-guardrails:start -->
-| Path | Baseline lines | Rationale | Growth/decomposition trigger |
-| --- | ---: | --- | --- |
-| `src/core/channel-setup/planning/ChannelSetupPlanner.ts` | 741 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/core/channel-setup/planning/ChannelSetupStrategyBuilders.ts` | 705 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/core/channel-tuning/ChannelTuningCoordinator.ts` | 670 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/core/initialization/InitializationCoordinator.ts` | 754 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/core/orchestrator/AppOrchestrator.ts` | 1884 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/navigation/manager/NavigationManager.ts` | 688 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/player/core/VideoPlayer.ts` | 1049 | Accepted current production hotspot baseline after the player package reorg moved the runtime owner under `core/` without behavior growth; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or future player-runtime extraction that can move structured failure construction out of the hotspot without changing public playback behavior. |
-| `src/modules/player/recovery/PlaybackRecoveryManager.ts` | 687 | Accepted current production hotspot baseline after the player package reorg moved recovery ownership under `recovery/`; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent recovery owner extraction touching this file. |
-| `src/modules/player/subtitles/SubtitleManager.ts` | 638 | Accepted current production hotspot baseline after the player package reorg moved subtitle ownership under `subtitles/`; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent subtitle owner extraction touching this file. |
-| `src/modules/plex/auth/PlexAuth.ts` | 727 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/plex/discovery/PlexServerDiscovery.ts` | 563 | Accepted current production hotspot baseline after discovery-selection context mechanics moved to their focused discovery-local owner; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/plex/library/PlexLibrary.ts` | 1301 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/plex/stream/resolver/PlexStreamResolver.ts` | 595 | Accepted current production hotspot baseline after the resolver split required burn-in subtitle selection writes from best-effort subtitle-clear cleanup without changing the public resolver contract; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or future stream URL/token/finalization owner extraction touching this file. |
-| `src/modules/scheduler/channel-manager/ChannelManager.ts` | 930 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/auth/AuthScreen.ts` | 604 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/channel-setup/ChannelSetupSessionRuntime.ts` | 582 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/channel-setup/steps/StrategyStepController.ts` | 668 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/channel-setup/steps/StrategyStepInteractionController.ts` | 773 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/epg/component/EPGComponent.ts` | 720 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/epg/coordinator/EPGCoordinator.ts` | 561 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/epg/focus/EPGFocusNavigator.ts` | 663 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/epg/runtime/EPGScheduleRefreshRuntime.ts` | 881 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/epg/view/cells/EPGCellRenderer.ts` | 585 | Accepted current production hotspot baseline after PQR-2-W2 moved the renderer into the cells owner folder and centralized renderer-local subtitle clear state; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/epg/view/info-panel/EPGInfoPanel.ts` | 889 | Accepted current production hotspot baseline after PQR-2-W2 moved the info panel into the info-panel owner folder; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/epg/view/EPGVirtualizer.ts` | 937 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/mini-guide/MiniGuideCoordinator.ts` | 501 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/now-playing-info/NowPlayingInfoCoordinator.ts` | 580 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/now-playing-info/NowPlayingInfoOverlay.ts` | 633 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/player-osd/PlayerOsdCoordinator.ts` | 594 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-| `src/modules/ui/profile-select/ProfileSelectScreen.ts` | 910 | Accepted current production hotspot baseline; no routine line growth is allowed. | Revisit/decomposition trigger: any net line growth, ownership expansion, or adjacent owner extraction touching this file. |
-<!-- file-shape-guardrails:end -->
+The authoritative procedure is in
+[`architecture-boundaries`](../../.agents/skills/architecture-boundaries/SKILL.md);
+the risk and review policy is in
+[`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md).

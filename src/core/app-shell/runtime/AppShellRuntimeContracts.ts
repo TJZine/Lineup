@@ -20,7 +20,10 @@ import type { IDisposable } from '../../../utils/interfaces';
 import type { AppErrorCode } from '../../../types/app-errors';
 import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { EpgScheduleRefreshOutcome } from '../../../shared/epgRefresh';
-import type { SelectedServerQuarantineCommandState } from '../../server-selection/SelectedServerQuarantineRecoveryState';
+import type {
+    SelectedServerQuarantineCommandState,
+    SelectedServerQuarantineRecoveryPresentation,
+} from '../../server-selection/SelectedServerQuarantineRecoveryState';
 
 export interface AppShellNavigationRuntimePort {
     getNavigation(): INavigationManager | null;
@@ -141,6 +144,6 @@ export interface AppShellOrchestratorRuntime
     getRecoveryActions(errorCode: AppErrorCode): BlockingErrorOverlayAction[];
     setNowPlayingHandler(handler: ((toast: ToastInput) => void) | null): void;
     getQuarantineState(): SelectedServerQuarantineCommandState;
-    retryQuarantineRecovery(): Promise<void>;
+    retryQuarantineRecovery(): Promise<SelectedServerQuarantineRecoveryPresentation>;
     exitQuarantine(): Promise<void>;
 }

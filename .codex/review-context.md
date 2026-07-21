@@ -148,7 +148,8 @@ Preferred roles:
 - `explorer`: read-only source discovery
 - `reviewer`: packet-focused correctness, architecture, maintainability, security, or workflow review
 - `worker`: bounded implementation
-- `worker_luna`: lower-cost execution of a decision-complete Sol-planned unit
+- `worker_sol_low`: bounded implementation with settled ownership that still needs repository comprehension
+- `worker_luna`: frozen, low-ambiguity, cheap-to-verify execution
 - `planner`: separate planning only when justified
 - `docs_researcher`: official-source checks
 - `monitor`: long waits and status checks
@@ -157,10 +158,15 @@ Preserve read-only reviewer/research roles versus write-capable planner/worker b
 
 ## Model Policy
 
-- Use GPT-5.6 Sol medium for normal planning and implementation.
-- Use GPT-5.6 Luna xhigh only for an explicitly eligible, low-ambiguity,
-  directly verifiable unit planned by the Sol planner.
-- Use GPT-5.6 Sol high for difficult adversarial review. Change role defaults only from representative eval evidence.
+- Select the role whose scope matches the work. Treat `.codex/agents/*.toml` as
+  the sole authority for exact model and reasoning-effort settings; do not copy
+  those values into plans, prompts, or workflow guidance.
+- Use `worker` for normal implementation, `worker_sol_low` for bounded work with
+  settled ownership and direct proof, and `worker_luna` only for frozen,
+  low-ambiguity, directly verifiable execution.
+- Use `planner` or `reviewer` only when the planning or independent-review gate
+  is actually met. Change role defaults only after current official guidance and
+  representative independent evidence justify the change.
 
 ## Pure Docs / Assets Exclusion Rule
 

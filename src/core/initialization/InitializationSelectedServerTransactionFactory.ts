@@ -33,6 +33,7 @@ export function createInitializationSelectedServerTransaction(options: {
             callbacks.status.updateModuleStatus('plex-stream-resolver', 'ready', undefined, 0);
         },
         setupEventWiring: callbacks.state.setupEventWiring,
+        disposeEventWiring: callbacks.state.disposeEventWiring,
         setReady: callbacks.state.setReady,
         publishLifecycleReady: () => dependencies.modules.lifecycle?.setPhase('ready'),
         clearResumeHandlers: options.clearResumeHandlers,

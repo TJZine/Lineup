@@ -24,7 +24,10 @@ interface TransactionHarness {
     deps: jest.Mocked<InitializationSelectedServerTransactionDeps>;
     request: SelectedServerInitializationRequest;
     transactionController: AbortController;
+    commitController: AbortController;
+    authController: AbortController;
     validateStoredCredentials: jest.Mock;
+    navigation: { replaceScreen: jest.Mock };
     channelManager: { getCurrentChannel: jest.Mock; getAllChannels: jest.Mock };
 }
 
@@ -54,12 +57,14 @@ function createHarness(): TransactionHarness {
         shouldRunChannelSetup: jest.fn(() => true),
         openServerSelect: jest.fn(),
         publishCommitStart: jest.fn(),
-        setupEventWiring: jest.fn(),
+        setupEventWiring: jest.fn(() => true),
+        disposeEventWiring: jest.fn(),
         setReady: jest.fn(),
         publishLifecycleReady: jest.fn(),
         clearResumeHandlers: jest.fn(),
     };
     const transactionController = new AbortController();
+    const commitController = new AbortController();
     const tuneAuthority = new ChannelInitialTuneAuthority();
     const lineage = tuneAuthority.beginLineage([]);
     const request: SelectedServerInitializationRequest = {
@@ -68,10 +73,25 @@ function createHarness(): TransactionHarness {
         assertCurrent: (): void => {
             if (transactionController.signal.aborted) throw transactionController.signal.reason;
         },
+        commitOperation: {
+            signal: commitController.signal,
+            assertCurrent: (): void => {
+                if (commitController.signal.aborted) throw commitController.signal.reason;
+            },
+        },
         beforeCommit: jest.fn().mockResolvedValue(READY_REFRESH),
         initialTune: jest.fn().mockResolvedValue({ kind: 'switched' }),
     };
-    return { deps, request, transactionController, validateStoredCredentials, channelManager };
+    return {
+        deps,
+        request,
+        transactionController,
+        commitController,
+        authController,
+        validateStoredCredentials,
+        navigation,
+        channelManager,
+    };
 }
 
 describe('InitializationSelectedServerTransaction', () => {
@@ -91,6 +111,63 @@ describe('InitializationSelectedServerTransaction', () => {
         expect(deps.setReady).toHaveBeenNthCalledWith(1, false);
         expect(deps.setReady).toHaveBeenNthCalledWith(2, true);
         expect(deps.publishLifecycleReady).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps successful cached-screen routing current when hiding the caller aborts preparation', async () => {
+        const { deps, request, transactionController, navigation } = createHarness();
+        const callerHide = new DOMException('Server select hidden.', 'AbortError');
+        navigation.replaceScreen.mockImplementation(() => {
+            transactionController.abort(callerHide);
+        });
+
+        const result = await new InitializationSelectedServerTransaction(deps).run(request);
+
+        expect(result).toEqual({
+            kind: 'completed',
+            payload: { epgRefresh: { kind: 'succeeded', result: READY_REFRESH } },
+        });
+        expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
+        expect(transactionController.signal.reason).toBe(callerHide);
+        expect(deps.setReady).toHaveBeenLastCalledWith(true);
+        expect(deps.publishLifecycleReady).toHaveBeenCalledTimes(1);
+    });
+
+    it('still rejects routing after selected-scope commit authority is invalidated', async () => {
+        const { deps, request, commitController, navigation } = createHarness();
+        const scopeInvalidated = new DOMException('Selected scope changed.', 'AbortError');
+        navigation.replaceScreen.mockImplementation(() => {
+            commitController.abort(scopeInvalidated);
+        });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'failed', error: scopeInvalidated });
+
+        expect(deps.setReady).not.toHaveBeenCalledWith(true);
+        expect(deps.publishLifecycleReady).not.toHaveBeenCalled();
+    });
+
+    it('still rejects auth invalidation when successful routing also hides the caller', async () => {
+        const {
+            deps,
+            request,
+            transactionController,
+            authController,
+            navigation,
+        } = createHarness();
+        const callerHide = new DOMException('Server select hidden.', 'AbortError');
+        const authInvalidated = new PlexAuthOperationSupersededError();
+        navigation.replaceScreen.mockImplementation(() => {
+            transactionController.abort(callerHide);
+            authController.abort(authInvalidated);
+        });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'stopped', reason: 'superseded' });
+
+        expect(transactionController.signal.reason).toBe(callerHide);
+        expect(authController.signal.reason).toBe(authInvalidated);
+        expect(deps.setReady).not.toHaveBeenCalledWith(true);
+        expect(deps.publishLifecycleReady).not.toHaveBeenCalled();
     });
 
     it.each(['skipped', 'partial', 'failed'] as const)(
@@ -178,6 +255,57 @@ describe('InitializationSelectedServerTransaction', () => {
         await new InitializationSelectedServerTransaction(deps).run(request);
 
         expect(request.initialTune).toHaveBeenCalledWith('channel-1', request.lineage);
+    });
+
+    it('disposes wiring newly established by the transaction when routing fails', async () => {
+        const { deps, request } = createHarness();
+        const error = new Error('routing failed');
+        deps.shouldRunChannelSetup.mockImplementation(() => { throw error; });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'failed', error });
+
+        expect(deps.setupEventWiring).toHaveReturnedWith(true);
+        expect(deps.disposeEventWiring).toHaveBeenCalledTimes(1);
+        expect(deps.setReady).not.toHaveBeenCalledWith(true);
+    });
+
+    it('preserves pre-existing wiring when routing fails', async () => {
+        const { deps, request } = createHarness();
+        const error = new Error('routing failed');
+        deps.setupEventWiring.mockReturnValue(false);
+        deps.shouldRunChannelSetup.mockImplementation(() => { throw error; });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'failed', error });
+
+        expect(deps.disposeEventWiring).not.toHaveBeenCalled();
+    });
+
+    it('disposes newly established wiring when the transaction becomes stale during binding', async () => {
+        const { deps, request, commitController } = createHarness();
+        const scopeInvalidated = new DOMException('superseded', 'AbortError');
+        deps.setupEventWiring.mockImplementation(() => {
+            commitController.abort(scopeInvalidated);
+            return true;
+        });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'failed', error: scopeInvalidated });
+
+        expect(deps.disposeEventWiring).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not let event-wiring compensation failure mask routing failure', async () => {
+        const { deps, request } = createHarness();
+        const error = new Error('routing failed');
+        deps.shouldRunChannelSetup.mockImplementation(() => { throw error; });
+        deps.disposeEventWiring.mockImplementation(() => { throw new Error('cleanup failed'); });
+
+        await expect(new InitializationSelectedServerTransaction(deps).run(request))
+            .resolves.toEqual({ kind: 'failed', error });
+
+        expect(deps.disposeEventWiring).toHaveBeenCalledTimes(1);
     });
 
     it.each([

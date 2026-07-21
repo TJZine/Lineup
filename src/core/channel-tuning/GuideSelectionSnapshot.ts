@@ -39,7 +39,7 @@ export function validateGuideSelectionSnapshot(
     ) {
         return { valid: false, snapshot: null, reason: 'invalid-program-window' };
     }
-    if (snapshot.orderedItems.length === 0) {
+    if (!Array.isArray(snapshot.orderedItems) || snapshot.orderedItems.length === 0) {
         return { valid: false, snapshot: null, reason: 'missing-items' };
     }
     if (!snapshot.orderedItems.some((item) => item.ratingKey === snapshot.ratingKey)) {

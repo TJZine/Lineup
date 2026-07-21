@@ -24,7 +24,7 @@ Once setup completes, you'll have channels organized by your Plex content:
 ## Tuning In
 
 1. Use the **Channel Up/Down** buttons on your remote to flip channels.
-2. Press **OK** to view the EPG (Electronic Program Guide).
+2. Press **Guide** to view the EPG (Electronic Program Guide). If your remote has no Guide button, press **Green**.
 3. Navigate the EPG to see what's on across all channels.
 
 ## What's Next?

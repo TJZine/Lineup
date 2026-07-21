@@ -813,14 +813,40 @@ describe('AppLifecycle', () => {
             await lifecycle.initialize();
             // Follow valid transition path: authenticating -> loading_data
             await lifecycle.setPhaseAndWait('loading_data');
-            expectConsoleWarn('Invalid phase transition');
 
             const handler = jest.fn();
             lifecycle.on('phaseChange', handler);
 
-            await lifecycle.setPhaseAndWait('loading_data');
+            await expect(lifecycle.setPhaseAndWait('loading_data')).resolves.toBe(true);
 
             expect(handler).not.toHaveBeenCalled();
+        });
+
+        it('allows a ready runtime to re-enter loading for explicit server selection', async () => {
+            await lifecycle.initialize();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+
+            await expect(lifecycle.setPhaseAndWait('loading_data')).resolves.toBe(true);
+
+            expect(lifecycle.getPhase()).toBe('loading_data');
+        });
+
+        it('allows selected-server recovery to leave error and re-enter loading', async () => {
+            await lifecycle.initialize();
+            await lifecycle.setPhaseAndWait('loading_data');
+            await lifecycle.setPhaseAndWait('ready');
+            lifecycle.reportError({
+                code: AppErrorCode.INITIALIZATION_FAILED,
+                message: 'selection failed',
+                recoverable: true,
+            });
+            await lifecycle.waitForPendingTransition();
+            expect(lifecycle.getPhase()).toBe('error');
+
+            await expect(lifecycle.setPhaseAndWait('loading_data')).resolves.toBe(true);
+
+            expect(lifecycle.getPhase()).toBe('loading_data');
         });
 
         it('should return correct state object', async () => {

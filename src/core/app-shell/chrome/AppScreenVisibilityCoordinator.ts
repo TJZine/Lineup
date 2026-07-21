@@ -47,6 +47,7 @@ export interface AppScreenVisibilityCoordinatorOptions {
 }
 
 export class AppScreenVisibilityCoordinator {
+    private _presentationGeneration = 0;
     private readonly _getIsReady: () => boolean;
     private readonly _getCurrentScreen: () => string | null;
     private readonly _getServerSelectParams: () => ServerSelectNavigationParams | null;
@@ -64,6 +65,7 @@ export class AppScreenVisibilityCoordinator {
     }
 
     apply(screen: string): void {
+        const presentationGeneration = ++this._presentationGeneration;
         const lazyRegistry = this._getLazyScreenRegistry();
         const isAuthScreen = screen === 'auth';
         const isProfileSelectScreen = screen === 'profile-select';
@@ -108,7 +110,8 @@ export class AppScreenVisibilityCoordinator {
                 () => lazyRegistry.getAuthScreen(),
                 () => lazyRegistry.ensureAuthScreen(),
                 'auth',
-                (startupScreen) => startupScreen.show()
+                (startupScreen) => startupScreen.show(),
+                presentationGeneration
             );
         }
 
@@ -117,7 +120,8 @@ export class AppScreenVisibilityCoordinator {
                 () => lazyRegistry.getProfileSelectScreen(),
                 () => lazyRegistry.ensureProfileSelectScreen(),
                 'profile-select',
-                (startupScreen) => startupScreen.show()
+                (startupScreen) => startupScreen.show(),
+                presentationGeneration
             );
         }
 
@@ -131,7 +135,8 @@ export class AppScreenVisibilityCoordinator {
                 (startupScreen) => {
                     startupScreen.show(showOptions);
                     lazyRegistry.scheduleChannelSetupPrefetch();
-                }
+                },
+                presentationGeneration
             );
         }
 
@@ -145,7 +150,8 @@ export class AppScreenVisibilityCoordinator {
         if (showAudioSetup) {
             this._showLazyScreen(
                 () => this._getLazyScreenRegistry()?.ensureAudioSetupScreen(),
-                'audio-setup'
+                'audio-setup',
+                presentationGeneration
             );
         } else {
             lazyRegistry?.getAudioSetupScreen()?.hide();
@@ -154,7 +160,8 @@ export class AppScreenVisibilityCoordinator {
         if (showChannelSetup) {
             this._showLazyScreen(
                 () => this._getLazyScreenRegistry()?.ensureChannelSetupScreen(),
-                'channel-setup'
+                'channel-setup',
+                presentationGeneration
             );
         } else {
             lazyRegistry?.getChannelSetupScreen()?.hide();
@@ -163,7 +170,8 @@ export class AppScreenVisibilityCoordinator {
         if (showSettings) {
             this._showLazyScreen(
                 () => this._getLazyScreenRegistry()?.ensureSettingsScreen(),
-                'settings'
+                'settings',
+                presentationGeneration
             );
         } else {
             lazyRegistry?.getSettingsScreen()?.hide();
@@ -194,11 +202,12 @@ export class AppScreenVisibilityCoordinator {
         getScreen: () => LazyVisibilityScreen | ServerSelectVisibilityScreen | null,
         ensureScreen: () => Promise<LazyVisibilityScreen | ServerSelectVisibilityScreen | null> | null | undefined,
         expectedScreen: 'auth' | 'profile-select' | 'server-select',
-        onShow?: (screen: LazyVisibilityScreen | ServerSelectVisibilityScreen) => void
+        onShow: ((screen: LazyVisibilityScreen | ServerSelectVisibilityScreen) => void) | undefined,
+        presentationGeneration: number
     ): void {
         const existingScreen = getScreen();
         if (existingScreen) {
-            if (!this._isCurrentScreen(expectedScreen)) return;
+            if (!this._isCurrentPresentation(expectedScreen, presentationGeneration)) return;
             this._hideInactiveStartupScreens(expectedScreen);
             if (onShow) {
                 onShow(existingScreen);
@@ -216,7 +225,7 @@ export class AppScreenVisibilityCoordinator {
         pendingScreen
             .then((startupScreen) => {
                 if (!startupScreen) return;
-                if (!this._isCurrentScreen(expectedScreen)) return;
+                if (!this._isCurrentPresentation(expectedScreen, presentationGeneration)) return;
                 this._hideInactiveStartupScreens(expectedScreen);
                 if (onShow) {
                     onShow(startupScreen);
@@ -226,14 +235,15 @@ export class AppScreenVisibilityCoordinator {
                 this._getSplashScreen()?.hide();
             })
             .catch((error: unknown) => {
-                if (!this._isCurrentScreen(expectedScreen)) return;
+                if (!this._isCurrentPresentation(expectedScreen, presentationGeneration)) return;
                 this._onLazyScreenError(error);
             });
     }
 
     private _showLazyScreen(
         ensureScreen: () => Promise<LazyVisibilityScreen | null> | null | undefined,
-        expectedScreen: string
+        expectedScreen: string,
+        presentationGeneration: number
     ): void {
         const pendingScreen = ensureScreen();
         if (!pendingScreen) {
@@ -243,16 +253,19 @@ export class AppScreenVisibilityCoordinator {
         pendingScreen
             .then((screenInstance) => {
                 if (!screenInstance) return;
-                if (!this._isCurrentScreen(expectedScreen)) return;
+                if (!this._isCurrentPresentation(expectedScreen, presentationGeneration)) return;
                 screenInstance.show();
             })
             .catch((error: unknown) => {
-                if (!this._isCurrentScreen(expectedScreen)) return;
+                if (!this._isCurrentPresentation(expectedScreen, presentationGeneration)) return;
                 this._onLazyScreenError(error);
             });
     }
 
-    private _isCurrentScreen(expectedScreen: string): boolean {
-        return this._getCurrentScreen() === expectedScreen;
+    private _isCurrentPresentation(expectedScreen: string, presentationGeneration: number): boolean {
+        return (
+            presentationGeneration === this._presentationGeneration &&
+            this._getCurrentScreen() === expectedScreen
+        );
     }
 }

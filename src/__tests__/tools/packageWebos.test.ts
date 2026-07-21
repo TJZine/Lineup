@@ -2,8 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const packageToolPath = path.resolve(process.cwd(), 'tools/package-webos.mjs');
+const packageToolUrl = pathToFileURL(packageToolPath).href;
+const TEST_SUBPROCESS_TIMEOUT_MS = 10_000;
 
 function createCandidate(root: string): string {
     const distDir = path.join(root, 'dist');
@@ -44,7 +47,26 @@ function runPackageTool(
         '--ares-package', cliPath,
         '--dist-dir', path.join(root, 'dist'),
         '--output-dir', outputDir,
-    ], { cwd: process.cwd(), encoding: 'utf8' });
+    ], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        timeout: TEST_SUBPROCESS_TIMEOUT_MS,
+    });
+}
+
+function runPackageFunctionWithTimeout(root: string, cliPath: string): ReturnType<typeof spawnSync> {
+    const options = JSON.stringify({
+        aresPackage: cliPath,
+        distDir: path.join(root, 'dist'),
+        outputDir: path.join(root, 'packages'),
+        timeoutMs: 50,
+    });
+    const script = `import { packageWebos } from ${JSON.stringify(packageToolUrl)}; packageWebos(${options});`;
+    return spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        timeout: TEST_SUBPROCESS_TIMEOUT_MS,
+    });
 }
 
 describe('package-webos public CLI', () => {
@@ -74,6 +96,15 @@ describe('package-webos public CLI', () => {
         const result = runPackageTool(root, cli);
         expect(result.status).toBe(1);
         expect(result.stderr).toMatch(/failed with exit code 17/iu);
+    });
+
+    it('bounds a nonterminating ares-package process', () => {
+        const root = tempRoot();
+        const cli = writeFakeCli(root, 'setInterval(() => undefined, 1_000);');
+        const result = runPackageFunctionWithTimeout(root, cli);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toMatch(/timed out after 50ms/iu);
     });
 
     it('fails when ares-package produces no IPK', () => {

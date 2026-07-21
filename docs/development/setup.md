@@ -7,7 +7,8 @@ This guide covers the practical setup for working on Lineup locally and, when ne
 - Node `>=22.12.0`
 - the repo-pinned Node version from `.nvmrc`
 - npm from the supported Node installation
-- optional for TV deployment: LG webOS CLI tools or a desktop installer such as webOS Dev Manager
+- for command-line packaging or TV deployment: `@webos-tools/cli@3.2.5`
+- alternatively for TV installation: a desktop installer such as webOS Dev Manager
 
 ## Clone and Install
 
@@ -52,7 +53,7 @@ The remote's media Play/Pause keys do not have a keyboard alias. See the
 If you need device deployment from the command line, install the webOS CLI:
 
 ```bash
-npm install -g @webos-tools/cli
+npm install -g @webos-tools/cli@3.2.5
 ```
 
 Then register a device:
@@ -74,14 +75,15 @@ This runs the lean production build and packages `dist/` into an IPK.
 ## Install to a TV
 
 ```bash
-ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
+IPK_PATH="packages/com.lineup.app_<VERSION>_all.ipk"
+ares-install --device my-tv "$IPK_PATH"
 ares-launch --device my-tv com.lineup.app
 ```
 
 Replace:
 
 - `my-tv` with the device name from `ares-setup-device`
-- `<VERSION>` with the package filename emitted by the packaging step
+- `IPK_PATH` with the exact output path printed by `npm run package:webos`
 
 ## Remote Debugging
 

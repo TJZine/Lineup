@@ -25,6 +25,12 @@ npm run verify:docs
 
 ## Packaging for webOS
 
+Install the pinned packaging CLI once if it is not already available:
+
+```bash
+npm install -g @webos-tools/cli@3.2.5
+```
+
 ```bash
 npm run package:webos
 ```
@@ -34,11 +40,13 @@ That command builds the lean production bundle and packages `dist/` into an inst
 ## Install to a TV
 
 ```bash
-ares-install --device my-tv com.lineup.app_<VERSION>_all.ipk
+IPK_PATH="packages/com.lineup.app_<VERSION>_all.ipk"
+ares-install --device my-tv "$IPK_PATH"
 ares-launch --device my-tv com.lineup.app
 ```
 
-Replace `my-tv` with the device name you configured in `ares-setup-device`. Replace `<VERSION>` with the actual package filename that `ares-package` emitted.
+Replace `my-tv` with the device name you configured in `ares-setup-device`. Set
+`IPK_PATH` to the exact output path printed by `npm run package:webos`.
 
 ## Remote Debugging
 

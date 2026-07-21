@@ -33,38 +33,84 @@ describe('OrchestratorRecoverableRuntimeReporter', () => {
         expect(warn).toHaveBeenNthCalledWith(2, 'Recoverable failure', { detail: 'x' });
     });
 
-    it('keeps recoverable reporter failures inside the reporter collaborator during global error handling', () => {
-        const warn = jest.fn();
-        const orchestrator = new AppOrchestrator();
-        Reflect.set(
-            orchestrator as object,
-            '_recoverableRuntimeReporter',
-            createRecoverableRuntimeIssueReporter({
-                issueId: 'qa-1',
-                appendIssueDiagnostic: () => {
-                    throw new Error('append failed');
-                },
-                warn,
-            })
-        );
-
-        expect(() => {
-            orchestrator.handleGlobalError(
-                {
-                    code: AppErrorCode.NETWORK_TIMEOUT,
-                    message: 'test',
-                    recoverable: true,
-                },
-                'test-context'
-            );
-        }).not.toThrow();
-
-        expect(warn).toHaveBeenCalledWith(
-            '[RecoverableRuntimeReporter] reportError failed:',
+    it('logs only the typed redacted selected-server recovery diagnostic', () => {
+        const warning = expectConsoleWarn([
+            'Global error in server-selection-quarantine',
             expect.objectContaining({
-                message: 'append failed',
-            })
-        );
+                selectedServerRecovery: expect.objectContaining({
+                    recoveryMode: 'selected-server-quarantine',
+                    recoveryPhase: 'preparation',
+                }),
+            }),
+        ]);
+        const orchestrator = new AppOrchestrator();
+
+        orchestrator.handleGlobalError({
+            code: AppErrorCode.INITIALIZATION_FAILED,
+            message: 'Selected-server recovery requires user action.',
+            recoverable: true,
+            context: {
+                recoveryMode: 'selected-server-quarantine',
+                recoveryPhase: 'preparation',
+                recoveryDiagnostic: {
+                    operationFailure: {
+                        step: 'selection',
+                        error: {
+                            name: 'Error',
+                            message: 'GET https://host/library?X-Plex-Token=operation-secret failed',
+                        },
+                    },
+                    recoveryFailure: {
+                        step: 'persistence_restore',
+                        error: {
+                            name: 'Error',
+                            message: 'Authorization: Bearer recovery-secret',
+                        },
+                    },
+                    preparationFailures: [{
+                        step: 'lifecycle',
+                        error: {
+                            name: 'Error',
+                            message: 'GET https://host/status?X-Plex-Token=preparation-secret failed',
+                        },
+                        arbitraryPayload: { token: 'payload-secret' },
+                    }],
+                },
+            },
+        }, 'server-selection-quarantine');
+
+        expect(warning.getLastCall()).toEqual([
+            'Global error in server-selection-quarantine',
+            expect.objectContaining({
+                selectedServerRecovery: {
+                    recoveryMode: 'selected-server-quarantine',
+                    recoveryPhase: 'preparation',
+                    recoveryDiagnostic: {
+                        operationFailure: {
+                            step: 'selection',
+                            error: { name: 'Error', message: 'GET [REDACTED_URL] failed' },
+                        },
+                        recoveryFailure: {
+                            step: 'persistence_restore',
+                            error: {
+                                name: 'Error',
+                                message: 'Authorization: Bearer REDACTED',
+                            },
+                        },
+                        preparationFailures: [{
+                            step: 'lifecycle',
+                            error: { name: 'Error', message: 'GET [REDACTED_URL] failed' },
+                        }],
+                    },
+                },
+            }),
+        ]);
+        const serializedWarnings = JSON.stringify(warning.getCalls());
+        expect(serializedWarnings).not.toContain('operation-secret');
+        expect(serializedWarnings).not.toContain('recovery-secret');
+        expect(serializedWarnings).not.toContain('preparation-secret');
+        expect(serializedWarnings).not.toContain('payload-secret');
+        expect(serializedWarnings).not.toContain('arbitraryPayload');
     });
 
     it('forwards stream resolver access-denied events through global error handling', () => {

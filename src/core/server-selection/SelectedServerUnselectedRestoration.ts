@@ -4,8 +4,7 @@ export interface SelectedServerUnselectedRestorationDeps {
     configureChannelManagerStorage(): Promise<void>;
     publishPendingServerModules(): void;
     setReady(ready: boolean): void;
-    publishLoadingLifecycle(): void;
-    openServerSelect(): void;
+    publishLoadingLifecycle(): Promise<void>;
 }
 
 export async function restoreUnselectedServerRuntime(
@@ -23,8 +22,6 @@ export async function restoreUnselectedServerRuntime(
     assertCurrent();
     deps.setReady(false);
     assertCurrent();
-    deps.publishLoadingLifecycle();
-    assertCurrent();
-    deps.openServerSelect();
+    await deps.publishLoadingLifecycle();
     assertCurrent();
 }

@@ -167,9 +167,13 @@ import { OrchestratorChannelSwitchRuntime } from './runtime/OrchestratorChannelS
 import { OrchestratorPlexAuthRuntime } from './runtime/OrchestratorPlexAuthRuntime';
 import { OrchestratorServerSelectionRuntime } from './runtime/OrchestratorServerSelectionRuntime';
 import { createSelectedServerRecoveryGateError, OrchestratorServerSelectionRuntimeProjection } from './runtime/OrchestratorServerSelectionRuntimeProjection';
+import { createSelectedServerRecoveryLogData } from './runtime/SelectedServerRecoveryAppError';
 import { prepareSelectedServerQuarantine } from './runtime/OrchestratorSelectedServerQuarantinePreparation';
 import type { SelectedServerScreenState } from '../server-selection/SelectedServerScreenStateProjection';
-import type { SelectedServerQuarantineCommandState } from '../server-selection/SelectedServerQuarantineRecoveryState';
+import type {
+    SelectedServerQuarantineCommandState,
+    SelectedServerQuarantineRecoveryPresentation,
+} from '../server-selection/SelectedServerQuarantineRecoveryState';
 const QA_003B_ISSUE_ID = 'QA-003b';
 /**
  * AppOrchestrator - Central coordinator for all application modules.
@@ -353,7 +357,14 @@ export class AppOrchestrator {
                 this._updateModuleStatus('plex-stream-resolver', 'pending');
             },
             setReady: (ready): void => { this._ready = ready; },
-            publishLoadingLifecycle: (): void => this._lifecycle?.setPhase('loading_data'),
+            publishLoadingLifecycle: async (): Promise<void> => {
+                if (
+                    this._lifecycle
+                    && !await this._lifecycle.setPhaseAndWait('loading_data')
+                ) {
+                    throw new Error('Lifecycle rejected the unselected server phase.');
+                }
+            },
             openServerSelect: (): void => this._navigation?.goTo('server-select', { allowAutoConnect: false }),
             exitApplication: (): Promise<void> => this.shutdown(),
             throwModuleInitPreconditionError: this._throwModuleInitPreconditionError.bind(this),
@@ -522,9 +533,8 @@ export class AppOrchestrator {
                     setReady: (ready: boolean): void => {
                         this._ready = ready;
                     },
-                    setupEventWiring: (): void => {
-                        this._requireEventBinder().bind();
-                    },
+                    setupEventWiring: (): boolean => this._requireEventBinder().bind(),
+                    disposeEventWiring: (): void => this._requireEventBinder().dispose(),
                     transferSelectedServerTuningToStartup: (): void => this._channelSwitchRuntime.resumeAfterScopeTransition(),
                 },
                 serverStorage: {
@@ -1217,13 +1227,14 @@ export class AppOrchestrator {
     async clearSelectedServer(): Promise<void> {
         this._assertNotShutdown('clearSelectedServer');
         await this._serverSelectionRuntime.clearSelectedServer();
-        this._clearIdentityScopedRuntimeState({ stopPlayback: true });
-        await this._configureChannelManagerStorageForSelectedServer();
     }
 
     getQuarantineState(): SelectedServerQuarantineCommandState { return this._serverSelectionRuntime.getQuarantineState(); }
 
-    async retryQuarantineRecovery(): Promise<void> { this._assertNotShutdown('retryQuarantineRecovery'); await this._serverSelectionRuntime.retryQuarantineRecovery(); }
+    async retryQuarantineRecovery(): Promise<SelectedServerQuarantineRecoveryPresentation> {
+        this._assertNotShutdown('retryQuarantineRecovery');
+        return this._serverSelectionRuntime.retryQuarantineRecovery();
+    }
 
     exitQuarantine(): Promise<void> { return this._serverSelectionRuntime.exitQuarantine(); }
 
@@ -1668,7 +1679,8 @@ export class AppOrchestrator {
         this._warnRecoverableRuntimeError(
             'orchestrator.globalError',
             `Global error in ${context}`,
-            error
+            error,
+            createSelectedServerRecoveryLogData(error)
         );
 
         for (const [moduleId, handler] of this._errorHandlers) {
@@ -1837,6 +1849,7 @@ export class AppOrchestrator {
 
     private _clearIdentityScopedRuntimeState(options: { stopPlayback: boolean }): void {
         clearIdentityScopedRuntimeState({
+            cancelPendingDayRollover: (): void => this._scheduleDayRolloverController?.cancelPendingDayRollover(),
             stopPlayback: (): void => this._stopPlayback(),
             unloadCurrentChannel: (): void => this._scheduler?.unloadChannel(),
             clearPlaybackState: (): void => this._clearPlaybackIdentityState(),
