@@ -7,7 +7,7 @@ import type {
     StreamDescriptor,
     TimeRange,
 } from '../../../modules/player';
-import type { IPlexLibrary } from '../../../modules/plex/library';
+import type { IPlexLibrary, PlexLibraryAuthorizationFailure } from '../../../modules/plex/library';
 import type {
     IPlexStreamResolver,
     StreamResolverError,
@@ -96,7 +96,7 @@ export interface PriorityOneEventRuntimePort {
     wireEpgCoordinatorEvents: () => Array<() => void>;
     handleScheduleDayRollover: () => Promise<void>;
     handlePlayerTrackChange: (event: { type: 'audio' | 'subtitle'; trackId: string | null }) => void;
-    handlePlexLibraryAuthExpired: () => void;
+    handlePlexLibraryAuthorizationFailure: (failure: PlexLibraryAuthorizationFailure) => void;
     handlePlexStreamError: (error: StreamResolverError) => void;
     handleScreenChange: (payload: { from: Screen; to: Screen }) => void;
     reportPersistenceWarning: (warning: ChannelManagerEventMap['persistenceWarning']) => void;

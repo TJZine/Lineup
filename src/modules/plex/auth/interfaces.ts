@@ -159,6 +159,14 @@ export interface IPlexAuth {
     }): Promise<PlexStoredCredentialsValidationResult>;
 
     /**
+     * Read-only cloud probe used to classify a PMS authorization rejection without
+     * acquiring or mutating credential authority.
+     */
+    probeCurrentCredentialValidity(options?: {
+        signal?: AbortSignal | null;
+    }): Promise<PlexCurrentCredentialValidity>;
+
+    /**
      * Fetch Plex Home profiles using the account token.
      * @returns [] only when Plex Home is unsupported or no profiles are available
      * @throws PlexApiError AUTH_REQUIRED/AUTH_INVALID for explicit credential failures
@@ -209,3 +217,9 @@ export interface IPlexAuth {
         handler: (payload: { fromUserId: string | null; toUserId: string }) => void
     ): IDisposable;
 }
+
+export type PlexCurrentCredentialValidity =
+    | { kind: 'active_valid' }
+    | { kind: 'managed_profile_invalid'; accountValid: true }
+    | { kind: 'account_expired' }
+    | { kind: 'superseded' };

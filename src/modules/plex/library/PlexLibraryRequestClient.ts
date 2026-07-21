@@ -4,13 +4,18 @@ import { readAbortSignalReason } from '../../../utils/abortSignalReason';
 import { fetchWithTimeoutAndConsume } from '../shared/fetchWithTimeout';
 import type { PlexLibraryConfig, PlexLibraryRequestIntent } from './interfaces';
 import { PLEX_LIBRARY_CONSTANTS } from './constants';
-import { PlexLibraryError } from './PlexLibraryError';
+import {
+    PlexLibraryError,
+    PlexLibraryScopeSupersededError,
+    isPlexLibraryScopeSupersededError,
+} from './PlexLibraryError';
 import {
     buildFetchRequestInit,
     classifyFetchError,
     classifyFetchResponse,
 } from './PlexLibraryFetchPolicy';
 import type { PlexLibraryRequestScopeSnapshot } from './PlexLibraryRequestScope';
+import type { PlexLibraryAuthorizationFailure } from './types';
 
 const INTERACTIVE_REQUEST_POLICY = {
     timeoutMs: 5000,
@@ -30,11 +35,42 @@ interface PlexLibraryRequestPolicy {
 interface PlexLibraryRequestClientDeps {
     config: PlexLibraryConfig;
     logger: PlexLibraryLogger;
-    emitAuthExpired: () => void;
+    emitAuthorizationFailure: (failure: PlexLibraryAuthorizationFailure) => void;
     assertCurrent: (
         scope: PlexLibraryRequestScopeSnapshot,
         signal?: AbortSignal | null
     ) => void;
+    refreshAfterUnauthorized: (
+        scope: PlexLibraryRequestScopeSnapshot,
+        signal?: AbortSignal | null
+    ) => Promise<{
+        kind: 'updated' | 'unchanged' | 'selected_server_unavailable';
+        scope: PlexLibraryRequestScopeSnapshot;
+    }>;
+}
+
+export interface PlexLibraryRequestResult<T> {
+    data: T | null;
+    scope: PlexLibraryRequestScopeSnapshot;
+}
+
+function translateCredentialProbeError(error: {
+    code: AppErrorCode;
+    message: string;
+}): { code: AppErrorCode; message: string } {
+    if (
+        error.code === AppErrorCode.SERVER_ERROR ||
+        error.code === AppErrorCode.SERVER_UNREACHABLE
+    ) {
+        return {
+            code: AppErrorCode.PLEX_CLOUD_UNAVAILABLE,
+            message: 'Plex cloud credential validation is temporarily unavailable',
+        };
+    }
+    return {
+        code: error.code,
+        message: redactSensitiveTokens(error.message),
+    };
 }
 
 export const resolveRequestProfileForIntent = (
@@ -59,14 +95,16 @@ function resolveRequestPolicy(profile: PlexLibraryRequestProfile = 'default'): P
 export class PlexLibraryRequestClient {
     private readonly _config: PlexLibraryConfig;
     private readonly _logger: PlexLibraryLogger;
-    private readonly _emitAuthExpired: () => void;
+    private readonly _emitAuthorizationFailure: PlexLibraryRequestClientDeps['emitAuthorizationFailure'];
     private readonly _assertCurrent: PlexLibraryRequestClientDeps['assertCurrent'];
+    private readonly _refreshAfterUnauthorized: PlexLibraryRequestClientDeps['refreshAfterUnauthorized'];
 
     constructor(deps: PlexLibraryRequestClientDeps) {
         this._config = deps.config;
         this._logger = deps.logger;
-        this._emitAuthExpired = deps.emitAuthExpired;
+        this._emitAuthorizationFailure = deps.emitAuthorizationFailure;
         this._assertCurrent = deps.assertCurrent;
+        this._refreshAfterUnauthorized = deps.refreshAfterUnauthorized;
     }
 
     async fetchWithRetry<T>(
@@ -74,8 +112,10 @@ export class PlexLibraryRequestClient {
         url: string,
         options: RequestInit = {},
         requestProfile: PlexLibraryRequestProfile = 'default'
-    ): Promise<T | null> {
+    ): Promise<PlexLibraryRequestResult<T>> {
         const requestPolicy = resolveRequestPolicy(requestProfile);
+        let activeScope = scope;
+        let pmsAuthorizationRefreshAttempted = false;
         let timeoutRetries = 0;
         let serverErrorRetried = false;
         let rateLimitRetries = 0;
@@ -83,7 +123,7 @@ export class PlexLibraryRequestClient {
         while (true) {
             let externalAborted = false;
             const externalSignal = options.signal ?? null;
-            this._assertCurrent(scope, externalSignal);
+            this._assertCurrent(activeScope, externalSignal);
             try {
                 const onExternalAbort = (): void => {
                     externalAborted = true;
@@ -99,7 +139,7 @@ export class PlexLibraryRequestClient {
                 try {
                     responseOutcome = await fetchWithTimeoutAndConsume({
                         url,
-                        init: buildFetchRequestInit(url, options, scope.headers),
+                        init: buildFetchRequestInit(url, options, activeScope.headers),
                         timeoutMs: requestPolicy.timeoutMs,
                         upstreamSignal: externalSignal,
                         consume: (response, signal) => classifyFetchResponse<T>(
@@ -113,18 +153,53 @@ export class PlexLibraryRequestClient {
                 } finally {
                     externalSignal?.removeEventListener('abort', onExternalAbort);
                 }
-                this._assertCurrent(scope, externalSignal);
+                this._assertCurrent(activeScope, externalSignal);
 
                 switch (responseOutcome.kind) {
                     case 'success':
-                        return responseOutcome.data;
-                    case 'authExpired':
-                        this._emitAuthExpired();
+                        return { data: responseOutcome.data, scope: activeScope };
+                    case 'authExpired': {
+                        if (!pmsAuthorizationRefreshAttempted) {
+                            pmsAuthorizationRefreshAttempted = true;
+                            const refresh = await this._refreshAfterUnauthorized(
+                                activeScope,
+                                externalSignal
+                            );
+                            if (refresh.kind === 'updated') {
+                                activeScope = refresh.scope;
+                                continue;
+                            }
+                        }
+                        const validity = await this._config.probeCurrentCredentialValidity({
+                            signal: externalSignal,
+                        });
+                        this._assertCurrent(activeScope, externalSignal);
+                        if (validity.kind === 'superseded') {
+                            throw new PlexLibraryScopeSupersededError();
+                        }
+                        if (validity.kind === 'active_valid') {
+                            this._emitAuthorizationFailure({ kind: 'profile_server_access_denied' });
+                            throw new PlexLibraryError(
+                                AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED,
+                                'The active Plex profile is valid but cannot access this server resource',
+                                401
+                            );
+                        }
+                        if (validity.kind === 'managed_profile_invalid') {
+                            this._emitAuthorizationFailure({ kind: 'managed_profile_auth_invalid' });
+                            throw new PlexLibraryError(
+                                AppErrorCode.PLEX_PROFILE_AUTH_INVALID,
+                                'The active Plex Home profile credential is no longer valid',
+                                401
+                            );
+                        }
+                        this._emitAuthorizationFailure({ kind: 'account_auth_expired' });
                         throw new PlexLibraryError(
                             AppErrorCode.AUTH_EXPIRED,
                             'Authentication expired',
                             401
                         );
+                    }
                     case 'accessDenied':
                         throw new PlexLibraryError(
                             AppErrorCode.ACCESS_DENIED,
@@ -141,11 +216,11 @@ export class PlexLibraryRequestClient {
                         }
                         rateLimitRetries++;
                         await this._delay(responseOutcome.retryAfterMs, externalSignal);
-                        this._assertCurrent(scope, externalSignal);
+                        this._assertCurrent(activeScope, externalSignal);
                         continue;
                     case 'notFound':
                         this._logger.warn(`[PlexLibrary] 404 Not Found: ${redactUrlForLog(url)}`);
-                        return null;
+                        return { data: null, scope: activeScope };
                     case 'serverError':
                         if (!serverErrorRetried) {
                             serverErrorRetried = true;
@@ -154,7 +229,7 @@ export class PlexLibraryRequestClient {
                                 PLEX_LIBRARY_CONSTANTS.SERVER_ERROR_RETRY_DELAY,
                                 externalSignal
                             );
-                            this._assertCurrent(scope, externalSignal);
+                            this._assertCurrent(activeScope, externalSignal);
                             continue;
                         }
                         throw new PlexLibraryError(
@@ -170,7 +245,8 @@ export class PlexLibraryRequestClient {
                         );
                 }
             } catch (error) {
-                this._assertCurrent(scope, externalSignal);
+                this._assertCurrent(activeScope, externalSignal);
+                if (isPlexLibraryScopeSupersededError(error)) throw error;
                 const errorOutcome = classifyFetchError(error, externalAborted, options.signal ?? null);
 
                 switch (errorOutcome.kind) {
@@ -185,7 +261,7 @@ export class PlexLibraryRequestClient {
                             this._logger.warn(`[PlexLibrary] Network timeout, retry ${timeoutRetries + 1}/${requestPolicy.maxTimeoutRetries} after ${delay}ms`);
                             timeoutRetries++;
                             await this._delay(delay, externalSignal);
-                            this._assertCurrent(scope, externalSignal);
+                            this._assertCurrent(activeScope, externalSignal);
                             continue;
                         }
                         throw new PlexLibraryError(
@@ -211,6 +287,21 @@ export class PlexLibraryRequestClient {
                                 context: { url: redactUrlForLog(url) },
                             }
                         );
+                    case 'plexApiError': {
+                        const translated = translateCredentialProbeError(errorOutcome.error);
+                        throw new PlexLibraryError(
+                            translated.code,
+                            translated.message,
+                            errorOutcome.error.httpStatus,
+                            {
+                                cause: errorOutcome.error,
+                                context: {
+                                    url: redactUrlForLog(url),
+                                    boundary: 'plex_cloud_credential_probe',
+                                },
+                            }
+                        );
+                    }
                     case 'unknown':
                         this._config.onServerUnreachable?.();
                         throw new PlexLibraryError(

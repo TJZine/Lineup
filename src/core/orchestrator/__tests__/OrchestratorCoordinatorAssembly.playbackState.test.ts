@@ -112,6 +112,7 @@ const makeDeps = (
             } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['plexAuth'],
             plexDiscovery: {
                 getServerUri: jest.fn().mockReturnValue('https://example.invalid'),
+                getSelectedServerAuthHeaders: jest.fn().mockReturnValue({}),
             } as unknown as OrchestratorCoordinatorAssemblyInput['modules']['plexDiscovery'],
             plexLibrary: {} as OrchestratorCoordinatorAssemblyInput['modules']['plexLibrary'],
             plexStreamResolver: {} as OrchestratorCoordinatorAssemblyInput['modules']['plexStreamResolver'],

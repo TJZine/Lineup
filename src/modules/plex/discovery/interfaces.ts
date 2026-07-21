@@ -1,4 +1,8 @@
-import { PlexServer, PlexConnection, PlexDiscoverySelectedServerSnapshot } from './types';
+import {
+    PlexServer,
+    PlexConnection,
+    PlexDiscoverySelectedServerSnapshot,
+} from './types';
 import { IDisposable } from '../../../utils/interfaces';
 import type { PlexDiscoverySelectionReceipt } from './PlexDiscoverySelectionContext';
 
@@ -26,6 +30,11 @@ export type PlexSavedServerRestoreResult =
 export interface PlexDiscoverySignalOptions {
     signal?: AbortSignal | null;
 }
+
+export type PlexSelectedServerAccessTokenRefreshResult =
+    | { kind: 'updated' }
+    | { kind: 'unchanged' }
+    | { kind: 'selected_server_unavailable' };
 
 export interface IPlexServerDiscovery {
     discoverServers(options?: PlexDiscoverySignalOptions): Promise<PlexServer[]>;
@@ -65,6 +74,12 @@ export interface IPlexServerDiscovery {
     getSelectedServer(): PlexServer | null;
     getSelectedConnection(): PlexConnection | null;
     getServerUri(): string | null;
+    getSelectedServerAuthHeaders(): Record<string, string>;
+    getSelectedServerAccessToken(): string | null;
+    refreshSelectedServerAccessToken(
+        expectedAccessToken: string,
+        options?: PlexDiscoverySignalOptions
+    ): Promise<PlexSelectedServerAccessTokenRefreshResult>;
 
     /**
      * Used by the stream resolver when direct playback needs an HTTPS fallback.
@@ -109,5 +124,6 @@ export interface IPlexServerDiscovery {
 }
 
 export interface PlexServerDiscoveryConfig {
-    getAuthHeaders: () => Record<string, string>;
+    /** Active account/Home credential headers for plex.tv resource discovery only. */
+    getCloudAuthHeaders: () => Record<string, string>;
 }

@@ -12,6 +12,7 @@ export type {
     PlexStoredCredentialsReadResult,
     PlexAuthValidationGuard,
     PlexStoredCredentialsValidationResult,
+    PlexCurrentCredentialValidity,
     PlexHomeUser,
     PlexAuthEvents,
 } from './interfaces';

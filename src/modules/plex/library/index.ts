@@ -39,6 +39,7 @@ export type {
     SearchOptions,
     PlexLibraryState,
     PlexLibraryEvents,
+    PlexLibraryAuthorizationFailure,
 } from './types';
 export { PLEX_LIBRARY_CONSTANTS, PLEX_ENDPOINTS, PLEX_MEDIA_TYPES } from './constants';
 export {

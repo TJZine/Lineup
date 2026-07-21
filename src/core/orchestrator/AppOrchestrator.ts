@@ -35,6 +35,7 @@ import {
 } from '../../modules/plex/discovery';
 import {
     type IPlexLibrary,
+    type PlexLibraryAuthorizationFailure,
 } from '../../modules/plex/library';
 import {
     type IPlexStreamResolver,
@@ -1385,8 +1386,14 @@ export class AppOrchestrator {
     getRecoveryActions(errorCode: AppErrorCode): ErrorRecoveryAction[] {
         return getRecoveryActionsHelper(errorCode, {
             goToAuth: (): void => {
+                this._initCoordinator?.prepareForRuntimeAuthRecovery();
                 if (this._navigation) {
                     this._navigation.goTo('auth');
+                }
+            },
+            goToProfileSelect: (): void => {
+                if (this._navigation) {
+                    this._navigation.goTo('profile-select');
                 }
             },
             goToServerSelect: (): void => {
@@ -1629,11 +1636,26 @@ export class AppOrchestrator {
         return !this._audioSettingsStore.readAudioSetupCompleteAndClean(false);
     }
 
-    private _handlePlexLibraryAuthExpired(): void {
-        this.handleGlobalError(
-            {
+    private _handlePlexLibraryAuthorizationFailure(
+        failure: PlexLibraryAuthorizationFailure
+    ): void {
+        const error = failure.kind === 'account_auth_expired'
+            ? {
                 code: AppErrorCode.AUTH_EXPIRED,
                 message: 'Authentication expired',
+            }
+            : failure.kind === 'managed_profile_auth_invalid'
+                ? {
+                    code: AppErrorCode.PLEX_PROFILE_AUTH_INVALID,
+                    message: 'The active Plex Home profile credential is no longer valid',
+                }
+                : {
+                    code: AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED,
+                    message: 'The active Plex profile cannot access this server resource',
+                };
+        this.handleGlobalError(
+            {
+                ...error,
                 recoverable: true,
             },
             'plex-library'
@@ -1646,7 +1668,10 @@ export class AppOrchestrator {
             mapped === AppErrorCode.AUTH_REQUIRED ||
             mapped === AppErrorCode.AUTH_EXPIRED ||
             mapped === AppErrorCode.AUTH_INVALID ||
-            mapped === AppErrorCode.ACCESS_DENIED
+            mapped === AppErrorCode.ACCESS_DENIED ||
+            mapped === AppErrorCode.PLEX_PROFILE_AUTH_INVALID ||
+            mapped === AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED ||
+            mapped === AppErrorCode.PLEX_CLOUD_UNAVAILABLE
         ) {
             this.handleGlobalError(
                 {
@@ -1774,7 +1799,8 @@ export class AppOrchestrator {
                         handleGlobalError: (error: AppError, context: string): void => {
                             this.handleGlobalError(error, context);
                         },
-                        handlePlexLibraryAuthExpired: (): void => this._handlePlexLibraryAuthExpired(),
+                        handlePlexLibraryAuthorizationFailure: (failure): void =>
+                            this._handlePlexLibraryAuthorizationFailure(failure),
                         handlePlexStreamError: (error): void => this._handlePlexStreamError(error),
                         showPersistenceWarning: (message): void => {
                             this._nowPlayingHandler?.({ message, type: 'warning' });
@@ -1875,7 +1901,8 @@ export class AppOrchestrator {
     private _buildPlexResourceUrl(pathOrUrl: string): string | null {
         return buildPlexResourceUrlSafely({
             getServerUri: (): string | null => this._plexDiscovery?.getServerUri() ?? null,
-            getAuthHeaders: (): Record<string, string> => this._plexAuth?.getAuthHeaders() ?? {},
+            getAuthHeaders: (): Record<string, string> =>
+                this._plexDiscovery?.getSelectedServerAuthHeaders() ?? {},
             reportError: (event, message, error, data) => this._warnRecoverableRuntimeError(event, message, error, data),
         }, pathOrUrl);
     }

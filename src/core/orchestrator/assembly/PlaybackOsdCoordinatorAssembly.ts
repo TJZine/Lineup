@@ -1,7 +1,6 @@
 import type { AppError } from '../../../modules/lifecycle';
 import type { IVideoPlayer, StreamDescriptor } from '../../../modules/player';
 import { PlaybackRecoveryManager } from '../../../modules/player';
-import type { IPlexAuth } from '../../../modules/plex/auth';
 import type { IPlexServerDiscovery } from '../../../modules/plex/discovery';
 import type { IPlexStreamResolver, StreamDecision } from '../../../modules/plex/stream';
 import type { ChannelConfig, IChannelManager, ResolvedChannelContent } from '../../../modules/scheduler/channel-manager';
@@ -245,7 +244,8 @@ export function buildPlaybackRecovery(
         buildPlexResourceUrl: (pathOrUrl: string): string | null =>
             input.playback.buildPlexResourceUrl(pathOrUrl),
         getMimeType: (decision: StreamDecision): string => input.playback.getMimeType(decision),
-        getAuthHeaders: (): Record<string, string> => (input.modules.plexAuth as IPlexAuth).getAuthHeaders(),
+        getAuthHeaders: (): Record<string, string> =>
+            (input.modules.plexDiscovery as IPlexServerDiscovery).getSelectedServerAuthHeaders(),
         getServerUri: (): string | null => (input.modules.plexDiscovery as IPlexServerDiscovery).getServerUri() ?? null,
         getPreferredSubtitleLanguage: (): string | null =>
             input.stores.subtitlePreferencesStore.readSubtitleLanguageAndClean(),

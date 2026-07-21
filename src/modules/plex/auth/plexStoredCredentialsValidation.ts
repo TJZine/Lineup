@@ -14,7 +14,10 @@ export function reconstructActiveValidCredentials(
     stored: PlexAuthData,
     validatedActiveToken: PlexAuthToken
 ): PlexAuthData {
-    const activeUserId = validatedActiveToken.userId;
+    const isManagedProfileToken = stored.activeToken.token !== stored.accountToken.token;
+    const activeUserId = isManagedProfileToken
+        ? stored.activeUserId
+        : validatedActiveToken.userId;
     return {
         accountToken: stored.accountToken.token === validatedActiveToken.token
             ? validatedActiveToken

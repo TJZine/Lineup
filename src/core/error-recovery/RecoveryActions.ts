@@ -3,6 +3,8 @@ import type { ErrorRecoveryAction, RecoveryActionDeps } from './types';
 
 type RecoveryActionGroupId =
     | 'auth'
+    | 'profile'
+    | 'profileAccess'
     | 'network'
     | 'server'
     | 'playback'
@@ -32,6 +34,19 @@ const RECOVERY_ACTION_FACTORIES: Record<RecoveryActionGroupId, RecoveryActionFac
         buildAction('Sign In', () => {
             deps.goToAuth();
         }, { isPrimary: true, requiresNetwork: true }),
+    ],
+    profile: (deps) => [
+        buildAction('Switch Profile', () => {
+            deps.goToProfileSelect();
+        }, { isPrimary: true, requiresNetwork: true }),
+    ],
+    profileAccess: (deps) => [
+        buildAction('Switch Profile', () => {
+            deps.goToProfileSelect();
+        }, { isPrimary: true, requiresNetwork: true }),
+        buildAction('Select Server', () => {
+            deps.goToServerSelect();
+        }, { isPrimary: false, requiresNetwork: true }),
     ],
     network: (deps) => [
         buildAction('Retry', () => deps.retryStart(), { isPrimary: true, requiresNetwork: true }),
@@ -83,6 +98,9 @@ const RECOVERY_GROUP_BY_ERROR_CODE: Record<AppErrorCode, RecoveryActionGroupId> 
     [AppErrorCode.AUTH_FAILED]: 'auth',
     [AppErrorCode.SERVER_UNAUTHORIZED]: 'auth',
     [AppErrorCode.AUTH_RATE_LIMITED]: 'network',
+    [AppErrorCode.PLEX_PROFILE_AUTH_INVALID]: 'profile',
+    [AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED]: 'profileAccess',
+    [AppErrorCode.PLEX_CLOUD_UNAVAILABLE]: 'network',
     [AppErrorCode.NETWORK_TIMEOUT]: 'network',
     [AppErrorCode.NETWORK_OFFLINE]: 'network',
     [AppErrorCode.NETWORK_UNAVAILABLE]: 'network',

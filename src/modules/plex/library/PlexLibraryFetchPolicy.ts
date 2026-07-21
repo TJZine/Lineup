@@ -2,6 +2,7 @@ import { AppErrorCode } from '../../../types/app-errors';
 import { redactSensitiveTokens } from '../../../utils/redact';
 import { readAbortSignalReason } from '../../../utils/abortSignalReason';
 import { readBoundedResponseText } from '../shared/boundedResponseText';
+import { PlexApiError } from '../auth';
 import { PLEX_LIBRARY_CONSTANTS } from './constants';
 import { PlexLibraryError } from './PlexLibraryError';
 import type { PlexLibraryConfig } from './interfaces';
@@ -22,6 +23,7 @@ export type FetchErrorOutcome =
     | { kind: 'timeout'; error: unknown }
     | { kind: 'authOrAccessDenied'; error: PlexLibraryError }
     | { kind: 'networkFailure'; error: TypeError }
+    | { kind: 'plexApiError'; error: PlexApiError }
     | { kind: 'libraryError'; error: PlexLibraryError }
     | { kind: 'unknown'; error: unknown };
 
@@ -227,6 +229,9 @@ export function classifyFetchError(
     }
     if (error instanceof TypeError) {
         return { kind: 'networkFailure', error };
+    }
+    if (error instanceof PlexApiError) {
+        return { kind: 'plexApiError', error };
     }
     if (error instanceof PlexLibraryError) {
         return { kind: 'libraryError', error };

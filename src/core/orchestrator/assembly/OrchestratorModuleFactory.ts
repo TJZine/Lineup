@@ -1,7 +1,11 @@
 import { AppLifecycle, type IAppLifecycle } from '../../../modules/lifecycle';
 import { NavigationManager, type INavigationManager } from '../../../modules/navigation';
 import { PlexAuth, type IPlexAuth } from '../../../modules/plex/auth';
-import { PlexServerDiscovery, type IPlexServerDiscovery } from '../../../modules/plex/discovery';
+import {
+    PlexServerDiscovery,
+    type IPlexServerDiscovery,
+    type PlexDiscoverySelectionReceipt,
+} from '../../../modules/plex/discovery';
 import {
     PlexLibrary,
     type IPlexLibrary,
@@ -97,16 +101,17 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
     });
     const plexAuth = new PlexAuth(deps.config.plexConfig);
     const plexDiscovery = new PlexServerDiscovery({
-        getAuthHeaders: (): Record<string, string> => plexAuth.getAuthHeaders(),
+        getCloudAuthHeaders: (): Record<string, string> => plexAuth.getAuthHeaders(),
     });
 
     const plexLibraryConfig: PlexLibraryConfig = {
-        getAuthHeaders: () => plexAuth.getAuthHeaders(),
+        getAuthHeaders: () => plexDiscovery.getSelectedServerAuthHeaders(),
         getServerUri: () => plexDiscovery.getServerUri(),
-        getAuthToken: () => {
-            const user = plexAuth.getCurrentUser();
-            return user ? user.token : null;
-        },
+        getAuthToken: () => plexDiscovery.getSelectedServerAccessToken(),
+        refreshSelectedServerAccessToken: (expectedAccessToken, options) =>
+            plexDiscovery.refreshSelectedServerAccessToken(expectedAccessToken, options),
+        probeCurrentCredentialValidity: (options) =>
+            plexAuth.probeCurrentCredentialValidity(options),
     };
     const plexLibrary = new PlexLibrary(plexLibraryConfig);
     const audioSettingsStore = new AudioSettingsStore();
@@ -114,8 +119,14 @@ export function createOrchestratorModules(deps: OrchestratorModuleFactoryDeps): 
     const subtitleDebugPolicyReader = deps.developerSettingsStore;
 
     const streamResolverConfig: PlexStreamResolverConfig = {
-        getAuthHeaders: () => plexAuth.getAuthHeaders(),
+        getAuthHeaders: () => plexDiscovery.getSelectedServerAuthHeaders(),
         getServerUri: () => plexDiscovery.getServerUri(),
+        refreshSelectedServerAccessToken: (expectedAccessToken) =>
+            plexDiscovery.refreshSelectedServerAccessToken(expectedAccessToken),
+        probeCurrentCredentialValidity: () => plexAuth.probeCurrentCredentialValidity(),
+        captureSelectedServerScope: () => plexDiscovery.captureCurrentSelectionReceipt(),
+        assertSelectedServerScopeCurrent: (scope) =>
+            plexDiscovery.assertSelectionReceiptCurrent(scope as PlexDiscoverySelectionReceipt),
         getSelectedConnection: () => {
             const conn = plexDiscovery.getSelectedConnection() ?? null;
             if (!conn) return null;

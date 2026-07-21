@@ -25,6 +25,14 @@ interface UniversalTranscodeDecisionClientConfig {
     getAuthHeaders: () => Record<string, string>;
     getTranscodeUrl: (itemKey: string, options: HlsOptions) => string;
     throwIfAuthFailure: (response: Response) => void;
+    getAccessToken: () => string;
+    captureRequestScope: () => object | null;
+    assertRequestScopeCurrent: (scope: object) => void;
+    recoverAfterUnauthorized: (
+        expectedAccessToken: string,
+        allowResourceRefresh: boolean,
+        requestScope: object
+    ) => Promise<void>;
 }
 
 export class UniversalTranscodeDecisionClient {
@@ -34,28 +42,44 @@ export class UniversalTranscodeDecisionClient {
         itemKey: string,
         request: NonNullable<StreamDecision['transcodeRequest']>
     ): Promise<NonNullable<StreamDecision['serverDecision']>> {
-        const startUrl = this._config.getTranscodeUrl(
-            itemKey,
-            this._toHlsOptions(request)
-        );
+        const hlsOptions = this._toHlsOptions(request);
+        const requestScope = this._config.captureRequestScope();
+        if (!requestScope) throw new Error('No selected Plex server scope');
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            this._config.assertRequestScopeCurrent(requestScope);
+            const expectedAccessToken = this._config.getAccessToken();
+            const startUrl = this._config.getTranscodeUrl(itemKey, hlsOptions);
+            const result = await fetchWithTimeoutAndConsume({
+                url: this._toDecisionUrl(startUrl),
+                init: { method: 'GET', headers: this._config.getAuthHeaders() },
+                timeoutMs: 4000,
+                consume: async (response, signal) => {
+                    if (response.status === 401) return { kind: 'unauthorized' as const };
+                    this._config.throwIfAuthFailure(response);
+                    if (!response.ok) {
+                        throw new Error(`PMS decision request failed: ${response.status}`);
+                    }
 
-        return fetchWithTimeoutAndConsume({
-            url: this._toDecisionUrl(startUrl),
-            init: { method: 'GET', headers: this._config.getAuthHeaders() },
-            timeoutMs: 4000,
-            consume: async (response, signal) => {
-                this._config.throwIfAuthFailure(response);
-                if (!response.ok) {
-                    throw new Error(`PMS decision request failed: ${response.status}`);
-                }
-
-                const raw = await readBoundedResponseText(response, {
-                    maxBytes: UNIVERSAL_DECISION_MAX_RESPONSE_BYTES,
-                    signal,
-                });
-                return { fetchedAt: Date.now(), ...this._parseResponse(raw) };
-            },
-        });
+                    const raw = await readBoundedResponseText(response, {
+                        maxBytes: UNIVERSAL_DECISION_MAX_RESPONSE_BYTES,
+                        signal,
+                    });
+                    return {
+                        kind: 'success' as const,
+                        decision: { fetchedAt: Date.now(), ...this._parseResponse(raw) },
+                    };
+                },
+            });
+            this._config.assertRequestScopeCurrent(requestScope);
+            if (result.kind === 'success') return result.decision;
+            await this._config.recoverAfterUnauthorized(
+                expectedAccessToken,
+                attempt === 0,
+                requestScope
+            );
+            this._config.assertRequestScopeCurrent(requestScope);
+        }
+        throw new Error('PMS decision authorization recovery exhausted');
     }
 
     private _toHlsOptions(

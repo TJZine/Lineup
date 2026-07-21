@@ -9,6 +9,7 @@ import {
     isPlexDiscoverySelectionSupersededError,
 } from '../index';
 import { PLEX_DISCOVERY_CONSTANTS } from '../constants';
+import type { PlexApiResource } from '../types';
 import {
     createDeferred,
     expectConsoleError,
@@ -1181,6 +1182,7 @@ describe('PlexServerDiscovery', () => {
 
             expect(handler).toHaveBeenCalledTimes(1);
             expect(handler).toHaveBeenCalledWith(expect.objectContaining({ id: 'srv1' }));
+            expect(handler.mock.calls[0]?.[0]).not.toHaveProperty('accessToken');
         });
 
         it('should emit connectionChange event', async () => {
@@ -2440,10 +2442,112 @@ describe('PlexServerDiscovery', () => {
     // DISC-002: Rate Limit Backoff Tests
     // ============================================
 
+    describe('selected-server resource credentials', () => {
+        const resourceWithToken = (accessToken: string): PlexApiResource => ({
+            clientIdentifier: 'srv1',
+            name: 'Server One',
+            sourceTitle: 'user',
+            ownerId: 'owner',
+            owned: false,
+            accessToken,
+            provides: 'server',
+            connections: [{
+                uri: 'https://srv1:32400',
+                protocol: 'https',
+                address: 'srv1',
+                port: 32400,
+                local: true,
+                relay: false,
+            }],
+        });
+
+        it('preserves refreshed resource tokens through clones, snapshots, and rollback', async () => {
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce(createMockFetchResponse([resourceWithToken('pms-token-old')]))
+                .mockResolvedValueOnce(createMockFetchResponse([resourceWithToken('pms-token-new')]));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const discovery = new PlexServerDiscovery(mockConfig);
+            const discovered = await discovery.discoverServers();
+            expect(discovered[0]).not.toHaveProperty('accessToken');
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
+            const serverChanges: unknown[] = [];
+            discovery.on('serverChange', (server) => serverChanges.push(server));
+            await discovery.selectServer('srv1');
+            const snapshot = discovery.captureSelectedServerSnapshot();
+            expect(snapshot.server).not.toHaveProperty('accessToken');
+            expect(serverChanges[0]).not.toHaveProperty('accessToken');
+
+            await expect(
+                discovery.refreshSelectedServerAccessToken('pms-token-old')
+            ).resolves.toEqual({ kind: 'updated' });
+            expect(discovery.getSelectedServer()).not.toHaveProperty('accessToken');
+            expect(discovery.getServers()[0]).not.toHaveProperty('accessToken');
+            expect(discovery.getSelectedServerAuthHeaders()).toMatchObject({
+                'X-Plex-Token': 'pms-token-new',
+                'X-Plex-Client-Identifier': 'mock-client-id',
+            });
+
+            discovery.restoreSelectedServerSnapshot(snapshot);
+            expect(discovery.getSelectedServerAuthHeaders()['X-Plex-Token']).toBe('pms-token-old');
+        });
+
+        it('suppresses a resource-token refresh superseded by a profile storage namespace', async () => {
+            const refreshDeferred = createDeferred<unknown[]>();
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce(createMockFetchResponse([resourceWithToken('pms-token-old')]))
+                .mockImplementationOnce(() => refreshDeferred.promise.then(createMockFetchResponse));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
+            await discovery.selectServer('srv1');
+
+            const refresh = discovery.refreshSelectedServerAccessToken('pms-token-old');
+            discovery.setStorageKeys('profile-b-selected', 'profile-b-health');
+            refreshDeferred.resolve([resourceWithToken('pms-token-new')]);
+
+            await expect(refresh).rejects.toMatchObject({
+                name: 'PlexDiscoverySelectionSupersededError',
+            });
+            expect(discovery.getSelectedServer()).toBeNull();
+            expect(discovery.getServers()).toEqual([]);
+            expect(discovery.getSelectedServerAuthHeaders()).toEqual({});
+        });
+
+        it('invalidates cached resources when the active cloud credential changes in the same namespace', async () => {
+            let cloudToken = 'home-token-a';
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce(createMockFetchResponse([resourceWithToken('pms-token-a')]))
+                .mockResolvedValueOnce(createMockFetchResponse([resourceWithToken('pms-token-b')]));
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const discovery = new PlexServerDiscovery({
+                getCloudAuthHeaders: (): Record<string, string> => ({
+                    'X-Plex-Token': cloudToken,
+                    'X-Plex-Client-Identifier': 'mock-client-id',
+                }),
+            });
+            const testConnection = jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
+            await discovery.discoverServers();
+            await discovery.selectServer('srv1');
+
+            cloudToken = 'home-token-b';
+            await expect(discovery.initialize()).resolves.toMatchObject({
+                kind: 'selected',
+                serverId: 'srv1',
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('X-Plex-Token')).toBe('home-token-a');
+            expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('X-Plex-Token')).toBe('home-token-b');
+            expect(discovery.getSelectedServer()).not.toHaveProperty('accessToken');
+            expect(discovery.getSelectedServerAuthHeaders()['X-Plex-Token']).toBe('pms-token-b');
+            expect(testConnection.mock.calls[1]?.[0]).not.toHaveProperty('accessToken');
+        });
+    });
+
     describe('selection context supersession', () => {
         const resource = {
             clientIdentifier: 'srv1', name: 'Server One', sourceTitle: 'user', ownerId: 'owner',
-            owned: true, provides: 'server',
+            owned: true, accessToken: 'pms-token-one', provides: 'server',
             connections: [{
                 uri: 'https://srv1:32400', protocol: 'https', address: 'srv1', port: 32400,
                 local: true, relay: false,

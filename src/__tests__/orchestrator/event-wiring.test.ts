@@ -116,7 +116,7 @@ const makeBinder = (overrides: Partial<OrchestratorEventBinderDeps> = {}): Binde
         handlePlayerStateChange: jest.fn(),
         handlePlayerTimeUpdate: jest.fn(),
         handlePlayerBufferUpdate: jest.fn(),
-        handlePlexLibraryAuthExpired: jest.fn(),
+        handlePlexLibraryAuthorizationFailure: jest.fn(),
         handlePlexStreamError: jest.fn(),
         handleScreenChange: jest.fn(),
         handleLifecyclePause: jest.fn(async () => undefined),
@@ -212,7 +212,7 @@ describe('AppOrchestrator event wiring', () => {
         expect(videoPlayer.on).toHaveBeenCalledWith('stateChange', expect.any(Function));
         expect(videoPlayer.on).toHaveBeenCalledWith('timeUpdate', expect.any(Function));
         expect(videoPlayer.on).toHaveBeenCalledWith('bufferUpdate', expect.any(Function));
-        expect(plexLibrary.on).toHaveBeenCalledWith('authExpired', expect.any(Function));
+        expect(plexLibrary.on).toHaveBeenCalledWith('authorizationFailure', expect.any(Function));
         expect(plexStreamResolver.on).toHaveBeenCalledWith('error', expect.any(Function));
         expect(navigation.on).toHaveBeenCalledWith('screenChange', expect.any(Function));
         expect(channelManager.on).toHaveBeenCalledWith('persistenceWarning', expect.any(Function));
@@ -231,7 +231,7 @@ describe('AppOrchestrator event wiring', () => {
         expect(videoPlayer.off).toHaveBeenCalledWith('stateChange', expect.any(Function));
         expect(videoPlayer.off).toHaveBeenCalledWith('timeUpdate', expect.any(Function));
         expect(videoPlayer.off).toHaveBeenCalledWith('bufferUpdate', expect.any(Function));
-        expect(plexLibrary.off).toHaveBeenCalledWith('authExpired', expect.any(Function));
+        expect(plexLibrary.off).toHaveBeenCalledWith('authorizationFailure', expect.any(Function));
         expect(plexStreamResolver.off).toHaveBeenCalledWith('error', expect.any(Function));
         expect(navigation.off).toHaveBeenCalledWith('screenChange', expect.any(Function));
         expect(navigationCleanup).toHaveBeenCalledTimes(1);

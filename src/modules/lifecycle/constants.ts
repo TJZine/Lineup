@@ -38,6 +38,9 @@ export const DEFAULT_USER_PREFERENCES = {
 export const ERROR_MESSAGES = {
     AUTH_EXPIRED: 'Please sign in again',
     AUTH_RATE_LIMITED: 'Too many sign-in attempts. Please wait a moment',
+    PLEX_PROFILE_AUTH_INVALID: 'This Plex Home profile needs to be selected again',
+    PLEX_PROFILE_SERVER_ACCESS_DENIED: 'This Plex profile cannot access the selected server',
+    PLEX_CLOUD_UNAVAILABLE: 'Plex cloud is temporarily unavailable',
     NETWORK_UNAVAILABLE: 'No internet connection',
     PLEX_UNREACHABLE: 'Cannot connect to Plex server',
     DATA_CORRUPTION: 'Settings were reset',

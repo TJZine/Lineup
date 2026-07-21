@@ -5,7 +5,7 @@ import type {
 import type { AppError, IAppLifecycle } from '../../../modules/lifecycle';
 import type { INavigationManager, Screen } from '../../../modules/navigation';
 import type { IVideoPlayer, PlaybackState, TimeRange } from '../../../modules/player';
-import type { IPlexLibrary } from '../../../modules/plex/library';
+import type { IPlexLibrary, PlexLibraryAuthorizationFailure } from '../../../modules/plex/library';
 import type { IPlexStreamResolver, StreamResolverError } from '../../../modules/plex/stream';
 import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 import type { IChannelScheduler, ScheduledProgram } from '../../../modules/scheduler/scheduler';
@@ -92,7 +92,7 @@ export interface PriorityOneRuntimeAssemblyInput {
     orchestratorCallbacks: {
         stopPlayback: () => void;
         handleGlobalError: (error: AppError, context: string) => void;
-        handlePlexLibraryAuthExpired: () => void;
+        handlePlexLibraryAuthorizationFailure: (failure: PlexLibraryAuthorizationFailure) => void;
         handlePlexStreamError: (error: StreamResolverError) => void;
         showPersistenceWarning: (message: string) => void;
         reportRecoverableRuntimeIssue: PriorityOneWarningReporter;
@@ -218,7 +218,8 @@ function buildPriorityOneAssemblyInput(
                 runtimeControllers.playbackOptions?.refreshIfOpen();
                 runtimeControllers.subtitleTrackRecovery?.handleTrackChange(event);
             },
-            handlePlexLibraryAuthExpired: orchestratorCallbacks.handlePlexLibraryAuthExpired,
+            handlePlexLibraryAuthorizationFailure:
+                orchestratorCallbacks.handlePlexLibraryAuthorizationFailure,
             handlePlexStreamError: orchestratorCallbacks.handlePlexStreamError,
             handleScreenChange: (payload): void => {
                 runtimeControllers.channelTransition?.onScreenChange(payload.to);

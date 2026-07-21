@@ -30,12 +30,17 @@ export function createMockConfig(
     const developerSettingsStore = new DeveloperSettingsStore();
     const subtitleDebugPolicyReader =
         overrides.subtitleDebugPolicyReader ?? developerSettingsStore;
+    const selectedServerScope = Object.freeze({});
     return {
         getAuthHeaders: () => ({
             [PLEX_TOKEN_HEADER]: 'mock-token',
             Accept: 'application/json',
         }),
         getServerUri: () => 'http://192.168.1.100:32400',
+        refreshSelectedServerAccessToken: async () => ({ kind: 'unchanged' }),
+        probeCurrentCredentialValidity: async () => ({ kind: 'account_expired' }),
+        captureSelectedServerScope: () => selectedServerScope,
+        assertSelectedServerScopeCurrent: () => undefined,
         getHttpsConnection: () => null,
         getRelayConnection: () => null,
         audioPolicyReader: new AudioSettingsStore(),

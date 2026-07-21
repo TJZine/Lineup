@@ -1,13 +1,13 @@
-import type { PlexConnection, PlexServer } from './types';
+import type { PlexConnection, PlexServer, PlexServerResource } from './types';
 
 export function clonePlexConnection(connection: PlexConnection | null): PlexConnection | null {
     return connection ? { ...connection } : null;
 }
 
 export function cloneSelectedPlexServer(
-    server: PlexServer | null,
+    server: PlexServerResource | null,
     selectedConnection: PlexConnection | null
-): PlexServer | null {
+): PlexServerResource | null {
     if (!server) {
         return null;
     }
@@ -27,8 +27,24 @@ export function clonePlexServer(server: PlexServer): PlexServer {
     };
 }
 
+export function clonePlexServerView(server: PlexServerResource | null): PlexServer | null {
+    if (!server) return null;
+    const view = cloneSelectedPlexServer(server, server.preferredConnection);
+    if (!view) return null;
+    Reflect.deleteProperty(view, 'accessToken');
+    return view;
+}
+
+export function clonePlexServerViews(servers: PlexServerResource[]): PlexServer[] {
+    return servers.map((server) => {
+        const view = clonePlexServerView(server);
+        if (!view) throw new Error('Expected Plex server resource view.');
+        return view;
+    });
+}
+
 export function clonePlexServers(servers: PlexServer[]): PlexServer[] {
-    return servers.map((server) => clonePlexServer(server));
+    return servers.map(clonePlexServer);
 }
 
 export function awaitPlexDiscoverySnapshot(

@@ -53,11 +53,23 @@ describe('UniversalTranscodeDecisionClient', () => {
         jest.resetAllMocks();
     });
 
-    function createClient(): UniversalTranscodeDecisionClient {
+    function createClient(
+        recoverAfterUnauthorized: (
+            expectedAccessToken: string,
+            allowResourceRefresh: boolean,
+            requestScope: object
+        ) => Promise<void>
+            = async () => undefined
+    ): UniversalTranscodeDecisionClient {
+        const requestScope = Object.freeze({});
         return new UniversalTranscodeDecisionClient({
             getAuthHeaders,
             getTranscodeUrl,
             throwIfAuthFailure,
+            getAccessToken: () => 'token-1',
+            captureRequestScope: () => requestScope,
+            assertRequestScopeCurrent: (scope) => expect(scope).toBe(requestScope),
+            recoverAfterUnauthorized,
         });
     }
 
@@ -413,15 +425,62 @@ describe('UniversalTranscodeDecisionClient', () => {
         }
     });
 
-    it('passes auth failures through before non-ok handling', async () => {
+    it('passes classified authorization recovery failures through', async () => {
         const response = createResponse({ ok: false, status: 401 });
         const authError = new Error('auth expired');
         mockFetch.mockResolvedValue(response);
-        throwIfAuthFailure.mockImplementation(() => {
-            throw authError;
+        const recoverAfterUnauthorized = jest.fn(async () => { throw authError; });
+
+        await expect(createClient(recoverAfterUnauthorized).fetchDecision('/library/metadata/123', createTranscodeRequest())).rejects.toBe(authError);
+        expect(recoverAfterUnauthorized).toHaveBeenCalledWith(
+            'token-1',
+            true,
+            expect.any(Object)
+        );
+    });
+
+    it('refreshes a stale PMS token once and retries the decision request once', async () => {
+        let accessToken = 'token-1';
+        getAuthHeaders.mockImplementation(() => ({
+            'X-Plex-Token': accessToken,
+            Accept: 'application/json',
+        }));
+        const recoverAfterUnauthorized = jest.fn(async (
+            expectedAccessToken: string,
+            allowResourceRefresh: boolean,
+            requestScope: object
+        ): Promise<void> => {
+            expect(expectedAccessToken).toBe('token-1');
+            expect(allowResourceRefresh).toBe(true);
+            expect(requestScope).toEqual({});
+            accessToken = 'token-2';
+        });
+        mockFetch
+            .mockResolvedValueOnce(createResponse({ ok: false, status: 401 }))
+            .mockResolvedValueOnce(createResponse({
+                bodyText: '<MediaContainer decisionCode="1000" decisionText="Transcode" />',
+            }));
+        const requestScope = Object.freeze({});
+        const client = new UniversalTranscodeDecisionClient({
+            getAuthHeaders,
+            getTranscodeUrl,
+            throwIfAuthFailure,
+            getAccessToken: (): string => accessToken,
+            captureRequestScope: (): object => requestScope,
+            assertRequestScopeCurrent: (scope): void => {
+                expect(scope).toBe(requestScope);
+            },
+            recoverAfterUnauthorized,
         });
 
-        await expect(createClient().fetchDecision('/library/metadata/123', createTranscodeRequest())).rejects.toBe(authError);
+        await expect(client.fetchDecision('/library/metadata/123', createTranscodeRequest()))
+            .resolves.toMatchObject({ decisionCode: '1000' });
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(new Headers(mockFetch.mock.calls[0]?.[1]?.headers).get('X-Plex-Token'))
+            .toBe('token-1');
+        expect(new Headers(mockFetch.mock.calls[1]?.[1]?.headers).get('X-Plex-Token'))
+            .toBe('token-2');
+        expect(recoverAfterUnauthorized).toHaveBeenCalledTimes(1);
     });
 
     it('confirms burn only from the selected subtitle stream decision', () => {

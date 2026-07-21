@@ -9,6 +9,8 @@ export const mockConfig: PlexLibraryConfig = {
     }),
     getServerUri: () => 'http://192.168.1.100:32400',
     getAuthToken: () => 'mock-token',
+    refreshSelectedServerAccessToken: async () => ({ kind: 'unchanged' }),
+    probeCurrentCredentialValidity: async () => ({ kind: 'account_expired' }),
 };
 
 export const mockLibrarySectionsResponse = {

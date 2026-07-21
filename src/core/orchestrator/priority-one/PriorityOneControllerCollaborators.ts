@@ -239,8 +239,8 @@ function createEventBinderDeps(
         handlePlayerBufferUpdate: (payload): void => {
             playbackRuntimeController.handlePlayerBufferUpdate(payload);
         },
-        handlePlexLibraryAuthExpired: (): void => {
-            input.events.handlePlexLibraryAuthExpired();
+        handlePlexLibraryAuthorizationFailure: (failure): void => {
+            input.events.handlePlexLibraryAuthorizationFailure(failure);
         },
         handlePlexStreamError: (error): void => {
             input.events.handlePlexStreamError(error);

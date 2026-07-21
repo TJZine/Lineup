@@ -10,10 +10,16 @@ import type {
     PlexLibraryEvents,
 } from './types';
 import type { IDisposable } from '../../../utils/interfaces';
+import type { PlexCurrentCredentialValidity } from '../auth';
 
 export type PlexTagDirectoryUnsupportedReason = 'unavailable' | 'empty';
 
 export type PlexLibraryRequestIntent = 'preview' | 'background';
+
+export type PlexLibrarySelectedServerAccessTokenRefreshResult =
+    | { kind: 'updated' }
+    | { kind: 'unchanged' }
+    | { kind: 'selected_server_unavailable' };
 
 export interface PlexTagDirectoryQueryOptions {
     type: number;
@@ -141,6 +147,17 @@ export interface PlexLibraryConfig {
 
     /** Used for appending auth to active-server-owned image URLs. */
     getAuthToken: () => string | null;
+
+    /** Refreshes the selected server resource under the active plex.tv credential. */
+    refreshSelectedServerAccessToken: (
+        expectedAccessToken: string,
+        options?: { signal?: AbortSignal | null }
+    ) => Promise<PlexLibrarySelectedServerAccessTokenRefreshResult>;
+
+    /** Classifies the current Plex credential against Plex cloud after a PMS 401. */
+    probeCurrentCredentialValidity: (options?: {
+        signal?: AbortSignal | null;
+    }) => Promise<PlexCurrentCredentialValidity>;
 
     /**
      * Optional callback to trigger server re-discovery.

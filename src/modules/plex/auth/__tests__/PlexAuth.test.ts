@@ -2597,7 +2597,162 @@ describe('PlexAuth', () => {
         });
     });
 
+    describe('current credential validity probe', () => {
+        it('reports a cloud-valid active managed credential without mutating auth state', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const account = createAuthToken('account-token', 'account-user');
+            const managed = createAuthToken('managed-token', 'managed-user');
+            auth.storeCredentials({
+                accountToken: account,
+                activeToken: managed,
+                activeUserId: 'managed-home-user',
+                selectedServerByUserId: {
+                    'managed-home-user': { serverId: 'server-1', serverUri: 'http://server' },
+                },
+            });
+            const storedBefore = localStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY);
+            mockFetchJson({}, 200);
+
+            await expect(auth.probeCurrentCredentialValidity()).resolves.toEqual({
+                kind: 'active_valid',
+            });
+
+            expect(auth.getCurrentUser()).toMatchObject({ userId: 'managed-user' });
+            expect(localStorage.getItem(PLEX_AUTH_CONSTANTS.STORAGE_KEY)).toBe(storedBefore);
+        });
+
+        it('distinguishes an invalid managed credential from a still-valid account credential', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const account = createAuthToken('account-token', 'account-user');
+            const managed = createAuthToken('managed-token', 'managed-user');
+            auth.storeCredentials({
+                accountToken: account,
+                activeToken: managed,
+                activeUserId: 'managed-home-user',
+                selectedServerByUserId: {
+                    'managed-home-user': { serverId: null, serverUri: null },
+                },
+            });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockResolvedValueOnce({ status: 401 })
+                .mockResolvedValueOnce({ status: 200 });
+
+            await expect(auth.probeCurrentCredentialValidity()).resolves.toEqual({
+                kind: 'managed_profile_invalid',
+                accountValid: true,
+            });
+        });
+
+        it('reports genuine account expiry only after both managed and account credentials are rejected', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const account = createAuthToken('account-token', 'account-user');
+            const managed = createAuthToken('managed-token', 'managed-user');
+            auth.storeCredentials({
+                accountToken: account,
+                activeToken: managed,
+                activeUserId: 'managed-home-user',
+                selectedServerByUserId: {
+                    'managed-home-user': { serverId: null, serverUri: null },
+                },
+            });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockResolvedValueOnce({ status: 401 })
+                .mockResolvedValueOnce({ status: 401 });
+
+            await expect(auth.probeCurrentCredentialValidity()).resolves.toEqual({
+                kind: 'account_expired',
+            });
+        });
+
+        it('returns superseded when credential authority changes during the read-only probe', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const account = createAuthToken('account-token', 'account-user');
+            const managed = createAuthToken('managed-token', 'managed-user');
+            auth.storeCredentials({
+                accountToken: account,
+                activeToken: managed,
+                activeUserId: 'managed-home-user',
+                selectedServerByUserId: {
+                    'managed-home-user': { serverId: null, serverUri: null },
+                },
+            });
+            const response = createDeferred<{ status: number }>();
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockReturnValueOnce(response.promise);
+
+            const probe = auth.probeCurrentCredentialValidity();
+            await auth.logoutActiveUser();
+            response.resolve({ status: 200 });
+
+            await expect(probe).resolves.toEqual({ kind: 'superseded' });
+        });
+    });
+
     describe('stored validation authority', () => {
+        it('restores a managed profile when validation omits account-style identity fields', async () => {
+            const seed = new PlexAuth(mockConfig);
+            const account = createAuthToken('account-token', 'account-user');
+            const managedProfile = {
+                ...createAuthToken('managed-token', 'owner-account-id'),
+                username: 'ari-profile',
+                email: 'account@example.com',
+            };
+            seed.storeCredentials({
+                accountToken: account,
+                activeToken: managedProfile,
+                activeUserId: 'ari-home-user-id',
+                selectedServerByUserId: {
+                    'ari-home-user-id': {
+                        serverId: 'ari-server',
+                        serverUri: 'http://ari-server',
+                    },
+                },
+            });
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({
+                id: 'owner-account-id',
+                thumb: '',
+            });
+
+            const result = await auth.validateStoredCredentials();
+
+            expect(result.kind).toBe('active_valid');
+            expect(auth.getCurrentUser()).toMatchObject({
+                token: 'managed-token',
+                userId: 'owner-account-id',
+                username: 'ari-profile',
+                email: 'account@example.com',
+            });
+            expect(auth.getActiveUserId()).toBe('ari-home-user-id');
+            expect(auth.readStoredCredentialsAndClearCorruption()).toEqual(
+                expect.objectContaining({
+                    kind: 'available',
+                    credentials: expect.objectContaining({
+                        activeUserId: 'ari-home-user-id',
+                        selectedServerByUserId: expect.objectContaining({
+                            'ari-home-user-id': {
+                                serverId: 'ari-server',
+                                serverUri: 'http://ari-server',
+                            },
+                        }),
+                    }),
+                })
+            );
+        });
+
+        it('does not mask missing account identity fields with stored metadata', async () => {
+            const seed = new PlexAuth(mockConfig);
+            const account = createAuthToken('account-token', 'account-user');
+            seed.storeCredentials(createAuthData(account));
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({ id: 'account-user', thumb: '' });
+
+            await expect(auth.validateStoredCredentials()).rejects.toMatchObject({
+                code: AppErrorCode.PARSE_ERROR,
+                message: 'Plex username was missing or invalid',
+            });
+        });
+
         it('commits an active-valid result before returning a live guard', async () => {
             const seed = new PlexAuth(mockConfig);
             const active = createAuthToken('active-token', 'active-user');

@@ -9,6 +9,14 @@ interface UpdatePlexPartSubtitleSelectionArgs {
     getAuthHeaders: () => Record<string, string>;
     selectBaseUriForMixedContent: (serverUri: string) => string;
     throwIfAuthFailure: (response: Response) => void;
+    getAccessToken: () => string;
+    captureRequestScope: () => object | null;
+    assertRequestScopeCurrent: (scope: object) => void;
+    recoverAfterUnauthorized: (
+        expectedAccessToken: string,
+        allowResourceRefresh: boolean,
+        requestScope: object
+    ) => Promise<void>;
     createError: (
         code: StreamResolverError['code'],
         message: string,
@@ -19,6 +27,11 @@ interface UpdatePlexPartSubtitleSelectionArgs {
 export async function updatePlexPartSubtitleSelection(
     args: UpdatePlexPartSubtitleSelectionArgs
 ): Promise<void> {
+    const requestScope = args.captureRequestScope();
+    if (!requestScope) {
+        throw args.createError(AppErrorCode.SERVER_UNREACHABLE, 'No selected Plex server scope', true);
+    }
+    args.assertRequestScopeCurrent(requestScope);
     const serverUri = args.getServerUri();
     if (!serverUri) {
         throw args.createError(
@@ -35,20 +48,36 @@ export async function updatePlexPartSubtitleSelection(
         );
         url.searchParams.set('subtitleStreamID', args.subtitleStreamId ?? '0');
 
-        const response = await fetchWithTimeout({
-            url: url.toString(),
-            init: { method: 'PUT', headers: args.getAuthHeaders() },
-            timeoutMs: 5000,
-        });
-        args.throwIfAuthFailure(response);
-        if (!response.ok) {
-            throw args.createError(
-                AppErrorCode.TRANSCODE_FAILED,
-                `Failed to update subtitle stream selection: HTTP ${response.status}`,
-                true
-            );
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            args.assertRequestScopeCurrent(requestScope);
+            const expectedAccessToken = args.getAccessToken();
+            const response = await fetchWithTimeout({
+                url: url.toString(),
+                init: { method: 'PUT', headers: args.getAuthHeaders() },
+                timeoutMs: 5000,
+            });
+            args.assertRequestScopeCurrent(requestScope);
+            if (response.status === 401) {
+                await args.recoverAfterUnauthorized(
+                    expectedAccessToken,
+                    attempt === 0,
+                    requestScope
+                );
+                args.assertRequestScopeCurrent(requestScope);
+                continue;
+            }
+            args.throwIfAuthFailure(response);
+            if (!response.ok) {
+                throw args.createError(
+                    AppErrorCode.TRANSCODE_FAILED,
+                    `Failed to update subtitle stream selection: HTTP ${response.status}`,
+                    true
+                );
+            }
+            return;
         }
     } catch (error) {
+        args.assertRequestScopeCurrent(requestScope);
         if (isStreamResolverError(error)) {
             throw error;
         }

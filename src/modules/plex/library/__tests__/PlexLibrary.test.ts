@@ -13,6 +13,7 @@ import type { PlexLibraryConfig, PlexTagDirectoryQueryOptions } from '../interfa
 import { mockLocalStorage, installMockLocalStorage } from '../../../../__tests__/mocks/localStorage';
 import { PLEX_LIBRARY_CONSTANTS, PLEX_MEDIA_TYPES } from '../constants';
 import { PLEX_TOKEN_HEADER } from '../../shared/plexUrl';
+import { PlexApiError } from '../../auth/plexAuthTransport';
 import {
     mockCollectionsResponse,
     mockConfig,
@@ -337,6 +338,7 @@ describe('PlexLibrary', () => {
             let token = 'token-a';
             mockFetchJson({ error: 'Not found' }, 404);
             const library = new PlexLibrary({
+                ...mockConfig,
                 getServerUri: (): string => 'http://192.168.1.100:32400',
                 getAuthToken: (): string => token,
                 getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -384,6 +386,7 @@ describe('PlexLibrary', () => {
             let serverUri = 'http://192.168.1.100:32400';
             let token = 'mock-token';
             const config: PlexLibraryConfig = {
+                ...mockConfig,
                 getAuthHeaders: () => ({
                     ...baseHeaders,
                     [PLEX_TOKEN_HEADER]: token,
@@ -423,6 +426,7 @@ describe('PlexLibrary', () => {
             );
             (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
             const library = new PlexLibrary({
+                ...mockConfig,
                 getServerUri: (): string => serverUri,
                 getAuthToken: (): string => token,
                 getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -449,6 +453,7 @@ describe('PlexLibrary', () => {
                 () => new Promise<Response>((resolve) => pending.push(resolve))
             );
             const library = new PlexLibrary({
+                ...mockConfig,
                 getServerUri: (): string => serverUri,
                 getAuthToken: (): string => token,
                 getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -479,6 +484,7 @@ describe('PlexLibrary', () => {
                 () => new Promise<Response>((resolve) => pending.push(resolve))
             );
             const library = new PlexLibrary({
+                ...mockConfig,
                 getServerUri: (): string => serverUri,
                 getAuthToken: (): string => token,
                 getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -505,6 +511,7 @@ describe('PlexLibrary', () => {
                 () => new Promise<Response>((resolve) => pending.push(resolve))
             );
             const library = new PlexLibrary({
+                ...mockConfig,
                 getServerUri: (): string => serverUri,
                 getAuthToken: (): string => token,
                 getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -684,6 +691,7 @@ describe('PlexLibrary', () => {
                 () => new Promise<Response>((resolve) => pending.push(resolve))
             );
             const library = new PlexLibrary({
+                ...mockConfig,
                 getServerUri: (): string => serverUri,
                 getAuthToken: (): string => token,
                 getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -970,6 +978,7 @@ describe('PlexLibrary', () => {
                 () => new Promise<Response>((resolve) => pending.push(resolve))
             );
             const library = new PlexLibrary({
+                ...mockConfig,
                 getServerUri: (): string => serverUri,
                 getAuthToken: (): string => token,
                 getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -1683,6 +1692,7 @@ describe('PlexLibrary', () => {
             );
             const logger = { warn: jest.fn(), error: jest.fn() };
             const library = new PlexLibrary({
+                ...mockConfig,
                 getServerUri: (): string => serverUri,
                 getAuthToken: (): string => token,
                 getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -1715,6 +1725,7 @@ describe('PlexLibrary', () => {
             );
             const logger = { warn: jest.fn(), error: jest.fn() };
             const library = new PlexLibrary({
+                ...mockConfig,
                 getServerUri: (): string => serverUri,
                 getAuthToken: (): string => token,
                 getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -1745,14 +1756,185 @@ describe('PlexLibrary', () => {
     });
 
     describe('error handling', () => {
-        it('should emit authExpired on 401', async () => {
+        it('refreshes a stale PMS resource token once and retries the request once', async () => {
+            let token = 'pms-token-old';
+            const refreshSelectedServerAccessToken = jest.fn(async (expectedToken: string) => {
+                expect(expectedToken).toBe('pms-token-old');
+                token = 'pms-token-new';
+                return { kind: 'updated' as const };
+            });
+            const probeCurrentCredentialValidity = jest.fn(async () => ({
+                kind: 'active_valid' as const,
+            }));
+            const fetchMock = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+                const requestToken = new Headers(init?.headers).get(PLEX_TOKEN_HEADER);
+                return requestToken === 'pms-token-old'
+                    ? new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+                    : fetchResponse(sectionResponse('Refreshed'));
+            });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const library = new PlexLibrary({
+                ...mockConfig,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+                getAuthToken: (): string => token,
+                refreshSelectedServerAccessToken,
+                probeCurrentCredentialValidity,
+            });
+            const authorizationFailure = jest.fn();
+            library.on('authorizationFailure', authorizationFailure);
+
+            await expect(library.getLibraries()).resolves.toEqual([
+                expect.objectContaining({ title: 'Refreshed' }),
+            ]);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(refreshSelectedServerAccessToken).toHaveBeenCalledTimes(1);
+            expect(probeCurrentCredentialValidity).not.toHaveBeenCalled();
+            expect(authorizationFailure).not.toHaveBeenCalled();
+        });
+
+        it('does not refresh or retry more than once when the replacement PMS token is rejected', async () => {
+            let token = 'pms-token-old';
+            const refreshSelectedServerAccessToken = jest.fn(async () => {
+                token = 'pms-token-new';
+                return { kind: 'updated' as const };
+            });
+            const probeCurrentCredentialValidity = jest.fn(async () => ({
+                kind: 'active_valid' as const,
+            }));
+            const fetchMock = jest.fn(async () =>
+                new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+            );
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const library = new PlexLibrary({
+                ...mockConfig,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+                getAuthToken: (): string => token,
+                refreshSelectedServerAccessToken,
+                probeCurrentCredentialValidity,
+            });
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED,
+            });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(refreshSelectedServerAccessToken).toHaveBeenCalledTimes(1);
+            expect(probeCurrentCredentialValidity).toHaveBeenCalledTimes(1);
+        });
+
+        it('suppresses the retry and authorization callback when the selected scope changes during refresh', async () => {
+            let serverUri = 'http://server-a:32400';
+            let token = 'pms-token-a';
+            const refreshGate: { resolve?: () => void } = {};
+            const refreshSelectedServerAccessToken = jest.fn((): Promise<{ kind: 'updated' }> =>
+                new Promise<{ kind: 'updated' }>((resolve) => {
+                    refreshGate.resolve = (): void => resolve({ kind: 'updated' });
+                })
+            );
+            const fetchMock = jest.fn(async () =>
+                new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+            );
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+            const library = new PlexLibrary({
+                ...mockConfig,
+                getServerUri: (): string => serverUri,
+                getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+                getAuthToken: (): string => token,
+                refreshSelectedServerAccessToken,
+            });
+            const authorizationFailure = jest.fn();
+            library.on('authorizationFailure', authorizationFailure);
+
+            const request = library.getLibraries();
+            await flushPromisesAndMacrotask();
+            serverUri = 'http://server-b:32400';
+            token = 'pms-token-b';
+            refreshGate.resolve?.();
+
+            await expect(request).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(authorizationFailure).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            [AppErrorCode.NETWORK_TIMEOUT, undefined, AppErrorCode.NETWORK_TIMEOUT],
+            [AppErrorCode.RATE_LIMITED, 429, AppErrorCode.RATE_LIMITED],
+            [AppErrorCode.SERVER_ERROR, 503, AppErrorCode.PLEX_CLOUD_UNAVAILABLE],
+        ] as const)(
+            'preserves resource-refresh transport failure %s without an authorization conclusion',
+            async (refreshCode, httpStatus, expectedCode) => {
+                mockFetchJson({ error: 'Unauthorized' }, 401);
+                const refreshSelectedServerAccessToken = jest.fn(async () => {
+                    throw new PlexApiError(refreshCode, 'Plex resource refresh failed', httpStatus, true);
+                });
+                const probeCurrentCredentialValidity = jest.fn(async () => ({
+                    kind: 'active_valid' as const,
+                }));
+                const library = new PlexLibrary({
+                    ...mockConfig,
+                    refreshSelectedServerAccessToken,
+                    probeCurrentCredentialValidity,
+                });
+                const authorizationFailure = jest.fn();
+                library.on('authorizationFailure', authorizationFailure);
+
+                await expect(library.getLibraries()).rejects.toMatchObject({
+                    code: expectedCode,
+                    httpStatus,
+                });
+                expect(refreshSelectedServerAccessToken).toHaveBeenCalledTimes(1);
+                expect(probeCurrentCredentialValidity).not.toHaveBeenCalled();
+                expect(authorizationFailure).not.toHaveBeenCalled();
+            }
+        );
+
+        it('emits account auth expiry only when Plex cloud also rejects the account credential', async () => {
             mockFetchJson({ error: 'Unauthorized' }, 401);
             const library = new PlexLibrary(mockConfig);
             const handler = jest.fn();
-            library.on('authExpired', handler);
+            library.on('authorizationFailure', handler);
 
             await expect(library.getLibraries()).rejects.toThrow(PlexLibraryError);
-            expect(handler).toHaveBeenCalled();
+            expect(handler).toHaveBeenCalledWith({ kind: 'account_auth_expired' });
+        });
+
+        it('classifies a cloud-valid managed credential rejected by PMS as profile/server access denied', async () => {
+            mockFetchJson({ error: 'Unauthorized' }, 401);
+            const library = new PlexLibrary({
+                ...mockConfig,
+                probeCurrentCredentialValidity: async (): Promise<{ kind: 'active_valid' }> => ({
+                    kind: 'active_valid',
+                }),
+            });
+            const handler = jest.fn();
+            library.on('authorizationFailure', handler);
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED,
+                httpStatus: 401,
+            });
+            expect(handler).toHaveBeenCalledWith({ kind: 'profile_server_access_denied' });
+        });
+
+        it('classifies a stale managed credential with a valid account as profile auth invalid', async () => {
+            mockFetchJson({ error: 'Unauthorized' }, 401);
+            const library = new PlexLibrary({
+                ...mockConfig,
+                probeCurrentCredentialValidity: async (): Promise<{
+                    kind: 'managed_profile_invalid';
+                    accountValid: true;
+                }> => ({
+                    kind: 'managed_profile_invalid',
+                    accountValid: true,
+                }),
+            });
+            const handler = jest.fn();
+            library.on('authorizationFailure', handler);
+
+            await expect(library.getLibraries()).rejects.toMatchObject({
+                code: AppErrorCode.PLEX_PROFILE_AUTH_INVALID,
+                httpStatus: 401,
+            });
+            expect(handler).toHaveBeenCalledWith({ kind: 'managed_profile_auth_invalid' });
         });
 
         it('should throw AUTH_EXPIRED error code on 401', async () => {
@@ -1982,6 +2164,7 @@ describe('PlexLibrary', () => {
             try {
                 let requestHeader = 'captured-a';
                 const config: PlexLibraryConfig = {
+                    ...mockConfig,
                     getServerUri: () => 'http://server-a:32400',
                     getAuthToken: () => 'token-a',
                     getAuthHeaders: () => ({
@@ -2030,6 +2213,7 @@ describe('PlexLibrary', () => {
                 (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
                 const logger = { warn: jest.fn(), error: jest.fn() };
                 const library = new PlexLibrary({
+                    ...mockConfig,
                     getServerUri: (): string => serverUri,
                     getAuthToken: (): string => token,
                     getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
@@ -2165,11 +2349,11 @@ describe('PlexLibrary', () => {
             });
         });
 
-        it('should NOT emit authExpired on 403', async () => {
+        it('does not emit an authorization failure outcome on an ordinary 403', async () => {
             mockFetchJson({ error: 'Forbidden' }, 403);
             const library = new PlexLibrary(mockConfig);
             const handler = jest.fn();
-            library.on('authExpired', handler);
+            library.on('authorizationFailure', handler);
 
             await expect(library.getLibraries()).rejects.toThrow(PlexLibraryError);
             expect(handler).not.toHaveBeenCalled();
@@ -2183,7 +2367,7 @@ describe('PlexLibrary', () => {
             expect(fetch).toHaveBeenCalledTimes(1);
         });
 
-        it('suppresses stale auth-expired and server-unreachable callbacks', async () => {
+        it('suppresses stale authorization and server-unreachable callbacks', async () => {
             for (const outcome of ['auth', 'network'] as const) {
                 let serverUri = 'http://server-a:32400';
                 let token = 'token-a';
@@ -2193,13 +2377,15 @@ describe('PlexLibrary', () => {
                 );
                 const onServerUnreachable = jest.fn();
                 const library = new PlexLibrary({
+                    ...mockConfig,
                     getServerUri: (): string => serverUri,
                     getAuthToken: (): string => token,
                     getAuthHeaders: (): Record<string, string> => ({ [PLEX_TOKEN_HEADER]: token }),
+                    probeCurrentCredentialValidity: jest.fn(async () => ({ kind: 'active_valid' as const })),
                     onServerUnreachable,
                 });
-                const authExpired = jest.fn();
-                library.on('authExpired', authExpired);
+                const authorizationFailure = jest.fn();
+                library.on('authorizationFailure', authorizationFailure);
                 const stale = library.getLibraries();
                 serverUri = 'http://server-b:32400';
                 token = 'token-b';
@@ -2216,7 +2402,7 @@ describe('PlexLibrary', () => {
                     pending[0]?.reject(new Error('offline'));
                 }
                 await expect(stale).rejects.toBeInstanceOf(PlexLibraryScopeSupersededError);
-                expect(authExpired).not.toHaveBeenCalled();
+                expect(authorizationFailure).not.toHaveBeenCalled();
                 expect(onServerUnreachable).not.toHaveBeenCalled();
                 pending[1]?.resolve(fetchResponse(sectionResponse('B')));
                 await current;
@@ -2262,6 +2448,7 @@ describe('PlexLibrary', () => {
             let token = 'token-a';
             mockFetchJson(sectionResponse('A'));
             const config: PlexLibraryConfig = {
+                ...mockConfig,
                 getServerUri: () => serverUri,
                 getAuthToken: () => token,
                 getAuthHeaders: () => ({ [PLEX_TOKEN_HEADER]: token }),

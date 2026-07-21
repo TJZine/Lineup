@@ -63,9 +63,26 @@ export interface PlexStreamSubtitleDebugLogPort {
     ): void;
 }
 
+export type PlexStreamSelectedServerAccessTokenRefreshResult =
+    | { kind: 'updated' }
+    | { kind: 'unchanged' }
+    | { kind: 'selected_server_unavailable' };
+
+export type PlexStreamCurrentCredentialValidity =
+    | { kind: 'active_valid' }
+    | { kind: 'managed_profile_invalid'; accountValid: true }
+    | { kind: 'account_expired' }
+    | { kind: 'superseded' };
+
 export interface PlexStreamResolverConfig {
     getAuthHeaders: () => Record<string, string>;
     getServerUri: () => string | null;
+    refreshSelectedServerAccessToken: (
+        expectedAccessToken: string
+    ) => Promise<PlexStreamSelectedServerAccessTokenRefreshResult>;
+    probeCurrentCredentialValidity: () => Promise<PlexStreamCurrentCredentialValidity>;
+    captureSelectedServerScope: () => object | null;
+    assertSelectedServerScopeCurrent: (scope: object) => void;
     /**
      * Optional: Function to get the currently selected server connection metadata.
      * Used to classify transcode requests as LAN vs WAN when possible.
