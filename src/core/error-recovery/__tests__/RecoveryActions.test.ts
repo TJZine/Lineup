@@ -54,13 +54,15 @@ describe('getRecoveryActions', () => {
         expect(exitResult).toBeInstanceOf(Promise);
     });
 
-    it('returns network recovery when Plex cloud could not classify a PMS 401', () => {
+    it('returns network recovery when Plex cloud could not classify a PMS 401', async () => {
         const deps = createDeps();
         const actions = getRecoveryActions(AppErrorCode.PLEX_CLOUD_UNAVAILABLE, deps);
 
         expect(actions.map((action) => action.label)).toEqual(['Retry', 'Exit']);
-        actions[0]!.action();
+        await actions[0]!.action();
+        await actions[1]!.action();
         expect(deps.retryStart).toHaveBeenCalledTimes(1);
+        expect(deps.exitApp).toHaveBeenCalledTimes(1);
         expect(deps.goToServerSelect).not.toHaveBeenCalled();
         expect(deps.goToAuth).not.toHaveBeenCalled();
     });

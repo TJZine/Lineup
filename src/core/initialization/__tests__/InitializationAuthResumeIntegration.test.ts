@@ -7,6 +7,7 @@ import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionSto
 import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
 import { AppErrorCode } from '../../../types/app-errors';
 import { getRecoveryActions } from '../../error-recovery/RecoveryActions';
+import { createDeferred, withTestTimeout } from '../../../__tests__/helpers';
 import {
     InitializationCoordinator,
     STARTUP_PHASE,
@@ -23,6 +24,21 @@ const config: PlexAuthConfig = {
     device: 'TV',
     deviceName: 'TV',
 };
+
+interface ReadinessObserver {
+    setReady: jest.Mock<void, [boolean]>;
+    completion: Promise<void>;
+}
+
+function createReadinessObserver(): ReadinessObserver {
+    const ready = createDeferred<void>();
+    return {
+        setReady: jest.fn((isReady: boolean): void => {
+            if (isReady) ready.resolve(undefined);
+        }),
+        completion: ready.promise,
+    };
+}
 
 function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationCoordinator {
     const selectionContext = new PlexDiscoverySelectionContext();
@@ -108,7 +124,7 @@ describe('PIN auth resume integration', () => {
     it('keeps committed PIN success while synchronous auth resume takes newer authority', async () => {
         localStorage.clear();
         const auth = new PlexAuth(config);
-        const setReady = jest.fn();
+        const { setReady, completion } = createReadinessObserver();
         const coordinator = createCoordinator(auth, setReady);
         await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         const events: string[] = [];
@@ -169,13 +185,10 @@ describe('PIN auth resume integration', () => {
 
         screen.show();
         (container.querySelector('#btn-auth-request') as HTMLButtonElement).click();
-        for (
-            let attempt = 0;
-            attempt < 30 && (!container.textContent?.includes('Signed in.') || !setReady.mock.calls.some(([ready]) => ready));
-            attempt += 1
-        ) {
-            await Promise.resolve();
-        }
+        await withTestTimeout(completion, {
+            timeoutMs: 2_000,
+            errorMessage: 'Committed PIN auth resume did not publish readiness',
+        });
 
         expect(container.textContent).toContain('Signed in.');
         expect(container.textContent).toContain('Continuing startup…');
@@ -195,7 +208,7 @@ describe('PIN auth resume integration', () => {
     it('resumes startup exactly once after runtime AUTH_EXPIRED Sign In and successful PIN linking', async () => {
         localStorage.clear();
         const auth = new PlexAuth(config);
-        const setReady = jest.fn();
+        const { setReady, completion } = createReadinessObserver();
         const coordinator = createCoordinator(auth, setReady);
         const runStartupSpy = jest.spyOn(coordinator, 'runStartup');
         const events: string[] = [];
@@ -274,13 +287,10 @@ describe('PIN auth resume integration', () => {
 
         signIn.action();
         (container.querySelector('#btn-auth-request') as HTMLButtonElement).click();
-        for (
-            let attempt = 0;
-            attempt < 30 && (!container.textContent?.includes('Signed in.') || !setReady.mock.calls.some(([ready]) => ready));
-            attempt += 1
-        ) {
-            await Promise.resolve();
-        }
+        await withTestTimeout(completion, {
+            timeoutMs: 2_000,
+            errorMessage: 'Runtime auth resume did not publish readiness',
+        });
 
         expect(container.textContent).toContain('Signed in.');
         expect(container.textContent).toContain('Continuing startup…');
