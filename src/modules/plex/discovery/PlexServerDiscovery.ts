@@ -303,8 +303,10 @@ export class PlexServerDiscovery implements IPlexServerDiscovery {
         return null;
     }
     public getSelectedServerAuthHeaders(): Record<string, string> {
-        const accessToken = this._state.selectedServer?.accessToken ?? null;
-        return accessToken ? this._buildServerAuthHeaders(accessToken) : {};
+        const selectedServer = this._state.selectedServer;
+        return selectedServer
+            ? this._buildServerAuthHeaders(selectedServer.accessToken)
+            : {};
     }
     public getSelectedServerAccessToken(): string | null {
         return this._state.selectedServer?.accessToken ?? null;

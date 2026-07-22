@@ -91,6 +91,7 @@ describe('createOrchestratorModules wiring', () => {
         (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
 
         await expect(modules.plexLibrary.getLibraries()).resolves.toEqual([]);
+        expect(fetchMock).toHaveBeenCalled();
         expect(modules.plexLibrary.getImageUrl('/library/metadata/1/thumb')).toContain(
             `X-Plex-Token=${pmsToken}`
         );

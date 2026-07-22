@@ -10,6 +10,7 @@ import {
 } from '../index';
 import { PLEX_DISCOVERY_CONSTANTS } from '../constants';
 import type { PlexApiResource } from '../types';
+import { PLEX_TOKEN_HEADER } from '../../shared/plexUrl';
 import {
     createDeferred,
     expectConsoleError,
@@ -2459,6 +2460,25 @@ describe('PlexServerDiscovery', () => {
                 local: true,
                 relay: false,
             }],
+        });
+
+        it('preserves PMS identity headers when the selected resource token is empty', async () => {
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+                .mockResolvedValueOnce(createMockFetchResponse([resourceWithToken('')]));
+            const discovery = new PlexServerDiscovery(mockConfig);
+            await discovery.discoverServers();
+            jest.spyOn(discovery, 'testConnection').mockResolvedValue(1);
+
+            await expect(discovery.selectServer('srv1')).resolves.toMatchObject({
+                kind: 'selected',
+            });
+
+            expect(discovery.getSelectedServerAccessToken()).toBe('');
+            expect(discovery.getSelectedServerAuthHeaders()).toMatchObject({
+                Accept: 'application/json',
+                'X-Plex-Client-Identifier': 'mock-client-id',
+            });
+            expect(discovery.getSelectedServerAuthHeaders()).not.toHaveProperty(PLEX_TOKEN_HEADER);
         });
 
         it('preserves refreshed resource tokens through clones, snapshots, and rollback', async () => {

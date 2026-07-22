@@ -1,4 +1,5 @@
 import { updatePlexPartSubtitleSelection } from '../resolver/PlexPartSubtitleSelector';
+import { AppErrorCode } from '../../../../types/app-errors';
 
 describe('updatePlexPartSubtitleSelection', () => {
     it('refreshes a stale PMS token and retries once within the captured selection scope', async () => {
@@ -39,5 +40,46 @@ describe('updatePlexPartSubtitleSelection', () => {
         expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('X-Plex-Token'))
             .toBe('pms-token-new');
         expect(recoverAfterUnauthorized).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects when two PMS 401 responses exhaust recovery without classification', async () => {
+        const requestScope = Object.freeze({ id: 'server-a' });
+        const accessToken = 'pms-token-old';
+        const fetchMock = jest.fn()
+            .mockResolvedValueOnce({ ok: false, status: 401 })
+            .mockResolvedValueOnce({ ok: false, status: 401 });
+        global.fetch = fetchMock as unknown as typeof fetch;
+        const recoverAfterUnauthorized = jest.fn().mockResolvedValue(undefined);
+
+        await expect(updatePlexPartSubtitleSelection({
+            partId: 'part-1',
+            subtitleStreamId: 'sub-1',
+            getServerUri: () => 'http://plex.local:32400',
+            getAuthHeaders: () => ({ 'X-Plex-Token': accessToken }),
+            selectBaseUriForMixedContent: (uri) => uri,
+            throwIfAuthFailure: jest.fn(),
+            getAccessToken: () => accessToken,
+            captureRequestScope: () => requestScope,
+            assertRequestScopeCurrent: (scope) => expect(scope).toBe(requestScope),
+            recoverAfterUnauthorized,
+            createError: (code, message, recoverable) => ({ code, message, recoverable }),
+        })).rejects.toMatchObject({
+            code: AppErrorCode.PLEX_CLOUD_UNAVAILABLE,
+            recoverable: true,
+        });
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(recoverAfterUnauthorized).toHaveBeenNthCalledWith(
+            1,
+            accessToken,
+            true,
+            requestScope
+        );
+        expect(recoverAfterUnauthorized).toHaveBeenNthCalledWith(
+            2,
+            accessToken,
+            false,
+            requestScope
+        );
     });
 });

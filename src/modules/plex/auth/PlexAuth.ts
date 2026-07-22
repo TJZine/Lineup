@@ -54,6 +54,10 @@ interface AuthOperation {
     pinId: number | null;
 }
 
+type TokenValidationOutcome =
+    | { kind: 'valid'; response: Response }
+    | { kind: 'invalid' };
+
 /** Plex credential, PIN, token-validation, and profile lifecycle owner. */
 export class PlexAuth implements IPlexAuth {
     private _state: PlexAuthState;
@@ -499,70 +503,37 @@ export class PlexAuth implements IPlexAuth {
         signal: AbortSignal | null,
         fallback?: ParseUserResponseOptions
     ): Promise<PlexAuthToken | null> {
-        throwIfAborted(signal);
+        const outcome = await this._requestTokenValidation(token, signal);
+        if (outcome.kind === 'invalid') return null;
+
+        let data: unknown;
         try {
-            const response = await fetchWithTimeout({
-                url: PLEX_AUTH_CONSTANTS.PLEX_TV_BASE_URL + PLEX_AUTH_CONSTANTS.USER_ENDPOINT,
-                init: {
-                    method: 'GET',
-                    headers: buildRequestHeaders(this._state.config, token),
-                    ...(signal ? { signal } : {}),
-                },
-                timeoutMs: PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS,
-            });
-            throwIfAborted(signal);
-            if (response.status === 200) {
-                let data: unknown;
-                try {
-                    data = await response.json();
-                } catch {
-                    throw new PlexApiError(
-                        AppErrorCode.PARSE_ERROR,
-                        'Failed to parse token validation response',
-                        response.status,
-                        false
-                    );
-                }
-                throwIfAborted(signal);
-                return parseUserResponse(data, token, fallback);
-            }
-            if (response.status === 401 || response.status === 403) return null;
-            if (response.status === 429) {
-                throw new PlexApiError(AppErrorCode.RATE_LIMITED, 'Rate limited during token validation', 429, true);
-            }
-            if (response.status >= 500) throw createPlexServiceError(response.status);
+            data = await outcome.response.json();
+        } catch {
+            if (signal?.aborted) throw readAbortSignalReason(signal);
             throw new PlexApiError(
-                AppErrorCode.SERVER_UNREACHABLE,
-                `Token validation failed (${response.status})`,
-                response.status,
+                AppErrorCode.PARSE_ERROR,
+                'Failed to parse token validation response',
+                outcome.response.status,
                 false
             );
-        } catch (error) {
-            if (signal?.aborted) throw readAbortSignalReason(signal);
-            if (isAbortLikeError(error)) {
-                throw new PlexApiError(
-                    AppErrorCode.NETWORK_TIMEOUT,
-                    'Token validation timed out',
-                    undefined,
-                    true,
-                    error
-                );
-            }
-            if (error instanceof PlexApiError) throw error;
-            throw new PlexApiError(
-                AppErrorCode.SERVER_UNREACHABLE,
-                'Network error during token validation',
-                undefined,
-                true,
-                error
-            );
         }
+
+        throwIfAborted(signal);
+        return parseUserResponse(data, token, fallback);
     }
 
     private async _probeTokenValidity(
         token: string,
         signal: AbortSignal | null
     ): Promise<boolean> {
+        return (await this._requestTokenValidation(token, signal)).kind === 'valid';
+    }
+
+    private async _requestTokenValidation(
+        token: string,
+        signal: AbortSignal | null
+    ): Promise<TokenValidationOutcome> {
         throwIfAborted(signal);
         try {
             const response = await fetchWithTimeout({
@@ -575,8 +546,10 @@ export class PlexAuth implements IPlexAuth {
                 timeoutMs: PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS,
             });
             throwIfAborted(signal);
-            if (response.status === 200) return true;
-            if (response.status === 401 || response.status === 403) return false;
+            if (response.status === 200) return { kind: 'valid', response };
+            if (response.status === 401 || response.status === 403) {
+                return { kind: 'invalid' };
+            }
             if (response.status === 429) {
                 throw new PlexApiError(AppErrorCode.RATE_LIMITED, 'Rate limited during token validation', 429, true);
             }

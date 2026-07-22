@@ -76,6 +76,11 @@ export async function updatePlexPartSubtitleSelection(
             }
             return;
         }
+        throw args.createError(
+            AppErrorCode.PLEX_CLOUD_UNAVAILABLE,
+            'PMS subtitle authorization recovery completed without classifying a repeated 401',
+            true
+        );
     } catch (error) {
         args.assertRequestScopeCurrent(requestScope);
         if (isStreamResolverError(error)) {
