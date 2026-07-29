@@ -225,7 +225,7 @@
         ],
         "current_or_next_execution_unit": null,
         "source_proof_disposition": {
-          "review::.::holistic::design_coherence::app_orchestrator_still_runtime_hub": "stale-proven resolved for the mapped subclaims by moving selected-server credential persistence to SelectedServerPersistenceAdapter, priority-one assembly shaping to PriorityOneAssemblyBuilder, and schedule rollover/subtitle recovery construction to OrchestratorRuntimeControllerBuilder",
+          "review::.::holistic::design_coherence::app_orchestrator_still_runtime_hub": "stale-proven resolved for the mapped subclaims by moving selected-server credential persistence to SelectedServerPersistenceAdapter, priority-one assembly shaping to PriorityOneAssemblyBuilder, and retaining schedule rollover/subtitle recovery policy in their focused controllers with direct composition in AppOrchestrator",
           "review::.::holistic::mid_level_elegance::coordinator_builders_full_assembly_bus": "stale-proven resolved by narrowing every named full-assembly-input leaf builder to explicit builder inputs while keeping full assembly input only at the assembly shaper layer",
           "review::.::holistic::dependency_health::navigation_coordinator_type_cycle": "stale-proven resolved by moving NavigationCoordinatorDeps to a neutral navigation contract file and confirming direct cycle detection reports no navigation import cycles",
           "review::.::holistic::design_coherence::app_lifecycle_mixed_operational_concerns": "stale-proven resolved by extracting lifecycle persistence queue, connectivity monitor, and memory monitor collaborators while preserving AppLifecycle public lifecycle behavior",

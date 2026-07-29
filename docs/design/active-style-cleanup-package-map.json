@@ -3,7 +3,6 @@
   "artifact_role": "Retired historical companion for the 2026-04-18 style cleanup package tokens. This file is not a live cleanup intake, checklist, or package-membership surface.",
   "retired_on": "2026-04-30",
   "retired_by": "DCR-11-S1",
-  "archive_copy": "docs/archive/design/2026-04-30-retired-style-cleanup-package-map.json",
   "active_intake_status": "retired",
   "historical_backlog_date": "2026-04-18",
   "package_model": "retired_style_cleanup_reference",

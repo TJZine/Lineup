@@ -174,16 +174,6 @@ const mockConfig: OrchestratorConfig = {
 // Mock Modules
 // ============================================
 
-// Mock EventEmitter
-jest.mock('../utils', () => ({
-    EventEmitter: jest.fn().mockImplementation(() => ({
-        on: jest.fn(() => ({ dispose: jest.fn() })),
-        off: jest.fn(),
-        emit: jest.fn(),
-        removeAllListeners: jest.fn(),
-    })),
-}));
-
 // Mock AppLifecycle
 const mockLifecycle = {
     initialize: jest.fn().mockResolvedValue(undefined),

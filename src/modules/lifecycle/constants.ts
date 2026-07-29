@@ -68,11 +68,3 @@ export const VALID_PHASE_TRANSITIONS: Record<string, readonly string[]> = {
     error: ['authenticating', 'loading_data', 'ready', 'terminating'],
     terminating: [],
 } as const;
-
-/**
- * Package-internal migration registry consumed by the lifecycle state store only.
- * Intentionally not re-exported from the lifecycle barrel; missing older-version
- * entries mean that persisted version is unsupported and load() returns null.
- */
-export const MIGRATIONS: Record<number, (state: Record<string, unknown>) => Record<string, unknown>> = {
-};

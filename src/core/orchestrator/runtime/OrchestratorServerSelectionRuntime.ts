@@ -26,7 +26,6 @@ import {
     type SelectedServerPersistenceEvidence,
     type SelectedServerPersistenceProof,
 } from '../../server-selection/SelectedServerPersistenceAdapter';
-import { SelectedServerRuntimeController } from '../../server-selection/SelectedServerRuntimeController';
 import { clearPersistedSelectedServer } from '../../server-selection/SelectedServerClearPersistence';
 import type {
     SelectedServerQuarantineCommandState,
@@ -35,7 +34,6 @@ import type {
 import { restoreUnselectedServerRuntime } from '../../server-selection/SelectedServerUnselectedRestoration';
 import type {
     OrchestratorServerSelectionResult,
-    SelectedServerPersistenceResult,
 } from '../../server-selection/ServerSelectionTypes';
 
 export interface OrchestratorServerSelectionRuntimeDeps {
@@ -65,17 +63,11 @@ export interface OrchestratorServerSelectionRuntimeDeps {
 
 export class OrchestratorServerSelectionRuntime {
     private readonly _persistence: SelectedServerPersistenceAdapter;
-    private readonly _runtimeController: SelectedServerRuntimeController;
     private readonly _coordinator: ServerSelectionCoordinator;
 
     constructor(private readonly _deps: OrchestratorServerSelectionRuntimeDeps) {
         this._persistence = new SelectedServerPersistenceAdapter({
             getCredentialsPort: (): IPlexAuth | null => this._deps.getPlexAuth(),
-        });
-        this._runtimeController = new SelectedServerRuntimeController({
-            clearPersistedSelection: (): Promise<SelectedServerPersistenceResult> =>
-                Promise.resolve(clearPersistedSelectedServer(this._deps.getPlexAuth())),
-            clearDiscoverySelection: (): void => this._requireDiscovery('clearSelectedServer').clearSelection(),
         });
         this._coordinator = new ServerSelectionCoordinator({
             captureDiscoverySelectionSnapshot: (): PlexDiscoverySelectedServerSnapshot =>
@@ -118,8 +110,10 @@ export class OrchestratorServerSelectionRuntime {
                 this._runSelectedServerInitialization(options),
             restoreUnselectedRuntime: (operation): Promise<void> =>
                 this._restoreUnselectedRuntime(operation),
-            clearSelectedServerSelection: (): Promise<void> =>
-                this._runtimeController.clearSelection().then(() => undefined),
+            clearSelectedServerSelection: async (): Promise<void> => {
+                await clearPersistedSelectedServer(this._deps.getPlexAuth());
+                this._requireDiscovery('clearSelectedServer').clearSelection();
+            },
             restoreClearedUnselectedRuntime: (): Promise<void> =>
                 this._restoreUnselectedRuntime({
                     signal: new AbortController().signal,

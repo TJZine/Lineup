@@ -11,6 +11,15 @@
  * - Keep `--scrim-tint-rgb-legacy` comma-separated (used by rgba(var(--scrim-tint-rgb-legacy), a)).
  */
 
+:root {
+  --runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);
+  --runtime-overlay-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 6, 8, 10);
+  --runtime-overlay-start-alpha: 30%;
+  --runtime-overlay-start-alpha-legacy: 0.30;
+  --runtime-overlay-end-alpha: 40%;
+  --runtime-overlay-end-alpha-legacy: 0.40;
+}
+
 .theme-slate-pine {
   --focus-color: #809a79;
   --focus-color-rgb: 128, 154, 121;
@@ -42,6 +51,10 @@
   --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.60);
   --scrim-tint-rgb: 22 24 22;
   --scrim-tint-rgb-legacy: 22, 24, 22;
+  --runtime-overlay-start-alpha: 34%;
+  --runtime-overlay-start-alpha-legacy: 0.34;
+  --runtime-overlay-end-alpha: 46%;
+  --runtime-overlay-end-alpha-legacy: 0.46;
 }
 
 .theme-swiss {
@@ -74,6 +87,10 @@
   --panel-inner-glow: none;
   --scrim-tint-rgb: 0 0 0;
   --scrim-tint-rgb-legacy: 0, 0, 0;
+  --runtime-overlay-start-alpha: 34%;
+  --runtime-overlay-start-alpha-legacy: 0.34;
+  --runtime-overlay-end-alpha: 46%;
+  --runtime-overlay-end-alpha-legacy: 0.46;
   --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
   --theme-swiss-title-size-hero: 34px;
 }
@@ -115,6 +132,10 @@
 
   --scrim-tint-rgb: 0 24 48;
   --scrim-tint-rgb-legacy: 0, 24, 48;
+  --runtime-overlay-start-alpha: 42%;
+  --runtime-overlay-start-alpha-legacy: 0.42;
+  --runtime-overlay-end-alpha: 56%;
+  --runtime-overlay-end-alpha-legacy: 0.56;
   --font-family-display: "Helvetica Neue", helvetica, "Avenir Next", arial, sans-serif;
 
   --directv-panel-gradient-start: #001020;
@@ -219,6 +240,10 @@
   );
   --scrim-tint-rgb: 8 11 15;
   --scrim-tint-rgb-legacy: 8, 11, 15;
+  --runtime-overlay-start-alpha: 38%;
+  --runtime-overlay-start-alpha-legacy: 0.38;
+  --runtime-overlay-end-alpha: 52%;
+  --runtime-overlay-end-alpha-legacy: 0.52;
 }
 
 .theme-ember-steel {
@@ -251,6 +276,10 @@
   --color-live: var(--color-live-warm);
   --scrim-tint-rgb: 20 20 20;
   --scrim-tint-rgb-legacy: 20, 20, 20;
+  --runtime-overlay-start-alpha: 38%;
+  --runtime-overlay-start-alpha-legacy: 0.38;
+  --runtime-overlay-end-alpha: 52%;
+  --runtime-overlay-end-alpha-legacy: 0.52;
 
   --font-family-display: "Avenir Next", "Segoe UI", "Noto Sans", sans-serif;
 }

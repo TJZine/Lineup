@@ -50,7 +50,6 @@ import {
     type SelectedServerInitializationResult,
 } from './InitializationSelectedServerTransaction';
 import { initializeCoreInfrastructure } from './InitializationCoreInfrastructure';
-import { createInitializationSelectedServerTransaction } from './InitializationSelectedServerTransactionFactory';
 import {
     InitializationStartupHandoff,
     type InitializationSelectedServerLineage,
@@ -167,13 +166,34 @@ export class InitializationCoordinator {
         private readonly _callbacks: InitializationCallbacks
     ) {
         this._startupHandoff = new InitializationStartupHandoff(this._callbacks.state.transferSelectedServerTuningToStartup);
-        this._selectedServerTransaction = createInitializationSelectedServerTransaction({
-            dependencies: this._deps,
-            callbacks: this._callbacks,
-            initializePlaybackRuntime: (signal) => this._initializePlaybackRuntime(signal),
-            ensureCorePlayerUiInitialized: (signal) => this._ensureCorePlayerUiInitialized(signal),
-            initializeEpg: (signal) => this._initializeEpg({ ensureCorePlayerUi: false, signal }),
-            clearResumeHandlers: () => {
+        this._selectedServerTransaction = new InitializationSelectedServerTransaction({
+            getPlexAuth: (): IPlexAuth | null => this._deps.modules.plexAuth,
+            isSelectedServerConnected: (): boolean =>
+                this._deps.modules.plexDiscovery?.isConnected() === true,
+            initializePlaybackRuntime: (signal): Promise<void> =>
+                this._initializePlaybackRuntime(signal),
+            ensureCorePlayerUiInitialized: (signal): Promise<void> =>
+                this._ensureCorePlayerUiInitialized(signal),
+            initializeEpg: (signal): Promise<void> =>
+                this._initializeEpg({ ensureCorePlayerUi: false, signal }),
+            getNavigation: (): INavigationManager | null => this._deps.modules.navigation,
+            getChannelManager: (): IChannelManager | null => this._deps.modules.channelManager,
+            shouldRunAudioSetup: this._callbacks.routing.shouldRunAudioSetup,
+            shouldRunChannelSetup: this._callbacks.routing.shouldRunChannelSetup,
+            openServerSelect: this._callbacks.routing.openServerSelect,
+            publishCommitStart: (): void => {
+                this._callbacks.status.updateModuleStatus('plex-auth', 'ready', undefined, 0);
+                this._callbacks.status.updateModuleStatus('plex-server-discovery', 'ready', undefined, 0);
+                this._callbacks.status.updateModuleStatus('plex-library', 'ready', undefined, 0);
+                this._callbacks.status.updateModuleStatus('plex-stream-resolver', 'ready', undefined, 0);
+            },
+            setupEventWiring: this._callbacks.state.setupEventWiring,
+            disposeEventWiring: this._callbacks.state.disposeEventWiring,
+            setReady: this._callbacks.state.setReady,
+            publishLifecycleReady: (): void => {
+                this._deps.modules.lifecycle?.setPhase('ready');
+            },
+            clearResumeHandlers: (): void => {
                 this.clearAuthResume();
                 this.clearServerResume();
                 this.clearProfileResume();

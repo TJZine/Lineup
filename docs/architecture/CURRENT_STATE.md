@@ -65,7 +65,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 - app-shell-owned startup UI initializer
 - owns startup-time initialization calls for now-playing-info, playback-options, and exit-confirm overlays
-- concrete construction is owned by `src/core/app-shell/chrome/AppStartupUiPortFactory.ts`, which returns the narrow initialization startup-UI port
+- is constructed directly by `AppOrchestrator` and consumed through the narrow initialization startup-UI port
 - keeps startup UI readiness sequencing explicit through `src/core/initialization/InitializationCoordinator.ts`'s narrow startup-UI port
 
 ### `src/core/app-shell/`
@@ -93,7 +93,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - app-shell/server-select callers consume the narrowed app-shell result owned by `src/core/app-shell/runtime/AppShellRuntimeContracts.ts` and adapted through `src/core/app-shell/deferred-screens/AppLazyScreenPortFactory.ts`
 - `SelectedServerPersistenceAdapter` owns strict opaque evidence for candidate persistence and exact selected/unselected rollback proof. Evidence rejects port, active-profile, token/user identity, device-key, other-user selection, and partial-pair drift while allowing validation-owned refreshes of non-identity token metadata; clear-selection persistence remains a separate focused command
 - rollback restores discovery first for a fresh selected or unselected receipt, then proves persistence and runs the matching runtime restoration. Retained discovery snapshots remain reusable for Retry only within their original storage/profile namespace; a real namespace change permanently invalidates them. Failure enters `SelectedServerQuarantineRecoveryState`, keeps tuning/resolution suspended, blocks further selection, and exposes awaited Retry/Exit command state; protected-modal presentation and navigation policy remain outside this owner
-- `SelectedServerRuntimeController` owns only the ordered persisted-selection then discovery clear command; it does not own selected startup, EPG mapping, or rollback
+- `OrchestratorServerSelectionRuntime` directly composes the ordered persisted-selection then discovery clear command; selected startup, EPG mapping, and rollback remain in their existing owners
 
 ### `src/Orchestrator.ts`
 
@@ -106,7 +106,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - central runtime coordinator implementation owner
 - owns composition-root diagnostics append wiring (`AppendIssueDiagnostic`) for runtime collaborators while `IssueDiagnosticsStore` remains the storage/debug owner
 - constructs the initialization-package `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
-- delegates grouped priority-one runtime assembly shaping to `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` and delegates schedule-day rollover plus subtitle-track recovery construction to `src/core/orchestrator/runtime/OrchestratorRuntimeControllerBuilder.ts`
+- delegates grouped priority-one runtime assembly shaping to `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` and directly constructs the existing schedule-day rollover and subtitle-track recovery controllers
 - delegates playback info snapshot projection to `src/core/orchestrator/runtime/OrchestratorPlaybackInfoSnapshot.ts`; `AppOrchestrator` remains the runtime state source and refresh trigger owner
 - delegates coordinator assembly required-module hardening to `src/core/orchestrator/assembly/OrchestratorCoordinatorAssembly.ts` / `OrchestratorCoordinatorContracts.ts`, which own the typed assembly input seam
 - delegates shutdown teardown failure collection to `src/core/orchestrator/runtime/OrchestratorShutdownTeardown.ts` while preserving `AppOrchestrator.shutdown()` ordering, field nulling, and singleton/no-reuse lifecycle ownership
@@ -146,7 +146,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 ### `src/core/orchestrator/runtime/OrchestratorServerSelectionRuntime.ts`
 
 - focused owner for AppOrchestrator-facing selected-server runtime operations
-- owns selected-server ID projection, select/clear commands, selected-server coordinator/runtime-controller handoff, and post-selection startup-swap orchestration
+- owns selected-server ID projection, select/clear commands, selected-server coordinator handoff, and post-selection startup-swap orchestration
 
 ### DCR-12-S1 AppOrchestrator Source Audit
 
@@ -172,10 +172,6 @@ after this extraction.
 - `PriorityOneAssemblyBuilder.ts` owns the grouped priority-one runtime assembly contract from app-provided runtime refs and callbacks; it shapes the public `PriorityOneAssemblyInput` directly and must not add no-value field-for-field forwarding layers around that contract
 - `PriorityOneControllerFactory.ts` now owns playback start/runtime, overlay runtime policy, profile-switch cleanup, and event-binder assembly for the priority-one path
 
-### `src/core/orchestrator/runtime/OrchestratorRuntimeControllerBuilder.ts`
-
-- focused owner for schedule-day rollover and subtitle-track recovery controller construction used by `AppOrchestrator`
-
 ### `src/core/orchestrator/policy/OrchestratorSchedulePolicy.ts`
 
 - focused owner for local-day-key/midnight math and deterministic daily schedule seed policy used by channel-tuning and schedule-day rollover flows
@@ -186,7 +182,7 @@ after this extraction.
 
 - `src/modules/lifecycle/`
 - owns lifecycle state, visibility, persistence coordination, and recovery concerns
-- `src/modules/lifecycle/LifecycleStateStore.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schema or migrations. The empty `MIGRATIONS` registry is package-internal lifecycle persistence policy, exported from `constants.ts` only for `LifecycleStateStore` consumption and intentionally absent from the lifecycle barrel. Older persisted versions without an approved migration are rejected. Future versions are treated as absent, protected from overwrite, and disable the active lifecycle save queue for the remainder of the session; explicit lifecycle-state removal reports success so a later session can safely resume saving.
+- `src/modules/lifecycle/LifecycleStateStore.ts` owns the lifecycle storage key `lineup_app_state` only (versioned lifecycle payload: `userPreferences`, `lastUpdated`) and deletes the bounded cleanup-only keys in `STORAGE_CONFIG.CLEANUP_KEYS` as a helper; it does not own their schemas. Current-version state loads and repairs, older or invalid versions are absent, and future versions are reported as `future-version`, protected from overwrite, and disable the active lifecycle save queue for the remainder of the session; explicit lifecycle-state removal reports success so a later session can safely resume saving.
 
 ### Navigation
 
@@ -369,7 +365,7 @@ after this extraction.
 - `src/core/channel-setup/workflow/ChannelSetupScreenWorkflowPort.ts` owns the screen-facing workflow contract derived from the full workflow port without planner diagnostics
 - `src/core/channel-setup/planning/ChannelSetupPlanningService.ts` owns plan/review composition and uses `ChannelSetupFacetSnapshotLoader` as its internal facet-snapshot collaborator; collection/playlist facet failures remain partial-warning enrichment failures, while enabled native tag directory/count failures remain blocking or slow planning-boundary failures
 - `src/core/channel-setup/ChannelSetupCoordinator.ts` consumes typed seams for record persistence (`ChannelSetupRecordStore`) and build-scratch cleanup (`ChannelSetupBuildScratchStore`); composition-root wiring no longer forwards raw setup-record storage callbacks
-- `src/core/index.ts` and `src/core/channel-setup/index.ts` are intentionally empty; runtime callers import from owning modules instead of widening root/package barrels
+- core and channel-setup callers import owning leaf modules directly; there are no empty root/package barrels
 - `src/bootstrap.ts` still carries the one-off `lineup_debug_transcode` -> `lineup_debug_logging` migration path
 - `P8-W5` removed the known direct-storage bypasses for `lineup_audio_setup_complete`, `lineup_subtitle_allow_burn_in`, and `lineup_debug_epg`
 
@@ -383,7 +379,7 @@ after this extraction.
 - `src/modules/ui/common/appShellContainerIds.ts` is the shared owner for app-shell-owned container IDs created by `src/core/app-shell/chrome/AppContainerFactory.ts` and consumed by app-shell/runtime wiring, including the bounded `runtime-chrome-host`; feature-owned mount container IDs such as EPG, player OSD, mini guide, channel badge, channel transition, and exit confirm remain with their feature modules even though `AppContainerFactory` may canonicalize their materialized DOM nodes at document scope
 - `src/modules/ui/epg/coordinator/EPGCoordinator.ts` owns EPG runtime policy entrypoints (open/close/toggle/guide-setting handling and schedule-policy orchestration), while `src/Orchestrator.ts` remains a delegation surface that wires this owner
 - `src/modules/ui/epg/constants.ts` owns canonical EPG default config values, including row height; cross-module callers consume fresh default config objects through the EPG package seam, and app-shell config assembly does not own an independent EPG row-height override
-- `src/modules/ui/epg/startup/buildEPGStartupConfig.ts` owns EPG startup-config shaping consumed by `src/core/initialization/InitializationCoordinator.ts`
+- `src/modules/ui/epg/startup/EPGStartupConfigRuntime.ts` owns EPG startup-config shaping consumed through the EPG package seam by `InitializationCoordinator`
 - `src/modules/ui/epg/index.ts` is a bounded cross-module seam and no longer re-exports EPG view/util leaf symbols
 - `src/modules/ui/epg/coordinator/EPGCoordinatorPolicies.ts` keeps library-filter normalization pure, while `EPGCoordinator` and `EPGRefreshController` own explicit persisted-selection cleanup writes through the scoped selected-library filter API on `EpgPreferencesStore`
 - `EPGRetainedOperationContext` carries opaque selected-server transaction authority through EPG channel priming and schedule refresh. `EPGChannelPrimePublisher` owns the ordered, currentness-gated prime publication; visible-range requests coalesce only within one authority; and detached background refresh retains that authority through queue settlement so superseded work cannot publish UI, diagnostics, cache, loaded-marker, focus, or result suffixes. EPG channel ranges use the canonical half-open `[channelStart, channelEndExclusive)` contract from component/grid producers through emitter, refresh queue, coordinator, and schedule runtime; external abort listeners may invalidate schedule work only while their originating refresh session still owns the active token.

@@ -3,13 +3,13 @@
  */
 
 import type { FocusableElement, INavigationManager, KeyEvent } from '../../../navigation';
+import { createDropdownPopover } from '../../common/CreateDropdownPopover';
 import { SettingsScreenFocusCoordinator } from '../SettingsScreenFocusCoordinator';
-import { createSettingsDropdown } from '../SettingsDropdown';
 import type { SettingsCategoryConfig, SettingsCategoryId, SettingsSelectOption } from '../types';
 
 type DropdownMockConfig = {
     onDismiss: () => void;
-    onSelect: (value: number) => void;
+    onSelect: (value: string) => void;
 };
 
 type DropdownMockHandle = { destroy: jest.Mock; dismiss: jest.Mock };
@@ -17,8 +17,8 @@ type DropdownMockHandle = { destroy: jest.Mock; dismiss: jest.Mock };
 let lastDropdownConfig: DropdownMockConfig | null = null;
 let dropdownHandle: DropdownMockHandle | null = null;
 
-jest.mock('../SettingsDropdown', () => ({
-    createSettingsDropdown: jest.fn((config: DropdownMockConfig) => {
+jest.mock('../../common/CreateDropdownPopover', () => ({
+    createDropdownPopover: jest.fn((config: DropdownMockConfig) => {
         lastDropdownConfig = config;
         dropdownHandle = {
             destroy: jest.fn(),
@@ -273,7 +273,7 @@ describe('SettingsScreenFocusCoordinator', () => {
             destroy: jest.fn(),
             dismiss: jest.fn(),
         };
-        const createDropdownMock = createSettingsDropdown as jest.MockedFunction<typeof createSettingsDropdown>;
+        const createDropdownMock = createDropdownPopover as jest.MockedFunction<typeof createDropdownPopover>;
         createDropdownMock.mockImplementationOnce((config) => {
             lastDropdownConfig = config;
             dropdownHandle = synchronousHandle;

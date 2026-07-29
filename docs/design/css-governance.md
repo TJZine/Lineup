@@ -119,9 +119,10 @@ control-plane inputs. `STYLE_AUDIT.md` and `STYLE_CLEANUP_CHECKLIST.md` are not
 present in the current workspace, and no current cleanup pass should depend on
 them as required reading, approval gates, or package membership truth.
 
-The historical package map is archived at
-[`docs/archive/design/2026-04-30-retired-style-cleanup-package-map.json`](../archive/design/2026-04-30-retired-style-cleanup-package-map.json).
-Use it only as historical context when reconciling old style-cleanup references;
+The retained
+[`active-style-cleanup-package-map.json`](./active-style-cleanup-package-map.json)
+is itself marked retired and exists only as historical context when reconciling
+old style-cleanup references;
 new style work should source current evidence from the owning CSS, UI, and
 design-governance docs instead of reactivating that intake surface.
 

@@ -36,13 +36,9 @@ const FORCED_COLORS_RULE = '@media (forced-colors: active)';
 describe('runtime overlay style contracts', () => {
     it.each(OVERLAY_CONTRACTS)(
         'keeps %s on theme-aware compact overlay scrims',
-        ({ file, selector }) => {
+        ({ file }) => {
             const css = read(file);
 
-            expect(css).toContain('--runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);');
-            expect(css).toContain('--runtime-overlay-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 6, 8, 10);');
-            expect(css).toContain('--runtime-overlay-start-alpha-legacy: 0.30;');
-            expect(css).toContain('--runtime-overlay-end-alpha-legacy: 0.40;');
             expect(css).toContain(
                 'rgba(var(--runtime-overlay-tint-rgb-legacy), var(--runtime-overlay-start-alpha-legacy)) 0%'
             );
@@ -57,12 +53,24 @@ describe('runtime overlay style contracts', () => {
             );
             expect(css).not.toContain('rgba(0, 0, 0, 0.30)');
             expect(css).not.toContain('rgba(0, 0, 0, 0.40)');
-
-            for (const themeSelector of THEME_SELECTORS) {
-                expect(css).toContain(`.${themeSelector} ${selector}`);
-            }
         }
     );
+
+    it('owns runtime overlay tint and theme alpha tokens once in the global theme surface', () => {
+        const css = read('src/styles/themes.css');
+
+        expect(css).toContain('--runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);');
+        expect(css).toContain('--runtime-overlay-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 6, 8, 10);');
+        expect(css).toContain('--runtime-overlay-start-alpha-legacy: 0.30;');
+        expect(css).toContain('--runtime-overlay-end-alpha-legacy: 0.40;');
+        for (const themeSelector of THEME_SELECTORS) {
+            const themeBlock = blockFor(css, `.${themeSelector}`);
+            expect(themeBlock).toContain('--runtime-overlay-start-alpha:');
+            expect(themeBlock).toContain('--runtime-overlay-start-alpha-legacy:');
+            expect(themeBlock).toContain('--runtime-overlay-end-alpha:');
+            expect(themeBlock).toContain('--runtime-overlay-end-alpha-legacy:');
+        }
+    });
 
     it.each(OVERLAY_CONTRACTS)(
         'keeps %s scoped to a package-local forced-colors fallback',

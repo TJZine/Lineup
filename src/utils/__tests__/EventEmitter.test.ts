@@ -158,42 +158,6 @@ describe('EventEmitter', () => {
         });
     });
 
-    describe('once', () => {
-        it('should only fire handler once', () => {
-            const emitter = new EventEmitter<{ test: void }>();
-            const handler = jest.fn();
-
-            emitter.once('test', handler);
-            emitter.emit('test', undefined);
-            emitter.emit('test', undefined);
-
-            expect(handler).toHaveBeenCalledTimes(1);
-        });
-
-        it('supports once() handlers', () => {
-            type Events = { tick: void };
-            const emitter = new EventEmitter<Events>();
-
-            const handler = jest.fn();
-            emitter.once('tick', handler);
-
-            emitter.emit('tick', undefined);
-            emitter.emit('tick', undefined);
-            expect(handler).toHaveBeenCalledTimes(1);
-        });
-
-        it('should allow disposing once handler before it fires', () => {
-            const emitter = new EventEmitter<{ test: void }>();
-            const handler = jest.fn();
-
-            const disposable = emitter.once('test', handler);
-            disposable.dispose();
-            emitter.emit('test', undefined);
-
-            expect(handler).not.toHaveBeenCalled();
-        });
-    });
-
     describe('off', () => {
         it('should remove specific handler', () => {
             const emitter = new EventEmitter<{ test: void }>();
@@ -233,13 +197,17 @@ describe('EventEmitter', () => {
 
         it('should remove all handlers when no event specified', () => {
             const emitter = new EventEmitter<{ a: void; b: void }>();
-            emitter.on('a', jest.fn());
-            emitter.on('b', jest.fn());
+            const handlerA = jest.fn();
+            const handlerB = jest.fn();
+            emitter.on('a', handlerA);
+            emitter.on('b', handlerB);
 
             emitter.removeAllListeners();
+            emitter.emit('a', undefined);
+            emitter.emit('b', undefined);
 
-            expect(emitter.listenerCount('a')).toBe(0);
-            expect(emitter.listenerCount('b')).toBe(0);
+            expect(handlerA).not.toHaveBeenCalled();
+            expect(handlerB).not.toHaveBeenCalled();
         });
 
         it('removeAllListeners(event) removes handlers for that event only', () => {
@@ -256,25 +224,6 @@ describe('EventEmitter', () => {
             emitter.emit('b', undefined);
             expect(a).not.toHaveBeenCalled();
             expect(b).toHaveBeenCalledTimes(1);
-        });
-    });
-
-    describe('listenerCount', () => {
-        it('should return correct count', () => {
-            const emitter = new EventEmitter<{ test: void }>();
-
-            expect(emitter.listenerCount('test')).toBe(0);
-
-            emitter.on('test', () => { });
-            expect(emitter.listenerCount('test')).toBe(1);
-
-            emitter.on('test', () => { });
-            expect(emitter.listenerCount('test')).toBe(2);
-        });
-
-        it('should return 0 for unregistered events', () => {
-            const emitter = new EventEmitter<{ test: void }>();
-            expect(emitter.listenerCount('test')).toBe(0);
         });
     });
 

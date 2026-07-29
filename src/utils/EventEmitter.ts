@@ -1,4 +1,4 @@
-import { IEventEmitter, IDisposable } from './interfaces';
+import { IDisposable } from './interfaces';
 import { summarizeErrorForLog } from './errors';
 
 function warnHandlerError(event: PropertyKey, summary: unknown): void {
@@ -13,8 +13,7 @@ function reportHandlerError(event: PropertyKey, error: unknown): void {
     warnHandlerError(event, summarizeErrorForLog(error));
 }
 
-export class EventEmitter<TEventMap extends object>
-    implements IEventEmitter<TEventMap> {
+export class EventEmitter<TEventMap extends object> {
     private _handlers: Map<keyof TEventMap, Set<(payload: unknown) => void>> =
         new Map();
 
@@ -43,17 +42,6 @@ export class EventEmitter<TEventMap extends object>
         if (handlerSet) {
             handlerSet.delete(handler as (payload: unknown) => void);
         }
-    }
-
-    public once<K extends keyof TEventMap>(
-        event: K,
-        handler: (payload: TEventMap[K]) => void
-    ): IDisposable {
-        const wrappedHandler = (payload: TEventMap[K]): void => {
-            this.off(event, wrappedHandler);
-            handler(payload);
-        };
-        return this.on(event, wrappedHandler);
     }
 
     public emit<K extends keyof TEventMap>(
@@ -86,11 +74,4 @@ export class EventEmitter<TEventMap extends object>
         }
     }
 
-    public listenerCount(event: keyof TEventMap): number {
-        const handlerSet = this._handlers.get(event);
-        if (handlerSet) {
-            return handlerSet.size;
-        }
-        return 0;
-    }
 }

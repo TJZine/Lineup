@@ -28,7 +28,9 @@ Additional corpus reviewed 2026-03-06:
 - `2026-03-06-p4-w4-ui-focus-render-primitives-consolidation-implementation.md`
 - `2026-03-06-p4-w5-priority-4-cleanup-pass-implementation.md`
 
-The completed Priority 4 section is preserved as tracked historical memory in [`2026-03-06-priority-4-ui-decomposition-section-summary.md`](../archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md). The local import files remain source material only.
+The conclusions from the completed Priority 4 section are preserved in this
+review. The local import files and superseded section summary remain available in
+Git history.
 
 Additional local corpus reviewed 2026-03-08 from current workspace material:
 
@@ -38,7 +40,9 @@ Additional local corpus reviewed 2026-03-08 from current workspace material:
 - `2026-03-08-p5-w4-plex-stream-media-selection-hdr-audio-compatibility-policies.md`
 - `2026-03-08-p5-w5-plex-stream-cleanup-pass.md`
 
-The completed Priority 5 section is preserved as tracked historical memory in [`2026-03-08-priority-5-plex-stream-policy-section-summary.md`](../archive/plans/2026-03-08-priority-5-plex-stream-policy-section-summary.md). The raw local plan files do not need to remain as tracked handoff memory.
+The conclusions from the completed Priority 5 section are preserved in this
+review. The raw local plans and superseded section summary remain available in Git
+history.
 
 Additional local corpus reviewed 2026-03-08 from `docs/_local/plan-import/`:
 
@@ -47,7 +51,9 @@ Additional local corpus reviewed 2026-03-08 from `docs/_local/plan-import/`:
 - `2026-03-08-p6-w3-channel-normalization-migration-boundary.md`
 - `2026-03-08-p6-w4-channel-persistence-cleanup-pass.md`
 
-The completed Priority 6 section is preserved as tracked historical memory in [`2026-03-08-priority-6-channel-persistence-section-summary.md`](../archive/plans/2026-03-08-priority-6-channel-persistence-section-summary.md). The raw local plan files remain source material only.
+The conclusions from the completed Priority 6 section are preserved in this
+review. The raw local plans and superseded section summary remain available in Git
+history.
 
 Additional corpus reviewed 2026-03-11 from archived workspace material during Priority 1 section condensation:
 
@@ -57,7 +63,9 @@ Additional corpus reviewed 2026-03-11 from archived workspace material during Pr
 - `2026-03-10-p1-w4-remove-orchestrator-runtime-transitional-seams.md`
 - `2026-03-10-p1-w5-priority-1-runtime-cleanup-pass.md`
 
-The completed Priority 1 section is preserved as tracked historical memory in [`2026-03-11-priority-1-runtime-composition-section-summary.md`](../archive/plans/2026-03-11-priority-1-runtime-composition-section-summary.md). The section summary is the durable tracked surface for future sessions; the long execution plans do not need to remain tracked.
+The conclusions from the completed Priority 1 section are preserved in this
+review. The raw local plans and superseded section summary remain available in Git
+history.
 
 Additional local corpus reviewed 2026-03-19 from `docs/runs/2026-03-13-p4-plan-cleanup/`:
 

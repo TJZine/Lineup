@@ -3,7 +3,7 @@
 ## Source
 
 - Priority 4 `P4-W5` pattern from [`docs/agentic/historical-plan-corpus-review.md`](../../historical-plan-corpus-review.md)
-- Priority 4 section summary in [`docs/archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md`](../../../archive/plans/2026-03-06-priority-4-ui-decomposition-section-summary.md)
+- Priority 4 corpus conclusions in [`docs/agentic/historical-plan-corpus-review.md`](../../historical-plan-corpus-review.md)
 
 ## Intent
 
