@@ -65,6 +65,70 @@ describe('focused EPG overflow style contract', () => {
         railDeclarations.forEach((declaration) => expect(railBlock).toContain(declaration));
     });
 
+    it('keeps focused movie overlay rails and time aligned across visibility tiers', () => {
+        const railBlock = blockFor(
+            css,
+            '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail'
+        );
+        const timeBlock = blockFor(
+            css,
+            '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-time'
+        );
+
+        expect(railBlock).toContain('bottom: 8px');
+        expect(timeBlock).toContain('align-self: flex-end');
+        expect(timeBlock).toContain('margin-top: auto');
+
+        const style = document.createElement('style');
+        const container = document.createElement('div');
+        const cell = document.createElement('div');
+        const rail = document.createElement('div');
+        const badge = document.createElement('span');
+        const time = document.createElement('div');
+        style.textContent = css;
+        container.className = 'epg-container';
+        rail.className = 'epg-cell-rail';
+        badge.className = 'epg-live-badge';
+        time.className = 'epg-cell-time';
+        rail.append(badge, time);
+        cell.appendChild(rail);
+        container.appendChild(cell);
+
+        try {
+            document.head.appendChild(style);
+            document.body.appendChild(container);
+
+            for (const tier of ['tiny', 'medium']) {
+                for (const badgeHidden of [true, false]) {
+                    cell.className =
+                        `epg-cell focused epg-cell-focused-movie-overlay epg-cell-tier-${tier}`;
+                    badge.hidden = badgeHidden;
+
+                    const railStyle = getComputedStyle(rail);
+                    const timeStyle = getComputedStyle(time);
+
+                    expect(railStyle.position).toBe('absolute');
+                    expect(railStyle.top).toBe('8px');
+                    expect(railStyle.right).toBe('10px');
+                    expect(railStyle.bottom).toBe('8px');
+                    expect(railStyle.alignItems).toBe('flex-end');
+                    expect(railStyle.justifyContent).toBe('space-between');
+                    expect(timeStyle.alignSelf).toBe('flex-end');
+                    expect(timeStyle.marginTop).toBe('auto');
+                    if (tier === 'medium') {
+                        expect(timeStyle.display).toBe('block');
+                    }
+                    expect(getComputedStyle(badge).display).toBe(
+                        badgeHidden ? 'none' : 'flex'
+                    );
+                }
+            }
+        } finally {
+            container.remove();
+            style.remove();
+        }
+    });
+
     it('keeps compact focus time hidden and tiny ticker titles unclamped', () => {
         expect(
             blockFor(css, '.epg-cell.focused.epg-cell-focused-compact .epg-cell-time')
