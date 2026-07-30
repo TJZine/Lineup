@@ -14,6 +14,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+    containsRetiredWorkerRole,
     hasExplicitOnlyPolicy,
     isValidMaxDepth,
     isValidMaxThreads,
@@ -30,7 +31,6 @@ const codexFiles = [
     '.codex/agents/planner.toml',
     '.codex/agents/reviewer.toml',
     '.codex/agents/worker-luna.toml',
-    '.codex/agents/worker-sol-low.toml',
     '.codex/agents/worker.toml',
 ];
 
@@ -97,6 +97,12 @@ test('accepts the valid tracked role configuration', () => {
     assert.deepEqual(validateCodexRoleConfig(repoRoot), []);
 });
 
+test('identifies retired worker role references without matching the Luna role', () => {
+    assert.equal(containsRetiredWorkerRole('Use worker_sol_low here.'), true);
+    assert.equal(containsRetiredWorkerRole('agents/worker-sol-low.toml'), true);
+    assert.equal(containsRetiredWorkerRole('Use worker_luna here.'), false);
+});
+
 test('rejects a primary config symlink before parsing it', () => {
     const fixtureRoot = createRoleFixture();
     try {
@@ -134,6 +140,7 @@ test('rejects unsupported role model, effort, sandbox, and keys', () => {
     const mutations = [
         ['.codex/agents/worker.toml', (content) => content.replace('gpt-5.6-sol', 'gpt-unknown'), 'role model unsupported'],
         ['.codex/agents/worker.toml', (content) => content.replace('model_reasoning_effort = "medium"', 'model_reasoning_effort = "ultra"'), 'role effort unsupported'],
+        ['.codex/agents/worker-luna.toml', (content) => content.replace('model_reasoning_effort = "max"', 'model_reasoning_effort = "high"'), 'role effort unsupported'],
         ['.codex/agents/reviewer.toml', (content) => content.replace('sandbox_mode = "read-only"', 'sandbox_mode = "danger-full-access"'), 'role sandbox unsupported'],
         ['.codex/agents/worker.toml', (content) => `${content}\napproval_policy = "never"\n`, 'role keys unsupported'],
     ];

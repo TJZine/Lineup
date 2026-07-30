@@ -15,16 +15,14 @@ const requiredFiles = [
 ];
 const requiredReadOnlyRoles = new Set(['explorer', 'reviewer', 'docs_researcher', 'monitor']);
 const roleContracts = new Map([
-    ['explorer', { configFile: 'agents/explorer.toml', models: ['gpt-5.3-codex-spark'] }],
-    ['reviewer', { configFile: 'agents/reviewer.toml', models: ['gpt-5.6-sol', 'gpt-5.5'] }],
-    ['docs_researcher', { configFile: 'agents/docs-researcher.toml', models: ['gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4-mini'] }],
-    ['planner', { configFile: 'agents/planner.toml', models: ['gpt-5.6-sol', 'gpt-5.5'] }],
-    ['worker', { configFile: 'agents/worker.toml', models: ['gpt-5.6-sol', 'gpt-5.5'] }],
-    ['worker_sol_low', { configFile: 'agents/worker-sol-low.toml', models: ['gpt-5.6-sol'] }],
-    ['worker_luna', { configFile: 'agents/worker-luna.toml', models: ['gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4-mini'] }],
-    ['monitor', { configFile: 'agents/monitor.toml', models: ['gpt-5.3-codex-spark'] }],
+    ['explorer', { configFile: 'agents/explorer.toml', models: ['gpt-5.6-luna'], efforts: ['max'] }],
+    ['reviewer', { configFile: 'agents/reviewer.toml', models: ['gpt-5.6-sol'], efforts: ['high'] }],
+    ['docs_researcher', { configFile: 'agents/docs-researcher.toml', models: ['gpt-5.6-luna'], efforts: ['high'] }],
+    ['planner', { configFile: 'agents/planner.toml', models: ['gpt-5.6-sol'], efforts: ['high'] }],
+    ['worker', { configFile: 'agents/worker.toml', models: ['gpt-5.6-sol'], efforts: ['medium'] }],
+    ['worker_luna', { configFile: 'agents/worker-luna.toml', models: ['gpt-5.6-luna'], efforts: ['max'] }],
+    ['monitor', { configFile: 'agents/monitor.toml', models: ['gpt-5.3-codex-spark'], efforts: ['low'] }],
 ]);
-const supportedReasoningEfforts = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const roleDeclarationKeys = new Set(['description', 'config_file']);
 const roleConfigKeys = new Set([
     'model',
@@ -32,6 +30,10 @@ const roleConfigKeys = new Set([
     'sandbox_mode',
     'developer_instructions',
 ]);
+
+export function containsRetiredWorkerRole(content) {
+    return /\bworker_sol_low\b|worker-sol-low/u.test(content);
+}
 
 function read(relativePath) {
     try {
@@ -253,10 +255,6 @@ function listTrackedCodexFiles(repoRoot, validationErrors) {
     }
 }
 
-function isSupportedModelEffort(model, effort) {
-    return model !== 'gpt-5.4-mini' || effort === 'low' || effort === 'medium';
-}
-
 export function validateCodexRoleConfig(repoRoot) {
     const validationErrors = [];
     const configRelativePath = '.codex/config.toml';
@@ -382,15 +380,9 @@ export function validateCodexRoleConfig(repoRoot) {
         }
         if (
             typeof roleConfig.model_reasoning_effort !== 'string' ||
-            !supportedReasoningEfforts.has(roleConfig.model_reasoning_effort)
+            !contract.efforts.includes(roleConfig.model_reasoning_effort)
         ) {
             validationErrors.push(`codex-config: role effort unsupported: ${role}`);
-        } else if (
-            typeof roleConfig.model === 'string' &&
-            contract.models.includes(roleConfig.model) &&
-            !isSupportedModelEffort(roleConfig.model, roleConfig.model_reasoning_effort)
-        ) {
-            validationErrors.push(`codex-config: role model-effort combination unsupported: ${role}`);
         }
         if (requiredReadOnlyRoles.has(role)) {
             if (roleConfig.sandbox_mode !== 'read-only') {
@@ -411,13 +403,32 @@ function checkRoleConfig() {
     errors.push(...validateCodexRoleConfig(root));
 }
 
+function checkRetiredRoleReferences() {
+    const authorityFiles = new Set([
+        'AGENTS.md',
+        'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+        'docs/AGENTIC_DEV_WORKFLOW.md',
+        '.codex/config.toml',
+        '.codex/review-context.md',
+        ...trackedFiles('.agents/skills/*/SKILL.md'),
+        ...trackedFiles('docs/agentic/session-prompts/*.md'),
+    ]);
+    for (const file of authorityFiles) {
+        if (!existsSync(path.join(root, file))) continue;
+        const content = read(file);
+        if (content !== null && containsRetiredWorkerRole(content)) {
+            errors.push(`${file}: current authority references retired worker role`);
+        }
+    }
+}
+
 function checkActivePlans() {
     for (const file of trackedFiles('docs/plans/*.md').filter((file) => !file.endsWith('/README.md'))) {
         const content = read(file);
         if (content === null) continue;
         const firstLines = content.split('\n').slice(0, 40).join('\n');
         if (!/(?:\*\*Plan Status:\*\*\s*active|^Status:\s*Active\s*$)/imu.test(firstLines)) continue;
-        for (const marker of ['goal', 'verification']) {
+        for (const marker of ['goal', 'acceptance', 'verification']) {
             if (!new RegExp(`^#{1,3}\\s+.*${marker}`, 'imu').test(content)) {
                 errors.push(`${file}: active plan missing ${marker} section`);
             }
@@ -430,6 +441,7 @@ function main() {
     checkMarkdownLinks();
     checkSkills();
     checkRoleConfig();
+    checkRetiredRoleReferences();
     checkActivePlans();
 
     if (errors.length > 0) {
