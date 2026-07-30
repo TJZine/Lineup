@@ -33,18 +33,15 @@ const SHARED_COLOR_LITERAL_PATTERN =
     /#ffffff|#eff8ff|#f0a060|#e0782a|rgba\(255, 106, 106, 0\.(?:8|95)\)|rgba\(255, 255, 255, 0\.(?:45|5|6|7|85|88|9|95)\)/;
 const BRIGHT_FOCUS_LITERAL_PATTERN = /rgba\(255, 255, 255, 0\.(?:92|98)\)/g;
 
-const cssFiles = (directory = path.join(process.cwd(), 'src')): string[] => {
-    const files: string[] = [];
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const absolutePath = path.join(directory, entry.name);
-        if (entry.isDirectory()) {
-            files.push(...cssFiles(absolutePath));
-        } else if (entry.isFile() && entry.name.endsWith('.css')) {
-            files.push(path.relative(process.cwd(), absolutePath).split(path.sep).join('/'));
-        }
-    }
-    return files.sort();
-};
+const cssFiles = (directory = path.join(process.cwd(), 'src')): string[] =>
+    fs.readdirSync(directory, { recursive: true, withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.css'))
+        .map((entry) =>
+            path.relative(process.cwd(), path.join(entry.parentPath, entry.name))
+                .split(path.sep)
+                .join('/')
+        )
+        .sort();
 
 const RUNTIME_LAYERS = [
     {

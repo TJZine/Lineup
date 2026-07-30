@@ -10,18 +10,15 @@ const SLEEP_HELPER_EXCEPTIONS = new Set([
     'src/__tests__/helpers.ts|withTestTimeout',
 ]);
 
-const sourceFiles = (directory: string): string[] => {
-    const files: string[] = [];
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const absolutePath = path.join(directory, entry.name);
-        if (entry.isDirectory()) {
-            files.push(...sourceFiles(absolutePath));
-        } else if (entry.isFile() && /\.tsx?$/.test(entry.name)) {
-            files.push(path.relative(process.cwd(), absolutePath).split(path.sep).join('/'));
-        }
-    }
-    return files.sort();
-};
+const sourceFiles = (directory: string): string[] =>
+    fs.readdirSync(directory, { recursive: true, withFileTypes: true })
+        .filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name))
+        .map((entry) =>
+            path.relative(process.cwd(), path.join(entry.parentPath, entry.name))
+                .split(path.sep)
+                .join('/')
+        )
+        .sort();
 
 const jestOwnedFiles = (): string[] =>
     sourceFiles(path.join(process.cwd(), 'src')).filter(
