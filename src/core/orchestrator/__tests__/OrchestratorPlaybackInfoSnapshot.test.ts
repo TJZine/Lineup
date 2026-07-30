@@ -191,6 +191,28 @@ describe('Orchestrator playback info snapshot', () => {
         ).toBeNull();
     });
 
+    it('maps absent program and selected stream metadata to null', () => {
+        const decision = createDecision();
+        decision.selectedAudioStream = null;
+        decision.selectedSubtitleStream = null;
+
+        const snapshot = createPlaybackInfoSnapshot(
+            createAccessors({
+                program: null,
+                decision,
+                descriptor: createDescriptor(),
+            })
+        );
+
+        expect(snapshot.program).toBeNull();
+        expect(snapshot.stream).toEqual(
+            expect.objectContaining({
+                selectedAudio: null,
+                selectedSubtitle: null,
+            })
+        );
+    });
+
     it('refreshes server decision data only when playback state can support it', async () => {
         const orchestrator = new AppOrchestrator();
         const ensureServerDecisionForPlaybackInfoSnapshot = jest.fn().mockResolvedValue(undefined);

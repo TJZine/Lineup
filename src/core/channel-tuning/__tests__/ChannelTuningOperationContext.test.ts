@@ -2,6 +2,17 @@ import { RetainedOperationContext } from '../../../utils/RetainedOperationContex
 import { ChannelTuningOperationContext } from '../ChannelTuningOperationContext';
 
 describe('ChannelTuningOperationContext', () => {
+    it('allows repeated suspension without replacing the first abort reason', () => {
+        const owner = new ChannelTuningOperationContext();
+
+        owner.suspend();
+        owner.suspend();
+
+        expect(() => owner.capture()).toThrow(
+            expect.objectContaining({ name: 'AbortError' })
+        );
+    });
+
     it('releases its retained scope when caller-context construction fails', () => {
         const owner = new ChannelTuningOperationContext();
         const reason = new DOMException('caller superseded', 'AbortError');

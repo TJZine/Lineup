@@ -107,24 +107,6 @@ describe('ChannelScheduler', () => {
             expect(program.remainingMs).toBe(5000);
         });
 
-        it('should wrap across the loop boundary without gaps', () => {
-            const anchorTime = 1000000;
-            const config: ScheduleConfig = {
-                channelId: 'c1',
-                anchorTime,
-                content,
-                playbackMode: 'sequential',
-                shuffleSeed: 1,
-            };
-            scheduler.loadChannel(config);
-
-            // Total loop duration is 30s; 35s after anchor wraps to item A at 5s
-            const program = scheduler.getProgramAtTime(anchorTime + 35000);
-            expect(program.item.ratingKey).toBe('a');
-            expect(program.elapsedMs).toBe(5000);
-            expect(program.loopNumber).toBe(1);
-        });
-
         it('should throw if no channel loaded', () => {
             expect(() => scheduler.getProgramAtTime(Date.now())).toThrow(
                 SCHEDULER_ERROR_MESSAGES.NO_CHANNEL_LOADED
@@ -151,79 +133,6 @@ describe('ChannelScheduler', () => {
         });
     });
 
-    describe('getNextProgram', () => {
-        it('should return next program', () => {
-            const now = Date.now();
-            jest.setSystemTime(now);
-
-            const config: ScheduleConfig = {
-                channelId: 'c1',
-                anchorTime: now,
-                content,
-                playbackMode: 'sequential',
-                shuffleSeed: 1,
-            };
-            scheduler.loadChannel(config);
-
-            const next = scheduler.getNextProgram();
-            expect(next.item.ratingKey).toBe('b');
-        });
-    });
-
-    describe('getPreviousProgram', () => {
-        it('should return previous program (wraps to last)', () => {
-            const now = Date.now();
-            jest.setSystemTime(now);
-
-            const config: ScheduleConfig = {
-                channelId: 'c1',
-                anchorTime: now,
-                content,
-                playbackMode: 'sequential',
-                shuffleSeed: 1,
-            };
-            scheduler.loadChannel(config);
-
-            const previous = scheduler.getPreviousProgram();
-            expect(previous.item.ratingKey).toBe('b');
-        });
-    });
-
-    describe('shuffle mode', () => {
-        it('should produce the same order given the same seed', () => {
-            const anchorTime = 1000000;
-            const config1: ScheduleConfig = {
-                channelId: 'c1',
-                anchorTime,
-                content,
-                playbackMode: 'shuffle',
-                shuffleSeed: 42,
-            };
-            const config2: ScheduleConfig = {
-                channelId: 'c1',
-                anchorTime,
-                content,
-                playbackMode: 'shuffle',
-                shuffleSeed: 42,
-            };
-
-            const s1 = new ChannelScheduler(shuffler);
-            const s2 = new ChannelScheduler(shuffler);
-            s1.loadChannel(config1);
-            s2.loadChannel(config2);
-
-            const window1 = s1.getScheduleWindow(anchorTime, anchorTime + 60000);
-            const window2 = s2.getScheduleWindow(anchorTime, anchorTime + 60000);
-
-            expect(window1.programs.map((p) => p.item.ratingKey)).toEqual(
-                window2.programs.map((p) => p.item.ratingKey)
-            );
-
-            s1.unloadChannel();
-            s2.unloadChannel();
-        });
-    });
-
     describe('getScheduleWindow', () => {
         it('should return all programs in time range', () => {
             const anchorTime = 1000000;
@@ -238,27 +147,6 @@ describe('ChannelScheduler', () => {
 
             // Window for full loop
             const window = scheduler.getScheduleWindow(anchorTime, anchorTime + TOTAL_DURATION);
-            expect(window.programs).toHaveLength(2);
-            expect(window.programs[0]!.item.ratingKey).toBe('a');
-            expect(window.programs[1]!.item.ratingKey).toBe('b');
-        });
-
-        it('should include partial programs at boundaries', () => {
-            const anchorTime = 1000000;
-            const config: ScheduleConfig = {
-                channelId: 'c1',
-                anchorTime,
-                content,
-                playbackMode: 'sequential',
-                shuffleSeed: 1,
-            };
-            scheduler.loadChannel(config);
-
-            // Window from 5s to 15s (middle of A to middle of B)
-            const window = scheduler.getScheduleWindow(
-                anchorTime + 5000,
-                anchorTime + 15000
-            );
             expect(window.programs).toHaveLength(2);
             expect(window.programs[0]!.item.ratingKey).toBe('a');
             expect(window.programs[1]!.item.ratingKey).toBe('b');

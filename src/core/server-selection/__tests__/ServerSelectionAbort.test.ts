@@ -1,30 +1,22 @@
 import { isSelectionAbortError, throwIfSelectionAborted } from '../ServerSelectionAbort';
 
 describe('ServerSelectionAbort', () => {
-    it('uses a stable fallback abort reason for legacy aborted signals', () => {
-        const signal = { aborted: true } as AbortSignal;
-        let reason: unknown;
+    it('delegates selection cancellation to the shared abort reason contract', () => {
+        const reason = new Error('selection superseded');
+        const controller = new AbortController();
+        controller.abort(reason);
 
-        try {
-            throwIfSelectionAborted(signal);
-        } catch (error) {
-            reason = error;
-        }
-
-        expect(reason).toBeDefined();
-        expect(isSelectionAbortError(reason, signal)).toBe(true);
+        expect(() => throwIfSelectionAborted(controller.signal)).toThrow(reason);
     });
 
-    it('preserves explicit null abort reasons', () => {
-        const signal = { aborted: true, reason: null } as AbortSignal;
-        let thrown: unknown = 'not thrown';
+    it.each([
+        { label: 'matching reason', aborted: true, candidate: 'reason', expected: true },
+        { label: 'different reason', aborted: true, candidate: 'other', expected: false },
+        { label: 'non-aborted signal', aborted: false, candidate: 'reason', expected: false },
+    ])('classifies $label', ({ aborted, candidate, expected }) => {
+        const controller = new AbortController();
+        if (aborted) controller.abort('reason');
 
-        try {
-            throwIfSelectionAborted(signal);
-        } catch (error) {
-            thrown = error;
-        }
-        expect(thrown).toBeNull();
-        expect(isSelectionAbortError(null, signal)).toBe(true);
+        expect(isSelectionAbortError(candidate, controller.signal)).toBe(expected);
     });
 });

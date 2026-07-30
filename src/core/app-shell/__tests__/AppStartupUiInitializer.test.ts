@@ -34,6 +34,30 @@ const createDeferred = <T>(): Deferred<T> => {
 };
 
 describe('AppStartupUiInitializer', () => {
+    it('skips overlays already reported ready', async () => {
+        const nowPlayingInfo = { initialize: jest.fn() };
+        const status = {
+            updateModuleStatus: jest.fn(),
+            getModuleStatus: jest
+                .fn<ModuleStatus['status'] | undefined, [string]>()
+                .mockReturnValue('ready'),
+        };
+        const initializer = new AppStartupUiInitializer(
+            createConfig(),
+            {
+                nowPlayingInfo: nowPlayingInfo as never,
+                playbackOptions: null,
+                exitConfirm: null,
+            },
+            status
+        );
+
+        await initializer.ensureCorePlayerUiInitialized();
+
+        expect(nowPlayingInfo.initialize).not.toHaveBeenCalled();
+        expect(status.updateModuleStatus).not.toHaveBeenCalled();
+    });
+
     it('coalesces duplicate initialization calls while initialization is in flight', async () => {
         const deferred = createDeferred<void>();
         const nowPlayingInfo = {
