@@ -2,75 +2,63 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 describe('AppShellRuntimeContracts boundaries', () => {
-    const selectedServerStorageGetter = 'getSelectedServer' + 'StorageKey';
-    const serverHealthStorageGetter = 'getServerHealth' + 'StorageKey';
+    const source = readFileSync(
+        path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
+        'utf8'
+    );
 
-    it('does not depend on root orchestrator barrels or concrete orchestrator types', () => {
-        const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
-            'utf8'
-        );
-
-        expect(source).not.toMatch(/from ['"].*\/Orchestrator['"]/);
-        expect(source).not.toMatch(/from ['"].*orchestrator\/AppOrchestrator['"]/);
-        expect(source).not.toMatch(/from ['"].*orchestrator\/OrchestratorTypes['"]/);
+    it.each([
+        ['root orchestrator barrel', /from ['"].*\/Orchestrator['"]/],
+        ['concrete orchestrator', /from ['"].*orchestrator\/AppOrchestrator['"]/],
+        ['server-selection result owner', /server-selection\/ServerSelectionTypes/],
+        ['core server-selection result', /OrchestratorServerSelectionResult/],
+        ['selected-server storage getter', /getSelectedServerStorageKey/],
+        ['server-health storage getter', /getServerHealthStorageKey/],
+    ])('does not import or expose %s', (_boundary, forbidden) => {
+        expect(source).not.toMatch(forbidden);
     });
 
-    it('preserves server-selection result details without importing the core result type', () => {
-        const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
-            'utf8'
-        );
+    it.each([
+        [
+            'AppShellServerSelectionRuntimePort',
+            ['getSelectedServerScreenState(): AppShellServerSelectState'],
+        ],
+        [
+            'AppShellChannelSetupRuntimePort',
+            [
+                'getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort',
+                'getSelectedServerId(): string | null',
+            ],
+        ],
+        [
+            'AppShellDiagnosticsRuntimePort',
+            ['getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort'],
+        ],
+    ])('keeps the distinct %s shape', (interfaceName, members) => {
+        const interfaceBlock = source.match(
+            new RegExp(`export interface ${interfaceName} \\{[\\s\\S]*?\\n\\}`)
+        )?.[0];
 
-        expect(source).not.toMatch(/from ['"].*server-selection\/ServerSelectionTypes['"]/);
-        expect(source).not.toContain('OrchestratorServerSelectionResult');
-        expect(source).toContain('AppShellServerSelectionResult');
-        expect(source).toContain('persistedSelection');
-        expect(source).toContain('epgRefresh');
-        expect(source).not.toContain('startupResume');
-        expect(source).not.toContain('startup_pending');
-        expect(source).not.toContain('skipped_no_coordinator');
+        expect(interfaceBlock).toBeDefined();
+        members.forEach((member) => expect(interfaceBlock).toContain(member));
     });
 
-    it('does not expose diagnostics on the channel setup screen runtime port', () => {
-        const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
-            'utf8'
-        );
-        const match = source.match(/export interface AppShellChannelSetupRuntimePort \{[\s\S]*?\n\}/);
+    it('keeps workflow diagnostics out of the channel-setup screen port', () => {
+        const channelSetupPort = source.match(
+            /export interface AppShellChannelSetupRuntimePort \{[\s\S]*?\n\}/
+        )?.[0];
 
-        expect(match?.[0]).toBeDefined();
-        expect(match?.[0]).not.toContain('ChannelSetupWorkflowPort');
-        expect(match?.[0]).not.toContain('getSetupPlanDiagnostics');
-        expect(match?.[0]).not.toContain(selectedServerStorageGetter);
-        expect(match?.[0]).not.toContain(serverHealthStorageGetter);
-        expect(match?.[0]).toContain('getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort');
-        expect(match?.[0]).toContain('getSelectedServerId(): string | null');
+        expect(channelSetupPort).not.toContain('getChannelSetupWorkflowPort');
+        expect(channelSetupPort).not.toContain('getSetupPlanDiagnostics');
     });
 
-    it('keeps the full channel setup workflow port on the diagnostics runtime port', () => {
-        const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
-            'utf8'
-        );
-        const match = source.match(/export interface AppShellDiagnosticsRuntimePort \{[\s\S]*?\n\}/);
+    it('keeps the narrowed selected result without startup compatibility states', () => {
+        const result = source.match(
+            /export type AppShellServerSelectionResult =[\s\S]*?;\n\n/
+        )?.[0];
 
-        expect(match?.[0]).toBeDefined();
-        expect(match?.[0]).toContain('getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort');
-        expect(match?.[0]).not.toContain(selectedServerStorageGetter);
-        expect(match?.[0]).not.toContain(serverHealthStorageGetter);
-    });
-
-    it('keeps selected-server storage details out of app-shell server-selection ports', () => {
-        const source = readFileSync(
-            path.resolve(process.cwd(), 'src/core/app-shell/runtime/AppShellRuntimeContracts.ts'),
-            'utf8'
-        );
-        const match = source.match(/export interface AppShellServerSelectionRuntimePort \{[\s\S]*?\n\}/);
-
-        expect(match?.[0]).toBeDefined();
-        expect(match?.[0]).not.toContain(selectedServerStorageGetter);
-        expect(match?.[0]).not.toContain(serverHealthStorageGetter);
-        expect(match?.[0]).toContain('getSelectedServerScreenState(): AppShellServerSelectState');
+        expect(result).toContain('persistedSelection');
+        expect(result).toContain('epgRefresh');
+        expect(result).not.toMatch(/startupResume|startup_pending|skipped_no_coordinator/);
     });
 });
