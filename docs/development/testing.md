@@ -137,10 +137,11 @@ npm run test:timings:tools
 
 ## Anti-Pattern Policy
 
-- Product/runtime Jest-owned TypeScript/TSX suites and their helper, fixture, mock,
-  setup, and utility files under `__tests__` may not use Promise-backed `setTimeout`
-  or `setInterval` sleeps, including timer property/element access and local callback
-  wrappers. The separately verified `src/__tests__/tools/**` surface is excluded.
+- Product/runtime `*.test.ts`/`*.test.tsx` suites and Jest-owned helper, fixture,
+  mock, setup, and utility files under `__tests__` may not use Promise-backed
+  `setTimeout` or `setInterval` sleeps, including timer property/element access and
+  local callback wrappers. The separately verified `src/__tests__/tools/**` surface
+  is excluded.
 - Tests use public seams rather than asserted private property/element access,
   including assertion aliases. The one retained exception is the exact
   `store._loadedRangeKeyByChannel` assertion in `EPGScheduleCacheStore.test.ts`.

@@ -19,8 +19,11 @@ const jestOwnedFiles = (): string[] =>
         .split('\n')
         .filter(
             (file) =>
-                file.includes('/__tests__/')
-                && !file.startsWith('src/__tests__/tools/')
+                !file.startsWith('src/__tests__/tools/')
+                && (
+                    file.includes('/__tests__/')
+                    || /\.test\.tsx?$/.test(file)
+                )
         )
         .sort();
 
@@ -75,32 +78,6 @@ const isTimerCall = (node: ts.Node): node is ts.CallExpression => {
     );
 };
 
-const containsTimerCall = (
-    callback: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration
-): boolean => {
-    let found = false;
-    const visit = (node: ts.Node): void => {
-        if (found) return;
-        if (
-            node !== callback
-            && (
-                ts.isArrowFunction(node)
-                || ts.isFunctionExpression(node)
-                || ts.isFunctionDeclaration(node)
-            )
-        ) {
-            return;
-        }
-        if (isTimerCall(node)) {
-            found = true;
-            return;
-        }
-        ts.forEachChild(node, visit);
-    };
-    visit(callback);
-    return found;
-};
-
 const namedScope = (node: ts.Node): string => {
     for (let current: ts.Node | undefined = node; current; current = current.parent) {
         if (ts.isFunctionDeclaration(current) && current.name) return current.name.text;
@@ -141,7 +118,6 @@ const scanSource = (
         file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
     );
     const aliases = new Set<string>();
-    const timerCallbackNames = new Set<string>();
     const privateProbes: Finding[] = [];
     const sleeps: Finding[] = [];
 
@@ -166,28 +142,103 @@ const scanSource = (
         discoverAliases(sourceFile);
     }
 
-    const discoverTimerCallbacks = (node: ts.Node): void => {
+    type LocalBinding = ts.VariableDeclaration | ts.FunctionDeclaration | ts.ParameterDeclaration;
+    const bindings = new Map<ts.Node, Map<string, LocalBinding>>();
+    const addBinding = (scope: ts.Node, name: string, declaration: LocalBinding): void => {
+        const scopeBindings = bindings.get(scope) ?? new Map<string, LocalBinding>();
+        scopeBindings.set(name, declaration);
+        bindings.set(scope, scopeBindings);
+    };
+    const nearestBlockScope = (node: ts.Node): ts.Block | ts.SourceFile | null => {
+        for (let current: ts.Node | undefined = node.parent; current; current = current.parent) {
+            if (ts.isBlock(current) || ts.isSourceFile(current)) return current;
+        }
+        return null;
+    };
+    const discoverBindings = (node: ts.Node): void => {
         if (
             ts.isFunctionDeclaration(node)
             && node.name
-            && containsTimerCall(node)
         ) {
-            timerCallbackNames.add(node.name.text);
+            const scope = nearestBlockScope(node);
+            if (scope) addBinding(scope, node.name.text, node);
         } else if (
             ts.isVariableDeclaration(node)
             && ts.isIdentifier(node.name)
-            && node.initializer
-            && (
-                ts.isArrowFunction(node.initializer)
-                || ts.isFunctionExpression(node.initializer)
-            )
-            && containsTimerCall(node.initializer)
         ) {
-            timerCallbackNames.add(node.name.text);
+            const scope = nearestBlockScope(node);
+            if (scope) addBinding(scope, node.name.text, node);
+        } else if (
+            ts.isParameter(node)
+            && ts.isIdentifier(node.name)
+            && ts.isFunctionLike(node.parent)
+        ) {
+            addBinding(node.parent, node.name.text, node);
         }
-        ts.forEachChild(node, discoverTimerCallbacks);
+        ts.forEachChild(node, discoverBindings);
     };
-    discoverTimerCallbacks(sourceFile);
+    discoverBindings(sourceFile);
+
+    const resolveBinding = (name: string, use: ts.Node): LocalBinding | null => {
+        for (let current: ts.Node | undefined = use; current; current = current.parent) {
+            const binding = bindings.get(current)?.get(name);
+            if (binding) return binding;
+        }
+        return null;
+    };
+
+    const bindingUsesTimer = (binding: LocalBinding, seen: Set<LocalBinding>): boolean => {
+        if (seen.has(binding) || ts.isParameter(binding)) return false;
+        seen.add(binding);
+
+        if (ts.isVariableDeclaration(binding)) {
+            const initializer = binding.initializer;
+            if (!initializer) return false;
+            if (ts.isIdentifier(initializer)) {
+                const target = resolveBinding(initializer.text, initializer);
+                return target ? bindingUsesTimer(target, seen) : false;
+            }
+            if (!ts.isArrowFunction(initializer) && !ts.isFunctionExpression(initializer)) {
+                return false;
+            }
+            return functionUsesTimer(initializer, seen);
+        }
+        return functionUsesTimer(binding, seen);
+    };
+
+    const functionUsesTimer = (
+        callback: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+        seen: Set<LocalBinding>
+    ): boolean => {
+        let found = false;
+        const visitCallback = (node: ts.Node): void => {
+            if (found) return;
+            if (
+                node !== callback
+                && (
+                    ts.isArrowFunction(node)
+                    || ts.isFunctionExpression(node)
+                    || ts.isFunctionDeclaration(node)
+                )
+            ) {
+                return;
+            }
+            if (isTimerCall(node)) {
+                found = true;
+                return;
+            }
+            if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+                const called = resolveBinding(node.expression.text, node);
+                if (called && bindingUsesTimer(called, new Set(seen))) {
+                    found = true;
+                    return;
+                }
+            }
+            ts.forEachChild(node, visitCallback);
+        };
+        visitCallback(callback);
+        return found;
+    };
 
     const visit = (node: ts.Node): void => {
         if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
@@ -214,9 +265,11 @@ const scanSource = (
             && node.expression.text === 'Promise'
             && node.arguments?.[0]
             && ts.isIdentifier(node.arguments[0])
-            && timerCallbackNames.has(node.arguments[0].text)
         ) {
-            sleeps.push({ file, scope: namedScope(node) });
+            const callback = resolveBinding(node.arguments[0].text, node);
+            if (callback && bindingUsesTimer(callback, new Set())) {
+                sleeps.push({ file, scope: namedScope(node) });
+            }
         }
         ts.forEachChild(node, visit);
     };
@@ -246,6 +299,15 @@ describe('test anti-pattern contracts', () => {
         ['direct await', `async function run() { await new Promise((resolve) => setTimeout(resolve, 1)); }`],
         ['local callback wrapper', `const wait = (resolve: () => void) => setTimeout(resolve, 1); const sleep = () => new Promise(wait);`],
         ['function callback wrapper', `function wait(resolve: () => void) { setTimeout(resolve, 1); } new Promise(wait);`],
+        ['simple callback alias', `const wait = (resolve: () => void) => setTimeout(resolve, 1); const alias = wait; new Promise(alias);`],
+        [
+            'nested local scheduling wrapper',
+            `const wait = (resolve: () => void) => {
+                const schedule = (callback: () => void) => setTimeout(callback, 1);
+                schedule(resolve);
+            };
+            new Promise(wait);`,
+        ],
     ])('detects Promise timer sleeps through %s', (_label, source) => {
         expect(scanSource('synthetic.test.ts', source).sleeps).toHaveLength(1);
     });
@@ -259,11 +321,48 @@ describe('test anti-pattern contracts', () => {
         ['unused timer callback wrapper', `const wait = (resolve: () => void) => setTimeout(resolve, 1); wait(done);`],
         ['non-timer callback wrapper', `const wait = (resolve: () => void) => queueMicrotask(resolve); new Promise(wait);`],
         ['timer wrapper passed elsewhere', `const wait = (resolve: () => void) => setTimeout(resolve, 1); register(wait);`],
+        [
+            'shadowed non-timer Promise callback',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            function run() {
+                const wait = (resolve: () => void) => queueMicrotask(resolve);
+                return new Promise(wait);
+            }`,
+        ],
+        [
+            'method-parameter shadowed Promise callback',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            class Runner {
+                run(wait: (resolve: () => void) => void) {
+                    return new Promise(wait);
+                }
+            }`,
+        ],
+        [
+            'constructor-parameter shadowed Promise callback',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            class Runner {
+                constructor(wait: (resolve: () => void) => void) {
+                    new Promise(wait);
+                }
+            }`,
+        ],
     ])('ignores %s', (_label, source) => {
         expect(scanSource('synthetic.test.ts', source)).toEqual({
             privateProbes: [],
             sleeps: [],
         });
+    });
+
+    it('discovers outside suites and non-tools test support files', () => {
+        expect(jestOwnedFiles()).toEqual(
+            expect.arrayContaining([
+                'src/platform/webosPlatformServices.test.ts',
+                'src/__tests__/helpers.ts',
+                'src/__tests__/fixtures/preparedPlaybackStream.ts',
+            ])
+        );
+        expect(jestOwnedFiles()).not.toContain('src/__tests__/tools/packageWebos.test.ts');
     });
 
     it('enforces the worktree Jest surface with only the exact owner exceptions', () => {
