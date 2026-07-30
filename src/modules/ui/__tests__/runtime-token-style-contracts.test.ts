@@ -2,7 +2,8 @@
  * @jest-environment node
  */
 
-import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
     declarationValue,
     read,
@@ -32,13 +33,18 @@ const SHARED_COLOR_LITERAL_PATTERN =
     /#ffffff|#eff8ff|#f0a060|#e0782a|rgba\(255, 106, 106, 0\.(?:8|95)\)|rgba\(255, 255, 255, 0\.(?:45|5|6|7|85|88|9|95)\)/;
 const BRIGHT_FOCUS_LITERAL_PATTERN = /rgba\(255, 255, 255, 0\.(?:92|98)\)/g;
 
-const cssFiles = (): string[] =>
-    execFileSync('git', ['ls-files', '--', 'src/**/*.css'], {
-        cwd: process.cwd(),
-        encoding: 'utf8',
-    })
-        .split('\n')
-        .filter(Boolean);
+const cssFiles = (directory = path.join(process.cwd(), 'src')): string[] => {
+    const files: string[] = [];
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        const absolutePath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...cssFiles(absolutePath));
+        } else if (entry.isFile() && entry.name.endsWith('.css')) {
+            files.push(path.relative(process.cwd(), absolutePath).split(path.sep).join('/'));
+        }
+    }
+    return files.sort();
+};
 
 const RUNTIME_LAYERS = [
     {
