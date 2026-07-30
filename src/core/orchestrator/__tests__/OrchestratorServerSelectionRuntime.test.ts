@@ -220,6 +220,27 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(1);
     });
 
+    it('leaves the selected runtime untouched when clearing persistence fails', async () => {
+        const harness = createHarness();
+        const runtime = new OrchestratorServerSelectionRuntime(harness.deps);
+        const persistenceError = new Error('credential write failed');
+        harness.plexAuth.storeCredentials.mockImplementationOnce(() => {
+            throw persistenceError;
+        });
+
+        await expect(runtime.clearSelectedServer()).rejects.toBe(persistenceError);
+
+        expect(harness.discovery.clearSelection).not.toHaveBeenCalled();
+        expect(harness.deps.suspendAndDrainForScopeTransition).not.toHaveBeenCalled();
+        expect(harness.deps.clearIdentityScopedRuntime).not.toHaveBeenCalled();
+        expect(harness.deps.configureChannelManagerStorage).not.toHaveBeenCalled();
+        expect(harness.deps.publishPendingServerModules).not.toHaveBeenCalled();
+        expect(harness.deps.setReady).not.toHaveBeenCalled();
+        expect(harness.deps.publishLoadingLifecycle).not.toHaveBeenCalled();
+        expect(harness.deps.openServerSelect).not.toHaveBeenCalled();
+        expect(harness.deps.resumeAfterScopeTransition).not.toHaveBeenCalled();
+    });
+
     it('completes clear then selects another server through the public runtime seam', async () => {
         const harness = createHarness();
         const runtime = new OrchestratorServerSelectionRuntime(harness.deps);
