@@ -7,18 +7,21 @@ describe('PlexLibraryRequestScope', () => {
     let serverUri: string | null;
     let authToken: string | null;
     let onScopeChange: jest.Mock;
+    let refreshSelectedServerAccessToken: jest.Mock;
     let scope: PlexLibraryRequestScope;
 
     beforeEach(() => {
         serverUri = 'http://server.example:32400';
         authToken = 'token-a';
         onScopeChange = jest.fn();
+        refreshSelectedServerAccessToken = jest.fn(async () => ({ kind: 'unchanged' as const }));
         scope = new PlexLibraryRequestScope({
             config: {
                 getServerUri: (): string | null => serverUri,
                 getAuthToken: (): string | null => authToken,
                 getAuthHeaders: (): Record<string, string> =>
                     authToken ? { [PLEX_TOKEN_HEADER]: authToken } : {},
+                refreshSelectedServerAccessToken,
             },
             onScopeChange,
         });
@@ -81,6 +84,36 @@ describe('PlexLibraryRequestScope', () => {
 
         expect(() => scope.assertCurrent(captured, controller.signal)).toThrow(reason);
         expect(onScopeChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('captures a replacement token after an unauthorized resource refresh', async () => {
+        const captured = scope.capture();
+        refreshSelectedServerAccessToken.mockImplementationOnce(async () => {
+            authToken = 'token-b';
+            return { kind: 'updated' as const };
+        });
+
+        await expect(scope.refreshAfterUnauthorized(captured)).resolves.toMatchObject({
+            kind: 'updated',
+            scope: {
+                headers: { [PLEX_TOKEN_HEADER]: 'token-b' },
+                accessToken: 'token-b',
+                serverUri: 'http://server.example:32400/',
+            },
+        });
+        expect(refreshSelectedServerAccessToken).toHaveBeenCalledWith('token-a', {
+            signal: null,
+        });
+        expect(() => scope.assertCurrent(captured)).toThrow(PlexLibraryScopeSupersededError);
+    });
+
+    it('rejects a refresh result that claims an update without changing the token', async () => {
+        const captured = scope.capture();
+        refreshSelectedServerAccessToken.mockResolvedValueOnce({ kind: 'updated' as const });
+
+        await expect(scope.refreshAfterUnauthorized(captured)).rejects.toBeInstanceOf(
+            PlexLibraryScopeSupersededError
+        );
     });
 
     it('builds URLs from the captured server and query parameters', () => {

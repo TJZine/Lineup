@@ -406,6 +406,9 @@ export class InitializationCoordinator {
         this.clearServerResume();
         this.clearProfileResume();
     }
+    prepareForRuntimeAuthRecovery(): void {
+        this._registerAuthResume();
+    }
     restorePendingServerResumeAfterProfileSwitchFailure(): void {
         const discoveryStatus = this._callbacks.status.getModuleStatus('plex-server-discovery');
         const libraryStatus = this._callbacks.status.getModuleStatus('plex-library');

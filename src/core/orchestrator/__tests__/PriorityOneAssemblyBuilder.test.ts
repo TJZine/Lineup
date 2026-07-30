@@ -198,7 +198,7 @@ describe('createPriorityOneRuntimeAssembly', () => {
             orchestratorCallbacks: {
                 stopPlayback: jest.fn(),
                 handleGlobalError: jest.fn(),
-                handlePlexLibraryAuthExpired: jest.fn(),
+                handlePlexLibraryAuthorizationFailure: jest.fn(),
                 handlePlexStreamError: jest.fn(),
                 showPersistenceWarning: jest.fn(),
                 reportRecoverableRuntimeIssue: cleanupReporter,

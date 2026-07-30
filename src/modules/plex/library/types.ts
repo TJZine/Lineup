@@ -135,10 +135,14 @@ interface LibraryCacheEntry {
  * Event map for PlexLibrary EventEmitter.
  */
 export interface PlexLibraryEvents {
-    /** Emitted when authentication expires (401 response) */
-    authExpired: undefined;
+    authorizationFailure: PlexLibraryAuthorizationFailure;
     libraryRefreshed: { libraryId: string };
 }
+
+export type PlexLibraryAuthorizationFailure =
+    | { kind: 'account_auth_expired' }
+    | { kind: 'managed_profile_auth_invalid' }
+    | { kind: 'profile_server_access_denied' };
 
 /**
  * Plex API response container structure.

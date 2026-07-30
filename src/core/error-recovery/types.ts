@@ -12,6 +12,7 @@ export interface ErrorRecoveryAction {
 
 export interface RecoveryActionDeps {
     goToAuth: () => void; // must internally no-op if navigation missing
+    goToProfileSelect: () => void; // must internally no-op if navigation missing
     goToServerSelect: () => void; // must internally no-op if navigation missing
     goToChannelEdit: () => void; // must internally no-op if navigation missing
     goToSettings: () => void; // must internally no-op if navigation missing

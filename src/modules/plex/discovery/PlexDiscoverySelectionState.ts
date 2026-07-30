@@ -7,6 +7,7 @@ import {
 } from './PlexDiscoverySelectionContext';
 import {
     clonePlexConnection,
+    clonePlexServerView,
     cloneSelectedPlexServer,
 } from './PlexDiscoverySnapshots';
 import { ServerSelectionStore } from './ServerSelectionStore';
@@ -14,7 +15,7 @@ import { classifyPlexDiscoverySelectionSnapshot } from './PlexDiscoverySelection
 import {
     PlexConnection,
     PlexDiscoverySelectedServerSnapshot,
-    PlexServer,
+    PlexServerResource,
     PlexServerDiscoveryEvents,
     PlexServerDiscoveryState,
 } from './types';
@@ -33,7 +34,7 @@ export class PlexDiscoverySelectionState {
 
     commitSelection(
         serverId: string,
-        server: PlexServer,
+        server: PlexServerResource,
         connection: PlexConnection,
         capture: PlexDiscoverySelectionCapture,
         signal: AbortSignal | null
@@ -48,7 +49,7 @@ export class PlexDiscoverySelectionState {
         assertCurrent();
         this._store.writeSelectedServerId(serverId);
         assertCurrent();
-        this._emitter.emit('serverChange', server);
+        this._emitter.emit('serverChange', clonePlexServerView(server));
         assertCurrent();
         this._emitter.emit('connectionChange', connection.uri);
         assertCurrent();
@@ -69,17 +70,15 @@ export class PlexDiscoverySelectionState {
 
     captureSnapshot(): PlexDiscoverySelectedServerSnapshot {
         return this._context.retainSnapshot({
-            server: cloneSelectedPlexServer(
-                this._state.selectedServer,
-                this._state.selectedConnection
-            ),
+            server: clonePlexServerView(this._state.selectedServer),
             connection: clonePlexConnection(this._state.selectedConnection),
             storedServerId: this._store.readSelectedServerId(),
         });
     }
 
     restoreSnapshot(
-        snapshot: PlexDiscoverySelectedServerSnapshot
+        snapshot: PlexDiscoverySelectedServerSnapshot,
+        accessToken: string | null
     ): PlexDiscoverySelectionReceipt {
         this._context.assertSnapshotCurrent(snapshot);
         classifyPlexDiscoverySelectionSnapshot(snapshot);
@@ -88,7 +87,9 @@ export class PlexDiscoverySelectionState {
         const previousServerId = this._state.selectedServer?.id ?? null;
         const previousConnectionUri = this._state.selectedConnection?.uri ?? null;
         const nextConnection = clonePlexConnection(snapshot.connection);
-        const nextServer = cloneSelectedPlexServer(snapshot.server, nextConnection);
+        const nextServer = snapshot.server
+            ? cloneSelectedPlexServer({ ...snapshot.server, accessToken: accessToken ?? '' }, nextConnection)
+            : null;
         assertCurrent();
         this._state.selectedServer = nextServer;
         assertCurrent();
@@ -103,7 +104,7 @@ export class PlexDiscoverySelectionState {
         const nextConnectionUri = nextConnection?.uri ?? null;
         if (previousServerId !== nextServerId) {
             assertCurrent();
-            this._emitter.emit('serverChange', nextServer);
+            this._emitter.emit('serverChange', clonePlexServerView(nextServer));
         }
         if (previousConnectionUri !== nextConnectionUri) {
             assertCurrent();

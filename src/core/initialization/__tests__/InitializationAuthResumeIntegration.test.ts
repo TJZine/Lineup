@@ -5,6 +5,9 @@ import { AuthScreen } from '../../../modules/ui/auth/AuthScreen';
 import { EpgPreferencesStore } from '../../../modules/settings/EpgPreferencesStore';
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
+import { AppErrorCode } from '../../../types/app-errors';
+import { getRecoveryActions } from '../../error-recovery/RecoveryActions';
+import { createDeferred, withTestTimeout } from '../../../__tests__/helpers';
 import {
     InitializationCoordinator,
     STARTUP_PHASE,
@@ -21,6 +24,21 @@ const config: PlexAuthConfig = {
     device: 'TV',
     deviceName: 'TV',
 };
+
+interface ReadinessObserver {
+    setReady: jest.Mock<void, [boolean]>;
+    completion: Promise<void>;
+}
+
+function createReadinessObserver(): ReadinessObserver {
+    const ready = createDeferred<void>();
+    return {
+        setReady: jest.fn((isReady: boolean): void => {
+            if (isReady) ready.resolve(undefined);
+        }),
+        completion: ready.promise,
+    };
+}
 
 function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationCoordinator {
     const selectionContext = new PlexDiscoverySelectionContext();
@@ -106,7 +124,7 @@ describe('PIN auth resume integration', () => {
     it('keeps committed PIN success while synchronous auth resume takes newer authority', async () => {
         localStorage.clear();
         const auth = new PlexAuth(config);
-        const setReady = jest.fn();
+        const { setReady, completion } = createReadinessObserver();
         const coordinator = createCoordinator(auth, setReady);
         await coordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         const events: string[] = [];
@@ -167,13 +185,10 @@ describe('PIN auth resume integration', () => {
 
         screen.show();
         (container.querySelector('#btn-auth-request') as HTMLButtonElement).click();
-        for (
-            let attempt = 0;
-            attempt < 30 && (!container.textContent?.includes('Signed in.') || !setReady.mock.calls.some(([ready]) => ready));
-            attempt += 1
-        ) {
-            await Promise.resolve();
-        }
+        await withTestTimeout(completion, {
+            timeoutMs: 2_000,
+            errorMessage: 'Committed PIN auth resume did not publish readiness',
+        });
 
         expect(container.textContent).toContain('Signed in.');
         expect(container.textContent).toContain('Continuing startup…');
@@ -186,6 +201,111 @@ describe('PIN auth resume integration', () => {
             'poll-resolved',
             'auth-change-emitted',
         ]);
+        expect(setReady).toHaveBeenCalledWith(true);
+        screen.destroy();
+    });
+
+    it('resumes startup exactly once after runtime AUTH_EXPIRED Sign In and successful PIN linking', async () => {
+        localStorage.clear();
+        const auth = new PlexAuth(config);
+        const { setReady, completion } = createReadinessObserver();
+        const coordinator = createCoordinator(auth, setReady);
+        const runStartupSpy = jest.spyOn(coordinator, 'runStartup');
+        const events: string[] = [];
+        (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn()
+            .mockImplementationOnce(async () => {
+                events.push('pin-claimed');
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async (): Promise<unknown> => ({
+                        id: 8,
+                        code: 'EFGH',
+                        expiresAt: '2026-12-31T00:00:00Z',
+                        authToken: 'runtime-claimed-token',
+                        clientIdentifier: config.clientIdentifier,
+                    }),
+                };
+            })
+            .mockImplementationOnce(async () => {
+                events.push('claimed-user-loaded');
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async (): Promise<unknown> => ({
+                        id: 'runtime-user', username: 'runtime-user', email: 'runtime@example.com', thumb: '',
+                    }),
+                };
+            })
+            .mockImplementationOnce(async () => {
+                events.push('resume-validation-started');
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async (): Promise<unknown> => ({
+                        id: 'runtime-user', username: 'runtime-user', email: 'runtime@example.com', thumb: '',
+                    }),
+                };
+            });
+        auth.on('authChange', () => events.push('auth-change-emitted'));
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new AuthScreen(container, {
+            requestAuthPin: async (): Promise<PlexPinRequest> => ({
+                id: 8,
+                code: 'EFGH',
+                expiresAt: new Date('2026-12-31T00:00:00Z'),
+                authToken: null,
+                clientIdentifier: config.clientIdentifier,
+            }),
+            pollForPin: async (pinId, options): ReturnType<PlexAuth['pollForPin']> => {
+                const result = await auth.pollForPin(pinId, options);
+                events.push('poll-resolved');
+                return result;
+            },
+            cancelPin: async (): Promise<void> => undefined,
+            getNavigation: (): null => null,
+        });
+        const signIn = getRecoveryActions(AppErrorCode.AUTH_EXPIRED, {
+            goToAuth: (): void => {
+                coordinator.prepareForRuntimeAuthRecovery();
+                events.push('auth-routed');
+                screen.show();
+            },
+            goToProfileSelect: jest.fn(),
+            goToServerSelect: jest.fn(),
+            goToChannelEdit: jest.fn(),
+            goToSettings: jest.fn(),
+            retryStart: jest.fn().mockResolvedValue(undefined),
+            retryPlayback: jest.fn(),
+            exitApp: jest.fn().mockResolvedValue(undefined),
+            skipToNext: jest.fn(),
+        })[0];
+        if (!signIn) {
+            throw new Error('Expected AUTH_EXPIRED recovery to expose Sign In');
+        }
+
+        signIn.action();
+        (container.querySelector('#btn-auth-request') as HTMLButtonElement).click();
+        await withTestTimeout(completion, {
+            timeoutMs: 2_000,
+            errorMessage: 'Runtime auth resume did not publish readiness',
+        });
+
+        expect(container.textContent).toContain('Signed in.');
+        expect(container.textContent).toContain('Continuing startup…');
+        expect(events[0]).toBe('auth-routed');
+        expect(events).toEqual([
+            'auth-routed',
+            'pin-claimed',
+            'claimed-user-loaded',
+            'auth-change-emitted',
+            'resume-validation-started',
+            'poll-resolved',
+            'auth-change-emitted',
+        ]);
+        expect(runStartupSpy).toHaveBeenCalledTimes(1);
+        expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
         expect(setReady).toHaveBeenCalledWith(true);
         screen.destroy();
     });

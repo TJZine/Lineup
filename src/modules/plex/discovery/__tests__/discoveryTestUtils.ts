@@ -2,7 +2,7 @@ import { PlexServerDiscoveryConfig } from '../interfaces';
 import { PlexConnection, PlexServer } from '../types';
 
 export const mockConfig: PlexServerDiscoveryConfig = {
-    getAuthHeaders: () => ({
+    getCloudAuthHeaders: () => ({
         Accept: 'application/json',
         'X-Plex-Token': 'mock-token',
         'X-Plex-Client-Identifier': 'mock-client-id',

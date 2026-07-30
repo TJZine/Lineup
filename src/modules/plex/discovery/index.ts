@@ -8,6 +8,7 @@ export type {
     IPlexServerDiscovery,
     PlexDiscoverySignalOptions,
     PlexSavedServerRestoreResult,
+    PlexSelectedServerAccessTokenRefreshResult,
     PlexServerSelectionFailureReason,
     PlexServerSelectionResult,
     PlexServerDiscoveryConfig,

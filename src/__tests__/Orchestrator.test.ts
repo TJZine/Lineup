@@ -428,6 +428,7 @@ const mockPlexDiscovery = {
     getSelectedServer: jest.fn().mockReturnValue(null),
     getSelectedConnection: jest.fn().mockReturnValue({ uri: 'http://localhost:32400' }),
     getServerUri: jest.fn().mockReturnValue('http://localhost:32400'),
+    getSelectedServerAuthHeaders: jest.fn().mockReturnValue({}),
     captureSelectedServerSnapshot: jest.fn().mockReturnValue({
         server: null,
         connection: null,
@@ -3407,6 +3408,60 @@ describe('AppOrchestrator', () => {
             );
         });
 
+        it('prepares one-shot startup resume before routing runtime AUTH_EXPIRED recovery to Auth', async () => {
+            const authChangeSubscription: {
+                current: ((isAuthenticated: boolean) => void) | null;
+            } = { current: null };
+            mockPlexAuth.on.mockImplementation(((event: string, handler: (value: boolean) => void) => {
+                if (event !== 'authChange') {
+                    return { dispose: jest.fn() };
+                }
+                authChangeSubscription.current = handler;
+                return {
+                    dispose: jest.fn(() => {
+                        authChangeSubscription.current = null;
+                    }),
+                };
+            }) as never);
+            const prepareSpy = jest.spyOn(
+                InitializationCoordinator.prototype,
+                'prepareForRuntimeAuthRecovery'
+            );
+            const runStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                .mockResolvedValue(undefined);
+
+            try {
+                const signIn = orchestrator
+                    .getRecoveryActions(AppErrorCode.AUTH_EXPIRED)
+                    .find((action) => action.label === 'Sign In');
+                if (!signIn) {
+                    throw new Error('Expected AUTH_EXPIRED recovery to expose Sign In');
+                }
+
+                signIn.action();
+
+                expect(prepareSpy).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
+                const prepareOrder = prepareSpy.mock.invocationCallOrder[0];
+                const routeOrder = mockNavigation.goTo.mock.invocationCallOrder.at(-1);
+                if (prepareOrder === undefined || routeOrder === undefined) {
+                    throw new Error('Expected auth resume preparation and Auth routing');
+                }
+                expect(prepareOrder).toBeLessThan(routeOrder);
+
+                authChangeSubscription.current?.(true);
+                await Promise.resolve();
+
+                expect(runStartupSpy).toHaveBeenCalledTimes(1);
+                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
+                expect(authChangeSubscription.current).toBeNull();
+            } finally {
+                prepareSpy.mockRestore();
+                runStartupSpy.mockRestore();
+            }
+        });
+
         it('should return Retry and Exit for INITIALIZATION_FAILED', () => {
             const actions = orchestrator.getRecoveryActions(AppErrorCode.INITIALIZATION_FAILED);
 
@@ -4262,6 +4317,25 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('builds playback resource URLs with the selected PMS credential, not cloud auth', () => {
+            mockPlexDiscovery.getServerUri.mockReturnValue('https://selected.example:32400');
+            mockPlexDiscovery.getSelectedServerAuthHeaders.mockReturnValue({
+                'X-Plex-Token': 'selected-pms-token',
+            });
+            mockPlexAuth.getAuthHeaders.mockReturnValue({
+                'X-Plex-Token': 'cloud-home-token',
+            });
+
+            const result = Reflect.get(
+                orchestrator as object,
+                '_buildPlexResourceUrl'
+            ).call(orchestrator, '/library/metadata/1/thumb') as string;
+
+            expect(result).toContain('X-Plex-Token=selected-pms-token');
+            expect(result).not.toContain('cloud-home-token');
+            expect(mockPlexAuth.getAuthHeaders).not.toHaveBeenCalled();
+        });
+
         it('returns null and reports when Plex resource URL accessor dependencies throw', () => {
             const warning = expectConsoleWarn([
                 'buildPlexResourceUrlWithAuth failed',
@@ -4275,7 +4349,7 @@ describe('AppOrchestrator', () => {
             ]);
 
             mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400?X-Plex-Token=base-secret');
-            mockPlexAuth.getAuthHeaders.mockImplementation(() => {
+            mockPlexDiscovery.getSelectedServerAuthHeaders.mockImplementation(() => {
                 throw new Error('auth headers failed');
             });
             try {
@@ -4289,8 +4363,10 @@ describe('AppOrchestrator', () => {
             } finally {
                 mockPlexDiscovery.getServerUri.mockReset();
                 mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
-                mockPlexAuth.getAuthHeaders.mockReset();
-                mockPlexAuth.getAuthHeaders.mockReturnValue({ 'X-Plex-Token': 'mock-token' });
+                mockPlexDiscovery.getSelectedServerAuthHeaders.mockReset();
+                mockPlexDiscovery.getSelectedServerAuthHeaders.mockReturnValue({
+                    'X-Plex-Token': 'mock-token',
+                });
             }
         });
     });

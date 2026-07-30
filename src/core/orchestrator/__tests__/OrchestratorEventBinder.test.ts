@@ -1,6 +1,7 @@
 import { OrchestratorEventBinder } from '../events/OrchestratorEventBinder';
 import type { OrchestratorEventBinderDeps } from '../events/OrchestratorEventBinder';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
+import type { PlexLibraryAuthorizationFailure } from '../../../modules/plex/library';
 
 function createProgram(): ScheduledProgram {
     return {
@@ -69,7 +70,7 @@ function createBinder(
         handlePlayerStateChange: jest.fn(),
         handlePlayerTimeUpdate: jest.fn(),
         handlePlayerBufferUpdate: jest.fn(),
-        handlePlexLibraryAuthExpired: jest.fn(),
+        handlePlexLibraryAuthorizationFailure: jest.fn(),
         handlePlexStreamError: jest.fn(),
         handleScreenChange: jest.fn(),
         handleLifecyclePause: jest.fn().mockResolvedValue(undefined),
@@ -92,6 +93,34 @@ describe('OrchestratorEventBinder', () => {
 
         expect(binder.bind()).toBe(true);
         expect(binder.bind()).toBe(false);
+    });
+
+    it('forwards sanitized Plex library authorization outcomes and removes the listener', () => {
+        const subscription: {
+            handler: ((failure: PlexLibraryAuthorizationFailure) => void) | null;
+        } = { handler: null };
+        const plexLibrary = {
+            on: jest.fn((event: string, next: (failure: PlexLibraryAuthorizationFailure) => void) => {
+                if (event === 'authorizationFailure') subscription.handler = next;
+                return { dispose: jest.fn() };
+            }),
+            off: jest.fn(),
+        };
+        const { binder, deps } = createBinder({
+            getPlexLibrary: () => plexLibrary as never,
+        });
+
+        binder.bind();
+        subscription.handler?.({ kind: 'profile_server_access_denied' });
+
+        expect(deps.handlePlexLibraryAuthorizationFailure).toHaveBeenCalledWith({
+            kind: 'profile_server_access_denied',
+        });
+        binder.dispose();
+        expect(plexLibrary.off).toHaveBeenCalledWith(
+            'authorizationFailure',
+            expect.any(Function)
+        );
     });
 
     it('reports synchronous program-start failures through recoverable diagnostics instead of throwing', () => {

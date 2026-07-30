@@ -11,6 +11,7 @@ import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { PlatformIdentityService } from '../../../../platform';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
 import { createMockConfig, createMockMediaItem } from './testUtils';
+import { PlexDiscoverySelectionSupersededError } from '../../discovery';
 
 // ============================================
 // Tests
@@ -2175,6 +2176,130 @@ describe('PlexStreamResolver', () => {
             );
             expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5000);
             setTimeoutSpy.mockRestore();
+        });
+
+        it('refreshes a stale PMS token once and retries the stream request once', async () => {
+            let token = 'pms-token-old';
+            const refreshSelectedServerAccessToken = jest.fn(async (expectedToken: string) => {
+                expect(expectedToken).toBe('pms-token-old');
+                token = 'pms-token-new';
+                return { kind: 'updated' as const };
+            });
+            const probeCurrentCredentialValidity = jest.fn(async () => ({
+                kind: 'active_valid' as const,
+            }));
+            const resolver = new PlexStreamResolver(createMockConfig({
+                getAuthHeaders: () => ({ 'X-Plex-Token': token }),
+                refreshSelectedServerAccessToken,
+                probeCurrentCredentialValidity,
+            }));
+            mockFetch
+                .mockResolvedValueOnce({ ok: false, status: 401 })
+                .mockResolvedValueOnce({ ok: true, status: 200 });
+
+            await resolver.stopTranscodeSession('sess-1');
+
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            expect(new Headers(mockFetch.mock.calls[0]?.[1]?.headers).get('X-Plex-Token'))
+                .toBe('pms-token-old');
+            expect(new Headers(mockFetch.mock.calls[1]?.[1]?.headers).get('X-Plex-Token'))
+                .toBe('pms-token-new');
+            expect(refreshSelectedServerAccessToken).toHaveBeenCalledTimes(1);
+            expect(probeCurrentCredentialValidity).not.toHaveBeenCalled();
+        });
+
+        it('classifies an unchanged PMS 401 without falling back to account auth', async () => {
+            expectConsoleWarn([
+                'stopTranscodeSession failed:',
+                expect.objectContaining({
+                    error: expect.objectContaining({
+                        code: AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED,
+                    }),
+                }),
+            ]);
+            const refreshSelectedServerAccessToken = jest.fn(async () => ({
+                kind: 'unchanged' as const,
+            }));
+            const probeCurrentCredentialValidity = jest.fn(async () => ({
+                kind: 'active_valid' as const,
+            }));
+            const resolver = new PlexStreamResolver(createMockConfig({
+                refreshSelectedServerAccessToken,
+                probeCurrentCredentialValidity,
+            }));
+            mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+
+            await resolver.stopTranscodeSession('sess-1');
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(refreshSelectedServerAccessToken).toHaveBeenCalledTimes(1);
+            expect(probeCurrentCredentialValidity).toHaveBeenCalledTimes(1);
+        });
+
+        it('suppresses cloud classification when resource refresh is superseded', async () => {
+            expectConsoleWarn([
+                'stopTranscodeSession failed:',
+                expect.objectContaining({
+                    error: expect.objectContaining({
+                        code: AppErrorCode.SERVER_UNREACHABLE,
+                        message: 'Plex server authorization scope changed',
+                    }),
+                }),
+            ]);
+            const refreshSelectedServerAccessToken = jest.fn(async () => {
+                throw new PlexDiscoverySelectionSupersededError();
+            });
+            const probeCurrentCredentialValidity = jest.fn(async () => ({
+                kind: 'active_valid' as const,
+            }));
+            const resolver = new PlexStreamResolver(createMockConfig({
+                refreshSelectedServerAccessToken,
+                probeCurrentCredentialValidity,
+            }));
+            const errorHandler = jest.fn();
+            resolver.on('error', errorHandler);
+            mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+
+            await resolver.stopTranscodeSession('sess-1');
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(refreshSelectedServerAccessToken).toHaveBeenCalledTimes(1);
+            expect(probeCurrentCredentialValidity).not.toHaveBeenCalled();
+            expect(errorHandler).not.toHaveBeenCalled();
+        });
+
+        it('does not retry when selection changes but the PMS token stays identical', async () => {
+            const originalScope = Object.freeze({ id: 'server-a' });
+            let activeScope: object = originalScope;
+            const scopeSuperseded = new Error('selected Plex scope superseded');
+            expectConsoleWarn([
+                'stopTranscodeSession failed:',
+                expect.objectContaining({
+                    error: expect.objectContaining({ message: scopeSuperseded.message }),
+                }),
+            ]);
+            const refreshSelectedServerAccessToken = jest.fn(async () => {
+                activeScope = Object.freeze({ id: 'server-b' });
+                return { kind: 'unchanged' as const };
+            });
+            const probeCurrentCredentialValidity = jest.fn(async () => ({
+                kind: 'active_valid' as const,
+            }));
+            const resolver = new PlexStreamResolver(createMockConfig({
+                captureSelectedServerScope: () => activeScope,
+                assertSelectedServerScopeCurrent: (scope) => {
+                    if (scope !== activeScope) throw scopeSuperseded;
+                },
+                refreshSelectedServerAccessToken,
+                probeCurrentCredentialValidity,
+            }));
+            mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+
+            await resolver.stopTranscodeSession('sess-1');
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(refreshSelectedServerAccessToken).toHaveBeenCalledTimes(1);
+            expect(probeCurrentCredentialValidity).not.toHaveBeenCalled();
         });
 
         it('logs a warning with session context when stopTranscodeSession fails', async () => {

@@ -35,7 +35,10 @@ import {
     applyXPlexTokenQueryParam,
     buildPlexUrlFromKey,
     PLEX_TOKEN_QUERY_PARAM,
+    readXPlexTokenFromHeaders,
 } from '../../shared/plexUrl';
+import { redactSensitiveTokens } from '../../../../utils/redact';
+import { isPlexDiscoverySelectionSupersededError } from '../../discovery';
 import {
     buildPlexClientCapabilities,
     buildPlexMetadataPath,
@@ -70,6 +73,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
             getAuthHeaders: config.getAuthHeaders,
             getTranscodeUrl: (itemKey, options): string => this.getTranscodeUrl(itemKey, options),
             throwIfAuthFailure: (response): void => this._throwIfAuthFailure(response, false),
+            getAccessToken: (): string => this._getCurrentPmsAccessToken(),
+            captureRequestScope: (): object | null => this._config.captureSelectedServerScope(),
+            assertRequestScopeCurrent: (scope): void => this._config.assertSelectedServerScopeCurrent(scope),
+            recoverAfterUnauthorized: (expectedAccessToken, allowResourceRefresh, requestScope): Promise<void> =>
+                this._recoverPmsUnauthorized(expectedAccessToken, allowResourceRefresh, false, requestScope),
         });
     }
 
@@ -203,6 +211,11 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 getAuthHeaders: this._config.getAuthHeaders,
                 selectBaseUriForMixedContent: (serverUri) => this._selectBaseUriForMixedContent(serverUri),
                 throwIfAuthFailure: (response) => this._throwIfAuthFailure(response),
+                getAccessToken: () => this._getCurrentPmsAccessToken(),
+                captureRequestScope: () => this._config.captureSelectedServerScope(),
+                assertRequestScopeCurrent: (scope) => this._config.assertSelectedServerScopeCurrent(scope),
+                recoverAfterUnauthorized: (expectedAccessToken, allowResourceRefresh, requestScope) =>
+                    this._recoverPmsUnauthorized(expectedAccessToken, allowResourceRefresh, true, requestScope),
                 createError: (code, message, recoverable) => this._createError(code, message, recoverable),
             });
         if (mustPersistBurnInSelection) {
@@ -272,14 +285,34 @@ export class PlexStreamResolver implements IPlexStreamResolver {
         }
 
         try {
+            const requestScope = this._config.captureSelectedServerScope();
+            if (!requestScope) {
+                return;
+            }
+            this._config.assertSelectedServerScopeCurrent(requestScope);
             const baseUri = this._selectBaseUriForMixedContent(serverUri);
             const stopUrl = new URL(`/transcode/sessions/${encodeURIComponent(trimmedSessionId)}`, baseUri);
-            const response = await fetchWithTimeout({
-                url: stopUrl.toString(),
-                init: { method: 'DELETE', headers: this._config.getAuthHeaders() },
-                timeoutMs: 5000,
-            });
-            this._throwIfAuthFailure(response, false);
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                this._config.assertSelectedServerScopeCurrent(requestScope);
+                const expectedAccessToken = this._getCurrentPmsAccessToken();
+                const response = await fetchWithTimeout({
+                    url: stopUrl.toString(),
+                    init: { method: 'DELETE', headers: this._config.getAuthHeaders() },
+                    timeoutMs: 5000,
+                });
+                this._config.assertSelectedServerScopeCurrent(requestScope);
+                if (response.status === 401) {
+                    await this._recoverPmsUnauthorized(
+                        expectedAccessToken,
+                        attempt === 0,
+                        false,
+                        requestScope
+                    );
+                    continue;
+                }
+                this._throwIfAuthFailure(response, false);
+                break;
+            }
         } catch (error) {
             logPlexWarning('stopTranscodeSession failed:', {
                 sessionId: trimmedSessionId,
@@ -544,6 +577,116 @@ export class PlexStreamResolver implements IPlexStreamResolver {
                 emitError
             );
         }
+    }
+
+    private _getCurrentPmsAccessToken(): string {
+        return readXPlexTokenFromHeaders(this._config.getAuthHeaders()) ?? '';
+    }
+
+    private async _recoverPmsUnauthorized(
+        expectedAccessToken: string,
+        allowResourceRefresh: boolean,
+        emitError: boolean,
+        requestScope: object
+    ): Promise<void> {
+        this._config.assertSelectedServerScopeCurrent(requestScope);
+        if (this._getCurrentPmsAccessToken() !== expectedAccessToken) {
+            throw this._createPmsScopeSupersededError();
+        }
+
+        if (allowResourceRefresh) {
+            let refresh: Awaited<ReturnType<PlexStreamResolverConfig['refreshSelectedServerAccessToken']>>;
+            try {
+                refresh = await this._config.refreshSelectedServerAccessToken(expectedAccessToken);
+            } catch (error) {
+                this._config.assertSelectedServerScopeCurrent(requestScope);
+                if (
+                    isPlexDiscoverySelectionSupersededError(error)
+                    || this._getCurrentPmsAccessToken() !== expectedAccessToken
+                ) {
+                    throw this._createPmsScopeSupersededError();
+                }
+                throw this._translatePmsAuthorizationRecoveryError(error, emitError);
+            }
+            this._config.assertSelectedServerScopeCurrent(requestScope);
+            const currentAccessToken = this._getCurrentPmsAccessToken();
+            if (refresh.kind === 'updated' && currentAccessToken !== expectedAccessToken) {
+                return;
+            }
+            if (currentAccessToken !== expectedAccessToken || refresh.kind === 'updated') {
+                throw this._createPmsScopeSupersededError();
+            }
+        }
+
+        let validity: Awaited<ReturnType<PlexStreamResolverConfig['probeCurrentCredentialValidity']>>;
+        try {
+            validity = await this._config.probeCurrentCredentialValidity();
+        } catch (error) {
+            this._config.assertSelectedServerScopeCurrent(requestScope);
+            throw this._translatePmsAuthorizationRecoveryError(error, emitError);
+        }
+        this._config.assertSelectedServerScopeCurrent(requestScope);
+        if (this._getCurrentPmsAccessToken() !== expectedAccessToken || validity.kind === 'superseded') {
+            throw this._createPmsScopeSupersededError();
+        }
+
+        const classified = validity.kind === 'active_valid'
+            ? {
+                code: AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED,
+                message: 'The active Plex profile is valid but cannot access this server resource',
+            }
+            : validity.kind === 'managed_profile_invalid'
+                ? {
+                    code: AppErrorCode.PLEX_PROFILE_AUTH_INVALID,
+                    message: 'The active Plex Home profile credential is no longer valid',
+                }
+                : {
+                    code: AppErrorCode.AUTH_EXPIRED,
+                    message: 'Authentication expired',
+                };
+        if (emitError) {
+            throw this._createError(classified.code, classified.message, true);
+        }
+        throw { ...classified, recoverable: true } satisfies StreamResolverError;
+    }
+
+    private _createPmsScopeSupersededError(): StreamResolverError {
+        return {
+            code: AppErrorCode.SERVER_UNREACHABLE,
+            message: 'Plex server authorization scope changed',
+            recoverable: true,
+        };
+    }
+
+    private _translatePmsAuthorizationRecoveryError(
+        error: unknown,
+        emitError: boolean
+    ): StreamResolverError {
+        if (this._isStreamResolverError(error)) return error;
+        const sourceCode = error && typeof error === 'object' && 'code' in error
+            ? (error as { code?: unknown }).code
+            : null;
+        const code = sourceCode === AppErrorCode.SERVER_ERROR
+            || sourceCode === AppErrorCode.SERVER_UNREACHABLE
+            ? AppErrorCode.PLEX_CLOUD_UNAVAILABLE
+            : Object.values(AppErrorCode).includes(sourceCode as AppErrorCode)
+                ? sourceCode as AppErrorCode
+                : AppErrorCode.PLEX_CLOUD_UNAVAILABLE;
+        const message = code === AppErrorCode.PLEX_CLOUD_UNAVAILABLE
+            ? 'Plex cloud authorization recovery is temporarily unavailable'
+            : redactSensitiveTokens(error instanceof Error ? error.message : 'Plex authorization recovery failed');
+        if (emitError) return this._createError(code, message, true);
+        return { code, message, recoverable: true };
+    }
+
+    private _isStreamResolverError(error: unknown): error is StreamResolverError {
+        return Boolean(
+            error
+            && typeof error === 'object'
+            && 'code' in error
+            && 'message' in error
+            && 'recoverable' in error
+        );
     }
 
     private _getHdr10FallbackMode(): Hdr10FallbackMode {

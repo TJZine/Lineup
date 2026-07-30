@@ -6,7 +6,10 @@ import type {
     PlaybackState,
     TimeRange,
 } from '../../../modules/player';
-import type { IPlexLibrary } from '../../../modules/plex/library';
+import type {
+    IPlexLibrary,
+    PlexLibraryAuthorizationFailure,
+} from '../../../modules/plex/library';
 import type {
     IPlexStreamResolver,
     StreamResolverError,
@@ -46,7 +49,7 @@ export interface OrchestratorEventBinderDeps {
     handlePlayerStateChange: (state: PlaybackState) => void;
     handlePlayerTimeUpdate: (payload: { currentTimeMs: number; durationMs: number }) => void;
     handlePlayerBufferUpdate: (payload: { percent: number; bufferedRanges: TimeRange[] }) => void;
-    handlePlexLibraryAuthExpired: () => void;
+    handlePlexLibraryAuthorizationFailure: (failure: PlexLibraryAuthorizationFailure) => void;
     handlePlexStreamError: (error: StreamResolverError) => void;
     handleScreenChange: (payload: { from: Screen; to: Screen }) => void;
     handleLifecyclePause: () => Promise<void>;
@@ -210,12 +213,12 @@ export class OrchestratorEventBinder {
     private _wirePlexEvents(cleanups: Array<() => void>): void {
         const plexLibrary = this._deps.getPlexLibrary();
         if (plexLibrary) {
-            const authExpiredHandler = (): void => {
-                this._deps.handlePlexLibraryAuthExpired();
+            const authorizationFailureHandler = (failure: PlexLibraryAuthorizationFailure): void => {
+                this._deps.handlePlexLibraryAuthorizationFailure(failure);
             };
-            plexLibrary.on('authExpired', authExpiredHandler);
+            plexLibrary.on('authorizationFailure', authorizationFailureHandler);
             cleanups.push(() => {
-                plexLibrary.off('authExpired', authExpiredHandler);
+                plexLibrary.off('authorizationFailure', authorizationFailureHandler);
             });
         }
 

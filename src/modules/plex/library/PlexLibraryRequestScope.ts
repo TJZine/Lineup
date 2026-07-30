@@ -1,5 +1,6 @@
 import { AppErrorCode } from '../../../types/app-errors';
 import type { PlexLibraryConfig } from './interfaces';
+import { isPlexDiscoverySelectionSupersededError } from '../discovery';
 import {
     PlexLibraryError,
     PlexLibraryScopeSupersededError,
@@ -9,12 +10,19 @@ export interface PlexLibraryRequestScopeSnapshot {
     readonly signal: AbortSignal | null;
     readonly serverUri: string | null;
     readonly headers: Readonly<Record<string, string>>;
+    readonly accessToken: string;
     readonly key: object | null;
     readonly version: number;
 }
 
 interface PlexLibraryRequestScopeOptions {
-    config: Pick<PlexLibraryConfig, 'getServerUri' | 'getAuthHeaders' | 'getAuthToken'>;
+    config: Pick<
+        PlexLibraryConfig,
+        | 'getServerUri'
+        | 'getAuthHeaders'
+        | 'getAuthToken'
+        | 'refreshSelectedServerAccessToken'
+    >;
     onScopeChange: () => void;
 }
 
@@ -40,9 +48,46 @@ export class PlexLibraryRequestScope {
             signal,
             serverUri: identity.serverUri,
             headers: Object.freeze({ ...this._config.getAuthHeaders() }),
+            accessToken: identity.authToken,
             key: this._activeKey,
             version: this._version,
         });
+    }
+
+    async refreshAfterUnauthorized(
+        scope: PlexLibraryRequestScopeSnapshot,
+        signal: AbortSignal | null = null
+    ): Promise<{
+        kind: 'updated' | 'unchanged' | 'selected_server_unavailable';
+        scope: PlexLibraryRequestScopeSnapshot;
+    }> {
+        this.assertCurrent(scope, signal);
+        let result: Awaited<ReturnType<PlexLibraryConfig['refreshSelectedServerAccessToken']>>;
+        try {
+            result = await this._config.refreshSelectedServerAccessToken(
+                scope.accessToken,
+                { signal }
+            );
+        } catch (error) {
+            if (isPlexDiscoverySelectionSupersededError(error)) {
+                throw new PlexLibraryScopeSupersededError();
+            }
+            throw error;
+        }
+        signal?.throwIfAborted();
+        if (result.kind !== 'updated') {
+            this.assertCurrent(scope, signal);
+            return { kind: result.kind, scope };
+        }
+
+        const refreshedScope = this.capture(signal);
+        if (
+            refreshedScope.serverUri !== scope.serverUri
+            || refreshedScope.accessToken === scope.accessToken
+        ) {
+            throw new PlexLibraryScopeSupersededError();
+        }
+        return { kind: 'updated', scope: refreshedScope };
     }
 
     assertCurrent(

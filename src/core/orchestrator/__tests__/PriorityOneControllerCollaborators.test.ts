@@ -157,7 +157,7 @@ const makeInput = (
             wireEpgCoordinatorEvents: jest.fn().mockReturnValue([]),
             handleScheduleDayRollover: jest.fn().mockResolvedValue(undefined),
             handlePlayerTrackChange: jest.fn(),
-            handlePlexLibraryAuthExpired: jest.fn(),
+            handlePlexLibraryAuthorizationFailure: jest.fn(),
             handlePlexStreamError: jest.fn(),
             handleScreenChange: jest.fn(),
             reportPersistenceWarning: jest.fn(),

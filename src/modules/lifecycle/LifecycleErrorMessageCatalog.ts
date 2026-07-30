@@ -9,6 +9,12 @@ export class LifecycleErrorMessageCatalog {
                 return ERROR_MESSAGES.AUTH_EXPIRED;
             case AppErrorCode.AUTH_RATE_LIMITED:
                 return ERROR_MESSAGES.AUTH_RATE_LIMITED;
+            case AppErrorCode.PLEX_PROFILE_AUTH_INVALID:
+                return ERROR_MESSAGES.PLEX_PROFILE_AUTH_INVALID;
+            case AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED:
+                return ERROR_MESSAGES.PLEX_PROFILE_SERVER_ACCESS_DENIED;
+            case AppErrorCode.PLEX_CLOUD_UNAVAILABLE:
+                return ERROR_MESSAGES.PLEX_CLOUD_UNAVAILABLE;
             case AppErrorCode.NETWORK_UNAVAILABLE:
             case AppErrorCode.NETWORK_OFFLINE:
                 return ERROR_MESSAGES.NETWORK_UNAVAILABLE;

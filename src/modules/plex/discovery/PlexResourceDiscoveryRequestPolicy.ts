@@ -125,6 +125,7 @@ function normalizeJsonResource(resource: unknown, status: number): PlexApiResour
         sourceTitle: readJsonString(resource['sourceTitle']),
         ownerId: readJsonString(resource['ownerId']),
         owned: readJsonBoolean(resource['owned']),
+        accessToken: readJsonOpaqueString(resource['accessToken']),
         provides: readJsonString(resource['provides']),
         connections: readJsonConnections(resource['connections'], status),
     };
@@ -163,6 +164,10 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
 
 function readJsonString(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function readJsonOpaqueString(value: unknown): string {
+    return typeof value === 'string' ? value : '';
 }
 
 function readJsonBoolean(value: unknown): boolean {
@@ -223,6 +228,7 @@ function mapXmlDeviceToResource(device: Element): PlexApiResource {
         sourceTitle: device.getAttribute('sourceTitle') || '',
         ownerId: device.getAttribute('ownerId') || '',
         owned: parseXmlBoolean(device.getAttribute('owned')),
+        accessToken: device.getAttribute('accessToken') || '',
         provides,
         connections,
     };

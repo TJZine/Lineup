@@ -59,6 +59,7 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
                 sourceTitle: 'json-user',
                 ownerId: 'owner-json',
                 owned: true,
+                accessToken: 'json-resource-token',
                 provides: 'server',
                 connections: [],
             },
@@ -83,6 +84,7 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
                     sourceTitle="xml-user"
                     ownerId="owner-xml"
                     owned="1"
+                    accessToken="xml-resource-token"
                     provides="server">
                     <Connection
                         uri="https://xml.example:32400"
@@ -103,6 +105,7 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
                 sourceTitle: 'xml-user',
                 ownerId: 'owner-xml',
                 owned: true,
+                accessToken: 'xml-resource-token',
                 provides: 'server',
                 connections: [
                     {
@@ -162,6 +165,7 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
                 sourceTitle: ' json-user ',
                 ownerId: ' owner-json ',
                 owned: '1',
+                accessToken: ' opaque-resource-token ',
                 provides: ' server ',
                 connections: [
                     {
@@ -183,6 +187,7 @@ describe('discoverPlexResourcesWithRequestPolicy response parsing', () => {
                 sourceTitle: 'json-user',
                 ownerId: 'owner-json',
                 owned: true,
+                accessToken: ' opaque-resource-token ',
                 provides: 'server',
                 connections: [
                     {

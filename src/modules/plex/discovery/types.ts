@@ -29,6 +29,11 @@ export interface PlexServer {
     preferredConnection: PlexConnection | null;
 }
 
+/** Discovery-private resource state with its opaque, user-scoped PMS credential. */
+export interface PlexServerResource extends PlexServer {
+    accessToken: string;
+}
+
 /**
  * Captures the selected-server state owned by discovery so callers can roll
  * back transactional selection attempts without reaching into discovery internals.
@@ -56,8 +61,8 @@ export type ServerHealthRecord = {
 };
 
 export interface PlexServerDiscoveryState {
-    servers: PlexServer[];
-    selectedServer: PlexServer | null;
+    servers: PlexServerResource[];
+    selectedServer: PlexServerResource | null;
     selectedConnection: PlexConnection | null;
     lastRefreshAt: number | null;
     isDiscovering: boolean;
@@ -95,6 +100,7 @@ export interface PlexApiResource {
     sourceTitle: string;
     ownerId: string;
     owned: boolean;
+    accessToken: string;
     provides: string;
     connections: PlexApiConnection[];
 }

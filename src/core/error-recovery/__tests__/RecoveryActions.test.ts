@@ -5,6 +5,7 @@ import type { RecoveryActionDeps } from '../types';
 describe('getRecoveryActions', () => {
     const createDeps = (): RecoveryActionDeps => ({
         goToAuth: jest.fn(),
+        goToProfileSelect: jest.fn(),
         goToServerSelect: jest.fn(),
         goToChannelEdit: jest.fn(),
         goToSettings: jest.fn(),
@@ -53,6 +54,19 @@ describe('getRecoveryActions', () => {
         expect(exitResult).toBeInstanceOf(Promise);
     });
 
+    it('returns network recovery when Plex cloud could not classify a PMS 401', async () => {
+        const deps = createDeps();
+        const actions = getRecoveryActions(AppErrorCode.PLEX_CLOUD_UNAVAILABLE, deps);
+
+        expect(actions.map((action) => action.label)).toEqual(['Retry', 'Exit']);
+        await actions[0]!.action();
+        await actions[1]!.action();
+        expect(deps.retryStart).toHaveBeenCalledTimes(1);
+        expect(deps.exitApp).toHaveBeenCalledTimes(1);
+        expect(deps.goToServerSelect).not.toHaveBeenCalled();
+        expect(deps.goToAuth).not.toHaveBeenCalled();
+    });
+
     it('returns Select Server and Retry for SERVER_UNREACHABLE', () => {
         const deps = createDeps();
         const actions = getRecoveryActions(AppErrorCode.SERVER_UNREACHABLE, deps);
@@ -73,6 +87,39 @@ describe('getRecoveryActions', () => {
         actions[1]!.action();
         expect(deps.goToServerSelect).toHaveBeenCalledTimes(1);
         expect(deps.retryStart).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns only profile re-selection when the managed credential is invalid', () => {
+        const deps = createDeps();
+        const actions = getRecoveryActions(AppErrorCode.PLEX_PROFILE_AUTH_INVALID, deps);
+
+        expect(actions).toEqual([
+            expect.objectContaining({ label: 'Switch Profile', isPrimary: true }),
+        ]);
+
+        actions[0]!.action();
+        expect(deps.goToProfileSelect).toHaveBeenCalledTimes(1);
+        expect(deps.goToServerSelect).not.toHaveBeenCalled();
+        expect(deps.goToAuth).not.toHaveBeenCalled();
+    });
+
+    it('returns profile/server recovery when a valid profile lacks selected-server access', () => {
+        const deps = createDeps();
+        const actions = getRecoveryActions(
+            AppErrorCode.PLEX_PROFILE_SERVER_ACCESS_DENIED,
+            deps
+        );
+
+        expect(actions).toEqual([
+            expect.objectContaining({ label: 'Switch Profile', isPrimary: true }),
+            expect.objectContaining({ label: 'Select Server', isPrimary: false }),
+        ]);
+
+        actions[0]!.action();
+        actions[1]!.action();
+        expect(deps.goToProfileSelect).toHaveBeenCalledTimes(1);
+        expect(deps.goToServerSelect).toHaveBeenCalledTimes(1);
+        expect(deps.goToAuth).not.toHaveBeenCalled();
     });
 
     it('returns Retry and Skip for PLAYBACK_DECODE_ERROR', () => {

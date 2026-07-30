@@ -13,6 +13,7 @@ import type {
     PlexAuthData,
     PlexStoredCredentialsReadResult,
     PlexStoredCredentialsValidationResult,
+    PlexCurrentCredentialValidity,
     PlexAuthValidationGuard,
     PlexHomeUser,
     PlexPinRequest,
@@ -26,7 +27,11 @@ import {
     createPlexServiceError,
     fetchWithRetry,
 } from './plexAuthTransport';
-import { parsePinResponse, parseUserResponse } from './plexAuthPayloadParsers';
+import {
+    parsePinResponse,
+    parseUserResponse,
+    type ParseUserResponseOptions,
+} from './plexAuthPayloadParsers';
 import { fetchWithTimeout } from '../shared/fetchWithTimeout';
 import { PlexHomeProfileClient } from './plexHomeProfileClient';
 import { clonePlexAuthToken, normalizePlexAuthTokenDates } from './plexAuthTokenOwnership';
@@ -48,6 +53,10 @@ interface AuthOperation {
     terminal: boolean;
     pinId: number | null;
 }
+
+type TokenValidationOutcome =
+    | { kind: 'valid'; response: Response }
+    | { kind: 'invalid' };
 
 /** Plex credential, PIN, token-validation, and profile lifecycle owner. */
 export class PlexAuth implements IPlexAuth {
@@ -196,10 +205,17 @@ export class PlexAuth implements IPlexAuth {
         if (storedRead.kind === 'missing') return { kind: 'missing', guard };
         if (storedRead.kind === 'corrupted') return { ...storedRead, guard };
         const stored = storedRead.credentials;
+        const managedProfileFallback = stored.activeToken.token !== stored.accountToken.token
+            ? {
+                usernameFallback: stored.activeToken.username,
+                emailFallback: stored.activeToken.email,
+            }
+            : undefined;
         const activeToken = await this._classifyTokenForOperation(
             stored.activeToken.token,
             operation,
-            signal
+            signal,
+            managedProfileFallback
         );
         if (activeToken) {
             this._commitCredentials(
@@ -223,6 +239,35 @@ export class PlexAuth implements IPlexAuth {
             true
         );
         return { kind: 'account_fallback_valid', guard };
+    }
+
+    public async probeCurrentCredentialValidity(options?: {
+        signal?: AbortSignal | null;
+    }): Promise<PlexCurrentCredentialValidity> {
+        const signal = options?.signal ?? null;
+        throwIfAborted(signal);
+        const observedOperationId = this._operationId;
+        const activeToken = this._state.activeToken?.token ?? null;
+        const accountToken = this._state.accountToken?.token ?? null;
+        const isCurrent = (): boolean =>
+            observedOperationId === this._operationId
+            && activeToken === (this._state.activeToken?.token ?? null)
+            && accountToken === (this._state.accountToken?.token ?? null);
+
+        if (!activeToken || !accountToken) {
+            return isCurrent() ? { kind: 'account_expired' } : { kind: 'superseded' };
+        }
+
+        const activeValid = await this._probeTokenValidity(activeToken, signal);
+        if (!isCurrent()) return { kind: 'superseded' };
+        if (activeValid) return { kind: 'active_valid' };
+        if (activeToken === accountToken) return { kind: 'account_expired' };
+
+        const accountValid = await this._probeTokenValidity(accountToken, signal);
+        if (!isCurrent()) return { kind: 'superseded' };
+        return accountValid
+            ? { kind: 'managed_profile_invalid', accountValid: true }
+            : { kind: 'account_expired' };
     }
 
     public readStoredCredentialsAndClearCorruption(): PlexStoredCredentialsReadResult {
@@ -440,10 +485,11 @@ export class PlexAuth implements IPlexAuth {
     private async _classifyTokenForOperation(
         token: string,
         operation: AuthOperation,
-        signal: AbortSignal | null
+        signal: AbortSignal | null,
+        fallback?: ParseUserResponseOptions
     ): Promise<PlexAuthToken | null> {
         try {
-            const result = await this._classifyToken(token, signal);
+            const result = await this._classifyToken(token, signal, fallback);
             this._observe(operation, signal);
             return result;
         } catch (error) {
@@ -454,8 +500,40 @@ export class PlexAuth implements IPlexAuth {
 
     private async _classifyToken(
         token: string,
-        signal: AbortSignal | null
+        signal: AbortSignal | null,
+        fallback?: ParseUserResponseOptions
     ): Promise<PlexAuthToken | null> {
+        const outcome = await this._requestTokenValidation(token, signal);
+        if (outcome.kind === 'invalid') return null;
+
+        let data: unknown;
+        try {
+            data = await outcome.response.json();
+        } catch {
+            if (signal?.aborted) throw readAbortSignalReason(signal);
+            throw new PlexApiError(
+                AppErrorCode.PARSE_ERROR,
+                'Failed to parse token validation response',
+                outcome.response.status,
+                false
+            );
+        }
+
+        throwIfAborted(signal);
+        return parseUserResponse(data, token, fallback);
+    }
+
+    private async _probeTokenValidity(
+        token: string,
+        signal: AbortSignal | null
+    ): Promise<boolean> {
+        return (await this._requestTokenValidation(token, signal)).kind === 'valid';
+    }
+
+    private async _requestTokenValidation(
+        token: string,
+        signal: AbortSignal | null
+    ): Promise<TokenValidationOutcome> {
         throwIfAborted(signal);
         try {
             const response = await fetchWithTimeout({
@@ -468,22 +546,10 @@ export class PlexAuth implements IPlexAuth {
                 timeoutMs: PLEX_AUTH_CONSTANTS.TOKEN_VALIDATION_TIMEOUT_MS,
             });
             throwIfAborted(signal);
-            if (response.status === 200) {
-                let data: unknown;
-                try {
-                    data = await response.json();
-                } catch {
-                    throw new PlexApiError(
-                        AppErrorCode.PARSE_ERROR,
-                        'Failed to parse token validation response',
-                        response.status,
-                        false
-                    );
-                }
-                throwIfAborted(signal);
-                return parseUserResponse(data, token);
+            if (response.status === 200) return { kind: 'valid', response };
+            if (response.status === 401 || response.status === 403) {
+                return { kind: 'invalid' };
             }
-            if (response.status === 401 || response.status === 403) return null;
             if (response.status === 429) {
                 throw new PlexApiError(AppErrorCode.RATE_LIMITED, 'Rate limited during token validation', 429, true);
             }
