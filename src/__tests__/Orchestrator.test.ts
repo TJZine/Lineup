@@ -2650,6 +2650,80 @@ describe('AppOrchestrator', () => {
             expect(mockVideoPlayer.stop).toHaveBeenCalled();
         });
 
+        it('clears the public playback snapshot on shutdown', async () => {
+            const program = {
+                item: {
+                    ratingKey: 'snapshot-item',
+                    title: 'Snapshot Movie',
+                    fullTitle: 'Snapshot Movie',
+                    durationMs: 60_000,
+                    type: 'movie',
+                    thumb: null,
+                    year: 2024,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 61_000,
+                elapsedMs: 5_000,
+                remainingMs: 55_000,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                isCurrent: true,
+            } satisfies ScheduledProgram;
+            let resolvePlaybackStarted!: () => void;
+            const playbackStarted = new Promise<void>((resolve) => {
+                resolvePlaybackStarted = resolve;
+            });
+            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
+                createStoredValidationResult('active_valid')
+            );
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
+            await orchestrator.start();
+            mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
+            mockScheduler.getState.mockReturnValue({ isActive: false, channelId: null });
+            mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(makeDecision());
+            mockVideoPlayer.play.mockImplementationOnce(async () => {
+                resolvePlaybackStarted();
+            });
+
+            expect(schedulerHandlers.programStart).toBeDefined();
+            schedulerHandlers.programStart?.(program);
+            await playbackStarted;
+            await Promise.resolve();
+
+            expect(orchestrator.getPlaybackInfoSnapshot()).toEqual({
+                channel: {
+                    id: mockChannel.id,
+                    number: mockChannel.number,
+                    name: mockChannel.name,
+                },
+                program: {
+                    itemKey: 'snapshot-item',
+                    title: 'Snapshot Movie',
+                    fullTitle: 'Snapshot Movie',
+                    type: 'movie',
+                    scheduledStartTime: 1_000,
+                    scheduledEndTime: 61_000,
+                    elapsedMs: 5_000,
+                    remainingMs: 55_000,
+                },
+                stream: expect.objectContaining({
+                    protocol: 'direct',
+                    isDirectPlay: true,
+                    isTranscoding: false,
+                    sessionId: 'sess-1',
+                }),
+            });
+
+            await orchestrator.shutdown();
+
+            expect(orchestrator.getPlaybackInfoSnapshot()).toEqual({
+                channel: null,
+                program: null,
+                stream: null,
+            });
+        });
+
         it('flushes pending channel saves before module teardown', async () => {
             await orchestrator.shutdown();
 
