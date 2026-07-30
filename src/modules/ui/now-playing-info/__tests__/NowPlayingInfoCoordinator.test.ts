@@ -169,6 +169,22 @@ describe('NowPlayingInfoCoordinator', () => {
         expect(overlay.show).toHaveBeenCalledTimes(1);
     });
 
+    it('applies configured auto-hide timing and poster dimensions when opening', () => {
+        const plexLibrary = makePlexLibrary();
+        const getAutoHideMs = jest.fn(() => 4321);
+        const { coordinator, overlay } = setup({
+            getPlexLibrary: () => plexLibrary,
+            getAutoHideMs,
+        });
+
+        coordinator.handleModalOpen(modalId);
+
+        expect(getAutoHideMs).toHaveBeenCalledTimes(1);
+        expect(overlay.setAutoHideMs).toHaveBeenCalledWith(4321);
+        expect(plexLibrary.getImageUrl).toHaveBeenCalledWith('/thumb', 111, 222);
+        coordinator.handleModalClose(modalId);
+    });
+
     it('handleModalOpen uses scheduled metadata when details are unavailable', () => {
         const program = makeProgram({
             item: {
