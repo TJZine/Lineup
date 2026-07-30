@@ -190,20 +190,23 @@ const scanSource = (
             if (
                 ts.isVariableDeclaration(node)
                 && ts.isIdentifier(node.name)
-                && node.initializer
                 && !suspiciousBindings.has(node)
             ) {
-                const info = assertionInfo(node.initializer);
-                const receiverBinding = info.receiver
-                    ? resolveBinding(info.receiver, node.initializer)
-                    : null;
-                if (
-                    info.suspicious
-                    || node.type?.kind === ts.SyntaxKind.AnyKeyword
-                    || (receiverBinding !== null && suspiciousBindings.has(receiverBinding))
-                ) {
+                if (node.type?.kind === ts.SyntaxKind.AnyKeyword) {
                     suspiciousBindings.add(node);
                     changed = true;
+                } else if (node.initializer) {
+                    const info = assertionInfo(node.initializer);
+                    const receiverBinding = info.receiver
+                        ? resolveBinding(info.receiver, node.initializer)
+                        : null;
+                    if (
+                        info.suspicious
+                        || (receiverBinding !== null && suspiciousBindings.has(receiverBinding))
+                    ) {
+                        suspiciousBindings.add(node);
+                        changed = true;
+                    }
                 }
             }
             ts.forEachChild(node, discoverAliases);
@@ -318,6 +321,12 @@ describe('test anti-pattern contracts', () => {
         ['chained alias', `const mutable = target as unknown as { _secret: string }; const alias = mutable; alias['_secret']`],
         ['typed-any alias', `const sutAny: any = target; sutAny._secret`],
         ['chained typed-any alias', `const sutAny: any = target; const alias = sutAny; alias['_secret']`],
+        [
+            'suite-owned typed-any alias assigned in beforeEach',
+            `let sutAny: any;
+            beforeEach(() => { sutAny = target; });
+            it('probes', () => { sutAny._secret; });`,
+        ],
     ])('detects private probes through %s', (_label, source) => {
         expect(scanSource('synthetic.test.ts', source).privateProbes).toHaveLength(1);
     });
