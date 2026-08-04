@@ -26,8 +26,6 @@ import {
     type SelectedServerPersistenceEvidence,
     type SelectedServerPersistenceProof,
 } from '../../server-selection/SelectedServerPersistenceAdapter';
-import { SelectedServerRuntimeController } from '../../server-selection/SelectedServerRuntimeController';
-import { clearPersistedSelectedServer } from '../../server-selection/SelectedServerClearPersistence';
 import type {
     SelectedServerQuarantineCommandState,
     SelectedServerQuarantineRecoveryPresentation,
@@ -35,7 +33,6 @@ import type {
 import { restoreUnselectedServerRuntime } from '../../server-selection/SelectedServerUnselectedRestoration';
 import type {
     OrchestratorServerSelectionResult,
-    SelectedServerPersistenceResult,
 } from '../../server-selection/ServerSelectionTypes';
 
 export interface OrchestratorServerSelectionRuntimeDeps {
@@ -65,17 +62,11 @@ export interface OrchestratorServerSelectionRuntimeDeps {
 
 export class OrchestratorServerSelectionRuntime {
     private readonly _persistence: SelectedServerPersistenceAdapter;
-    private readonly _runtimeController: SelectedServerRuntimeController;
     private readonly _coordinator: ServerSelectionCoordinator;
 
     constructor(private readonly _deps: OrchestratorServerSelectionRuntimeDeps) {
         this._persistence = new SelectedServerPersistenceAdapter({
             getCredentialsPort: (): IPlexAuth | null => this._deps.getPlexAuth(),
-        });
-        this._runtimeController = new SelectedServerRuntimeController({
-            clearPersistedSelection: (): Promise<SelectedServerPersistenceResult> =>
-                Promise.resolve(clearPersistedSelectedServer(this._deps.getPlexAuth())),
-            clearDiscoverySelection: (): void => this._requireDiscovery('clearSelectedServer').clearSelection(),
         });
         this._coordinator = new ServerSelectionCoordinator({
             captureDiscoverySelectionSnapshot: (): PlexDiscoverySelectedServerSnapshot =>
@@ -92,6 +83,10 @@ export class OrchestratorServerSelectionRuntime {
                 this._persistence.capturePersistenceEvidence(),
             persistCandidateSelection: (evidence, serverId, serverUri): SelectedServerPersistenceProof =>
                 this._persistence.persistCandidateSelection(evidence, serverId, serverUri),
+            clearPersistedServerSelection: (evidence): SelectedServerPersistenceProof =>
+                this._persistence.clearCandidateSelection(evidence),
+            clearDiscoverySelection: (): void =>
+                this._requireDiscovery('clearSelectedServer').clearSelection(),
             restorePersistenceEvidence: (evidence): SelectedServerPersistenceProof =>
                 this._persistence.restorePersistenceEvidence(evidence),
             assertPersistenceEvidenceCurrent: (evidence): void =>
@@ -118,8 +113,6 @@ export class OrchestratorServerSelectionRuntime {
                 this._runSelectedServerInitialization(options),
             restoreUnselectedRuntime: (operation): Promise<void> =>
                 this._restoreUnselectedRuntime(operation),
-            clearSelectedServerSelection: (): Promise<void> =>
-                this._runtimeController.clearSelection().then(() => undefined),
             restoreClearedUnselectedRuntime: (): Promise<void> =>
                 this._restoreUnselectedRuntime({
                     signal: new AbortController().signal,

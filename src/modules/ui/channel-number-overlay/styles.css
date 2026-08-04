@@ -16,12 +16,6 @@
 }
 
 .channel-number-panel {
-  --runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);
-  --runtime-overlay-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 6, 8, 10);
-  --runtime-overlay-start-alpha: 30%;
-  --runtime-overlay-start-alpha-legacy: 0.30;
-  --runtime-overlay-end-alpha: 40%;
-  --runtime-overlay-end-alpha-legacy: 0.40;
   --runtime-overlay-space-10: 10px;
   display: inline-flex;
   align-items: center;
@@ -42,41 +36,6 @@
     rgb(var(--runtime-overlay-tint-rgb) / var(--runtime-overlay-end-alpha)) 100%
   );
   color: var(--color-text-primary);
-}
-
-.theme-glass .channel-number-panel {
-  --runtime-overlay-start-alpha: 38%;
-  --runtime-overlay-start-alpha-legacy: 0.38;
-  --runtime-overlay-end-alpha: 52%;
-  --runtime-overlay-end-alpha-legacy: 0.52;
-}
-
-.theme-slate-pine .channel-number-panel {
-  --runtime-overlay-start-alpha: 34%;
-  --runtime-overlay-start-alpha-legacy: 0.34;
-  --runtime-overlay-end-alpha: 46%;
-  --runtime-overlay-end-alpha-legacy: 0.46;
-}
-
-.theme-swiss .channel-number-panel {
-  --runtime-overlay-start-alpha: 34%;
-  --runtime-overlay-start-alpha-legacy: 0.34;
-  --runtime-overlay-end-alpha: 46%;
-  --runtime-overlay-end-alpha-legacy: 0.46;
-}
-
-.theme-directv .channel-number-panel {
-  --runtime-overlay-start-alpha: 42%;
-  --runtime-overlay-start-alpha-legacy: 0.42;
-  --runtime-overlay-end-alpha: 56%;
-  --runtime-overlay-end-alpha-legacy: 0.56;
-}
-
-.theme-ember-steel .channel-number-panel {
-  --runtime-overlay-start-alpha: 38%;
-  --runtime-overlay-start-alpha-legacy: 0.38;
-  --runtime-overlay-end-alpha: 52%;
-  --runtime-overlay-end-alpha-legacy: 0.52;
 }
 
 .channel-number-label {

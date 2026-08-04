@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import {
     blockFor,
     blockWithin,
@@ -32,17 +34,50 @@ const OVERLAY_CONTRACTS: OverlayContract[] = [
 
 const THEME_SELECTORS = Object.values(THEME_CLASSES);
 const FORCED_COLORS_RULE = '@media (forced-colors: active)';
+type ThemeClass = (typeof THEME_CLASSES)[keyof typeof THEME_CLASSES];
+
+const OVERLAY_ALPHA_PROPERTIES = [
+    '--runtime-overlay-start-alpha',
+    '--runtime-overlay-start-alpha-legacy',
+    '--runtime-overlay-end-alpha',
+    '--runtime-overlay-end-alpha-legacy',
+] as const;
+
+const CENTRAL_OVERLAY_PROPERTIES = [
+    '--runtime-overlay-tint-rgb',
+    '--runtime-overlay-tint-rgb-legacy',
+    ...OVERLAY_ALPHA_PROPERTIES,
+] as const;
+
+const EXPECTED_OVERLAY_ALPHA = {
+    'theme-slate-pine': ['34%', '0.34', '46%', '0.46'],
+    'theme-swiss': ['34%', '0.34', '46%', '0.46'],
+    'theme-directv': ['42%', '0.42', '56%', '0.56'],
+    'theme-glass': ['38%', '0.38', '52%', '0.52'],
+    'theme-ember-steel': ['38%', '0.38', '52%', '0.52'],
+} as const satisfies Record<ThemeClass, readonly [string, string, string, string]>;
+
+const declarationValues = (css: string, property: string): string[] => {
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return [...css.matchAll(new RegExp(
+        `^\\s*${escapedProperty}\\s*:\\s*([^;]+);`,
+        'gm'
+    ))].map((match) => match[1]?.replace(/\s+/g, ' ').trim() ?? '');
+};
+
+const cssFilesUnder = (directory: string): string[] =>
+    fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) return cssFilesUnder(entryPath);
+        return entry.isFile() && entry.name.endsWith('.css') ? [entryPath] : [];
+    });
 
 describe('runtime overlay style contracts', () => {
     it.each(OVERLAY_CONTRACTS)(
         'keeps %s on theme-aware compact overlay scrims',
-        ({ file, selector }) => {
+        ({ file }) => {
             const css = read(file);
 
-            expect(css).toContain('--runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);');
-            expect(css).toContain('--runtime-overlay-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 6, 8, 10);');
-            expect(css).toContain('--runtime-overlay-start-alpha-legacy: 0.30;');
-            expect(css).toContain('--runtime-overlay-end-alpha-legacy: 0.40;');
             expect(css).toContain(
                 'rgba(var(--runtime-overlay-tint-rgb-legacy), var(--runtime-overlay-start-alpha-legacy)) 0%'
             );
@@ -57,12 +92,53 @@ describe('runtime overlay style contracts', () => {
             );
             expect(css).not.toContain('rgba(0, 0, 0, 0.30)');
             expect(css).not.toContain('rgba(0, 0, 0, 0.40)');
-
-            for (const themeSelector of THEME_SELECTORS) {
-                expect(css).toContain(`.${themeSelector} ${selector}`);
-            }
         }
     );
+
+    it('keeps centralized runtime overlay declarations out of every UI package stylesheet', () => {
+        const uiRoot = path.join(process.cwd(), 'src/modules/ui');
+
+        for (const file of cssFilesUnder(uiRoot)) {
+            const css = fs.readFileSync(file, 'utf8');
+            for (const property of CENTRAL_OVERLAY_PROPERTIES) {
+                expect({
+                    file: path.relative(process.cwd(), file),
+                    property,
+                    declarations: declarationValues(css, property),
+                }).toEqual({
+                    file: path.relative(process.cwd(), file),
+                    property,
+                    declarations: [],
+                });
+            }
+        }
+    });
+
+    it('owns runtime overlay tint and theme alpha tokens once in the global theme surface', () => {
+        const css = read('src/styles/themes.css');
+
+        const rootBlock = blockFor(css, ':root');
+        expect(declarationValues(rootBlock, '--runtime-overlay-tint-rgb'))
+            .toEqual(['var(--scrim-tint-rgb, 6 8 10)']);
+        expect(declarationValues(rootBlock, '--runtime-overlay-tint-rgb-legacy'))
+            .toEqual(['var(--scrim-tint-rgb-legacy, 6, 8, 10)']);
+        expect(OVERLAY_ALPHA_PROPERTIES.map((property) => declarationValues(rootBlock, property)))
+            .toEqual([['30%'], ['0.30'], ['40%'], ['0.40']]);
+
+        for (const themeSelector of THEME_SELECTORS) {
+            const themeBlock = blockFor(css, `.${themeSelector}`);
+            const expected = EXPECTED_OVERLAY_ALPHA[themeSelector];
+            OVERLAY_ALPHA_PROPERTIES.forEach((property, index) => {
+                expect(declarationValues(themeBlock, property)).toEqual([expected[index]]);
+            });
+        }
+
+        for (const property of OVERLAY_ALPHA_PROPERTIES) {
+            expect(declarationValues(css, property)).toHaveLength(THEME_SELECTORS.length + 1);
+        }
+        expect(declarationValues(css, '--runtime-overlay-tint-rgb')).toHaveLength(1);
+        expect(declarationValues(css, '--runtime-overlay-tint-rgb-legacy')).toHaveLength(1);
+    });
 
     it.each(OVERLAY_CONTRACTS)(
         'keeps %s scoped to a package-local forced-colors fallback',

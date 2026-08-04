@@ -31,12 +31,6 @@
 }
 
 .channel-transition-panel {
-  --runtime-overlay-tint-rgb: var(--scrim-tint-rgb, 6 8 10);
-  --runtime-overlay-tint-rgb-legacy: var(--scrim-tint-rgb-legacy, 6, 8, 10);
-  --runtime-overlay-start-alpha: 30%;
-  --runtime-overlay-start-alpha-legacy: 0.30;
-  --runtime-overlay-end-alpha: 40%;
-  --runtime-overlay-end-alpha-legacy: 0.40;
   --runtime-overlay-space-2: 2px;
   --runtime-overlay-space-10: 10px;
   --runtime-overlay-space-14: 14px;
@@ -57,41 +51,6 @@
   );
   color: var(--color-text-primary);
   max-width: min(520px, 70vw);
-}
-
-.theme-glass .channel-transition-panel {
-  --runtime-overlay-start-alpha: 38%;
-  --runtime-overlay-start-alpha-legacy: 0.38;
-  --runtime-overlay-end-alpha: 52%;
-  --runtime-overlay-end-alpha-legacy: 0.52;
-}
-
-.theme-slate-pine .channel-transition-panel {
-  --runtime-overlay-start-alpha: 34%;
-  --runtime-overlay-start-alpha-legacy: 0.34;
-  --runtime-overlay-end-alpha: 46%;
-  --runtime-overlay-end-alpha-legacy: 0.46;
-}
-
-.theme-swiss .channel-transition-panel {
-  --runtime-overlay-start-alpha: 34%;
-  --runtime-overlay-start-alpha-legacy: 0.34;
-  --runtime-overlay-end-alpha: 46%;
-  --runtime-overlay-end-alpha-legacy: 0.46;
-}
-
-.theme-directv .channel-transition-panel {
-  --runtime-overlay-start-alpha: 42%;
-  --runtime-overlay-start-alpha-legacy: 0.42;
-  --runtime-overlay-end-alpha: 56%;
-  --runtime-overlay-end-alpha-legacy: 0.56;
-}
-
-.theme-ember-steel .channel-transition-panel {
-  --runtime-overlay-start-alpha: 38%;
-  --runtime-overlay-start-alpha-legacy: 0.38;
-  --runtime-overlay-end-alpha: 52%;
-  --runtime-overlay-end-alpha-legacy: 0.52;
 }
 
 .channel-transition-spinner {

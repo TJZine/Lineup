@@ -71,6 +71,12 @@ function createHarness(snapshot?: PlexDiscoverySelectedServerSnapshot): Coordina
             state: 'updated' as const,
             publicResult: 'updated' as const,
         })),
+        clearPersistedServerSelection: jest.fn((_evidence: SelectedServerPersistenceEvidence) => ({
+            phase: 'candidate' as const,
+            state: 'updated' as const,
+            publicResult: 'updated' as const,
+        })),
+        clearDiscoverySelection: jest.fn(),
         restorePersistenceEvidence: jest.fn((_evidence: SelectedServerPersistenceEvidence) => snapshot?.server === null
             ? {
                 phase: 'rollback' as const,
@@ -99,7 +105,6 @@ function createHarness(snapshot?: PlexDiscoverySelectedServerSnapshot): Coordina
             startupHandoff.getSupersedingStartupHandoff(lineage)),
         runSelectedServerInitialization: jest.fn().mockResolvedValue(COMPLETED),
         restoreUnselectedRuntime: jest.fn().mockResolvedValue(undefined),
-        clearSelectedServerSelection: jest.fn().mockResolvedValue(undefined),
         restoreClearedUnselectedRuntime: jest.fn().mockResolvedValue(undefined),
         publishUnselectedRuntimePresentation: jest.fn(),
         prepareQuarantineRuntime: jest.fn().mockResolvedValue(undefined),
@@ -659,15 +664,70 @@ describe('ServerSelectionCoordinator', () => {
         const clear = coordinator.clearSelectedServer();
         await selectionStarted;
 
-        expect(harness.deps.clearSelectedServerSelection).not.toHaveBeenCalled();
+        expect(harness.deps.clearPersistedServerSelection).not.toHaveBeenCalled();
+        expect(harness.deps.clearDiscoverySelection).not.toHaveBeenCalled();
         releaseSelection();
         await selection;
         await clear;
 
-        expect(harness.deps.clearSelectedServerSelection).toHaveBeenCalledTimes(1);
+        expect(harness.deps.clearPersistedServerSelection).toHaveBeenCalledTimes(1);
+        expect(harness.deps.clearDiscoverySelection).toHaveBeenCalledTimes(1);
         expect(harness.deps.restoreClearedUnselectedRuntime).toHaveBeenCalledTimes(1);
         expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(2);
         expect(harness.deps.publishUnselectedRuntimePresentation).toHaveBeenCalledTimes(1);
+    });
+
+    it('restores the prior selected scope when discovery clearing fails after persistence clears', async () => {
+        const harness = createHarness();
+        const clearFailure = new Error('discovery clear superseded');
+        harness.deps.clearDiscoverySelection.mockImplementationOnce(() => {
+            throw clearFailure;
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+        await expect(coordinator.clearSelectedServer()).rejects.toBe(clearFailure);
+
+        expect(harness.deps.clearPersistedServerSelection).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restoreDiscoverySelectionSnapshot).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restorePersistenceEvidence).toHaveBeenCalledTimes(1);
+        expect(harness.deps.runSelectedServerInitialization).toHaveBeenCalledTimes(1);
+        expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restoreClearedUnselectedRuntime).not.toHaveBeenCalled();
+        expect(harness.deps.publishUnselectedRuntimePresentation).not.toHaveBeenCalled();
+        expect(harness.deps.prepareQuarantineRuntime).not.toHaveBeenCalled();
+        expect(coordinator.getQuarantineState()).toEqual({ kind: 'clear' });
+    });
+
+    it('quarantines an unprovable rollback after discovery clearing fails', async () => {
+        const harness = createHarness();
+        const clearFailure = new Error('discovery clear superseded');
+        harness.deps.clearDiscoverySelection.mockImplementationOnce(() => {
+            throw clearFailure;
+        });
+        harness.deps.restoreDiscoverySelectionSnapshot.mockImplementationOnce(() => {
+            throw new Error('prior discovery scope is no longer restorable');
+        });
+        const coordinator = new ServerSelectionCoordinator(harness.deps);
+
+        await expect(coordinator.clearSelectedServer()).rejects.toThrow('discovery_restore');
+
+        expect(coordinator.getQuarantineState()).toMatchObject({
+            kind: 'quarantined',
+            phase: 'discovery_restore',
+            diagnostic: {
+                operationFailure: {
+                    step: 'clear',
+                    error: { message: 'discovery clear superseded' },
+                },
+                recoveryFailure: {
+                    step: 'discovery_restore',
+                    error: { message: 'prior discovery scope is no longer restorable' },
+                },
+            },
+        });
+        expect(harness.deps.prepareQuarantineRuntime).toHaveBeenCalledTimes(1);
+        expect(harness.deps.restoreClearedUnselectedRuntime).not.toHaveBeenCalled();
+        expect(harness.deps.publishUnselectedRuntimePresentation).not.toHaveBeenCalled();
     });
 
     it('quarantines failed clear restoration and Retry clears only after full recovery', async () => {

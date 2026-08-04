@@ -146,14 +146,14 @@ import { getRecoveryActions as getRecoveryActionsHelper } from '../error-recover
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from '../error-recovery/LifecycleErrorAdapter';
 import type { ErrorRecoveryAction } from '../error-recovery/types';
 import type { ToastInput } from '../../shared/toast';
+import type { SubtitleMode } from '../../shared/subtitle-mode';
 import type { PlatformServices } from '../../platform';
 import { createWebOsPlatformServices } from '../../platform';
 import { summarizeErrorForLog } from '../../utils/errors';
 import { ScheduleDayRolloverController } from './controllers/ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './controllers/SubtitleTrackRecoveryController';
-import { createOrchestratorRuntimeControllers } from './runtime/OrchestratorRuntimeControllerBuilder';
 import { OrchestratorSchedulePolicy } from './policy/OrchestratorSchedulePolicy';
-import { createAppStartupUiInitializer } from '../app-shell/chrome/AppStartupUiPortFactory';
+import { AppStartupUiInitializer } from '../app-shell/chrome/AppStartupUiInitializer';
 import {
     createDefaultRecoverableRuntimeIssueReporter,
     type RecoverableRuntimeIssueReporter,
@@ -472,7 +472,7 @@ export class AppOrchestrator {
         this._epgDebugRuntime?.destroy();
         this._epgDebugRuntime = new EPGDebugRuntime();
         this._configureDiscoveryStorageKeysForActiveUser();
-        const startupUiInitializer = createAppStartupUiInitializer(
+        const startupUiInitializer = new AppStartupUiInitializer(
             orchestratorConfig,
             {
                 nowPlayingInfo: this._nowPlayingInfo,
@@ -613,48 +613,45 @@ export class AppOrchestrator {
                 )
             )
         );
-        this._assignRuntimeControllers(
-            createOrchestratorRuntimeControllers({
-                scheduleDayRollover: {
-                    now: (): number => Date.now(),
-                    getChannelManager: (): IChannelManager | null => this._channelManager,
-                    getScheduler: (): IChannelScheduler | null => this._scheduler,
-                    getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
-                    getLocalMidnightMs: (timeMs: number): number =>
-                        this._schedulePolicy.getLocalMidnightMs(timeMs),
-                    getLocalDayKey: (timeMs: number): number =>
-                        this._schedulePolicy.getLocalDayKey(timeMs),
-                    buildDailyScheduleConfig: (
-                        channel: ChannelConfig,
-                        items: ResolvedChannelContent['items'],
-                        referenceTimeMs: number
-                    ): ScheduleConfig =>
-                        this._schedulePolicy.buildDailyScheduleConfig(channel, items, referenceTimeMs),
-                    reportError: (message: string, error: unknown): void => {
-                        this._warnRecoverableRuntimeError(
-                            'orchestrator.scheduleDayRollover',
-                            message,
-                            error
-                        );
-                    },
-                },
-                subtitleTrackRecovery: {
-                    getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
-                    getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
-                    readSubtitleMode: () =>
-                        this._subtitlePreferencesStore.readSubtitleModeAndClean('full'),
-                    setSubtitleTrack: (trackId: string | null): Promise<void> =>
-                        this.setSubtitleTrack(trackId),
-                    nowPlayingWarn: (message: string): void => {
-                        this._nowPlayingHandler?.({ message, type: 'warning' });
-                    },
-                    getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
-                    getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
-                    appendIssueDiagnostic,
-                    issueId: QA_003B_ISSUE_ID,
-                },
-            })
-        );
+        this._scheduleDayRolloverController = new ScheduleDayRolloverController({
+            now: (): number => Date.now(),
+            getChannelManager: (): IChannelManager | null => this._channelManager,
+            getScheduler: (): IChannelScheduler | null => this._scheduler,
+            getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
+            getLocalMidnightMs: (timeMs: number): number =>
+                this._schedulePolicy.getLocalMidnightMs(timeMs),
+            getLocalDayKey: (timeMs: number): number =>
+                this._schedulePolicy.getLocalDayKey(timeMs),
+            buildDailyScheduleConfig: (
+                channel: ChannelConfig,
+                items: ResolvedChannelContent['items'],
+                referenceTimeMs: number
+            ): ScheduleConfig =>
+                this._schedulePolicy.buildDailyScheduleConfig(channel, items, referenceTimeMs),
+            reportError: (message: string, error: unknown): void => {
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.scheduleDayRollover',
+                    message,
+                    error
+                );
+            },
+        });
+        this._subtitleTrackRecoveryController = new SubtitleTrackRecoveryController({
+            getVideoPlayer: (): IVideoPlayer | null => this._videoPlayer,
+            getPlaybackRecovery: (): PlaybackRecoveryManager | null => this._playbackRecovery,
+            readSubtitleMode: (): SubtitleMode =>
+                this._subtitlePreferencesStore.readSubtitleModeAndClean('full'),
+            setSubtitleTrack: (trackId: string | null): Promise<void> =>
+                this.setSubtitleTrack(trackId),
+            nowPlayingWarn: (message: string): void => {
+                this._nowPlayingHandler?.({ message, type: 'warning' });
+            },
+            getCurrentStreamDecision: (): StreamDecision | null => this._currentStreamDecision,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => this._currentStreamDescriptor,
+            appendIssueDiagnostic: ({ key, data }): void => {
+                appendIssueDiagnostic(QA_003B_ISSUE_ID, key, data);
+            },
+        });
     }
 
     private _buildCoordinatorAssemblyInput(
@@ -783,13 +780,6 @@ export class AppOrchestrator {
         this._playbackRecovery = coordinators.playbackRecovery;
         this._channelTuning = coordinators.channelTuning;
         this._navigationCoordinator = coordinators.navigationCoordinator;
-    }
-
-    private _assignRuntimeControllers(
-        controllers: ReturnType<typeof createOrchestratorRuntimeControllers>
-    ): void {
-        this._scheduleDayRolloverController = controllers.scheduleDayRolloverController;
-        this._subtitleTrackRecoveryController = controllers.subtitleTrackRecoveryController;
     }
 
     async start(): Promise<void> {

@@ -1,9 +1,9 @@
 import { defineConfig, normalizePath, type PluginOption } from 'vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 
-export default defineConfig(({ command }) => {
-    const requestedProfile = (process.env.LINEUP_BUILD_PROFILE ?? '').toLowerCase();
-    const isDevBuildProfile = command === 'serve' || requestedProfile === 'dev';
+export default defineConfig(({ command, mode }) => {
+    const isDevBuildProfile = command === 'serve' || mode === 'dev' || mode === 'analyze-dev';
+    const shouldAnalyze = mode === 'analyze' || mode === 'analyze-dev';
     const activeBuildProfile = isDevBuildProfile ? 'dev' : 'lean';
 
     return {
@@ -13,7 +13,7 @@ export default defineConfig(({ command }) => {
             __LINEUP_BUILD_PROFILE__: JSON.stringify(activeBuildProfile),
         },
         plugins: [
-            process.env.ANALYZE
+            shouldAnalyze
                 ? (visualizer({
                     template: 'raw-data',
                     filename: 'dist/bundle-stats.json',

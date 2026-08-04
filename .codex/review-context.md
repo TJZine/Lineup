@@ -50,7 +50,6 @@ Current truth:
 - `docs/agentic/session-prompts/**`
 
 Historical/reference only:
-- `docs/archive/**`
 - completed/superseded `docs/plans/**`
 - local/raw `docs/runs/**` instances unless explicitly promoted into tracked docs
 

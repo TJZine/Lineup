@@ -2,10 +2,6 @@ export type RecoverableRuntimeResult<T> =
     | { ok: true; value: T }
     | { ok: false; error: unknown };
 
-/**
- * `captureRecoverableRuntimeResult` is only for operations that complete synchronously.
- * Callers that may return or await a Promise must use `captureRecoverableRuntimeResultAsync`.
- */
 export function captureRecoverableRuntimeResult<T>(
     operation: () => T
 ): RecoverableRuntimeResult<T> {

@@ -1,13 +1,13 @@
 import type { FocusableElement, INavigationManager, KeyEvent } from '../../navigation';
+import { createDropdownPopover } from '../common/CreateDropdownPopover';
 import { syncFocusableRegistry } from '../common/focus/syncFocusableRegistry';
-import { createSettingsDropdown } from './SettingsDropdown';
 import type { createSettingsSelect } from './SettingsSelect';
 import type { createSettingsToggle } from './SettingsToggle';
 import type { SettingsCategoryConfig, SettingsCategoryId } from './types';
 
 type SettingsToggleControl = ReturnType<typeof createSettingsToggle>;
 type SettingsSelectControl = ReturnType<typeof createSettingsSelect>;
-type SettingsDropdownHandle = ReturnType<typeof createSettingsDropdown>;
+type SettingsDropdownHandle = ReturnType<typeof createDropdownPopover>;
 
 export interface SettingsScreenSetActiveCategoryOptions {
     preferredFocusId?: string | null;
@@ -200,14 +200,17 @@ export class SettingsScreenFocusCoordinator {
         const nav = this._getNavigation();
         let dropdown: SettingsDropdownHandle | null = null;
         let completedDuringCreate = false;
-        dropdown = createSettingsDropdown({
+        dropdown = createDropdownPopover({
             anchor: select.element,
             container: this._container,
-            options: select.getOptions(),
-            currentValue: select.getValue(),
-            onSelect: (value: number): void => {
+            options: select.getOptions().map((option) => ({
+                label: option.label,
+                value: String(option.value),
+            })),
+            currentValue: String(select.getValue()),
+            onSelect: (value): void => {
                 try {
-                    select.setValue(value);
+                    select.setValue(Number(value));
                 } finally {
                     if (!dropdown) {
                         completedDuringCreate = true;
@@ -233,6 +236,8 @@ export class SettingsScreenFocusCoordinator {
                 }
             },
             nav,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
         });
         if (!completedDuringCreate) {
             this._activeDropdown = dropdown;

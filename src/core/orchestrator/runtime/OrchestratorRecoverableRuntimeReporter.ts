@@ -5,10 +5,6 @@ import type {
     OrchestratorEventCleanupReporter,
 } from '../events/OrchestratorEventCleanupReporter';
 import type { RecoverableAsyncFailureReporter } from './OrchestratorRuntimeSeams';
-import {
-    createRecoverableRuntimeWarningSink,
-    type RecoverableRuntimeWarningSink,
-} from './OrchestratorRecoverableRuntimeWarnings';
 
 export interface RecoverableRuntimeIssueReporter {
     reportIssue: (event: string, message: string, data?: Record<string, unknown>) => void;
@@ -24,13 +20,40 @@ interface RecoverableRuntimeIssueReporterInput {
     issueId: string;
     appendIssueDiagnostic: AppendIssueDiagnostic;
     warn?: (message?: unknown, ...optionalParams: unknown[]) => void;
-    warningSink?: RecoverableRuntimeWarningSink;
+}
+
+function emitWarning(
+    message: string,
+    data: unknown,
+    warn?: RecoverableRuntimeIssueReporterInput['warn']
+): void {
+    try {
+        if (warn) {
+            warn(message, data);
+        } else {
+            globalThis.console?.warn?.call(globalThis.console, message, data);
+        }
+    } catch (error) {
+        if (warn) {
+            try {
+                globalThis.console?.warn?.call(
+                    globalThis.console,
+                    '[RecoverableRuntimeWarning] injected warn failed:',
+                    {
+                        warning: { message, data },
+                        error: summarizeErrorForLog(error),
+                    }
+                );
+            } catch {
+                // Warning delivery is best-effort.
+            }
+        }
+    }
 }
 
 export function createRecoverableRuntimeIssueReporter(
     input: RecoverableRuntimeIssueReporterInput
 ): RecoverableRuntimeIssueReporter {
-    const warningSink = input.warningSink ?? createRecoverableRuntimeWarningSink({ warn: input.warn });
     const appendDiagnostic = (
         event: string,
         data: Record<string, unknown>,
@@ -39,10 +62,11 @@ export function createRecoverableRuntimeIssueReporter(
         try {
             input.appendIssueDiagnostic(input.issueId, event, data);
         } catch (error) {
-            warningSink.emit({
-                message: `[RecoverableRuntimeReporter] ${scope} failed:`,
-                data: summarizeErrorForLog(error),
-            });
+            emitWarning(
+                `[RecoverableRuntimeReporter] ${scope} failed:`,
+                summarizeErrorForLog(error),
+                input.warn
+            );
         }
     };
 
@@ -53,7 +77,7 @@ export function createRecoverableRuntimeIssueReporter(
     ): void => {
         const payload = { message, ...data };
         appendDiagnostic(event, payload, 'reportIssue');
-        warningSink.emit({ message, data });
+        emitWarning(message, data, input.warn);
     };
 
     return {
@@ -69,7 +93,7 @@ export function createRecoverableRuntimeIssueReporter(
                 safeError: summarizeErrorForLog(error),
             };
             appendDiagnostic(event, { message, ...payload }, 'reportError');
-            warningSink.emit({ message, data: payload });
+            emitWarning(message, payload, input.warn);
         },
     };
 }
@@ -81,7 +105,6 @@ export function createDefaultRecoverableRuntimeIssueReporter(
     return createRecoverableRuntimeIssueReporter({
         issueId,
         appendIssueDiagnostic,
-        warningSink: createRecoverableRuntimeWarningSink(),
     });
 }
 
@@ -92,15 +115,15 @@ export function observeRecoverableAsyncFailure(
     message: string,
     warn?: RecoverableRuntimeIssueReporterInput['warn']
 ): Promise<void> {
-    const warningSink = createRecoverableRuntimeWarningSink({ warn });
     const reportFailure = (error: unknown): void => {
         try {
             reportRecoverableAsyncFailure(event, message, error);
         } catch (reporterError) {
-            warningSink.emit({
-                message: '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
-                data: summarizeErrorForLog(reporterError),
-            });
+            emitWarning(
+                '[RecoverableRuntimeReporter] observeRecoverableAsyncFailure failed:',
+                summarizeErrorForLog(reporterError),
+                warn
+            );
         }
     };
     let promise: Promise<unknown>;

@@ -4,7 +4,6 @@ import {
 } from './types';
 import {
     STORAGE_CONFIG,
-    MIGRATIONS,
     DEFAULT_USER_PREFERENCES,
 } from './constants';
 import {
@@ -81,12 +80,11 @@ export class LifecycleStateStore {
                 return { kind: 'future-version', version: parsed['version'] };
             }
 
-            const migrated = this._migrateState(parsed as Record<string, unknown>);
-            if (migrated === null) {
+            if (parsed['version'] !== this._currentVersion) {
                 return { kind: 'absent' };
             }
 
-            return { kind: 'loaded', state: this._repairState(migrated) };
+            return { kind: 'loaded', state: this._repairState(parsed) };
         } catch {
             // Parse errors are non-fatal; state will be treated as absent.
             return { kind: 'absent' };
@@ -103,28 +101,6 @@ export class LifecycleStateStore {
             userPreferences: { ...DEFAULT_USER_PREFERENCES } as UserPreferences,
             lastUpdated: Date.now(),
         };
-    }
-
-    private _migrateState(state: Record<string, unknown>): Record<string, unknown> | null {
-        const version = state['version'];
-        if (typeof version !== 'number') {
-            return null;
-        }
-
-        let currentState = state;
-        let currentVersion = version;
-
-        while (currentVersion < this._currentVersion) {
-            const migration = MIGRATIONS[currentVersion];
-            if (!migration) {
-                return null;
-            }
-
-            currentState = migration(currentState);
-            currentVersion = currentVersion + 1;
-        }
-
-        return currentState;
     }
 
     private _rejectFutureVersionOverwrite(): void {

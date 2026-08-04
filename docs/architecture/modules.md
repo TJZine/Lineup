@@ -33,7 +33,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - app-shell startup UI initializer owner
 - initializes now-playing-info, playback-options, and exit-confirm overlays during startup
-- constructed through `src/core/app-shell/chrome/AppStartupUiPortFactory.ts` so orchestrator startup consumes only the initialization startup-UI port
+- constructed directly by `AppOrchestrator` and consumed through the initialization startup-UI port
 - consumed through a narrow startup-UI port by `src/core/initialization/InitializationCoordinator.ts`
 
 ### `src/core/`
@@ -66,7 +66,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/orchestrator/contracts/OrchestratorTypes.ts` is the durable owner of `OrchestratorConfig` and `ModuleStatus`
 - `src/core/orchestrator/assembly/OrchestratorModuleFactory.ts` owns runtime module constructor/config assembly for `AppOrchestrator.initialize()`
 - `src/core/orchestrator/assembly/OrchestratorCoordinatorAssembly.ts` owns coordinator construction order, dependency validation, and typed assembly glue; feature-family construction/projection lives in direct sibling owners for EPG/channel setup, playback/OSD, navigation/modal, and now-playing/debug
-- `src/core/orchestrator/runtime/OrchestratorRuntimeControllerBuilder.ts` owns schedule-day rollover and subtitle-track recovery controller construction for `AppOrchestrator`
+- `AppOrchestrator` directly constructs the schedule-day rollover and subtitle-track recovery controllers at its composition seam
 - `src/core/orchestrator/events/` owns orchestrator event binding and cleanup reporting
 - `src/core/orchestrator/controllers/` owns runtime controller collaborators such as schedule-day rollover, subtitle-track recovery, profile-switch cleanup, and overlay runtime policy
 - `src/core/orchestrator/AppOrchestrator.ts` owns the shared identity-scoped runtime reset path after successful selected-server clear, sign-out, and profile switch; it clears in-memory channel, EPG, and playback identity state without deleting persisted channel data
@@ -80,7 +80,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 
 - startup coordinator and policy collaborators for app-shell/orchestrator startup
 - `src/core/initialization/InitializationStartupPolicy.ts` owns startup routing policy (auth/profile/server-select/post-ready), including saved-server restore failure surfacing from discovery initialize results
-- `src/modules/ui/epg/startup/buildEPGStartupConfig.ts` owns EPG startup config shaping
+- `src/modules/ui/epg/startup/EPGStartupConfigRuntime.ts` owns EPG startup config shaping
 
 ### `src/core/server-selection/`
 
@@ -88,7 +88,7 @@ This document is directory-oriented and lists file-level owners where the canoni
 - `src/core/server-selection/ServerSelectionTypes.ts` owns the full core/orchestrator `OrchestratorServerSelectionResult`, including readiness, persistence, and startup-resume details
 - `src/core/server-selection/ServerSelectionCoordinator.ts` owns the full selected-server workflow previously assembled inline in `AppOrchestrator.selectServer()`, including discovery-result translation, full result shaping, transactional persistence handoff, rollback, and selected-server startup-resume invocation
 - `src/core/server-selection/SelectedServerPersistenceAdapter.ts` owns selected-server credential persistence, active-user snapshot/restore helpers, and `selectedServerByUserId` updates behind a narrow Plex-auth port; metadata-only server-map writes suppress `authChange`
-- `src/core/server-selection/SelectedServerRuntimeController.ts` owns clear-selection cleanup, discovery selected-server snapshot/restore delegation, and the concrete selected-server startup-resume helper consumed by the server-selection flow rather than the flow orchestration itself
+- `src/core/orchestrator/runtime/OrchestratorServerSelectionRuntime.ts` composes clear-selection cleanup and the selected-server runtime handoff while persistence, discovery snapshots, and startup transaction policy stay in their focused owners
 - `src/core/app-shell/runtime/AppShellRuntimeContracts.ts` owns the narrowed app-shell selected-server result exposed to app-shell/server-select callers, and `src/core/app-shell/deferred-screens/AppLazyScreenPortFactory.ts` adapts that result into the server-select screen port without exposing core resume details
 
 ### `src/config/`

@@ -1,7 +1,7 @@
 export { DeferredEPGComponent } from './component/DeferredEPGComponent';
 export { EPGCoordinator } from './coordinator/EPGCoordinator';
 export { EPGDebugRuntime } from './debug/EPGDebugRuntime';
-export { CLASSIC_EPG_PIP_CLASS, buildEPGStartupConfig } from './startup/buildEPGStartupConfig';
+export { CLASSIC_EPG_PIP_CLASS, buildEPGStartupConfig } from './startup/EPGStartupConfigRuntime';
 export { withEpgVisibleRangeChangeBinding } from './component/EPGConfigBindings';
 export { EPG_CONTAINER_ID, createDefaultEpgConfig } from './constants';
 
