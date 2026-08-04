@@ -7,10 +7,7 @@ import { createDropdownPopover } from '../../common/CreateDropdownPopover';
 import { SettingsScreenFocusCoordinator } from '../SettingsScreenFocusCoordinator';
 import type { SettingsCategoryConfig, SettingsCategoryId, SettingsSelectOption } from '../types';
 
-type DropdownMockConfig = {
-    onDismiss: () => void;
-    onSelect: (value: string) => void;
-};
+type DropdownMockConfig = Parameters<typeof createDropdownPopover>[0];
 
 type DropdownMockHandle = { destroy: jest.Mock; dismiss: jest.Mock };
 
@@ -264,6 +261,43 @@ describe('SettingsScreenFocusCoordinator', () => {
         expect(backEvent.handled).toBe(false);
         expect(dropdownHandle?.dismiss).not.toHaveBeenCalled();
         expect(navigation.setFocus).toHaveBeenCalledWith('settings-appearance-select');
+    });
+
+    it('adapts numeric settings options to the shared string popover contract', () => {
+        const selectId = 'settings-appearance-select';
+        const setValue = jest.fn((): boolean => true);
+        selects.set(selectId, {
+            ...selects.get(selectId)!,
+            getOptions: () => [
+                { label: 'One', value: 1 },
+                { label: 'Two', value: 2 },
+            ],
+            getValue: () => 2,
+            setValue,
+        });
+        const coordinator = createCoordinator();
+
+        coordinator.openDropdownForSelect(selectId);
+
+        expect(lastDropdownConfig).not.toBeNull();
+        const config = lastDropdownConfig as DropdownMockConfig;
+        expect(config).toEqual(expect.objectContaining({
+            anchor: selects.get(selectId)?.element,
+            container,
+            options: [
+                { label: 'One', value: '1' },
+                { label: 'Two', value: '2' },
+            ],
+            currentValue: '2',
+            nav: navigation,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        }));
+
+        config.onSelect('1');
+
+        expect(setValue).toHaveBeenCalledTimes(1);
+        expect(setValue).toHaveBeenCalledWith(1);
     });
 
     it('does not retain dropdown ownership when the factory dismisses synchronously', () => {
