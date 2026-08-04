@@ -134,6 +134,45 @@ describe('SelectedServerPersistenceAdapter', () => {
         });
     });
 
+    it('uses opaque evidence to clear and strictly restore the active-user selection', () => {
+        const originalSelection = {
+            serverId: 'server-old',
+            serverUri: 'https://old.example.invalid',
+        };
+        const port = createStatefulPort(makeCredentials({
+            selectedServerByUserId: {
+                'active-user': originalSelection,
+                'foreign-user': {
+                    serverId: 'foreign-server',
+                    serverUri: 'https://foreign.example.invalid',
+                },
+            },
+        }));
+        const adapter = createAdapter(port);
+        const evidence = adapter.capturePersistenceEvidence();
+
+        expect(adapter.clearCandidateSelection(evidence)).toEqual({
+            phase: 'candidate',
+            state: 'updated',
+            publicResult: 'updated',
+        });
+        expect(port.storeCredentials.mock.calls.at(-1)?.[0].selectedServerByUserId).toEqual({
+            'active-user': { serverId: null, serverUri: null },
+            'foreign-user': {
+                serverId: 'foreign-server',
+                serverUri: 'https://foreign.example.invalid',
+            },
+        });
+
+        expect(adapter.restorePersistenceEvidence(evidence)).toEqual({
+            phase: 'rollback',
+            state: 'restored_available_selected',
+            selection: originalSelection,
+        });
+        expect(port.storeCredentials.mock.calls.at(-1)?.[0].selectedServerByUserId['active-user'])
+            .toEqual(originalSelection);
+    });
+
     it('preserves the original corrupted result after capture cleaned storage to missing', () => {
         const reads = [
             { kind: 'corrupted' as const, reason: 'invalid-json' as const },

@@ -52,6 +52,10 @@ export interface ServerSelectionCoordinatorDeps {
         serverId: string,
         serverUri: string
     ): SelectedServerPersistenceProof;
+    clearPersistedServerSelection(
+        evidence: SelectedServerPersistenceEvidence
+    ): SelectedServerPersistenceProof;
+    clearDiscoverySelection(): void;
     restorePersistenceEvidence(evidence: SelectedServerPersistenceEvidence): SelectedServerPersistenceProof;
     assertPersistenceEvidenceCurrent(evidence: SelectedServerPersistenceEvidence): void;
     selectServer(serverId: string, options?: PlexDiscoverySignalOptions): Promise<PlexServerSelectionResult>;
@@ -70,7 +74,6 @@ export interface ServerSelectionCoordinatorDeps {
         commitOperation: CurrentOperation;
     }): Promise<SelectedServerInitializationResult>;
     restoreUnselectedRuntime(operation: CurrentOperation): Promise<void>;
-    clearSelectedServerSelection(): Promise<void>;
     restoreClearedUnselectedRuntime(): Promise<void>;
     publishUnselectedRuntimePresentation(): void;
     prepareQuarantineRuntime(): Promise<void>;
@@ -97,7 +100,20 @@ export class ServerSelectionCoordinator {
     clearSelectedServer(): Promise<void> {
         return this._enqueue(async () => {
             this._quarantine.assertSelectionAllowed();
-            await this._deps.clearSelectedServerSelection();
+            const discoverySnapshot = this._deps.captureDiscoverySelectionSnapshot();
+            const evidence = this._deps.capturePersistenceEvidence();
+            this._deps.clearPersistedServerSelection(evidence);
+            try {
+                this._deps.clearDiscoverySelection();
+            } catch (error: unknown) {
+                await this._rollbackOrQuarantine(
+                    discoverySnapshot,
+                    evidence,
+                    error,
+                    'clear'
+                );
+                throw error;
+            }
             try {
                 await this._deps.restoreClearedUnselectedRuntime();
                 this._deps.resumeAfterScopeTransition();
@@ -323,7 +339,8 @@ export class ServerSelectionCoordinator {
     private async _rollbackOrQuarantine(
         snapshot: PlexDiscoverySelectedServerSnapshot,
         evidence: SelectedServerPersistenceEvidence,
-        selectionFailure: unknown
+        operationFailure: unknown,
+        operationStep: 'selection' | 'clear' = 'selection'
     ): Promise<void> {
         try {
             const presentation = await this._restorePreviousScope(snapshot, evidence);
@@ -333,9 +350,10 @@ export class ServerSelectionCoordinator {
             await this._enterQuarantine(this._createRollbackRecovery(
                 snapshot,
                 evidence,
-                selectionFailure,
+                operationFailure,
                 error,
-                phase
+                phase,
+                operationStep
             ));
             throw error;
         }
@@ -344,13 +362,14 @@ export class ServerSelectionCoordinator {
     private _createRollbackRecovery(
         snapshot: PlexDiscoverySelectedServerSnapshot,
         evidence: SelectedServerPersistenceEvidence,
-        selectionFailure: unknown,
+        operationFailure: unknown,
         recoveryFailure: unknown,
-        phase: SelectedServerQuarantinePhase
+        phase: SelectedServerQuarantinePhase,
+        operationStep: 'selection' | 'clear' = 'selection'
     ): SelectedServerQuarantineRecovery {
         const diagnostic = createSelectedServerRecoveryDiagnostic(
-            'selection',
-            selectionFailure,
+            operationStep,
+            operationFailure,
             phase,
             recoveryFailure
         );
@@ -365,9 +384,10 @@ export class ServerSelectionCoordinator {
                     const nextRecovery = this._createRollbackRecovery(
                         snapshot,
                         evidence,
-                        selectionFailure,
+                        operationFailure,
                         error,
-                        retryPhase
+                        retryPhase,
+                        operationStep
                     );
                     this._quarantine.enter(this._retainPreparationHistory(
                         nextRecovery,

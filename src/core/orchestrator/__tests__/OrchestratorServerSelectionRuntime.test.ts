@@ -210,6 +210,8 @@ describe('OrchestratorServerSelectionRuntime', () => {
             { emitAuthChange: false }
         );
         expect(harness.discovery.clearSelection).toHaveBeenCalledTimes(1);
+        expect(harness.plexAuth.storeCredentials.mock.invocationCallOrder[0])
+            .toBeLessThan(harness.discovery.clearSelection.mock.invocationCallOrder[0]!);
         expect(harness.deps.suspendAndDrainForScopeTransition).toHaveBeenCalledTimes(1);
         expect(harness.deps.clearIdentityScopedRuntime).toHaveBeenCalledTimes(1);
         expect(harness.deps.configureChannelManagerStorage).toHaveBeenCalledTimes(1);
@@ -239,6 +241,76 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(harness.deps.publishLoadingLifecycle).not.toHaveBeenCalled();
         expect(harness.deps.openServerSelect).not.toHaveBeenCalled();
         expect(harness.deps.resumeAfterScopeTransition).not.toHaveBeenCalled();
+    });
+
+    it('restores the exact prior selected scope when discovery clear mutates before throwing', async () => {
+        const harness = createHarness();
+        const runtime = new OrchestratorServerSelectionRuntime(harness.deps);
+        const clearSelection = harness.discovery.clearSelection.getMockImplementation();
+        const clearFailure = new Error('discovery clear superseded');
+        harness.discovery.clearSelection.mockImplementationOnce(() => {
+            clearSelection?.();
+            throw clearFailure;
+        });
+
+        await expect(runtime.clearSelectedServer()).rejects.toBe(clearFailure);
+
+        expect(runtime.getSelectedServerId()).toBe('old-server');
+        expect(harness.plexAuth.readStoredCredentialsAndClearCorruption()).toMatchObject({
+            kind: 'available',
+            credentials: {
+                selectedServerByUserId: {
+                    'user-1': {
+                        serverId: 'old-server',
+                        serverUri: 'https://old.example',
+                    },
+                },
+            },
+        });
+        expect(harness.discovery.restoreSelectedServerSnapshot).toHaveBeenCalledTimes(1);
+        expect(harness.initialization.runSelectedServerTransaction).toHaveBeenCalledTimes(1);
+        expect(harness.deps.resumeAfterScopeTransition).toHaveBeenCalledTimes(1);
+        expect(harness.deps.openServerSelect).not.toHaveBeenCalled();
+        expect(runtime.getQuarantineState()).toEqual({ kind: 'clear' });
+    });
+
+    it('retains clear diagnostics when partial discovery clear rollback and Retry both fail', async () => {
+        const harness = createHarness();
+        const runtime = new OrchestratorServerSelectionRuntime(harness.deps);
+        const clearSelection = harness.discovery.clearSelection.getMockImplementation();
+        harness.discovery.clearSelection.mockImplementationOnce(() => {
+            clearSelection?.();
+            throw new Error('discovery clear superseded');
+        });
+        harness.discovery.restoreSelectedServerSnapshot
+            .mockImplementationOnce(() => {
+                throw new Error('initial discovery rollback failed');
+            })
+            .mockImplementationOnce(() => {
+                throw new Error('retry discovery rollback failed');
+            });
+
+        await expect(runtime.clearSelectedServer()).rejects.toThrow('discovery_restore');
+        expect(runtime.getSelectedServerId()).toBeNull();
+
+        await expect(runtime.retryQuarantineRecovery()).rejects.toThrow('discovery_restore');
+
+        expect(runtime.getQuarantineState()).toMatchObject({
+            kind: 'quarantined',
+            phase: 'discovery_restore',
+            diagnostic: {
+                operationFailure: {
+                    step: 'clear',
+                    error: { message: 'discovery clear superseded' },
+                },
+                recoveryFailure: {
+                    step: 'discovery_restore',
+                    error: { message: 'retry discovery rollback failed' },
+                },
+            },
+        });
+        expect(harness.deps.releaseQuarantineRuntimeGate).not.toHaveBeenCalled();
+        expect(harness.deps.openServerSelect).not.toHaveBeenCalled();
     });
 
     it('completes clear then selects another server through the public runtime seam', async () => {
