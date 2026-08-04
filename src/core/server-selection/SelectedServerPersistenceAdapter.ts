@@ -103,6 +103,19 @@ export class SelectedServerPersistenceAdapter {
         if (serverId.trim().length === 0 || serverUri === null || serverUri.trim().length === 0) {
             throw new Error(PROOF_ERROR_MESSAGE);
         }
+        return this._persistCandidateSelection(evidence, { serverId, serverUri });
+    }
+
+    clearCandidateSelection(
+        evidence: SelectedServerPersistenceEvidence
+    ): SelectedServerPersistenceProof {
+        return this._persistCandidateSelection(evidence, { serverId: null, serverUri: null });
+    }
+
+    private _persistCandidateSelection(
+        evidence: SelectedServerPersistenceEvidence,
+        nextSelection: SelectedServerRecord
+    ): SelectedServerPersistenceProof {
         const authority = this._getCurrentAuthority(evidence);
         if (authority.kind === 'missing_port') {
             return {
@@ -132,7 +145,6 @@ export class SelectedServerPersistenceAdapter {
             current.selectedServerByUserId[authority.activeUserId],
             authority.selection
         );
-        const nextSelection = { serverId, serverUri };
         authority.port.storeCredentials(
             {
                 ...current,
