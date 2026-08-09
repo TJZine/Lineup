@@ -7,12 +7,16 @@ const STORAGE_RESTRICTION_MESSAGE =
 const RUNTIME_UI_RESTRICTION_MESSAGE =
     'Non-UI runtime modules cannot import src/modules/ui/* directly in first-pass architecture boundaries.';
 
+const APP_SHELL_RUNTIME_RESTRICTION_MESSAGE =
+    'App-shell runtime modules must consume narrowed app-shell seams, not orchestrator or storage implementation symbols.';
+
 const ROOT_IMPORT_RESTRICTION_MESSAGE =
     'Non-composition-root modules cannot import src/App.ts or src/Orchestrator.ts.';
 
 export const architectureRuleMessages = Object.freeze({
     compositionRootAccessBoundary: ROOT_IMPORT_RESTRICTION_MESSAGE,
     runtimeUiBoundary: RUNTIME_UI_RESTRICTION_MESSAGE,
+    appShellRuntimeBoundary: APP_SHELL_RUNTIME_RESTRICTION_MESSAGE,
 });
 
 function collectExceptionToPaths(rules, ruleName, fromPath) {
@@ -62,6 +66,13 @@ function buildCompositionRootImportPattern(rules, fromPath = null) {
         ),
         message: ROOT_IMPORT_RESTRICTION_MESSAGE,
     };
+}
+
+function buildAppShellRuntimeImportPatterns(rules) {
+    return rules.appShellRuntimeBoundary.forbiddenImportPatterns.map((pattern) => ({
+        ...pattern,
+        message: pattern.message ?? APP_SHELL_RUNTIME_RESTRICTION_MESSAGE,
+    }));
 }
 
 export function buildEslintArchitectureRules(rules) {
@@ -192,6 +203,20 @@ export function buildEslintArchitectureRules(rules) {
                 ],
             },
         })),
+        {
+            files: rules.appShellRuntimeBoundary.runtimeModuleGlobs,
+            rules: {
+                'no-restricted-imports': [
+                    'error',
+                    {
+                        patterns: [
+                            buildCompositionRootImportPattern(rules),
+                            ...buildAppShellRuntimeImportPatterns(rules),
+                        ],
+                    },
+                ],
+            },
+        },
     ];
 
     return config;

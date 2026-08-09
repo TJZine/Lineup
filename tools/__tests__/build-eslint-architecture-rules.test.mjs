@@ -54,6 +54,12 @@ function findRuntimeUiRestrictionPattern(entry) {
     );
 }
 
+function findAppShellRuntimeBoundaryEntry(config) {
+    return config.find(
+        (entry) => includesAllValues(entry.files, lineupArchitectureRules.appShellRuntimeBoundary.runtimeModuleGlobs)
+    );
+}
+
 test('App restriction patterns block both module roots and descendants', () => {
     const group = getAppRestrictionGroup();
 
@@ -176,4 +182,49 @@ test('app-shell no longer has stale composition-root temporary exceptions', () =
     );
 
     assert.deepEqual(staleAppShellCompositionRootExceptions, []);
+});
+
+test('app-shell runtime boundary emits forbidden implementation paths and symbols', () => {
+    const config = buildEslintArchitectureRules(lineupArchitectureRules);
+    const entry = findAppShellRuntimeBoundaryEntry(config);
+    const patterns = getNoRestrictedImportPatterns(entry);
+
+    assert.ok(entry, 'expected app-shell runtime boundary block');
+    assert.ok(
+        findCompositionRootRestrictionPattern(entry),
+        'expected the later flat-config block to preserve the composition-root restriction'
+    );
+    assert.deepEqual(
+        patterns.slice(1),
+        lineupArchitectureRules.appShellRuntimeBoundary.forbiddenImportPatterns
+    );
+    assert.ok(
+        patterns.some(
+            (pattern) => pattern.regex === '(?:^|/)(?:Orchestrator|AppOrchestrator)(?:\\.ts)?$'
+        ),
+        'expected orchestrator root and concrete implementation restriction'
+    );
+    assert.ok(
+        patterns.some(
+            (pattern) => pattern.regex === '(?:^|/)ServerSelectionTypes(?:\\.ts)?$'
+        ),
+        'expected core server-selection result owner restriction'
+    );
+    assert.ok(
+        patterns.some(
+            (pattern) => pattern.regex === '(?:^|/)OrchestratorStorageContext(?:\\.ts)?$'
+        ),
+        'expected orchestrator storage context restriction'
+    );
+
+    const symbolPattern = patterns.find(
+        (pattern) => pattern.importNames?.includes('OrchestratorServerSelectionResult')
+    );
+    assert.ok(symbolPattern, 'expected implementation symbol restriction');
+    assert.deepEqual(symbolPattern.importNames, [
+        'OrchestratorServerSelectionResult',
+        'getSelectedServerStorageKey',
+        'getServerHealthStorageKey',
+    ]);
+    assert.equal(symbolPattern.message, architectureRuleMessages.appShellRuntimeBoundary);
 });
