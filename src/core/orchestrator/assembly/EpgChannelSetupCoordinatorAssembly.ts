@@ -94,7 +94,7 @@ export function buildEpgCoordinator(input: OrchestratorEpgCoordinatorBuilderInpu
         getEpg: (): IEPGComponent | null => input.modules.epg,
         getChannelManager: (): IChannelManager | null => input.modules.channelManager,
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
-        getEpgUiStatus: (): EPGUiStatus => input.moduleStatus.get('epg-ui')?.status,
+        getEpgUiStatus: (): EPGUiStatus => input.moduleStatus.getRuntimeStatus('epg-ui'),
         ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => input.config?.epgConfig ?? null,
         getLocalMidnightMs: (timeMs: number): number => input.schedule.getLocalMidnightMs(timeMs),

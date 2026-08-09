@@ -1,4 +1,3 @@
-import { AppOrchestrator } from '../../../Orchestrator';
 import type { StreamDescriptor } from '../../../modules/player';
 import type { StreamDecision } from '../../../modules/plex/stream';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
@@ -213,28 +212,4 @@ describe('Orchestrator playback info snapshot', () => {
         );
     });
 
-    it('refreshes server decision data only when playback state can support it', async () => {
-        const orchestrator = new AppOrchestrator();
-        const ensureServerDecisionForPlaybackInfoSnapshot = jest.fn().mockResolvedValue(undefined);
-
-        Reflect.set(orchestrator as object, '_currentProgramForPlayback', createProgram());
-        Reflect.set(orchestrator as object, '_currentStreamDecision', createDecision());
-        Reflect.set(orchestrator as object, '_currentStreamDescriptor', createDescriptor());
-        Reflect.set(orchestrator as object, '_plexStreamResolver', {});
-        Reflect.set(orchestrator as object, '_nowPlayingDebugManager', {
-            ensureServerDecisionForPlaybackInfoSnapshot,
-        });
-
-        await expect(orchestrator.refreshPlaybackInfoSnapshot()).resolves.toMatchObject({
-            stream: expect.objectContaining({ sessionId: 'session-1' }),
-        });
-        expect(ensureServerDecisionForPlaybackInfoSnapshot).toHaveBeenCalledTimes(1);
-
-        Reflect.set(orchestrator as object, '_currentStreamDecision', null);
-
-        await expect(orchestrator.refreshPlaybackInfoSnapshot()).resolves.toMatchObject({
-            stream: null,
-        });
-        expect(ensureServerDecisionForPlaybackInfoSnapshot).toHaveBeenCalledTimes(1);
-    });
 });

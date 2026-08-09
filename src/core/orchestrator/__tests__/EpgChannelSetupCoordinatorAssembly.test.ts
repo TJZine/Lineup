@@ -13,11 +13,15 @@ jest.mock('../../../modules/ui/epg/coordinator/EPGCoordinator', () => ({
 import { buildEpgCoordinator } from '../assembly/EpgChannelSetupCoordinatorAssembly';
 
 describe('EpgChannelSetupCoordinatorAssembly', () => {
+    beforeEach(() => {
+        capturedDeps = null;
+    });
+
     it('wires config, schedule, selection, and visibility callbacks to their owners', async () => {
         const input = {
             epgDebugRuntime: null,
             config: { epgConfig: { containerId: 'epg' } },
-            moduleStatus: new Map([['epg-ui', { status: 'ready' }]]),
+            moduleStatus: { getRuntimeStatus: jest.fn(() => 'ready' as const) },
             init: { ensureEpgInitialized: jest.fn().mockResolvedValue(undefined) },
             modules: {
                 epg: { kind: 'epg' },
@@ -50,6 +54,8 @@ describe('EpgChannelSetupCoordinatorAssembly', () => {
         expect(capturedDeps.getEpgUiStatus()).toBe('ready');
         await expect(capturedDeps.ensureEpgInitialized()).resolves.toBeUndefined();
         expect(capturedDeps.getEpgConfig()).toBe(input.config?.epgConfig);
+        expect(capturedDeps.epgPreferencesStore).toBe(input.stores.epgPreferencesStore);
+        expect(capturedDeps.appendIssueDiagnostic).toBe(input.diagnostics.appendIssueDiagnostic);
         expect(capturedDeps.getLocalMidnightMs(456)).toBe(123);
         expect(capturedDeps.buildDailyScheduleConfig({ id: 'c1' } as never, [], 456))
             .toEqual({ channelId: 'c1' });

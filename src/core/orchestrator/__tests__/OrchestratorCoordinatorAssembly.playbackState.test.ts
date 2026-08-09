@@ -91,13 +91,10 @@ const makeDeps = (
     const nowPlayingDisplayStore = new NowPlayingDisplayStore();
     const profileSessionStore = new ProfileSessionStore();
     debugOverridesStore.writeNowPlayingStreamDebugEnabled(true);
-    const moduleStatus = new Map<string, { status: 'ready' | 'pending' | 'error' }>();
-    moduleStatus.set('epg-ui', { status: 'ready' });
-
     return {
         epgDebugRuntime: null,
         config: null,
-        moduleStatus: moduleStatus as OrchestratorCoordinatorAssemblyInput['moduleStatus'],
+        moduleStatus: { getRuntimeStatus: jest.fn(() => 'ready') },
         init: {
             ensureEpgInitialized: (): Promise<void> => Promise.resolve(),
         },
@@ -305,7 +302,7 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
         const show = jest.fn();
         const focusNow = jest.fn();
         const deps = makeDeps(playbackState);
-        deps.moduleStatus.set('epg-ui', { status: 'initializing' } as never);
+        deps.moduleStatus.getRuntimeStatus = jest.fn(() => 'initializing');
         deps.init.ensureEpgInitialized = ensureEpgInitialized;
         deps.modules.epg = {
             show,

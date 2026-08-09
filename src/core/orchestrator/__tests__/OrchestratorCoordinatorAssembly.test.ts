@@ -81,7 +81,7 @@ type PreparePlaybackOptionsModal = (
 const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput => ({
     epgDebugRuntime: null,
     config: null,
-    moduleStatus: new Map(),
+    moduleStatus: { getRuntimeStatus: jest.fn() },
     init: {
         ensureEpgInitialized: jest.fn(async () => undefined),
     },

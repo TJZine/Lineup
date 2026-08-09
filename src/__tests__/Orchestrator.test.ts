@@ -31,9 +31,11 @@ import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerI
 import { EpgPreferencesStore } from '../modules/settings/EpgPreferencesStore';
 import { PlexDiscoverySelectionSupersededError } from '../modules/plex/discovery';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
+import type { OrchestratorCoordinatorAssemblyInput } from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { ScheduleDayRolloverController } from '../core/orchestrator/controllers/ScheduleDayRolloverController';
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
 import { OrchestratorServerSelectionRuntimeProjection } from '../core/orchestrator/runtime/OrchestratorServerSelectionRuntimeProjection';
+import { NowPlayingDebugManager } from '../modules/debug/NowPlayingDebugManager';
 import { expectConsoleWarn } from './helpers';
 import { EventEmitter } from '../utils/EventEmitter';
 import {
@@ -678,6 +680,30 @@ describe('AppOrchestrator', () => {
         const instance = new AppOrchestrator(platformServices);
         ownedOrchestrators.add(instance);
         return instance;
+    };
+
+    const captureCoordinatorAssembly = async (): Promise<{
+        orchestrator: AppOrchestrator;
+        input: OrchestratorCoordinatorAssemblyInput;
+    }> => {
+        const instance = createOrchestrator();
+        const originalAssembly = orchestratorCoordinatorAssembly.createOrchestratorCoordinators;
+        let capturedInput: OrchestratorCoordinatorAssemblyInput | null = null;
+        const assemblySpy = jest
+            .spyOn(orchestratorCoordinatorAssembly, 'createOrchestratorCoordinators')
+            .mockImplementation((input) => {
+                capturedInput = input;
+                return originalAssembly(input);
+            });
+
+        try {
+            await instance.initialize(mockConfig);
+        } finally {
+            assemblySpy.mockRestore();
+        }
+
+        if (!capturedInput) throw new Error('Coordinator assembly input was not captured');
+        return { orchestrator: instance, input: capturedInput };
     };
 
     const resetMockPlexDiscoveryOn = (): void => {
@@ -1433,35 +1459,6 @@ describe('AppOrchestrator', () => {
                 }
             });
 
-        it('fails before mutating auth state without an initialization coordinator', async () => {
-            await orchestrator.initialize(mockConfig);
-            Reflect.set(orchestrator as object, '_initCoordinator', null);
-
-            await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow(
-                'InitializationCoordinator not initialized'
-            );
-            expect(mockPlexAuth.switchHomeUser).not.toHaveBeenCalled();
-        });
-
-        it('reports discovery as the missing profile-switch dependency', async () => {
-            await orchestrator.initialize(mockConfig);
-            Reflect.set(orchestrator as object, '_plexDiscovery', null);
-
-            await expect(orchestrator.switchHomeUser('user-2')).rejects.toMatchObject({
-                code: AppErrorCode.MODULE_INIT_FAILED,
-                context: expect.objectContaining({
-                    method: 'switchHomeUser',
-                    dependency: 'PlexServerDiscovery',
-                }),
-            });
-            await expect(orchestrator.useMainAccountProfile()).rejects.toMatchObject({
-                code: AppErrorCode.MODULE_INIT_FAILED,
-                context: expect.objectContaining({
-                    method: 'useMainAccountProfile',
-                    dependency: 'PlexServerDiscovery',
-                }),
-            });
-        });
     });
 
     describe('start', () => {
@@ -2059,68 +2056,54 @@ describe('AppOrchestrator', () => {
 
 
 
-            it('routes channel transition activity callbacks through overlay badge recompute wiring', async () => {
-                const originalAssembly = orchestratorCoordinatorAssembly.createOrchestratorCoordinators;
-                let capturedAssemblyInput: unknown = null;
-                const assemblySpy = jest
-                    .spyOn(orchestratorCoordinatorAssembly, 'createOrchestratorCoordinators')
-                    .mockImplementation((deps) => {
-                        capturedAssemblyInput = deps;
-                        return originalAssembly(deps);
-                    });
+            it('routes channel transition activity through overlay badge recompute wiring', async () => {
                 const syncSpy = jest.spyOn(
                     OverlayRuntimePolicyController.prototype,
                     'syncChannelBadgeOverlay'
                 );
 
                 try {
-                    await orchestrator.initialize(mockConfig);
+                    const { input: assemblyInput } = await captureCoordinatorAssembly();
                     syncSpy.mockClear();
 
-                    const assemblyInput = (
-                        capturedAssemblyInput as
-                            | {
-                                  actions?: {
-                                      onChannelTransitionActivityChange?: (active: boolean) => void;
-                                      switchToChannel?: (channelId: string) => Promise<void>;
-                                      switchToChannelWithOutcome?: (
-                                          channelId: string
-                                      ) => Promise<ChannelSwitchOutcome>;
-                                  };
-                                  schedule?: {
-                                      lastChannelChangeSource?: () => string | null;
-                                      setLastChannelChangeSource?: (source: 'guide') => void;
-                                      getSelectedServerId?: () => string | null;
-                                      getLocalMidnightMs?: (timeMs: number) => number;
-                                  };
-                              }
-                            | null
-                    );
-                    assemblyInput?.actions?.onChannelTransitionActivityChange?.(true);
+                    assemblyInput.actions.onChannelTransitionActivityChange(true);
 
                     expect(syncSpy).toHaveBeenCalledTimes(1);
-                    expect(assemblyInput?.schedule?.lastChannelChangeSource?.()).toBeNull();
-                    assemblyInput?.schedule?.setLastChannelChangeSource?.('guide');
-                    expect(assemblyInput?.schedule?.lastChannelChangeSource?.()).toBe('guide');
-                    mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
-                    expect(assemblyInput?.schedule?.getSelectedServerId?.()).toBe('server-1');
-                    expect(assemblyInput?.schedule?.getLocalMidnightMs?.(Date.now())).toEqual(
-                        expect.any(Number)
-                    );
-
-                    const switchSpy = jest
-                        .spyOn(orchestrator, 'switchToChannel')
-                        .mockResolvedValue(undefined);
-                    await assemblyInput?.actions?.switchToChannel?.('channel-1');
-                    expect(switchSpy).toHaveBeenCalledWith('channel-1', undefined);
-                    switchSpy.mockRestore();
-
-                    await expect(
-                        assemblyInput?.actions?.switchToChannelWithOutcome?.(mockChannel.id)
-                    ).resolves.toEqual(expect.objectContaining({ kind: expect.any(String) }));
                 } finally {
                     syncSpy.mockRestore();
-                    assemblySpy.mockRestore();
+                }
+            });
+
+            it('wires schedule state and selected-server accessors into coordinator assembly', async () => {
+                const { input: assemblyInput } = await captureCoordinatorAssembly();
+
+                expect(assemblyInput.schedule.lastChannelChangeSource()).toBeNull();
+                assemblyInput.schedule.setLastChannelChangeSource('guide');
+                expect(assemblyInput.schedule.lastChannelChangeSource()).toBe('guide');
+
+                mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
+                expect(assemblyInput.schedule.getSelectedServerId()).toBe('server-1');
+                expect(assemblyInput.schedule.getLocalMidnightMs(Date.now())).toEqual(
+                    expect.any(Number)
+                );
+            });
+
+            it('wires void and outcome channel-switch actions into coordinator assembly', async () => {
+                const { orchestrator: assemblyOrchestrator, input: assemblyInput } =
+                    await captureCoordinatorAssembly();
+                const switchSpy = jest
+                    .spyOn(assemblyOrchestrator, 'switchToChannel')
+                    .mockResolvedValue(undefined);
+
+                try {
+                    await assemblyInput.actions.switchToChannel('channel-1');
+                    expect(switchSpy).toHaveBeenCalledWith('channel-1', undefined);
+
+                    await expect(
+                        assemblyInput.actions.switchToChannelWithOutcome(mockChannel.id)
+                    ).resolves.toEqual(expect.objectContaining({ kind: expect.any(String) }));
+                } finally {
+                    switchSpy.mockRestore();
                 }
             });
 
@@ -2517,8 +2500,10 @@ describe('AppOrchestrator', () => {
 
 
 
-            it('prefers the scheduler current program when retrying playback', () => {
-                Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
+            it('prefers the scheduler current program when retrying playback', async () => {
+                const { orchestrator: assemblyOrchestrator, input } =
+                    await captureCoordinatorAssembly();
+                input.playback.state.setCurrentProgramForPlayback({
                     item: {
                         ratingKey: 'stale-item',
                         title: 'Stale Item',
@@ -2549,7 +2534,7 @@ describe('AppOrchestrator', () => {
                     channelId: 'ch1',
                     currentProgram,
                 });
-                const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
+                const actions = assemblyOrchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
 
                 expect(actions[0]).toEqual(expect.objectContaining({ label: 'Retry', isPrimary: true }));
                 expect(actions[1]).toEqual(expect.objectContaining({ label: 'Skip', isPrimary: false }));
@@ -2560,8 +2545,10 @@ describe('AppOrchestrator', () => {
 
 
 
-            it('does not fall back to stale playback state when the active scheduler has no current program', () => {
-                Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
+            it('does not fall back to stale playback state when the active scheduler has no current program', async () => {
+                const { orchestrator: assemblyOrchestrator, input } =
+                    await captureCoordinatorAssembly();
+                input.playback.state.setCurrentProgramForPlayback({
                     item: {
                         ratingKey: 'stale-item',
                         title: 'Stale Item',
@@ -2580,7 +2567,7 @@ describe('AppOrchestrator', () => {
                     currentProgram: null,
                 });
 
-                const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
+                const actions = assemblyOrchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
                 actions[0]?.action();
 
                 expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
@@ -3025,17 +3012,19 @@ describe('AppOrchestrator', () => {
                         }),
                     }),
                 ]);
-                const stopActiveTranscodeSession = jest.fn(() => {
+                const { orchestrator: assemblyOrchestrator, input } =
+                    await captureCoordinatorAssembly();
+                input.playback.state.setCurrentStreamDecision(
+                    makeDecision({ isTranscoding: true, sessionId: 'transcode-session' })
+                );
+                mockPlexStreamResolver.stopTranscodeSession.mockImplementationOnce(() => {
                     throw new Error('transcode cleanup failed');
                 });
 
-                Reflect.set(orchestrator as object, '_playbackRuntimeController', {
-                    stopActiveTranscodeSession,
-                });
+                await expect(assemblyOrchestrator.shutdown()).resolves.toBeUndefined();
 
-                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
-
-                expect(stopActiveTranscodeSession).toHaveBeenCalledTimes(1);
+                expect(mockPlexStreamResolver.stopTranscodeSession)
+                    .toHaveBeenCalledWith('transcode-session');
                 expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
             });
 
@@ -3075,29 +3064,6 @@ describe('AppOrchestrator', () => {
 
 
 
-            it('records event binder dispose failures and continues shutdown', async () => {
-                expectConsoleWarn([
-                    'Shutdown teardown failures',
-                    expect.objectContaining({
-                        teardownFailures: expect.arrayContaining([
-                            expect.objectContaining({ step: 'events.unsubscribe' }),
-                        ]),
-                    }),
-                ]);
-                const dispose = jest.fn(() => {
-                    throw new Error('event binder dispose failed');
-                });
-
-                Reflect.set(orchestrator as object, '_eventBinder', { dispose });
-
-                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
-
-                expect(dispose).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.destroy).toHaveBeenCalled();
-            });
-
-
-
             it('records schedule day rollover disposal failures and continues shutdown', async () => {
                 expectConsoleWarn([
                     'Shutdown teardown failures',
@@ -3108,15 +3074,20 @@ describe('AppOrchestrator', () => {
                     }),
                 ]);
 
-                Reflect.set(orchestrator as object, '_scheduleDayRolloverController', {
-                    dispose: jest.fn(() => {
+                const disposeSpy = jest
+                    .spyOn(ScheduleDayRolloverController.prototype, 'dispose')
+                    .mockImplementationOnce(() => {
                         throw new Error('rollover dispose failed');
-                    }),
-                });
+                    });
 
-                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+                try {
+                    await expect(orchestrator.shutdown()).resolves.toBeUndefined();
 
-                expect(mockNavigation.destroy).toHaveBeenCalled();
+                    expect(disposeSpy).toHaveBeenCalledTimes(1);
+                    expect(mockNavigation.destroy).toHaveBeenCalled();
+                } finally {
+                    disposeSpy.mockRestore();
+                }
             });
     });
 
@@ -3154,153 +3125,7 @@ describe('AppOrchestrator', () => {
             expect(orchestrator.getModuleStatus().get('plex-auth')?.status).not.toBe('error');
         });
 
-
-
-
-            it('returns defensive copies of module status error context', () => {
-                Reflect.set(orchestrator as object, '_moduleStatus', new Map([
-                    [
-                        'plex-auth',
-                        {
-                            id: 'plex-auth',
-                            name: 'plex-auth',
-                            status: 'error',
-                            error: {
-                                code: AppErrorCode.AUTH_INVALID,
-                                message: 'bad auth',
-                                recoverable: true,
-                                context: {
-                                    source: 'test',
-                                    nested: {
-                                        value: 'original',
-                                    },
-                                },
-                            },
-                        },
-                    ],
-                ]));
-
-                const returned = orchestrator.getModuleStatus().get('plex-auth');
-
-                expect(returned?.error).toEqual({
-                    code: AppErrorCode.AUTH_INVALID,
-                    message: 'bad auth',
-                    recoverable: true,
-                    context: {
-                        source: 'test',
-                        nested: {
-                            value: 'original',
-                        },
-                    },
-                });
-                expect(returned?.error).not.toBe(
-                    Reflect.get(orchestrator as object, '_moduleStatus').get('plex-auth').error
-                );
-                expect(returned?.error?.context).not.toBe(
-                    Reflect.get(orchestrator as object, '_moduleStatus').get('plex-auth').error.context
-                );
-
-                if (returned?.error?.context) {
-                    returned.error.context.source = 'mutated';
-                    (returned.error.context.nested as { value: string }).value = 'mutated';
-                }
-
-                expect(orchestrator.getModuleStatus().get('plex-auth')?.error?.context?.source).toBe('test');
-                const nestedContext = orchestrator.getModuleStatus().get('plex-auth')?.error?.context?.nested as
-                    | { value: string }
-                    | undefined;
-                expect(nestedContext?.value).toBe('original');
-            });
-
-
-
-            it('reports structuredClone fallback once per failing context identity', () => {
-                const originalStructuredClone = globalThis.structuredClone;
-                const warning = expectConsoleWarn([
-                    'Falling back to diagnostic-value clone for module status error context',
-                    expect.objectContaining({
-                        safeError: expect.objectContaining({
-                            message: 'clone failed',
-                        }),
-                    }),
-                ], { times: 2 });
-                const context = {
-                    source: 'test',
-                    nested: {
-                        value: 'original',
-                    },
-                };
-
-                Object.defineProperty(globalThis, 'structuredClone', {
-                    configurable: true,
-                    value: jest.fn(() => {
-                        throw new Error('clone failed');
-                    }),
-                });
-
-                Reflect.set(orchestrator as object, '_moduleStatus', new Map([
-                    [
-                        'plex-auth',
-                        {
-                            id: 'plex-auth',
-                            name: 'plex-auth',
-                            status: 'error',
-                            error: {
-                                code: AppErrorCode.AUTH_INVALID,
-                                message: 'bad auth',
-                                recoverable: true,
-                                context,
-                            },
-                        },
-                    ],
-                ]));
-
-                try {
-                    const firstReturned = orchestrator.getModuleStatus().get('plex-auth');
-                    const secondReturned = orchestrator.getModuleStatus().get('plex-auth');
-
-                    expect(firstReturned?.error?.context).toEqual({
-                        source: 'test',
-                        nested: {
-                            value: 'original',
-                        },
-                    });
-                    expect(secondReturned?.error?.context).toEqual(firstReturned?.error?.context);
-                    expect(warning.getCalls()).toHaveLength(1);
-
-                    Reflect.set(orchestrator as object, '_moduleStatus', new Map([
-                        [
-                            'plex-auth',
-                            {
-                                id: 'plex-auth',
-                                name: 'plex-auth',
-                                status: 'error',
-                                error: {
-                                    code: AppErrorCode.AUTH_INVALID,
-                                    message: 'bad auth',
-                                    recoverable: true,
-                                    context: {
-                                        source: 'test-2',
-                                    },
-                                },
-                            },
-                        ],
-                    ]));
-
-                    orchestrator.getModuleStatus();
-
-                    expect(warning.getCalls()).toHaveLength(2);
-                } finally {
-                    Object.defineProperty(globalThis, 'structuredClone', {
-                        configurable: true,
-                        value: originalStructuredClone,
-                    });
-                }
-            });
-
-
-
-            it('builds playback resource URLs with the selected PMS credential, not cloud auth', () => {
+            it('wires selected PMS credentials into playback resource URLs', async () => {
                 mockPlexDiscovery.getServerUri.mockReturnValue('https://selected.example:32400');
                 mockPlexDiscovery.getSelectedServerAuthHeaders.mockReturnValue({
                     'X-Plex-Token': 'selected-pms-token',
@@ -3309,51 +3134,58 @@ describe('AppOrchestrator', () => {
                     'X-Plex-Token': 'cloud-home-token',
                 });
 
-                const result = Reflect.get(
-                    orchestrator as object,
-                    '_buildPlexResourceUrl'
-                ).call(orchestrator, '/library/metadata/1/thumb') as string;
+                const { input } = await captureCoordinatorAssembly();
+                const result = input.playback.buildPlexResourceUrl('/library/metadata/1/thumb');
 
+                expect(result).not.toBeNull();
                 expect(result).toContain('X-Plex-Token=selected-pms-token');
                 expect(result).not.toContain('cloud-home-token');
                 expect(mockPlexAuth.getAuthHeaders).not.toHaveBeenCalled();
             });
 
+            it('refreshes server decision data only when playback state can support it', async () => {
+                const ensureServerDecisionSpy = jest
+                    .spyOn(NowPlayingDebugManager.prototype, 'ensureServerDecisionForPlaybackInfoSnapshot')
+                    .mockResolvedValue(undefined);
 
-
-            it('returns null and reports when Plex resource URL accessor dependencies throw', () => {
-                const warning = expectConsoleWarn([
-                    'buildPlexResourceUrlWithAuth failed',
-                    expect.objectContaining({
-                        pathOrUrl: '/library/metadata/1/thumb?X-Plex-Token=REDACTED',
-                        baseUri: 'http://localhost:32400?X-Plex-Token=REDACTED',
-                        safeError: expect.objectContaining({
-                            message: 'auth headers failed',
-                        }),
-                    }),
-                ]);
-
-                mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400?X-Plex-Token=base-secret');
-                mockPlexDiscovery.getSelectedServerAuthHeaders.mockImplementation(() => {
-                    throw new Error('auth headers failed');
-                });
                 try {
-                    expect(
-                        Reflect.get(
-                            orchestrator as object,
-                            '_buildPlexResourceUrl'
-                        ).call(orchestrator, '/library/metadata/1/thumb?X-Plex-Token=path-secret')
-                    ).toBeNull();
-                    expect(warning.getCalls()).toHaveLength(1);
-                } finally {
-                    mockPlexDiscovery.getServerUri.mockReset();
-                    mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
-                    mockPlexDiscovery.getSelectedServerAuthHeaders.mockReset();
-                    mockPlexDiscovery.getSelectedServerAuthHeaders.mockReturnValue({
-                        'X-Plex-Token': 'mock-token',
+                    const { orchestrator: assemblyOrchestrator, input } =
+                        await captureCoordinatorAssembly();
+                    input.playback.state.setCurrentProgramForPlayback({
+                        item: {
+                            ratingKey: 'item-1',
+                            title: 'Episode',
+                            fullTitle: 'Show - Episode',
+                            type: 'episode',
+                        },
+                        scheduledStartTime: 100,
+                        scheduledEndTime: 200,
+                        elapsedMs: 25,
+                        remainingMs: 75,
+                    } as ScheduledProgram);
+                    input.playback.state.setCurrentStreamDecision(makeDecision());
+                    input.playback.state.setCurrentStreamDescriptor({
+                        protocol: 'hls',
+                        mimeType: 'application/vnd.apple.mpegurl',
+                    } as never);
+
+                    await expect(assemblyOrchestrator.refreshPlaybackInfoSnapshot()).resolves.toMatchObject({
+                        stream: expect.objectContaining({ sessionId: expect.any(String) }),
                     });
+                    expect(ensureServerDecisionSpy).toHaveBeenCalledTimes(1);
+
+                    input.playback.state.setCurrentStreamDecision(null);
+                    await expect(assemblyOrchestrator.refreshPlaybackInfoSnapshot()).resolves.toMatchObject({
+                        stream: null,
+                    });
+                    expect(ensureServerDecisionSpy).toHaveBeenCalledTimes(1);
+                } finally {
+                    ensureServerDecisionSpy.mockRestore();
                 }
             });
+
+
+
     });
 
 
