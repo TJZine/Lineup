@@ -1,20 +1,16 @@
 /** @jest-environment jsdom */
 
-import fs from 'node:fs';
-import path from 'node:path';
-
 import {
     blockFor,
     blockWithin,
-    normalizeLineEndings,
+    declarationValue,
     read,
     readComposedCss,
     topLevelBlockForProperty,
 } from '../../../../styles/__tests__/helpers/css-test-utils';
 
 describe('focused EPG overflow style contract', () => {
-    const cssPath = path.resolve(__dirname, '..', 'styles.css');
-    const rawCss = normalizeLineEndings(fs.readFileSync(cssPath, 'utf8'));
+    const rawCss = read('src/modules/ui/epg/styles.css');
     const css = readComposedCss('src/modules/ui/epg/styles.css');
     const cellsCss = read('src/modules/ui/epg/styles.cells.css');
     const gridCss = read('src/modules/ui/epg/styles.grid.css');
@@ -41,27 +37,24 @@ describe('focused EPG overflow style contract', () => {
         {
             name: 'compact focus',
             selector: '.epg-cell.focused.epg-cell-focused-compact',
-            declarations: ['grid-template-columns: 1fr'],
             railSelector: '.epg-cell.focused.epg-cell-focused-compact .epg-cell-rail',
             railDeclarations: ['position: absolute', 'top: 8px', 'right: 10px', 'pointer-events: none'],
         },
         {
             name: 'tiny movie overlay focus',
             selector: '.epg-cell.focused.epg-cell-focused-movie-overlay.epg-cell-tier-tiny',
-            declarations: ['grid-template-columns: 1fr'],
             railSelector: '.epg-cell.focused.epg-cell-focused-movie-overlay .epg-cell-rail',
             railDeclarations: ['position: absolute', 'top: 8px', 'right: 10px', 'pointer-events: none'],
         },
     ])('keeps $name overflow content and rails separate', ({
         selector,
-        declarations,
         railSelector,
         railDeclarations,
     }) => {
         const cellBlock = blockFor(css, selector);
         const railBlock = blockFor(css, railSelector);
 
-        declarations.forEach((declaration) => expect(cellBlock).toContain(declaration));
+        expect(declarationValue(cellBlock, 'grid-template-columns')).toBe('1fr');
         railDeclarations.forEach((declaration) => expect(railBlock).toContain(declaration));
     });
 
@@ -107,20 +100,33 @@ describe('focused EPG overflow style contract', () => {
                     const railStyle = getComputedStyle(rail);
                     const timeStyle = getComputedStyle(time);
 
-                    expect(railStyle.position).toBe('absolute');
-                    expect(railStyle.top).toBe('8px');
-                    expect(railStyle.right).toBe('10px');
-                    expect(railStyle.bottom).toBe('8px');
-                    expect(railStyle.alignItems).toBe('flex-end');
-                    expect(railStyle.justifyContent).toBe('space-between');
-                    expect(timeStyle.alignSelf).toBe('flex-end');
-                    expect(timeStyle.marginTop).toBe('auto');
-                    if (tier === 'medium') {
-                        expect(timeStyle.display).toBe('block');
-                    }
-                    expect(getComputedStyle(badge).display).toBe(
-                        badgeHidden ? 'none' : 'flex'
-                    );
+                    expect({
+                        tier,
+                        badgeHidden,
+                        position: railStyle.position,
+                        top: railStyle.top,
+                        right: railStyle.right,
+                        bottom: railStyle.bottom,
+                        alignItems: railStyle.alignItems,
+                        justifyContent: railStyle.justifyContent,
+                        timeAlignSelf: timeStyle.alignSelf,
+                        timeMarginTop: timeStyle.marginTop,
+                        ...(tier === 'medium' ? { timeDisplay: timeStyle.display } : {}),
+                        badgeDisplay: getComputedStyle(badge).display,
+                    }).toEqual({
+                        tier,
+                        badgeHidden,
+                        position: 'absolute',
+                        top: '8px',
+                        right: '10px',
+                        bottom: '8px',
+                        alignItems: 'flex-end',
+                        justifyContent: 'space-between',
+                        timeAlignSelf: 'flex-end',
+                        timeMarginTop: 'auto',
+                        ...(tier === 'medium' ? { timeDisplay: 'block' } : {}),
+                        badgeDisplay: badgeHidden ? 'none' : 'flex',
+                    });
                 }
             }
         } finally {

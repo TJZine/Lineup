@@ -68,8 +68,14 @@ describe('src/index', () => {
         const imports = getSideEffectStylesheetImports();
 
         expect(imports).toEqual(stylesheetSeams);
-        expect(imports).not.toContain(expect.stringMatching(/\/styles\.[^/]+\.css$/));
-        expect(imports).not.toContain(expect.stringMatching(/\/shell\.[^/]+\.css$/));
+        for (const forbiddenPattern of [
+            /\/styles\.[^/]+\.css$/,
+            /\/shell\.[^/]+\.css$/,
+        ]) {
+            expect(imports).not.toEqual(
+                expect.arrayContaining([expect.stringMatching(forbiddenPattern)])
+            );
+        }
     });
 
     it('installs the lineup bootstrap exactly once on direct module import', async () => {

@@ -4,13 +4,24 @@ import { ChannelTuningOperationContext } from '../ChannelTuningOperationContext'
 describe('ChannelTuningOperationContext', () => {
     it('allows repeated suspension without replacing the first abort reason', () => {
         const owner = new ChannelTuningOperationContext();
+        const lease = owner.capture();
 
-        owner.suspend();
-        owner.suspend();
+        try {
+            owner.suspend();
+            const originalReason = lease.signal.reason;
+            owner.suspend();
 
-        expect(() => owner.capture()).toThrow(
-            expect.objectContaining({ name: 'AbortError' })
-        );
+            let observedReason: unknown;
+            try {
+                lease.assertCurrent();
+            } catch (error) {
+                observedReason = error;
+            }
+            expect(observedReason).toBe(originalReason);
+            expect(lease.signal.reason).toBe(originalReason);
+        } finally {
+            lease.release();
+        }
     });
 
     it('releases its retained scope when caller-context construction fails', () => {

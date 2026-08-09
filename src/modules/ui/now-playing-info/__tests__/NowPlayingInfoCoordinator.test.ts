@@ -12,6 +12,7 @@ import type { INowPlayingInfoOverlay } from '../interfaces';
 import type { NowPlayingInfoConfig } from '../types';
 
 const modalId = 'now-playing-info';
+const activeCoordinators = new Set<NowPlayingInfoCoordinator>();
 
 const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgram =>
     ({
@@ -117,8 +118,10 @@ const setup = (
         refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue({ stream: null }),
         ...overrides,
     };
+    const coordinator = new NowPlayingInfoCoordinator(deps);
+    activeCoordinators.add(coordinator);
     return {
-        coordinator: new NowPlayingInfoCoordinator(deps),
+        coordinator,
         deps,
         navigation,
         scheduler,
@@ -128,6 +131,15 @@ const setup = (
 };
 
 describe('NowPlayingInfoCoordinator', () => {
+    afterEach(() => {
+        for (const coordinator of activeCoordinators) {
+            coordinator.handleModalClose(modalId);
+            coordinator.dispose();
+        }
+        activeCoordinators.clear();
+        jest.useRealTimers();
+    });
+
     it('handleModalOpen closes modal if no program is available', () => {
         expectConsoleWarn([
             '[NowPlayingInfoCoordinator] Scheduler unavailable, using fallback:',

@@ -32,6 +32,13 @@ const RUNTIME_COLOR_FILES = [
 const SHARED_COLOR_LITERAL_PATTERN =
     /#ffffff|#eff8ff|#f0a060|#e0782a|rgba\(255, 106, 106, 0\.(?:8|95)\)|rgba\(255, 255, 255, 0\.(?:45|5|6|7|85|88|9|95)\)/;
 const BRIGHT_FOCUS_LITERAL_PATTERN = /rgba\(255, 255, 255, 0\.(?:92|98)\)/g;
+const exitConfirmFocusBlock = (css: string): string => {
+    const block = css.match(
+        /\.exit-confirm-action\.focused,\s*\.exit-confirm-action:focus-visible:not\(\.focused\)\s*\{[^}]*\}/s
+    )?.[0];
+    if (!block) throw new Error('Exit-confirm focus selector block not found');
+    return block;
+};
 
 const cssFiles = (directory = path.join(process.cwd(), 'src')): string[] =>
     fs.readdirSync(directory, { recursive: true, withFileTypes: true })
@@ -189,7 +196,8 @@ describe('runtime token style contracts', () => {
 
         const exitCss = readComposedCss('src/modules/ui/exit-confirm/styles.css');
         const osdCss = readComposedCss('src/modules/ui/player-osd/styles.actions.css');
-        expect(exitCss.replace(/\.exit-confirm-action(?:\.focused|:focus-visible:not\(\.focused\))\s*\{[^}]*\}/gs, ''))
+        const exitFocusBlock = exitConfirmFocusBlock(exitCss);
+        expect(exitCss.replace(exitFocusBlock, ''))
             .not.toMatch(BRIGHT_FOCUS_LITERAL_PATTERN);
         expect(osdCss.replace(/\.player-osd-action\.focused\s*\{[^}]*\}/gs, ''))
             .not.toMatch(BRIGHT_FOCUS_LITERAL_PATTERN);
@@ -197,26 +205,24 @@ describe('runtime token style contracts', () => {
 
     it.each([
         {
+            name: 'player OSD',
             file: 'src/modules/ui/player-osd/styles.actions.css',
             selector: '.player-osd-action.focused',
             background: 'rgba(255, 255, 255, 0.92)',
             border: 'rgba(255, 255, 255, 0.98)',
         },
         {
+            name: 'exit confirm',
             file: 'src/modules/ui/exit-confirm/styles.css',
-            selector: '.exit-confirm-action.focused,\n.exit-confirm-action:focus-visible:not(.focused)',
             background: 'rgba(255, 255, 255, 0.92)',
             border: 'rgba(255, 255, 255, 0.92)',
         },
-    ])('keeps load-bearing focus treatment for $selector', ({ file, selector, background, border }) => {
+    ])('keeps load-bearing focus treatment for $name', ({ file, selector, background, border }) => {
         const css = readComposedCss(file);
-        const block = file.includes('exit-confirm')
-            ? css.match(
-                /\.exit-confirm-action\.focused,\s*\.exit-confirm-action:focus-visible:not\(\.focused\)\s*\{[^}]*\}/s
-            )?.[0] ?? ''
-            : topLevelBlockForProperty(css, selector, 'background');
+        const block = selector
+            ? topLevelBlockForProperty(css, selector, 'background')
+            : exitConfirmFocusBlock(css);
 
-        expect(block).not.toBe('');
         expect(declarationValue(block, 'background')).toBe(background);
         expect(declarationValue(block, 'border-color')).toBe(border);
         expect(declarationValue(block, 'color')).toBe('var(--color-text-on-focus)');

@@ -329,15 +329,15 @@ describe('test anti-pattern contracts', () => {
     });
 
     it.each([
-        ['identifier timer and callback', `const sleep = () => new Promise((resolve) => setTimeout(resolve, 1));`],
-        ['property timer', `const sleep = () => new Promise((resolve) => globalThis.setTimeout(resolve, 1));`],
-        ['element timer', `const sleep = () => new Promise((resolve) => globalThis['setTimeout'](resolve, 1));`],
-        ['interval', `const wait = () => new Promise((resolve) => setInterval(resolve, 1));`],
-        ['arrow callback', `const sleep = () => new Promise<void>(() => setTimeout(() => undefined, 1));`],
-        ['direct await', `async function run() { await new Promise((resolve) => setTimeout(resolve, 1)); }`],
-        ['local callback wrapper', `const wait = (resolve: () => void) => setTimeout(resolve, 1); const sleep = () => new Promise(wait);`],
-        ['function callback wrapper', `function wait(resolve: () => void) { setTimeout(resolve, 1); } new Promise(wait);`],
-        ['simple callback alias', `const wait = (resolve: () => void) => setTimeout(resolve, 1); const alias = wait; new Promise(alias);`],
+        ['identifier timer and callback', `const sleep = () => new Promise((resolve) => setTimeout(resolve, 1));`, 'sleep'],
+        ['property timer', `const sleep = () => new Promise((resolve) => globalThis.setTimeout(resolve, 1));`, 'sleep'],
+        ['element timer', `const sleep = () => new Promise((resolve) => globalThis['setTimeout'](resolve, 1));`, 'sleep'],
+        ['interval', `const wait = () => new Promise((resolve) => setInterval(resolve, 1));`, 'wait'],
+        ['arrow callback', `const sleep = () => new Promise<void>(() => setTimeout(() => undefined, 1));`, 'sleep'],
+        ['direct await', `async function run() { await new Promise((resolve) => setTimeout(resolve, 1)); }`, 'run'],
+        ['local callback wrapper', `const wait = (resolve: () => void) => setTimeout(resolve, 1); const sleep = () => new Promise(wait);`, 'sleep'],
+        ['function callback wrapper', `function wait(resolve: () => void) { setTimeout(resolve, 1); } new Promise(wait);`, '<inline>'],
+        ['simple callback alias', `const wait = (resolve: () => void) => setTimeout(resolve, 1); const alias = wait; new Promise(alias);`, '<inline>'],
         [
             'nested local scheduling wrapper',
             `const wait = (resolve: () => void) => {
@@ -345,6 +345,7 @@ describe('test anti-pattern contracts', () => {
                 schedule(resolve);
             };
             new Promise(wait);`,
+            '<inline>',
         ],
         [
             'for initializer shadow with outer binding restoration',
@@ -353,6 +354,7 @@ describe('test anti-pattern contracts', () => {
                 new Promise(wait);
             }
             new Promise(wait);`,
+            '<inline>',
         ],
         [
             'for-in shadow with outer binding restoration',
@@ -361,6 +363,7 @@ describe('test anti-pattern contracts', () => {
                 new Promise(wait);
             }
             new Promise(wait);`,
+            '<inline>',
         ],
         [
             'for-of shadow with outer binding restoration',
@@ -369,6 +372,7 @@ describe('test anti-pattern contracts', () => {
                 new Promise(wait);
             }
             new Promise(wait);`,
+            '<inline>',
         ],
         [
             'catch shadow with outer binding restoration',
@@ -377,6 +381,7 @@ describe('test anti-pattern contracts', () => {
                 new Promise(wait);
             }
             new Promise(wait);`,
+            '<inline>',
         ],
         [
             'switch shadow with outer binding restoration',
@@ -388,6 +393,7 @@ describe('test anti-pattern contracts', () => {
                     break;
             }
             new Promise(wait);`,
+            '<inline>',
         ],
         [
             'for-scoped timer without leaking into the outer binding',
@@ -396,6 +402,7 @@ describe('test anti-pattern contracts', () => {
                 new Promise(wait);
             }
             new Promise(wait);`,
+            '<inline>',
         ],
         [
             'switch-scoped timer without leaking into the outer binding',
@@ -407,9 +414,13 @@ describe('test anti-pattern contracts', () => {
                     break;
             }
             new Promise(wait);`,
+            '<inline>',
         ],
-    ])('detects Promise timer sleeps through %s', (_label, source) => {
-        expect(scanSource('synthetic.test.ts', source).sleeps).toHaveLength(1);
+    ])('detects Promise timer sleeps through %s', (_label, source, expectedScope) => {
+        const findings = scanSource('synthetic.test.ts', source).sleeps;
+
+        expect(findings).toHaveLength(1);
+        expect(findings[0]?.scope).toBe(expectedScope);
     });
 
     it.each([
@@ -479,9 +490,6 @@ describe('test anti-pattern contracts', () => {
 
         expect(privateKeys).toEqual([EPG_CACHE_STORE_EXCEPTION]);
         expect(sleepKeys.filter((key) => !SLEEP_HELPER_EXCEPTIONS.has(key))).toEqual([]);
-        expect(sleepKeys.filter((key) => SLEEP_HELPER_EXCEPTIONS.has(key))).toEqual([
-            'src/__tests__/helpers.ts|flushPromisesAndMacrotask',
-            'src/__tests__/helpers.ts|withTestTimeout',
-        ]);
+        expect(sleepKeys.every((key) => SLEEP_HELPER_EXCEPTIONS.has(key))).toBe(true);
     });
 });

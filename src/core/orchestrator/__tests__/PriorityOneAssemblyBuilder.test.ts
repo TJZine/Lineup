@@ -238,8 +238,9 @@ describe('createPriorityOneRuntimeAssembly', () => {
             scheduleIndex: 1,
         };
         playbackState.setPendingNowPlayingChannelId('channel-2');
+        playbackState.setShouldAutoShowInfoBannerOnNextPlay.mockClear();
         await assembly.playbackStartController.handleProgramStart(staleProgram);
-        expect(playbackState.setShouldAutoShowInfoBannerOnNextPlay).toHaveBeenCalledWith(false);
+        expect(playbackState.setShouldAutoShowInfoBannerOnNextPlay).toHaveBeenLastCalledWith(false);
 
         assembly.eventBinder.dispose();
         expect(player.off).toHaveBeenCalledWith('trackChange', expect.any(Function));
