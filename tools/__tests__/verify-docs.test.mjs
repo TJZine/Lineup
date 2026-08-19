@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
     copyFileSync,
     mkdirSync,
@@ -23,6 +23,7 @@ import {
 } from '../verify-docs.mjs';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
+const verifyDocsPath = path.join(repoRoot, 'tools/verify-docs.mjs');
 const codexFiles = [
     '.codex/config.toml',
     '.codex/agents/docs-researcher.toml',
@@ -34,6 +35,12 @@ const codexFiles = [
     '.codex/agents/worker.toml',
 ];
 
+function writeFixtureFile(fixtureRoot, relativePath, content) {
+    const target = path.join(fixtureRoot, relativePath);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, content, 'utf8');
+}
+
 function createRoleFixture() {
     const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-role-config-'));
     for (const relativePath of codexFiles) {
@@ -43,6 +50,35 @@ function createRoleFixture() {
     }
     execFileSync('git', ['init', '--quiet'], { cwd: fixtureRoot });
     execFileSync('git', ['add', '.codex'], { cwd: fixtureRoot });
+    return fixtureRoot;
+}
+
+function createVerifierFixture() {
+    const fixtureRoot = createRoleFixture();
+    const markdownFiles = [
+        'AGENTS.md',
+        'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+        'docs/AGENTIC_DEV_WORKFLOW.md',
+        'docs/architecture/CURRENT_STATE.md',
+        'docs/agentic/session-prompts/README.md',
+    ];
+    for (const relativePath of markdownFiles) {
+        writeFixtureFile(fixtureRoot, relativePath, `# ${path.basename(relativePath, '.md')}\n`);
+    }
+    writeFixtureFile(
+        fixtureRoot,
+        '.agents/skills/test-skill/SKILL.md',
+        [
+            '---',
+            'name: test-skill',
+            'description: Test fixture skill for verifier integration coverage.',
+            '---',
+            '',
+            '# Test Skill',
+            '',
+        ].join('\n')
+    );
+    execFileSync('git', ['add', '.'], { cwd: fixtureRoot });
     return fixtureRoot;
 }
 
@@ -136,11 +172,25 @@ test('rejects missing, renamed, and unknown role declarations', () => {
     }
 });
 
-test('rejects unsupported role model, effort, sandbox, and keys', () => {
+test('keeps exact model and effort defaults owned by each role TOML', () => {
+    const fixtureRoot = createRoleFixture();
+    try {
+        mutateFile(fixtureRoot, '.codex/agents/worker-luna.toml', (content) =>
+            content
+                .replace('model = "gpt-5.6-luna"', 'model = "gpt-5.6-sol"')
+                .replace('model_reasoning_effort = "max"', 'model_reasoning_effort = "high"')
+        );
+
+        assert.deepEqual(validateCodexRoleConfig(fixtureRoot), []);
+    } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('rejects invalid role model, effort, sandbox, and keys', () => {
     const mutations = [
-        ['.codex/agents/worker.toml', (content) => content.replace('gpt-5.6-sol', 'gpt-unknown'), 'role model unsupported'],
+        ['.codex/agents/worker.toml', (content) => content.replace('gpt-5.6-sol', ' '), 'role model invalid'],
         ['.codex/agents/worker.toml', (content) => content.replace('model_reasoning_effort = "medium"', 'model_reasoning_effort = "ultra"'), 'role effort unsupported'],
-        ['.codex/agents/worker-luna.toml', (content) => content.replace('model_reasoning_effort = "max"', 'model_reasoning_effort = "high"'), 'role effort unsupported'],
         ['.codex/agents/reviewer.toml', (content) => content.replace('sandbox_mode = "read-only"', 'sandbox_mode = "danger-full-access"'), 'role sandbox unsupported'],
         ['.codex/agents/worker.toml', (content) => `${content}\napproval_policy = "never"\n`, 'role keys unsupported'],
     ];
@@ -152,6 +202,35 @@ test('rejects unsupported role model, effort, sandbox, and keys', () => {
         } finally {
             rmSync(fixtureRoot, { recursive: true, force: true });
         }
+    }
+});
+
+test('rejects an extra tracked retired role file through the verifier entry point', () => {
+    const fixtureRoot = createVerifierFixture();
+    try {
+        writeFixtureFile(
+            fixtureRoot,
+            '.codex/agents/worker-sol-low.toml',
+            'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "low"\n'
+        );
+        execFileSync('git', ['add', '.codex/agents/worker-sol-low.toml'], { cwd: fixtureRoot });
+
+        const result = spawnSync(process.execPath, [verifyDocsPath], {
+            cwd: fixtureRoot,
+            encoding: 'utf8',
+        });
+
+        assert.equal(result.status, 1, result.stdout);
+        assert.match(
+            result.stderr,
+            /codex-config: tracked role files unknown: \.codex\/agents\/worker-sol-low\.toml/u
+        );
+        assert.match(
+            result.stderr,
+            /\.codex\/agents\/worker-sol-low\.toml: current authority references retired worker role/u
+        );
+    } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
     }
 });
 
