@@ -32,6 +32,15 @@ const RUNTIME_COLOR_FILES = [
 const SHARED_COLOR_LITERAL_PATTERN =
     /#ffffff|#eff8ff|#f0a060|#e0782a|rgba\(255, 106, 106, 0\.(?:8|95)\)|rgba\(255, 255, 255, 0\.(?:45|5|6|7|85|88|9|95)\)/;
 const BRIGHT_FOCUS_LITERAL_PATTERN = /rgba\(255, 255, 255, 0\.(?:92|98)\)/g;
+const SHARED_TOKEN_DEFINITION_PATTERN = /(--(?:color|space|text|z)-[\w-]+)\s*:/g;
+const SHARED_TOKEN_REFERENCE_PATTERN = /var\((--(?:color|space|text|z)-[\w-]+)/g;
+const LOCAL_SHARED_TOKEN_OWNERS = [
+    {
+        prefix: '--space-local-',
+        root: 'src/modules/ui/epg/',
+    },
+] as const;
+
 const exitConfirmFocusBlock = (css: string): string => {
     const block = css.match(
         /\.exit-confirm-action\.focused,\s*\.exit-confirm-action:focus-visible:not\(\.focused\)\s*\{[^}]*\}/s
@@ -49,6 +58,49 @@ const cssFiles = (directory = path.join(process.cwd(), 'src')): string[] =>
                 .join('/')
         )
         .sort();
+
+type CssSource = {
+    file: string;
+    css: string;
+};
+
+const collectTokens = (css: string, pattern: RegExp): Set<string> =>
+    new Set(Array.from(css.matchAll(pattern), (match) => match[1]!));
+
+const findMissingSharedTokenReferences = (
+    sources: CssSource[],
+    canonicalTokenCss: string
+): string[] => {
+    const canonicalDefinitions = collectTokens(
+        canonicalTokenCss,
+        SHARED_TOKEN_DEFINITION_PATTERN
+    );
+    const localDefinitions = LOCAL_SHARED_TOKEN_OWNERS.map((owner) => ({
+        ...owner,
+        definitions: new Set(
+            sources
+                .filter(({ file }) => file.startsWith(owner.root))
+                .flatMap(({ css }) =>
+                    Array.from(collectTokens(css, SHARED_TOKEN_DEFINITION_PATTERN))
+                )
+                .filter((token) => token.startsWith(owner.prefix))
+        ),
+    }));
+
+    return sources.flatMap(({ file, css }) =>
+        Array.from(collectTokens(css, SHARED_TOKEN_REFERENCE_PATTERN))
+            .filter((token) => {
+                if (canonicalDefinitions.has(token)) return false;
+                return !localDefinitions.some(
+                    (owner) =>
+                        file.startsWith(owner.root) &&
+                        token.startsWith(owner.prefix) &&
+                        owner.definitions.has(token)
+                );
+            })
+            .map((token) => `${file}: ${token}`)
+    );
+};
 
 const RUNTIME_LAYERS = [
     {
@@ -102,18 +154,29 @@ const runtimeLayerValue = (layer: (typeof RUNTIME_LAYERS)[number]): number =>
     Number(declarationValue(runtimeLayerBlock(layer), layer.variable));
 
 describe('runtime token style contracts', () => {
-    it('defines every shared runtime token that CSS consumes', () => {
-        const css = cssFiles().map(read).join('\n');
-        const definitions = new Set(
-            Array.from(css.matchAll(/(--(?:color|space|text|z)-[\w-]+)\s*:/g), (match) => match[1])
-        );
-        const references = new Set(
-            Array.from(css.matchAll(/var\((--(?:color|space|text|z)-[\w-]+)/g), (match) => match[1])
-        );
+    it('defines shared runtime tokens in their canonical or bounded local owner', () => {
+        const sources = cssFiles().map((file) => ({ file, css: read(file) }));
 
-        expect(Array.from(references).filter((token) => !definitions.has(token))).toEqual([]);
-        expect(definitions.size).toBeGreaterThan(0);
-        expect(references.size).toBeGreaterThan(0);
+        expect(
+            findMissingSharedTokenReferences(sources, read('src/styles/tokens.css'))
+        ).toEqual([]);
+    });
+
+    it('does not let a theme-only declaration satisfy an unrelated default reference', () => {
+        const sources = [
+            {
+                file: 'src/styles/default.css',
+                css: '.default { color: var(--color-theme-only); }',
+            },
+            {
+                file: 'src/styles/theme.css',
+                css: '.theme-example { --color-theme-only: #fff; }',
+            },
+        ];
+
+        expect(findMissingSharedTokenReferences(sources, ':root {}')).toEqual([
+            'src/styles/default.css: --color-theme-only',
+        ]);
     });
 
     it('keeps the root z-index vocabulary coarse and strictly ordered', () => {
