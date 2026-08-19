@@ -2931,7 +2931,8 @@ describe('EPGCoordinator', () => {
         (epg.isVisible as jest.Mock).mockReturnValue(false);
         const coordinator = new EPGCoordinator(deps);
 
-        coordinator.handleGuideSettingChange({ key: 'infoBackgroundMode', mode: 0 });
+        coordinator.handleGuideSettingChange({ key: 'layoutMode', mode: 'overlay' });
+        coordinator.handleGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
 
         expect(epg.setLayoutMode).not.toHaveBeenCalled();
         expect(epg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
