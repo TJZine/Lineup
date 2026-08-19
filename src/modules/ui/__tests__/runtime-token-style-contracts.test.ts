@@ -35,6 +35,12 @@ const BRIGHT_FOCUS_LITERAL_PATTERN = /rgba\(255, 255, 255, 0\.(?:92|98)\)/g;
 const SHARED_TOKEN_DEFINITION_PATTERN = /(--(?:color|space|text|z)-[\w-]+)\s*:/g;
 const SHARED_TOKEN_REFERENCE_PATTERN = /var\((--(?:color|space|text|z)-[\w-]+)/g;
 const LOCAL_SPACING_TOKEN_PREFIX = '--space-local-';
+const ONBOARDING_LOCAL_TOKEN_ROOTS = [
+    'src/modules/ui/audio-setup/',
+    'src/modules/ui/profile-select/',
+    'src/modules/ui/server-select/',
+    'src/styles/shell.onboarding.',
+] as const;
 
 const exitConfirmFocusBlock = (css: string): string => {
     const block = css.match(
@@ -64,13 +70,10 @@ const collectTokens = (css: string, pattern: RegExp): Set<string> =>
 
 const localSharedTokenOwner = (file: string, token: string): string | null => {
     if (!token.startsWith(LOCAL_SPACING_TOKEN_PREFIX)) return null;
-
-    const uiOwner = file.match(/^src\/modules\/ui\/[^/]+\//u)?.[0];
-    if (uiOwner) return uiOwner;
-    if (file.startsWith('src/styles/shell.onboarding.')) {
-        return 'src/styles/shell.onboarding.';
+    if (ONBOARDING_LOCAL_TOKEN_ROOTS.some((root) => file.startsWith(root))) {
+        return 'onboarding';
     }
-    return null;
+    return file.match(/^src\/modules\/ui\/[^/]+\//u)?.[0] ?? null;
 };
 
 const findMissingSharedTokenReferences = (
@@ -180,7 +183,7 @@ describe('runtime token style contracts', () => {
         ]);
     });
 
-    it('allows local spacing tokens only within their current UI or onboarding owner', () => {
+    it('bounds local spacing tokens to their feature or onboarding owner', () => {
         const sources = [
             {
                 file: 'src/modules/ui/example/styles.core.css',
@@ -189,6 +192,14 @@ describe('runtime token style contracts', () => {
             {
                 file: 'src/modules/ui/example/styles.layout.css',
                 css: '.example-row { gap: var(--space-local-6); }',
+            },
+            {
+                file: 'src/styles/shell.onboarding.shared-shell.css',
+                css: '.screen { --space-local-10: 10px; }',
+            },
+            {
+                file: 'src/modules/ui/audio-setup/styles.css',
+                css: '.audio-helper { margin: var(--space-local-10); }',
             },
             {
                 file: 'src/modules/ui/other/styles.css',
