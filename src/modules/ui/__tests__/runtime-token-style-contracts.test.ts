@@ -34,12 +34,7 @@ const SHARED_COLOR_LITERAL_PATTERN =
 const BRIGHT_FOCUS_LITERAL_PATTERN = /rgba\(255, 255, 255, 0\.(?:92|98)\)/g;
 const SHARED_TOKEN_DEFINITION_PATTERN = /(--(?:color|space|text|z)-[\w-]+)\s*:/g;
 const SHARED_TOKEN_REFERENCE_PATTERN = /var\((--(?:color|space|text|z)-[\w-]+)/g;
-const LOCAL_SHARED_TOKEN_OWNERS = [
-    {
-        prefix: '--space-local-',
-        root: 'src/modules/ui/epg/',
-    },
-] as const;
+const LOCAL_SPACING_TOKEN_PREFIX = '--space-local-';
 
 const exitConfirmFocusBlock = (css: string): string => {
     const block = css.match(
@@ -67,6 +62,17 @@ type CssSource = {
 const collectTokens = (css: string, pattern: RegExp): Set<string> =>
     new Set(Array.from(css.matchAll(pattern), (match) => match[1]!));
 
+const localSharedTokenOwner = (file: string, token: string): string | null => {
+    if (!token.startsWith(LOCAL_SPACING_TOKEN_PREFIX)) return null;
+
+    const uiOwner = file.match(/^src\/modules\/ui\/[^/]+\//u)?.[0];
+    if (uiOwner) return uiOwner;
+    if (file.startsWith('src/styles/shell.onboarding.')) {
+        return 'src/styles/shell.onboarding.';
+    }
+    return null;
+};
+
 const findMissingSharedTokenReferences = (
     sources: CssSource[],
     canonicalTokenCss: string
@@ -75,28 +81,23 @@ const findMissingSharedTokenReferences = (
         canonicalTokenCss,
         SHARED_TOKEN_DEFINITION_PATTERN
     );
-    const localDefinitions = LOCAL_SHARED_TOKEN_OWNERS.map((owner) => ({
-        ...owner,
-        definitions: new Set(
-            sources
-                .filter(({ file }) => file.startsWith(owner.root))
-                .flatMap(({ css }) =>
-                    Array.from(collectTokens(css, SHARED_TOKEN_DEFINITION_PATTERN))
-                )
-                .filter((token) => token.startsWith(owner.prefix))
-        ),
-    }));
+    const localDefinitions = new Map<string, Set<string>>();
+    for (const { file, css } of sources) {
+        for (const token of collectTokens(css, SHARED_TOKEN_DEFINITION_PATTERN)) {
+            const owner = localSharedTokenOwner(file, token);
+            if (!owner) continue;
+            const definitions = localDefinitions.get(owner) ?? new Set<string>();
+            definitions.add(token);
+            localDefinitions.set(owner, definitions);
+        }
+    }
 
     return sources.flatMap(({ file, css }) =>
         Array.from(collectTokens(css, SHARED_TOKEN_REFERENCE_PATTERN))
             .filter((token) => {
                 if (canonicalDefinitions.has(token)) return false;
-                return !localDefinitions.some(
-                    (owner) =>
-                        file.startsWith(owner.root) &&
-                        token.startsWith(owner.prefix) &&
-                        owner.definitions.has(token)
-                );
+                const owner = localSharedTokenOwner(file, token);
+                return !owner || !localDefinitions.get(owner)?.has(token);
             })
             .map((token) => `${file}: ${token}`)
     );
@@ -176,6 +177,27 @@ describe('runtime token style contracts', () => {
 
         expect(findMissingSharedTokenReferences(sources, ':root {}')).toEqual([
             'src/styles/default.css: --color-theme-only',
+        ]);
+    });
+
+    it('allows local spacing tokens only within their current UI or onboarding owner', () => {
+        const sources = [
+            {
+                file: 'src/modules/ui/example/styles.core.css',
+                css: '.example { --space-local-6: 6px; }',
+            },
+            {
+                file: 'src/modules/ui/example/styles.layout.css',
+                css: '.example-row { gap: var(--space-local-6); }',
+            },
+            {
+                file: 'src/modules/ui/other/styles.css',
+                css: '.other { gap: var(--space-local-6); }',
+            },
+        ];
+
+        expect(findMissingSharedTokenReferences(sources, ':root {}')).toEqual([
+            'src/modules/ui/other/styles.css: --space-local-6',
         ]);
     });
 
