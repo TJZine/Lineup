@@ -51,6 +51,50 @@ describe('OrchestratorModuleStatusRegistry', () => {
         expect(second?.error?.context).toEqual(sourceContext);
     });
 
+    it('preserves Error diagnostics when structuredClone falls back', () => {
+        const originalStructuredClone = globalThis.structuredClone;
+        const registry = new OrchestratorModuleStatusRegistry({ reportCloneFallback: jest.fn() });
+        const diagnosticError = Object.assign(new Error('nested failure'), {
+            code: 'E_TEST',
+            details: { attempt: 1 },
+        });
+
+        Object.defineProperty(globalThis, 'structuredClone', {
+            configurable: true,
+            value: jest.fn(() => { throw new Error('clone failed'); }),
+        });
+
+        try {
+            registry.update('plex-auth', 'error', createError({ diagnosticError }));
+
+            const firstContext = registry.snapshot().get('plex-auth')?.error?.context;
+            const clonedError = firstContext?.diagnosticError as Record<string, unknown> | undefined;
+            expect(clonedError).toMatchObject({
+                name: 'Error',
+                message: 'nested failure',
+                stack: expect.stringContaining('nested failure'),
+                code: 'E_TEST',
+                details: { attempt: 1 },
+            });
+            expect(clonedError).not.toBe(diagnosticError);
+
+            if (clonedError) {
+                (clonedError.details as { attempt: number }).attempt = 2;
+            }
+
+            expect(
+                registry.snapshot().get('plex-auth')?.error?.context?.diagnosticError
+            ).toMatchObject({
+                details: { attempt: 1 },
+            });
+        } finally {
+            Object.defineProperty(globalThis, 'structuredClone', {
+                configurable: true,
+                value: originalStructuredClone,
+            });
+        }
+    });
+
     it('reports structuredClone fallback once for each failing context identity', () => {
         const originalStructuredClone = globalThis.structuredClone;
         const reportCloneFallback = jest.fn();
