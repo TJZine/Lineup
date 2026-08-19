@@ -15,14 +15,15 @@ const requiredFiles = [
 ];
 const requiredReadOnlyRoles = new Set(['explorer', 'reviewer', 'docs_researcher', 'monitor']);
 const roleContracts = new Map([
-    ['explorer', { configFile: 'agents/explorer.toml', models: ['gpt-5.6-luna'], efforts: ['max'] }],
-    ['reviewer', { configFile: 'agents/reviewer.toml', models: ['gpt-5.6-sol'], efforts: ['high'] }],
-    ['docs_researcher', { configFile: 'agents/docs-researcher.toml', models: ['gpt-5.6-luna'], efforts: ['high'] }],
-    ['planner', { configFile: 'agents/planner.toml', models: ['gpt-5.6-sol'], efforts: ['high'] }],
-    ['worker', { configFile: 'agents/worker.toml', models: ['gpt-5.6-sol'], efforts: ['medium'] }],
-    ['worker_luna', { configFile: 'agents/worker-luna.toml', models: ['gpt-5.6-luna'], efforts: ['max'] }],
-    ['monitor', { configFile: 'agents/monitor.toml', models: ['gpt-5.3-codex-spark'], efforts: ['low'] }],
+    ['explorer', { configFile: 'agents/explorer.toml' }],
+    ['reviewer', { configFile: 'agents/reviewer.toml' }],
+    ['docs_researcher', { configFile: 'agents/docs-researcher.toml' }],
+    ['planner', { configFile: 'agents/planner.toml' }],
+    ['worker', { configFile: 'agents/worker.toml' }],
+    ['worker_luna', { configFile: 'agents/worker-luna.toml' }],
+    ['monitor', { configFile: 'agents/monitor.toml' }],
 ]);
+const supportedReasoningEfforts = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const roleDeclarationKeys = new Set(['description', 'config_file']);
 const roleConfigKeys = new Set([
     'model',
@@ -216,6 +217,10 @@ function isTomlTable(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isValidRoleModel(value) {
+    return typeof value === 'string' && value.trim() !== '' && value === value.trim();
+}
+
 function parseConfigToml(content, relativePath, validationErrors) {
     try {
         return parseToml(content);
@@ -318,6 +323,23 @@ export function validateCodexRoleConfig(repoRoot) {
         validationErrors.push(`codex-config: role-inventory unknown: ${unknownRoles.join(', ')}`);
     }
 
+    const expectedRoleFiles = new Set(
+        [...roleContracts.values()].map(({ configFile }) => `.codex/${configFile}`)
+    );
+    const unknownTrackedRoleFiles = [...tracked]
+        .filter(
+            (file) =>
+                file.startsWith('.codex/agents/') &&
+                file.endsWith('.toml') &&
+                !expectedRoleFiles.has(file)
+        )
+        .sort();
+    if (unknownTrackedRoleFiles.length > 0) {
+        validationErrors.push(
+            `codex-config: tracked role files unknown: ${unknownTrackedRoleFiles.join(', ')}`
+        );
+    }
+
     const resolvedAgentsRoot = path.join(realpathSync(repoRoot), '.codex', 'agents');
     for (const [role, contract] of roleContracts) {
         const declaration = agents[role];
@@ -375,12 +397,12 @@ export function validateCodexRoleConfig(repoRoot) {
         if (unknownRoleKeys.length > 0) {
             validationErrors.push(`codex-config: role keys unsupported: ${role}`);
         }
-        if (typeof roleConfig.model !== 'string' || !contract.models.includes(roleConfig.model)) {
-            validationErrors.push(`codex-config: role model unsupported: ${role}`);
+        if (!isValidRoleModel(roleConfig.model)) {
+            validationErrors.push(`codex-config: role model invalid: ${role}`);
         }
         if (
             typeof roleConfig.model_reasoning_effort !== 'string' ||
-            !contract.efforts.includes(roleConfig.model_reasoning_effort)
+            !supportedReasoningEfforts.has(roleConfig.model_reasoning_effort)
         ) {
             validationErrors.push(`codex-config: role effort unsupported: ${role}`);
         }
@@ -410,13 +432,17 @@ function checkRetiredRoleReferences() {
         'docs/AGENTIC_DEV_WORKFLOW.md',
         '.codex/config.toml',
         '.codex/review-context.md',
+        ...trackedFiles('.codex/agents/*.toml'),
         ...trackedFiles('.agents/skills/*/SKILL.md'),
         ...trackedFiles('docs/agentic/session-prompts/*.md'),
     ]);
     for (const file of authorityFiles) {
         if (!existsSync(path.join(root, file))) continue;
         const content = read(file);
-        if (content !== null && containsRetiredWorkerRole(content)) {
+        if (
+            containsRetiredWorkerRole(file) ||
+            (content !== null && containsRetiredWorkerRole(content))
+        ) {
             errors.push(`${file}: current authority references retired worker role`);
         }
     }

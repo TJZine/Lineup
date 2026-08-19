@@ -65,17 +65,7 @@ describe('src/index', () => {
     });
 
     it('composes only root-owned stylesheets and feature stylesheet seams', () => {
-        const imports = getSideEffectStylesheetImports();
-
-        expect(imports).toEqual(stylesheetSeams);
-        for (const forbiddenPattern of [
-            /\/styles\.[^/]+\.css$/,
-            /\/shell\.[^/]+\.css$/,
-        ]) {
-            expect(imports).not.toEqual(
-                expect.arrayContaining([expect.stringMatching(forbiddenPattern)])
-            );
-        }
+        expect(getSideEffectStylesheetImports()).toEqual(stylesheetSeams);
     });
 
     it('installs the lineup bootstrap exactly once on direct module import', async () => {

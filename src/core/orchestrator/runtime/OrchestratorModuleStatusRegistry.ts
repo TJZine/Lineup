@@ -85,6 +85,18 @@ export class OrchestratorModuleStatusRegistry {
             return clone;
         }
         if (value instanceof Date) return new Date(value.getTime());
+        if (value instanceof Error) {
+            const clone: Record<string, unknown> = {
+                name: value.name,
+                message: value.message,
+                ...(value.stack !== undefined ? { stack: value.stack } : {}),
+            };
+            seen.set(value, clone);
+            for (const [key, entry] of Object.entries(value)) {
+                clone[key] = this.cloneDiagnosticValue(entry, seen);
+            }
+            return clone;
+        }
         if (value instanceof Map) {
             const clone = new Map<unknown, unknown>();
             seen.set(value, clone);
