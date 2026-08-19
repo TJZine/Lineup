@@ -490,6 +490,9 @@ describe('test anti-pattern contracts', () => {
 
         expect(privateKeys).toEqual([EPG_CACHE_STORE_EXCEPTION]);
         expect(sleepKeys.filter((key) => !SLEEP_HELPER_EXCEPTIONS.has(key))).toEqual([]);
-        expect(sleepKeys.every((key) => SLEEP_HELPER_EXCEPTIONS.has(key))).toBe(true);
+        const observedSleepKeys = new Set(sleepKeys);
+        expect(
+            [...SLEEP_HELPER_EXCEPTIONS].filter((key) => !observedSleepKeys.has(key))
+        ).toEqual([]);
     });
 });

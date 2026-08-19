@@ -203,7 +203,7 @@ describe('focused EPG overflow style contract', () => {
         [
             'glass classic',
             '.theme-glass .epg-container.layout-classic .epg-channel-row.focused',
-            'background: transparent',
+            'transparent',
         ],
         [
             'swiss classic',
@@ -215,8 +215,8 @@ describe('focused EPG overflow style contract', () => {
             '.theme-directv .epg-container.layout-classic .epg-channel-row.focused',
             'var(--directv-focus-fill)',
         ],
-    ])('keeps the %s channel-focus cascade', (_name, selector, declaration) => {
-        expect(blockFor(css, selector)).toContain(declaration);
+    ])('keeps the %s channel-focus cascade', (_name, selector, background) => {
+        expect(declarationValue(blockFor(css, selector), 'background')).toBe(background);
     });
 
     it('keeps reduced-motion suppression for title and subtitle tickers', () => {
