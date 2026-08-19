@@ -9,6 +9,10 @@ describe('ServerSelectionAbort', () => {
         expect(() => throwIfSelectionAborted(controller.signal)).toThrow(reason);
     });
 
+    it.each([null, undefined])('returns without throwing for a %s signal', (signal) => {
+        expect(() => throwIfSelectionAborted(signal)).not.toThrow();
+    });
+
     const reason = new DOMException('selection superseded', 'AbortError');
     const distinctReason = new DOMException('selection superseded', 'AbortError');
 
