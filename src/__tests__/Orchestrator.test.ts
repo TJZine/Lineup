@@ -9,38 +9,33 @@
 import { AppOrchestrator } from '../Orchestrator';
 import { AppErrorCode } from '../types/app-errors';
 import type { OrchestratorConfig } from '../core/orchestrator/contracts/OrchestratorTypes';
-import {
-    NowPlayingInfoCoordinator,
-} from '../modules/ui/now-playing-info';
 import { EPGCoordinator } from '../modules/ui/epg';
 import type { EPGEventMap } from '../modules/ui/epg/types';
 import type { EpgScheduleRefreshResult } from '../modules/ui/epg/coordinator/EPGCoordinatorContracts';
 import type { ChannelSwitchOutcome } from '../types/channelSwitch';
-import type { INavigationManager } from '../modules/navigation';
 import type {
     PlexAuthDataV2,
     PlexStoredCredentialsReadResult,
     PlexStoredCredentialsValidationResult,
 } from '../modules/plex/auth';
-import type { IPlexLibrary } from '../modules/plex/library';
-import { PlexDiscoverySelectionSupersededError } from '../modules/plex/discovery';
 import { PlexDiscoverySelectionContext } from '../modules/plex/discovery/PlexDiscoverySelectionContext';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
-import type { INowPlayingInfoOverlay, NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
+import type { NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { InitializationCoordinator, STARTUP_PHASE } from '../core/initialization/InitializationCoordinator';
 import { ChannelTuningCoordinator } from '../core/channel-tuning';
 import type { PlatformServices } from '../platform';
 import type { StreamDecision } from '../modules/plex/stream';
-import { AudioSettingsStore } from '../modules/settings/AudioSettingsStore';
-import { EpgPreferencesStore } from '../modules/settings/EpgPreferencesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
-import { EXIT_CONFIRM_MODAL_ID } from '../modules/ui/exit-confirm';
+import { EpgPreferencesStore } from '../modules/settings/EpgPreferencesStore';
+import { PlexDiscoverySelectionSupersededError } from '../modules/plex/discovery';
 import * as orchestratorCoordinatorAssembly from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
-import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
+import type { OrchestratorCoordinatorAssemblyInput } from '../core/orchestrator/assembly/OrchestratorCoordinatorAssembly';
 import { ScheduleDayRolloverController } from '../core/orchestrator/controllers/ScheduleDayRolloverController';
+import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
 import { OrchestratorServerSelectionRuntimeProjection } from '../core/orchestrator/runtime/OrchestratorServerSelectionRuntimeProjection';
+import { NowPlayingDebugManager } from '../modules/debug/NowPlayingDebugManager';
 import { expectConsoleWarn } from './helpers';
 import { EventEmitter } from '../utils/EventEmitter';
 import {
@@ -687,6 +682,30 @@ describe('AppOrchestrator', () => {
         return instance;
     };
 
+    const captureCoordinatorAssembly = async (): Promise<{
+        orchestrator: AppOrchestrator;
+        input: OrchestratorCoordinatorAssemblyInput;
+    }> => {
+        const instance = createOrchestrator();
+        const originalAssembly = orchestratorCoordinatorAssembly.createOrchestratorCoordinators;
+        let capturedInput: OrchestratorCoordinatorAssemblyInput | null = null;
+        const assemblySpy = jest
+            .spyOn(orchestratorCoordinatorAssembly, 'createOrchestratorCoordinators')
+            .mockImplementation((input) => {
+                capturedInput = input;
+                return originalAssembly(input);
+            });
+
+        try {
+            await instance.initialize(mockConfig);
+        } finally {
+            assemblySpy.mockRestore();
+        }
+
+        if (!capturedInput) throw new Error('Coordinator assembly input was not captured');
+        return { orchestrator: instance, input: capturedInput };
+    };
+
     const resetMockPlexDiscoveryOn = (): void => {
         mockPlexDiscovery.on.mockReset();
         mockPlexDiscovery.on.mockReturnValue({ dispose: jest.fn() });
@@ -759,6 +778,14 @@ describe('AppOrchestrator', () => {
 
         mockChannelManager.getAllChannels.mockReset();
         mockChannelManager.getAllChannels.mockReturnValue([mockChannel]);
+        mockChannelManager.resolveChannelContent.mockReset();
+        mockChannelManager.resolveChannelContent.mockResolvedValue({
+            channelId: 'ch1',
+            items: [],
+            orderedItems: [],
+            totalDurationMs: 0,
+            resolvedAt: Date.now(),
+        });
         mockChannelManager.clearRuntimeState.mockReset();
 
         mockLifecycle.onPause.mockReset();
@@ -918,276 +945,103 @@ describe('AppOrchestrator', () => {
             expect(require('../modules/ui/epg/component/DeferredEPGComponent').DeferredEPGComponent).toHaveBeenCalled();
         });
 
-        it('wires injected platform services into lifecycle/navigation/stream/player seams', async () => {
-            const platformServices: PlatformServices = {
-                identity: {
-                    isWebOs: jest.fn(() => true),
-                    detectPlatformVersion: jest.fn(() => '24.0'),
-                    getDefaultPlexIdentity: jest.fn((clientIdentifier: string) => ({
-                        'X-Plex-Client-Identifier': clientIdentifier,
-                        'X-Plex-Platform': 'webOS',
-                        'X-Plex-Product': 'Lineup',
-                        'X-Plex-Version': '1.0.0',
-                        'X-Plex-Device': 'LG Smart TV',
-                        'X-Plex-Device-Name': 'Lineup',
-                        'X-Plex-Platform-Version': '24.0',
-                        'X-Plex-Model': 'LGTV',
-                    })),
-                },
-                input: {
-                    getKeyMap: jest.fn(() => new Map([[13, 'ok']])),
-                },
-                lifecycle: {
-                    bindRelaunch: jest.fn(() => jest.fn()),
-                },
-                playback: {
-                    applyStreamSource: jest.fn(),
-                },
-                subtitle: {
-                    deriveLanHttpSubtitleUrl: jest.fn(() => null),
-                },
-            };
-            const orchestratorWithPlatform = createOrchestrator(platformServices);
 
-            await orchestratorWithPlatform.initialize(mockConfig);
 
-            expect(require('../modules/lifecycle').AppLifecycle).toHaveBeenCalledWith(
-                undefined,
-                undefined,
-                platformServices.lifecycle
-            );
-            expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
-                platformServices.input,
-                expect.objectContaining({
-                    readDebugLoggingEnabled: expect.any(Function),
-                })
-            );
-            const streamResolverConfig =
-                (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];
-            expect(streamResolverConfig?.identityService).toBe(platformServices.identity);
-            expect(require('../modules/player').VideoPlayer).toHaveBeenCalledWith({
-                playbackService: platformServices.playback,
-                subtitleService: platformServices.subtitle,
+
+            it('wraps nowPlayingInfoConfig.onAutoHide without mutating caller config', async () => {
+                const previousOnAutoHide = jest.fn();
+                const configWithHandler: OrchestratorConfig = {
+                    ...mockConfig,
+                    nowPlayingInfoConfig: {
+                        ...mockConfig.nowPlayingInfoConfig,
+                        onAutoHide: previousOnAutoHide,
+                    },
+                };
+                const originalNowPlayingInfoConfig = configWithHandler.nowPlayingInfoConfig;
+                const originalOnAutoHide = configWithHandler.nowPlayingInfoConfig.onAutoHide;
+
+                mockNavigation.isModalOpen.mockReturnValue(true);
+
+                await orchestrator.initialize(configWithHandler);
+
+                expect(configWithHandler.nowPlayingInfoConfig).toBe(originalNowPlayingInfoConfig);
+                expect(configWithHandler.nowPlayingInfoConfig.onAutoHide).toBe(originalOnAutoHide);
+
+                mockPlexAuth.validateStoredCredentials.mockResolvedValue(
+                    createStoredValidationResult('active_valid')
+                );
+                mockPlexDiscovery.isConnected.mockReturnValue(true);
+
+                await orchestrator.start();
+
+                const nowPlayingModule = require('../modules/ui/now-playing-info');
+                const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
+                const initializedConfig = (instance.initialize as jest.Mock).mock.calls[0]?.[0] as NowPlayingInfoConfig;
+
+                expect(initializedConfig).not.toBe(configWithHandler.nowPlayingInfoConfig);
+                expect(initializedConfig.onAutoHide).not.toBe(originalOnAutoHide);
+
+                initializedConfig.onAutoHide?.();
+
+                expect(previousOnAutoHide).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.closeModal).toHaveBeenCalledWith('now-playing-info');
             });
-        });
 
-        it('wires default webos platform services into lifecycle/navigation/stream/player seams', async () => {
-            await orchestrator.initialize(mockConfig);
 
-            expect(require('../modules/lifecycle').AppLifecycle).toHaveBeenCalledWith(
-                undefined,
-                undefined,
-                expect.objectContaining({
-                    bindRelaunch: expect.any(Function),
-                })
-            );
-            expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    getKeyMap: expect.any(Function),
-                }),
-                expect.objectContaining({
-                    readDebugLoggingEnabled: expect.any(Function),
-                })
-            );
-            const streamResolverConfig =
-                (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];
-            expect(streamResolverConfig?.identityService).toEqual(
-                expect.objectContaining({
-                    detectPlatformVersion: expect.any(Function),
-                    getDefaultPlexIdentity: expect.any(Function),
-                    isWebOs: expect.any(Function),
-                })
-            );
-            expect(require('../modules/player').VideoPlayer).toHaveBeenCalledWith({
-                playbackService: expect.objectContaining({
-                    applyStreamSource: expect.any(Function),
-                }),
-                subtitleService: expect.objectContaining({
-                    deriveLanHttpSubtitleUrl: expect.any(Function),
-                }),
+
+
+            it('wires injected platform services into lifecycle/navigation/stream/player seams', async () => {
+                const platformServices: PlatformServices = {
+                    identity: {
+                        isWebOs: jest.fn(() => true),
+                        detectPlatformVersion: jest.fn(() => '24.0'),
+                        getDefaultPlexIdentity: jest.fn((clientIdentifier: string) => ({
+                            'X-Plex-Client-Identifier': clientIdentifier,
+                            'X-Plex-Platform': 'webOS',
+                            'X-Plex-Product': 'Lineup',
+                            'X-Plex-Version': '1.0.0',
+                            'X-Plex-Device': 'LG Smart TV',
+                            'X-Plex-Device-Name': 'Lineup',
+                            'X-Plex-Platform-Version': '24.0',
+                            'X-Plex-Model': 'LGTV',
+                        })),
+                    },
+                    input: {
+                        getKeyMap: jest.fn(() => new Map([[13, 'ok']])),
+                    },
+                    lifecycle: {
+                        bindRelaunch: jest.fn(() => jest.fn()),
+                    },
+                    playback: {
+                        applyStreamSource: jest.fn(),
+                    },
+                    subtitle: {
+                        deriveLanHttpSubtitleUrl: jest.fn(() => null),
+                    },
+                };
+                const orchestratorWithPlatform = createOrchestrator(platformServices);
+
+                await orchestratorWithPlatform.initialize(mockConfig);
+
+                expect(require('../modules/lifecycle').AppLifecycle).toHaveBeenCalledWith(
+                    undefined,
+                    undefined,
+                    platformServices.lifecycle
+                );
+                expect(require('../modules/navigation').NavigationManager).toHaveBeenCalledWith(
+                    platformServices.input,
+                    expect.objectContaining({
+                        readDebugLoggingEnabled: expect.any(Function),
+                    })
+                );
+                const streamResolverConfig =
+                    (require('../modules/plex/stream').PlexStreamResolver as jest.Mock).mock.calls[0]?.[0];
+                expect(streamResolverConfig?.identityService).toBe(platformServices.identity);
+                expect(require('../modules/player').VideoPlayer).toHaveBeenCalledWith({
+                    playbackService: platformServices.playback,
+                    subtitleService: platformServices.subtitle,
+                });
             });
-        });
-
-        it('wraps nowPlayingInfoConfig.onAutoHide without mutating caller config', async () => {
-            const previousOnAutoHide = jest.fn();
-            const configWithHandler: OrchestratorConfig = {
-                ...mockConfig,
-                nowPlayingInfoConfig: {
-                    ...mockConfig.nowPlayingInfoConfig,
-                    onAutoHide: previousOnAutoHide,
-                },
-            };
-            const originalNowPlayingInfoConfig = configWithHandler.nowPlayingInfoConfig;
-            const originalOnAutoHide = configWithHandler.nowPlayingInfoConfig.onAutoHide;
-
-            mockNavigation.isModalOpen.mockReturnValue(true);
-
-            await orchestrator.initialize(configWithHandler);
-
-            expect(configWithHandler.nowPlayingInfoConfig).toBe(originalNowPlayingInfoConfig);
-            expect(configWithHandler.nowPlayingInfoConfig.onAutoHide).toBe(originalOnAutoHide);
-
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-
-            await orchestrator.start();
-
-            const nowPlayingModule = require('../modules/ui/now-playing-info');
-            const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
-            const initializedConfig = (instance.initialize as jest.Mock).mock.calls[0]?.[0] as NowPlayingInfoConfig;
-
-            expect(initializedConfig).not.toBe(configWithHandler.nowPlayingInfoConfig);
-            expect(initializedConfig.onAutoHide).not.toBe(originalOnAutoHide);
-
-            initializedConfig.onAutoHide?.();
-
-            expect(previousOnAutoHide).toHaveBeenCalledTimes(1);
-            expect(mockNavigation.closeModal).toHaveBeenCalledWith('now-playing-info');
-        });
-
-        it('should use configured nowPlayingInfo poster sizes when resizing', async () => {
-            const configWithPosterSizes: OrchestratorConfig = {
-                ...mockConfig,
-                nowPlayingInfoConfig: {
-                    ...mockConfig.nowPlayingInfoConfig,
-                    posterWidth: 111,
-                    posterHeight: 222,
-                },
-            };
-
-            await orchestrator.initialize(configWithPosterSizes);
-
-            const program = {
-                elapsedMs: 1234,
-                item: {
-                    ratingKey: 'rk1',
-                    type: 'movie',
-                    title: 'Test Movie',
-                    fullTitle: null,
-                    year: 2024,
-                    contentRating: 'PG',
-                    durationMs: 60_000,
-                    thumb: '/thumb',
-                },
-            };
-            const coordinator = new NowPlayingInfoCoordinator({
-                nowPlayingModalId: 'now-playing-info',
-                getNavigation: (): INavigationManager =>
-                    ({
-                        isModalOpen: (): boolean => true,
-                    }) as INavigationManager,
-                getScheduler: (): null => null,
-                getPlexLibrary: (): IPlexLibrary => mockPlexLibrary as unknown as IPlexLibrary,
-                getNowPlayingInfo: (): INowPlayingInfoOverlay =>
-                    ({
-                        setAutoHideMs: jest.fn(),
-                        update: jest.fn(),
-                        isVisible: (): boolean => false,
-                    }) as unknown as INowPlayingInfoOverlay,
-                getNowPlayingInfoConfig: (): NowPlayingInfoConfig | null => configWithPosterSizes.nowPlayingInfoConfig,
-                buildPlexResourceUrl: (): null => null,
-                buildDebugText: (): string | null => null,
-                maybeFetchStreamDecisionForDebugHud: (): Promise<void> => Promise.resolve(),
-                getAutoHideMs: (): number => 0,
-                getCurrentProgramForPlayback: (): null => null,
-                getPlaybackInfoSnapshot: (): { stream: null } => ({ stream: null }),
-                refreshPlaybackInfoSnapshot: (): Promise<{ stream: null }> =>
-                    Promise.resolve({ stream: null }),
-            });
-            coordinator.onProgramStart(program as unknown as ScheduledProgram);
-
-            expect(mockPlexLibrary.getImageUrl).toHaveBeenCalledWith('/thumb', 111, 222);
-        });
-    });
-
-    describe('nowPlayingInfo autoHideMs wiring', () => {
-        const baseProgram = {
-            item: {
-                ratingKey: 'rk1',
-                title: 'Test Movie',
-                durationMs: 120_000,
-                type: 'movie',
-                fullTitle: null,
-                year: 2024,
-                contentRating: 'PG',
-                thumb: '/thumb',
-            },
-            scheduledStartTime: Date.now(),
-            scheduledEndTime: Date.now() + 120_000,
-            elapsedMs: 0,
-            remainingMs: 120_000,
-            scheduleIndex: 0,
-            loopNumber: 0,
-            isCurrent: true,
-        };
-
-        it('applies stored autoHideMs when opening now playing modal', async () => {
-            const configWithAutoHide: OrchestratorConfig = {
-                ...mockConfig,
-                nowPlayingInfoConfig: {
-                    ...mockConfig.nowPlayingInfoConfig,
-                    autoHideMs: 15_000,
-                },
-            };
-
-            mockLocalStorage.getItem.mockImplementation((key: string) =>
-                key === LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0' : null
-            );
-            await orchestrator.initialize(configWithAutoHide);
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            await orchestrator.start();
-
-            mockScheduler.getCurrentProgram.mockReturnValue(baseProgram);
-            mockNavigation.isModalOpen.mockImplementation((modalId?: string) => modalId === 'now-playing-info');
-
-            const modalOpen = navHandlers.modalOpen as (payload: unknown) => void;
-            modalOpen({ modalId: 'now-playing-info' });
-
-            const nowPlayingModule = require('../modules/ui/now-playing-info');
-            const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
-            expect(instance.setAutoHideMs).toHaveBeenCalledWith(0);
-
-            const modalClose = navHandlers.modalClose as (payload: unknown) => void;
-            modalClose({ modalId: 'now-playing-info' });
-        });
-
-        it('falls back to config autoHideMs when stored value is invalid', async () => {
-            const configWithAutoHide: OrchestratorConfig = {
-                ...mockConfig,
-                nowPlayingInfoConfig: {
-                    ...mockConfig.nowPlayingInfoConfig,
-                    autoHideMs: 15_000,
-                },
-            };
-
-            mockLocalStorage.getItem.mockImplementation((key: string) =>
-                key === LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS ? '0x0' : null
-            );
-            await orchestrator.initialize(configWithAutoHide);
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            await orchestrator.start();
-
-            mockScheduler.getCurrentProgram.mockReturnValue(baseProgram);
-            mockNavigation.isModalOpen.mockImplementation((modalId?: string) => modalId === 'now-playing-info');
-
-            const modalOpen = navHandlers.modalOpen as (payload: unknown) => void;
-            modalOpen({ modalId: 'now-playing-info' });
-
-            const nowPlayingModule = require('../modules/ui/now-playing-info');
-            const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
-            expect(instance.setAutoHideMs).toHaveBeenCalledWith(15_000);
-
-            const modalClose = navHandlers.modalClose as (payload: unknown) => void;
-            modalClose({ modalId: 'now-playing-info' });
-        });
     });
 
     describe('selectServer', () => {
@@ -1248,276 +1102,76 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('returns selection_failed when discovery reports server_not_found', async () => {
-            await orchestrator.initialize(mockConfig);
 
-            mockPlexDiscovery.selectServer.mockResolvedValue({ kind: 'server_not_found' });
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockClear();
-            mockPlexAuth.storeCredentials.mockClear();
 
-            await expect(orchestrator.selectServer('missing-server')).resolves.toEqual({
-                kind: 'selection_failed',
-                reason: 'server_not_found',
-            });
-            expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).toHaveBeenCalled();
-            expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-        });
 
-        it('returns selection_failed when discovery reports connection_unavailable', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            mockPlexDiscovery.selectServer.mockResolvedValue({
-                kind: 'connection_unavailable',
-                reason: 'auth_required',
-            });
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockClear();
-            mockPlexAuth.storeCredentials.mockClear();
-
-            await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
-                kind: 'selection_failed',
-                reason: 'auth_required',
-            });
-            expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).toHaveBeenCalled();
-            expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-        });
-
-        it('reports skipped_missing_credentials when selected-server persistence has no stored auth', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
-
-            await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
-                kind: 'selected',
-                persistedSelection: 'skipped_missing_credentials',
-                epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT },
-            });
-            expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-        });
-
-        it('does not rewrite persisted selected-server state when stored auth is corrupted', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
-            mockPlexAuth.readStoredCredentialsAndClearCorruption
-                .mockReturnValueOnce({ kind: 'corrupted', reason: 'invalid-json' })
-                .mockReturnValue({ kind: 'missing' });
-
-            await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
-                kind: 'selected',
-                persistedSelection: 'skipped_corrupted_credentials',
-                epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT },
-            });
-            expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-        });
-
-        it('restores the discovery snapshot when selected-server persistence rejects', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            const persistedSelectionError = new Error('selected-server persistence failed');
-            const discoverySnapshot = {
-                server: { id: 'server-prev' },
-                connection: { uri: 'http://previous.example' },
-                storedServerId: 'server-prev',
-            };
-            const storedCredentials = createStoredCredentials('valid-token');
-            if (storedCredentials.kind !== 'available') {
-                throw new Error('Expected available stored credentials in test setup');
-            }
-            storedCredentials.credentials.selectedServerByUserId['user-1'] = {
-                serverId: 'server-prev',
-                serverUri: 'http://previous.example',
-            };
-
-            mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
-            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
-            mockPlexAuth.storeCredentials.mockImplementation(() => { throw persistedSelectionError; });
-
-            await expect(orchestrator.selectServer('server-1')).rejects.toBe(persistedSelectionError);
-
-            expect(mockPlexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-            expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
-        });
-
-        it('restores discovery and active-user persisted selection when selected-server initialization fails', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            const resumeError = new Error('startup resume failed');
-            const discoverySnapshot = {
-                server: { id: 'server-prev' },
-                connection: { uri: 'http://previous.example' },
-                storedServerId: 'server-prev',
-            };
-            const storedCredentials = createStoredCredentials('valid-token');
-            if (storedCredentials.kind !== 'available') {
-                throw new Error('Expected available stored credentials in test setup');
-            }
-            storedCredentials.credentials.selectedServerByUserId['user-1'] = {
-                serverId: 'server-prev',
-                serverUri: 'http://previous.example',
-            };
-
-            const selectedServerTransactionSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runSelectedServerTransaction')
-                .mockRejectedValueOnce(resumeError)
-                .mockResolvedValueOnce({
-                    kind: 'completed',
-                    payload: { epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT } },
-                });
-            mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
-            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
-            mockPlexDiscovery.getServerUri.mockReturnValue('http://next.example');
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
-
-            try {
-                await expect(orchestrator.selectServer('server-1')).rejects.toBe(resumeError);
-
-                expect(mockPlexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-                expect(mockPlexAuth.storeCredentials).toHaveBeenNthCalledWith(
-                    1,
-                    expect.objectContaining({
-                        selectedServerByUserId: expect.objectContaining({
-                            'user-1': { serverId: 'server-1', serverUri: 'http://next.example' },
-                        }),
-                    }),
-                    { emitAuthChange: false }
+            it('clears discovery selection and persisted selected-server state', async () => {
+                await orchestrator.initialize(mockConfig);
+                const cancelRolloverSpy = jest.spyOn(
+                    ScheduleDayRolloverController.prototype,
+                    'cancelPendingDayRollover'
                 );
-                expect(mockPlexAuth.storeCredentials).toHaveBeenNthCalledWith(
-                    2,
-                    expect.objectContaining({
-                        selectedServerByUserId: expect.objectContaining({
-                            'user-1': { serverId: 'server-prev', serverUri: 'http://previous.example' },
-                        }),
-                    }),
-                    { emitAuthChange: false }
-                );
-            } finally {
-                selectedServerTransactionSpy.mockRestore();
-            }
-        });
-
-        it('does not synthesize persisted selection from discovery when rolling back a missing-credentials snapshot', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            const resumeError = new Error('startup resume failed');
-            const discoverySnapshot = {
-                server: { id: 'server-prev' },
-                connection: { uri: 'http://previous.example' },
-                storedServerId: 'server-prev',
-            };
-            mockPlexDiscovery.captureSelectedServerSnapshot.mockReturnValue(discoverySnapshot);
-            mockPlexDiscovery.selectServer.mockImplementation(async () => createSelectedDiscoveryResult());
-            mockPlexDiscovery.getServerUri.mockReturnValue('http://next.example');
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue({ kind: 'missing' });
-            const selectedServerTransactionSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runSelectedServerTransaction')
-                .mockRejectedValueOnce(resumeError)
-                .mockResolvedValueOnce({
-                    kind: 'completed',
-                    payload: { epgRefresh: { kind: 'succeeded', result: READY_EPG_REFRESH_RESULT } },
-                });
-
-            try {
-                await expect(orchestrator.selectServer('server-1')).rejects.toBe(resumeError);
-
-                expect(mockPlexDiscovery.restoreSelectedServerSnapshot).toHaveBeenCalledWith(discoverySnapshot);
-                expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
-                expect(mockPlexAuth.readStoredCredentialsAndClearCorruption).toHaveBeenCalled();
-            } finally {
-                mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
-                mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
-                selectedServerTransactionSpy.mockRestore();
-            }
-        });
-
-        it('clears discovery selection and persisted selected-server state', async () => {
-            await orchestrator.initialize(mockConfig);
-            const cancelRolloverSpy = jest.spyOn(
-                ScheduleDayRolloverController.prototype,
-                'cancelPendingDayRollover'
-            );
-            const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
-            const clearScheduleCachesSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
-            const storedCredentials = createStoredCredentials('valid-token');
-            if (storedCredentials.kind !== 'available') {
-                throw new Error('Expected available stored credentials in test setup');
-            }
-            storedCredentials.credentials.selectedServerByUserId['user-1'] = {
-                serverId: 'server-123',
-                serverUri: 'http://example',
-            };
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
-            try {
-                await orchestrator.clearSelectedServer();
-
-                expect(mockPlexDiscovery.clearSelection).toHaveBeenCalledTimes(1);
-                expect(mockPlexAuth.storeCredentials).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        activeUserId: 'user-1',
-                        selectedServerByUserId: expect.objectContaining({
-                            'user-1': { serverId: null, serverUri: null },
-                        }),
-                    }),
-                    { emitAuthChange: false }
-                );
-                expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
-                expect(clearSelectedSnapshotSpy).toHaveBeenCalledTimes(1);
-                expect(clearScheduleCachesSpy).toHaveBeenCalledTimes(1);
-                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
-                expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
-                expect(cancelRolloverSpy).toHaveBeenCalledTimes(1);
-                const cancelCallOrder = cancelRolloverSpy.mock.invocationCallOrder[0];
-                const epgClearCallOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
-                if (cancelCallOrder === undefined || epgClearCallOrder === undefined) {
-                    throw new Error('Expected rollover cancellation and EPG clearing to run');
+                const clearSelectedSnapshotSpy = jest.spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot');
+                const clearScheduleCachesSpy = jest.spyOn(EPGCoordinator.prototype, 'clearScheduleCaches');
+                const storedCredentials = createStoredCredentials('valid-token');
+                if (storedCredentials.kind !== 'available') {
+                    throw new Error('Expected available stored credentials in test setup');
                 }
-                expect(cancelCallOrder).toBeLessThan(epgClearCallOrder);
-            } finally {
-                cancelRolloverSpy.mockRestore();
-                clearSelectedSnapshotSpy.mockRestore();
-                clearScheduleCachesSpy.mockRestore();
-            }
-        });
+                storedCredentials.credentials.selectedServerByUserId['user-1'] = {
+                    serverId: 'server-123',
+                    serverUri: 'http://example',
+                };
+                mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
+                try {
+                    await orchestrator.clearSelectedServer();
 
-        it('reselects cleanly after channel setup, server-select back navigation, and clear', async () => {
-            await orchestrator.initialize(mockConfig);
-            mockChannelManager.getAllChannels.mockReturnValue([]);
-            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
-            mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
-            mockLocalStorage.getItem.mockImplementation((key: string) =>
-                key === LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE ? '1' : null
-            );
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
-                createStoredCredentials('valid-token')
-            );
-            mockNavigation.goTo.mockImplementation((screen: string) => {
-                if (screen === 'server-select') {
-                    mockDiscoverySelectionContext.advance();
+                    expect(mockPlexDiscovery.clearSelection).toHaveBeenCalledTimes(1);
+                    expect(mockPlexAuth.storeCredentials).toHaveBeenCalledWith(
+                        expect.objectContaining({
+                            activeUserId: 'user-1',
+                            selectedServerByUserId: expect.objectContaining({
+                                'user-1': { serverId: null, serverUri: null },
+                            }),
+                        }),
+                        { emitAuthChange: false }
+                    );
+                    expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
+                    expect(clearSelectedSnapshotSpy).toHaveBeenCalledTimes(1);
+                    expect(clearScheduleCachesSpy).toHaveBeenCalledTimes(1);
+                    expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
+                    expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+                    expect(cancelRolloverSpy).toHaveBeenCalledTimes(1);
+                    const cancelCallOrder = cancelRolloverSpy.mock.invocationCallOrder[0];
+                    const epgClearCallOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
+                    if (cancelCallOrder === undefined || epgClearCallOrder === undefined) {
+                        throw new Error('Expected rollover cancellation and EPG clearing to run');
+                    }
+                    expect(cancelCallOrder).toBeLessThan(epgClearCallOrder);
+                } finally {
+                    cancelRolloverSpy.mockRestore();
+                    clearSelectedSnapshotSpy.mockRestore();
+                    clearScheduleCachesSpy.mockRestore();
                 }
             });
 
-            await expect(orchestrator.selectServer('server-1')).resolves.toMatchObject({
-                kind: 'selected',
-            });
-            expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
 
-            orchestrator.openServerSelect();
-            await orchestrator.clearSelectedServer();
-            mockPlexDiscovery.selectServer.mockImplementationOnce(async () => {
-                mockDiscoverySelectionContext.advanceSelection();
-                return { kind: 'connection_unavailable', reason: 'unreachable' };
-            });
 
-            await expect(orchestrator.selectServer('server-1')).resolves.toEqual({
-                kind: 'selection_failed',
-                reason: 'unreachable',
+            it('allows quarantine retry through the selected-server recovery gate', async () => {
+                await orchestrator.initialize(mockConfig);
+                mockNavigation.isRuntimeCommandGated.mockReturnValue(true);
+                const retry = jest.spyOn(
+                    OrchestratorServerSelectionRuntimeProjection.prototype,
+                    'retryQuarantineRecovery'
+                ).mockResolvedValue('none');
+
+                try {
+                    await expect(orchestrator.retryQuarantineRecovery()).resolves.toBe('none');
+                    expect(retry).toHaveBeenCalledTimes(1);
+                } finally {
+                    retry.mockRestore();
+                    mockNavigation.isRuntimeCommandGated.mockReturnValue(false);
+                }
             });
-            expect(mockNavigation.activateRuntimeCommandGate).not.toHaveBeenCalled();
-            expect(mockNavigation.goTo).toHaveBeenLastCalledWith('server-select', {
-                allowAutoConnect: false,
-            });
-        });
 
         it('rejects selected-server clear while recovery commands are gated', async () => {
             await orchestrator.initialize(mockConfig);
@@ -1532,211 +1186,6 @@ describe('AppOrchestrator', () => {
 
             expect(mockPlexAuth.storeCredentials).not.toHaveBeenCalled();
             expect(mockPlexDiscovery.clearSelection).not.toHaveBeenCalled();
-        });
-
-        it('allows quarantine retry through the selected-server recovery gate', async () => {
-            await orchestrator.initialize(mockConfig);
-            mockNavigation.isRuntimeCommandGated.mockReturnValue(true);
-            const retry = jest.spyOn(
-                OrchestratorServerSelectionRuntimeProjection.prototype,
-                'retryQuarantineRecovery'
-            ).mockResolvedValue('none');
-
-            try {
-                await expect(orchestrator.retryQuarantineRecovery()).resolves.toBe('none');
-                expect(retry).toHaveBeenCalledTimes(1);
-            } finally {
-                retry.mockRestore();
-                mockNavigation.isRuntimeCommandGated.mockReturnValue(false);
-            }
-        });
-
-        it('clears guide-origin focus preservation after selected-server clear', async () => {
-            await orchestrator.initialize(mockConfig);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
-                createStoredCredentials('valid-token')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            await orchestrator.start();
-
-            const now = Date.now();
-            mockEpgEvents.emit('channelSelected', {
-                channel: mockChannel,
-                program: {
-                    item: {
-                        ratingKey: 'guide-program',
-                        type: 'movie',
-                        title: 'Guide Program',
-                        fullTitle: 'Guide Program',
-                        durationMs: 60_000,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: now - 1_000,
-                    scheduledEndTime: now + 59_000,
-                    elapsedMs: 1_000,
-                    remainingMs: 59_000,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: true,
-                },
-            });
-
-            mockEpg.show.mockClear();
-            orchestrator.openEPG();
-            expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: true });
-
-            await orchestrator.clearSelectedServer();
-
-            mockEpg.show.mockClear();
-            orchestrator.openEPG();
-            expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: false });
-        });
-
-        it('clears selected-library filter scope after selected-server clear', async () => {
-            await orchestrator.initialize(mockConfig);
-            const storedCredentials = createStoredCredentials('valid-token');
-            if (storedCredentials.kind !== 'available') {
-                throw new Error('Expected available stored credentials in test setup');
-            }
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(storedCredentials);
-            const scopeSpy = jest.spyOn(EpgPreferencesStore.prototype, 'setLibraryFilterScope');
-            scopeSpy.mockClear();
-
-            try {
-                await orchestrator.clearSelectedServer();
-
-                expect(scopeSpy).toHaveBeenLastCalledWith(null);
-            } finally {
-                scopeSpy.mockRestore();
-            }
-        });
-
-        it('propagates selected-server clear persistence failures without clearing discovery selection', async () => {
-            const persistenceError = new Error('store failed');
-            await orchestrator.initialize(mockConfig);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(createStoredCredentials('valid-token'));
-            mockPlexAuth.storeCredentials.mockImplementationOnce(() => { throw persistenceError; });
-
-            await expect(orchestrator.clearSelectedServer()).rejects.toBe(persistenceError);
-
-            expect(mockPlexAuth.storeCredentials).toHaveBeenCalledTimes(1);
-            expect(mockPlexDiscovery.clearSelection).not.toHaveBeenCalled();
-        });
-    });
-
-    describe('Plex sign-out storage scope', () => {
-        it('clears selected-library filter scope after sign-out clears identity', async () => {
-            await orchestrator.initialize(mockConfig);
-            const scopeSpy = jest.spyOn(EpgPreferencesStore.prototype, 'setLibraryFilterScope');
-            const cancelRolloverSpy = jest.spyOn(
-                ScheduleDayRolloverController.prototype,
-                'cancelPendingDayRollover'
-            );
-            const clearSelectedSnapshotSpy = jest.spyOn(
-                EPGCoordinator.prototype,
-                'clearSelectedChannelScheduleSnapshot'
-            );
-            scopeSpy.mockClear();
-
-            try {
-                await orchestrator.signOutPlex();
-
-                expect(scopeSpy).toHaveBeenLastCalledWith(null);
-                expect(cancelRolloverSpy).toHaveBeenCalledTimes(1);
-                const cancelCallOrder = cancelRolloverSpy.mock.invocationCallOrder[0];
-                const epgClearCallOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
-                if (cancelCallOrder === undefined || epgClearCallOrder === undefined) {
-                    throw new Error('Expected rollover cancellation and EPG clearing to run');
-                }
-                expect(cancelCallOrder).toBeLessThan(epgClearCallOrder);
-            } finally {
-                scopeSpy.mockRestore();
-                cancelRolloverSpy.mockRestore();
-                clearSelectedSnapshotSpy.mockRestore();
-            }
-        });
-
-        it('continues sign-out when discovery cleanup is synchronously superseded', async () => {
-            await orchestrator.initialize(mockConfig);
-            mockPlexDiscovery.clearSelection.mockImplementationOnce(() => {
-                throw new PlexDiscoverySelectionSupersededError();
-            });
-
-            await expect(orchestrator.signOutPlex()).resolves.toBeUndefined();
-
-            expect(mockPlexAuth.clearCredentials).toHaveBeenCalledTimes(1);
-            expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
-        });
-
-        it('continues to propagate unrelated sign-out discovery cleanup failures', async () => {
-            await orchestrator.initialize(mockConfig);
-            const cleanupError = new Error('discovery cleanup failed');
-            mockPlexDiscovery.clearSelection.mockImplementationOnce(() => {
-                throw cleanupError;
-            });
-
-            await expect(orchestrator.signOutPlex()).rejects.toBe(cleanupError);
-        });
-    });
-
-    describe('schedule day rollover', () => {
-        it('clears the selected-channel snapshot and rebuilds the active schedule before refreshing EPG schedules on day rollover', async () => {
-            await orchestrator.initialize(mockConfig);
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            await orchestrator.start();
-
-            const epgRefreshSequence: string[] = [];
-            const originalClearSelectedSnapshot = EPGCoordinator.prototype.clearSelectedChannelScheduleSnapshot;
-            const clearSelectedSnapshotSpy = jest
-                .spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot')
-                .mockImplementation(function (this: EPGCoordinator) {
-                    epgRefreshSequence.push('clearSelectedChannelScheduleSnapshot');
-                    return originalClearSelectedSnapshot.call(this);
-                });
-            const refreshSpy = jest
-                .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
-                .mockImplementation(async () => {
-                    epgRefreshSequence.push('refreshEpgSchedules');
-                    return READY_EPG_REFRESH_RESULT;
-                });
-            const nowSpy = jest.spyOn(Date, 'now');
-            try {
-                nowSpy.mockReturnValue(new Date('2026-03-18T12:00:00.000Z').getTime());
-                mockScheduler.getCurrentProgram.mockReturnValue(null);
-                mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
-                mockChannelManager.resolveChannelContent.mockResolvedValue({
-                    channelId: mockChannel.id,
-                    items: [],
-                    orderedItems: [],
-                    totalDurationMs: 0,
-                    resolvedAt: Date.now(),
-                });
-
-                await orchestrator.switchToChannel(mockChannel.id);
-                nowSpy.mockReturnValue(new Date('2026-03-19T12:00:00.000Z').getTime());
-                schedulerHandlers.scheduleSync?.();
-                await Promise.resolve();
-                await Promise.resolve();
-
-                expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id, {
-                    signal: null,
-                });
-                expect(mockScheduler.loadChannel).toHaveBeenCalled();
-                expect(refreshSpy).toHaveBeenCalledTimes(1);
-                expect(epgRefreshSequence).toEqual([
-                    'clearSelectedChannelScheduleSnapshot',
-                    'refreshEpgSchedules',
-                ]);
-            } finally {
-                nowSpy.mockRestore();
-                clearSelectedSnapshotSpy.mockRestore();
-                refreshSpy.mockRestore();
-            }
         });
     });
 
@@ -1843,204 +1292,6 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('continues switchHomeUser cleanup and startup when scheduler unload throws', async () => {
-            expectConsoleWarn([
-                'Identity-scoped runtime cleanup step failed: unloadCurrentChannel',
-                expect.objectContaining({
-                    step: 'unloadCurrentChannel',
-                    safeError: expect.objectContaining({ message: 'unload failed' }),
-                }),
-            ]);
-            await orchestrator.initialize(mockConfig);
-            mockPlexAuth.readStoredCredentialsAndClearCorruption.mockReturnValue(
-                createStoredCredentials('valid-token')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            await orchestrator.start();
-            const resumeStartupAfterProfileSwitchSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
-                .mockResolvedValue(undefined);
-            const now = Date.now();
-            mockEpgEvents.emit('channelSelected', {
-                channel: mockChannel,
-                program: {
-                    item: {
-                        ratingKey: 'profile-guide-program',
-                        type: 'movie',
-                        title: 'Profile Guide Program',
-                        fullTitle: 'Profile Guide Program',
-                        durationMs: 60_000,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: now - 1_000,
-                    scheduledEndTime: now + 59_000,
-                    elapsedMs: 1_000,
-                    remainingMs: 59_000,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: true,
-                },
-            });
-            mockScheduler.unloadChannel.mockImplementationOnce(() => {
-                throw new Error('unload failed');
-            });
-
-            try {
-                mockEpg.show.mockClear();
-                orchestrator.openEPG();
-                expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: true });
-
-                await expect(orchestrator.switchHomeUser('user-2')).resolves.toBeUndefined();
-
-                expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
-                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
-                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
-                mockEpg.show.mockClear();
-                orchestrator.openEPG();
-                expect(mockEpg.show).toHaveBeenLastCalledWith({ preserveFocus: false });
-            } finally {
-                resumeStartupAfterProfileSwitchSpy.mockRestore();
-            }
-        });
-
-        it('reports PlexServerDiscovery as the missing dependency when profile switching runs without discovery', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            Reflect.set(orchestrator as object, '_plexDiscovery', null);
-
-            await expect(orchestrator.switchHomeUser('user-2')).rejects.toMatchObject({
-                code: AppErrorCode.MODULE_INIT_FAILED,
-                recoverable: true,
-                message: expect.stringContaining('PlexServerDiscovery not initialized'),
-                context: expect.objectContaining({
-                    method: 'switchHomeUser',
-                    dependency: 'PlexServerDiscovery',
-                }),
-            });
-
-            await expect(orchestrator.useMainAccountProfile()).rejects.toMatchObject({
-                code: AppErrorCode.MODULE_INIT_FAILED,
-                recoverable: true,
-                message: expect.stringContaining('PlexServerDiscovery not initialized'),
-                context: expect.objectContaining({
-                    method: 'useMainAccountProfile',
-                    dependency: 'PlexServerDiscovery',
-                }),
-            });
-        });
-
-        it('prepares the coordinator for useMainAccountProfile before logout and resumes startup afterward', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            const profileSwitchSequence: string[] = [];
-            const originalPrepareForProfileSwitchAttempt = InitializationCoordinator.prototype.prepareForProfileSwitchAttempt;
-            const prepareForProfileSwitchAttemptSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'prepareForProfileSwitchAttempt')
-                .mockImplementation(function (this: InitializationCoordinator) {
-                    profileSwitchSequence.push('prepareForProfileSwitchAttempt');
-                    return originalPrepareForProfileSwitchAttempt.call(this);
-                });
-            const resumeStartupAfterProfileSwitchSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
-                .mockImplementation(async () => {
-                    profileSwitchSequence.push('resumeStartupAfterProfileSwitch');
-                });
-
-            try {
-                mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                    createStoredValidationResult('active_valid')
-                );
-                mockPlexDiscovery.isConnected.mockReturnValue(true);
-
-                await orchestrator.start();
-
-                expect(schedulerHandlers.programStart).toBeDefined();
-                prepareForProfileSwitchAttemptSpy.mockClear();
-                resumeStartupAfterProfileSwitchSpy.mockClear();
-                profileSwitchSequence.length = 0;
-                mockPlexAuth.logoutActiveUser.mockClear();
-                mockVideoPlayer.stop.mockClear();
-                mockScheduler.unloadChannel.mockClear();
-                mockPlexStreamResolver.stopTranscodeSession.mockClear();
-                mockPlexAuth.logoutActiveUser.mockImplementationOnce(async () => {
-                    profileSwitchSequence.push('logoutActiveUser');
-                });
-
-                mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(
-                    makeDecision({ isTranscoding: true, sessionId: 'main-profile-session' })
-                );
-                const nowPlayingProgram = {
-                    item: {
-                        ratingKey: 'item-2',
-                        title: 'Another Item',
-                        durationMs: 60_000,
-                        type: 'movie',
-                        fullTitle: null,
-                        year: 2024,
-                        contentRating: 'PG',
-                        thumb: '/thumb',
-                    },
-                    elapsedMs: 5_000,
-                    scheduledStartTime: Date.now(),
-                    scheduledEndTime: Date.now() + 60_000,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: true,
-                };
-                schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
-                await new Promise((resolve) => setImmediate(resolve));
-
-                await orchestrator.useMainAccountProfile();
-
-                expect(prepareForProfileSwitchAttemptSpy).toHaveBeenCalledTimes(1);
-                expect(mockPlexAuth.logoutActiveUser).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
-                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
-                expect(mockVideoPlayer.stop).toHaveBeenCalled();
-                expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
-                expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('main-profile-session');
-                expect(profileSwitchSequence).toEqual([
-                    'prepareForProfileSwitchAttempt',
-                    'logoutActiveUser',
-                    'resumeStartupAfterProfileSwitch',
-                ]);
-            } finally {
-                prepareForProfileSwitchAttemptSpy.mockRestore();
-                resumeStartupAfterProfileSwitchSpy.mockRestore();
-            }
-        });
-
-        it('continues useMainAccountProfile cleanup and startup when channel runtime clear throws', async () => {
-            expectConsoleWarn([
-                'Identity-scoped runtime cleanup step failed: clearChannelManagerRuntimeState',
-                expect.objectContaining({
-                    step: 'clearChannelManagerRuntimeState',
-                    safeError: expect.objectContaining({ message: 'channel cleanup failed' }),
-                }),
-            ]);
-            await orchestrator.initialize(mockConfig);
-            const resumeStartupAfterProfileSwitchSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
-                .mockResolvedValue(undefined);
-            mockChannelManager.clearRuntimeState.mockImplementationOnce(() => {
-                throw new Error('channel cleanup failed');
-            });
-
-            try {
-                await expect(orchestrator.useMainAccountProfile()).resolves.toBeUndefined();
-
-                expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
-                expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
-                expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
-            } finally {
-                resumeStartupAfterProfileSwitchSpy.mockRestore();
-            }
-        });
-
         it('does not reset channel state when switchHomeUser fails', async () => {
             await orchestrator.initialize(mockConfig);
 
@@ -2067,99 +1318,147 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('restores pending server resume after a failed profile switch from server-select', async () => {
-            const connectionChangeListeners = new Set<(uri: string | null) => void>();
-            (mockPlexDiscovery.on as jest.Mock).mockImplementation(
-                (event: string, handler: (uri: string | null) => void) => {
-                    if (event !== 'connectionChange') {
-                        return { dispose: jest.fn() };
-                    }
 
-                    connectionChangeListeners.add(handler);
-                    return {
-                        dispose: jest.fn(() => {
-                            connectionChangeListeners.delete(handler);
-                        }),
+
+
+            it('prepares the coordinator for useMainAccountProfile before logout and resumes startup afterward', async () => {
+                await orchestrator.initialize(mockConfig);
+
+                const profileSwitchSequence: string[] = [];
+                const originalPrepareForProfileSwitchAttempt = InitializationCoordinator.prototype.prepareForProfileSwitchAttempt;
+                const prepareForProfileSwitchAttemptSpy = jest
+                    .spyOn(InitializationCoordinator.prototype, 'prepareForProfileSwitchAttempt')
+                    .mockImplementation(function (this: InitializationCoordinator) {
+                        profileSwitchSequence.push('prepareForProfileSwitchAttempt');
+                        return originalPrepareForProfileSwitchAttempt.call(this);
+                    });
+                const resumeStartupAfterProfileSwitchSpy = jest
+                    .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                    .mockImplementation(async () => {
+                        profileSwitchSequence.push('resumeStartupAfterProfileSwitch');
+                    });
+
+                try {
+                    mockPlexAuth.validateStoredCredentials.mockResolvedValue(
+                        createStoredValidationResult('active_valid')
+                    );
+                    mockPlexDiscovery.isConnected.mockReturnValue(true);
+
+                    await orchestrator.start();
+
+                    expect(schedulerHandlers.programStart).toBeDefined();
+                    prepareForProfileSwitchAttemptSpy.mockClear();
+                    resumeStartupAfterProfileSwitchSpy.mockClear();
+                    profileSwitchSequence.length = 0;
+                    mockPlexAuth.logoutActiveUser.mockClear();
+                    mockVideoPlayer.stop.mockClear();
+                    mockScheduler.unloadChannel.mockClear();
+                    mockPlexStreamResolver.stopTranscodeSession.mockClear();
+                    mockPlexAuth.logoutActiveUser.mockImplementationOnce(async () => {
+                        profileSwitchSequence.push('logoutActiveUser');
+                    });
+
+                    mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(
+                        makeDecision({ isTranscoding: true, sessionId: 'main-profile-session' })
+                    );
+                    const nowPlayingProgram = {
+                        item: {
+                            ratingKey: 'item-2',
+                            title: 'Another Item',
+                            durationMs: 60_000,
+                            type: 'movie',
+                            fullTitle: null,
+                            year: 2024,
+                            contentRating: 'PG',
+                            thumb: '/thumb',
+                        },
+                        elapsedMs: 5_000,
+                        scheduledStartTime: Date.now(),
+                        scheduledEndTime: Date.now() + 60_000,
+                        scheduleIndex: 0,
+                        loopNumber: 0,
+                        isCurrent: true,
                     };
+                    schedulerHandlers.programStart?.(nowPlayingProgram as unknown as ScheduledProgram);
+                    await new Promise((resolve) => setImmediate(resolve));
+
+                    await orchestrator.useMainAccountProfile();
+
+                    expect(prepareForProfileSwitchAttemptSpy).toHaveBeenCalledTimes(1);
+                    expect(mockPlexAuth.logoutActiveUser).toHaveBeenCalledTimes(1);
+                    expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
+                    expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
+                    expect(mockVideoPlayer.stop).toHaveBeenCalled();
+                    expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+                    expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('main-profile-session');
+                    expect(profileSwitchSequence).toEqual([
+                        'prepareForProfileSwitchAttempt',
+                        'logoutActiveUser',
+                        'resumeStartupAfterProfileSwitch',
+                    ]);
+                } finally {
+                    prepareForProfileSwitchAttemptSpy.mockRestore();
+                    resumeStartupAfterProfileSwitchSpy.mockRestore();
                 }
-            );
+            });
 
-            await orchestrator.initialize(mockConfig);
 
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(false);
 
-            await orchestrator.start();
-            expect(connectionChangeListeners.size).toBe(1);
+            it('continues useMainAccountProfile cleanup and startup when channel runtime clear throws', async () => {
+                expectConsoleWarn([
+                    'Identity-scoped runtime cleanup step failed: clearChannelManagerRuntimeState',
+                    expect.objectContaining({
+                        step: 'clearChannelManagerRuntimeState',
+                        safeError: expect.objectContaining({ message: 'channel cleanup failed' }),
+                    }),
+                ]);
+                await orchestrator.initialize(mockConfig);
+                const resumeStartupAfterProfileSwitchSpy = jest
+                    .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                    .mockResolvedValue(undefined);
+                mockChannelManager.clearRuntimeState.mockImplementationOnce(() => {
+                    throw new Error('channel cleanup failed');
+                });
 
-            mockPlexAuth.switchHomeUser.mockRejectedValueOnce(new Error('switch failed'));
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
+                try {
+                    await expect(orchestrator.useMainAccountProfile()).resolves.toBeUndefined();
 
-            try {
-                await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow('switch failed');
+                    expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
+                    expect(mockEpg.clearSchedules).toHaveBeenCalledTimes(1);
+                    expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
+                    expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
+                } finally {
+                    resumeStartupAfterProfileSwitchSpy.mockRestore();
+                }
+            });
 
-                expect(connectionChangeListeners.size).toBe(1);
 
-                const [listener] = [...connectionChangeListeners];
-                listener?.('http://server.example');
-                await Promise.resolve();
 
-                expect(runStartupSpy.mock.calls[0]?.[0]).toBe(STARTUP_PHASE.RESUME_AFTER_SERVER_SELECTION);
-            } finally {
-                runStartupSpy.mockRestore();
-            }
-        });
+            it('does not reset channel state when useMainAccountProfile fails', async () => {
+                await orchestrator.initialize(mockConfig);
 
-        it('does not reset channel state when useMainAccountProfile fails', async () => {
-            await orchestrator.initialize(mockConfig);
+                mockPlexAuth.logoutActiveUser.mockRejectedValueOnce(new Error('logout failed'));
+                const prepareForProfileSwitchAttemptSpy = jest.spyOn(
+                    InitializationCoordinator.prototype,
+                    'prepareForProfileSwitchAttempt'
+                );
+                const resumeStartupAfterProfileSwitchSpy = jest
+                    .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                    .mockResolvedValue(undefined);
 
-            mockPlexAuth.logoutActiveUser.mockRejectedValueOnce(new Error('logout failed'));
-            const prepareForProfileSwitchAttemptSpy = jest.spyOn(
-                InitializationCoordinator.prototype,
-                'prepareForProfileSwitchAttempt'
-            );
-            const resumeStartupAfterProfileSwitchSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
-                .mockResolvedValue(undefined);
+                try {
+                    await expect(orchestrator.useMainAccountProfile()).rejects.toThrow('logout failed');
 
-            try {
-                await expect(orchestrator.useMainAccountProfile()).rejects.toThrow('logout failed');
+                    expect(prepareForProfileSwitchAttemptSpy).toHaveBeenCalledTimes(1);
+                    expect(mockNavigation.goTo).not.toHaveBeenCalledWith('splash');
+                    expect(resumeStartupAfterProfileSwitchSpy).not.toHaveBeenCalled();
+                    expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
+                } finally {
+                    prepareForProfileSwitchAttemptSpy.mockRestore();
+                    resumeStartupAfterProfileSwitchSpy.mockRestore();
+                }
+            });
 
-                expect(prepareForProfileSwitchAttemptSpy).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.goTo).not.toHaveBeenCalledWith('splash');
-                expect(resumeStartupAfterProfileSwitchSpy).not.toHaveBeenCalled();
-                expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
-            } finally {
-                prepareForProfileSwitchAttemptSpy.mockRestore();
-                resumeStartupAfterProfileSwitchSpy.mockRestore();
-            }
-        });
-
-        it('fails before mutating auth state when switchHomeUser is called without an initialization coordinator', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            Reflect.set(orchestrator as object, '_initCoordinator', null);
-
-            await expect(orchestrator.switchHomeUser('user-2')).rejects.toThrow(
-                'InitializationCoordinator not initialized'
-            );
-            expect(mockPlexAuth.switchHomeUser).not.toHaveBeenCalled();
-        });
-
-        it('fails before logging out when useMainAccountProfile is called without an initialization coordinator', async () => {
-            await orchestrator.initialize(mockConfig);
-
-            Reflect.set(orchestrator as object, '_initCoordinator', null);
-
-            await expect(orchestrator.useMainAccountProfile()).rejects.toThrow(
-                'InitializationCoordinator not initialized'
-            );
-            expect(mockPlexAuth.logoutActiveUser).not.toHaveBeenCalled();
-        });
     });
 
     describe('start', () => {
@@ -2211,77 +1510,6 @@ describe('AppOrchestrator', () => {
             expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
         });
 
-        it('routes corrupted stored credentials to auth without token validation', async () => {
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('corrupted')
-            );
-
-            await orchestrator.start();
-
-            expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
-            expect(mockPlexAuth.validateStoredCredentials).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) });
-        });
-
-        it('should validate token and proceed if valid', async () => {
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-
-            await orchestrator.start();
-
-            expect(mockPlexAuth.validateStoredCredentials).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) });
-            expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
-        });
-
-        it('routes to audio-setup before channel-setup when audio setup is incomplete', async () => {
-            const readSpy = jest
-                .spyOn(AudioSettingsStore.prototype, 'readAudioSetupCompleteAndClean')
-                .mockReturnValue(false);
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
-            mockChannelManager.getAllChannels.mockReturnValue([]);
-            mockLocalStorage.getItem.mockImplementation((key: string) => {
-                if (key === 'lineup_channel_setup_v3:server-1:user-1') return null;
-                if (key === 'lineup_channels_server_v1:server-1:user-1') return null;
-                return null;
-            });
-
-            try {
-                await orchestrator.start();
-
-                expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('audio-setup');
-                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('channel-setup');
-                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
-            } finally {
-                readSpy.mockRestore();
-            }
-        });
-
-        it('should navigate to auth if token invalid', async () => {
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('invalid')
-            );
-
-            await orchestrator.start();
-
-            expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
-        });
-
-        it('should navigate to server-select if server connection fails', async () => {
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(false);
-
-            await orchestrator.start();
-
-            expect(mockNavigation.goTo).toHaveBeenCalledWith('server-select');
-        });
-
         it('should be ready after successful start', async () => {
             mockPlexAuth.validateStoredCredentials.mockResolvedValue(
                 createStoredValidationResult('active_valid')
@@ -2318,65 +1546,6 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('should call requestMediaSession once after player initialization', async () => {
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-
-            let releasePlayerInitialization = (): void => undefined;
-            mockVideoPlayer.initialize.mockImplementationOnce(
-                async () =>
-                    new Promise<void>((resolve) => {
-                        releasePlayerInitialization = resolve;
-                    })
-            );
-
-            const startPromise = orchestrator.start();
-            await new Promise((resolve) => setImmediate(resolve));
-
-            expect(mockVideoPlayer.initialize).toHaveBeenCalledTimes(1);
-            expect(mockVideoPlayer.requestMediaSession).not.toHaveBeenCalled();
-
-            releasePlayerInitialization();
-            await startPromise;
-
-            expect(mockVideoPlayer.requestMediaSession).toHaveBeenCalledTimes(1);
-        });
-
-        it('should proceed without auth UI when stored credentials exist', async () => {
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-
-            await orchestrator.start();
-
-            expect(mockPlexAuth.validateStoredCredentials).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) });
-            expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
-            expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('auth');
-        });
-
-        it('should navigate to channel-setup when channels are empty and setup is missing', async () => {
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
-            mockChannelManager.getAllChannels.mockReturnValue([]);
-            mockLocalStorage.getItem.mockImplementation((key: string) => {
-                if (key === 'lineup_audio_setup_complete') return '1';
-                if (key === 'lineup_channel_setup_v3:server-1:user-1') return null;
-                if (key === 'lineup_channels_server_v1:server-1:user-1') return null;
-                return null;
-            });
-
-            await orchestrator.start();
-
-            expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
-            expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
-        });
-
         it('should rerun setup when switching to a new server without setup record', async () => {
             mockPlexAuth.validateStoredCredentials.mockResolvedValue(
                 createStoredValidationResult('active_valid')
@@ -2397,18 +1566,6 @@ describe('AppOrchestrator', () => {
                 'lineup_channels_server_v1:server-2:user-1',
                 'lineup_current_channel_v4:server-2:user-1'
             );
-        });
-
-        it('should navigate to server-select when auth is valid but no selection restored', async () => {
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(false);
-
-            await orchestrator.start();
-
-            expect(mockNavigation.goTo).toHaveBeenCalledWith('server-select');
-            expect(mockNavigation.goTo).not.toHaveBeenCalledWith('auth');
         });
 
         it('should wire scheduler, player, and lifecycle events after start', async () => {
@@ -2462,28 +1619,32 @@ describe('AppOrchestrator', () => {
             expect(mockVideoPlayer.play).toHaveBeenCalled();
         });
 
-        it('shows a warning toast when setSubtitleTrack fails', async () => {
-            expectConsoleWarn([
-                'setSubtitleTrack failed',
-                expect.objectContaining({
-                    trackId: null,
-                    safeError: expect.objectContaining({
-                        name: 'Error',
-                        message: 'boom',
+
+
+
+
+            it('shows a warning toast when setSubtitleTrack fails', async () => {
+                expectConsoleWarn([
+                    'setSubtitleTrack failed',
+                    expect.objectContaining({
+                        trackId: null,
+                        safeError: expect.objectContaining({
+                            name: 'Error',
+                            message: 'boom',
+                        }),
                     }),
-                }),
-            ]);
-            const toastSpy = jest.fn();
+                ]);
+                const toastSpy = jest.fn();
 
-            mockVideoPlayer.setSubtitleTrack.mockRejectedValueOnce(new Error('boom'));
-            orchestrator.setNowPlayingHandler(toastSpy);
+                mockVideoPlayer.setSubtitleTrack.mockRejectedValueOnce(new Error('boom'));
+                orchestrator.setNowPlayingHandler(toastSpy);
 
-            await orchestrator.setSubtitleTrack(null);
+                await orchestrator.setSubtitleTrack(null);
 
-            expect(toastSpy).toHaveBeenCalledWith(
-                expect.objectContaining({ type: 'warning', message: expect.any(String) })
-            );
-        });
+                expect(toastSpy).toHaveBeenCalledWith(
+                    expect.objectContaining({ type: 'warning', message: expect.any(String) })
+                );
+            });
 
         it('uses subtitle mode policy to block burn-in subtitle tracks when mode disallows burn-in', async () => {
             mockPlexAuth.validateStoredCredentials.mockResolvedValue(
@@ -2499,9 +1660,13 @@ describe('AppOrchestrator', () => {
 
             await orchestrator.start();
 
-            const setSubtitleTrackSpy = jest.spyOn(orchestrator, 'setSubtitleTrack').mockResolvedValue(undefined);
+            const setSubtitleTrackSpy = jest
+                .spyOn(orchestrator, 'setSubtitleTrack')
+                .mockResolvedValue(undefined);
             try {
-                mockVideoPlayer.getAvailableSubtitles.mockReturnValue([{ id: 'sub-1', format: 'ass' }]);
+                mockVideoPlayer.getAvailableSubtitles.mockReturnValue([
+                    { id: 'sub-1', format: 'ass' },
+                ]);
 
                 playerHandlers.trackChange?.({ type: 'subtitle', trackId: 'sub-1' });
 
@@ -2510,7 +1675,6 @@ describe('AppOrchestrator', () => {
                 setSubtitleTrackSpy.mockRestore();
             }
         });
-
     });
 
     describe('switchToChannel', () => {
@@ -2518,31 +1682,6 @@ describe('AppOrchestrator', () => {
             // Reset mocks that may have been modified by previous tests
             mockChannelManager.getChannel.mockReturnValue(mockChannel);
             await orchestrator.initialize(mockConfig);
-        });
-
-        it('logs the specific missing modules when channel tuning is unavailable', async () => {
-            const warning = expectConsoleWarn([
-                'switchToChannel: channel tuning unavailable',
-                expect.objectContaining({
-                    missingModules: expect.arrayContaining([
-                        '_channelTuning',
-                        '_channelManager',
-                        '_scheduler',
-                    ]),
-                }),
-            ]);
-
-            Reflect.set(orchestrator as object, '_channelTuning', null);
-            Reflect.set(orchestrator as object, '_channelManager', null);
-            Reflect.set(orchestrator as object, '_scheduler', null);
-
-            await expect(orchestrator.switchToChannel('ch1')).resolves.toBeUndefined();
-
-            const switchPayload = warning.getLastCall()?.[1] as {
-                missingModules: string[];
-            };
-            expect(switchPayload.missingModules).toHaveLength(3);
-            expect(mockVideoPlayer.stop).not.toHaveBeenCalled();
         });
 
         it('should stop current playback', async () => {
@@ -2767,51 +1906,11 @@ describe('AppOrchestrator', () => {
             expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(1, 'ch1');
             expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch3');
         });
-
-        it('should allow sequential channel switches', async () => {
-            mockChannelManager.resolveChannelContent.mockResolvedValue({
-                channelId: 'ch1',
-                items: [],
-                orderedItems: [],
-                totalDurationMs: 0,
-                resolvedAt: Date.now(),
-            });
-
-            // First switch
-            await orchestrator.switchToChannel('ch1');
-            expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(1);
-
-            // Second switch (should work since first is complete)
-            await orchestrator.switchToChannel('ch2');
-            expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(2);
-        });
     });
 
     describe('switchToChannelByNumber', () => {
         beforeEach(async () => {
             await orchestrator.initialize(mockConfig);
-        });
-
-        it('logs the specific missing modules when numeric channel tuning is unavailable', async () => {
-            const warning = expectConsoleWarn([
-                'switchToChannelByNumber: channel tuning unavailable',
-                expect.objectContaining({
-                    missingModules: expect.arrayContaining([
-                        '_channelTuning',
-                        '_videoPlayer',
-                    ]),
-                }),
-            ]);
-
-            Reflect.set(orchestrator as object, '_channelTuning', null);
-            Reflect.set(orchestrator as object, '_videoPlayer', null);
-
-            await expect(orchestrator.switchToChannelByNumber(5)).resolves.toBeUndefined();
-
-            const switchByNumberPayload = warning.getLastCall()?.[1] as {
-                missingModules: string[];
-            };
-            expect(switchByNumberPayload.missingModules).toHaveLength(2);
         });
 
         it('should find channel by number and switch', async () => {
@@ -2867,28 +1966,25 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
         });
 
-        it('returns first-time when selected server has no channels', () => {
-            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
-            mockChannelManager.getAllChannels.mockReturnValue([]);
-            const workflowPort = orchestrator.getChannelSetupWorkflowPort();
+        it.each([
+            { server: { id: 'server-4' }, channels: [], expected: 'first-time' },
+            {
+                server: { id: 'server-4' },
+                channels: [{ ...mockChannel, id: 'channel-1' }],
+                expected: 'existing',
+            },
+            { server: null, channels: [], expected: 'unknown' },
+        ] as const)(
+            'returns $expected for the selected server state',
+            ({ server, channels, expected }) => {
+                mockPlexDiscovery.getSelectedServer.mockReturnValue(server);
+                mockChannelManager.getAllChannels.mockReturnValue(channels);
 
-            expect(workflowPort.getSetupContextForSelectedServer()).toBe('first-time');
-        });
-
-        it('returns existing when selected server has channels', () => {
-            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-4' });
-            mockChannelManager.getAllChannels.mockReturnValue([{ ...mockChannel, id: 'channel-1' }]);
-            const workflowPort = orchestrator.getChannelSetupWorkflowPort();
-
-            expect(workflowPort.getSetupContextForSelectedServer()).toBe('existing');
-        });
-
-        it('returns unknown when selected server is unavailable', () => {
-            mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
-            const workflowPort = orchestrator.getChannelSetupWorkflowPort();
-
-            expect(workflowPort.getSetupContextForSelectedServer()).toBe('unknown');
-        });
+                expect(
+                    orchestrator.getChannelSetupWorkflowPort().getSetupContextForSelectedServer()
+                ).toBe(expected);
+            }
+        );
     });
 
     describe('EPG management', () => {
@@ -2901,53 +1997,6 @@ describe('AppOrchestrator', () => {
 
             expect(mockEpg.show).toHaveBeenCalled();
             expect(mockEpg.focusNow).toHaveBeenCalled();
-        });
-
-        it('should close EPG', () => {
-            orchestrator.closeEPG();
-
-            expect(mockEpg.hide).toHaveBeenCalled();
-        });
-
-        it('should toggle EPG from closed to open', () => {
-            mockEpg.isVisible.mockReturnValue(false);
-
-            orchestrator.toggleEPG();
-
-            expect(mockEpg.show).toHaveBeenCalled();
-        });
-
-        it('should toggle EPG from open to closed', () => {
-            mockEpg.isVisible.mockReturnValue(true);
-
-            orchestrator.toggleEPG();
-
-            expect(mockEpg.hide).toHaveBeenCalled();
-        });
-
-        it('should allow EPG while Now Playing modal is open and back should not close EPG', async () => {
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            mockNavigation.isModalOpen.mockReturnValue(true);
-            mockEpg.isVisible.mockReturnValue(true);
-
-            await orchestrator.start();
-
-            orchestrator.openEPG();
-            expect(mockNavigation.closeModal).not.toHaveBeenCalled();
-
-            const keyPress = navHandlers.keyPress;
-            expect(keyPress).toBeDefined();
-            keyPress?.({
-                button: 'back',
-                isRepeat: false,
-                isLongPress: false,
-                timestamp: Date.now(),
-                originalEvent: { preventDefault: jest.fn() },
-            });
-            expect(mockEpg.handleBack).not.toHaveBeenCalled();
         });
 
         it('shows warning toast instead of reporting global fatal error when deferred EPG init fails', async () => {
@@ -2974,92 +2023,103 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('wires ensureEpgInitialized through the real InitializationCoordinator before coordinator assembly', async () => {
-            const originalAssembly = orchestratorCoordinatorAssembly.createOrchestratorCoordinators;
-            const earlyEnsureCalls: Array<Promise<void>> = [];
-            const ensureEpgInitializedSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'ensureEPGInitialized')
-                .mockResolvedValue(undefined);
-            const assemblySpy = jest
-                .spyOn(orchestratorCoordinatorAssembly, 'createOrchestratorCoordinators')
-                .mockImplementation((deps) => {
-                    earlyEnsureCalls.push(deps.init.ensureEpgInitialized());
-                    return originalAssembly(deps);
-                });
 
-            try {
-                await orchestrator.initialize(mockConfig);
-                expect(earlyEnsureCalls.length).toBeGreaterThan(0);
-                await expect(Promise.all(earlyEnsureCalls)).resolves.toEqual(
-                    expect.arrayContaining([undefined])
+
+
+            it('wires ensureEpgInitialized through the real InitializationCoordinator before coordinator assembly', async () => {
+                const originalAssembly = orchestratorCoordinatorAssembly.createOrchestratorCoordinators;
+                const earlyEnsureCalls: Array<Promise<void>> = [];
+                const ensureEpgInitializedSpy = jest
+                    .spyOn(InitializationCoordinator.prototype, 'ensureEPGInitialized')
+                    .mockResolvedValue(undefined);
+                const assemblySpy = jest
+                    .spyOn(orchestratorCoordinatorAssembly, 'createOrchestratorCoordinators')
+                    .mockImplementation((deps) => {
+                        earlyEnsureCalls.push(deps.init.ensureEpgInitialized());
+                        return originalAssembly(deps);
+                    });
+
+                try {
+                    await orchestrator.initialize(mockConfig);
+                    expect(earlyEnsureCalls.length).toBeGreaterThan(0);
+                    await expect(Promise.all(earlyEnsureCalls)).resolves.toEqual(
+                        expect.arrayContaining([undefined])
+                    );
+                    expect(ensureEpgInitializedSpy).toHaveBeenCalled();
+                    expect(mockLifecycle.reportError).not.toHaveBeenCalled();
+                } finally {
+                    assemblySpy.mockRestore();
+                    ensureEpgInitializedSpy.mockRestore();
+                }
+            });
+
+
+
+
+            it('routes channel transition activity through overlay badge recompute wiring', async () => {
+                const syncSpy = jest.spyOn(
+                    OverlayRuntimePolicyController.prototype,
+                    'syncChannelBadgeOverlay'
                 );
-                expect(ensureEpgInitializedSpy).toHaveBeenCalled();
-                expect(mockLifecycle.reportError).not.toHaveBeenCalled();
-            } finally {
-                assemblySpy.mockRestore();
-                ensureEpgInitializedSpy.mockRestore();
-            }
-        });
 
-        it('routes channel transition activity callbacks through overlay badge recompute wiring', async () => {
-            const originalAssembly = orchestratorCoordinatorAssembly.createOrchestratorCoordinators;
-            let capturedAssemblyInput: unknown = null;
-            const assemblySpy = jest
-                .spyOn(orchestratorCoordinatorAssembly, 'createOrchestratorCoordinators')
-                .mockImplementation((deps) => {
-                    capturedAssemblyInput = deps;
-                    return originalAssembly(deps);
-                });
-            const syncSpy = jest.spyOn(
-                OverlayRuntimePolicyController.prototype,
-                'syncChannelBadgeOverlay'
-            );
+                try {
+                    const { input: assemblyInput } = await captureCoordinatorAssembly();
+                    syncSpy.mockClear();
 
-            try {
-                await orchestrator.initialize(mockConfig);
-                syncSpy.mockClear();
+                    assemblyInput.actions.onChannelTransitionActivityChange(true);
 
-                const actions = (
-                    capturedAssemblyInput as
-                        | { actions?: { onChannelTransitionActivityChange?: (active: boolean) => void } }
-                        | null
-                )?.actions;
-                actions?.onChannelTransitionActivityChange?.(true);
+                    expect(syncSpy).toHaveBeenCalledTimes(1);
+                } finally {
+                    syncSpy.mockRestore();
+                }
+            });
 
-                expect(syncSpy).toHaveBeenCalledTimes(1);
-            } finally {
-                syncSpy.mockRestore();
-                assemblySpy.mockRestore();
-            }
-        });
+            it('wires schedule state and selected-server accessors into coordinator assembly', async () => {
+                const { input: assemblyInput } = await captureCoordinatorAssembly();
 
-        it('should forward layout mode changes when EPG is visible', () => {
-            mockEpg.isVisible.mockReturnValue(true);
+                expect(assemblyInput.schedule.lastChannelChangeSource()).toBeNull();
+                assemblyInput.schedule.setLastChannelChangeSource('guide');
+                expect(assemblyInput.schedule.lastChannelChangeSource()).toBe('guide');
 
-            orchestrator.onGuideSettingChange({ key: 'layoutMode', mode: 'classic' });
+                mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
+                expect(assemblyInput.schedule.getSelectedServerId()).toBe('server-1');
+                expect(assemblyInput.schedule.getLocalMidnightMs(Date.now())).toEqual(
+                    expect.any(Number)
+                );
+            });
 
-            expect(mockEpg.setLayoutMode).toHaveBeenCalledWith('classic');
-        });
+            it('wires void and outcome channel-switch actions into coordinator assembly', async () => {
+                const { orchestrator: assemblyOrchestrator, input: assemblyInput } =
+                    await captureCoordinatorAssembly();
+                const switchSpy = jest
+                    .spyOn(assemblyOrchestrator, 'switchToChannel')
+                    .mockResolvedValue(undefined);
 
-        it('should forward now watching banner changes when EPG is visible', () => {
-            mockEpg.isVisible.mockReturnValue(true);
+                try {
+                    await assemblyInput.actions.switchToChannel('channel-1');
+                    expect(switchSpy).toHaveBeenCalledWith('channel-1', undefined);
 
-            orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
+                    await expect(
+                        assemblyInput.actions.switchToChannelWithOutcome(mockChannel.id)
+                    ).resolves.toEqual(expect.objectContaining({ kind: expect.any(String) }));
+                } finally {
+                    switchSpy.mockRestore();
+                }
+            });
 
-            expect(mockEpg.setNowWatchingBannerEnabled).toHaveBeenCalledWith(false);
-        });
 
-        it('delegates guide-setting policy entrypoints to EPGCoordinator', () => {
-            const delegateSpy = jest.spyOn(EPGCoordinator.prototype, 'handleGuideSettingChange');
-            const change = { key: 'guideDensity', density: 'wide' } as const;
 
-            try {
-                orchestrator.onGuideSettingChange(change);
-                expect(delegateSpy).toHaveBeenCalledWith(change);
-            } finally {
-                delegateSpy.mockRestore();
-            }
-        });
+            it('delegates guide-setting policy entrypoints to EPGCoordinator', () => {
+                const delegateSpy = jest.spyOn(EPGCoordinator.prototype, 'handleGuideSettingChange');
+                const change = { key: 'guideDensity', density: 'wide' } as const;
+
+                try {
+                    orchestrator.onGuideSettingChange(change);
+                    expect(delegateSpy).toHaveBeenCalledWith(change);
+                } finally {
+                    delegateSpy.mockRestore();
+                }
+            });
 
         it('ignores info background mode changes while EPG is visible', () => {
             mockEpg.isVisible.mockReturnValue(true);
@@ -3083,72 +2143,19 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('refreshes schedules when guide density changes while EPG is visible', async () => {
-            jest.useFakeTimers();
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            mockLocalStorage.getItem.mockImplementation((key: string) =>
-                key === 'lineup_epg_guide_density' ? 'wide' : null
-            );
-            mockEpg.isVisible.mockReturnValue(true);
-            const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
+        it('opens server selection with the requested auto-connect policy', () => {
+            orchestrator.openServerSelect({ allowAutoConnect: true });
+            orchestrator.openServerSelect();
+            orchestrator.closeEPG();
+            orchestrator.toggleEPG();
 
-            try {
-                await orchestrator.start();
-                await jest.advanceTimersByTimeAsync(1500);
-                orchestrator.onGuideSettingChange({ key: 'guideDensity', density: 'wide' });
-
-                expect(mockEpg.setVisibleHours).toHaveBeenCalledWith(3);
-                expect(mockEpg.clearSchedules).toHaveBeenCalled();
-                expect(primeSpy).toHaveBeenCalled();
-            } finally {
-                primeSpy.mockRestore();
-                jest.useRealTimers();
-            }
-        });
-
-        it('clears and refreshes schedules when aggressive preload changes while EPG visible', () => {
-            mockEpg.isVisible.mockReturnValue(true);
-            const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
-
-            try {
-                orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
-
-                expect(mockEpg.clearSchedules).toHaveBeenCalled();
-                expect(primeSpy).toHaveBeenCalled();
-            } finally {
-                primeSpy.mockRestore();
-            }
-        });
-
-        it('clears and refreshes schedules when past-items window changes while EPG visible', () => {
-            mockEpg.isVisible.mockReturnValue(true);
-            const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
-
-            try {
-                orchestrator.onGuideSettingChange({ key: 'pastItemsWindow', value: '15' });
-
-                expect(mockEpg.clearSchedules).toHaveBeenCalled();
-                expect(primeSpy).toHaveBeenCalled();
-            } finally {
-                primeSpy.mockRestore();
-            }
-        });
-
-        it('invalidates cached schedules but skips refresh when aggressive preload changes while EPG is hidden', () => {
-            mockEpg.isVisible.mockReturnValue(false);
-            const primeSpy = jest.spyOn(EPGCoordinator.prototype, 'primeEpgChannels');
-
-            try {
-                orchestrator.onGuideSettingChange({ key: 'aggressivePreload', enabled: true });
-
-                expect(primeSpy).not.toHaveBeenCalled();
-                expect(mockEpg.clearSchedules).toHaveBeenCalled();
-            } finally {
-                primeSpy.mockRestore();
-            }
+            expect(mockNavigation.goTo).toHaveBeenCalledWith('server-select', {
+                allowAutoConnect: true,
+            });
+            expect(mockNavigation.goTo).toHaveBeenCalledWith('server-select', {
+                allowAutoConnect: false,
+            });
+            expect(mockEpg.hide).toHaveBeenCalled();
         });
     });
 
@@ -3398,159 +2405,6 @@ describe('AppOrchestrator', () => {
             );
         });
 
-        it('prepares one-shot startup resume before routing runtime AUTH_EXPIRED recovery to Auth', async () => {
-            const authChangeSubscription: {
-                current: ((isAuthenticated: boolean) => void) | null;
-            } = { current: null };
-            mockPlexAuth.on.mockImplementation(((event: string, handler: (value: boolean) => void) => {
-                if (event !== 'authChange') {
-                    return { dispose: jest.fn() };
-                }
-                authChangeSubscription.current = handler;
-                return {
-                    dispose: jest.fn(() => {
-                        authChangeSubscription.current = null;
-                    }),
-                };
-            }) as never);
-            const prepareSpy = jest.spyOn(
-                InitializationCoordinator.prototype,
-                'prepareForRuntimeAuthRecovery'
-            );
-            const runStartupSpy = jest
-                .spyOn(InitializationCoordinator.prototype, 'runStartup')
-                .mockResolvedValue(undefined);
-
-            try {
-                const signIn = orchestrator
-                    .getRecoveryActions(AppErrorCode.AUTH_EXPIRED)
-                    .find((action) => action.label === 'Sign In');
-                if (!signIn) {
-                    throw new Error('Expected AUTH_EXPIRED recovery to expose Sign In');
-                }
-
-                signIn.action();
-
-                expect(prepareSpy).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
-                const prepareOrder = prepareSpy.mock.invocationCallOrder[0];
-                const routeOrder = mockNavigation.goTo.mock.invocationCallOrder.at(-1);
-                if (prepareOrder === undefined || routeOrder === undefined) {
-                    throw new Error('Expected auth resume preparation and Auth routing');
-                }
-                expect(prepareOrder).toBeLessThan(routeOrder);
-
-                authChangeSubscription.current?.(true);
-                await Promise.resolve();
-
-                expect(runStartupSpy).toHaveBeenCalledTimes(1);
-                expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
-                expect(authChangeSubscription.current).toBeNull();
-            } finally {
-                prepareSpy.mockRestore();
-                runStartupSpy.mockRestore();
-            }
-        });
-
-        it('should return Retry and Exit for INITIALIZATION_FAILED', () => {
-            const actions = orchestrator.getRecoveryActions(AppErrorCode.INITIALIZATION_FAILED);
-
-            const labels = actions.map((a) => a.label);
-            expect(labels).toContain('Retry');
-            expect(labels).toContain('Exit');
-        });
-
-        it('prefers the scheduler current program when retrying playback', () => {
-            Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
-                item: {
-                    ratingKey: 'stale-item',
-                    title: 'Stale Item',
-                    durationMs: 30000,
-                    type: 'movie',
-                },
-                elapsedMs: 2000,
-                scheduledStartTime: 10,
-                scheduledEndTime: 30010,
-                remainingMs: 28000,
-                scheduleIndex: 9,
-            } as never);
-            const currentProgram = {
-                item: {
-                    ratingKey: 'item-1',
-                    title: 'Test Item',
-                    durationMs: 60000,
-                    type: 'movie',
-                },
-                elapsedMs: 5000,
-                scheduledStartTime: 0,
-                scheduledEndTime: 60000,
-                remainingMs: 55000,
-                scheduleIndex: 0,
-            };
-            mockScheduler.getState.mockReturnValue({
-                isActive: true,
-                channelId: 'ch1',
-                currentProgram,
-            });
-            const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
-
-            expect(actions[0]).toEqual(expect.objectContaining({ label: 'Retry', isPrimary: true }));
-            expect(actions[1]).toEqual(expect.objectContaining({ label: 'Skip', isPrimary: false }));
-
-            actions[0]?.action();
-            expect(mockScheduler.jumpToProgram).toHaveBeenCalledWith(currentProgram);
-        });
-
-        it('does not fall back to stale playback state when the active scheduler has no current program', () => {
-            Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
-                item: {
-                    ratingKey: 'stale-item',
-                    title: 'Stale Item',
-                    durationMs: 30000,
-                    type: 'movie',
-                },
-                elapsedMs: 2000,
-                scheduledStartTime: 10,
-                scheduledEndTime: 30010,
-                remainingMs: 28000,
-                scheduleIndex: 9,
-            } as never);
-            mockScheduler.getState.mockReturnValue({
-                isActive: true,
-                channelId: 'ch1',
-                currentProgram: null,
-            });
-
-            const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
-            actions[0]?.action();
-
-            expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
-            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    code: AppErrorCode.PLAYBACK_FAILED,
-                    message: 'Playback retry failed',
-                    recoverable: true,
-                })
-            );
-            expectConsoleWarn([
-                'Retry playback failed',
-                expect.objectContaining({
-                    safeError: expect.objectContaining({
-                        message: 'Cannot retry playback without an active program',
-                    }),
-                }),
-            ]);
-            expectConsoleWarn([
-                'Global error in playback',
-                expect.objectContaining({
-                    safeError: expect.objectContaining({
-                        code: AppErrorCode.PLAYBACK_FAILED,
-                        message: 'Playback retry failed',
-                    }),
-                }),
-            ]);
-        });
-
         it('should surface playback failure again when Retry cannot start playback', () => {
             mockScheduler.getState.mockReturnValue({
                 isActive: false,
@@ -3586,6 +2440,162 @@ describe('AppOrchestrator', () => {
                 }),
             ]);
         });
+
+
+
+
+            it('prepares one-shot startup resume before routing runtime AUTH_EXPIRED recovery to Auth', async () => {
+                const authChangeSubscription: {
+                    current: ((isAuthenticated: boolean) => void) | null;
+                } = { current: null };
+                mockPlexAuth.on.mockImplementation(((event: string, handler: (value: boolean) => void) => {
+                    if (event !== 'authChange') {
+                        return { dispose: jest.fn() };
+                    }
+                    authChangeSubscription.current = handler;
+                    return {
+                        dispose: jest.fn(() => {
+                            authChangeSubscription.current = null;
+                        }),
+                    };
+                }) as never);
+                const prepareSpy = jest.spyOn(
+                    InitializationCoordinator.prototype,
+                    'prepareForRuntimeAuthRecovery'
+                );
+                const runStartupSpy = jest
+                    .spyOn(InitializationCoordinator.prototype, 'runStartup')
+                    .mockResolvedValue(undefined);
+
+                try {
+                    const signIn = orchestrator
+                        .getRecoveryActions(AppErrorCode.AUTH_EXPIRED)
+                        .find((action) => action.label === 'Sign In');
+                    if (!signIn) {
+                        throw new Error('Expected AUTH_EXPIRED recovery to expose Sign In');
+                    }
+
+                    signIn.action();
+
+                    expect(prepareSpy).toHaveBeenCalledTimes(1);
+                    expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
+                    const prepareOrder = prepareSpy.mock.invocationCallOrder[0];
+                    const routeOrder = mockNavigation.goTo.mock.invocationCallOrder.at(-1);
+                    if (prepareOrder === undefined || routeOrder === undefined) {
+                        throw new Error('Expected auth resume preparation and Auth routing');
+                    }
+                    expect(prepareOrder).toBeLessThan(routeOrder);
+
+                    authChangeSubscription.current?.(true);
+                    await Promise.resolve();
+
+                    expect(runStartupSpy).toHaveBeenCalledTimes(1);
+                    expect(runStartupSpy).toHaveBeenCalledWith(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
+                    expect(authChangeSubscription.current).toBeNull();
+                } finally {
+                    prepareSpy.mockRestore();
+                    runStartupSpy.mockRestore();
+                }
+            });
+
+
+
+            it('prefers the scheduler current program when retrying playback', async () => {
+                const { orchestrator: assemblyOrchestrator, input } =
+                    await captureCoordinatorAssembly();
+                input.playback.state.setCurrentProgramForPlayback({
+                    item: {
+                        ratingKey: 'stale-item',
+                        title: 'Stale Item',
+                        durationMs: 30000,
+                        type: 'movie',
+                    },
+                    elapsedMs: 2000,
+                    scheduledStartTime: 10,
+                    scheduledEndTime: 30010,
+                    remainingMs: 28000,
+                    scheduleIndex: 9,
+                } as never);
+                const currentProgram = {
+                    item: {
+                        ratingKey: 'item-1',
+                        title: 'Test Item',
+                        durationMs: 60000,
+                        type: 'movie',
+                    },
+                    elapsedMs: 5000,
+                    scheduledStartTime: 0,
+                    scheduledEndTime: 60000,
+                    remainingMs: 55000,
+                    scheduleIndex: 0,
+                };
+                mockScheduler.getState.mockReturnValue({
+                    isActive: true,
+                    channelId: 'ch1',
+                    currentProgram,
+                });
+                const actions = assemblyOrchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
+
+                expect(actions[0]).toEqual(expect.objectContaining({ label: 'Retry', isPrimary: true }));
+                expect(actions[1]).toEqual(expect.objectContaining({ label: 'Skip', isPrimary: false }));
+
+                actions[0]?.action();
+                expect(mockScheduler.jumpToProgram).toHaveBeenCalledWith(currentProgram);
+            });
+
+
+
+            it('does not fall back to stale playback state when the active scheduler has no current program', async () => {
+                const { orchestrator: assemblyOrchestrator, input } =
+                    await captureCoordinatorAssembly();
+                input.playback.state.setCurrentProgramForPlayback({
+                    item: {
+                        ratingKey: 'stale-item',
+                        title: 'Stale Item',
+                        durationMs: 30000,
+                        type: 'movie',
+                    },
+                    elapsedMs: 2000,
+                    scheduledStartTime: 10,
+                    scheduledEndTime: 30010,
+                    remainingMs: 28000,
+                    scheduleIndex: 9,
+                } as never);
+                mockScheduler.getState.mockReturnValue({
+                    isActive: true,
+                    channelId: 'ch1',
+                    currentProgram: null,
+                });
+
+                const actions = assemblyOrchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
+                actions[0]?.action();
+
+                expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
+                expect(mockLifecycle.reportError).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        code: AppErrorCode.PLAYBACK_FAILED,
+                        message: 'Playback retry failed',
+                        recoverable: true,
+                    })
+                );
+                expectConsoleWarn([
+                    'Retry playback failed',
+                    expect.objectContaining({
+                        safeError: expect.objectContaining({
+                            message: 'Cannot retry playback without an active program',
+                        }),
+                    }),
+                ]);
+                expectConsoleWarn([
+                    'Global error in playback',
+                    expect.objectContaining({
+                        safeError: expect.objectContaining({
+                            code: AppErrorCode.PLAYBACK_FAILED,
+                            message: 'Playback retry failed',
+                        }),
+                    }),
+                ]);
+            });
     });
 
     describe('shutdown', () => {
@@ -3625,6 +2635,80 @@ describe('AppOrchestrator', () => {
             await orchestrator.shutdown();
 
             expect(mockVideoPlayer.stop).toHaveBeenCalled();
+        });
+
+        it('clears the public playback snapshot on shutdown', async () => {
+            const program = {
+                item: {
+                    ratingKey: 'snapshot-item',
+                    title: 'Snapshot Movie',
+                    fullTitle: 'Snapshot Movie',
+                    durationMs: 60_000,
+                    type: 'movie',
+                    thumb: null,
+                    year: 2024,
+                    scheduledIndex: 0,
+                },
+                scheduledStartTime: 1_000,
+                scheduledEndTime: 61_000,
+                elapsedMs: 5_000,
+                remainingMs: 55_000,
+                scheduleIndex: 0,
+                loopNumber: 0,
+                isCurrent: true,
+            } satisfies ScheduledProgram;
+            let resolvePlaybackStarted!: () => void;
+            const playbackStarted = new Promise<void>((resolve) => {
+                resolvePlaybackStarted = resolve;
+            });
+            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
+                createStoredValidationResult('active_valid')
+            );
+            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
+            await orchestrator.start();
+            mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
+            mockScheduler.getState.mockReturnValue({ isActive: false, channelId: null });
+            mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(makeDecision());
+            mockVideoPlayer.play.mockImplementationOnce(async () => {
+                resolvePlaybackStarted();
+            });
+
+            expect(schedulerHandlers.programStart).toBeDefined();
+            schedulerHandlers.programStart?.(program);
+            await playbackStarted;
+            await Promise.resolve();
+
+            expect(orchestrator.getPlaybackInfoSnapshot()).toEqual({
+                channel: {
+                    id: mockChannel.id,
+                    number: mockChannel.number,
+                    name: mockChannel.name,
+                },
+                program: {
+                    itemKey: 'snapshot-item',
+                    title: 'Snapshot Movie',
+                    fullTitle: 'Snapshot Movie',
+                    type: 'movie',
+                    scheduledStartTime: 1_000,
+                    scheduledEndTime: 61_000,
+                    elapsedMs: 5_000,
+                    remainingMs: 55_000,
+                },
+                stream: expect.objectContaining({
+                    protocol: 'direct',
+                    isDirectPlay: true,
+                    isTranscoding: false,
+                    sessionId: 'sess-1',
+                }),
+            });
+
+            await orchestrator.shutdown();
+
+            expect(orchestrator.getPlaybackInfoSnapshot()).toEqual({
+                channel: null,
+                program: null,
+                stream: null,
+            });
         });
 
         it('flushes pending channel saves before module teardown', async () => {
@@ -3682,22 +2766,8 @@ describe('AppOrchestrator', () => {
             expect(mockNavigation.destroy).toHaveBeenCalledTimes(1);
         });
 
-        it('clears owned runtime collaborator references after shutdown and remains non-reusable', async () => {
+        it('rejects public facade use after shutdown', async () => {
             await orchestrator.shutdown();
-
-            const clearedFields = [
-                '_lifecycle',
-                '_videoPlayer',
-                '_scheduler',
-            ] as const;
-
-            for (const field of clearedFields) {
-                expect(Reflect.get(orchestrator as object, field)).toBeNull();
-            }
-
-            expect(Reflect.get(orchestrator as object, '_config')).not.toBeNull();
-            expect(Reflect.get(orchestrator as object, '_moduleStatus')).toBeInstanceOf(Map);
-            expect(Reflect.get(orchestrator as object, '_errorHandlers')).toBeInstanceOf(Map);
 
             mockEpg.show.mockClear();
             mockEpg.hide.mockClear();
@@ -3751,67 +2821,6 @@ describe('AppOrchestrator', () => {
                     lifecycle: 'shutdown',
                 },
             });
-        });
-
-        it('clears playback snapshot state on shutdown', async () => {
-            Reflect.set(orchestrator as object, '_currentProgramForPlayback', {
-                item: {
-                    ratingKey: 'rk1',
-                    title: 'Test Movie',
-                    fullTitle: 'Test Movie',
-                    type: 'movie',
-                },
-                scheduledStartTime: 1,
-                scheduledEndTime: 2,
-                elapsedMs: 0,
-                remainingMs: 120_000,
-            } as never);
-
-            Reflect.set(orchestrator as object, '_currentStreamDecision', {
-                isDirectPlay: true,
-                isTranscoding: false,
-                container: 'mp4',
-                videoCodec: 'h264',
-                audioCodec: 'aac',
-                subtitleDelivery: 'none',
-                bitrate: 1000,
-                width: 1920,
-                height: 1080,
-                sessionId: 'session-1',
-                selectedAudioStream: null,
-                selectedSubtitleStream: null,
-                directPlay: true,
-                audioFallback: false,
-                source: 'test',
-                transcodeRequest: null,
-                serverDecision: null,
-            } as never);
-
-            Reflect.set(orchestrator as object, '_currentStreamDescriptor', {
-                protocol: 'hls',
-                mimeType: 'application/x-mpegURL',
-            } as never);
-
-            expect(orchestrator.getPlaybackInfoSnapshot().program).not.toBeNull();
-
-            await orchestrator.shutdown();
-
-            expect(orchestrator.getPlaybackInfoSnapshot()).toEqual({
-                channel: null,
-                program: null,
-                stream: null,
-            });
-        });
-
-        it('clears the exit-confirm coordinator even when the modal reference is already gone', async () => {
-            const handleModalClose = jest.fn();
-            Reflect.set(orchestrator as object, '_exitConfirmModal', null);
-            Reflect.set(orchestrator as object, '_exitConfirmCoordinator', { handleModalClose });
-
-            await orchestrator.shutdown();
-
-            expect(handleModalClose).toHaveBeenCalledWith(EXIT_CONFIRM_MODAL_ID);
-            expect(Reflect.get(orchestrator as object, '_exitConfirmCoordinator')).toBeNull();
         });
 
         it('continues teardown and logs aggregated warnings when shutdown steps fail', async () => {
@@ -3937,169 +2946,6 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('collects initialization resume clear failures and continues later teardown', async () => {
-            const clearAuthResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearAuthResume');
-            clearAuthResumeSpy.mockImplementationOnce(() => {
-                throw new Error('auth resume clear failed');
-            });
-            const clearServerResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearServerResume');
-            clearServerResumeSpy.mockImplementationOnce(() => {
-                throw new Error('server resume clear failed');
-            });
-            const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
-            clearProfileResumeSpy.mockImplementationOnce(() => {
-                throw new Error('profile resume clear failed');
-            });
-            expectConsoleWarn([
-                'Shutdown teardown failures',
-                expect.objectContaining({
-                    teardownFailures: expect.arrayContaining([
-                        expect.objectContaining({ step: 'initCoordinator.clearAuthResume' }),
-                        expect.objectContaining({ step: 'initCoordinator.clearServerResume' }),
-                        expect.objectContaining({ step: 'initCoordinator.clearProfileResume' }),
-                    ]),
-                }),
-            ]);
-
-            try {
-                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
-            } finally {
-                clearAuthResumeSpy.mockRestore();
-                clearServerResumeSpy.mockRestore();
-                clearProfileResumeSpy.mockRestore();
-            }
-
-            expect(mockChannelManager.flushSaves).toHaveBeenCalled();
-            expect(mockLifecycle.shutdown).toHaveBeenCalled();
-            expect(mockNavigation.destroy).toHaveBeenCalled();
-        });
-
-        it('stops the video player during shutdown when active transcode cleanup fails', async () => {
-            expectConsoleWarn([
-                'stopActiveTranscodeSession failed during playback stop',
-                expect.objectContaining({
-                    safeError: expect.objectContaining({
-                        name: 'Error',
-                        message: 'transcode cleanup failed',
-                    }),
-                }),
-            ]);
-            const stopActiveTranscodeSession = jest.fn(() => {
-                throw new Error('transcode cleanup failed');
-            });
-
-            Reflect.set(orchestrator as object, '_playbackRuntimeController', {
-                stopActiveTranscodeSession,
-            });
-
-            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
-
-            expect(stopActiveTranscodeSession).toHaveBeenCalledTimes(1);
-            expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
-        });
-
-        it('records channel overlay teardown failures and continues shutdown', async () => {
-            expectConsoleWarn([
-                'Shutdown teardown failures',
-                expect.objectContaining({
-                    teardownFailures: expect.arrayContaining([
-                        expect.objectContaining({ step: 'channelNumberOverlay.destroy' }),
-                        expect.objectContaining({ step: 'channelBadgeOverlay.destroy' }),
-                    ]),
-                }),
-            ]);
-
-            (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementationOnce(() => {
-                throw new Error('channel number destroy failed');
-            });
-            (mockChannelBadgeOverlay.destroy as jest.Mock).mockImplementationOnce(() => {
-                throw new Error('channel badge destroy failed');
-            });
-
-            try {
-                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
-
-                expect(mockNavigation.destroy).toHaveBeenCalled();
-            } finally {
-                (mockChannelNumberOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
-                (mockChannelBadgeOverlay.destroy as jest.Mock).mockImplementation(() => undefined);
-            }
-        });
-
-        it('records event cleanup failures under events.unsubscribe and continues shutdown', async () => {
-            expectConsoleWarn([
-                'Shutdown teardown failures',
-                expect.objectContaining({
-                    teardownFailures: expect.arrayContaining([
-                        expect.objectContaining({ step: 'events.unsubscribe' }),
-                    ]),
-                }),
-            ]);
-            const pauseDispose = jest.fn(() => {
-                throw new Error('pause cleanup failed');
-            });
-
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
-
-            (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
-                (handler: () => void | Promise<void>) => {
-                    pauseHandler = handler;
-                    return { dispose: pauseDispose };
-                }
-            );
-
-            await orchestrator.start();
-            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
-
-            expect(pauseDispose).toHaveBeenCalledTimes(1);
-            expect(mockNavigation.destroy).toHaveBeenCalled();
-        });
-
-        it('records event binder dispose failures and continues shutdown', async () => {
-            expectConsoleWarn([
-                'Shutdown teardown failures',
-                expect.objectContaining({
-                    teardownFailures: expect.arrayContaining([
-                        expect.objectContaining({ step: 'events.unsubscribe' }),
-                    ]),
-                }),
-            ]);
-            const dispose = jest.fn(() => {
-                throw new Error('event binder dispose failed');
-            });
-
-            Reflect.set(orchestrator as object, '_eventBinder', { dispose });
-
-            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
-
-            expect(dispose).toHaveBeenCalledTimes(1);
-            expect(mockNavigation.destroy).toHaveBeenCalled();
-        });
-
-        it('records schedule day rollover disposal failures and continues shutdown', async () => {
-            expectConsoleWarn([
-                'Shutdown teardown failures',
-                expect.objectContaining({
-                    teardownFailures: expect.arrayContaining([
-                        expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
-                    ]),
-                }),
-            ]);
-
-            Reflect.set(orchestrator as object, '_scheduleDayRolloverController', {
-                dispose: jest.fn(() => {
-                    throw new Error('rollover dispose failed');
-                }),
-            });
-
-            await expect(orchestrator.shutdown()).resolves.toBeUndefined();
-
-            expect(mockNavigation.destroy).toHaveBeenCalled();
-        });
-
         it('should set ready to false after shutdown', async () => {
             // First start to set ready
             mockPlexAuth.validateStoredCredentials.mockResolvedValue(
@@ -4114,24 +2960,135 @@ describe('AppOrchestrator', () => {
             expect(orchestrator.isReady()).toBe(false);
         });
 
-        it('fails fast when start is called after shutdown without resetting playback recovery', async () => {
-            const lifecycleInitializeCallsBefore = mockLifecycle.initialize.mock.calls.length;
-            const videoPlayerInitializeCallsBefore = mockVideoPlayer.initialize.mock.calls.length;
-            await orchestrator.shutdown();
 
-            await expect(orchestrator.start()).rejects.toMatchObject({
-                code: AppErrorCode.MODULE_INIT_FAILED,
-                recoverable: false,
-                message: expect.stringContaining('AppOrchestrator cannot be used after shutdown'),
-                context: expect.objectContaining({
-                    method: 'start',
-                    lifecycle: 'shutdown',
-                }),
+
+
+            it('collects initialization resume clear failures and continues later teardown', async () => {
+                const clearAuthResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearAuthResume');
+                clearAuthResumeSpy.mockImplementationOnce(() => {
+                    throw new Error('auth resume clear failed');
+                });
+                const clearServerResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearServerResume');
+                clearServerResumeSpy.mockImplementationOnce(() => {
+                    throw new Error('server resume clear failed');
+                });
+                const clearProfileResumeSpy = jest.spyOn(InitializationCoordinator.prototype, 'clearProfileResume');
+                clearProfileResumeSpy.mockImplementationOnce(() => {
+                    throw new Error('profile resume clear failed');
+                });
+                expectConsoleWarn([
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'initCoordinator.clearAuthResume' }),
+                            expect.objectContaining({ step: 'initCoordinator.clearServerResume' }),
+                            expect.objectContaining({ step: 'initCoordinator.clearProfileResume' }),
+                        ]),
+                    }),
+                ]);
+
+                try {
+                    await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+                } finally {
+                    clearAuthResumeSpy.mockRestore();
+                    clearServerResumeSpy.mockRestore();
+                    clearProfileResumeSpy.mockRestore();
+                }
+
+                expect(mockChannelManager.flushSaves).toHaveBeenCalled();
+                expect(mockLifecycle.shutdown).toHaveBeenCalled();
+                expect(mockNavigation.destroy).toHaveBeenCalled();
             });
 
-            expect(mockLifecycle.initialize).toHaveBeenCalledTimes(lifecycleInitializeCallsBefore);
-            expect(mockVideoPlayer.initialize).toHaveBeenCalledTimes(videoPlayerInitializeCallsBefore);
-        });
+
+
+            it('stops the video player during shutdown when active transcode cleanup fails', async () => {
+                expectConsoleWarn([
+                    'stopActiveTranscodeSession failed during playback stop',
+                    expect.objectContaining({
+                        safeError: expect.objectContaining({
+                            name: 'Error',
+                            message: 'transcode cleanup failed',
+                        }),
+                    }),
+                ]);
+                const { orchestrator: assemblyOrchestrator, input } =
+                    await captureCoordinatorAssembly();
+                input.playback.state.setCurrentStreamDecision(
+                    makeDecision({ isTranscoding: true, sessionId: 'transcode-session' })
+                );
+                mockPlexStreamResolver.stopTranscodeSession.mockImplementationOnce(() => {
+                    throw new Error('transcode cleanup failed');
+                });
+
+                await expect(assemblyOrchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(mockPlexStreamResolver.stopTranscodeSession)
+                    .toHaveBeenCalledWith('transcode-session');
+                expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
+            });
+
+
+
+            it('records event cleanup failures under events.unsubscribe and continues shutdown', async () => {
+                expectConsoleWarn([
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'events.unsubscribe' }),
+                        ]),
+                    }),
+                ]);
+                const pauseDispose = jest.fn(() => {
+                    throw new Error('pause cleanup failed');
+                });
+
+                mockPlexAuth.validateStoredCredentials.mockResolvedValue(
+                    createStoredValidationResult('active_valid')
+                );
+                mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-1' });
+
+                (mockLifecycle.onPause as jest.Mock).mockImplementationOnce(
+                    (handler: () => void | Promise<void>) => {
+                        pauseHandler = handler;
+                        return { dispose: pauseDispose };
+                    }
+                );
+
+                await orchestrator.start();
+                await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                expect(pauseDispose).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.destroy).toHaveBeenCalled();
+            });
+
+
+
+            it('records schedule day rollover disposal failures and continues shutdown', async () => {
+                expectConsoleWarn([
+                    'Shutdown teardown failures',
+                    expect.objectContaining({
+                        teardownFailures: expect.arrayContaining([
+                            expect.objectContaining({ step: 'scheduleDayRolloverController.dispose' }),
+                        ]),
+                    }),
+                ]);
+
+                const disposeSpy = jest
+                    .spyOn(ScheduleDayRolloverController.prototype, 'dispose')
+                    .mockImplementationOnce(() => {
+                        throw new Error('rollover dispose failed');
+                    });
+
+                try {
+                    await expect(orchestrator.shutdown()).resolves.toBeUndefined();
+
+                    expect(disposeSpy).toHaveBeenCalledTimes(1);
+                    expect(mockNavigation.destroy).toHaveBeenCalled();
+                } finally {
+                    disposeSpy.mockRestore();
+                }
+            });
     });
 
     describe('getModuleStatus', () => {
@@ -4168,197 +3125,188 @@ describe('AppOrchestrator', () => {
             expect(orchestrator.getModuleStatus().get('plex-auth')?.status).not.toBe('error');
         });
 
-        it('returns defensive copies of module status error context', () => {
-            Reflect.set(orchestrator as object, '_moduleStatus', new Map([
-                [
-                    'plex-auth',
-                    {
-                        id: 'plex-auth',
-                        name: 'plex-auth',
-                        status: 'error',
-                        error: {
-                            code: AppErrorCode.AUTH_INVALID,
-                            message: 'bad auth',
-                            recoverable: true,
-                            context: {
-                                source: 'test',
-                                nested: {
-                                    value: 'original',
-                                },
-                            },
-                        },
-                    },
-                ],
-            ]));
-
-            const returned = orchestrator.getModuleStatus().get('plex-auth');
-
-            expect(returned?.error).toEqual({
-                code: AppErrorCode.AUTH_INVALID,
-                message: 'bad auth',
-                recoverable: true,
-                context: {
-                    source: 'test',
-                    nested: {
-                        value: 'original',
-                    },
-                },
-            });
-            expect(returned?.error).not.toBe(
-                Reflect.get(orchestrator as object, '_moduleStatus').get('plex-auth').error
-            );
-            expect(returned?.error?.context).not.toBe(
-                Reflect.get(orchestrator as object, '_moduleStatus').get('plex-auth').error.context
-            );
-
-            if (returned?.error?.context) {
-                returned.error.context.source = 'mutated';
-                (returned.error.context.nested as { value: string }).value = 'mutated';
-            }
-
-            expect(orchestrator.getModuleStatus().get('plex-auth')?.error?.context?.source).toBe('test');
-            const nestedContext = orchestrator.getModuleStatus().get('plex-auth')?.error?.context?.nested as
-                | { value: string }
-                | undefined;
-            expect(nestedContext?.value).toBe('original');
-        });
-
-        it('reports structuredClone fallback once per failing context identity', () => {
-            const originalStructuredClone = globalThis.structuredClone;
-            const warning = expectConsoleWarn([
-                'Falling back to diagnostic-value clone for module status error context',
-                expect.objectContaining({
-                    safeError: expect.objectContaining({
-                        message: 'clone failed',
-                    }),
-                }),
-            ], { times: 2 });
-            const context = {
-                source: 'test',
-                nested: {
-                    value: 'original',
-                },
-            };
-
-            Object.defineProperty(globalThis, 'structuredClone', {
-                configurable: true,
-                value: jest.fn(() => {
-                    throw new Error('clone failed');
-                }),
-            });
-
-            Reflect.set(orchestrator as object, '_moduleStatus', new Map([
-                [
-                    'plex-auth',
-                    {
-                        id: 'plex-auth',
-                        name: 'plex-auth',
-                        status: 'error',
-                        error: {
-                            code: AppErrorCode.AUTH_INVALID,
-                            message: 'bad auth',
-                            recoverable: true,
-                            context,
-                        },
-                    },
-                ],
-            ]));
-
-            try {
-                const firstReturned = orchestrator.getModuleStatus().get('plex-auth');
-                const secondReturned = orchestrator.getModuleStatus().get('plex-auth');
-
-                expect(firstReturned?.error?.context).toEqual({
-                    source: 'test',
-                    nested: {
-                        value: 'original',
-                    },
-                });
-                expect(secondReturned?.error?.context).toEqual(firstReturned?.error?.context);
-                expect(warning.getCalls()).toHaveLength(1);
-
-                Reflect.set(orchestrator as object, '_moduleStatus', new Map([
-                    [
-                        'plex-auth',
-                        {
-                            id: 'plex-auth',
-                            name: 'plex-auth',
-                            status: 'error',
-                            error: {
-                                code: AppErrorCode.AUTH_INVALID,
-                                message: 'bad auth',
-                                recoverable: true,
-                                context: {
-                                    source: 'test-2',
-                                },
-                            },
-                        },
-                    ],
-                ]));
-
-                orchestrator.getModuleStatus();
-
-                expect(warning.getCalls()).toHaveLength(2);
-            } finally {
-                Object.defineProperty(globalThis, 'structuredClone', {
-                    configurable: true,
-                    value: originalStructuredClone,
-                });
-            }
-        });
-
-        it('builds playback resource URLs with the selected PMS credential, not cloud auth', () => {
-            mockPlexDiscovery.getServerUri.mockReturnValue('https://selected.example:32400');
-            mockPlexDiscovery.getSelectedServerAuthHeaders.mockReturnValue({
-                'X-Plex-Token': 'selected-pms-token',
-            });
-            mockPlexAuth.getAuthHeaders.mockReturnValue({
-                'X-Plex-Token': 'cloud-home-token',
-            });
-
-            const result = Reflect.get(
-                orchestrator as object,
-                '_buildPlexResourceUrl'
-            ).call(orchestrator, '/library/metadata/1/thumb') as string;
-
-            expect(result).toContain('X-Plex-Token=selected-pms-token');
-            expect(result).not.toContain('cloud-home-token');
-            expect(mockPlexAuth.getAuthHeaders).not.toHaveBeenCalled();
-        });
-
-        it('returns null and reports when Plex resource URL accessor dependencies throw', () => {
-            const warning = expectConsoleWarn([
-                'buildPlexResourceUrlWithAuth failed',
-                expect.objectContaining({
-                    pathOrUrl: '/library/metadata/1/thumb?X-Plex-Token=REDACTED',
-                    baseUri: 'http://localhost:32400?X-Plex-Token=REDACTED',
-                    safeError: expect.objectContaining({
-                        message: 'auth headers failed',
-                    }),
-                }),
-            ]);
-
-            mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400?X-Plex-Token=base-secret');
-            mockPlexDiscovery.getSelectedServerAuthHeaders.mockImplementation(() => {
-                throw new Error('auth headers failed');
-            });
-            try {
-                expect(
-                    Reflect.get(
-                        orchestrator as object,
-                        '_buildPlexResourceUrl'
-                    ).call(orchestrator, '/library/metadata/1/thumb?X-Plex-Token=path-secret')
-                ).toBeNull();
-                expect(warning.getCalls()).toHaveLength(1);
-            } finally {
-                mockPlexDiscovery.getServerUri.mockReset();
-                mockPlexDiscovery.getServerUri.mockReturnValue('http://localhost:32400');
-                mockPlexDiscovery.getSelectedServerAuthHeaders.mockReset();
+            it('wires selected PMS credentials into playback resource URLs', async () => {
+                mockPlexDiscovery.getServerUri.mockReturnValue('https://selected.example:32400');
                 mockPlexDiscovery.getSelectedServerAuthHeaders.mockReturnValue({
-                    'X-Plex-Token': 'mock-token',
+                    'X-Plex-Token': 'selected-pms-token',
                 });
-            }
-        });
+                mockPlexAuth.getAuthHeaders.mockReturnValue({
+                    'X-Plex-Token': 'cloud-home-token',
+                });
+
+                const { input } = await captureCoordinatorAssembly();
+                const result = input.playback.buildPlexResourceUrl('/library/metadata/1/thumb');
+
+                expect(result).not.toBeNull();
+                expect(result).toContain('X-Plex-Token=selected-pms-token');
+                expect(result).not.toContain('cloud-home-token');
+                expect(mockPlexAuth.getAuthHeaders).not.toHaveBeenCalled();
+            });
+
+            it('refreshes server decision data only when playback state can support it', async () => {
+                const ensureServerDecisionSpy = jest
+                    .spyOn(NowPlayingDebugManager.prototype, 'ensureServerDecisionForPlaybackInfoSnapshot')
+                    .mockResolvedValue(undefined);
+
+                try {
+                    const { orchestrator: assemblyOrchestrator, input } =
+                        await captureCoordinatorAssembly();
+                    input.playback.state.setCurrentProgramForPlayback({
+                        item: {
+                            ratingKey: 'item-1',
+                            title: 'Episode',
+                            fullTitle: 'Show - Episode',
+                            type: 'episode',
+                        },
+                        scheduledStartTime: 100,
+                        scheduledEndTime: 200,
+                        elapsedMs: 25,
+                        remainingMs: 75,
+                    } as ScheduledProgram);
+                    input.playback.state.setCurrentStreamDecision(makeDecision());
+                    input.playback.state.setCurrentStreamDescriptor({
+                        protocol: 'hls',
+                        mimeType: 'application/vnd.apple.mpegurl',
+                    } as never);
+
+                    await expect(assemblyOrchestrator.refreshPlaybackInfoSnapshot()).resolves.toMatchObject({
+                        stream: expect.objectContaining({ sessionId: expect.any(String) }),
+                    });
+                    expect(ensureServerDecisionSpy).toHaveBeenCalledTimes(1);
+
+                    input.playback.state.setCurrentStreamDecision(null);
+                    await expect(assemblyOrchestrator.refreshPlaybackInfoSnapshot()).resolves.toMatchObject({
+                        stream: null,
+                    });
+                    expect(ensureServerDecisionSpy).toHaveBeenCalledTimes(1);
+                } finally {
+                    ensureServerDecisionSpy.mockRestore();
+                }
+            });
+
+
+
     });
 
+
+
+    describe("Plex sign-out storage scope", () => {
+
+                it('clears selected-library filter scope after sign-out clears identity', async () => {
+                    await orchestrator.initialize(mockConfig);
+                    const scopeSpy = jest.spyOn(EpgPreferencesStore.prototype, 'setLibraryFilterScope');
+                    const cancelRolloverSpy = jest.spyOn(
+                        ScheduleDayRolloverController.prototype,
+                        'cancelPendingDayRollover'
+                    );
+                    const clearSelectedSnapshotSpy = jest.spyOn(
+                        EPGCoordinator.prototype,
+                        'clearSelectedChannelScheduleSnapshot'
+                    );
+                    scopeSpy.mockClear();
+
+                    try {
+                        await orchestrator.signOutPlex();
+
+                        expect(scopeSpy).toHaveBeenLastCalledWith(null);
+                        expect(cancelRolloverSpy).toHaveBeenCalledTimes(1);
+                        const cancelCallOrder = cancelRolloverSpy.mock.invocationCallOrder[0];
+                        const epgClearCallOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
+                        if (cancelCallOrder === undefined || epgClearCallOrder === undefined) {
+                            throw new Error('Expected rollover cancellation and EPG clearing to run');
+                        }
+                        expect(cancelCallOrder).toBeLessThan(epgClearCallOrder);
+                    } finally {
+                        scopeSpy.mockRestore();
+                        cancelRolloverSpy.mockRestore();
+                        clearSelectedSnapshotSpy.mockRestore();
+                    }
+                });
+
+
+
+                it('continues sign-out when discovery cleanup is synchronously superseded', async () => {
+                    await orchestrator.initialize(mockConfig);
+                    mockPlexDiscovery.clearSelection.mockImplementationOnce(() => {
+                        throw new PlexDiscoverySelectionSupersededError();
+                    });
+
+                    await expect(orchestrator.signOutPlex()).resolves.toBeUndefined();
+
+                    expect(mockPlexAuth.clearCredentials).toHaveBeenCalledTimes(1);
+                    expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
+                });
+
+
+
+                it('continues to propagate unrelated sign-out discovery cleanup failures', async () => {
+                    await orchestrator.initialize(mockConfig);
+                    const cleanupError = new Error('discovery cleanup failed');
+                    mockPlexDiscovery.clearSelection.mockImplementationOnce(() => {
+                        throw cleanupError;
+                    });
+
+                    await expect(orchestrator.signOutPlex()).rejects.toBe(cleanupError);
+                });
+    });
+
+    describe("schedule day rollover", () => {
+
+                it('clears the selected-channel snapshot and rebuilds the active schedule before refreshing EPG schedules on day rollover', async () => {
+                    await orchestrator.initialize(mockConfig);
+                    mockPlexAuth.validateStoredCredentials.mockResolvedValue(
+                        createStoredValidationResult('active_valid')
+                    );
+                    mockPlexDiscovery.isConnected.mockReturnValue(true);
+                    await orchestrator.start();
+
+                    const epgRefreshSequence: string[] = [];
+                    const originalClearSelectedSnapshot = EPGCoordinator.prototype.clearSelectedChannelScheduleSnapshot;
+                    const clearSelectedSnapshotSpy = jest
+                        .spyOn(EPGCoordinator.prototype, 'clearSelectedChannelScheduleSnapshot')
+                        .mockImplementation(function (this: EPGCoordinator) {
+                            epgRefreshSequence.push('clearSelectedChannelScheduleSnapshot');
+                            return originalClearSelectedSnapshot.call(this);
+                        });
+                    const refreshSpy = jest
+                        .spyOn(EPGCoordinator.prototype, 'refreshEpgSchedules')
+                        .mockImplementation(async () => {
+                            epgRefreshSequence.push('refreshEpgSchedules');
+                            return READY_EPG_REFRESH_RESULT;
+                        });
+                    const nowSpy = jest.spyOn(Date, 'now');
+                    try {
+                        nowSpy.mockReturnValue(new Date('2026-03-18T12:00:00.000Z').getTime());
+                        mockScheduler.getCurrentProgram.mockReturnValue(null);
+                        mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
+                        mockChannelManager.resolveChannelContent.mockResolvedValue({
+                            channelId: mockChannel.id,
+                            items: [],
+                            orderedItems: [],
+                            totalDurationMs: 0,
+                            resolvedAt: Date.now(),
+                        });
+
+                        await orchestrator.switchToChannel(mockChannel.id);
+                        nowSpy.mockReturnValue(new Date('2026-03-19T12:00:00.000Z').getTime());
+                        schedulerHandlers.scheduleSync?.();
+                        await Promise.resolve();
+                        await Promise.resolve();
+
+                        expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledWith(mockChannel.id, {
+                            signal: null,
+                        });
+                        expect(mockScheduler.loadChannel).toHaveBeenCalled();
+                        expect(refreshSpy).toHaveBeenCalledTimes(1);
+                        expect(epgRefreshSequence).toEqual([
+                            'clearSelectedChannelScheduleSnapshot',
+                            'refreshEpgSchedules',
+                        ]);
+                    } finally {
+                        nowSpy.mockRestore();
+                        clearSelectedSnapshotSpy.mockRestore();
+                        refreshSpy.mockRestore();
+                    }
+                });
+    });
 });

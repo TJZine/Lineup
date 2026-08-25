@@ -22,7 +22,6 @@ import {
     type PlexStream,
 } from '../../../plex/library';
 import { expectConsoleWarn } from '../../../../__tests__/helpers';
-import { shuffleWithSeed } from '../../shared/prng';
 import { createMockItem, createMockLibrary } from './channel-manager-test-helpers';
 
 // ============================================
@@ -248,33 +247,6 @@ describe('ContentResolver', () => {
             await expect(promiseB).rejects.toMatchObject({ name: 'AbortError' });
             expect(abortEvents).toEqual(['lib-waiter-release']);
             expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
-        });
-
-        it('evicts the least recently used source cache entry when max entries are exceeded', async () => {
-            mockLibrary.getLibraryItems.mockImplementation(async (libraryId: string) => [
-                createMockItem({ ratingKey: `item-${libraryId}` }),
-            ]);
-
-            const sources = Array.from({ length: 25 }, (_, index): LibraryContentSource => ({
-                type: 'library',
-                libraryId: `lib-lru-${index}`,
-                libraryType: 'movie',
-                includeWatched: true,
-            }));
-
-            for (const source of sources.slice(0, 24)) {
-                await resolver.resolveSource(source);
-            }
-            await resolver.resolveSource(sources[0]!);
-            await resolver.resolveSource(sources[24]!);
-            await resolver.resolveSource(sources[1]!);
-
-            expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(26);
-            expect(mockLibrary.getLibraryItems.mock.calls.map(([libraryId]) => libraryId)).toEqual([
-                ...sources.slice(0, 24).map((source) => source.libraryId),
-                'lib-lru-24',
-                'lib-lru-1',
-            ]);
         });
 
         it('clearCaches invalidates cached source results and aborts in-flight work', async () => {
@@ -1542,85 +1514,6 @@ describe('ContentResolver', () => {
                 items,
                 'unknown_sort' as Parameters<ContentResolver['applySort']>[1]
             )).toThrow('Unknown content sort order: unknown_sort');
-        });
-    });
-
-    describe('applyPlaybackMode', () => {
-        const items: ResolvedContentItem[] = [
-            { ratingKey: '1', type: 'movie', title: 'A', fullTitle: 'A', durationMs: 1000, thumb: null, year: 2020, scheduledIndex: 0 },
-            { ratingKey: '2', type: 'movie', title: 'B', fullTitle: 'B', durationMs: 1000, thumb: null, year: 2020, scheduledIndex: 1 },
-            { ratingKey: '3', type: 'movie', title: 'C', fullTitle: 'C', durationMs: 1000, thumb: null, year: 2020, scheduledIndex: 2 },
-        ];
-
-        it('should preserve order for sequential mode', () => {
-            const result = resolver.applyPlaybackMode(items, 'sequential', 12345);
-            expect(result.map((i) => i.ratingKey)).toEqual(['1', '2', '3']);
-        });
-
-        it('should shuffle deterministically for shuffle mode', () => {
-            const result1 = resolver.applyPlaybackMode(items, 'shuffle', 12345);
-            const result2 = resolver.applyPlaybackMode(items, 'shuffle', 12345);
-            expect(result1.map((i) => i.ratingKey)).toEqual(result2.map((i) => i.ratingKey));
-        });
-
-        it('should update scheduledIndex after shuffle', () => {
-            const result = resolver.applyPlaybackMode(items, 'shuffle', 12345);
-            expect(result[0]!.scheduledIndex).toBe(0);
-            expect(result[1]!.scheduledIndex).toBe(1);
-            expect(result[2]!.scheduledIndex).toBe(2);
-        });
-
-        it('throws for unknown runtime playback modes instead of returning items unchanged', () => {
-            const items: ResolvedContentItem[] = [
-                {
-                    ratingKey: 'item-1',
-                    type: 'movie',
-                    title: 'One',
-                    fullTitle: 'One',
-                    durationMs: 30_000,
-                    thumb: null,
-                    year: 2024,
-                    scheduledIndex: 0,
-                },
-            ];
-
-            expect(() => resolver.applyPlaybackMode(
-                items,
-                'invalid-mode' as unknown as import('../contracts/types').PlaybackMode,
-                12345
-            )).toThrow('Unknown content playback mode: invalid-mode');
-        });
-
-        it('should group by show in blocks', () => {
-            const episodes: ResolvedContentItem[] = [
-                { ratingKey: 'a1', type: 'episode', title: 'A1', fullTitle: 'A1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 0, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 1 },
-                { ratingKey: 'a2', type: 'episode', title: 'A2', fullTitle: 'A2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 1, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 2 },
-                { ratingKey: 'a3', type: 'episode', title: 'A3', fullTitle: 'A3', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 2, showTitle: 'Show A', seasonNumber: 1, episodeNumber: 3 },
-                { ratingKey: 'b1', type: 'episode', title: 'B1', fullTitle: 'B1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 3, showTitle: 'Show B', seasonNumber: 1, episodeNumber: 1 },
-                { ratingKey: 'b2', type: 'episode', title: 'B2', fullTitle: 'B2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 4, showTitle: 'Show B', seasonNumber: 1, episodeNumber: 2 },
-                { ratingKey: 'b3', type: 'episode', title: 'B3', fullTitle: 'B3', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 5, showTitle: 'Show B', seasonNumber: 1, episodeNumber: 3 },
-            ];
-
-            const showKeys = shuffleWithSeed(['Show A', 'Show B'], 12345);
-            const expected = showKeys[0] === 'Show A'
-                ? ['a1', 'a2', 'b1', 'b2', 'a3', 'b3']
-                : ['b1', 'b2', 'a1', 'a2', 'b3', 'a3'];
-
-            const result = resolver.applyPlaybackMode(episodes, 'block', 12345, 2);
-            expect(result.map((i) => i.ratingKey)).toEqual(expected);
-            expect(result.map((i) => i.scheduledIndex)).toEqual([0, 1, 2, 3, 4, 5]);
-        });
-
-        it('does not merge distinct series with the same title in block mode', () => {
-            const episodes: ResolvedContentItem[] = [
-                { ratingKey: 'a1', type: 'episode', title: 'A1', fullTitle: 'A1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 0, showTitle: 'Same Title', showThumb: '/library/metadata/show-a/thumb' },
-                { ratingKey: 'b1', type: 'episode', title: 'B1', fullTitle: 'B1', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 1, showTitle: 'Same Title', showThumb: '/library/metadata/show-b/thumb' },
-                { ratingKey: 'a2', type: 'episode', title: 'A2', fullTitle: 'A2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 2, showTitle: 'Same Title', showThumb: '/library/metadata/show-a/thumb' },
-                { ratingKey: 'b2', type: 'episode', title: 'B2', fullTitle: 'B2', durationMs: 1, thumb: null, year: 2020, scheduledIndex: 3, showTitle: 'Same Title', showThumb: '/library/metadata/show-b/thumb' },
-            ];
-
-            const result = resolver.applyPlaybackMode(episodes, 'block', 12345, 2);
-            expect(result.map((i) => i.ratingKey)).toEqual(['a1', 'a2', 'b1', 'b2']);
         });
     });
 

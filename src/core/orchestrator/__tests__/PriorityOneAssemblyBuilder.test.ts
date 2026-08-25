@@ -1,9 +1,6 @@
-import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
 import { makePreparedPlaybackStream } from '../../../__tests__/fixtures/preparedPlaybackStream';
-import type {
-    ScheduledProgram,
-    SchedulerState,
-} from '../../../modules/scheduler/scheduler';
+import { NOW_PLAYING_INFO_MODAL_ID } from '../../../modules/ui/now-playing-info';
+import type { ScheduledProgram, SchedulerState } from '../../../modules/scheduler/scheduler';
 import { AppErrorCode } from '../../../types/app-errors';
 import type { OrchestratorPlaybackStateAccessors } from '../runtime/OrchestratorPlaybackStateAccessors';
 import {
@@ -29,97 +26,101 @@ const makeProgram = (): ScheduledProgram =>
         isCurrent: true,
     } as unknown as ScheduledProgram);
 
-const makePrepared = (): ReturnType<typeof makePreparedPlaybackStream> =>
-    makePreparedPlaybackStream('https://example.invalid/stream-1.m3u8');
-
-const makeSchedulerState = (
-    currentProgram: ScheduledProgram | null,
-    overrides: Partial<SchedulerState> = {}
-): SchedulerState =>
-    ({
-        channelId: 'channel-1',
-        isActive: true,
-        currentProgram,
-        nextProgram: null,
-        schedulePosition: {
-            loopNumber: currentProgram?.loopNumber ?? 0,
-            itemIndex: currentProgram?.scheduleIndex ?? 0,
-            offsetMs: currentProgram?.elapsedMs ?? 0,
-        },
-        lastSyncTime: 0,
-        ...overrides,
-    } as SchedulerState);
-
-const flushPromises = async (): Promise<void> => {
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-};
-
 describe('createPriorityOneRuntimeAssembly', () => {
-    it('owns priority-one input shaping and controller/binder creation from runtime refs', async () => {
+    it('composes runtime-owner callbacks through the controllers and event binder', async () => {
         const program = makeProgram();
-        const scheduler = createTestEventSurface();
-        const videoPlayer = createTestEventSurface();
-        const navigation = createTestEventSurface();
-        const cleanupError = new Error('cleanup failed');
-        const navigationCleanup = jest.fn(() => {
-            throw cleanupError;
-        });
-        const cleanupReporter = jest.fn();
-        const handlePlayerTrackChange = jest.fn();
-        const stopTranscodeSessionById = jest.fn();
-        const openModal = jest.fn();
-        const closeModal = jest.fn();
-        const onProgramStart = jest.fn();
-        const refreshEpgScheduleForLiveChannel = jest.fn();
-        const refreshPlaybackOptions = jest.fn();
-        const maybeAutoShowNowPlayingStreamDebugHud = jest.fn();
-        const maybeFetchNowPlayingStreamDecisionForDebugHud = jest.fn().mockResolvedValue(undefined);
-        const playbackFailureHandlerError = new Error('recovery handler failed');
-        const handlePlaybackFailure = jest.fn(() => {
-            throw playbackFailureHandlerError;
-        });
-        const reportRecoverableRuntimeError = jest.fn();
-        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
-            getCurrentProgramForPlayback: jest.fn().mockReturnValue(program),
-            setCurrentProgramForPlayback: jest.fn(),
-            getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
-            setCurrentStreamDescriptor: jest.fn(),
-            getCurrentStreamDecision: jest.fn().mockReturnValue({
-                isTranscoding: true,
-                sessionId: 'transcode-session-1',
-            }),
-            setCurrentStreamDecision: jest.fn(),
-            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
-            setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+        let currentProgram: ScheduledProgram | null = null;
+        let currentDescriptor: ReturnType<typeof makePreparedPlaybackStream>['descriptor'] | null = null;
+        let currentDecision: ReturnType<typeof makePreparedPlaybackStream>['decision'] | null = {
+            ...makePreparedPlaybackStream().decision,
+            isTranscoding: true,
+            sessionId: 'transcode-session-1',
         };
-        const input: PriorityOneRuntimeAssemblyInput = {
+        let pendingChannelId: string | null = 'channel-1';
+        let shouldAutoShowInfo = false;
+        const playbackState = {
+            getCurrentProgramForPlayback: jest.fn(() => currentProgram),
+            setCurrentProgramForPlayback: jest.fn((value: ScheduledProgram | null): void => {
+                currentProgram = value;
+            }),
+            getCurrentStreamDescriptor: jest.fn(() => currentDescriptor),
+            setCurrentStreamDescriptor: jest.fn((value): void => {
+                currentDescriptor = value;
+            }),
+            getCurrentStreamDecision: jest.fn(() => currentDecision),
+            setCurrentStreamDecision: jest.fn((value): void => {
+                currentDecision = value;
+            }),
+            getPendingNowPlayingChannelId: jest.fn(() => pendingChannelId),
+            setPendingNowPlayingChannelId: jest.fn((value: string | null): void => {
+                pendingChannelId = value;
+            }),
+            getShouldAutoShowInfoBannerOnNextPlay: jest.fn(() => shouldAutoShowInfo),
+            setShouldAutoShowInfoBannerOnNextPlay: jest.fn((value: boolean): void => {
+                shouldAutoShowInfo = value;
+            }),
+        } satisfies jest.Mocked<OrchestratorPlaybackStateAccessors>;
+        const scheduler = createTestEventSurface();
+        const player = createTestEventSurface();
+        const navigation = createTestEventSurface();
+        const resolver = createTestEventSurface();
+        const refreshPlaybackOptions = jest.fn();
+        const recoverSubtitleTrack = jest.fn();
+        const onProgramStart = jest.fn();
+        const refreshLiveEpg = jest.fn();
+        const autoShowDebug = jest.fn();
+        let resolveActivation!: () => void;
+        const activationComplete = new Promise<void>((resolve) => {
+            resolveActivation = resolve;
+        });
+        const fetchDebug = jest.fn((): Promise<void> => {
+            resolveActivation();
+            return Promise.resolve();
+        });
+        const stopTranscodeSession = jest.fn().mockResolvedValue(undefined);
+        const lifecyclePauseCleanup = jest.fn();
+        const lifecycleResumeCleanup = jest.fn();
+        const navigationCleanupError = new Error('navigation cleanup failed');
+        const reportRecoverableRuntimeIssue = jest.fn();
+        let resolvePlaybackErrorReport!: () => void;
+        const playbackErrorReported = new Promise<void>((resolve) => {
+            resolvePlaybackErrorReport = resolve;
+        });
+        const reportRecoverableRuntimeError = jest.fn((): void => {
+            resolvePlaybackErrorReport();
+        });
+        const openModal = jest.fn();
+        const playbackRecoveryError = new Error('playback recovery failed');
+        const schedulerState: SchedulerState = {
+            channelId: 'channel-1',
+            isActive: true,
+            currentProgram: program,
+            nextProgram: null,
+            schedulePosition: { loopNumber: 0, itemIndex: 0, offsetMs: 0 },
+            lastSyncTime: 0,
+        };
+        const input = {
             requiredModules: {
                 scheduler: {
-                    getState: jest.fn().mockReturnValue(makeSchedulerState(program)),
-                    on: scheduler.on,
-                    off: scheduler.off,
+                    ...scheduler,
+                    getState: jest.fn().mockReturnValue(schedulerState),
                     skipToNext: jest.fn(),
                     pauseSyncTimer: jest.fn(),
                     resumeSyncTimer: jest.fn(),
                     syncToCurrentTime: jest.fn(),
                     unloadChannel: jest.fn(),
-                } as unknown as PriorityOneRuntimeAssemblyInput['requiredModules']['scheduler'],
+                },
                 videoPlayer: {
-                    on: videoPlayer.on,
-                    off: videoPlayer.off,
+                    ...player,
                     loadStream: jest.fn().mockResolvedValue(undefined),
                     play: jest.fn().mockResolvedValue(undefined),
                     pause: jest.fn(),
-                } as unknown as PriorityOneRuntimeAssemblyInput['requiredModules']['videoPlayer'],
+                },
                 lifecycle: {
                     saveState: jest.fn().mockResolvedValue(undefined),
-                    onPause: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-                    onResume: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-                } as unknown as PriorityOneRuntimeAssemblyInput['requiredModules']['lifecycle'],
+                    onPause: jest.fn().mockReturnValue({ dispose: lifecyclePauseCleanup }),
+                    onResume: jest.fn().mockReturnValue({ dispose: lifecycleResumeCleanup }),
+                },
             },
             runtimeSurfaces: {
                 channelBadgeOverlay: null,
@@ -128,71 +129,55 @@ describe('createPriorityOneRuntimeAssembly', () => {
                 epg: null,
                 channelManager: null,
                 navigation: {
-                    on: navigation.on,
-                    off: navigation.off,
+                    ...navigation,
                     getCurrentScreen: jest.fn().mockReturnValue('player'),
                     isModalOpen: jest.fn().mockReturnValue(false),
                     openModal,
-                    closeModal,
-                } as unknown as PriorityOneRuntimeAssemblyInput['runtimeSurfaces']['navigation'],
+                    closeModal: jest.fn(),
+                },
                 plexLibrary: null,
                 plexStreamResolver: {
-                    on: jest.fn(),
-                    off: jest.fn(),
-                    stopTranscodeSession: jest.fn((_sessionId: string) => {
-                        stopTranscodeSessionById(_sessionId);
-                        return Promise.resolve();
-                    }),
-                } as unknown as PriorityOneRuntimeAssemblyInput['runtimeSurfaces']['plexStreamResolver'],
+                    ...resolver,
+                    stopTranscodeSession,
+                },
             },
             playback: {
                 playbackState,
                 playbackRecovery: {
-                    resolveStreamForProgram: jest.fn().mockResolvedValue(makePrepared()),
-                    discardPreparedStream: jest.fn().mockResolvedValue(undefined),
+                    resolveStreamForProgram: jest.fn().mockResolvedValue(
+                        makePreparedPlaybackStream('https://example.invalid/stream.m3u8')
+                    ),
+                    discardPreparedStream: jest.fn(),
                     resetPlaybackFailureGuard: jest.fn(),
                     tryHandleStreamResolverAuthError: jest.fn().mockReturnValue(false),
                     tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(false),
-                    attemptTranscodeFallbackForCurrentProgram: jest.fn().mockResolvedValue(false),
-                    handlePlaybackFailure,
+                    handlePlaybackFailure: jest.fn(() => {
+                        throw playbackRecoveryError;
+                    }),
                     isStreamRecoveryInProgress: jest.fn().mockReturnValue(false),
                 },
             },
             runtimeControllers: {
-                channelTransition: {
-                    isActive: jest.fn().mockReturnValue(false),
-                    onPlayerStateChange: jest.fn(),
-                    onScreenChange: jest.fn(),
-                },
-                playerOsd: {
-                    onPlayerStateChange: jest.fn(),
-                    onTimeUpdate: jest.fn(),
-                    onBufferUpdate: jest.fn(),
-                    showInfoBanner: jest.fn(),
-                },
-                nowPlayingInfo: {
-                    onProgramStart,
-                },
+                channelTransition: null,
+                playerOsd: null,
+                nowPlayingInfo: { onProgramStart },
                 epg: {
-                    refreshEpgScheduleForLiveChannel,
+                    refreshEpgScheduleForLiveChannel: refreshLiveEpg,
                     wireEpgEvents: jest.fn().mockReturnValue([]),
                 },
                 navigation: {
-                    wireNavigationEvents: jest.fn().mockReturnValue([navigationCleanup]),
+                    wireNavigationEvents: jest.fn().mockReturnValue([
+                        (): void => {
+                            throw navigationCleanupError;
+                        },
+                    ]),
                 },
-                playbackOptions: {
-                    refreshIfOpen: refreshPlaybackOptions,
-                },
-                scheduleDayRollover: {
-                    cancelPendingDayRollover: jest.fn(),
-                    handleScheduleDayRollover: jest.fn().mockResolvedValue(undefined),
-                },
-                subtitleTrackRecovery: {
-                    handleTrackChange: handlePlayerTrackChange,
-                },
+                playbackOptions: { refreshIfOpen: refreshPlaybackOptions },
+                scheduleDayRollover: null,
+                subtitleTrackRecovery: { handleTrackChange: recoverSubtitleTrack },
                 nowPlayingDebug: {
-                    maybeAutoShowNowPlayingStreamDebugHud,
-                    maybeFetchNowPlayingStreamDecisionForDebugHud,
+                    maybeAutoShowNowPlayingStreamDebugHud: autoShowDebug,
+                    maybeFetchNowPlayingStreamDecisionForDebugHud: fetchDebug,
                 },
             },
             orchestratorCallbacks: {
@@ -201,65 +186,72 @@ describe('createPriorityOneRuntimeAssembly', () => {
                 handlePlexLibraryAuthorizationFailure: jest.fn(),
                 handlePlexStreamError: jest.fn(),
                 showPersistenceWarning: jest.fn(),
-                reportRecoverableRuntimeIssue: cleanupReporter,
+                reportRecoverableRuntimeIssue,
                 reportRecoverableRuntimeError,
             },
-        };
+        } as unknown as PriorityOneRuntimeAssemblyInput;
 
-        const priorityOne = createPriorityOneRuntimeAssembly(input);
+        const assembly = createPriorityOneRuntimeAssembly(input);
+        expect(assembly.eventBinder.bind()).toBe(true);
 
-        priorityOne.eventBinder.bind();
-        videoPlayer.emit('trackChange', { type: 'subtitle', trackId: 'subtitle-1' });
-        scheduler.emit('programStart', program);
-        await flushPromises();
-        priorityOne.playbackRuntimeController.stopActiveTranscodeSession();
-        priorityOne.playbackRuntimeController.handlePlaybackError({
+        assembly.playbackRuntimeController.stopActiveTranscodeSession();
+        expect(stopTranscodeSession).toHaveBeenCalledWith('transcode-session-1');
+
+        const event = { type: 'subtitle' as const, trackId: 'subtitle-1' };
+        player.emit('trackChange', event);
+
+        expect(refreshPlaybackOptions).toHaveBeenCalledTimes(1);
+        expect(recoverSubtitleTrack).toHaveBeenCalledWith(event);
+
+        player.emit('error', {
             code: AppErrorCode.PLAYBACK_DECODE_ERROR,
-            message: 'fatal',
+            message: 'decode failed',
             recoverable: false,
             retryCount: 0,
         });
-        await flushPromises();
-        priorityOne.overlayRuntimePolicyController.toggleNowPlayingInfoOverlay();
-        priorityOne.eventBinder.dispose();
-
-        expect(handlePlayerTrackChange).toHaveBeenCalledWith({
-            type: 'subtitle',
-            trackId: 'subtitle-1',
-        });
-        expect(onProgramStart).toHaveBeenCalledWith(program);
-        expect(refreshEpgScheduleForLiveChannel).toHaveBeenCalledTimes(1);
-        expect(maybeAutoShowNowPlayingStreamDebugHud).toHaveBeenCalledTimes(1);
-        expect(maybeFetchNowPlayingStreamDecisionForDebugHud).toHaveBeenCalledTimes(1);
-        expect(refreshPlaybackOptions).toHaveBeenCalledTimes(1);
-        expect(stopTranscodeSessionById).toHaveBeenCalledWith('transcode-session-1');
+        await playbackErrorReported;
         expect(reportRecoverableRuntimeError).toHaveBeenCalledWith(
             'orchestrator.playbackRecovery.handlePlaybackFailure',
             'Playback recovery failure handler threw',
-            playbackFailureHandlerError,
-            {
-                context: 'video-player',
-                playbackError: {
-                    code: AppErrorCode.PLAYBACK_DECODE_ERROR,
-                    message: 'fatal',
-                },
-            }
+            playbackRecoveryError,
+            expect.any(Object)
         );
+
+        scheduler.emit('programStart', program);
+        await activationComplete;
+
+        expect(playbackState.setCurrentProgramForPlayback).toHaveBeenCalledWith(program);
+        expect(playbackState.setShouldAutoShowInfoBannerOnNextPlay).toHaveBeenCalledWith(true);
+        expect(playbackState.setPendingNowPlayingChannelId).toHaveBeenCalledWith(null);
+        expect(onProgramStart).toHaveBeenCalledWith(program);
+        expect(refreshLiveEpg).toHaveBeenCalledTimes(1);
+        expect(autoShowDebug).toHaveBeenCalledTimes(1);
+        expect(fetchDebug).toHaveBeenCalledTimes(1);
+
+        assembly.overlayRuntimePolicyController.toggleNowPlayingInfoOverlay();
         expect(openModal).toHaveBeenCalledWith(NOW_PLAYING_INFO_MODAL_ID);
-        expect(closeModal).not.toHaveBeenCalled();
-        expect(cleanupReporter).toHaveBeenCalledWith(
+
+        const staleProgram = {
+            ...makeProgram(),
+            scheduledStartTime: 60_000,
+            scheduledEndTime: 120_000,
+            scheduleIndex: 1,
+        };
+        playbackState.setPendingNowPlayingChannelId('channel-2');
+        playbackState.setShouldAutoShowInfoBannerOnNextPlay.mockClear();
+        await assembly.playbackStartController.handleProgramStart(staleProgram);
+        expect(playbackState.setShouldAutoShowInfoBannerOnNextPlay).toHaveBeenLastCalledWith(false);
+
+        assembly.eventBinder.dispose();
+        expect(player.off).toHaveBeenCalledWith('trackChange', expect.any(Function));
+        expect(lifecyclePauseCleanup).toHaveBeenCalledTimes(1);
+        expect(lifecycleResumeCleanup).toHaveBeenCalledTimes(1);
+        expect(reportRecoverableRuntimeIssue).toHaveBeenCalledWith(
             'orchestrator.eventWiring.rollback',
             'Event wiring rollback failures',
-            {
-                failures: [
-                    expect.objectContaining({
-                        step: 'event-wiring.cleanup',
-                        error: expect.objectContaining({
-                            message: cleanupError.message,
-                        }),
-                    }),
-                ],
-            },
+            expect.objectContaining({
+                failures: [expect.objectContaining({ step: 'event-wiring.cleanup' })],
+            })
         );
     });
 });

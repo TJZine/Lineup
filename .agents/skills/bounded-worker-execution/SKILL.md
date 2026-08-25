@@ -1,17 +1,23 @@
 ---
 name: bounded-worker-execution
-description: Use when Lineup has a decision-complete implementation unit suitable for worker_sol_low or the lower-cost worker_luna role.
+description: Use when Lineup has a bounded implementation unit suitable for the cost-efficient worker_luna role.
 ---
 
 # Bounded Worker Execution
 
-Freeze exact files, ownership, invariants, verification, and stop conditions before
-delegation. The unit must be bounded, disjoint from other writers, and cheap to
-verify.
+Freeze the outcome, owner seam, contracts, acceptance criteria, verification, and
+stop conditions before delegation. The unit must be bounded and disjoint from other
+writers. Require exact files only when concurrent writers or sensitive shared
+surfaces need collision protection.
 
-Use `worker_sol_low` when local implementation still needs repository comprehension.
-Use `worker_luna` only for frozen, repeatable, low-ambiguity execution. Neither role
-may discover ownership, design public behavior, diagnose unknown failures, change
-architecture, or repair an incomplete packet. The controller reviews the diff,
-integrates it, and reruns the proof. Route other delegation through
-`parallel-sidecars`.
+Use `worker_luna` by default for delegated implementation when the outcome, owner
+seam, contracts, acceptance criteria, and direct proof are clear. It may discover
+exact files, use repository comprehension and routine local design judgment, add
+focused tests, and diagnose failures caused by its implementation. It must stop
+when evidence exposes unresolved product intent, ownership, public behavior,
+architecture, proof depth, dependency or compatibility policy, or scope expansion.
+The controller reviews the diff, integrates it, and reruns the proof. Use `worker`
+instead when a settled bounded unit needs material local design judgment,
+cross-boundary comprehension, complex diagnosis, or proof interpretation; return
+unresolved product, owner, contract, architecture, or proof decisions to planning.
+Route other delegation through `parallel-sidecars`.

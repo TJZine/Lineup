@@ -12,6 +12,7 @@ import type { INowPlayingInfoOverlay } from '../interfaces';
 import type { NowPlayingInfoConfig } from '../types';
 
 const modalId = 'now-playing-info';
+const activeCoordinators = new Set<NowPlayingInfoCoordinator>();
 
 const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgram =>
     ({
@@ -117,8 +118,10 @@ const setup = (
         refreshPlaybackInfoSnapshot: jest.fn().mockResolvedValue({ stream: null }),
         ...overrides,
     };
+    const coordinator = new NowPlayingInfoCoordinator(deps);
+    activeCoordinators.add(coordinator);
     return {
-        coordinator: new NowPlayingInfoCoordinator(deps),
+        coordinator,
         deps,
         navigation,
         scheduler,
@@ -128,6 +131,15 @@ const setup = (
 };
 
 describe('NowPlayingInfoCoordinator', () => {
+    afterEach(() => {
+        for (const coordinator of activeCoordinators) {
+            coordinator.handleModalClose(modalId);
+            coordinator.dispose();
+        }
+        activeCoordinators.clear();
+        jest.useRealTimers();
+    });
+
     it('handleModalOpen closes modal if no program is available', () => {
         expectConsoleWarn([
             '[NowPlayingInfoCoordinator] Scheduler unavailable, using fallback:',
@@ -167,6 +179,22 @@ describe('NowPlayingInfoCoordinator', () => {
         coordinator.handleModalOpen(modalId);
 
         expect(overlay.show).toHaveBeenCalledTimes(1);
+    });
+
+    it('applies configured auto-hide timing and poster dimensions when opening', () => {
+        const plexLibrary = makePlexLibrary();
+        const getAutoHideMs = jest.fn(() => 4321);
+        const { coordinator, overlay } = setup({
+            getPlexLibrary: () => plexLibrary,
+            getAutoHideMs,
+        });
+
+        coordinator.handleModalOpen(modalId);
+
+        expect(getAutoHideMs).toHaveBeenCalledTimes(1);
+        expect(overlay.setAutoHideMs).toHaveBeenCalledWith(4321);
+        expect(plexLibrary.getImageUrl).toHaveBeenCalledWith('/thumb', 111, 222);
+        coordinator.handleModalClose(modalId);
     });
 
     it('handleModalOpen uses scheduled metadata when details are unavailable', () => {

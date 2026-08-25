@@ -1,30 +1,33 @@
 import { isSelectionAbortError, throwIfSelectionAborted } from '../ServerSelectionAbort';
 
 describe('ServerSelectionAbort', () => {
-    it('uses a stable fallback abort reason for legacy aborted signals', () => {
-        const signal = { aborted: true } as AbortSignal;
-        let reason: unknown;
+    it('delegates selection cancellation to the shared abort reason contract', () => {
+        const reason = new Error('selection superseded');
+        const controller = new AbortController();
+        controller.abort(reason);
 
-        try {
-            throwIfSelectionAborted(signal);
-        } catch (error) {
-            reason = error;
-        }
-
-        expect(reason).toBeDefined();
-        expect(isSelectionAbortError(reason, signal)).toBe(true);
+        expect(() => throwIfSelectionAborted(controller.signal)).toThrow(reason);
     });
 
-    it('preserves explicit null abort reasons', () => {
-        const signal = { aborted: true, reason: null } as AbortSignal;
-        let thrown: unknown = 'not thrown';
+    it.each([null, undefined])('returns without throwing for a %s signal', (signal) => {
+        expect(() => throwIfSelectionAborted(signal)).not.toThrow();
+    });
 
-        try {
-            throwIfSelectionAborted(signal);
-        } catch (error) {
-            thrown = error;
-        }
-        expect(thrown).toBeNull();
-        expect(isSelectionAbortError(null, signal)).toBe(true);
+    const reason = new DOMException('selection superseded', 'AbortError');
+    const distinctReason = new DOMException('selection superseded', 'AbortError');
+
+    it.each([
+        { label: 'matching reason', aborted: true, candidate: reason, expected: true },
+        { label: 'distinct reason object', aborted: true, candidate: distinctReason, expected: false },
+        { label: 'non-aborted signal', aborted: false, candidate: reason, expected: false },
+    ])('classifies $label', ({ aborted, candidate, expected }) => {
+        const controller = new AbortController();
+        if (aborted) controller.abort(reason);
+
+        expect(isSelectionAbortError(candidate, controller.signal)).toBe(expected);
+    });
+
+    it('does not classify an error as selection cancellation without a signal', () => {
+        expect(isSelectionAbortError(reason, undefined)).toBe(false);
     });
 });

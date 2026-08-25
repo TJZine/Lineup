@@ -31,7 +31,7 @@ Also open and follow the global orchestrator at:
 - `docs_researcher`: read-only official API/framework/platform documentation checks.
 - `planner`: remediation planning only after accepted findings.
 - `monitor`: observation of safe long-running commands only.
-- `worker`, `worker_sol_low`, and `worker_luna`: not used during the read-only review pass.
+- `worker` and `worker_luna`: not used during the read-only review pass.
 
 Honor local orchestration limits:
 

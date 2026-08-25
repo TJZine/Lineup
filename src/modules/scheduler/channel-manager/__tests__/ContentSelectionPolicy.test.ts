@@ -54,6 +54,14 @@ describe('ContentSelectionPolicy', () => {
         expect(first.map((item) => item.scheduledIndex)).toEqual([0, 1, 2]);
     });
 
+    it('rejects unknown runtime playback modes', () => {
+        expect(() => policy.applyPlaybackMode(
+            createItems(),
+            'unexpected' as never,
+            12_345
+        )).toThrow('Unknown content playback mode: unexpected');
+    });
+
     it('applies genre and director filters with matching list semantics', () => {
         const items: ResolvedContentItem[] = [
             ...createItems(),

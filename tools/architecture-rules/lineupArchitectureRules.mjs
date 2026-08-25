@@ -42,6 +42,32 @@ export const lineupArchitectureRules = {
             '../../../ui/**',
         ],
     },
+    appShellRuntimeBoundary: {
+        runtimeModuleGlobs: ['src/core/app-shell/runtime/**'],
+        forbiddenImportPatterns: [
+            {
+                regex: '(?:^|/)(?:Orchestrator|AppOrchestrator)(?:\\.ts)?$',
+                message: 'App-shell runtime modules must not import the orchestrator root or concrete implementation.',
+            },
+            {
+                regex: '(?:^|/)ServerSelectionTypes(?:\\.ts)?$',
+                message: 'App-shell runtime modules must not import the core server-selection result owner.',
+            },
+            {
+                regex: '(?:^|/)OrchestratorStorageContext(?:\\.ts)?$',
+                message: 'App-shell runtime modules must not import orchestrator-owned storage context.',
+            },
+            {
+                regex: '.*',
+                importNames: [
+                    'OrchestratorServerSelectionResult',
+                    'getSelectedServerStorageKey',
+                    'getServerHealthStorageKey',
+                ],
+                message: 'App-shell runtime modules must consume narrowed app-shell seams, not orchestrator or storage implementation symbols.',
+            },
+        ],
+    },
     compositionRootAccessBoundary: {
         restrictedImportRegexAlternatives: [
             'App(?:\\\\.ts)?',

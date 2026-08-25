@@ -2901,6 +2901,86 @@ describe('EPGCoordinator', () => {
         expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
     });
 
+    it.each([
+        {
+            change: { key: 'layoutMode', mode: 'overlay' } as const,
+            method: 'setLayoutMode' as const,
+            value: 'overlay',
+        },
+        {
+            change: { key: 'nowWatchingBanner', enabled: false } as const,
+            method: 'setNowWatchingBannerEnabled' as const,
+            value: false,
+        },
+    ])('applies visible non-refresh $change.key changes directly', ({ change, method, value }) => {
+        const { deps, epg } = makeDeps();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.handleGuideSettingChange(change);
+
+        expect(epg[method]).toHaveBeenCalledWith(value);
+        expect(epg.clearSchedules).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        { label: 'the guide is hidden', getEpg: undefined },
+        { label: 'the guide is unmounted', getEpg: (): null => null },
+    ])('ignores non-refresh settings when $label', ({ getEpg }) => {
+        const { deps, epg } = makeDeps(getEpg ? { getEpg } : {});
+        (epg.isVisible as jest.Mock).mockReturnValue(false);
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.handleGuideSettingChange({ key: 'layoutMode', mode: 'overlay' });
+        coordinator.handleGuideSettingChange({ key: 'nowWatchingBanner', enabled: false });
+
+        expect(epg.setLayoutMode).not.toHaveBeenCalled();
+        expect(epg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
+    });
+
+    it('ignores info background changes while the guide is visible', () => {
+        const { deps, epg } = makeDeps();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.handleGuideSettingChange({ key: 'infoBackgroundMode', mode: 0 });
+
+        expect(epg.setLayoutMode).not.toHaveBeenCalled();
+        expect(epg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
+        expect(epg.clearSchedules).not.toHaveBeenCalled();
+    });
+
+    it('toggles a visible guide closed through the public lifecycle', () => {
+        const { deps, epg } = makeDeps();
+        let visible = true;
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.toggleEPG();
+
+        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(deps.onVisibilityChange).toHaveBeenCalledWith(false);
+    });
+
+    it('toggles a hidden guide open through the public lifecycle', async () => {
+        const { deps, epg } = makeDeps();
+        let visible = false;
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.toggleEPG();
+        await flushPromises();
+
+        expect(epg.show).toHaveBeenCalledTimes(1);
+        expect(deps.onVisibilityChange).toHaveBeenCalledWith(true);
+    });
+
     it('handleGuideSettingChange refreshes schedules after invalidation when EPG is visible', async () => {
         const { deps, epg } = makeDeps();
         const coordinator = new EPGCoordinator(deps);

@@ -196,6 +196,12 @@ describe('EPGScheduleRefreshRuntime', () => {
         };
     };
 
+    it('allows the selected-channel snapshot to be cleared before one exists', () => {
+        const { runtime } = createRuntime();
+
+        expect(() => runtime.clearSelectedChannelScheduleSnapshot()).not.toThrow();
+    });
+
     it('releases retained authority when pre-session validation fails', async () => {
         const reason = new DOMException('refresh authority superseded', 'AbortError');
         const observed = createObservedRetainedOperation(() => { throw reason; });

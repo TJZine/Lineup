@@ -77,10 +77,14 @@ import type { PlaybackOptionsCoordinator } from '../../../modules/ui/playback-op
 import type { PlaybackRecoveryManager } from '../../../modules/player';
 import type { ChannelTuningCoordinator } from '../../channel-tuning';
 import type { NavigationCoordinator } from '../../../modules/navigation/coordinator/NavigationCoordinator';
+export interface OrchestratorModuleStatusReader {
+    getRuntimeStatus(id: string): ModuleStatus['status'] | undefined;
+}
+
 export interface OrchestratorCoordinatorAssemblyInput {
     epgDebugRuntime: IEPGDebugRuntime | null;
     config: OrchestratorConfig | null;
-    moduleStatus: Map<string, ModuleStatus>;
+    moduleStatus: OrchestratorModuleStatusReader;
     init: {
         ensureEpgInitialized: () => Promise<void>;
     };

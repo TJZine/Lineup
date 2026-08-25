@@ -108,6 +108,7 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - constructs the initialization-package `InitializationCoordinator` before coordinator assembly so `ensureEpgInitialized` callbacks always bind the real startup owner (no fake no-op readiness path)
 - delegates grouped priority-one runtime assembly shaping to `src/core/orchestrator/priority-one/PriorityOneAssemblyBuilder.ts` and directly constructs the existing schedule-day rollover and subtitle-track recovery controllers
 - delegates playback info snapshot projection to `src/core/orchestrator/runtime/OrchestratorPlaybackInfoSnapshot.ts`; `AppOrchestrator` remains the runtime state source and refresh trigger owner
+- delegates module-status lifecycle, scalar runtime reads, defensive snapshots, and once-per-context fallback reporting to `src/core/orchestrator/runtime/OrchestratorModuleStatusRegistry.ts`
 - delegates coordinator assembly required-module hardening to `src/core/orchestrator/assembly/OrchestratorCoordinatorAssembly.ts` / `OrchestratorCoordinatorContracts.ts`, which own the typed assembly input seam
 - delegates shutdown teardown failure collection to `src/core/orchestrator/runtime/OrchestratorShutdownTeardown.ts` while preserving `AppOrchestrator.shutdown()` ordering, field nulling, and singleton/no-reuse lifecycle ownership
 - delegates channel-switch runtime commands and missing-dependency reporting to `src/core/orchestrator/runtime/OrchestratorChannelSwitchRuntime.ts`

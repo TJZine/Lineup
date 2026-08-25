@@ -312,6 +312,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(harness.deps.releaseQuarantineRuntimeGate).not.toHaveBeenCalled();
         expect(harness.deps.openServerSelect).not.toHaveBeenCalled();
     });
+
     it('completes clear then selects another server through the public runtime seam', async () => {
         const harness = createHarness();
         const runtime = new OrchestratorServerSelectionRuntime(harness.deps);

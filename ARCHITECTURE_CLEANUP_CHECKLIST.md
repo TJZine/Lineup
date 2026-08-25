@@ -25,8 +25,11 @@ Every accepted package must state:
 
 - the concrete current-source finding and production impact;
 - one owner seam and the responsibility that should move or change;
-- exact files in scope and important adjacent files out of scope;
+- likely files or the allowed write boundary, plus important adjacent owners out
+  of scope; require exact files only for concurrent writers or sensitive shared
+  surfaces;
 - behavior, public-contract, and architecture invariants;
+- explicit acceptance criteria;
 - the smallest proof surface that can establish the change;
 - stop or replan conditions; and
 - one owner and revisit trigger for every accepted residual.
@@ -58,10 +61,14 @@ the surface actually touched.
 ## Execution Contract
 
 - Keep one package bounded by one owner, one seam, and one proof surface.
-- Use the normal `worker` for implementation. Route to `worker_sol_low` only
-  when ownership is settled but repository comprehension remains material.
-  Route to `worker_luna` only from a controller-approved, decision-complete packet
-  with frozen files, invariants, verification, and stop conditions.
+- Use `worker_luna` by default when the package outcome, owner seam, contracts,
+  acceptance criteria, and direct proof are clear, including work that needs
+  repository comprehension, exact-file discovery, routine local design judgment,
+  focused test design, and diagnosis of failures caused by the implementation.
+- Use `worker` when the same settled package needs material local design judgment,
+  cross-boundary comprehension, complex diagnosis, or proof interpretation. Return
+  unresolved product, ownership, public-contract, architecture, or proof decisions
+  to planning.
 - Parallel writers require disjoint files, symbols, fixtures, and verification.
   Serialize shared contracts, composition roots, and integration.
 - Add a final independent `reviewer` only when risk, novelty, blast radius, or

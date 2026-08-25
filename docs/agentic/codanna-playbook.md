@@ -13,8 +13,8 @@ question.
 - Shared/public symbol with uncertain callers: use `analyze_impact`, `find_symbol`,
   `get_calls`, or `find_callers` when available, then confirm important callers in
   source.
-- Architecture, cleanup, or plan history: use `search_documents` when it is likely
-  to return a smaller useful set than direct document search.
+- Architecture, cleanup, or plan history: use `rg` and direct document reads while
+  the Codanna document collection is disabled.
 
 Do not delay implementation merely to prove Codanna was attempted. Evidence quality
 matters; tool order does not.
@@ -60,9 +60,10 @@ changes or covers implausibly few files, prefer deterministic source discovery.
 
 ## Local Reliability Note
 
-`.codanna/settings.toml` keeps `documents.search.highlight = false` because Codanna
-`0.9.14` can fail while building highlighted previews for some overlapping multiword
-matches. Re-enable it only after verifying the upstream behavior is fixed.
+Lineup uses the 768-dimensional `JinaEmbeddingsV2BaseCode` model. Codanna `0.13.2`
+still hard-codes `documents index` to the 384-dimensional default model, so document
+collections remain disabled to avoid a 384/768 mismatch. Use `rg` and direct reads
+for repository documentation until the document index honors `semantic_search.model`.
 
 ## References
 
