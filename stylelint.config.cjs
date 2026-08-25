@@ -4,6 +4,7 @@ module.exports = {
     rules: {
         // webOS 6.0+ runtime: avoid forcing modern-only syntax migrations.
         // This repo intentionally uses progressive enhancement in theme variables (legacy rgba() then modern rgb(... / ...)).
+        'color-function-alias-notation': null,
         'color-function-notation': null,
         'alpha-value-notation': null,
         'media-feature-range-notation': 'prefix',
@@ -27,6 +28,7 @@ module.exports = {
 
         // Allow targeted WebKit enhancement for webOS while keeping the rule on elsewhere.
         'property-no-vendor-prefix': [true, { ignoreProperties: ['/^(-webkit-)?backdrop-filter$/i'] }],
+        'property-no-deprecated': [true, { ignoreProperties: ['clip', '-webkit-box-orient'] }],
     },
     ignoreFiles: ['dist/**', 'dist-ts/**', 'coverage/**', 'node_modules/**'],
 };
