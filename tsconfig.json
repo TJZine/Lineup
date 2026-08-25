@@ -8,6 +8,11 @@
         ],
         "module": "ESNext",
         "moduleResolution": "bundler",
+        "types": [
+            "node",
+            "jest",
+            "vite/client"
+        ],
         "strict": true,
         "noImplicitAny": true,
         "strictNullChecks": true,
@@ -35,22 +40,21 @@
         "sourceMap": true,
         "outDir": "./dist-ts",
         "rootDir": "./src",
-        "baseUrl": "./src",
         "paths": {
             "@types/*": [
-                "types/*"
+                "./src/types/*"
             ],
             "@modules/*": [
-                "modules/*"
+                "./src/modules/*"
             ],
             "@utils/*": [
-                "utils/*"
+                "./src/utils/*"
             ],
             "@core/*": [
-                "core/*"
+                "./src/core/*"
             ],
             "@config/*": [
-                "config/*"
+                "./src/config/*"
             ]
         }
     },
