@@ -399,6 +399,7 @@
   white-space: nowrap;
   text-overflow: clip;
   -webkit-line-clamp: unset;
+  /* stylelint-disable-next-line property-no-deprecated -- webOS line-clamp reset */
   -webkit-box-orient: initial;
 }
 

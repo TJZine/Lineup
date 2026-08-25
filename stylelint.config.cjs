@@ -28,7 +28,7 @@ module.exports = {
 
         // Allow targeted WebKit enhancement for webOS while keeping the rule on elsewhere.
         'property-no-vendor-prefix': [true, { ignoreProperties: ['/^(-webkit-)?backdrop-filter$/i'] }],
-        'property-no-deprecated': [true, { ignoreProperties: ['clip', '-webkit-box-orient'] }],
+        'property-no-deprecated': [true, { ignoreProperties: ['clip'] }],
     },
     ignoreFiles: ['dist/**', 'dist-ts/**', 'coverage/**', 'node_modules/**'],
 };
