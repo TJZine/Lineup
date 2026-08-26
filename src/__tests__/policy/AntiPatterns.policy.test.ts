@@ -9,6 +9,10 @@ const SLEEP_HELPER_EXCEPTIONS = new Set([
     'src/__tests__/helpers.ts|flushPromisesAndMacrotask',
     'src/__tests__/helpers.ts|withTestTimeout',
 ]);
+const UNIT_TEST_PATH_IGNORES = [
+    /[.-](?:contracts?|policy)\.test\.ts$/,
+    /\/types\.test\.ts$/,
+];
 
 const sourceFiles = (directory: string): string[] =>
     fs.readdirSync(directory, { recursive: true, withFileTypes: true })
@@ -24,6 +28,7 @@ const jestOwnedFiles = (): string[] =>
     sourceFiles(path.join(process.cwd(), 'src')).filter(
         (file) =>
             !file.startsWith('src/__tests__/tools/')
+            && !UNIT_TEST_PATH_IGNORES.some((pattern) => pattern.test(file))
             && (
                 file.includes('/__tests__/')
                 || /\.test\.tsx?$/.test(file)
@@ -475,6 +480,15 @@ describe('test anti-pattern contracts', () => {
             ])
         );
         expect(jestOwnedFiles()).not.toContain('src/__tests__/tools/packageWebos.test.ts');
+    });
+
+    it.each([
+        'src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts',
+        'src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts',
+        'src/__tests__/policy/AntiPatterns.policy.test.ts',
+        'src/modules/plex/library/__tests__/types.test.ts',
+    ])('excludes the non-unit Jest surface file %s', (file) => {
+        expect(jestOwnedFiles()).not.toContain(file);
     });
 
     it('enforces the worktree Jest surface with only the exact owner exceptions', () => {

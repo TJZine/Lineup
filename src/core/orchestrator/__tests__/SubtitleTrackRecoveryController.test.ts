@@ -2,7 +2,7 @@ import {
     SubtitleTrackRecoveryController,
     type SubtitleTrackRecoveryControllerDeps,
 } from '../controllers/SubtitleTrackRecoveryController';
-import type { IVideoPlayer } from '../../../modules/player';
+import type { IVideoPlayer, StreamDescriptor } from '../../../modules/player';
 import type { StreamDecision } from '../../../modules/plex/stream';
 
 const createDeps = (
@@ -20,23 +20,32 @@ const createDeps = (
 });
 
 describe('SubtitleTrackRecoveryController', () => {
-    it.each([
-        {
-            label: 'ignores audio changes without a direct stream descriptor',
-            event: { type: 'audio' as const, trackId: 'audio-1' },
-        },
-        {
-            label: 'ignores subtitle changes without a video player',
-            event: { type: 'subtitle' as const, trackId: 'subtitle-1' },
-        },
-    ])('$label', ({ event }) => {
+    it('does not start audio recovery for a non-direct stream', () => {
+        const deps = createDeps({
+            getCurrentStreamDescriptor: jest.fn(
+                () => ({ protocol: 'hls' } as StreamDescriptor)
+            ),
+        });
+
+        new SubtitleTrackRecoveryController(deps).handleTrackChange({
+            type: 'audio',
+            trackId: 'audio-1',
+        });
+
+        expect(deps.getCurrentStreamDescriptor).toHaveBeenCalledTimes(1);
+        expect(deps.getPlaybackRecovery).not.toHaveBeenCalled();
+    });
+
+    it('does not record subtitle changes without a video player', () => {
         const deps = createDeps();
-        const controller = new SubtitleTrackRecoveryController(deps);
 
-        controller.handleTrackChange(event);
+        new SubtitleTrackRecoveryController(deps).handleTrackChange({
+            type: 'subtitle',
+            trackId: 'subtitle-1',
+        });
 
-        expect(deps.setSubtitleTrack).not.toHaveBeenCalled();
-        expect(deps.nowPlayingWarn).not.toHaveBeenCalled();
+        expect(deps.getVideoPlayer).toHaveBeenCalledTimes(1);
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalled();
     });
 
     it('records subtitle-off changes without starting burn-in recovery when no burn is active', () => {

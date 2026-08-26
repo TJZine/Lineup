@@ -18,10 +18,13 @@ describe('EpgChannelSetupCoordinatorAssembly', () => {
     });
 
     it('wires config, schedule, selection, and visibility callbacks to their owners', async () => {
+        const getRuntimeStatus = jest.fn(
+            (id: string) => id === 'epg-ui' ? 'ready' as const : undefined
+        );
         const input = {
             epgDebugRuntime: null,
             config: { epgConfig: { containerId: 'epg' } },
-            moduleStatus: { getRuntimeStatus: jest.fn(() => 'ready' as const) },
+            moduleStatus: { getRuntimeStatus },
             init: { ensureEpgInitialized: jest.fn().mockResolvedValue(undefined) },
             modules: {
                 epg: { kind: 'epg' },
@@ -52,6 +55,7 @@ describe('EpgChannelSetupCoordinatorAssembly', () => {
         expect(capturedDeps.getChannelManager()).toBe(input.modules.channelManager);
         expect(capturedDeps.getScheduler()).toBe(input.modules.scheduler);
         expect(capturedDeps.getEpgUiStatus()).toBe('ready');
+        expect(getRuntimeStatus).toHaveBeenCalledWith('epg-ui');
         await expect(capturedDeps.ensureEpgInitialized()).resolves.toBeUndefined();
         expect(capturedDeps.getEpgConfig()).toBe(input.config?.epgConfig);
         expect(capturedDeps.epgPreferencesStore).toBe(input.stores.epgPreferencesStore);
