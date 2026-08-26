@@ -61,6 +61,13 @@ If another architecture doc disagrees with this one, update the other doc or arc
 - composes Settings runtime theme reads/writes via app-shell runtime ports
 - delegates persisted theme storage to `ThemePreferencesStore`
 
+### `src/core/app-shell/runtime/AppRuntimeEngineLoader.ts`
+
+- owns the app shell's lazy construction seam for the concrete `AppOrchestrator`
+- is the only app-shell runtime file permitted to dynamically import
+  `../../orchestrator/AppOrchestrator`; static implementation imports and dynamic
+  implementation imports from sibling runtime files remain forbidden
+
 ### `src/core/app-shell/chrome/AppStartupUiInitializer.ts`
 
 - app-shell-owned startup UI initializer

@@ -44,9 +44,13 @@ export const lineupArchitectureRules = {
     },
     appShellRuntimeBoundary: {
         runtimeModuleGlobs: ['src/core/app-shell/runtime/**'],
+        orchestratorImplementationLoader: {
+            file: 'src/core/app-shell/runtime/AppRuntimeEngineLoader.ts',
+            dynamicImport: '../../orchestrator/AppOrchestrator',
+        },
         forbiddenImportPatterns: [
             {
-                regex: '(?:^|/)(?:Orchestrator|AppOrchestrator)(?:\\.ts)?$',
+                regex: '(?:^|/)(?:Orchestrator|AppOrchestrator)(?:\\.[jt]sx?)?$',
                 message: 'App-shell runtime modules must not import the orchestrator root or concrete implementation.',
             },
             {

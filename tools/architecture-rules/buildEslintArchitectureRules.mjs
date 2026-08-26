@@ -10,6 +10,11 @@ const RUNTIME_UI_RESTRICTION_MESSAGE =
 const APP_SHELL_RUNTIME_RESTRICTION_MESSAGE =
     'App-shell runtime modules must consume narrowed app-shell seams, not orchestrator or storage implementation symbols.';
 
+const APP_SHELL_ORCHESTRATOR_IMPORT_SOURCE_PATTERN =
+    '/^(?:.*\\/)?(?:Orchestrator|AppOrchestrator)(?:\\.[jt]sx?)?$/';
+const APP_SHELL_ORCHESTRATOR_DYNAMIC_IMPORT_SELECTOR =
+    `ImportExpression:matches([source.value=${APP_SHELL_ORCHESTRATOR_IMPORT_SOURCE_PATTERN}], [source.quasis.0.value.cooked=${APP_SHELL_ORCHESTRATOR_IMPORT_SOURCE_PATTERN}])`;
+
 const ROOT_IMPORT_RESTRICTION_MESSAGE =
     'Non-composition-root modules cannot import src/App.ts or src/Orchestrator.ts.';
 
@@ -73,6 +78,16 @@ function buildAppShellRuntimeImportPatterns(rules) {
         ...pattern,
         message: pattern.message ?? APP_SHELL_RUNTIME_RESTRICTION_MESSAGE,
     }));
+}
+
+function buildAppShellOrchestratorDynamicImportRestriction(allowedImport = null) {
+    const allowedSelector = allowedImport === null
+        ? ''
+        : `:not([source.value=${JSON.stringify(allowedImport)}])`;
+    return {
+        selector: `${APP_SHELL_ORCHESTRATOR_DYNAMIC_IMPORT_SELECTOR}${allowedSelector}`,
+        message: APP_SHELL_RUNTIME_RESTRICTION_MESSAGE,
+    };
 }
 
 export function buildEslintArchitectureRules(rules) {
@@ -214,6 +229,27 @@ export function buildEslintArchitectureRules(rules) {
                             ...buildAppShellRuntimeImportPatterns(rules),
                         ],
                     },
+                ],
+            },
+        },
+        {
+            files: rules.appShellRuntimeBoundary.runtimeModuleGlobs,
+            ignores: [rules.appShellRuntimeBoundary.orchestratorImplementationLoader.file],
+            rules: {
+                'no-restricted-syntax': [
+                    'error',
+                    buildAppShellOrchestratorDynamicImportRestriction(),
+                ],
+            },
+        },
+        {
+            files: [rules.appShellRuntimeBoundary.orchestratorImplementationLoader.file],
+            rules: {
+                'no-restricted-syntax': [
+                    'error',
+                    buildAppShellOrchestratorDynamicImportRestriction(
+                        rules.appShellRuntimeBoundary.orchestratorImplementationLoader.dynamicImport
+                    ),
                 ],
             },
         },
