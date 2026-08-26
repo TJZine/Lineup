@@ -426,6 +426,12 @@ function checkRoleConfig() {
 }
 
 function checkRetiredRoleReferences() {
+    const currentAgenticMarkdownFiles = trackedFiles('docs/agentic').filter(
+        (file) =>
+            file.endsWith('.md')
+            && !file.startsWith('docs/agentic/evals/baseline-summaries/')
+            && file !== 'docs/agentic/historical-plan-corpus-review.md'
+    );
     const authorityFiles = new Set([
         'AGENTS.md',
         'ARCHITECTURE_CLEANUP_CHECKLIST.md',
@@ -434,7 +440,7 @@ function checkRetiredRoleReferences() {
         '.codex/review-context.md',
         ...trackedFiles('.codex/agents/*.toml'),
         ...trackedFiles('.agents/skills/*/SKILL.md'),
-        ...trackedFiles('docs/agentic/session-prompts/*.md'),
+        ...currentAgenticMarkdownFiles,
     ]);
     for (const file of authorityFiles) {
         if (!existsSync(path.join(root, file))) continue;

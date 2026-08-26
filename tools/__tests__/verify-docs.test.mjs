@@ -82,6 +82,13 @@ function createVerifierFixture() {
     return fixtureRoot;
 }
 
+function runVerifier(fixtureRoot) {
+    return spawnSync(process.execPath, [verifyDocsPath], {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+    });
+}
+
 function mutateFile(fixtureRoot, relativePath, mutate) {
     const target = path.join(fixtureRoot, relativePath);
     const original = readFileSync(target, 'utf8');
@@ -215,10 +222,7 @@ test('rejects an extra tracked retired role file through the verifier entry poin
         );
         execFileSync('git', ['add', '.codex/agents/worker-sol-low.toml'], { cwd: fixtureRoot });
 
-        const result = spawnSync(process.execPath, [verifyDocsPath], {
-            cwd: fixtureRoot,
-            encoding: 'utf8',
-        });
+        const result = runVerifier(fixtureRoot);
 
         assert.equal(result.status, 1, result.stdout);
         assert.match(
@@ -231,6 +235,44 @@ test('rejects an extra tracked retired role file through the verifier entry poin
         );
     } finally {
         rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('rejects retired role references in tracked agentic docs outside session prompts', () => {
+    const fixtureRoot = createVerifierFixture();
+    try {
+        const relativePath = 'docs/agentic/skill-strategy.md';
+        writeFixtureFile(fixtureRoot, relativePath, '# Skill Strategy\n\nUse worker_sol_low.\n');
+        execFileSync('git', ['add', relativePath], { cwd: fixtureRoot });
+
+        const result = runVerifier(fixtureRoot);
+
+        assert.equal(result.status, 1, result.stdout);
+        assert.match(
+            result.stderr,
+            /docs\/agentic\/skill-strategy\.md: current authority references retired worker role/u
+        );
+    } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('permits retired role references in tracked historical agentic evidence', () => {
+    for (const relativePath of [
+        'docs/agentic/evals/baseline-summaries/2026-01-01-history.md',
+        'docs/agentic/historical-plan-corpus-review.md',
+    ]) {
+        const fixtureRoot = createVerifierFixture();
+        try {
+            writeFixtureFile(fixtureRoot, relativePath, '# Historical Evidence\n\nUsed worker_sol_low.\n');
+            execFileSync('git', ['add', relativePath], { cwd: fixtureRoot });
+
+            const result = runVerifier(fixtureRoot);
+
+            assert.equal(result.status, 0, `${relativePath}: ${result.stderr}`);
+        } finally {
+            rmSync(fixtureRoot, { recursive: true, force: true });
+        }
     }
 });
 
