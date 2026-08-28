@@ -62,6 +62,8 @@ import {
     type PlexLibraryRequestScopeSnapshot,
 } from './PlexLibraryRequestScope';
 
+const PLEX_METADATA_IMAGE_ORIGIN = 'https://metadata-static.plex.tv';
+
 // Re-export for consumers
 export {
     PlexLibraryError,
@@ -868,8 +870,10 @@ export class PlexLibrary implements IPlexLibrary {
 
         const token = this._config.getAuthToken() || '';
         const originClassification = classifyPlexUrlOrigin(serverUri, imagePath);
+        const isTrustedMetadataImage = originClassification === 'foreign-absolute'
+            && new URL(imagePath).origin === PLEX_METADATA_IMAGE_ORIGIN;
 
-        if (originClassification === 'foreign-absolute') {
+        if (originClassification === 'foreign-absolute' && !isTrustedMetadataImage) {
             return null;
         }
 
@@ -879,8 +883,17 @@ export class PlexLibrary implements IPlexLibrary {
             applyXPlexTokenQueryParam(url.searchParams, token);
             url.searchParams.set('width', String(width));
             url.searchParams.set('height', String(resizeHeight));
-            url.searchParams.set('url', buildPlexUrlFromKey(serverUri, imagePath).toString());
+            url.searchParams.set(
+                'url',
+                isTrustedMetadataImage
+                    ? imagePath
+                    : buildPlexUrlFromKey(serverUri, imagePath).toString()
+            );
             return url.toString();
+        }
+
+        if (isTrustedMetadataImage) {
+            return imagePath;
         }
 
         // Direct image URL

@@ -208,7 +208,7 @@ authorization failure event. The typed cloud transport result is preserved; clou
 reachability failures translate to `PLEX_CLOUD_UNAVAILABLE`, whose recovery is Retry
 or Exit rather than profile, account sign-in, or PMS server selection.
 Caller cancellation remains distinct and takes precedence at each observation boundary: an aborted signal rejects with its raw reason, including on a current cache hit. Count enrichment treats caller abort and scope supersession as fatal for the whole library-list request, while ordinary count failures remain best-effort and leave the affected count unknown.
-`getImageUrl()` returns `null` when no image URL can be built, such as an empty image path, missing active server URI, or a foreign absolute image URL. Plex tokens are only attached to active-server-owned image URLs.
+`getImageUrl()` returns `null` when no image URL can be built, such as an empty image path, missing active server URI, or an untrusted foreign absolute image URL. Absolute `https://metadata-static.plex.tv` actor images are allowed: direct requests remain token-free, while resized requests use the authenticated active-server photo transcoder. Plex tokens are never attached to the metadata CDN URL.
 
 ## Server Discovery (`IPlexServerDiscovery`)
 
