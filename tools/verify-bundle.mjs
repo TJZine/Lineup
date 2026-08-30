@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const STARTUP_MAX_BYTES = 500000;
+const EAGER_CSS_MAX_BYTES = 100000;
 const BUILD_ANALYZE_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 const STARTUP_ENTRY_MODULE = normalizeModulePath('src/bootstrap.ts');
 const REQUIRED_DEFERRED_MODULES = [
@@ -538,6 +539,12 @@ function verifyReport(report) {
         fail(
             `Bootstrap-containing startup entry ${report.bootstrapChunk} is ${report.bootstrapBytes} bytes ` +
             `(must be < ${STARTUP_MAX_BYTES}).`
+        );
+    }
+    if (report.eagerCssBytes >= EAGER_CSS_MAX_BYTES) {
+        fail(
+            `Eager startup CSS is ${report.eagerCssBytes} bytes ` +
+            `(must be < ${EAGER_CSS_MAX_BYTES}).`
         );
     }
 }

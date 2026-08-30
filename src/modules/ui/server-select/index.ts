@@ -1,3 +1,5 @@
+import './styles.css';
+
 export { ServerSelectScreen } from './ServerSelectScreen';
 export type {
     ServerSelectScreenPorts,
