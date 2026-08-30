@@ -4,6 +4,7 @@ import type {
     PlexLibrarySection,
 } from '../../../modules/plex/library';
 import { getPlexRequestIntentForChannelSetup } from '../../../modules/plex/library';
+import { readAbortSignalReason } from '../../../utils/abortSignalReason';
 import type {
     ChannelSetupConfig,
     ChannelBuildProgress,
@@ -31,10 +32,28 @@ import {
 import { createEmptyChannelSetupEstimates } from './ChannelSetupPlanningTypes';
 import { normalizeChannelSetupConfig } from '../config/normalizeChannelSetupConfig';
 
+function throwIfChannelSetupAborted(signal: AbortSignal | null | undefined): void {
+    if (signal?.aborted) {
+        throw readAbortSignalReason(signal);
+    }
+}
+
 export interface ChannelSetupPlanningServiceDeps {
     plexLibrary: IPlexLibrary;
     channelManager: IChannelManager;
+    getActiveUserId?: () => string | null;
+    getSelectedServerId?: () => string | null;
 }
+
+type ChannelSetupLibraryScope = {
+    key: string;
+    generation: number;
+};
+
+type ChannelSetupLibraryAcquisition = ChannelSetupLibraryScope & {
+    controller: AbortController;
+    promise: Promise<PlexLibrarySection[]>;
+};
 
 export type ChannelSetupPlanBuildResult = {
     plan: ReturnType<typeof buildChannelSetupPlan> | null;
@@ -52,18 +71,24 @@ export type ChannelSetupPlanBuildResult = {
 
 export class ChannelSetupPlanningService {
     private readonly _facetSnapshotLoader: ChannelSetupFacetSnapshotLoader;
+    private _sessionLibraries: PlexLibrarySection[] | null = null;
+    private _sessionScopeKey: string | null = null;
+    private _sessionGeneration = 0;
+    private _inflightLibraryAcquisition: ChannelSetupLibraryAcquisition | null = null;
 
     constructor(private readonly _deps: ChannelSetupPlanningServiceDeps) {
         this._facetSnapshotLoader = new ChannelSetupFacetSnapshotLoader(this._deps);
     }
 
     async getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibrarySection[]> {
-        const libraries = await this._deps.plexLibrary.getLibraries({
-            signal: signal ?? null,
-            includeItemCounts: true,
-            itemCountConcurrency: 4,
-        });
-        return libraries.filter((lib) => lib.type === 'movie' || lib.type === 'show');
+        throwIfChannelSetupAborted(signal);
+        const scope = this._ensureCurrentScope();
+        if (this._sessionLibraries) {
+            return this._awaitLibraryAcquisition(Promise.resolve(this._sessionLibraries), signal);
+        }
+
+        const acquisition = this._getOrCreateLibraryAcquisition(scope);
+        return this._awaitLibraryAcquisition(acquisition.promise, signal);
     }
 
     normalizeConfig(config: ChannelSetupConfig): ChannelSetupConfig {
@@ -296,6 +321,116 @@ export class ChannelSetupPlanningService {
 
     invalidateFacetSnapshot(): void {
         this._facetSnapshotLoader.invalidate();
+    }
+
+    invalidateSessionData(): void {
+        this._sessionGeneration += 1;
+        this._sessionLibraries = null;
+        const inflight = this._inflightLibraryAcquisition;
+        this._inflightLibraryAcquisition = null;
+        inflight?.controller.abort();
+        this.invalidateFacetSnapshot();
+    }
+
+    private _ensureCurrentScope(): ChannelSetupLibraryScope {
+        const key = this._readCurrentScopeKey();
+        if (this._sessionScopeKey !== key) {
+            this.invalidateSessionData();
+            this._sessionScopeKey = key;
+        }
+        return { key, generation: this._sessionGeneration };
+    }
+
+    private _readCurrentScopeKey(): string {
+        return JSON.stringify([
+            this._deps.getActiveUserId?.() ?? null,
+            this._deps.getSelectedServerId?.() ?? null,
+        ]);
+    }
+
+    private _getOrCreateLibraryAcquisition(
+        scope: ChannelSetupLibraryScope
+    ): ChannelSetupLibraryAcquisition {
+        const existing = this._inflightLibraryAcquisition;
+        if (existing?.generation === scope.generation && existing.key === scope.key) {
+            return existing;
+        }
+
+        const controller = new AbortController();
+        const libraryRequest = this._deps.plexLibrary.getLibraries({ signal: controller.signal });
+        const clearInflight = (): void => {
+            if (
+                this._inflightLibraryAcquisition?.generation === scope.generation
+                && this._inflightLibraryAcquisition.key === scope.key
+            ) {
+                this._inflightLibraryAcquisition = null;
+            }
+        };
+        const promise = libraryRequest
+            .then(
+                (libraries) => {
+                    try {
+                        const filteredLibraries = libraries.filter((lib) => lib.type === 'movie' || lib.type === 'show');
+                        if (this._readCurrentScopeKey() !== scope.key) {
+                            this._ensureCurrentScope();
+                        }
+                        if (
+                            this._sessionGeneration === scope.generation
+                            && this._sessionScopeKey === scope.key
+                        ) {
+                            this._sessionLibraries = filteredLibraries;
+                        }
+                        return filteredLibraries;
+                    } finally {
+                        clearInflight();
+                    }
+                },
+                (error: unknown) => {
+                    clearInflight();
+                    throw error;
+                }
+            );
+        const acquisition: ChannelSetupLibraryAcquisition = {
+            ...scope,
+            controller,
+            promise,
+        };
+        this._inflightLibraryAcquisition = acquisition;
+        return acquisition;
+    }
+
+    private _awaitLibraryAcquisition(
+        promise: Promise<PlexLibrarySection[]>,
+        signal?: AbortSignal | null
+    ): Promise<PlexLibrarySection[]> {
+        if (!signal) {
+            return promise;
+        }
+        throwIfChannelSetupAborted(signal);
+        return new Promise<PlexLibrarySection[]>((resolve, reject) => {
+            const onAbort = (): void => {
+                cleanup();
+                reject(readAbortSignalReason(signal));
+            };
+            const cleanup = (): void => {
+                signal.removeEventListener('abort', onAbort);
+            };
+            signal.addEventListener('abort', onAbort, { once: true });
+            if (signal.aborted) {
+                onAbort();
+                return;
+            }
+            void promise.then(
+                (libraries) => {
+                    cleanup();
+                    resolve(libraries);
+                },
+                (error: unknown) => {
+                    cleanup();
+                    reject(error);
+                }
+            );
+        });
     }
 
     getPendingChannelsForMode(

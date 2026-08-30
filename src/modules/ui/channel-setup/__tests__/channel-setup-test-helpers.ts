@@ -146,6 +146,7 @@ export const createWorkflowPort = (
     getChannelSetupRecord: jest.fn(() => null),
     getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
     invalidateFacetSnapshot: jest.fn(),
+    invalidateSessionData: jest.fn(),
     createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
     markSetupComplete: jest.fn((_serverId, setupConfig) => ({
         ok: true,

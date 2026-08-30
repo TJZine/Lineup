@@ -28,6 +28,7 @@ const createWorkflowPort = (
     overrides: Partial<jest.Mocked<ChannelSetupWorkflowPort>> = {}
 ): jest.Mocked<ChannelSetupWorkflowPort> => ({
     invalidateFacetSnapshot: jest.fn(),
+    invalidateSessionData: jest.fn(),
     getLibrariesForSetup: jest.fn().mockResolvedValue([]),
     getChannelSetupRecord: jest.fn().mockReturnValue(null),
     getSetupContextForSelectedServer: jest.fn().mockReturnValue('unknown'),

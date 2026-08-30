@@ -78,7 +78,8 @@ describe('ChannelSetupSessionRuntime', () => {
         expect(state.reviewError).toBeNull();
         expect(state.replaceConfirm).toBe(false);
         expect(state.recordApplied).toBe(false);
-        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+        expect(workflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
+        expect(workflowPort.invalidateFacetSnapshot).not.toHaveBeenCalled();
     });
 
     it('endSession aborts in-flight load/build work and clears loading flags', async () => {
@@ -162,6 +163,9 @@ describe('ChannelSetupSessionRuntime', () => {
 
     it('treats unavailable workflow queries as UI-safe defaults at the runtime edge', async () => {
         const workflowPort = createWorkflowPort({
+            invalidateSessionData: jest.fn(() => {
+                throw createUnavailableError();
+            }),
             invalidateFacetSnapshot: jest.fn(() => {
                 throw createUnavailableError();
             }),

@@ -211,6 +211,21 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
         }));
     });
 
+    it('requires facet-directory entries when the library item count is unknown', async () => {
+        const plexLibrary = createMockPlexLibrary();
+        plexLibrary.getGenres.mockResolvedValue([
+            { key: 'genre-1', title: 'Comedy', count: 3 },
+        ]);
+        const executor = createExecutor(plexLibrary, createEnabledGenreConfig());
+
+        await expect(executor.loadLibraryFacets(createFacetPlanningLibrary({ contentCount: null }), 0))
+            .resolves.toBeNull();
+
+        expect(plexLibrary.getGenres).toHaveBeenCalledWith('lib-1', expect.objectContaining({
+            requireEntries: true,
+        }));
+    });
+
     it('returns the first blocking snapshot when count recovery fails', async () => {
         const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         const loadState = new ChannelSetupFacetSnapshotLoadState();

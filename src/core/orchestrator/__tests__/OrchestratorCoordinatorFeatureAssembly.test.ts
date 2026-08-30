@@ -13,6 +13,7 @@ const scratchStoreInstance = { kind: 'scratch-store' };
 const planningServiceInstance = {
     kind: 'planning-service',
     invalidateFacetSnapshot: jest.fn(),
+    invalidateSessionData: jest.fn(),
 };
 const buildCommitterInstance = { kind: 'build-committer' };
 const buildExecutorInstance = {
@@ -266,6 +267,7 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
             portOwners: {
                 planningService: {
                     invalidateFacetSnapshot: expect.any(Function),
+                    invalidateSessionData: expect.any(Function),
                     getLibrariesForSetup: expect.any(Function),
                     getSetupPreview: expect.any(Function),
                     getSetupReview: expect.any(Function),
@@ -288,6 +290,8 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
         expect(ChannelSetupPlanningService).toHaveBeenCalledWith({
             plexLibrary: input.modules.plexLibrary,
             channelManager: input.modules.channelManager,
+            getActiveUserId: input.schedule.getActiveUserId,
+            getSelectedServerId: expect.any(Function),
         });
         expect(ChannelSetupBuildExecutor).toHaveBeenCalledWith({
             channelManager: input.modules.channelManager,

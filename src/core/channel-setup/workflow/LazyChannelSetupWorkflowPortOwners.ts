@@ -13,6 +13,7 @@ import type { ChannelSetupCompletionResult } from '../types';
 export interface LazyChannelSetupWorkflowPortOwnersDeps {
     plexLibrary: IPlexLibrary;
     channelManager: IChannelManager;
+    getActiveUserId: () => string | null;
     scratchStore: ChannelSetupBuildScratchStore;
     recordStore: ChannelSetupRecordStore;
     ensureEpgInitialized: () => Promise<void>;
@@ -31,6 +32,8 @@ async function createPlanningService(
     return new ChannelSetupPlanningService({
         plexLibrary: deps.plexLibrary,
         channelManager: deps.channelManager,
+        getActiveUserId: deps.getActiveUserId,
+        getSelectedServerId: deps.getSelectedServerId,
     });
 }
 
@@ -100,6 +103,23 @@ export function createLazyChannelSetupWorkflowPortOwners(
                         // Best-effort invalidation should not surface from this void API.
                         globalThis.console?.debug?.(
                             'Channel setup invalidateFacetSnapshot failed',
+                            summarizeErrorForLog(error)
+                        );
+                    });
+            },
+            invalidateSessionData: (): void => {
+                const planningServiceLoad = planningServicePromise;
+                if (!planningServiceLoad) {
+                    return;
+                }
+                void planningServiceLoad
+                    .then((planningService) => {
+                        planningService.invalidateSessionData();
+                    })
+                    .catch((error: unknown) => {
+                        // Best-effort invalidation should not surface from this void API.
+                        globalThis.console?.debug?.(
+                            'Channel setup invalidateSessionData failed',
                             summarizeErrorForLog(error)
                         );
                     });

@@ -16,6 +16,7 @@ describe('createChannelSetupWorkflowPort', () => {
         const config = { serverId: 'server-1' } as ChannelSetupConfig;
 
         expect(() => workflowPort.invalidateFacetSnapshot()).toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
+        expect(() => workflowPort.invalidateSessionData()).toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
         expect(() => workflowPort.getChannelSetupRecord('server-1')).toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
         expect(() => workflowPort.getSetupContextForSelectedServer()).toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
         expect(() => workflowPort.markSetupComplete('server-1', config)).toThrow(CHANNEL_SETUP_WORKFLOW_UNAVAILABLE_MESSAGE);
@@ -35,6 +36,7 @@ describe('createChannelSetupWorkflowPort', () => {
     it('forwards all methods to the resolved workflow port owners', async () => {
         const planningService = {
             invalidateFacetSnapshot: jest.fn(),
+            invalidateSessionData: jest.fn(),
             getLibrariesForSetup: jest.fn().mockResolvedValue([]),
             getSetupPreview: jest.fn().mockResolvedValue({ estimates: {}, warnings: [], reachedMaxChannels: false }),
             getSetupReview: jest.fn().mockResolvedValue({ preview: { estimates: {}, warnings: [], reachedMaxChannels: false }, diff: { summary: { created: 0, removed: 0, unchanged: 0 }, samples: { created: [], removed: [], unchanged: [] } } }),
@@ -63,6 +65,7 @@ describe('createChannelSetupWorkflowPort', () => {
         const config = { serverId: 'server-1' } as ChannelSetupConfig;
 
         workflowPort.invalidateFacetSnapshot();
+        workflowPort.invalidateSessionData();
         await workflowPort.getLibrariesForSetup();
         workflowPort.getChannelSetupRecord('server-1');
         workflowPort.getSetupContextForSelectedServer();
@@ -73,6 +76,7 @@ describe('createChannelSetupWorkflowPort', () => {
         workflowPort.markSetupComplete('server-1', config);
 
         expect(planningService.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+        expect(planningService.invalidateSessionData).toHaveBeenCalledTimes(1);
         expect(planningService.getLibrariesForSetup).toHaveBeenCalledTimes(1);
         expect(recordStore.getRecord).toHaveBeenCalledWith('server-1');
         expect(owners.getSelectedServerId).toHaveBeenCalledTimes(1);

@@ -3,6 +3,7 @@
  */
 
 import { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
+import { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
 import { ChannelSetupFacetSnapshotLoader } from '../planning/ChannelSetupFacetSnapshotLoader';
 import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';
 import type {
@@ -38,6 +39,202 @@ const resolvePendingAfterMacrotask = async (): Promise<'pending'> => {
 };
 
 describe('ChannelSetupPlanningService', () => {
+    it('reuses resolved libraries across load, preview, review, diagnostics, and build', async () => {
+        const libraries = [makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 1200 })];
+        const getLibraries = jest.fn().mockResolvedValue(libraries);
+        const plexLibrary = {
+            getLibraries,
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getLibraryItems: jest.fn().mockResolvedValue([]),
+            getGenres: jest.fn().mockResolvedValue([]),
+            getDirectors: jest.fn().mockResolvedValue([]),
+            getYears: jest.fn().mockResolvedValue([]),
+            getActors: jest.fn().mockResolvedValue([]),
+            getStudios: jest.fn().mockResolvedValue([]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const config = service.normalizeConfig(createConfig({ selectedLibraryIds: ['shows'] }));
+        const buildExecutor = new ChannelSetupBuildExecutor({
+            channelManager,
+            planningService: service,
+            buildCommitter: {} as never,
+        });
+
+        const loaded = await service.getLibrariesForSetup();
+        await service.getSetupPreview(config);
+        await service.getSetupReview(config);
+        await service.getSetupPlanDiagnostics(config);
+        await buildExecutor.createChannelsFromSetup(config);
+
+        expect(getLibraries).toHaveBeenCalledTimes(1);
+        expect(loaded[0]).toMatchObject({ id: 'shows', contentCount: 1200 });
+        expect(await service.getLibrariesForSetup()).toBe(loaded);
+    });
+
+    it('keeps the resolved library session data when only facet data is invalidated', async () => {
+        const libraries = [makeLibrary({ id: 'shows', type: 'show', contentCount: 1200 })];
+        const getLibraries = jest.fn().mockResolvedValue(libraries);
+        const plexLibrary = {
+            getLibraries,
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+
+        const first = await service.getLibrariesForSetup();
+        service.invalidateFacetSnapshot();
+        const second = await service.getLibrariesForSetup();
+
+        expect(second).toBe(first);
+        expect(getLibraries).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears library session data together with facets when explicitly invalidated', async () => {
+        const libraries = [makeLibrary({ id: 'shows', type: 'show', contentCount: 1200 })];
+        const getLibraries = jest.fn().mockResolvedValue(libraries);
+        const plexLibrary = { getLibraries } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+
+        await service.getLibrariesForSetup();
+        service.invalidateSessionData();
+        const second = await service.getLibrariesForSetup();
+
+        expect(second).not.toBeNull();
+        expect(getLibraries).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects an already-aborted caller on a resolved library cache hit', async () => {
+        const getLibraries = jest.fn().mockResolvedValue([makeLibrary({ id: 'shows', type: 'show' })]);
+        const plexLibrary = { getLibraries } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        await service.getLibrariesForSetup();
+
+        const controller = new AbortController();
+        const reason = new DOMException('cache caller canceled', 'AbortError');
+        controller.abort(reason);
+
+        await expect(service.getLibrariesForSetup(controller.signal)).rejects.toBe(reason);
+        expect(getLibraries).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not cache failed library acquisition', async () => {
+        const libraries = [makeLibrary({ id: 'shows', type: 'show' })];
+        const getLibraries = jest.fn()
+            .mockRejectedValueOnce(new Error('library request failed'))
+            .mockResolvedValueOnce(libraries);
+        const plexLibrary = { getLibraries } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+
+        await expect(service.getLibrariesForSetup()).rejects.toThrow('library request failed');
+        await expect(service.getLibrariesForSetup()).resolves.toHaveLength(1);
+
+        expect(getLibraries).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not let one aborted caller poison the shared acquisition', async () => {
+        const libraries = [makeLibrary({ id: 'shows', type: 'show' })];
+        const pending = createDeferred<PlexLibrarySection[]>();
+        const controller = new AbortController();
+        const getLibraries = jest.fn().mockReturnValue(pending.promise);
+        const plexLibrary = { getLibraries } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+
+        const abortedCaller = service.getLibrariesForSetup(controller.signal);
+        const retainedCaller = service.getLibrariesForSetup();
+        await Promise.resolve();
+        expect(getLibraries).toHaveBeenCalledTimes(1);
+        const sharedSignal = getLibraries.mock.calls[0]?.[0]?.signal;
+        controller.abort(new DOMException('caller canceled', 'AbortError'));
+        await expect(abortedCaller).rejects.toMatchObject({ name: 'AbortError' });
+        expect(sharedSignal?.aborted).toBe(false);
+
+        pending.resolve(libraries);
+        const retainedLibraries = await retainedCaller;
+        await expect(service.getLibrariesForSetup()).resolves.toBe(retainedLibraries);
+
+        expect(getLibraries).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not repopulate the cache from a request invalidated while in flight', async () => {
+        const staleLibraries = [makeLibrary({ id: 'stale', type: 'show' })];
+        const freshLibraries = [makeLibrary({ id: 'fresh', type: 'movie' })];
+        const staleRequest = createDeferred<PlexLibrarySection[]>();
+        const freshRequest = createDeferred<PlexLibrarySection[]>();
+        const getLibraries = jest.fn()
+            .mockReturnValueOnce(staleRequest.promise)
+            .mockReturnValueOnce(freshRequest.promise);
+        const plexLibrary = { getLibraries } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+
+        const staleLoad = service.getLibrariesForSetup();
+        await Promise.resolve();
+        service.invalidateSessionData();
+        const freshLoad = service.getLibrariesForSetup();
+        await Promise.resolve();
+        expect(getLibraries).toHaveBeenCalledTimes(2);
+
+        staleRequest.resolve(staleLibraries);
+        await expect(staleLoad).resolves.toEqual(staleLibraries);
+        freshRequest.resolve(freshLibraries);
+        const loadedFreshLibraries = await freshLoad;
+        expect(loadedFreshLibraries).toEqual(freshLibraries);
+        await expect(service.getLibrariesForSetup()).resolves.toBe(loadedFreshLibraries);
+        expect(getLibraries).toHaveBeenCalledTimes(2);
+    });
+
+    it('shares overlapping library acquisitions within one Plex scope', async () => {
+        const libraries = [makeLibrary({ id: 'shows', type: 'show' })];
+        const pending = createDeferred<PlexLibrarySection[]>();
+        const getLibraries = jest.fn().mockReturnValue(pending.promise);
+        const plexLibrary = { getLibraries } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+
+        const first = service.getLibrariesForSetup();
+        const second = service.getLibrariesForSetup();
+        await Promise.resolve();
+        expect(getLibraries).toHaveBeenCalledTimes(1);
+
+        pending.resolve(libraries);
+        const [firstLibraries, secondLibraries] = await Promise.all([first, second]);
+        expect(secondLibraries).toBe(firstLibraries);
+        expect(getLibraries).toHaveBeenCalledWith({ signal: expect.any(Object) });
+    });
+
+    it('refreshes the library scope when the profile changes on the same server', async () => {
+        let activeUserId: string | null = 'user-a';
+        const librariesForUserA = [makeLibrary({ id: 'user-a-library', type: 'show' })];
+        const librariesForUserB = [makeLibrary({ id: 'user-b-library', type: 'show' })];
+        const getLibraries = jest.fn()
+            .mockResolvedValueOnce(librariesForUserA)
+            .mockResolvedValueOnce(librariesForUserB);
+        const plexLibrary = { getLibraries } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = { getAllChannels: jest.fn().mockReturnValue([]) } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({
+            plexLibrary,
+            channelManager,
+            getActiveUserId: (): string | null => activeUserId,
+            getSelectedServerId: (): string => 'server-1',
+        });
+
+        const first = await service.getLibrariesForSetup();
+        activeUserId = 'user-b';
+        const second = await service.getLibrariesForSetup();
+
+        expect(first).toEqual(librariesForUserA);
+        expect(second).toEqual(librariesForUserB);
+        expect(second).not.toBe(first);
+        expect(getLibraries).toHaveBeenCalledTimes(2);
+    });
+
     it('uses tag directories and avoids scan truncation warning for show libraries', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
@@ -2015,8 +2212,7 @@ describe('ChannelSetupPlanningService', () => {
 
         const previewPromise = service.getSetupPreview(config, { signal: new AbortController().signal });
         void previewPromise.catch(() => undefined);
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushPromisesAndMacrotask();
         expect(plexLibrary.getGenres).toHaveBeenCalledTimes(1);
 
         const buildAbortController = new AbortController();

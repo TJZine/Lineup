@@ -146,6 +146,23 @@ describe('LibraryStepPresenter', () => {
         });
     });
 
+    it('keeps the library type label when counts are unknown without rendering bogus counts', () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot(new Set(['movies']));
+        snapshot.libraries = [
+            makeLibrary({ id: 'movies', title: 'Movies', type: 'movie', contentCount: null }),
+            makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: null }),
+        ];
+        const { presenter } = createPresenter(ctx, { snapshot });
+
+        presenter.render(ctx);
+
+        expect(ctx.contentEl.querySelector('#setup-lib-movies .setup-toggle-meta')?.textContent).toBe('Movies');
+        expect(ctx.contentEl.querySelector('#setup-lib-shows .setup-toggle-meta')?.textContent).toBe('Shows');
+        expect(ctx.contentEl.querySelectorAll('.setup-toggle-count')).toHaveLength(0);
+    });
+
     it('updates a library toggle in place and refreshes selected detail plus next disabled state', () => {
         const ctx = createContext();
         document.body.appendChild(ctx.contentEl);

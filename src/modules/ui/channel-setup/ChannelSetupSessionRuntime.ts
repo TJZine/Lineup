@@ -37,7 +37,7 @@ export class ChannelSetupSessionRuntime {
     beginSession(): void {
         this._deps.state.sessionToken += 1;
         this._resetState();
-        this._invalidateFacetSnapshotIfAvailable();
+        this._invalidateSessionDataIfAvailable();
     }
 
     endSession(): void {
@@ -368,6 +368,16 @@ export class ChannelSetupSessionRuntime {
     private _invalidateFacetSnapshotIfAvailable(): void {
         try {
             this._deps.workflowPort.invalidateFacetSnapshot();
+        } catch (error) {
+            if (!isChannelSetupWorkflowUnavailableError(error)) {
+                throw error;
+            }
+        }
+    }
+
+    private _invalidateSessionDataIfAvailable(): void {
+        try {
+            this._deps.workflowPort.invalidateSessionData();
         } catch (error) {
             if (!isChannelSetupWorkflowUnavailableError(error)) {
                 throw error;

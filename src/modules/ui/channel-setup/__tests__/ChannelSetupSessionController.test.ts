@@ -38,6 +38,7 @@ const createWorkflowPort = (overrides: WorkflowPortOverrides = {}): jest.Mocked<
         getChannelSetupRecord: jest.fn((_serverId: string) => null),
         getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
         invalidateFacetSnapshot: jest.fn(),
+        invalidateSessionData: jest.fn(),
         createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve(DEFAULT_BUILD_RESULT)),
         markSetupComplete: jest.fn((_serverId: string, _setupConfig) => ({
             ok: true,
@@ -233,7 +234,8 @@ describe('ChannelSetupSessionController', () => {
         controller.toggleLibrary('movies');
         expect(controller.getSnapshot().replaceConfirm).toBe(false);
 
-        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(5);
+        expect(workflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
+        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(4);
     });
 
     it('updateStrategyState() clears review state without invalidating facet snapshots', (): void => {
@@ -251,7 +253,8 @@ describe('ChannelSetupSessionController', () => {
 
         expect(controller.getSnapshot().replaceConfirm).toBe(false);
         expect(controller.getSnapshot().maxChannels).toBe(75);
-        expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+        expect(workflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
+        expect(workflowPort.invalidateFacetSnapshot).not.toHaveBeenCalled();
     });
 
     it('loadLibraries() applies setup record when present', async (): Promise<void> => {
