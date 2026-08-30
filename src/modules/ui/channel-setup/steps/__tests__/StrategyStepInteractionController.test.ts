@@ -111,7 +111,8 @@ const createNav = (focusedId: string): { getFocusedElement: jest.Mock; setFocus:
 });
 
 const createEvent = (
-    button: 'left' | 'right' | 'ok' | 'up' | 'down' | 'back'
+    button: 'left' | 'right' | 'ok' | 'up' | 'down' | 'back',
+    options: { isRepeat?: boolean; isLongPress?: boolean } = {}
 ): {
     button: 'left' | 'right' | 'ok' | 'up' | 'down' | 'back';
     handled: boolean;
@@ -122,8 +123,8 @@ const createEvent = (
 } => ({
     button,
     handled: false,
-    isRepeat: false,
-    isLongPress: false,
+    isRepeat: options.isRepeat ?? false,
+    isLongPress: options.isLongPress ?? false,
     timestamp: Date.now(),
     originalEvent: {
         preventDefault: jest.fn(),
@@ -177,6 +178,30 @@ describe('StrategyStepInteractionController', () => {
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
         expect(adapters.updateStrategyState).toHaveBeenCalledTimes(1);
         expect(adapters.schedulePreview).toHaveBeenCalledTimes(1);
+        expect(adapters.renderStep).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+        ['left', 'repeat', { isRepeat: true }],
+        ['right', 'repeat', { isRepeat: true }],
+        ['left', 'long press', { isLongPress: true }],
+        ['right', 'long press', { isLongPress: true }],
+    ] as const)('consumes adjustable-control %s %s without changing state or focus', (button, _label, options) => {
+        const controller = createController();
+        const adapters = createAdapters(createSnapshot());
+        const nav = createNav(STEP2_CONTROL_IDS.buildMode);
+        const event = createEvent(button, options);
+
+        controller.handleKeyPress(event, nav as never, adapters);
+
+        expect(event.handled).toBe(true);
+        expect(event.originalEvent.preventDefault).toHaveBeenCalledTimes(1);
+        expect(adapters.updateStrategyState).not.toHaveBeenCalled();
+        expect(adapters.schedulePreview).not.toHaveBeenCalled();
+        expect(adapters.renderStep).not.toHaveBeenCalled();
+        expect(adapters.setPreferredFocusId).not.toHaveBeenCalled();
+        expect(nav.setFocus).not.toHaveBeenCalled();
+        expect(nav.getFocusedElement()).toEqual({ id: STEP2_CONTROL_IDS.buildMode });
     });
 
     it('grabs and reorders priority rows directly from the controller state machine', () => {
