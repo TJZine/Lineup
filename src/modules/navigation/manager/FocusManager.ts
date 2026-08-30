@@ -31,7 +31,7 @@ export class FocusManager implements IFocusManager {
             return null;
         }
         const element = this._state.focusableElements.get(this._state.currentFocusId);
-        return element !== undefined ? element : null;
+        return element !== undefined && this._isEligible(element.element) ? element : null;
     }
 
     public getElement(elementId: string): FocusableElement | null {
@@ -68,7 +68,7 @@ export class FocusManager implements IFocusManager {
 
     public focus(elementId: string): boolean {
         const element = this._state.focusableElements.get(elementId);
-        if (!element) {
+        if (!element || !this._isEligible(element.element)) {
             return false;
         }
 
@@ -118,7 +118,8 @@ export class FocusManager implements IFocusManager {
 
         const explicitNeighbor = fromElement.neighbors[direction];
         if (explicitNeighbor !== undefined) {
-            if (this._state.focusableElements.has(explicitNeighbor)) {
+            const candidate = this._state.focusableElements.get(explicitNeighbor);
+            if (candidate && this._isEligible(candidate.element)) {
                 return explicitNeighbor;
             }
         }
@@ -128,7 +129,10 @@ export class FocusManager implements IFocusManager {
             const group = this._state.focusGroups.get(groupId);
             if (group) {
                 const groupNeighbor = this._findNextInGroup(fromId, direction, group);
-                if (groupNeighbor) {
+                const candidate = groupNeighbor
+                    ? this._state.focusableElements.get(groupNeighbor)
+                    : undefined;
+                if (candidate && this._isEligible(candidate.element)) {
                     return groupNeighbor;
                 }
             }
@@ -143,7 +147,7 @@ export class FocusManager implements IFocusManager {
             return;
         }
         const focused = this._state.focusableElements.get(currentFocusId);
-        if (!focused) {
+        if (!focused || !this._isEligible(focused.element)) {
             return;
         }
         const record: { id: string; restoreGroup?: string; restorePriority?: number } = {
@@ -163,7 +167,8 @@ export class FocusManager implements IFocusManager {
         if (!saved) {
             return false;
         }
-        if (this._state.focusableElements.has(saved.id)) {
+        const savedElement = this._state.focusableElements.get(saved.id);
+        if (savedElement && this._isEligible(savedElement.element)) {
             return this.focus(saved.id);
         }
         if (saved.restoreGroup) {
@@ -171,6 +176,9 @@ export class FocusManager implements IFocusManager {
             let bestPriority = Number.NEGATIVE_INFINITY;
             this._state.focusableElements.forEach((candidate) => {
                 if (candidate.restoreGroup !== saved.restoreGroup) {
+                    return;
+                }
+                if (!this._isEligible(candidate.element)) {
                     return;
                 }
                 const candidatePriority = candidate.restorePriority ?? 0;
@@ -198,7 +206,10 @@ export class FocusManager implements IFocusManager {
         const preModalId = this._state.preFocusIdBeforeModal;
         this._state.preFocusIdBeforeModal = null;
 
-        if (preModalId && this._state.focusableElements.has(preModalId)) {
+        const preModalElement = preModalId
+            ? this._state.focusableElements.get(preModalId)
+            : undefined;
+        if (preModalId && preModalElement && this._isEligible(preModalElement.element)) {
             return this.focus(preModalId);
         }
         return false;
@@ -206,7 +217,7 @@ export class FocusManager implements IFocusManager {
 
     public updateFocusRing(elementId: string): void {
         const element = this._state.focusableElements.get(elementId);
-        if (element) {
+        if (element && this._isEligible(element.element)) {
             if (element.preventScrollOnFocus === true) {
                 element.element.focus({ preventScroll: true });
                 return;
@@ -375,6 +386,10 @@ export class FocusManager implements IFocusManager {
                 return;
             }
 
+            if (!this._isEligible(element.element)) {
+                return;
+            }
+
             const rect = element.element.getBoundingClientRect();
 
             if (!this._isVisible(element.element, rect)) {
@@ -399,6 +414,13 @@ export class FocusManager implements IFocusManager {
         });
 
         return bestCandidateId;
+    }
+
+    private _isEligible(element: HTMLElement): boolean {
+        return element.isConnected
+            && !element.matches(':disabled')
+            && element.getAttribute('aria-disabled') !== 'true'
+            && element.closest('[hidden], [aria-hidden="true"], .hidden') === null;
     }
 
     private _isVisible(element: HTMLElement, rect?: DOMRect): boolean {

@@ -199,4 +199,30 @@ describe('NavigationRemoteInputRouter', () => {
         expect(deps.emitSettings).not.toHaveBeenCalled();
         expect(deps.logInputSuppressed).toHaveBeenCalledWith('protected_modal', 'back');
     });
+
+    it('routes Back for a dismissible background-blocking modal', () => {
+        const deps = {
+            isInputBlocked: jest.fn().mockReturnValue(false),
+            getActiveModalPolicy: jest.fn().mockReturnValue({
+                dismissOnBack: true,
+                blocksBackgroundCommands: true,
+            }),
+            logInputSuppressed: jest.fn(),
+            cancelDirectionalRepeat: jest.fn(),
+            emitKeyPress: jest.fn(),
+            repairFocusDesync: jest.fn(),
+            handleDirectionalKeyDown: jest.fn(),
+            handleOk: jest.fn(),
+            handleBack: jest.fn(),
+            handleNumberKey: jest.fn(),
+            emitGuide: jest.fn(),
+            emitSettings: jest.fn(),
+        };
+        const router = new NavigationRemoteInputRouter(deps);
+
+        router.handleKeyEvent(createKeyEvent('back'));
+
+        expect(deps.handleBack).toHaveBeenCalledTimes(1);
+        expect(deps.logInputSuppressed).not.toHaveBeenCalled();
+    });
 });

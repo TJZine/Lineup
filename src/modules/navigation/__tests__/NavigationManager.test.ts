@@ -324,6 +324,25 @@ describe('NavigationManager', () => {
             expect(onSelect).toHaveBeenCalledTimes(1);
         });
 
+        it('removes both click listeners from the prior element when an id is re-registered', () => {
+            const prior = createMockElement('shared-id');
+            const replacement = createMockElement('shared-id');
+            elements.push(prior, replacement);
+            const priorSelect = jest.fn();
+            const nativeClick = jest.fn();
+            nav.registerFocusable({ id: prior.id, element: prior, neighbors: {}, onSelect: priorSelect });
+            prior.addEventListener('click', nativeClick);
+
+            nav.registerFocusable({ id: replacement.id, element: replacement, neighbors: {} });
+            nav.openModal('modal', []);
+            prior.click();
+            nav.closeModal();
+            prior.click();
+
+            expect(nativeClick).toHaveBeenCalledTimes(2);
+            expect(priorSelect).not.toHaveBeenCalled();
+        });
+
         it('pointer click should not invoke onSelect twice', () => {
             nav.destroy();
             nav = new NavigationManager();
@@ -345,6 +364,47 @@ describe('NavigationManager', () => {
 
             el.click();
             expect(onSelect).toHaveBeenCalledTimes(1);
+        });
+
+        it('does not activate a focused control after it becomes disabled or detached', () => {
+            const el = createMockElement('btn-stale');
+            elements.push(el);
+            const onSelect = jest.fn();
+            nav.registerFocusable({ id: el.id, element: el, neighbors: {}, onSelect });
+            nav.setFocus(el.id);
+
+            (el as HTMLButtonElement).disabled = true;
+            dispatchKeyEvent(13);
+            el.remove();
+            dispatchKeyEvent(13);
+
+            expect(onSelect).not.toHaveBeenCalled();
+            expect(nav.getFocusedElement()).toBeNull();
+        });
+
+        it.each(['disabled', 'detached'])('moves away from a focused control that becomes %s', (state) => {
+            const source = createMockElement('stale-source');
+            const target = createMockElement('eligible-target');
+            elements.push(source, target);
+            const onBlur = jest.fn();
+            nav.registerFocusable({
+                id: source.id,
+                element: source,
+                neighbors: { right: target.id },
+                onBlur,
+            });
+            nav.registerFocusable({ id: target.id, element: target, neighbors: {} });
+            nav.setFocus(source.id);
+            if (state === 'disabled') {
+                (source as HTMLButtonElement).disabled = true;
+            } else {
+                source.remove();
+            }
+
+            expect(nav.moveFocus('right')).toBe(true);
+            expect(nav.getFocusedElement()?.id).toBe(target.id);
+            expect(source.classList.contains('focused')).toBe(false);
+            expect(onBlur).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -570,6 +630,26 @@ describe('NavigationManager', () => {
                 dismissOnBack: false,
                 blocksBackgroundCommands: true,
             });
+        });
+
+        it('dismisses a background-blocking modal on Back while suppressing Guide and Yellow', () => {
+            const guideHandler = jest.fn();
+            const settingsHandler = jest.fn();
+            nav.on('guide', guideHandler);
+            nav.on('settings', settingsHandler);
+            nav.openModal('blocking-error', [], {
+                dismissOnBack: true,
+                blocksBackgroundCommands: true,
+            });
+
+            dispatchKeyEvent(404);
+            dispatchKeyEvent(405);
+            expect(guideHandler).not.toHaveBeenCalled();
+            expect(settingsHandler).not.toHaveBeenCalled();
+            expect(nav.isModalOpen('blocking-error')).toBe(true);
+
+            dispatchKeyEvent(461);
+            expect(nav.isModalOpen('blocking-error')).toBe(false);
         });
 
         it('should support stacked modals', () => {
@@ -871,9 +951,74 @@ describe('NavigationManager', () => {
             });
             expect(nav.getCurrentScreen()).toBe('player');
         });
+
+        it.each([
+            ['profile-select', 'auth'],
+            ['audio-setup', 'server-select'],
+            ['channel-setup', 'audio-setup'],
+        ] as const)('navigates from %s root to %s', (from, to) => {
+            nav.replaceScreen(from);
+
+            dispatchKeyEvent(461);
+
+            expect(nav.getCurrentScreen()).toBe(to);
+        });
     });
 
     describe('modal focus trap', () => {
+        it('suppresses an earlier native click listener before a disallowed modal target mutates', () => {
+            const outside = createMockElement('outside-native');
+            const modal = createMockElement('modal-native');
+            elements.push(outside, modal);
+            const nativeClick = jest.fn();
+            const outsideSelect = jest.fn();
+            outside.addEventListener('click', nativeClick);
+            nav.registerFocusable({ id: outside.id, element: outside, neighbors: {}, onSelect: outsideSelect });
+            nav.registerFocusable({ id: modal.id, element: modal, neighbors: {} });
+            nav.openModal('test-modal', [modal.id]);
+            nav.setFocus(modal.id);
+
+            outside.click();
+
+            expect(nativeClick).not.toHaveBeenCalled();
+            expect(outsideSelect).not.toHaveBeenCalled();
+            expect(nav.getFocusedElement()?.id).toBe(modal.id);
+
+            nav.closeModal();
+            outside.click();
+            expect(nativeClick).toHaveBeenCalledTimes(1);
+            expect(outsideSelect).toHaveBeenCalledTimes(1);
+            expect(nativeClick.mock.invocationCallOrder[0]).toBeLessThan(
+                outsideSelect.mock.invocationCallOrder[0] as number
+            );
+        });
+
+        it('rejects direct focus, pointer activation, and OK activation outside the active modal', () => {
+            const outside = createMockElement('outside');
+            const modal = createMockElement('modal-action');
+            elements.push(outside, modal);
+            const outsideSelect = jest.fn();
+            const modalSelect = jest.fn();
+            nav.registerFocusable({ id: outside.id, element: outside, neighbors: {}, onSelect: outsideSelect });
+            nav.registerFocusable({ id: modal.id, element: modal, neighbors: {}, onSelect: modalSelect });
+            nav.setFocus(outside.id);
+            nav.openModal('test-modal', [modal.id]);
+
+            dispatchKeyEvent(13);
+            expect(outsideSelect).not.toHaveBeenCalled();
+
+            nav.setFocus(modal.id);
+            nav.setFocus(outside.id);
+            outside.click();
+
+            expect(outsideSelect).not.toHaveBeenCalled();
+            expect(nav.getFocusedElement()?.id).toBe(modal.id);
+
+            dispatchKeyEvent(13);
+            expect(modalSelect).toHaveBeenCalledTimes(1);
+            expect(nav.getFocusedElement()?.id).toBe(modal.id);
+        });
+
         it('should trap focus within modal', () => {
             const el1 = createMockElement('outside');
             const el2 = createMockElement('modal-btn1');

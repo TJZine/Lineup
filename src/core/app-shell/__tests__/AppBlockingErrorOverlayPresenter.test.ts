@@ -125,13 +125,30 @@ describe('AppBlockingErrorOverlayPresenter', () => {
             2,
             expect.objectContaining({ group: 'modal:error-overlay' })
         );
-        expect(nav.openModal).toHaveBeenCalledWith('modal:error-overlay', [
-            'error-overlay-action-0',
-            'error-overlay-action-1',
-        ]);
+        expect(nav.openModal).toHaveBeenCalledWith(
+            'modal:error-overlay',
+            ['error-overlay-action-0', 'error-overlay-action-1'],
+            { dismissOnBack: true, blocksBackgroundCommands: true }
+        );
         expect(nav.setFocus).toHaveBeenCalledWith('error-overlay-action-0', { persist: false });
         expect(nav.on).toHaveBeenCalledTimes(1);
         expect(nav.on).toHaveBeenCalledWith('modalClose', expect.any(Function));
+    });
+
+    it('blocks background commands even when the error has no actions', () => {
+        const overlay = createOverlayContainer();
+        const nav = createNavigation();
+        const presenter = new AppBlockingErrorOverlayPresenter({ getNavigation: (): never => nav as never });
+        presenter.setContainer(overlay);
+
+        presenter.show(createError(), []);
+
+        expect(nav.openModal).toHaveBeenCalledWith(
+            'modal:error-overlay',
+            [],
+            { dismissOnBack: true, blocksBackgroundCommands: true }
+        );
+        expect(nav.setFocus).not.toHaveBeenCalled();
     });
 
     it('refreshes modal membership when show is called again while the modal is already open', () => {
@@ -152,10 +169,11 @@ describe('AppBlockingErrorOverlayPresenter', () => {
 
         expect(nav.off).toHaveBeenCalledTimes(1);
         expect(nav.closeModal).toHaveBeenCalledWith('modal:error-overlay');
-        expect(nav.openModal).toHaveBeenCalledWith('modal:error-overlay', [
-            'error-overlay-action-0',
-            'error-overlay-action-1',
-        ]);
+        expect(nav.openModal).toHaveBeenCalledWith(
+            'modal:error-overlay',
+            ['error-overlay-action-0', 'error-overlay-action-1'],
+            { dismissOnBack: true, blocksBackgroundCommands: true }
+        );
     });
 
     it('hide closes the modal, unregisters focusables, and re-hides the overlay', () => {

@@ -115,6 +115,13 @@ export class NavigationRemoteInputRouter {
             this.deps.handleOk();
             return;
         }
+        if (
+            keyEvent.button === 'back'
+            && this.deps.getActiveModalPolicy?.()?.dismissOnBack !== false
+        ) {
+            this.deps.handleBack();
+            return;
+        }
         this.deps.logInputSuppressed('protected_modal', keyEvent.button);
     }
 }

@@ -103,6 +103,40 @@ describe('FocusManager', () => {
             expect(focusManager.getCurrentFocusId()).toBeNull();
         });
 
+        it.each([
+            ['native disabled', (element: HTMLElement): void => {
+                (element as HTMLButtonElement).disabled = true;
+            }],
+            ['aria disabled', (element: HTMLElement): void => {
+                element.setAttribute('aria-disabled', 'true');
+            }],
+            ['hidden ancestor', (element: HTMLElement): void => {
+                const parent = document.createElement('div');
+                parent.hidden = true;
+                element.replaceWith(parent);
+                parent.appendChild(element);
+                elements.push(parent);
+            }],
+            ['aria-hidden ancestor', (element: HTMLElement): void => {
+                const parent = document.createElement('div');
+                parent.setAttribute('aria-hidden', 'true');
+                element.replaceWith(parent);
+                parent.appendChild(element);
+                elements.push(parent);
+            }],
+            ['detached', (element: HTMLElement): void => {
+                element.remove();
+            }],
+        ])('rejects an ineligible %s element', (_label, makeIneligible) => {
+            const el = createMockElement('ineligible');
+            elements.push(el);
+            focusManager.registerFocusable({ id: el.id, element: el, neighbors: {} });
+            makeIneligible(el);
+
+            expect(focusManager.focus(el.id)).toBe(false);
+            expect(focusManager.getFocusedElement()).toBeNull();
+        });
+
         it('should blur previous element when focusing new one', () => {
             const el1 = createMockElement('btn1');
             const el2 = createMockElement('btn2');
@@ -200,8 +234,46 @@ describe('FocusManager', () => {
                 neighbors: { left: 'btn1' },
             });
 
+            const computedStyleSpy = jest.spyOn(window, 'getComputedStyle');
+
             const neighbor = focusManager.findNeighbor('btn1', 'right');
             expect(neighbor).toBe('btn2');
+            expect(computedStyleSpy).not.toHaveBeenCalled();
+            computedStyleSpy.mockRestore();
+        });
+
+        it('rejects an ineligible explicit neighbor', () => {
+            const el1 = createMockElement('btn1');
+            const el2 = createMockElement('btn2');
+            elements.push(el1, el2);
+            (el2 as HTMLButtonElement).disabled = true;
+            focusManager.registerFocusable({
+                id: 'btn1',
+                element: el1,
+                neighbors: { right: 'btn2' },
+            });
+            focusManager.registerFocusable({ id: 'btn2', element: el2, neighbors: {} });
+
+            expect(focusManager.findNeighbor('btn1', 'right')).toBeNull();
+        });
+
+        it.each(['disabled', 'detached'])('moves from an ineligible %s source to an eligible explicit neighbor', (state) => {
+            const source = createMockElement('source');
+            const target = createMockElement('target');
+            elements.push(source, target);
+            focusManager.registerFocusable({
+                id: source.id,
+                element: source,
+                neighbors: { right: target.id },
+            });
+            focusManager.registerFocusable({ id: target.id, element: target, neighbors: {} });
+            if (state === 'disabled') {
+                (source as HTMLButtonElement).disabled = true;
+            } else {
+                source.remove();
+            }
+
+            expect(focusManager.findNeighbor(source.id, 'right')).toBe(target.id);
         });
 
         it('should return null when no neighbor defined', () => {
@@ -328,6 +400,23 @@ describe('FocusManager', () => {
             expect(neighbor).toBe('h2');
         });
 
+        it('rejects an ineligible group neighbor', () => {
+            const el1 = createMockElement('h1');
+            const el2 = createMockElement('h2');
+            elements.push(el1, el2);
+            el2.setAttribute('aria-disabled', 'true');
+            focusManager.registerFocusable({ id: 'h1', element: el1, group: 'horiz', neighbors: {} });
+            focusManager.registerFocusable({ id: 'h2', element: el2, group: 'horiz', neighbors: {} });
+            focusManager.registerFocusGroup({
+                id: 'horiz',
+                elements: ['h1', 'h2'],
+                wrapAround: false,
+                orientation: 'horizontal',
+            });
+
+            expect(focusManager.findNeighbor('h1', 'right')).toBeNull();
+        });
+
         it('should navigate within grid groups by row and column', () => {
             const gridElements = Array.from({ length: 6 }, (_, index) => {
                 const el = createMockElement(`grid-${index + 1}`);
@@ -399,6 +488,22 @@ describe('FocusManager', () => {
             expect(focusManager.findNeighbor('origin', 'right')).toBe('visible');
         });
 
+        it('ignores disabled spatial candidates', () => {
+            const origin = createMockElement('origin');
+            const disabled = createMockElement('disabled');
+            const visible = createMockElement('visible');
+            elements.push(origin, disabled, visible);
+            (disabled as HTMLButtonElement).disabled = true;
+            setLayout(origin, rect(100, 100, 50, 50));
+            setLayout(disabled, rect(160, 100, 50, 50));
+            setLayout(visible, rect(230, 100, 50, 50));
+            focusManager.registerFocusable({ id: 'origin', element: origin, neighbors: {} });
+            focusManager.registerFocusable({ id: 'disabled', element: disabled, neighbors: {} });
+            focusManager.registerFocusable({ id: 'visible', element: visible, neighbors: {} });
+
+            expect(focusManager.findNeighbor('origin', 'right')).toBe('visible');
+        });
+
         it('should ignore a zero-size spatial candidate even when it is the only directional candidate', () => {
             const origin = createMockElement('origin');
             const zeroSize = createMockElement('zero-size');
@@ -455,6 +560,19 @@ describe('FocusManager', () => {
         it('should return false when restoring without saved state', () => {
             const restored = focusManager.restoreFocusState('unknown');
             expect(restored).toBe(false);
+        });
+
+        it('does not restore focus to an element that became hidden', () => {
+            const el = createMockElement('saved');
+            elements.push(el);
+            focusManager.registerFocusable({ id: el.id, element: el, neighbors: {} });
+            focusManager.focus(el.id);
+            focusManager.saveFocusState('home');
+            focusManager.blur();
+            el.hidden = true;
+
+            expect(focusManager.restoreFocusState('home')).toBe(false);
+            expect(focusManager.getFocusedElement()).toBeNull();
         });
 
         it('restores by restoreGroup + highest restorePriority when saved id no longer exists', () => {
