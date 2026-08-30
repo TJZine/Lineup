@@ -46,8 +46,10 @@ export type { EPGCellVisibleTextMetrics } from '../cells/EPGCellPresentation';
 
 export class EPGCellRenderer {
     private cellChildrenCache: WeakMap<HTMLElement, CellChildren> = new WeakMap();
+    private focusedTickerFrame: number | null = null;
     private focusedTickerTimer: ReturnType<typeof setTimeout> | null = null;
     private focusedTickerTargets: TickerTarget[] = [];
+    private pendingFocusedTickerCell: EPGRenderedCellData | null = null;
 
     createElement(): HTMLElement {
         const element = document.createElement('div');
@@ -244,6 +246,15 @@ export class EPGCellRenderer {
     }
 
     clearFocusedTickers(): void {
+        if (this.focusedTickerFrame !== null) {
+            cancelAnimationFrame(this.focusedTickerFrame);
+            this.focusedTickerFrame = null;
+        }
+        this.pendingFocusedTickerCell = null;
+        this.clearActiveFocusedTickers();
+    }
+
+    private clearActiveFocusedTickers(): void {
         if (this.focusedTickerTimer) {
             clearTimeout(this.focusedTickerTimer);
             this.focusedTickerTimer = null;
@@ -257,13 +268,32 @@ export class EPGCellRenderer {
     }
 
     clearFocusedTickersForElement(element: HTMLElement): void {
-        if (this.focusedTickerTargets.some((target) => element.contains(target.viewport))) {
+        if (
+            this.pendingFocusedTickerCell?.cellElement === element ||
+            this.focusedTickerTargets.some((target) => element.contains(target.viewport))
+        ) {
             this.clearFocusedTickers();
         }
     }
 
     syncFocusedTicker(focusedCell: EPGRenderedCellData | null): void {
-        this.clearFocusedTickers();
+        this.clearActiveFocusedTickers();
+        this.pendingFocusedTickerCell = focusedCell;
+        if (!focusedCell || this.prefersReducedMotion()) {
+            return;
+        }
+        if (this.focusedTickerFrame !== null) {
+            return;
+        }
+        this.focusedTickerFrame = requestAnimationFrame(() => {
+            this.focusedTickerFrame = null;
+            const latestFocusedCell = this.pendingFocusedTickerCell;
+            this.pendingFocusedTickerCell = null;
+            this.measureAndArmFocusedTicker(latestFocusedCell);
+        });
+    }
+
+    private measureAndArmFocusedTicker(focusedCell: EPGRenderedCellData | null): void {
         if (this.prefersReducedMotion()) return;
         if (!focusedCell?.cellElement) return;
 

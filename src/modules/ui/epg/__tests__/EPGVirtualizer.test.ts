@@ -71,6 +71,7 @@ describe('EPGVirtualizer', () => {
     afterEach(() => {
         virtualizer.destroy();
         container.remove();
+        jest.useRealTimers();
         jest.restoreAllMocks();
     });
 
@@ -464,6 +465,7 @@ describe('EPGVirtualizer', () => {
         });
 
         it('keeps focused episodes out of sliver suppression so tag-lane subtitle and ticker behavior remain active', () => {
+            jest.useFakeTimers();
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-sliver';
             const start = gridAnchorTime;
@@ -480,6 +482,7 @@ describe('EPGVirtualizer', () => {
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
             virtualizer.setFocusedCell(channelId, start);
+            jest.advanceTimersByTime(16);
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
@@ -494,6 +497,7 @@ describe('EPGVirtualizer', () => {
             Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 40 });
 
             virtualizer.setFocusedCell(channelId, start);
+            jest.advanceTimersByTime(16);
 
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
             expect(cell.classList.contains(EPG_CLASSES.SLIVER_CELL_CLASS)).toBe(false);
@@ -1267,6 +1271,7 @@ describe('EPGVirtualizer', () => {
         });
 
         it('keeps focused episodes in compact mode even when they do not expose split lanes before focus', () => {
+            jest.useFakeTimers();
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-episode-no-split';
             const start = gridAnchorTime;
@@ -1293,6 +1298,7 @@ describe('EPGVirtualizer', () => {
             Object.defineProperty(title, 'clientHeight', { configurable: true, value: 40 });
 
             virtualizer.setFocusedCell(channelId, start);
+            jest.advanceTimersByTime(16);
 
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
             const meta = cell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement;
@@ -1355,6 +1361,7 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
 
                 virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(16);
 
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
                 jest.advanceTimersByTime(899);
@@ -1523,6 +1530,7 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 100 });
 
                 virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(16);
 
                 expect(title.classList.contains('epg-cell-title-ticker-running')).toBe(false);
                 jest.advanceTimersByTime(900);
@@ -1563,6 +1571,7 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(focusedTitleText, 'scrollWidth', { configurable: true, value: 320 });
                 Object.defineProperty(focusedTitle, 'clientWidth', { configurable: true, value: 80 });
                 virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(16);
 
                 expect(focusedTitle.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
                 expect(focusedTitle.classList.contains('epg-cell-title-ticker-running')).toBe(false);
@@ -1613,6 +1622,7 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(focusedTitle, 'scrollHeight', { configurable: true, value: 60 });
                 Object.defineProperty(focusedTitle, 'clientHeight', { configurable: true, value: 40 });
                 virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(16);
 
                 expect(focusedTitle.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
                 expect(focusedTitle.classList.contains('epg-cell-title-ticker-running')).toBe(false);
@@ -1658,6 +1668,7 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(subtitleText, 'scrollWidth', { configurable: true, value: 360 });
                 Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 80 });
                 virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(16);
 
                 expect(title.textContent).toBe(showTitle);
                 expect(subtitle.textContent).toBe(episodeTitle);
@@ -1873,6 +1884,7 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 88 });
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
                 virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(16);
 
                 expect(title.classList.contains('epg-cell-title-ticker-ready')).toBe(true);
                 jest.advanceTimersByTime(900);
@@ -1943,6 +1955,7 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
 
                 virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(16);
 
                 expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
                 expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING)).toBe(false);
@@ -2055,6 +2068,7 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(firstTitle, 'clientWidth', { configurable: true, value: 80 });
 
                 virtualizer.setFocusedCell(channelId, start);
+                jest.advanceTimersByTime(16);
                 jest.advanceTimersByTime(900);
                 expect(firstTitle.classList.contains('epg-cell-title-ticker-running')).toBe(true);
 
@@ -2379,6 +2393,7 @@ describe('EPGVirtualizer', () => {
         });
 
         it('keeps focused compact ticker distance fixed when current state changes live badge visibility', () => {
+            jest.useFakeTimers();
             virtualizer.setChannelCount(1);
             const channelId = 'ch-focused-compact-current-ticker';
             const start = gridAnchorTime + (10 * 60000);
@@ -2415,6 +2430,7 @@ describe('EPGVirtualizer', () => {
             Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 100 });
 
             virtualizer.setFocusedCell(channelId, start, beforeCurrent);
+            jest.advanceTimersByTime(16);
             expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('60px');
 
             virtualizer.updateTemporalClasses(start + (2 * 60000));
