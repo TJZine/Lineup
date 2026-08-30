@@ -17,6 +17,7 @@
         "build:dev": "vite build --mode dev",
         "build:analyze": "vite build --mode analyze",
         "build:analyze:dev": "vite build --mode analyze-dev",
+        "measure:runtime": "node tools/measure-runtime-chunk-performance.mjs",
         "preview": "vite preview --port 5173",
         "build:ts": "tsc",
         "lint": "eslint src",

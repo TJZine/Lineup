@@ -20,6 +20,7 @@ const TIMING_FIELD_BY_MEASURE = new Map([
 
 const DEFAULT_TOP_LIMIT = 10;
 const DEFAULT_BUILD_PROFILE = 'lean';
+const DEFAULT_VIEWPORT = '1920x1080';
 
 function fail(message) {
     throw new Error(message);
@@ -273,10 +274,10 @@ export function summarizeBundle(distDir, topLimit = DEFAULT_TOP_LIMIT) {
     );
 
     const runtimeChunkFiles = [...metadata.uidsByChunk.keys()]
-        .filter((chunkName) => /^assets\/Orchestrator-[^/]+\.js$/u.test(chunkName))
+        .filter((chunkName) => /^assets\/AppOrchestrator-[^/]+\.js$/u.test(chunkName))
         .sort();
     if (runtimeChunkFiles.length !== 1) {
-        fail(`Expected exactly one Orchestrator runtime chunk, found ${runtimeChunkFiles.length}.`);
+        fail(`Expected exactly one AppOrchestrator runtime chunk, found ${runtimeChunkFiles.length}.`);
     }
     const runtimeChunkFile = runtimeChunkFiles[0];
     const runtimeChunkPath = path.join(distDir, runtimeChunkFile);
@@ -340,12 +341,12 @@ export function summarizeTimingSamples(samples) {
     return summary;
 }
 
-function parseOptions(argv) {
+export function parseOptions(argv) {
     const options = {
         distDir: path.resolve(process.cwd(), 'dist'),
         url: 'http://127.0.0.1:5173/',
         runs: 7,
-        viewport: '1280x720',
+        viewport: DEFAULT_VIEWPORT,
         cachePolicy: 'cold',
     };
 
@@ -630,24 +631,35 @@ async function collectBrowserTimings(options) {
     }
 }
 
-function buildDisposition(bundle, timing) {
-    const topOwner = bundle.top_owners[0];
-    const runtimeImportMedian = timing.runtime_import_ms.median;
-    const firstActionableMedian = timing.app_start_to_first_actionable_ms.median;
-
+export function buildMeasurementReport({
+    buildProfile,
+    gitHead,
+    gitDirtySummary,
+    nodeVersion,
+    timestamp,
+    bundle,
+    timing,
+    url,
+    browserUserAgent,
+    viewport,
+    cachePolicy,
+    runCount,
+}) {
     return {
-        outcome: 'next_plan_lazy_boundary',
-        owner: 'src/modules/plex/stream/diagnostics',
-        expected_value: (
-            `${bundle.runtime_chunk_file} is ${bundle.runtime_chunk_bytes} bytes ` +
-            `(${bundle.runtime_chunk_gzip_bytes} gzip); top owner ${topOwner?.owner ?? 'unknown'} ` +
-            `accounts for ${topOwner?.rendered_bytes ?? 0} rendered bytes; median runtime import ` +
-            `${runtimeImportMedian} ms and app start to first actionable ${firstActionableMedian} ms.`
-        ),
-        next_plan_trigger: (
-            'Draft a reviewed owner-boundary split plan only if source audit confirms a Plex diagnostics/debug/recovery ' +
-            'lazy boundary can reduce the deferred Orchestrator chunk while preserving these timing medians and bundle guards.'
-        ),
+        build_profile: buildProfile,
+        git_head: gitHead,
+        git_dirty_summary: gitDirtySummary,
+        node_version: nodeVersion,
+        timestamp,
+        bundle,
+        timing: {
+            url,
+            browser_user_agent: browserUserAgent,
+            viewport,
+            cache_policy: cachePolicy,
+            run_count: runCount,
+            ...timing,
+        },
     };
 }
 
@@ -656,23 +668,20 @@ async function main() {
     const bundle = summarizeBundle(options.distDir);
     const { browserUserAgent, samples } = await collectBrowserTimings(options);
     const timingSummary = summarizeTimingSamples(samples);
-    const result = {
-        build_profile: process.env.LINEUP_BUILD_PROFILE ?? DEFAULT_BUILD_PROFILE,
-        git_head: getGitOutput(['rev-parse', 'HEAD'], 'unknown'),
-        git_dirty_summary: getGitOutput(['status', '--short'], ''),
-        node_version: process.version,
+    const result = buildMeasurementReport({
+        buildProfile: process.env.LINEUP_BUILD_PROFILE ?? DEFAULT_BUILD_PROFILE,
+        gitHead: getGitOutput(['rev-parse', 'HEAD'], 'unknown'),
+        gitDirtySummary: getGitOutput(['status', '--short'], ''),
+        nodeVersion: process.version,
         timestamp: new Date().toISOString(),
         bundle,
-        timing: {
-            url: options.url,
-            browser_user_agent: browserUserAgent,
-            viewport: options.viewport,
-            cache_policy: options.cachePolicy,
-            run_count: options.runs,
-            ...timingSummary,
-        },
-        disposition: buildDisposition(bundle, timingSummary),
-    };
+        timing: timingSummary,
+        url: options.url,
+        browserUserAgent,
+        viewport: options.viewport,
+        cachePolicy: options.cachePolicy,
+        runCount: options.runs,
+    });
 
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
