@@ -1154,6 +1154,48 @@ describe('ProfileSelectScreen', () => {
         expect(nav.setFocus).toHaveBeenCalledWith('btn-profile-pin-5');
     });
 
+    it('retains PIN modal focus after a protected profile click', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const navigation = new NavigationManager();
+        navigation.initialize({
+            enablePointerMode: true,
+            keyRepeatDelayMs: 500,
+            keyRepeatIntervalMs: 100,
+            focusMemoryEnabled: true,
+            debugMode: false,
+        });
+        navigation.replaceScreen('profile-select');
+        const orchestrator = {
+            getNavigation: () => navigation,
+            getHomeUsers: jest.fn().mockResolvedValue(users),
+            switchHomeUser: jest.fn().mockResolvedValue(undefined),
+            useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
+            signOutPlex: jest.fn().mockResolvedValue(undefined),
+        } as unknown as ProfileSelectScreenPorts;
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(container, orchestrator, profileSessionStore);
+
+        try {
+            screen.show();
+            await settleScreen(screen);
+
+            (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+
+            expect(navigation.getState().modalStack).toEqual(['profile-pin']);
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-pin-5');
+            expect(container.querySelector('#btn-profile-pin-5')?.classList.contains('focused')).toBe(true);
+            expect(navigation.moveFocus('right')).toBe(true);
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-pin-6');
+        } finally {
+            screen.destroy();
+            navigation.destroy();
+        }
+    });
+
     it('numpad digit clicks enter PIN and submit after 4 digits', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
