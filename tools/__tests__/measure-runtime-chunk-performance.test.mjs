@@ -8,6 +8,7 @@ import {
     parseOptions,
     summarizeBundle,
     summarizeTimingSamples,
+    validateBuildProvenance,
 } from '../measure-runtime-chunk-performance.mjs';
 
 function writeAsset(distDir, relativePath, byteCount) {
@@ -129,8 +130,16 @@ test('parseOptions defaults timing collection to the TV viewport', () => {
 });
 
 test('buildMeasurementReport contains measured evidence without a speculative disposition', () => {
+    const buildProvenance = {
+        schema_version: 1,
+        build_profile: 'lean',
+        git_head: 'abc123',
+        source_fingerprint_sha256: 'def456',
+        relevant_dirty_summary: '',
+    };
     const report = buildMeasurementReport({
         buildProfile: 'lean',
+        buildProvenance,
         gitHead: 'abc123',
         gitDirtySummary: '',
         nodeVersion: 'v24.0.0',
@@ -145,8 +154,37 @@ test('buildMeasurementReport contains measured evidence without a speculative di
     });
 
     assert.equal(report.bundle.runtime_chunk_file, 'assets/AppOrchestrator-test.js');
+    assert.deepEqual(report.build_provenance, buildProvenance);
     assert.equal(report.timing.runtime_import_ms.median, 10);
     assert.equal('disposition' in report, false);
+});
+
+test('validateBuildProvenance accepts only the matching source state and profile', () => {
+    const source = {
+        schema_version: 1,
+        git_head: 'abc123',
+        source_fingerprint_sha256: 'def456',
+        relevant_dirty_summary: '',
+    };
+    const build = { ...source, build_profile: 'lean' };
+
+    assert.equal(validateBuildProvenance(build, source, 'lean'), build);
+    assert.throws(
+        () => validateBuildProvenance({ ...build, git_head: 'other' }, source, 'lean'),
+        /different commit/u
+    );
+    assert.throws(
+        () => validateBuildProvenance({ ...build, source_fingerprint_sha256: 'other' }, source, 'lean'),
+        /does not match the current build-relevant source state/u
+    );
+    assert.throws(
+        () => validateBuildProvenance({ ...build, build_profile: 'dev' }, source, 'lean'),
+        /measurement expects lean/u
+    );
+    assert.throws(
+        () => validateBuildProvenance({}, source, 'lean'),
+        /unsupported schema/u
+    );
 });
 
 test('summarizeTimingSamples requires every RC-S1 timing field', () => {

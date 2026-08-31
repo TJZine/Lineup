@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs
 import { gzipSync } from 'node:zlib';
 import os from 'node:os';
 import path from 'node:path';
+import { captureSourceProvenance } from './build-provenance.mjs';
 
 const REQUIRED_TIMING_MEASURES = [
     'lineup.runtime_import',
@@ -115,6 +116,25 @@ function readJsonFile(filePath, description) {
     } catch (error) {
         fail(`Failed to parse ${description} ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
     }
+}
+
+export function validateBuildProvenance(buildProvenance, sourceProvenance, expectedProfile) {
+    if (buildProvenance?.schema_version !== 1) {
+        fail('dist/build-provenance.json is missing or has an unsupported schema. Re-run build:analyze.');
+    }
+    if (buildProvenance.build_profile !== expectedProfile) {
+        fail(
+            `Analyzed build profile is ${buildProvenance.build_profile ?? '(missing)'}, `
+            + `but measurement expects ${expectedProfile}. Re-run the matching analyze build.`
+        );
+    }
+    if (buildProvenance.git_head !== sourceProvenance.git_head) {
+        fail('Analyzed dist/ was built from a different commit. Re-run build:analyze before measuring.');
+    }
+    if (buildProvenance.source_fingerprint_sha256 !== sourceProvenance.source_fingerprint_sha256) {
+        fail('Analyzed dist/ does not match the current build-relevant source state. Re-run build:analyze before measuring.');
+    }
+    return buildProvenance;
 }
 
 function buildBundleMetadata(stats) {
@@ -633,6 +653,7 @@ async function collectBrowserTimings(options) {
 
 export function buildMeasurementReport({
     buildProfile,
+    buildProvenance,
     gitHead,
     gitDirtySummary,
     nodeVersion,
@@ -647,6 +668,7 @@ export function buildMeasurementReport({
 }) {
     return {
         build_profile: buildProfile,
+        build_provenance: buildProvenance,
         git_head: gitHead,
         git_dirty_summary: gitDirtySummary,
         node_version: nodeVersion,
@@ -665,11 +687,18 @@ export function buildMeasurementReport({
 
 async function main() {
     const options = parseOptions(process.argv.slice(2));
+    const buildProfile = process.env.LINEUP_BUILD_PROFILE ?? DEFAULT_BUILD_PROFILE;
+    const buildProvenance = validateBuildProvenance(
+        readJsonFile(path.join(options.distDir, 'build-provenance.json'), 'build provenance'),
+        captureSourceProvenance(process.cwd()),
+        buildProfile
+    );
     const bundle = summarizeBundle(options.distDir);
     const { browserUserAgent, samples } = await collectBrowserTimings(options);
     const timingSummary = summarizeTimingSamples(samples);
     const result = buildMeasurementReport({
-        buildProfile: process.env.LINEUP_BUILD_PROFILE ?? DEFAULT_BUILD_PROFILE,
+        buildProfile,
+        buildProvenance,
         gitHead: getGitOutput(['rev-parse', 'HEAD'], 'unknown'),
         gitDirtySummary: getGitOutput(['status', '--short'], ''),
         nodeVersion: process.version,
