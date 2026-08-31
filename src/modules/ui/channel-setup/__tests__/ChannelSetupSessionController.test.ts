@@ -10,7 +10,7 @@ import { ChannelSetupSessionController } from '../ChannelSetupSessionController'
 import type { ChannelSetupBuildOutcome } from '../ChannelSetupSessionContracts';
 import type { ChannelSetupScreenWorkflowPort } from '../../../../core/channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
-import { flushPromises } from '../../../../__tests__/helpers';
+import { expectConsoleWarn, flushPromises } from '../../../../__tests__/helpers';
 import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, makeLibrary } from './channel-setup-test-helpers';
 
 const createDeferred = <T>(): {
@@ -913,6 +913,7 @@ describe('ChannelSetupSessionController', () => {
     });
 
     it('ensureReviewLoaded() handles success, failure, and abort-like interruption', async (): Promise<void> => {
+        expectConsoleWarn('Channel setup review failed:');
         const getSetupReview = jest
             .fn()
             .mockResolvedValueOnce(DEFAULT_REVIEW)
@@ -933,7 +934,9 @@ describe('ChannelSetupSessionController', () => {
         controller.clearReviewForEdits();
         await controller.ensureReviewLoaded(jest.fn());
         expect(controller.getSnapshot().review).toBeNull();
-        expect(controller.getSnapshot().reviewError).toBe('review failed');
+        expect(controller.getSnapshot().reviewError).toBe(
+            'Unable to prepare your review. Try again.'
+        );
 
         controller.clearReviewForEdits();
         await controller.ensureReviewLoaded(jest.fn());
@@ -1046,6 +1049,36 @@ describe('ChannelSetupSessionController', () => {
         expect(getSetupReview).toHaveBeenCalledTimes(1);
         expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
         expect(controller.getSnapshot().isReviewLoading).toBe(false);
+    });
+
+    it('can retry review immediately after Back even when the aborted request does not settle', async (): Promise<void> => {
+        const first = createDeferred<typeof DEFAULT_REVIEW>();
+        const getSetupReview = jest
+            .fn()
+            .mockImplementationOnce(() => first.promise)
+            .mockResolvedValueOnce(DEFAULT_REVIEW);
+        const controller = new ChannelSetupSessionController({
+            workflowPort: createWorkflowPort({ getSetupReview }),
+            getSelectedServerId: (): string | null => 'server-1',
+        });
+
+        controller.beginSession();
+        controller.setStep(3);
+        const firstLoad = controller.ensureReviewLoaded(jest.fn());
+        await flushPromises();
+        expect(controller.getSnapshot().isReviewLoading).toBe(true);
+
+        controller.clearReviewAndReturnToStep2();
+        expect(controller.getSnapshot().isReviewLoading).toBe(false);
+
+        controller.setStep(3);
+        await controller.ensureReviewLoaded(jest.fn());
+
+        expect(getSetupReview).toHaveBeenCalledTimes(2);
+        expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
+        first.resolve(DEFAULT_REVIEW);
+        await firstLoad;
+        expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
     });
 
     it('ensureReviewLoaded() propagates onStateChange errors after cleanup without leaking loading state', async (): Promise<void> => {

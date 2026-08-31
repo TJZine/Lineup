@@ -9,7 +9,11 @@ import type { INavigationManager } from '../../../navigation/contracts/interface
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import { DEFAULT_MIN_ITEMS_PER_CHANNEL, SETUP_STRATEGY_KEYS, STEP2_CONTROL_IDS } from '../strategyConstants';
 
-import { createBodyAppendedTestContainer, flushPromises } from '../../../../__tests__/helpers';
+import {
+    createBodyAppendedTestContainer,
+    expectConsoleWarn,
+    flushPromises,
+} from '../../../../__tests__/helpers';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import {
     clickButton,
@@ -1380,6 +1384,45 @@ describe('ChannelSetupScreen', () => {
 
         expect(container.textContent ?? '').toContain('Review changes before building');
         expect(getSetupReview).toHaveBeenCalledTimes(1);
+    });
+
+    it('sanitizes review failures and allows Back followed by an immediate retry', async () => {
+        expectConsoleWarn('Channel setup review failed:');
+        const container = createBodyAppendedTestContainer();
+        const getSetupReview = jest
+            .fn()
+            .mockRejectedValueOnce(new Error('o is not a function'))
+            .mockResolvedValueOnce(DEFAULT_REVIEW);
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
+            getSetupReview,
+            getSelectedServerId: jest.fn(() => 'server-1'),
+        });
+
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show();
+        await flushPromises();
+        await enterStep2(container);
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        expect(container.textContent).toContain('Unable to prepare your review. Try again.');
+        expect(container.textContent).not.toContain('o is not a function');
+
+        clickButton(container, '#setup-back');
+        const retryButton = container.querySelector('#setup-next') as HTMLButtonElement | null;
+        expect(retryButton?.disabled).toBe(false);
+        expect(container.textContent).not.toContain('Unable to prepare your review');
+
+        clickButton(container, '#setup-next');
+        await flushPromises();
+        await flushPromises();
+
+        expect(getSetupReview).toHaveBeenCalledTimes(2);
+        expect(container.querySelector('#setup-replace-confirm')).not.toBeNull();
     });
 
     it('starts build progress after confirming review for existing setup context', async () => {

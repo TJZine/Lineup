@@ -6,7 +6,7 @@ import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, createWorkflowPort, makeLibrary 
 import { ChannelSetupSessionRuntime } from '../ChannelSetupSessionRuntime';
 import { ChannelSetupSessionState } from '../ChannelSetupSessionState';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
-import { flushPromises } from '../../../../__tests__/helpers';
+import { expectConsoleWarn, flushPromises } from '../../../../__tests__/helpers';
 import type { ChannelBuildSummary } from '../../../../core/channel-setup/types';
 
 const createUnavailableError = (): Error => {
@@ -276,10 +276,18 @@ describe('ChannelSetupSessionRuntime', () => {
     });
 
     it('converts runtime failures to string-only UI error fields and outcomes', async () => {
+        const reviewFailure = new TypeError('review token=secret PIN 1234 server private-server');
+        reviewFailure.stack = [
+            'TypeError: review token=secret PIN 1234 server private-server',
+            '    at o (https://private-host.example/private/server-id/assets/channel-setup.js?X-Plex-Token=secret:1:2)',
+            '    at file:///Users/private/profile-name/ChannelSetupSessionRuntime.ts:249:17',
+            '    at user-private-frame',
+        ].join('\n');
+        const reviewWarning = expectConsoleWarn('Channel setup review failed:');
         const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn().mockRejectedValue('load primitive'),
             getSetupPreview: jest.fn().mockRejectedValue('preview primitive'),
-            getSetupReview: jest.fn().mockRejectedValue('review primitive'),
+            getSetupReview: jest.fn().mockRejectedValue(reviewFailure),
             createChannelsFromSetup: jest.fn().mockRejectedValue('build primitive'),
             markSetupComplete: jest.fn(() => {
                 throw 'bookkeeping primitive';
@@ -297,7 +305,14 @@ describe('ChannelSetupSessionRuntime', () => {
         expect(state.previewError).toBe('Unable to estimate channels.');
 
         await runtime.ensureReviewLoaded(jest.fn());
-        expect(state.reviewError).toBe('Unable to load review.');
+        expect(state.reviewError).toBe('Unable to prepare your review. Try again.');
+        expect(reviewWarning.getLastCall()?.[1]).toEqual({
+            name: 'TypeError',
+            locations: [
+                'channel-setup.js:1:2',
+                'ChannelSetupSessionRuntime.ts:249:17',
+            ],
+        });
 
         await expect(runtime.beginBuild({
             onProgress: jest.fn(),

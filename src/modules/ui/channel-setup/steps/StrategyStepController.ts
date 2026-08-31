@@ -178,6 +178,7 @@ export class StrategyStepController {
         const state = deps.state;
         ctx.stepEl.textContent = 'Step 2 of 3';
         ctx.statusEl.textContent = 'Choose channel types to build.';
+        ctx.errorEl.textContent = '';
 
         const split = document.createElement('div');
         split.className = 'setup-split';
