@@ -6,8 +6,6 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     setDisabled: (disabled: boolean) => void;
     isDisabled: () => boolean;
     getId: () => string;
-    cyclePrev: () => boolean;
-    cycleNext: () => boolean;
     setValue: (value: number) => boolean;
     getOptions: () => SettingsSelectConfig['options'];
     getValue: () => number;
@@ -16,6 +14,9 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     button.id = config.id;
     button.className = `setup-toggle setup-toggle--adjustable${config.disabled ? ' disabled' : ''}`;
     button.disabled = config.disabled ?? false;
+    button.setAttribute('aria-haspopup', 'listbox');
+    button.setAttribute('aria-controls', 'settings-dropdown');
+    button.setAttribute('aria-expanded', 'false');
 
     const label = document.createElement('span');
     label.className = 'setup-toggle-label';
@@ -46,30 +47,6 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
     button.appendChild(meta);
     button.appendChild(state);
 
-    const cyclePrev = (): boolean => {
-        if (config.disabled) return false;
-        const previousValue = config.value;
-        const nextValue = getPrevValue(config.options, config.value);
-        update(nextValue);
-        if (nextValue === previousValue) {
-            return false;
-        }
-        applyChange(nextValue, previousValue);
-        return true;
-    };
-
-    const cycleNext = (): boolean => {
-        if (config.disabled) return false;
-        const previousValue = config.value;
-        const nextValue = getNextValueClamped(config.options, config.value);
-        update(nextValue);
-        if (nextValue === previousValue) {
-            return false;
-        }
-        applyChange(nextValue, previousValue);
-        return true;
-    };
-
     const setValue = (nextValue: number): boolean => {
         if (config.disabled) return false;
         const previousValue = config.value;
@@ -83,10 +60,6 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         applyChange(nextValue, previousValue);
         return true;
     };
-
-    button.addEventListener('click', () => {
-        cycleNext();
-    });
 
     function update(value: number): void {
         config.value = value;
@@ -126,8 +99,6 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
         setDisabled,
         isDisabled: (): boolean => config.disabled ?? false,
         getId: (): string => config.id,
-        cyclePrev,
-        cycleNext,
         setValue,
         getOptions: (): SettingsSelectConfig['options'] => [...config.options],
         getValue: (): number => config.value,
@@ -137,18 +108,4 @@ export function createSettingsSelect(config: SettingsSelectConfig): {
 function resolveOptionLabel(options: SettingsSelectConfig['options'], value: number): string {
     const match = options.find((option) => option.value === value);
     return match ? match.label : String(value);
-}
-
-function getPrevValue(options: SettingsSelectConfig['options'], value: number): number {
-    if (options.length === 0) return value;
-    const currentIndex = options.findIndex((option) => option.value === value);
-    const prevIndex = currentIndex >= 0 ? Math.max(0, currentIndex - 1) : 0;
-    return options[prevIndex]?.value ?? value;
-}
-
-function getNextValueClamped(options: SettingsSelectConfig['options'], value: number): number {
-    if (options.length === 0) return value;
-    const currentIndex = options.findIndex((option) => option.value === value);
-    const nextIndex = currentIndex >= 0 ? Math.min(options.length - 1, currentIndex + 1) : 0;
-    return options[nextIndex]?.value ?? value;
 }

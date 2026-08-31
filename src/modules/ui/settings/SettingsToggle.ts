@@ -6,6 +6,7 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
     setDisabled: (disabled: boolean) => void;
     isDisabled: () => boolean;
     getId: () => string;
+    activate: () => void;
 } {
     const button = document.createElement('button');
     button.id = config.id;
@@ -30,7 +31,7 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
     button.appendChild(meta);
     button.appendChild(state);
 
-    button.addEventListener('click', () => {
+    function activate(): void {
         if (config.disabled) return;
         const previousValue = config.value;
         const newValue = !config.value;
@@ -42,7 +43,7 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
             return;
         }
         restoreMetadata();
-    });
+    }
 
     function update(value: boolean): void {
         config.value = value;
@@ -77,5 +78,6 @@ export function createSettingsToggle(config: SettingsToggleConfig): {
         setDisabled,
         isDisabled: (): boolean => config.disabled ?? false,
         getId: (): string => config.id,
+        activate,
     };
 }

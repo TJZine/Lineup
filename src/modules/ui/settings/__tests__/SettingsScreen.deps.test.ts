@@ -29,22 +29,6 @@ class TrackingSettingsStore extends SettingsStore {
 }
 
 describe('SettingsScreen deps constructor', () => {
-    beforeEach(() => {
-        Object.defineProperty(window, 'requestAnimationFrame', {
-            configurable: true,
-            writable: true,
-            value: (cb: FrameRequestCallback): number => {
-                cb(16);
-                return 1;
-            },
-        });
-        Object.defineProperty(window, 'cancelAnimationFrame', {
-            configurable: true,
-            writable: true,
-            value: (): void => {},
-        });
-    });
-
     afterEach(() => {
         document.body.innerHTML = '';
         jest.restoreAllMocks();
@@ -123,6 +107,8 @@ describe('SettingsScreen deps constructor', () => {
 
         const subtitleMode = container.querySelector('#settings-subtitle-mode') as HTMLButtonElement | null;
         subtitleMode?.click();
+        const directSubtitleOption = container.querySelectorAll<HTMLButtonElement>('.settings-dropdown-option')[1];
+        directSubtitleOption?.click();
         expect(settingsStore.writeSubtitleMode).toHaveBeenCalledWith('direct');
         expect(onSubtitleModeChange).toHaveBeenCalledWith('direct');
 
@@ -130,6 +116,8 @@ describe('SettingsScreen deps constructor', () => {
         const theme = container.querySelector('#settings-theme') as HTMLButtonElement | null;
         theme?.click();
         const emberSteelIndex = THEME_OPTIONS.findIndex((option) => option.theme === 'ember-steel');
+        const nextThemeOption = container.querySelectorAll<HTMLButtonElement>('.settings-dropdown-option')[emberSteelIndex + 1];
+        nextThemeOption?.click();
         expect(getTheme).toHaveBeenCalled();
         expect(setTheme).toHaveBeenCalledWith(THEME_OPTIONS[emberSteelIndex + 1]?.theme);
 

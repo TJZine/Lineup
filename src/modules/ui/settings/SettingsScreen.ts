@@ -31,7 +31,7 @@ export interface SettingsScreenDeps {
 
 /**
  * Settings screen component.
- * Manages settings display, pane transitions, and focus navigation.
+ * Manages settings display and focus navigation.
  */
 export class SettingsScreen {
     private _container: HTMLElement;
@@ -50,8 +50,6 @@ export class SettingsScreen {
     private _detailTitle: HTMLHeadingElement | null = null;
     private _detailItems: HTMLElement | null = null;
     private _switchProfileButton: HTMLButtonElement | null = null;
-    private _detailSwapFrame: number | null = null;
-    private _detailRevealFrame: number | null = null;
     private readonly _stateController: SettingsScreenStateController;
     private readonly _focusCoordinator: SettingsScreenFocusCoordinator;
 
@@ -99,8 +97,6 @@ export class SettingsScreen {
                 this._setActiveCategory(categoryId, options);
             },
             isVisible: (): boolean => this._container.classList.contains('visible'),
-            isDeferredDetailSwapActive: (): boolean =>
-                this._detailSwapFrame !== null || this._detailItems?.classList.contains('transitioning') === true,
         });
         this._buildUI();
     }
@@ -206,22 +202,8 @@ export class SettingsScreen {
         button.className = 'settings-category-button';
         button.textContent = config.label;
         button.setAttribute('aria-selected', config.id === this._activeCategoryId ? 'true' : 'false');
-        button.addEventListener('click', () => {
-            this._setActiveCategory(config.id, { preferredFocusId: button.id });
-        });
         this._categoryButtons.set(config.id, button);
         return button;
-    }
-
-    private _cancelDetailFrames(): void {
-        if (this._detailSwapFrame !== null) {
-            cancelAnimationFrame(this._detailSwapFrame);
-            this._detailSwapFrame = null;
-        }
-        if (this._detailRevealFrame !== null) {
-            cancelAnimationFrame(this._detailRevealFrame);
-            this._detailRevealFrame = null;
-        }
     }
 
     private _reloadCategoriesFromState(): void {
@@ -241,50 +223,13 @@ export class SettingsScreen {
             this._detailTitle.textContent = activeCategory?.label ?? '';
         }
 
-        this._cancelDetailFrames();
-
         if (this._detailItems) {
-            const renderItems = (): void => {
-                if (!this._detailItems) return;
-                this._detailItems.replaceChildren();
-                if (activeCategory) {
-                    for (const item of activeCategory.items) {
-                        this._activeCategoryItemIds.push(item.id);
-                        this._detailItems.appendChild(this._createItem(item));
-                    }
+            this._detailItems.replaceChildren();
+            if (activeCategory) {
+                for (const item of activeCategory.items) {
+                    this._activeCategoryItemIds.push(item.id);
+                    this._detailItems.appendChild(this._createItem(item));
                 }
-            };
-
-            const shouldCrossfade =
-                this._detailItems.childElementCount > 0 && this._focusCoordinator.hasRegisteredFocusables();
-            if (!shouldCrossfade) {
-                this._detailItems.classList.remove('transitioning');
-                renderItems();
-            } else {
-                const expectedCategoryId = this._activeCategoryId;
-                this._detailItems.classList.add('transitioning');
-
-                this._detailSwapFrame = requestAnimationFrame(() => {
-                    this._detailSwapFrame = null;
-                    if (!this._detailItems || expectedCategoryId !== this._activeCategoryId) return;
-
-                    renderItems();
-
-                    const pendingPreferredFocusId =
-                        this._focusCoordinator.consumePendingFocusRestore(expectedCategoryId);
-
-                    if (this._container.classList.contains('visible')) {
-                        const nav = this._getNavigation();
-                        const preferredFocusId = pendingPreferredFocusId ?? nav?.getFocusedElement()?.id ?? null;
-                        this._focusCoordinator.resetFocusables(preferredFocusId);
-                    }
-
-                    this._detailRevealFrame = requestAnimationFrame(() => {
-                        this._detailRevealFrame = null;
-                        if (expectedCategoryId !== this._activeCategoryId) return;
-                        this._detailItems?.classList.remove('transitioning');
-                    });
-                });
             }
         }
 
@@ -323,9 +268,6 @@ export class SettingsScreen {
             resolvedCategoryId,
             options
         );
-        if (isVisible && resolvedCategoryId) {
-            this._focusCoordinator.setPendingFocusRestore(resolvedCategoryId, preferredFocusId);
-        }
 
         this._renderActiveCategory();
 
@@ -380,9 +322,6 @@ export class SettingsScreen {
         this._focusCoordinator.closeDropdown();
         this._container.classList.remove('visible');
         this._focusCoordinator.detachKeyHandler();
-        this._cancelDetailFrames();
-        this._detailItems?.classList.remove('transitioning');
-        this._focusCoordinator.clearPendingFocusRestore();
         this._focusCoordinator.unregisterFocusables();
     }
 
@@ -411,7 +350,6 @@ export class SettingsScreen {
         this._detailTitle = null;
         this._detailItems = null;
         this._switchProfileButton = null;
-        this._cancelDetailFrames();
         this._container.replaceChildren();
     }
 }

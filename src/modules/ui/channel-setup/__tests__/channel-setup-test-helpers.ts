@@ -7,7 +7,7 @@ import type { ChannelSetupScreenWorkflowPort } from '../../../../core/channel-se
 import type { ChannelSetupScreenPorts } from '../ChannelSetupScreenPorts';
 import type { ChannelSetupScreen } from '../ChannelSetupScreen';
 
-type Focusable = Pick<FocusableElement, 'id' | 'neighbors'>;
+type Focusable = Pick<FocusableElement, 'id' | 'element' | 'neighbors' | 'onFocus' | 'onSelect'>;
 
 export type NavigationMock = {
     focusables: Map<string, Focusable>;
@@ -86,15 +86,35 @@ export const DEFAULT_BUILD_RESULT: ChannelBuildSummary = {
 
 export const createNavigationMock = (): NavigationMock => {
     const focusables = new Map<string, Focusable>();
+    const clickHandlers = new Map<string, () => void>();
     let focusedId: string | null = null;
     let keyPressHandler: ((event: KeyEvent) => void) | null = null;
 
     return {
         focusables,
         registerFocusable: jest.fn((focusable: Focusable) => {
+            const previousHandler = clickHandlers.get(focusable.id);
+            const previousFocusable = focusables.get(focusable.id);
+            if (previousHandler && previousFocusable) {
+                previousFocusable.element.removeEventListener('click', previousHandler);
+            }
             focusables.set(focusable.id, focusable);
+            const clickHandler = (): void => {
+                if (!focusables.has(focusable.id)) return;
+                focusedId = focusable.id;
+                focusable.onFocus?.();
+                focusable.onSelect?.();
+            };
+            clickHandlers.set(focusable.id, clickHandler);
+            focusable.element.addEventListener('click', clickHandler);
         }),
         unregisterFocusable: jest.fn((id: string) => {
+            const clickHandler = clickHandlers.get(id);
+            const focusable = focusables.get(id);
+            if (clickHandler && focusable) {
+                focusable.element.removeEventListener('click', clickHandler);
+                clickHandlers.delete(id);
+            }
             focusables.delete(id);
         }),
         setFocus: jest.fn((id: string) => {

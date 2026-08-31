@@ -31,6 +31,7 @@ type ToggleControl = {
     setDisabled: (disabled: boolean) => void;
     isDisabled: () => boolean;
     getId: () => string;
+    activate: () => void;
 };
 
 type SelectControl = {
@@ -42,8 +43,6 @@ type SelectControl = {
     getOptions: () => SettingsSelectOption[];
     getValue: () => number;
     setValue: (value: number) => boolean;
-    cyclePrev: () => boolean;
-    cycleNext: () => boolean;
 };
 
 type NavigationTestDouble = {
@@ -146,6 +145,7 @@ describe('SettingsScreenFocusCoordinator', () => {
                 setDisabled: jest.fn(),
                 isDisabled: (): boolean => false,
                 getId: (): string => 'settings-audio-old',
+                activate: jest.fn(),
             }],
             ['settings-audio-new', {
                 element: createButton('settings-audio-new'),
@@ -153,6 +153,7 @@ describe('SettingsScreenFocusCoordinator', () => {
                 setDisabled: jest.fn(),
                 isDisabled: (): boolean => false,
                 getId: (): string => 'settings-audio-new',
+                activate: jest.fn(),
             }],
         ]);
         selects = new Map([
@@ -165,8 +166,6 @@ describe('SettingsScreenFocusCoordinator', () => {
                 getOptions: (): SettingsSelectOption[] => [{ label: 'One', value: 1 }],
                 getValue: (): number => 1,
                 setValue: jest.fn((): boolean => true),
-                cyclePrev: jest.fn((): boolean => true),
-                cycleNext: jest.fn((): boolean => true),
             }],
         ]);
     });
@@ -191,7 +190,6 @@ describe('SettingsScreenFocusCoordinator', () => {
                 activeCategoryId = categoryId;
             },
             isVisible: () => true,
-            isDeferredDetailSwapActive: () => false,
         });
 
     it('falls back when remembered category detail focus no longer belongs to that category', () => {
@@ -298,6 +296,56 @@ describe('SettingsScreenFocusCoordinator', () => {
 
         expect(setValue).toHaveBeenCalledTimes(1);
         expect(setValue).toHaveBeenCalledWith(1);
+    });
+
+    it('opens a select chooser from RIGHT without changing the value and returns to the rail on LEFT', () => {
+        activeCategoryId = 'appearance';
+        const coordinator = createCoordinator();
+        coordinator.registerFocusables();
+        navigation.setFocus('settings-appearance-select');
+        coordinator.attachKeyHandler();
+
+        const rightEvent = { handled: false, button: 'right', isRepeat: false, isLongPress: false } as KeyEvent;
+        navigation.keyHandler?.(rightEvent);
+
+        expect(rightEvent.handled).toBe(true);
+        expect(lastDropdownConfig).not.toBeNull();
+        expect(selects.get('settings-appearance-select')?.setValue).not.toHaveBeenCalled();
+
+        coordinator.closeDropdown();
+        const leftEvent = { handled: false, button: 'left', isRepeat: false, isLongPress: false } as KeyEvent;
+        navigation.keyHandler?.(leftEvent);
+
+        expect(leftEvent.handled).toBe(true);
+        expect(navigation.setFocus).toHaveBeenCalledWith('settings-category-appearance');
+    });
+
+    it('ignores repeated select activation so a held remote button cannot reopen or persist', () => {
+        activeCategoryId = 'appearance';
+        const coordinator = createCoordinator();
+        coordinator.registerFocusables();
+        navigation.setFocus('settings-appearance-select');
+        coordinator.attachKeyHandler();
+        const createDropdownMock = createDropdownPopover as jest.MockedFunction<typeof createDropdownPopover>;
+        createDropdownMock.mockClear();
+
+        const repeatEvent = { handled: false, button: 'right', isRepeat: true, isLongPress: false } as KeyEvent;
+        navigation.keyHandler?.(repeatEvent);
+
+        expect(repeatEvent.handled).toBe(true);
+        expect(createDropdownMock).not.toHaveBeenCalled();
+        expect(selects.get('settings-appearance-select')?.setValue).not.toHaveBeenCalled();
+    });
+
+    it('uses the control activation callback for remote toggle selection', () => {
+        const coordinator = createCoordinator();
+        coordinator.registerFocusables();
+        const toggle = toggles.get('settings-audio-old');
+        const activate = toggle?.activate as jest.Mock;
+
+        navigation.focusables.get('settings-audio-old')?.onSelect?.();
+
+        expect(activate).toHaveBeenCalledTimes(1);
     });
 
     it('does not retain dropdown ownership when the factory dismisses synchronously', () => {

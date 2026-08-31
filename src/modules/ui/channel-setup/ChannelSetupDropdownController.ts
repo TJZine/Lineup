@@ -63,6 +63,9 @@ export class ChannelSetupDropdownController {
         }
     ): void {
         this.close();
+        if (config.options.length === 0) {
+            return;
+        }
         const anchor = document.getElementById(config.anchorId);
         if (!(anchor instanceof HTMLElement)) {
             return;

@@ -12,7 +12,10 @@ export interface DropdownPopoverConfig {
     currentValue: string;
     onSelect: (value: string) => void;
     onDismiss: () => void;
-    nav: Pick<INavigationManager, 'registerFocusable' | 'unregisterFocusable' | 'setFocus'> | null;
+    nav: (
+        Pick<INavigationManager, 'registerFocusable' | 'unregisterFocusable' | 'setFocus'>
+        & Partial<Pick<INavigationManager, 'openModal' | 'closeModal' | 'isModalOpen'>>
+    ) | null;
     cssClass: string;
     optionCssClass: string;
 }
@@ -21,21 +24,45 @@ export function createDropdownPopover(config: DropdownPopoverConfig): {
     destroy: () => void;
     dismiss: () => void;
 } {
+    // A chooser with no options cannot provide a usable focus target. Refuse the
+    // open without touching the anchor or replacing an existing chooser.
+    if (config.options.length === 0) {
+        return {
+            destroy: (): void => {},
+            dismiss: (): void => {},
+        };
+    }
+
+    // The CSS class is also the stable popup id used by its anchor's ARIA relationship.
     const overlayId = config.cssClass;
     const optionIdPrefix = `${config.cssClass}-option-`;
+    const modalId = `${overlayId}-modal`;
     const existing = config.container.querySelector<HTMLElement>(`#${overlayId}`);
 
-    if (existing && config.nav) {
-        const oldOptions = existing.querySelectorAll<HTMLElement>(`[id^="${optionIdPrefix}"]`);
-        for (const option of oldOptions) {
-            config.nav.unregisterFocusable(option.id);
+    if (existing) {
+        if (existing.dataset.dropdownModal === 'true') {
+            const existingModalOpen = config.nav?.isModalOpen?.(modalId);
+            if (existingModalOpen !== false) {
+                config.nav?.closeModal?.(modalId);
+            }
         }
+        if (config.nav) {
+            const oldOptions = existing.querySelectorAll<HTMLElement>(`[id^="${optionIdPrefix}"]`);
+            for (const option of oldOptions) {
+                config.nav.unregisterFocusable(option.id);
+            }
+        }
+        existing.remove();
     }
-    existing?.remove();
+
+    config.anchor.setAttribute('aria-haspopup', 'listbox');
+    config.anchor.setAttribute('aria-controls', overlayId);
+    config.anchor.setAttribute('aria-expanded', 'true');
 
     const overlay = document.createElement('div');
     overlay.id = overlayId;
     overlay.className = config.cssClass;
+    overlay.dataset.dropdownModal = 'false';
     overlay.setAttribute('role', 'listbox');
     overlay.setAttribute('aria-label', 'Select an option');
 
@@ -89,9 +116,11 @@ export function createDropdownPopover(config: DropdownPopoverConfig): {
         item.appendChild(labelSpan);
         item.appendChild(checkSpan);
         item.addEventListener('focus', () => setFocusedOption(optionId));
-        item.addEventListener('click', () => {
-            config.onSelect(option.value);
-        });
+        if (!config.nav) {
+            item.addEventListener('click', () => {
+                config.onSelect(option.value);
+            });
+        }
 
         optionElements.push(item);
         overlay.appendChild(item);
@@ -107,6 +136,13 @@ export function createDropdownPopover(config: DropdownPopoverConfig): {
         }
     }
 
+    const modalNavigation = config.nav
+        && config.nav.openModal
+        && config.nav.closeModal
+        ? config.nav
+        : null;
+    let modalOwned = false;
+
     if (config.nav) {
         for (let i = 0; i < optionIds.length; i += 1) {
             const optionId = optionIds[i];
@@ -117,10 +153,10 @@ export function createDropdownPopover(config: DropdownPopoverConfig): {
                 left: optionId,
                 right: optionId,
             };
-            const upId = i > 0 ? optionIds[i - 1] : undefined;
-            const downId = i < optionIds.length - 1 ? optionIds[i + 1] : undefined;
-            if (upId) neighbors.up = upId;
-            if (downId) neighbors.down = downId;
+            const upId = i > 0 ? optionIds[i - 1] ?? optionId : optionId;
+            const downId = i < optionIds.length - 1 ? optionIds[i + 1] ?? optionId : optionId;
+            neighbors.up = upId;
+            neighbors.down = downId;
 
             const focusable: FocusableElement = {
                 id: optionId,
@@ -140,6 +176,15 @@ export function createDropdownPopover(config: DropdownPopoverConfig): {
             config.nav.registerFocusable(focusable);
         }
 
+        if (modalNavigation) {
+            modalNavigation.openModal!(modalId, optionIds, {
+                dismissOnBack: false,
+                blocksBackgroundCommands: false,
+            });
+            modalOwned = modalNavigation.isModalOpen?.(modalId) ?? true;
+            overlay.dataset.dropdownModal = modalOwned ? 'true' : 'false';
+        }
+
         const currentIndex = config.options.findIndex((option) => option.value === config.currentValue);
         const focusId = optionIds[currentIndex >= 0 ? currentIndex : 0];
         if (focusId) {
@@ -150,19 +195,34 @@ export function createDropdownPopover(config: DropdownPopoverConfig): {
     let destroyed = false;
     let dismissed = false;
 
+    const ownsOverlay = (): boolean => (
+        config.container.querySelector<HTMLElement>(`#${overlayId}`) === overlay
+    );
+
     const destroy = (): void => {
         if (destroyed) return;
         destroyed = true;
+        // A replacement with the same cssClass owns the stable DOM id now. The
+        // stale handle must not unregister or collapse that replacement.
+        if (!ownsOverlay()) return;
+        if (modalOwned) {
+            const modalStillOpen = modalNavigation?.isModalOpen?.(modalId);
+            modalOwned = false;
+            if (modalStillOpen !== false) {
+                modalNavigation?.closeModal?.(modalId);
+            }
+        }
         if (config.nav) {
             for (const optionId of optionIds) {
                 config.nav.unregisterFocusable(optionId);
             }
         }
+        config.anchor.setAttribute('aria-expanded', 'false');
         overlay.remove();
     };
 
     const dismiss = (): void => {
-        if (dismissed || destroyed) return;
+        if (dismissed || destroyed || !ownsOverlay()) return;
         dismissed = true;
         try {
             config.onDismiss();
