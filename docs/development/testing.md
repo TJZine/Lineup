@@ -137,17 +137,20 @@ npm run test:timings:tools
 
 ## Anti-Pattern Policy
 
-- Frozen suites remain the strict gate: zero private probes and zero sleep-based waits.
-- Whole-suite enforcement scans tracked `src/` files that belong to the unit + contracts Jest surfaces, and it intentionally excludes `src/__tests__/tools/**`.
-- New private-probe keys anywhere in that tracked whole-suite surface fail the policy; the current exceptions live in `src/__tests__/policy/baselines/private-probes.allowlist.txt` and must stay synchronized with `src/__tests__/policy/baselines/private-probes.owner-notes.md`.
-- Raw sleep usage is not allowed outside explicitly approved helper coverage; the remaining approved sleep ids live in `src/__tests__/policy/baselines/sleeps-ast.txt` and must stay synchronized with `src/__tests__/policy/baselines/sleeps.owner-notes.md`.
-- The current approved sleep exception is a helper self-test for `advanceTimersUntil`; treat it as harness coverage, not as permission to add raw timer waits elsewhere.
-- Sleep exceptions use stable ids in the form `<file>|<kind>|<scope_path>|<ordinal>` so surrounding line churn does not invalidate the machine baseline.
+- Product/runtime `*.test.ts`/`*.test.tsx` suites and Jest-owned helper, fixture,
+  mock, setup, and utility files under `__tests__` may not use Promise-backed
+  `setTimeout` or `setInterval` sleeps, including timer property/element access and
+  local callback wrappers. The separately verified `src/__tests__/tools/**` surface
+  is excluded.
+- Tests use public seams rather than asserted private property/element access,
+  including assertion aliases. The one retained exception is the exact
+  `store._loadedRangeKeyByChannel` assertion in `EPGScheduleCacheStore.test.ts`.
+- `flushPromisesAndMacrotask` owns the real-macrotask flush exception, while
+  `withTestTimeout` owns the bounded diagnostic-timeout exception. Fake-timer helper
+  self-tests remain ordinary focused coverage and grant no broader permission for
+  real-time waits.
 - Use `jest.useFakeTimers()` with explicit advancement (`advanceTimersByTime`, `runOnlyPendingTimers`) or existing async helpers before considering any new wait pattern.
 - Policy enforcement runs via `src/__tests__/policy/AntiPatterns.policy.test.ts`.
-- The policy test also writes debug reports to your OS temp directory:
-  - `current-private-probes.json`
-  - `current-sleeps.txt`
 
 ### Console output during tests
 

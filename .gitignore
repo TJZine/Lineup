@@ -77,7 +77,8 @@ lerna-debug.log*
 
 # AI/Code analysis tool caches
 .codannaignore
-.codanna/
+.codanna/*
+!.codanna/settings.toml
 .fastembed_cache
 .fastembed_cache/
 .mcp_sequential_thinking/

@@ -170,6 +170,7 @@ import { OrchestratorServerSelectionRuntime } from './runtime/OrchestratorServer
 import { createSelectedServerRecoveryGateError, OrchestratorServerSelectionRuntimeProjection } from './runtime/OrchestratorServerSelectionRuntimeProjection';
 import { createSelectedServerRecoveryLogData } from './runtime/SelectedServerRecoveryAppError';
 import { prepareSelectedServerQuarantine } from './runtime/OrchestratorSelectedServerQuarantinePreparation';
+import { OrchestratorModuleStatusRegistry } from './runtime/OrchestratorModuleStatusRegistry';
 import type { SelectedServerScreenState } from '../server-selection/SelectedServerScreenStateProjection';
 import type {
     SelectedServerQuarantineCommandState,
@@ -231,7 +232,6 @@ export class AppOrchestrator {
     private _scheduleDayRolloverController: ScheduleDayRolloverController | null = null;
     private _subtitleTrackRecoveryController: SubtitleTrackRecoveryController | null = null;
     private _config: OrchestratorConfig | null = null;
-    private _moduleStatus: Map<string, ModuleStatus> = new Map();
     private _errorHandlers: Map<string, (error: AppError) => boolean> = new Map();
     private _isHandlingGlobalError = false;
     private _pendingGlobalErrors: Array<{ error: AppError; context: string }> = [];
@@ -252,6 +252,7 @@ export class AppOrchestrator {
     private readonly _debugOverridesStore = new DebugOverridesStore();
     private readonly _issueDiagnosticsStore = new IssueDiagnosticsStore();
     private readonly _recoverableRuntimeReporter: RecoverableRuntimeIssueReporter;
+    private readonly _moduleStatuses: OrchestratorModuleStatusRegistry;
     private _epgDebugRuntime: IEPGDebugRuntime | null = null;
     private readonly _playbackStateAccessors: OrchestratorPlaybackStateAccessors;
     private readonly _channelSetupWorkflowPort: ChannelSetupWorkflowPort;
@@ -259,7 +260,6 @@ export class AppOrchestrator {
     private readonly _plexAuthRuntime: OrchestratorPlexAuthRuntime;
     private readonly _serverSelectionRuntime: OrchestratorServerSelectionRuntimeProjection;
     private readonly _schedulePolicy = new OrchestratorSchedulePolicy();
-    private readonly _reportedModuleStatusCloneFallbackContexts = new WeakSet<object>();
     private _shutdownStarted = false;
     private _shutdownPromise: Promise<void> | null = null;
     private _throwModuleInitPreconditionError(
@@ -325,6 +325,15 @@ export class AppOrchestrator {
             QA_003B_ISSUE_ID,
             this._issueDiagnosticsStore.append.bind(this._issueDiagnosticsStore)
         );
+        this._moduleStatuses = new OrchestratorModuleStatusRegistry({
+            reportCloneFallback: (error): void => {
+                this._warnRecoverableRuntimeError(
+                    'orchestrator.moduleStatus.cloneContext',
+                    'Falling back to diagnostic-value clone for module status error context',
+                    error
+                );
+            },
+        });
         const serverSelectionRuntime = new OrchestratorServerSelectionRuntime({
             assertNotShutdown: (method): void => { if (this._shutdownStarted) this._throwShutdownPreconditionError(method); },
             getPlexAuth: (): IPlexAuth | null => this._plexAuth,
@@ -434,7 +443,6 @@ export class AppOrchestrator {
                 this._warnRecoverableRuntimeError(event, message, error);
             },
         });
-        this._initializeModuleStatus();
     }
     async initialize(config: OrchestratorConfig): Promise<void> {
         this._assertNotShutdown('initialize');
@@ -482,7 +490,7 @@ export class AppOrchestrator {
             {
                 updateModuleStatus: this._updateModuleStatus.bind(this),
                 getModuleStatus: (id: string): ModuleStatus['status'] | undefined =>
-                    this._moduleStatus.get(id)?.status,
+                    this._moduleStatuses.getRuntimeStatus(id),
             }
         );
 
@@ -522,7 +530,7 @@ export class AppOrchestrator {
                 status: {
                     updateModuleStatus: this._updateModuleStatus.bind(this),
                     getModuleStatus: (id: string): ModuleStatus['status'] | undefined =>
-                        this._moduleStatus.get(id)?.status,
+                        this._moduleStatuses.getRuntimeStatus(id),
                 },
                 errors: {
                     handleGlobalError: this.handleGlobalError.bind(this),
@@ -661,7 +669,7 @@ export class AppOrchestrator {
         return {
             epgDebugRuntime: this._epgDebugRuntime,
             config: this._config,
-            moduleStatus: this._moduleStatus,
+            moduleStatus: this._moduleStatuses,
             init: {
                 ensureEpgInitialized: (): Promise<void> =>
                     initCoordinator.ensureEPGInitialized(),
@@ -985,9 +993,7 @@ export class AppOrchestrator {
     }
 
     getModuleStatus(): Map<string, ModuleStatus> {
-        return new Map(
-            Array.from(this._moduleStatus, ([id, status]) => [id, this._cloneModuleStatus(status)])
-        );
+        return this._moduleStatuses.snapshot();
     }
 
     isReady(): boolean {
@@ -1455,156 +1461,13 @@ export class AppOrchestrator {
     }
 
 
-    private _cloneModuleStatus(status: ModuleStatus): ModuleStatus {
-        return {
-            ...status,
-            ...(status.error
-                ? {
-                    error: {
-                        ...status.error,
-                        ...(status.error.context
-                            ? { context: this._cloneModuleStatusErrorContext(status.error.context) }
-                            : {}),
-                    },
-                }
-                : {}),
-        };
-    }
-
-    private _cloneModuleStatusErrorContext(context: Record<string, unknown>): Record<string, unknown> {
-        if (typeof globalThis.structuredClone === 'function') {
-            const cloneResult = captureRecoverableRuntimeResult(
-                () => globalThis.structuredClone(context) as Record<string, unknown>
-            );
-            if (cloneResult.ok) {
-                return cloneResult.value;
-            }
-
-            if (!cloneResult.ok) {
-                if (!this._reportedModuleStatusCloneFallbackContexts.has(context)) {
-                    this._reportedModuleStatusCloneFallbackContexts.add(context);
-                    this._warnRecoverableRuntimeError(
-                        'orchestrator.moduleStatus.cloneContext',
-                        'Falling back to diagnostic-value clone for module status error context',
-                        cloneResult.error
-                    );
-                }
-            }
-        }
-
-        return this._cloneDiagnosticValue(context, new WeakMap<object, unknown>()) as Record<string, unknown>;
-    }
-
-    private _cloneDiagnosticValue(value: unknown, seen: WeakMap<object, unknown>): unknown {
-        if (value === null || typeof value !== 'object') {
-            return value;
-        }
-
-        const existingClone = seen.get(value);
-        if (existingClone !== undefined) {
-            return existingClone;
-        }
-
-        if (Array.isArray(value)) {
-            const clone: unknown[] = [];
-            seen.set(value, clone);
-            for (const item of value) {
-                clone.push(this._cloneDiagnosticValue(item, seen));
-            }
-            return clone;
-        }
-
-        if (value instanceof Date) {
-            return new Date(value.getTime());
-        }
-
-        if (value instanceof Map) {
-            const clone = new Map<unknown, unknown>();
-            seen.set(value, clone);
-            for (const [entryKey, entryValue] of value) {
-                clone.set(
-                    this._cloneDiagnosticValue(entryKey, seen),
-                    this._cloneDiagnosticValue(entryValue, seen)
-                );
-            }
-            return clone;
-        }
-
-        if (value instanceof Set) {
-            const clone = new Set<unknown>();
-            seen.set(value, clone);
-            for (const entry of value) {
-                clone.add(this._cloneDiagnosticValue(entry, seen));
-            }
-            return clone;
-        }
-
-        const clone: Record<string, unknown> = {};
-        seen.set(value, clone);
-        for (const [entryKey, entryValue] of Object.entries(value)) {
-            clone[entryKey] = this._cloneDiagnosticValue(entryValue, seen);
-        }
-        return clone;
-    }
-
-    private _initializeModuleStatus(): void {
-        const modules = [
-            'event-emitter',
-            'app-lifecycle',
-            'navigation',
-            'plex-auth',
-            'plex-server-discovery',
-            'plex-library',
-            'plex-stream-resolver',
-            'channel-manager',
-            'channel-scheduler',
-            'video-player',
-            'epg-ui',
-            'now-playing-info-ui',
-            'player-osd-ui',
-            'channel-number-overlay-ui',
-            'channel-badge-ui',
-            'mini-guide-ui',
-            'channel-transition-ui',
-            'playback-options-ui',
-            'exit-confirm-ui',
-        ];
-
-        for (const id of modules) {
-            this._moduleStatus.set(id, {
-                id,
-                name: id,
-                status: 'pending',
-            });
-        }
-    }
-
     private _updateModuleStatus(
         id: string,
         status: ModuleStatus['status'],
         error?: AppError,
         loadTimeMs?: number
     ): void {
-        const current = this._moduleStatus.get(id);
-        if (current) {
-            current.status = status;
-
-            // Clear stale error when transitioning to non-error state
-            if (status !== 'error') {
-                delete current.error;
-            }
-            if (error) {
-                current.error = error;
-            }
-
-            // Clear stale loadTimeMs except when explicitly provided
-            if (status !== 'initializing' && loadTimeMs === undefined) {
-                delete current.loadTimeMs;
-            }
-            if (loadTimeMs !== undefined) {
-                current.loadTimeMs = loadTimeMs;
-            }
-        }
+        this._moduleStatuses.update(id, status, error, loadTimeMs);
     }
 
     private _getActiveUserId(): string | null {

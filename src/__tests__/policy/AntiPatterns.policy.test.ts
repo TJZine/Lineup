@@ -1,331 +1,512 @@
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import ts from 'typescript';
 
-import {
-    scanSourceText,
-    sortPrivateProbes,
-    sortSleepProbes,
-    type PrivateProbe,
-    type SleepProbe,
-} from './antiPatternsScanner';
-
-const FROZEN_SUITES = [
-    'src/__tests__/Orchestrator.test.ts',
-    'src/core/channel-setup/__tests__/ChannelSetupPlanningService.test.ts',
-    'src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.test.ts',
-    'src/modules/ui/channel-setup/__tests__/ChannelSetupSessionController.test.ts',
-    'src/modules/ui/auth/__tests__/AuthScreen.test.ts',
-    'src/modules/ui/epg/__tests__/EPGComponent.test.ts',
-    'src/modules/ui/epg/__tests__/EPGBackgroundWarmQueue.test.ts',
-    'src/modules/ui/epg/__tests__/EPGCoordinator.test.ts',
-    'src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts',
-    'src/modules/navigation/__tests__/NavigationCoordinator.test.ts',
-    'src/modules/navigation/__tests__/RemoteHandler.test.ts',
-    'src/modules/ui/playback-options/__tests__/PlaybackOptionsCoordinator.test.ts',
-    'src/modules/player/__tests__/core/VideoPlayer.test.ts',
-    'src/modules/player/__tests__/recovery/PlaybackRecoveryManager.test.ts',
-    'src/modules/player/__tests__/subtitles/SubtitleManager.test.ts',
-    'src/modules/plex/stream/__tests__/PlexStreamResolver.test.ts',
-    'src/modules/scheduler/channel-manager/__tests__/ChannelManager.test.ts',
-];
-
-const CURRENT_PRIVATE_REPORT = path.join(os.tmpdir(), 'current-private-probes.json');
-const CURRENT_SLEEP_REPORT = path.join(os.tmpdir(), 'current-sleeps.txt');
-const CURRENT_PRIVATE_ALLOWLIST = path.join(os.tmpdir(), 'current-private-probes.allowlist.txt');
-const BASELINE_PRIVATE_ALLOWLIST = path.join(process.cwd(), 'src/__tests__/policy/baselines/private-probes.allowlist.txt');
-const BASELINE_SLEEP_REPORT = path.join(process.cwd(), 'src/__tests__/policy/baselines/sleeps-ast.txt');
-const PRIVATE_OWNER_NOTES = path.join(process.cwd(), 'src/__tests__/policy/baselines/private-probes.owner-notes.md');
-const SLEEP_OWNER_NOTES = path.join(process.cwd(), 'src/__tests__/policy/baselines/sleeps.owner-notes.md');
-
-// Keep these mirrors explicit when Jest ownership changes:
-// - `jest.config.js`
-// - `jest.contracts.config.js`
-const WHOLE_SUITE_UNIT_PATH_MATCHERS = [
-    /\.test\.ts$/,
-];
-const WHOLE_SUITE_UNIT_PATH_EXCLUDES = [
-    /^src\/__tests__\/tools\//,
-    /[.-](?:contract|contracts|policy)\.test\.ts$/,
-    /\/types\.test\.ts$/,
-];
-const WHOLE_SUITE_CONTRACTS_PATH_MATCHERS = [
-    /\.contract\.test\.ts$/,
-    /\.contracts\.test\.ts$/,
-    /-contract\.test\.ts$/,
-    /-contracts\.test\.ts$/,
-    /\.policy\.test\.ts$/,
-    /-policy\.test\.ts$/,
+type Finding = { file: string; receiver?: string; property?: string; scope?: string };
+const EPG_CACHE_STORE_EXCEPTION =
+    'src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts|store|_loadedRangeKeyByChannel';
+const SLEEP_HELPER_EXCEPTIONS = new Set([
+    'src/__tests__/helpers.ts|flushPromisesAndMacrotask',
+    'src/__tests__/helpers.ts|withTestTimeout',
+]);
+const UNIT_TEST_PATH_IGNORES = [
+    /[.-](?:contracts?|policy)\.test\.ts$/,
     /\/types\.test\.ts$/,
 ];
 
-type PrivateProbeBaseline = {
-    allowlist: Set<string>;
-    maxCount: number;
-};
+const sourceFiles = (directory: string): string[] =>
+    fs.readdirSync(directory, { recursive: true, withFileTypes: true })
+        .filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name))
+        .map((entry) =>
+            path.relative(process.cwd(), path.join(entry.parentPath, entry.name))
+                .split(path.sep)
+                .join('/')
+        )
+        .sort();
 
-type OwnerNoteRow = {
-    id: string;
-    owner: string;
-    rationale: string;
-    revisitTrigger: string;
-    cleanupLane: string;
-};
-
-const toAbsolute = (file: string): string => path.join(process.cwd(), file);
-
-const stripCodeTicks = (value: string): string => {
-    const trimmed = value.trim();
-    return trimmed.startsWith('`') && trimmed.endsWith('`')
-        ? trimmed.slice(1, -1)
-        : trimmed;
-};
-
-const splitMarkdownRow = (line: string): string[] => {
-    const cells: string[] = [];
-    let current = '';
-
-    for (let i = 0; i < line.length; i += 1) {
-        const character = line[i];
-        if (character === '\\' && line[i + 1] === '|') {
-            current += '|';
-            i += 1;
-            continue;
-        }
-
-        if (character === '|') {
-            cells.push(current.trim());
-            current = '';
-            continue;
-        }
-
-        current += character;
-    }
-
-    cells.push(current.trim());
-    return cells;
-};
-
-const readPrivateBaseline = (): PrivateProbeBaseline => {
-    if (!fs.existsSync(BASELINE_PRIVATE_ALLOWLIST)) {
-        throw new Error(
-            'Missing policy baseline file. Expected:\n' +
-            `- ${BASELINE_PRIVATE_ALLOWLIST}\n` +
-            'Re-generate baselines by running:\n' +
-            '  npm run test:contracts -- --runInBand src/__tests__/policy/AntiPatterns.policy.test.ts\n' +
-            'Then copy the generated allowlist from:\n' +
-            `- ${CURRENT_PRIVATE_ALLOWLIST}`
-        );
-    }
-
-    const allowlist: Set<string> = new Set();
-    let maxCount: number | null = null;
-    const lines = fs.readFileSync(BASELINE_PRIVATE_ALLOWLIST, 'utf8').split('\n');
-
-    for (const rawLine of lines) {
-        const line = rawLine.trim();
-        if (!line) continue;
-        if (line.startsWith('#')) {
-            const match = line.match(/^#\s*maxCount\s*=\s*(\d+)\s*$/i);
-            if (match) {
-                maxCount = Number.parseInt(match[1]!, 10);
-            }
-            continue;
-        }
-        allowlist.add(line);
-    }
-
-    if (maxCount === null || !Number.isFinite(maxCount)) {
-        throw new Error(`Invalid allowlist header: expected "# maxCount=<number>" in ${BASELINE_PRIVATE_ALLOWLIST}`);
-    }
-
-    return { allowlist, maxCount };
-};
-
-const readTextBaseline = (baselinePath: string, label: string): Set<string> => {
-    if (!fs.existsSync(baselinePath)) {
-        throw new Error(
-            `Missing ${label} baseline file. Expected:\n` +
-            `- ${baselinePath}\n` +
-            'Re-generate baselines by running:\n' +
-            '  npm run test:contracts -- --runInBand src/__tests__/policy/AntiPatterns.policy.test.ts'
-        );
-    }
-
-    return new Set(
-        fs.readFileSync(baselinePath, 'utf8')
-            .split('\n')
-            .map((line) => line.trim())
-            .filter(Boolean)
+const jestOwnedFiles = (): string[] =>
+    sourceFiles(path.join(process.cwd(), 'src')).filter(
+        (file) =>
+            !file.startsWith('src/__tests__/tools/')
+            && !UNIT_TEST_PATH_IGNORES.some((pattern) => pattern.test(file))
+            && (
+                file.includes('/__tests__/')
+                || /\.test\.tsx?$/.test(file)
+            )
     );
+
+const propertyName = (node: ts.PropertyAccessExpression | ts.ElementAccessExpression): string | null => {
+    if (ts.isPropertyAccessExpression(node)) return node.name.text;
+    const argument = node.argumentExpression;
+    return argument && ts.isStringLiteralLike(argument) ? argument.text : null;
 };
 
-const readOwnerNotes = (notesPath: string, label: string): OwnerNoteRow[] => {
-    if (!fs.existsSync(notesPath)) {
-        throw new Error(`Missing ${label} owner-notes file: ${notesPath}`);
+const assertionInfo = (
+    expression: ts.Expression
+): { receiver: string | null; suspicious: boolean } => {
+    let current = expression;
+    let suspicious = false;
+    while (
+        ts.isParenthesizedExpression(current)
+        || ts.isAsExpression(current)
+        || ts.isTypeAssertionExpression(current)
+        || ts.isNonNullExpression(current)
+    ) {
+        if (!ts.isParenthesizedExpression(current)) suspicious = true;
+        current = current.expression;
     }
-
-    const tableLines = fs.readFileSync(notesPath, 'utf8')
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith('|'));
-
-    if (tableLines.length < 3) {
-        throw new Error(`Expected a Markdown owner-notes table in ${notesPath}`);
-    }
-
-    const rows = tableLines
-        .slice(2)
-        .filter((line) => !/^\|\s*-/.test(line))
-        .map((line) => {
-            const cells = splitMarkdownRow(line)
-                .slice(1, -1)
-                .map((cell) => stripCodeTicks(cell));
-
-            if (cells.length < 5 || cells.slice(0, 5).some((cell) => cell.length === 0)) {
-                throw new Error(`Invalid ${label} owner-notes row in ${notesPath}: ${line}`);
-            }
-
-            return {
-                id: cells[0]!,
-                owner: cells[1]!,
-                rationale: cells[2]!,
-                revisitTrigger: cells[3]!,
-                cleanupLane: cells[4]!,
-            };
-        });
-
-    const uniqueIds = new Set(rows.map((row) => row.id));
-    if (uniqueIds.size !== rows.length) {
-        throw new Error(`Duplicate ${label} owner-notes rows found in ${notesPath}`);
-    }
-
-    return rows;
-};
-
-const listTrackedSrcFiles = (): string[] => {
-    return execFileSync('git', ['ls-files', '--', 'src'], {
-        cwd: process.cwd(),
-        encoding: 'utf8',
-    })
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((file) => file && fs.existsSync(toAbsolute(file)));
-};
-
-const isWholeSuiteFile = (file: string): boolean => {
-    if (!file.startsWith('src/')) {
-        return false;
-    }
-
-    const inUnitSurface = WHOLE_SUITE_UNIT_PATH_MATCHERS.some((pattern) => pattern.test(file))
-        && !WHOLE_SUITE_UNIT_PATH_EXCLUDES.some((pattern) => pattern.test(file));
-    const inContractsSurface = WHOLE_SUITE_CONTRACTS_PATH_MATCHERS.some((pattern) => pattern.test(file));
-    return inUnitSurface || inContractsSurface;
-};
-
-const listTrackedWholeSuiteFiles = (): string[] => {
-    return listTrackedSrcFiles().filter(isWholeSuiteFile).sort();
-};
-
-const scanFiles = (files: string[]): { privateProbes: PrivateProbe[]; sleepProbes: SleepProbe[] } => {
-    const privateProbes: PrivateProbe[] = [];
-    const sleepProbes: SleepProbe[] = [];
-
-    for (const file of files) {
-        const sourceText = fs.readFileSync(toAbsolute(file), 'utf8');
-        const scan = scanSourceText({ file, sourceText });
-        privateProbes.push(...scan.privateProbes);
-        sleepProbes.push(...scan.sleepProbes);
-    }
-
     return {
-        privateProbes: sortPrivateProbes(privateProbes),
-        sleepProbes: sortSleepProbes(sleepProbes),
+        receiver: ts.isIdentifier(current) ? current.text : null,
+        suspicious,
     };
 };
 
-const toPrivateProbeKey = (probe: PrivateProbe): string => `${probe.file}|${probe.receiver}|${probe.property}`;
-
-const writeWholeSuiteDebugReports = (privateProbes: PrivateProbe[], sleepProbes: SleepProbe[]): void => {
-    fs.writeFileSync(CURRENT_PRIVATE_REPORT, JSON.stringify({
-        probes: privateProbes,
-        count: privateProbes.length,
-    }, null, 2));
-
-    const privateKeys = Array.from(new Set(privateProbes.map(toPrivateProbeKey))).sort();
-    fs.writeFileSync(
-        CURRENT_PRIVATE_ALLOWLIST,
-        `# maxCount=${privateKeys.length}\n` + privateKeys.join('\n')
-    );
-
-    const sleepLines = sleepProbes.map(
-        (probe) => `${probe.id} ${probe.file}:${probe.line}:${probe.column} [${probe.kind}] ${probe.snippet}`
-    );
-    fs.writeFileSync(CURRENT_SLEEP_REPORT, sleepLines.join('\n'));
+const timerName = (expression: ts.Expression): string | null => {
+    if (ts.isIdentifier(expression)) return expression.text;
+    if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+    if (ts.isElementAccessExpression(expression)) {
+        const argument = expression.argumentExpression;
+        return argument && ts.isStringLiteralLike(argument) ? argument.text : null;
+    }
+    return null;
 };
 
-describe('AntiPatterns policy', () => {
-    it('keeps the frozen suites at zero private probes and zero sleep probes', () => {
-        const scan = scanFiles(FROZEN_SUITES);
+const isTimerCall = (node: ts.Node): node is ts.CallExpression => {
+    if (!ts.isCallExpression(node)) return false;
+    const timer = timerName(node.expression);
+    const callback = node.arguments[0];
+    return (
+        (timer === 'setTimeout' || timer === 'setInterval')
+        && callback !== undefined
+        && (
+            ts.isIdentifier(callback)
+            || ts.isArrowFunction(callback)
+            || ts.isFunctionExpression(callback)
+        )
+    );
+};
 
-        expect(scan.privateProbes).toEqual([]);
-        expect(scan.sleepProbes).toEqual([]);
+const namedScope = (node: ts.Node): string => {
+    for (let current: ts.Node | undefined = node; current; current = current.parent) {
+        if (ts.isFunctionDeclaration(current) && current.name) return current.name.text;
+        if (
+            (ts.isArrowFunction(current) || ts.isFunctionExpression(current))
+            && ts.isVariableDeclaration(current.parent)
+            && ts.isIdentifier(current.parent.name)
+        ) {
+            return current.parent.name.text;
+        }
+        if (ts.isMethodDeclaration(current) && ts.isIdentifier(current.name)) return current.name.text;
+    }
+    return '<inline>';
+};
+
+const isInsidePromise = (node: ts.Node): boolean => {
+    for (let current: ts.Node | undefined = node.parent; current; current = current.parent) {
+        if (
+            ts.isNewExpression(current)
+            && ts.isIdentifier(current.expression)
+            && current.expression.text === 'Promise'
+        ) {
+            return true;
+        }
+    }
+    return false;
+};
+
+const scanSource = (
+    file: string,
+    source: string
+): { privateProbes: Finding[]; sleeps: Finding[] } => {
+    const sourceFile = ts.createSourceFile(
+        file,
+        source,
+        ts.ScriptTarget.Latest,
+        true,
+        file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+    );
+    const privateProbes: Finding[] = [];
+    const sleeps: Finding[] = [];
+
+    type LocalBinding = ts.VariableDeclaration | ts.FunctionDeclaration | ts.ParameterDeclaration;
+    const bindings = new Map<ts.Node, Map<string, LocalBinding>>();
+    const addBinding = (scope: ts.Node, name: string, declaration: LocalBinding): void => {
+        const scopeBindings = bindings.get(scope) ?? new Map<string, LocalBinding>();
+        scopeBindings.set(name, declaration);
+        bindings.set(scope, scopeBindings);
+    };
+    const nearestLexicalScope = (node: ts.Node): ts.Node | null => {
+        for (let current: ts.Node | undefined = node.parent; current; current = current.parent) {
+            if (
+                ts.isBlock(current)
+                || ts.isSourceFile(current)
+                || ts.isForStatement(current)
+                || ts.isForInStatement(current)
+                || ts.isForOfStatement(current)
+                || ts.isCatchClause(current)
+                || ts.isCaseBlock(current)
+            ) {
+                return current;
+            }
+        }
+        return null;
+    };
+    const discoverBindings = (node: ts.Node): void => {
+        if (
+            ts.isFunctionDeclaration(node)
+            && node.name
+        ) {
+            const scope = nearestLexicalScope(node);
+            if (scope) addBinding(scope, node.name.text, node);
+        } else if (
+            ts.isVariableDeclaration(node)
+            && ts.isIdentifier(node.name)
+        ) {
+            const scope = nearestLexicalScope(node);
+            if (scope) addBinding(scope, node.name.text, node);
+        } else if (
+            ts.isParameter(node)
+            && ts.isIdentifier(node.name)
+        ) {
+            if (ts.isFunctionLike(node.parent) || ts.isCatchClause(node.parent)) {
+                addBinding(node.parent, node.name.text, node);
+            }
+        }
+        ts.forEachChild(node, discoverBindings);
+    };
+    discoverBindings(sourceFile);
+
+    const resolveBinding = (name: string, use: ts.Node): LocalBinding | null => {
+        for (let current: ts.Node | undefined = use; current; current = current.parent) {
+            const binding = bindings.get(current)?.get(name);
+            if (binding) return binding;
+        }
+        return null;
+    };
+
+    const suspiciousBindings = new Set<LocalBinding>();
+    let changed = true;
+    while (changed) {
+        changed = false;
+        const discoverAliases = (node: ts.Node): void => {
+            if (
+                ts.isVariableDeclaration(node)
+                && ts.isIdentifier(node.name)
+                && !suspiciousBindings.has(node)
+            ) {
+                if (node.type?.kind === ts.SyntaxKind.AnyKeyword) {
+                    suspiciousBindings.add(node);
+                    changed = true;
+                } else if (node.initializer) {
+                    const info = assertionInfo(node.initializer);
+                    const receiverBinding = info.receiver
+                        ? resolveBinding(info.receiver, node.initializer)
+                        : null;
+                    if (
+                        info.suspicious
+                        || (receiverBinding !== null && suspiciousBindings.has(receiverBinding))
+                    ) {
+                        suspiciousBindings.add(node);
+                        changed = true;
+                    }
+                }
+            }
+            ts.forEachChild(node, discoverAliases);
+        };
+        discoverAliases(sourceFile);
+    }
+
+    const bindingUsesTimer = (binding: LocalBinding, seen: Set<LocalBinding>): boolean => {
+        if (seen.has(binding) || ts.isParameter(binding)) return false;
+        seen.add(binding);
+
+        if (ts.isVariableDeclaration(binding)) {
+            const initializer = binding.initializer;
+            if (!initializer) return false;
+            if (ts.isIdentifier(initializer)) {
+                const target = resolveBinding(initializer.text, initializer);
+                return target ? bindingUsesTimer(target, seen) : false;
+            }
+            if (!ts.isArrowFunction(initializer) && !ts.isFunctionExpression(initializer)) {
+                return false;
+            }
+            return functionUsesTimer(initializer, seen);
+        }
+        return functionUsesTimer(binding, seen);
+    };
+
+    const functionUsesTimer = (
+        callback: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+        seen: Set<LocalBinding>
+    ): boolean => {
+        let found = false;
+        const visitCallback = (node: ts.Node): void => {
+            if (found) return;
+            if (
+                node !== callback
+                && (
+                    ts.isArrowFunction(node)
+                    || ts.isFunctionExpression(node)
+                    || ts.isFunctionDeclaration(node)
+                )
+            ) {
+                return;
+            }
+            if (isTimerCall(node)) {
+                found = true;
+                return;
+            }
+            if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+                const called = resolveBinding(node.expression.text, node);
+                if (called && bindingUsesTimer(called, new Set(seen))) {
+                    found = true;
+                    return;
+                }
+            }
+            ts.forEachChild(node, visitCallback);
+        };
+        visitCallback(callback);
+        return found;
+    };
+
+    const visit = (node: ts.Node): void => {
+        if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+            const property = propertyName(node);
+            const info = assertionInfo(node.expression);
+            const receiverBinding = info.receiver
+                ? resolveBinding(info.receiver, node.expression)
+                : null;
+            if (
+                property
+                && /^_[^_]/.test(property)
+                && (
+                    info.suspicious
+                    || (receiverBinding !== null && suspiciousBindings.has(receiverBinding))
+                )
+            ) {
+                privateProbes.push({
+                    file,
+                    receiver: info.receiver ?? '<expression>',
+                    property,
+                });
+            }
+        }
+        if (isTimerCall(node) && isInsidePromise(node)) {
+            sleeps.push({ file, scope: namedScope(node) });
+        }
+        if (
+            ts.isNewExpression(node)
+            && ts.isIdentifier(node.expression)
+            && node.expression.text === 'Promise'
+            && node.arguments?.[0]
+            && ts.isIdentifier(node.arguments[0])
+        ) {
+            const callback = resolveBinding(node.arguments[0].text, node);
+            if (callback && bindingUsesTimer(callback, new Set())) {
+                sleeps.push({ file, scope: namedScope(node) });
+            }
+        }
+        ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+
+    return { privateProbes, sleeps };
+};
+
+describe('test anti-pattern contracts', () => {
+    it.each([
+        ['as assertion', `(target as unknown as { _secret: string })._secret`],
+        ['angle-bracket assertion', `(<{ _secret: string }><unknown>target)._secret`],
+        ['non-null assertion', `target!._secret`],
+        ['element access', `(target as unknown as { _secret: string })['_secret']`],
+        ['asserted alias', `const mutable = target as unknown as { _secret: string }; mutable._secret`],
+        ['chained alias', `const mutable = target as unknown as { _secret: string }; const alias = mutable; alias['_secret']`],
+        ['typed-any alias', `const sutAny: any = target; sutAny._secret`],
+        ['chained typed-any alias', `const sutAny: any = target; const alias = sutAny; alias['_secret']`],
+        [
+            'suite-owned typed-any alias assigned in beforeEach',
+            `let sutAny: any;
+            beforeEach(() => { sutAny = target; });
+            it('probes', () => { sutAny._secret; });`,
+        ],
+    ])('detects private probes through %s', (_label, source) => {
+        expect(scanSource('synthetic.test.ts', source).privateProbes).toHaveLength(1);
     });
 
-    it('discovers the tracked whole-suite surface from the unit + contracts Jest ownership rules', () => {
-        const files = listTrackedWholeSuiteFiles();
+    it.each([
+        ['identifier timer and callback', `const sleep = () => new Promise((resolve) => setTimeout(resolve, 1));`, 'sleep'],
+        ['property timer', `const sleep = () => new Promise((resolve) => globalThis.setTimeout(resolve, 1));`, 'sleep'],
+        ['element timer', `const sleep = () => new Promise((resolve) => globalThis['setTimeout'](resolve, 1));`, 'sleep'],
+        ['interval', `const wait = () => new Promise((resolve) => setInterval(resolve, 1));`, 'wait'],
+        ['arrow callback', `const sleep = () => new Promise<void>(() => setTimeout(() => undefined, 1));`, 'sleep'],
+        ['direct await', `async function run() { await new Promise((resolve) => setTimeout(resolve, 1)); }`, 'run'],
+        ['local callback wrapper', `const wait = (resolve: () => void) => setTimeout(resolve, 1); const sleep = () => new Promise(wait);`, 'sleep'],
+        ['function callback wrapper', `function wait(resolve: () => void) { setTimeout(resolve, 1); } new Promise(wait);`, '<inline>'],
+        ['simple callback alias', `const wait = (resolve: () => void) => setTimeout(resolve, 1); const alias = wait; new Promise(alias);`, '<inline>'],
+        [
+            'nested local scheduling wrapper',
+            `const wait = (resolve: () => void) => {
+                const schedule = (callback: () => void) => setTimeout(callback, 1);
+                schedule(resolve);
+            };
+            new Promise(wait);`,
+            '<inline>',
+        ],
+        [
+            'for initializer shadow with outer binding restoration',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            for (let wait = (resolve: () => void) => queueMicrotask(resolve); ready; ) {
+                new Promise(wait);
+            }
+            new Promise(wait);`,
+            '<inline>',
+        ],
+        [
+            'for-in shadow with outer binding restoration',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            for (const wait in callbacks) {
+                new Promise(wait);
+            }
+            new Promise(wait);`,
+            '<inline>',
+        ],
+        [
+            'for-of shadow with outer binding restoration',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            for (const wait of callbacks) {
+                new Promise(wait);
+            }
+            new Promise(wait);`,
+            '<inline>',
+        ],
+        [
+            'catch shadow with outer binding restoration',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            try { run(); } catch (wait) {
+                new Promise(wait);
+            }
+            new Promise(wait);`,
+            '<inline>',
+        ],
+        [
+            'switch shadow with outer binding restoration',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            switch (value) {
+                case 1:
+                    const wait = (resolve: () => void) => queueMicrotask(resolve);
+                    new Promise(wait);
+                    break;
+            }
+            new Promise(wait);`,
+            '<inline>',
+        ],
+        [
+            'for-scoped timer without leaking into the outer binding',
+            `const wait = (resolve: () => void) => queueMicrotask(resolve);
+            for (let wait = (resolve: () => void) => setTimeout(resolve, 1); ready; ) {
+                new Promise(wait);
+            }
+            new Promise(wait);`,
+            '<inline>',
+        ],
+        [
+            'switch-scoped timer without leaking into the outer binding',
+            `const wait = (resolve: () => void) => queueMicrotask(resolve);
+            switch (value) {
+                case 1:
+                    const wait = (resolve: () => void) => setTimeout(resolve, 1);
+                    new Promise(wait);
+                    break;
+            }
+            new Promise(wait);`,
+            '<inline>',
+        ],
+    ])('detects Promise timer sleeps through %s', (_label, source, expectedScope) => {
+        const findings = scanSource('synthetic.test.ts', source).sleeps;
 
-        expect(files.length).toBeGreaterThan(0);
-        expect(files.every((file) => file.startsWith('src/'))).toBe(true);
-        expect(files).toContain('src/__tests__/policy/AntiPatterns.policy.test.ts');
-        expect(files).toContain('src/__tests__/helpers.test.ts');
-        expect(files).toContain('src/core/channel-setup/__tests__/ChannelSetupFacetSnapshotLoader.test.ts');
-        expect(files).toContain('src/modules/player/__tests__/subtitles/subtitleFallbackPipeline.test.ts');
-        expect(files).toContain('src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts');
-        expect(files).toContain('src/modules/ui/__tests__/runtime-token-style-contracts.test.ts');
-        expect(files).not.toContain('src/__tests__/tools/verifyDocs.test.ts');
+        expect(findings).toHaveLength(1);
+        expect(findings[0]?.scope).toBe(expectedScope);
     });
 
-    it('keeps hyphenated contract suite names on the contracts surface instead of unit', () => {
-        expect(isWholeSuiteFile('src/modules/ui/__tests__/runtime-token-style-contracts.test.ts')).toBe(true);
-        expect(WHOLE_SUITE_UNIT_PATH_EXCLUDES.some((pattern) => pattern.test(
-            'src/modules/ui/__tests__/runtime-token-style-contracts.test.ts'
-        ))).toBe(true);
-        expect(WHOLE_SUITE_CONTRACTS_PATH_MATCHERS.some((pattern) => pattern.test(
-            'src/modules/ui/__tests__/runtime-token-style-contracts.test.ts'
-        ))).toBe(true);
-
-        expect(isWholeSuiteFile('src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts')).toBe(true);
-        expect(WHOLE_SUITE_UNIT_PATH_EXCLUDES.some((pattern) => pattern.test(
-            'src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts'
-        ))).toBe(true);
-        expect(WHOLE_SUITE_CONTRACTS_PATH_MATCHERS.some((pattern) => pattern.test(
-            'src/modules/ui/__tests__/runtime-overlay-style-contracts.test.ts'
-        ))).toBe(true);
+    it.each([
+        ['class-owned private state', `class Fake { private _value = 1; read() { return this._value; } }`],
+        ['double-underscore global', `globalThis.__LINEUP__`],
+        ['public assertion', `(target as { value: string }).value`],
+        ['fake-timer scheduling', `setTimeout(() => { ready = true; }, 100)`],
+        ['non-timer Promise', `new Promise((resolve) => queueMicrotask(resolve))`],
+        ['unused timer callback wrapper', `const wait = (resolve: () => void) => setTimeout(resolve, 1); wait(done);`],
+        ['non-timer callback wrapper', `const wait = (resolve: () => void) => queueMicrotask(resolve); new Promise(wait);`],
+        ['timer wrapper passed elsewhere', `const wait = (resolve: () => void) => setTimeout(resolve, 1); register(wait);`],
+        ['public typed private-looking property', `const typed: { _secret: string } = target; typed._secret`],
+        [
+            'shadowed non-timer Promise callback',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            function run() {
+                const wait = (resolve: () => void) => queueMicrotask(resolve);
+                return new Promise(wait);
+            }`,
+        ],
+        [
+            'method-parameter shadowed Promise callback',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            class Runner {
+                run(wait: (resolve: () => void) => void) {
+                    return new Promise(wait);
+                }
+            }`,
+        ],
+        [
+            'constructor-parameter shadowed Promise callback',
+            `const wait = (resolve: () => void) => setTimeout(resolve, 1);
+            class Runner {
+                constructor(wait: (resolve: () => void) => void) {
+                    new Promise(wait);
+                }
+            }`,
+        ],
+    ])('ignores %s', (_label, source) => {
+        expect(scanSource('synthetic.test.ts', source)).toEqual({
+            privateProbes: [],
+            sleeps: [],
+        });
     });
 
-    it('ratchets whole-suite private probes and approved sleep ids with synchronized owner notes', () => {
-        const files = listTrackedWholeSuiteFiles();
-        const scan = scanFiles(files);
-        writeWholeSuiteDebugReports(scan.privateProbes, scan.sleepProbes);
+    it('discovers outside suites and non-tools test support files', () => {
+        expect(jestOwnedFiles()).toEqual(
+            expect.arrayContaining([
+                'src/platform/webosPlatformServices.test.ts',
+                'src/__tests__/helpers.ts',
+                'src/__tests__/fixtures/preparedPlaybackStream.ts',
+            ])
+        );
+        expect(jestOwnedFiles()).not.toContain('src/__tests__/tools/packageWebos.test.ts');
+    });
 
-        const privateKeys = Array.from(new Set(scan.privateProbes.map(toPrivateProbeKey))).sort();
-        const sleepIds = scan.sleepProbes.map((probe) => probe.id);
-        const sleepOwnerFiles = Array.from(new Set(scan.sleepProbes.map((probe) => probe.file))).sort();
+    it.each([
+        'src/__tests__/orchestrator/subtitle-track-recovery-warning-contract.test.ts',
+        'src/modules/ui/channel-setup/__tests__/ChannelSetupScreen.contracts.test.ts',
+        'src/__tests__/policy/AntiPatterns.policy.test.ts',
+        'src/modules/plex/library/__tests__/types.test.ts',
+    ])('excludes the non-unit Jest surface file %s', (file) => {
+        expect(jestOwnedFiles()).not.toContain(file);
+    });
 
-        const privateBaseline = readPrivateBaseline();
-        const privateOwnerNotes = readOwnerNotes(PRIVATE_OWNER_NOTES, 'private-probe');
-        const sleepBaseline = Array.from(readTextBaseline(BASELINE_SLEEP_REPORT, 'sleep-id')).sort();
-        const sleepOwnerNotes = readOwnerNotes(SLEEP_OWNER_NOTES, 'sleep');
+    it('enforces the worktree Jest surface with only the exact owner exceptions', () => {
+        const scans = jestOwnedFiles().map((file) =>
+            scanSource(file, fs.readFileSync(path.join(process.cwd(), file), 'utf8'))
+        );
+        const privateKeys = scans.flatMap(({ privateProbes }) =>
+            privateProbes.map(({ file, receiver, property }) => `${file}|${receiver}|${property}`)
+        );
+        const sleepKeys = scans.flatMap(({ sleeps }) =>
+            sleeps.map(({ file, scope }) => `${file}|${scope}`)
+        );
 
-        expect(privateKeys.length).toBeLessThanOrEqual(privateBaseline.maxCount);
-        expect(privateKeys).toEqual(Array.from(privateBaseline.allowlist).sort());
-        expect(privateOwnerNotes.map((row) => row.id).sort()).toEqual(privateKeys);
-
-        expect(sleepIds).toEqual(sleepBaseline);
-        expect(sleepOwnerNotes.map((row) => row.id).sort()).toEqual(sleepBaseline);
-        expect(sleepOwnerFiles).toEqual(['src/__tests__/helpers.test.ts']);
+        expect(privateKeys).toEqual([EPG_CACHE_STORE_EXCEPTION]);
+        expect(sleepKeys.filter((key) => !SLEEP_HELPER_EXCEPTIONS.has(key))).toEqual([]);
+        const observedSleepKeys = new Set(sleepKeys);
+        expect(
+            [...SLEEP_HELPER_EXCEPTIONS].filter((key) => !observedSleepKeys.has(key))
+        ).toEqual([]);
     });
 });

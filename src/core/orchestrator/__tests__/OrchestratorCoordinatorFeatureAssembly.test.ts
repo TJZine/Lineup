@@ -97,7 +97,7 @@ const createInput = (): OrchestratorCoordinatorAssemblyInput => {
     return {
         epgDebugRuntime: null,
         config: null,
-        moduleStatus: new Map(),
+        moduleStatus: { getRuntimeStatus: jest.fn() },
         init: {
             ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
         },

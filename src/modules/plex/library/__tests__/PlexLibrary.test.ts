@@ -1184,6 +1184,31 @@ describe('PlexLibrary', () => {
             expect(url).toBeNull();
         });
 
+        it('should resize trusted Plex metadata images through the authenticated server transcoder', () => {
+            const library = new PlexLibrary(mockConfig);
+            const actorThumb = 'https://metadata-static.plex.tv/f/people/actor.jpg';
+
+            const result = library.getImageUrl(actorThumb, 128, 128);
+            expect(result).not.toBeNull();
+            if (!result) throw new Error('Expected a resized Plex metadata image URL');
+            const url = new URL(result);
+
+            expect(url.origin).toBe('http://192.168.1.100:32400');
+            expect(url.pathname).toBe('/photo/:/transcode');
+            expect(url.searchParams.get('url')).toBe(actorThumb);
+            expect(url.searchParams.get('width')).toBe('128');
+            expect(url.searchParams.get('height')).toBe('128');
+            expect(url.searchParams.get('X-Plex-Token')).toBe('mock-token');
+            expect(new URL(actorThumb).searchParams.has('X-Plex-Token')).toBe(false);
+        });
+
+        it('should return trusted Plex metadata images directly when no resize is requested', () => {
+            const library = new PlexLibrary(mockConfig);
+            const actorThumb = 'https://metadata-static.plex.tv/f/people/actor.jpg';
+
+            expect(library.getImageUrl(actorThumb)).toBe(actorThumb);
+        });
+
         it('should use transcoder for resized images', () => {
             const library = new PlexLibrary(mockConfig);
 

@@ -107,14 +107,20 @@ exceeds coordination cost:
 
 - good read-only candidates: focused exploration, official documentation,
   adversarial review, test/log analysis, long waits;
-- write candidates: approved units with exact files, invariants, verification,
-  stop conditions, and no overlap with another writer.
+- write candidates: approved units with a clear owner/write boundary, invariants,
+  verification, stop conditions, and no overlap with another writer. Require exact
+  files only for concurrent writers or sensitive shared surfaces.
 
-A decision-complete packet may route a bounded unit to `worker_sol_low` when
-ownership is settled but implementation still needs repository comprehension, or
-to `worker_luna` when execution is frozen, repeatable, low ambiguity, and cheap to
-verify. The packet must name exact files, invariants, verification, and stop
-conditions. The main agent reviews the diff, integrates it, and reruns the proof.
+Use `worker_luna` by default for a bounded delegated unit when the outcome, owner
+seam, contracts, acceptance criteria, and direct proof are clear, including work
+that needs repository comprehension, exact-file discovery, and routine local coding
+judgment. The worker may add focused tests and diagnose failures caused by its
+implementation. Use `worker` when the same settled bounded unit needs material
+local design judgment, cross-boundary comprehension, complex diagnosis, or proof
+interpretation. Return unresolved product, ownership, public-contract, architecture,
+or proof decisions to planning. Plans describe risk and constraints rather than
+permanently binding a model; the controller selects the current role at dispatch.
+The main agent reviews the diff, integrates it, and reruns the proof.
 
 The main agent owns decisions, integration, and final verification. Keep depth at
 one. Return concise findings rather than raw transcripts.
@@ -187,8 +193,10 @@ workstream. An active plan needs only:
 
 - status and task family;
 - goal/non-goals;
-- owner seam and files in/out;
+- owner seam and likely files or allowed write boundary; exact files only when
+  concurrent writers or sensitive shared surfaces need collision protection;
 - invariants and public contracts;
+- acceptance criteria;
 - verification and stop/replan triggers;
 - progress/decisions when work spans sessions.
 

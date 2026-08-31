@@ -146,9 +146,11 @@ npm run build
 Preferred roles:
 - `explorer`: read-only source discovery
 - `reviewer`: packet-focused correctness, architecture, maintainability, security, or workflow review
-- `worker`: bounded implementation
-- `worker_sol_low`: bounded implementation with settled ownership that still needs repository comprehension
-- `worker_luna`: frozen, low-ambiguity, cheap-to-verify execution
+- `worker_luna`: default delegated implementation for bounded work with a clear
+  outcome, established owner seam and contracts, and direct proof
+- `worker`: Sol escalation implementation for a settled bounded unit that still
+  needs material local design judgment, cross-boundary comprehension, complex
+  diagnosis, or proof interpretation
 - `planner`: separate planning only when justified
 - `docs_researcher`: official-source checks
 - `monitor`: long waits and status checks
@@ -160,9 +162,13 @@ Preserve read-only reviewer/research roles versus write-capable planner/worker b
 - Select the role whose scope matches the work. Treat `.codex/agents/*.toml` as
   the sole authority for exact model and reasoning-effort settings; do not copy
   those values into plans, prompts, or workflow guidance.
-- Use `worker` for normal implementation, `worker_sol_low` for bounded work with
-  settled ownership and direct proof, and `worker_luna` only for frozen,
-  low-ambiguity, directly verifiable execution.
+- Use `worker_luna` by default for bounded delegated implementation when outcome,
+  ownership, contracts, acceptance criteria, and direct proof are clear, including
+  units that need repository comprehension and routine local coding judgment. Use
+  `worker` when the same settled unit needs material local design judgment,
+  cross-boundary comprehension, complex diagnosis, or proof interpretation. Return
+  unresolved product, ownership, public-contract, architecture, or proof decisions
+  to planning.
 - Use `planner` or `reviewer` only when the planning or independent-review gate
   is actually met. Change role defaults only after current official guidance and
   representative independent evidence justify the change.

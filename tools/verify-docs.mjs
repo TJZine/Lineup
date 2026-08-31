@@ -15,14 +15,13 @@ const requiredFiles = [
 ];
 const requiredReadOnlyRoles = new Set(['explorer', 'reviewer', 'docs_researcher', 'monitor']);
 const roleContracts = new Map([
-    ['explorer', { configFile: 'agents/explorer.toml', models: ['gpt-5.3-codex-spark'] }],
-    ['reviewer', { configFile: 'agents/reviewer.toml', models: ['gpt-5.6-sol', 'gpt-5.5'] }],
-    ['docs_researcher', { configFile: 'agents/docs-researcher.toml', models: ['gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4-mini'] }],
-    ['planner', { configFile: 'agents/planner.toml', models: ['gpt-5.6-sol', 'gpt-5.5'] }],
-    ['worker', { configFile: 'agents/worker.toml', models: ['gpt-5.6-sol', 'gpt-5.5'] }],
-    ['worker_sol_low', { configFile: 'agents/worker-sol-low.toml', models: ['gpt-5.6-sol'] }],
-    ['worker_luna', { configFile: 'agents/worker-luna.toml', models: ['gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4-mini'] }],
-    ['monitor', { configFile: 'agents/monitor.toml', models: ['gpt-5.3-codex-spark'] }],
+    ['explorer', { configFile: 'agents/explorer.toml' }],
+    ['reviewer', { configFile: 'agents/reviewer.toml' }],
+    ['docs_researcher', { configFile: 'agents/docs-researcher.toml' }],
+    ['planner', { configFile: 'agents/planner.toml' }],
+    ['worker', { configFile: 'agents/worker.toml' }],
+    ['worker_luna', { configFile: 'agents/worker-luna.toml' }],
+    ['monitor', { configFile: 'agents/monitor.toml' }],
 ]);
 const supportedReasoningEfforts = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const roleDeclarationKeys = new Set(['description', 'config_file']);
@@ -32,6 +31,10 @@ const roleConfigKeys = new Set([
     'sandbox_mode',
     'developer_instructions',
 ]);
+
+export function containsRetiredWorkerRole(content) {
+    return /\bworker_sol_low\b|worker-sol-low/u.test(content);
+}
 
 function read(relativePath) {
     try {
@@ -214,6 +217,10 @@ function isTomlTable(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isValidRoleModel(value) {
+    return typeof value === 'string' && value.trim() !== '' && value === value.trim();
+}
+
 function parseConfigToml(content, relativePath, validationErrors) {
     try {
         return parseToml(content);
@@ -251,10 +258,6 @@ function listTrackedCodexFiles(repoRoot, validationErrors) {
         validationErrors.push('codex-config: cannot inspect tracked files');
         return null;
     }
-}
-
-function isSupportedModelEffort(model, effort) {
-    return model !== 'gpt-5.4-mini' || effort === 'low' || effort === 'medium';
 }
 
 export function validateCodexRoleConfig(repoRoot) {
@@ -320,6 +323,23 @@ export function validateCodexRoleConfig(repoRoot) {
         validationErrors.push(`codex-config: role-inventory unknown: ${unknownRoles.join(', ')}`);
     }
 
+    const expectedRoleFiles = new Set(
+        [...roleContracts.values()].map(({ configFile }) => `.codex/${configFile}`)
+    );
+    const unknownTrackedRoleFiles = [...tracked]
+        .filter(
+            (file) =>
+                file.startsWith('.codex/agents/') &&
+                file.endsWith('.toml') &&
+                !expectedRoleFiles.has(file)
+        )
+        .sort();
+    if (unknownTrackedRoleFiles.length > 0) {
+        validationErrors.push(
+            `codex-config: tracked role files unknown: ${unknownTrackedRoleFiles.join(', ')}`
+        );
+    }
+
     const resolvedAgentsRoot = path.join(realpathSync(repoRoot), '.codex', 'agents');
     for (const [role, contract] of roleContracts) {
         const declaration = agents[role];
@@ -377,20 +397,14 @@ export function validateCodexRoleConfig(repoRoot) {
         if (unknownRoleKeys.length > 0) {
             validationErrors.push(`codex-config: role keys unsupported: ${role}`);
         }
-        if (typeof roleConfig.model !== 'string' || !contract.models.includes(roleConfig.model)) {
-            validationErrors.push(`codex-config: role model unsupported: ${role}`);
+        if (!isValidRoleModel(roleConfig.model)) {
+            validationErrors.push(`codex-config: role model invalid: ${role}`);
         }
         if (
             typeof roleConfig.model_reasoning_effort !== 'string' ||
             !supportedReasoningEfforts.has(roleConfig.model_reasoning_effort)
         ) {
             validationErrors.push(`codex-config: role effort unsupported: ${role}`);
-        } else if (
-            typeof roleConfig.model === 'string' &&
-            contract.models.includes(roleConfig.model) &&
-            !isSupportedModelEffort(roleConfig.model, roleConfig.model_reasoning_effort)
-        ) {
-            validationErrors.push(`codex-config: role model-effort combination unsupported: ${role}`);
         }
         if (requiredReadOnlyRoles.has(role)) {
             if (roleConfig.sandbox_mode !== 'read-only') {
@@ -411,13 +425,42 @@ function checkRoleConfig() {
     errors.push(...validateCodexRoleConfig(root));
 }
 
+function checkRetiredRoleReferences() {
+    const currentAgenticMarkdownFiles = trackedFiles('docs/agentic').filter(
+        (file) =>
+            file.endsWith('.md')
+            && !file.startsWith('docs/agentic/evals/baseline-summaries/')
+            && file !== 'docs/agentic/historical-plan-corpus-review.md'
+    );
+    const authorityFiles = new Set([
+        'AGENTS.md',
+        'ARCHITECTURE_CLEANUP_CHECKLIST.md',
+        'docs/AGENTIC_DEV_WORKFLOW.md',
+        '.codex/config.toml',
+        '.codex/review-context.md',
+        ...trackedFiles('.codex/agents/*.toml'),
+        ...trackedFiles('.agents/skills/*/SKILL.md'),
+        ...currentAgenticMarkdownFiles,
+    ]);
+    for (const file of authorityFiles) {
+        if (!existsSync(path.join(root, file))) continue;
+        const content = read(file);
+        if (
+            containsRetiredWorkerRole(file) ||
+            (content !== null && containsRetiredWorkerRole(content))
+        ) {
+            errors.push(`${file}: current authority references retired worker role`);
+        }
+    }
+}
+
 function checkActivePlans() {
     for (const file of trackedFiles('docs/plans/*.md').filter((file) => !file.endsWith('/README.md'))) {
         const content = read(file);
         if (content === null) continue;
         const firstLines = content.split('\n').slice(0, 40).join('\n');
         if (!/(?:\*\*Plan Status:\*\*\s*active|^Status:\s*Active\s*$)/imu.test(firstLines)) continue;
-        for (const marker of ['goal', 'verification']) {
+        for (const marker of ['goal', 'acceptance', 'verification']) {
             if (!new RegExp(`^#{1,3}\\s+.*${marker}`, 'imu').test(content)) {
                 errors.push(`${file}: active plan missing ${marker} section`);
             }
@@ -430,6 +473,7 @@ function main() {
     checkMarkdownLinks();
     checkSkills();
     checkRoleConfig();
+    checkRetiredRoleReferences();
     checkActivePlans();
 
     if (errors.length > 0) {

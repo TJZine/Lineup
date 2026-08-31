@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { ESLint } from 'eslint';
 
 import {
     architectureRuleMessages,
@@ -52,6 +53,21 @@ function findRuntimeUiRestrictionPattern(entry) {
     return getNoRestrictedImportPatterns(entry).find(
         (pattern) => pattern.message === architectureRuleMessages.runtimeUiBoundary
     );
+}
+
+function findAppShellRuntimeBoundaryEntry(config) {
+    return config.find(
+        (entry) => includesAllValues(entry.files, lineupArchitectureRules.appShellRuntimeBoundary.runtimeModuleGlobs)
+    );
+}
+
+async function lintArchitectureSource(filePath, source) {
+    const eslint = new ESLint({
+        overrideConfigFile: true,
+        overrideConfig: buildEslintArchitectureRules(lineupArchitectureRules),
+    });
+    const [result] = await eslint.lintText(source, { filePath });
+    return result.messages;
 }
 
 test('App restriction patterns block both module roots and descendants', () => {
@@ -176,4 +192,114 @@ test('app-shell no longer has stale composition-root temporary exceptions', () =
     );
 
     assert.deepEqual(staleAppShellCompositionRootExceptions, []);
+});
+
+test('app-shell runtime boundary emits forbidden implementation paths and symbols', () => {
+    const config = buildEslintArchitectureRules(lineupArchitectureRules);
+    const entry = findAppShellRuntimeBoundaryEntry(config);
+    const patterns = getNoRestrictedImportPatterns(entry);
+
+    assert.ok(entry, 'expected app-shell runtime boundary block');
+    assert.ok(
+        findCompositionRootRestrictionPattern(entry),
+        'expected the later flat-config block to preserve the composition-root restriction'
+    );
+    assert.deepEqual(
+        patterns.slice(1),
+        lineupArchitectureRules.appShellRuntimeBoundary.forbiddenImportPatterns
+    );
+    assert.ok(
+        patterns.some(
+            (pattern) => pattern.regex === '(?:^|/)(?:Orchestrator|AppOrchestrator)(?:\\.[jt]sx?)?$'
+        ),
+        'expected orchestrator root and concrete implementation restriction'
+    );
+    assert.ok(
+        patterns.some(
+            (pattern) => pattern.regex === '(?:^|/)ServerSelectionTypes(?:\\.ts)?$'
+        ),
+        'expected core server-selection result owner restriction'
+    );
+    assert.ok(
+        patterns.some(
+            (pattern) => pattern.regex === '(?:^|/)OrchestratorStorageContext(?:\\.ts)?$'
+        ),
+        'expected orchestrator storage context restriction'
+    );
+
+    const symbolPattern = patterns.find(
+        (pattern) => pattern.importNames?.includes('OrchestratorServerSelectionResult')
+    );
+    assert.ok(symbolPattern, 'expected implementation symbol restriction');
+    assert.deepEqual(symbolPattern.importNames, [
+        'OrchestratorServerSelectionResult',
+        'getSelectedServerStorageKey',
+        'getServerHealthStorageKey',
+    ]);
+    assert.equal(symbolPattern.message, architectureRuleMessages.appShellRuntimeBoundary);
+});
+
+test('only the runtime engine loader may dynamically import the orchestrator implementation', async () => {
+    const loader = lineupArchitectureRules.appShellRuntimeBoundary.orchestratorImplementationLoader;
+    assert.deepEqual(loader, {
+        file: 'src/core/app-shell/runtime/AppRuntimeEngineLoader.ts',
+        dynamicImport: '../../orchestrator/AppOrchestrator',
+    });
+
+    const allowedMessages = await lintArchitectureSource(
+        loader.file,
+        `import(${JSON.stringify(loader.dynamicImport)});`
+    );
+    assert.deepEqual(allowedMessages, []);
+
+    for (const [label, filePath, source, ruleId] of [
+        [
+            'sibling literal',
+            'src/core/app-shell/runtime/AppThemeController.ts',
+            `import(${JSON.stringify(loader.dynamicImport)});`,
+            'no-restricted-syntax',
+        ],
+        [
+            'sibling JavaScript specifier',
+            'src/core/app-shell/runtime/AppThemeController.ts',
+            "import('../../orchestrator/AppOrchestrator.js');",
+            'no-restricted-syntax',
+        ],
+        [
+            'sibling template specifier',
+            'src/core/app-shell/runtime/AppThemeController.ts',
+            'import(`../../orchestrator/AppOrchestrator`);',
+            'no-restricted-syntax',
+        ],
+        [
+            'loader template specifier',
+            loader.file,
+            'import(`../../orchestrator/AppOrchestrator`);',
+            'no-restricted-syntax',
+        ],
+        [
+            'loader alternate path',
+            loader.file,
+            "import('../../../core/orchestrator/AppOrchestrator');",
+            'no-restricted-syntax',
+        ],
+        [
+            'loader static exact specifier',
+            loader.file,
+            `import { AppOrchestrator } from ${JSON.stringify(loader.dynamicImport)};\nvoid AppOrchestrator;`,
+            'no-restricted-imports',
+        ],
+        [
+            'loader static JavaScript specifier',
+            loader.file,
+            "import { AppOrchestrator } from '../../orchestrator/AppOrchestrator.js';\nvoid AppOrchestrator;",
+            'no-restricted-imports',
+        ],
+    ]) {
+        const messages = await lintArchitectureSource(filePath, source);
+        assert.ok(
+            messages.some((message) => message.ruleId === ruleId),
+            `${label}: expected ${ruleId}`
+        );
+    }
 });

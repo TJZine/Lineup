@@ -16,6 +16,36 @@ describe('EPGVirtualizer', () => {
     let container: HTMLElement;
     let config: EPGConfig;
     const gridAnchorTime = new Date('2026-01-07T00:00:00').getTime();
+    type ProgramOverrides = Omit<Partial<ScheduledProgram>, 'item'> & {
+        item?: Partial<ScheduledProgram['item']>;
+    };
+    const createProgram = (overrides: ProgramOverrides = {}): ScheduledProgram => {
+        const scheduledStartTime = overrides.scheduledStartTime ?? gridAnchorTime;
+        const scheduledEndTime = overrides.scheduledEndTime ?? scheduledStartTime + (60 * 60_000);
+        const title = overrides.item?.title ?? 'Program';
+
+        return {
+            scheduledStartTime,
+            scheduledEndTime,
+            elapsedMs: 0,
+            remainingMs: scheduledEndTime - scheduledStartTime,
+            scheduleIndex: 0,
+            loopNumber: 0,
+            isCurrent: false,
+            ...overrides,
+            item: {
+                ratingKey: 'program',
+                type: 'movie',
+                title,
+                fullTitle: title,
+                durationMs: scheduledEndTime - scheduledStartTime,
+                thumb: null,
+                year: 2024,
+                scheduledIndex: 0,
+                ...overrides.item,
+            },
+        };
+    };
 
     beforeEach(() => {
         container = document.createElement('div');
@@ -46,25 +76,11 @@ describe('EPGVirtualizer', () => {
 
     describe('positionCell', () => {
         it('computes left/width deterministically from program times', () => {
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: '1',
-                    type: 'movie',
-                    title: 'Test Movie',
-                    fullTitle: 'Test Movie',
-                    durationMs: 1800000, // 30 minutes
-                    thumb: null,
-                    year: 2020,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime + 60000, // 1 minute from anchor
-                scheduledEndTime: gridAnchorTime + 120000, // 2 minutes from anchor
-                elapsedMs: 0,
-                remainingMs: 60000,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+            const program = createProgram({
+                item: { ratingKey: '1', title: 'Test Movie', durationMs: 1_800_000 },
+                scheduledStartTime: gridAnchorTime + 60_000,
+                scheduledEndTime: gridAnchorTime + 120_000,
+            });
 
             const cell = positionCell(program, gridAnchorTime);
 
@@ -73,60 +89,34 @@ describe('EPGVirtualizer', () => {
             expect(cell.program.item.ratingKey).toBe('1');
         });
 
-        it('calculates correct left position based on start time', () => {
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: '2',
-                    type: 'movie',
-                    title: 'Test',
-                    fullTitle: 'Test',
-                    durationMs: 3600000,
-                    thumb: null,
-                    year: 2020,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime + (60 * 60000), // 60 minutes from anchor
-                scheduledEndTime: gridAnchorTime + (120 * 60000), // 120 minutes from anchor
-                elapsedMs: 0,
-                remainingMs: 3600000,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+        it.each([
+            {
+                label: 'maps a one-hour offset and duration',
+                startOffsetMs: 60 * 60_000,
+                durationMs: 60 * 60_000,
+                pixelsPerMinute: 4,
+                expectedLeft: 240,
+                expectedWidth: 240,
+            },
+            {
+                label: 'enforces the minimum width for a ten-second clip',
+                startOffsetMs: 0,
+                durationMs: 10_000,
+                pixelsPerMinute: 1,
+                expectedLeft: 0,
+                expectedWidth: 20,
+            },
+        ])('$label', ({ startOffsetMs, durationMs, pixelsPerMinute, expectedLeft, expectedWidth }) => {
+            const program = createProgram({
+                item: { type: 'clip', durationMs },
+                scheduledStartTime: gridAnchorTime + startOffsetMs,
+                scheduledEndTime: gridAnchorTime + startOffsetMs + durationMs,
+            });
 
-            const cell = positionCell(program, gridAnchorTime, 4); // 4 pixels per minute
-
-            // 60 minutes * 4 pixels = 240px left
-            expect(cell.left).toBe(240);
-            // 60 minutes duration * 4 pixels = 240px width
-            expect(cell.width).toBe(240);
-        });
-
-        it('enforces minimum width of 20px', () => {
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: '3',
-                    type: 'clip',
-                    title: 'Short Clip',
-                    fullTitle: 'Short Clip',
-                    durationMs: 10000, // 10 seconds
-                    thumb: null,
-                    year: 2020,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime,
-                scheduledEndTime: gridAnchorTime + 10000, // 10 seconds later
-                elapsedMs: 0,
-                remainingMs: 10000,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
-
-            const cell = positionCell(program, gridAnchorTime);
-
-            // Even though duration would give tiny width, minimum is 20px
-            expect(cell.width).toBeGreaterThanOrEqual(20);
+            expect(positionCell(program, gridAnchorTime, pixelsPerMinute)).toMatchObject({
+                left: expectedLeft,
+                width: expectedWidth,
+            });
         });
     });
 
@@ -220,25 +210,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'stable-1',
-                            type: 'movie',
-                            title: 'Stable Program',
-                            fullTitle: 'Stable Program',
-                            durationMs: 60 * 60000,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + (60 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'stable-1', title: 'Stable Program', durationMs: 60 * 60000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (60 * 60000), remainingMs: 0 }),
                 ],
             };
             const schedules = new Map<string, ScheduleWindow>([[channelId, schedule]]);
@@ -265,25 +237,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey,
-                            type: 'movie',
-                            title: 'Stable Program',
-                            fullTitle: 'Stable Program',
-                            durationMs: 60 * 60000,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + (60 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey, title: 'Stable Program', durationMs: 60 * 60000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (60 * 60000), remainingMs: 0 }),
                 ],
             });
             const schedules = new Map<string, ScheduleWindow>([
@@ -322,25 +276,7 @@ describe('EPGVirtualizer', () => {
             if (!channelId) {
                 throw new Error('Missing channelId for virtualization test.');
             }
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: `${channelId}-0`,
-                    type: 'movie',
-                    title: 'Top Test',
-                    fullTitle: 'Top Test',
-                    durationMs: 1800000,
-                    thumb: null,
-                    year: 2020,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime,
-                scheduledEndTime: gridAnchorTime + 1800000,
-                elapsedMs: 0,
-                remainingMs: 1800000,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+            const program: ScheduledProgram = createProgram({ item: { ratingKey: `${channelId}-0`, title: 'Top Test', durationMs: 1800000 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + 1800000, remainingMs: 1800000 });
             schedules.set(channelId, {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
@@ -364,25 +300,7 @@ describe('EPGVirtualizer', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch0';
 
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: 'p1',
-                    type: 'movie',
-                    title: 'Program 1',
-                    fullTitle: 'Program 1',
-                    durationMs: 60 * 60 * 1000, // 60 minutes (01:30 → 02:30)
-                    thumb: null,
-                    year: 2020,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime + (90 * 60000), // 01:30
-                scheduledEndTime: gridAnchorTime + (150 * 60000),  // 02:30
-                elapsedMs: 0,
-                remainingMs: 0,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+            const program: ScheduledProgram = createProgram({ item: { ratingKey: 'p1', title: 'Program 1', durationMs: 60 * 60 * 1000 }, scheduledStartTime: gridAnchorTime + (90 * 60000), scheduledEndTime: gridAnchorTime + (150 * 60000), remainingMs: 0 });
 
             const schedules = new Map<string, ScheduleWindow>([
                 [channelId, {
@@ -407,25 +325,7 @@ describe('EPGVirtualizer', () => {
         it('keeps title gutter stable after forward/back scrubbing and clears stale shift class', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-scrub';
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: 'scrub-1',
-                    type: 'movie',
-                    title: 'Scrub Program',
-                    fullTitle: 'Scrub Program',
-                    durationMs: 180 * 60 * 1000, // 3h
-                    thumb: null,
-                    year: 2026,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime + (30 * 60000), // 00:30
-                scheduledEndTime: gridAnchorTime + (210 * 60000), // 03:30
-                elapsedMs: 0,
-                remainingMs: 0,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+            const program: ScheduledProgram = createProgram({ item: { ratingKey: 'scrub-1', title: 'Scrub Program', durationMs: 180 * 60 * 1000, year: 2026 }, scheduledStartTime: gridAnchorTime + (30 * 60000), scheduledEndTime: gridAnchorTime + (210 * 60000), remainingMs: 0 });
 
             const schedules = new Map<string, ScheduleWindow>([
                 [channelId, {
@@ -463,25 +363,7 @@ describe('EPGVirtualizer', () => {
         it('keeps left/right text gutters when a long program is mostly clipped by scroll', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-clamp';
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: 'clamp-1',
-                    type: 'movie',
-                    title: 'Clamp Program',
-                    fullTitle: 'Clamp Program',
-                    durationMs: 240 * 60 * 1000, // 4h
-                    thumb: null,
-                    year: 2026,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime,
-                scheduledEndTime: gridAnchorTime + (240 * 60000),
-                elapsedMs: 0,
-                remainingMs: 0,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+            const program: ScheduledProgram = createProgram({ item: { ratingKey: 'clamp-1', title: 'Clamp Program', durationMs: 240 * 60 * 1000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (240 * 60000), remainingMs: 0 });
             const schedules = new Map<string, ScheduleWindow>([
                 [channelId, {
                     startTime: gridAnchorTime,
@@ -510,25 +392,7 @@ describe('EPGVirtualizer', () => {
         it('marks heavily clipped visible programs as slivers without changing their geometry', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-sliver-clipped';
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: 'sliver-clipped-1',
-                    type: 'movie',
-                    title: 'Sliver Clipped Program',
-                    fullTitle: 'Sliver Clipped Program',
-                    durationMs: 240 * 60 * 1000,
-                    thumb: null,
-                    year: 2026,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime,
-                scheduledEndTime: gridAnchorTime + (240 * 60000),
-                elapsedMs: 0,
-                remainingMs: 0,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+            const program: ScheduledProgram = createProgram({ item: { ratingKey: 'sliver-clipped-1', title: 'Sliver Clipped Program', durationMs: 240 * 60 * 1000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (240 * 60000), remainingMs: 0 });
             const schedules = new Map<string, ScheduleWindow>([
                 [channelId, {
                     startTime: gridAnchorTime,
@@ -552,25 +416,7 @@ describe('EPGVirtualizer', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-left-clipped';
 
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: 'left-clipped-1',
-                    type: 'movie',
-                    title: 'Left Clipped Program',
-                    fullTitle: 'Left Clipped Program',
-                    durationMs: 60 * 60 * 1000, // 60 minutes (-00:30 → 00:30)
-                    thumb: null,
-                    year: 2020,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime - (30 * 60000), // -00:30
-                scheduledEndTime: gridAnchorTime + (30 * 60000),   // 00:30
-                elapsedMs: 0,
-                remainingMs: 0,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+            const program: ScheduledProgram = createProgram({ item: { ratingKey: 'left-clipped-1', title: 'Left Clipped Program', durationMs: 60 * 60 * 1000 }, scheduledStartTime: gridAnchorTime - (30 * 60000), scheduledEndTime: gridAnchorTime + (30 * 60000), remainingMs: 0 });
 
             const schedules = new Map<string, ScheduleWindow>([
                 [channelId, {
@@ -603,25 +449,7 @@ describe('EPGVirtualizer', () => {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + (24 * 60 * 60000),
                     programs: [
-                        {
-                            item: {
-                                ratingKey: 'sliver-short-1',
-                                type: 'movie',
-                                title: 'Short Sliver',
-                                fullTitle: 'Short Sliver',
-                                durationMs: end - start,
-                                thumb: null,
-                                year: 2026,
-                                scheduledIndex: 0,
-                            },
-                            scheduledStartTime: start,
-                            scheduledEndTime: end,
-                            elapsedMs: 0,
-                            remainingMs: end - start,
-                            scheduleIndex: 0,
-                            loopNumber: 0,
-                            isCurrent: false,
-                        },
+                        createProgram({ item: { ratingKey: 'sliver-short-1', title: 'Short Sliver', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                     ],
                 }],
             ]);
@@ -645,28 +473,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'focused-episode-sliver-1',
-                            type: 'episode',
-                            title: 'Episode With A Very Long Focused Subtitle',
-                            fullTitle: 'Prestige Show - S01E07 - Episode With A Very Long Focused Subtitle',
-                            showTitle: 'Prestige Show',
-                            seasonNumber: 1,
-                            episodeNumber: 7,
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'focused-episode-sliver-1', type: 'episode', title: 'Episode With A Very Long Focused Subtitle', fullTitle: 'Prestige Show - S01E07 - Episode With A Very Long Focused Subtitle', showTitle: 'Prestige Show', seasonNumber: 1, episodeNumber: 7, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                 ],
             };
 
@@ -708,25 +515,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'focused-episode-no-show-title-1',
-                            type: 'episode',
-                            title: 'Standalone Episode Title',
-                            fullTitle: 'Standalone Episode Title',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'focused-episode-no-show-title-1', type: 'episode', title: 'Standalone Episode Title', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                 ],
             };
 
@@ -749,25 +538,7 @@ describe('EPGVirtualizer', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-pre-anchor';
 
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: 'pre-anchor-1',
-                    type: 'movie',
-                    title: 'Pre Anchor Program',
-                    fullTitle: 'Pre Anchor Program',
-                    durationMs: 360 * 60000, // 6h
-                    thumb: null,
-                    year: 2026,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime - (120 * 60000), // -02:00
-                scheduledEndTime: gridAnchorTime + (240 * 60000),   // +04:00
-                elapsedMs: 0,
-                remainingMs: 0,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+            const program: ScheduledProgram = createProgram({ item: { ratingKey: 'pre-anchor-1', title: 'Pre Anchor Program', durationMs: 360 * 60000, year: 2026 }, scheduledStartTime: gridAnchorTime - (120 * 60000), scheduledEndTime: gridAnchorTime + (240 * 60000), remainingMs: 0 });
 
             const schedules = new Map<string, ScheduleWindow>([
                 [channelId, {
@@ -801,25 +572,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 3600000,
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'ep1',
-                            type: 'episode',
-                            title: 'Episode One',
-                            fullTitle: 'Great Show - S01E01 - Episode One',
-                            durationMs: 3600000,
-                            thumb: null,
-                            year: 2020,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + 3600000,
-                        elapsedMs: 0,
-                        remainingMs: 3600000,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'ep1', type: 'episode', title: 'Episode One', fullTitle: 'Great Show - S01E01 - Episode One', durationMs: 3600000 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + 3600000, remainingMs: 3600000 }),
                 ],
             };
 
@@ -841,25 +594,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 3600000,
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'movie1',
-                            type: 'movie',
-                            title: 'Feature Film',
-                            fullTitle: 'Feature Film',
-                            durationMs: 1800000,
-                            thumb: null,
-                            year: 2021,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + 1800000,
-                        elapsedMs: 0,
-                        remainingMs: 1800000,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'movie1', title: 'Feature Film', durationMs: 1800000, year: 2021 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + 1800000, remainingMs: 1800000 }),
                 ],
             };
 
@@ -881,28 +616,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 3600000,
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'ep-tag-1',
-                            type: 'episode',
-                            title: 'The Heist',
-                            fullTitle: 'Great Show - S01E05 - The Heist',
-                            showTitle: 'Great Show',
-                            seasonNumber: 1,
-                            episodeNumber: 5,
-                            durationMs: 3600000,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + 3600000,
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'ep-tag-1', type: 'episode', title: 'The Heist', fullTitle: 'Great Show - S01E05 - The Heist', showTitle: 'Great Show', seasonNumber: 1, episodeNumber: 5, durationMs: 3600000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + 3600000, remainingMs: 0 }),
                 ],
             };
 
@@ -932,25 +646,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 3600000,
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'ep-no-showtitle-1',
-                            type: 'episode',
-                            title: 'Episode One',
-                            fullTitle: 'Episode One',
-                            durationMs: 60 * 60000, // 240px => wide tier
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + (60 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'ep-no-showtitle-1', type: 'episode', title: 'Episode One', durationMs: 60 * 60000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (60 * 60000), remainingMs: 0 }),
                 ],
             };
 
@@ -977,25 +673,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 3600000,
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'ep-fulltitle-fallback-1',
-                            type: 'episode',
-                            title: 'Scavengers',
-                            fullTitle: 'Scavengers Reign - Scavengers',
-                            durationMs: 60 * 60000, // 240px => wide tier
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + (60 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'ep-fulltitle-fallback-1', type: 'episode', title: 'Scavengers', fullTitle: 'Scavengers Reign - Scavengers', durationMs: 60 * 60000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (60 * 60000), remainingMs: 0 }),
                 ],
             };
 
@@ -1022,25 +700,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'tiny-1',
-                            type: 'movie',
-                            title: 'Tiny Program',
-                            fullTitle: 'Tiny Program',
-                            durationMs: 20 * 60000, // 20 minutes => 80px at 4px/min
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + (20 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'tiny-1', title: 'Tiny Program', durationMs: 20 * 60000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (20 * 60000), remainingMs: 0 }),
                 ],
             };
 
@@ -1062,82 +722,10 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'wide-ep',
-                            type: 'episode',
-                            title: 'Wide Episode',
-                            fullTitle: 'Boundary Show - S01E01 - Wide Episode',
-                            durationMs: 55 * 60000, // 220px
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + (55 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
-                    {
-                        item: {
-                            ratingKey: 'medium-ep',
-                            type: 'episode',
-                            title: 'Medium Episode',
-                            fullTitle: 'Boundary Show - S01E02 - Medium Episode',
-                            durationMs: 35 * 60000, // 140px
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 1,
-                        },
-                        scheduledStartTime: gridAnchorTime + (55 * 60000),
-                        scheduledEndTime: gridAnchorTime + (90 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 1,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
-                    {
-                        item: {
-                            ratingKey: 'narrow-ep',
-                            type: 'episode',
-                            title: 'Narrow Episode',
-                            fullTitle: 'Boundary Show - S01E03 - Narrow Episode',
-                            durationMs: 22 * 60000, // 88px
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 2,
-                        },
-                        scheduledStartTime: gridAnchorTime + (90 * 60000),
-                        scheduledEndTime: gridAnchorTime + (112 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 2,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
-                    {
-                        item: {
-                            ratingKey: 'tiny-ep',
-                            type: 'episode',
-                            title: 'Tiny Episode',
-                            fullTitle: 'Boundary Show - S01E04 - Tiny Episode',
-                            durationMs: 20 * 60000, // 80px
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 3,
-                        },
-                        scheduledStartTime: gridAnchorTime + (112 * 60000),
-                        scheduledEndTime: gridAnchorTime + (132 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 3,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'wide-ep', type: 'episode', title: 'Wide Episode', fullTitle: 'Boundary Show - S01E01 - Wide Episode', durationMs: 55 * 60000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (55 * 60000), remainingMs: 0 }),
+                    createProgram({ item: { ratingKey: 'medium-ep', type: 'episode', title: 'Medium Episode', fullTitle: 'Boundary Show - S01E02 - Medium Episode', durationMs: 35 * 60000, year: 2026, scheduledIndex: 1 }, scheduledStartTime: gridAnchorTime + (55 * 60000), scheduledEndTime: gridAnchorTime + (90 * 60000), remainingMs: 0, scheduleIndex: 1 }),
+                    createProgram({ item: { ratingKey: 'narrow-ep', type: 'episode', title: 'Narrow Episode', fullTitle: 'Boundary Show - S01E03 - Narrow Episode', durationMs: 22 * 60000, year: 2026, scheduledIndex: 2 }, scheduledStartTime: gridAnchorTime + (90 * 60000), scheduledEndTime: gridAnchorTime + (112 * 60000), remainingMs: 0, scheduleIndex: 2 }),
+                    createProgram({ item: { ratingKey: 'tiny-ep', type: 'episode', title: 'Tiny Episode', fullTitle: 'Boundary Show - S01E04 - Tiny Episode', durationMs: 20 * 60000, year: 2026, scheduledIndex: 3 }, scheduledStartTime: gridAnchorTime + (112 * 60000), scheduledEndTime: gridAnchorTime + (132 * 60000), remainingMs: 0, scheduleIndex: 3 }),
                 ],
             };
 
@@ -1321,25 +909,7 @@ describe('EPGVirtualizer', () => {
         it('renders gap placeholders when schedule has holes in visible window', () => {
             const channelIds = ['ch0'];
             const programs: ScheduledProgram[] = [
-                {
-                    item: {
-                        ratingKey: 'ch0-1',
-                        type: 'movie',
-                        title: 'Program 1',
-                        fullTitle: 'Program 1',
-                        durationMs: 1800000,
-                        thumb: null,
-                        year: 2020,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: gridAnchorTime + (60 * 60000),
-                    scheduledEndTime: gridAnchorTime + (90 * 60000),
-                    elapsedMs: 0,
-                    remainingMs: 1800000,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                },
+                createProgram({ item: { ratingKey: 'ch0-1', title: 'Program 1', durationMs: 1800000 }, scheduledStartTime: gridAnchorTime + (60 * 60000), scheduledEndTime: gridAnchorTime + (90 * 60000), remainingMs: 1800000 }),
             ];
             const schedules = new Map<string, ScheduleWindow>([
                 ['ch0', {
@@ -1367,25 +937,7 @@ describe('EPGVirtualizer', () => {
             const programs: ScheduledProgram[] = [];
 
             for (let minute = 0; minute < 300; minute += 1) {
-                programs.push({
-                    item: {
-                        ratingKey: `${channelId}-${minute}`,
-                        type: 'movie',
-                        title: `Program ${minute}`,
-                        fullTitle: `Program ${minute}`,
-                        durationMs: 60_000,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: minute,
-                    },
-                    scheduledStartTime: gridAnchorTime + (minute * 60_000),
-                    scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
-                    elapsedMs: 0,
-                    remainingMs: 60_000,
-                    scheduleIndex: minute,
-                    loopNumber: 0,
-                    isCurrent: false,
-                });
+                programs.push(createProgram({ item: { ratingKey: `${channelId}-${minute}`, title: `Program ${minute}`, durationMs: 60_000, year: 2026, scheduledIndex: minute }, scheduledStartTime: gridAnchorTime + (minute * 60_000), scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000), remainingMs: 60_000, scheduleIndex: minute }));
             }
 
             const schedules = new Map<string, ScheduleWindow>([
@@ -1423,25 +975,7 @@ describe('EPGVirtualizer', () => {
             for (const channelId of channelIds) {
                 const programs: ScheduledProgram[] = [];
                 for (let minute = 0; minute < 360; minute += 1) {
-                    programs.push({
-                        item: {
-                            ratingKey: `${channelId}-${minute}`,
-                            type: 'movie',
-                            title: `Program ${minute}`,
-                            fullTitle: `Program ${minute}`,
-                            durationMs: 60_000,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: minute,
-                        },
-                        scheduledStartTime: gridAnchorTime + (minute * 60_000),
-                        scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
-                        elapsedMs: 0,
-                        remainingMs: 60_000,
-                        scheduleIndex: minute,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    });
+                    programs.push(createProgram({ item: { ratingKey: `${channelId}-${minute}`, title: `Program ${minute}`, durationMs: 60_000, year: 2026, scheduledIndex: minute }, scheduledStartTime: gridAnchorTime + (minute * 60_000), scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000), remainingMs: 60_000, scheduleIndex: minute }));
                 }
 
                 schedules.set(channelId, {
@@ -1480,25 +1014,7 @@ describe('EPGVirtualizer', () => {
             for (const channelId of channelIds) {
                 const programs: ScheduledProgram[] = [];
                 for (let minute = 0; minute < 10; minute += 1) {
-                    programs.push({
-                        item: {
-                            ratingKey: `${channelId}-${minute}`,
-                            type: 'movie',
-                            title: `Program ${minute}`,
-                            fullTitle: `Program ${minute}`,
-                            durationMs: 60_000,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: minute,
-                        },
-                        scheduledStartTime: gridAnchorTime + (minute * 60_000),
-                        scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
-                        elapsedMs: 0,
-                        remainingMs: 60_000,
-                        scheduleIndex: minute,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    });
+                    programs.push(createProgram({ item: { ratingKey: `${channelId}-${minute}`, title: `Program ${minute}`, durationMs: 60_000, year: 2026, scheduledIndex: minute }, scheduledStartTime: gridAnchorTime + (minute * 60_000), scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000), remainingMs: 60_000, scheduleIndex: minute }));
                 }
 
                 schedules.set(channelId, {
@@ -1539,25 +1055,7 @@ describe('EPGVirtualizer', () => {
             for (const channelId of channelIds) {
                 const programs: ScheduledProgram[] = [];
                 for (let minute = 0; minute < 10; minute += 1) {
-                    programs.push({
-                        item: {
-                            ratingKey: `${channelId}-${minute}`,
-                            type: 'movie',
-                            title: `Program ${minute}`,
-                            fullTitle: `Program ${minute}`,
-                            durationMs: 60_000,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: minute,
-                        },
-                        scheduledStartTime: gridAnchorTime + (minute * 60_000),
-                        scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000),
-                        elapsedMs: 0,
-                        remainingMs: 60_000,
-                        scheduleIndex: minute,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    });
+                    programs.push(createProgram({ item: { ratingKey: `${channelId}-${minute}`, title: `Program ${minute}`, durationMs: 60_000, year: 2026, scheduledIndex: minute }, scheduledStartTime: gridAnchorTime + (minute * 60_000), scheduledEndTime: gridAnchorTime + ((minute + 1) * 60_000), remainingMs: 60_000, scheduleIndex: minute }));
                 }
 
                 schedules.set(channelId, {
@@ -1594,25 +1092,7 @@ describe('EPGVirtualizer', () => {
             for (const channelId of channelIds) {
                 const programs: ScheduledProgram[] = [];
                 for (let slot = 0; slot < 48; slot++) {
-                    programs.push({
-                        item: {
-                            ratingKey: `${channelId}-${slot}`,
-                            type: 'movie',
-                            title: `Program ${slot}`,
-                            fullTitle: `Program ${slot}`,
-                            durationMs: 1800000,
-                            thumb: null,
-                            year: 2020,
-                            scheduledIndex: slot,
-                        },
-                        scheduledStartTime: gridAnchorTime + (slot * 30 * 60000),
-                        scheduledEndTime: gridAnchorTime + ((slot + 1) * 30 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 1800000,
-                        scheduleIndex: slot,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    });
+                    programs.push(createProgram({ item: { ratingKey: `${channelId}-${slot}`, title: `Program ${slot}`, durationMs: 1800000, scheduledIndex: slot }, scheduledStartTime: gridAnchorTime + (slot * 30 * 60000), scheduledEndTime: gridAnchorTime + ((slot + 1) * 30 * 60000), remainingMs: 1800000, scheduleIndex: slot }));
                 }
                 schedules.set(channelId, {
                     startTime: gridAnchorTime,
@@ -1643,25 +1123,7 @@ describe('EPGVirtualizer', () => {
             for (const channelId of channelIds) {
                 const programs: ScheduledProgram[] = [];
                 for (let slot = 0; slot < 24; slot++) {
-                    programs.push({
-                        item: {
-                            ratingKey: `${channelId}-${slot}`,
-                            type: 'movie',
-                            title: `Program ${slot}`,
-                            fullTitle: `Program ${slot}`,
-                            durationMs: 3600000,
-                            thumb: null,
-                            year: 2020,
-                            scheduledIndex: slot,
-                        },
-                        scheduledStartTime: gridAnchorTime + (slot * 60 * 60000),
-                        scheduledEndTime: gridAnchorTime + ((slot + 1) * 60 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 3600000,
-                        scheduleIndex: slot,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    });
+                    programs.push(createProgram({ item: { ratingKey: `${channelId}-${slot}`, title: `Program ${slot}`, durationMs: 3600000, scheduledIndex: slot }, scheduledStartTime: gridAnchorTime + (slot * 60 * 60000), scheduledEndTime: gridAnchorTime + ((slot + 1) * 60 * 60000), remainingMs: 3600000, scheduleIndex: slot }));
                 }
                 schedules.set(channelId, {
                     startTime: gridAnchorTime,
@@ -1702,28 +1164,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                programs: [{
-                    item: {
-                        ratingKey: 'rail-1',
-                        type: 'episode',
-                        title: 'Pilot',
-                        fullTitle: 'Great Show - S01E01 - Pilot',
-                        showTitle: 'Great Show',
-                        seasonNumber: 1,
-                        episodeNumber: 1,
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - start,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'rail-1', type: 'episode', title: 'Pilot', fullTitle: 'Great Show - S01E01 - Pilot', showTitle: 'Great Show', seasonNumber: 1, episodeNumber: 1, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
             };
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
@@ -1747,26 +1188,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                programs: [{
-                    item: {
-                        ratingKey: 'current-1',
-                        type: 'movie',
-                        title: 'Current Program',
-                        fullTitle: 'Current Program',
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - now,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    // NOTE: EPGVirtualizer recomputes "current" from Date.now(); this fixture field is ignored here.
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'current-1', title: 'Current Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - now })],
             };
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
@@ -1787,50 +1209,8 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'ep-subtitle-1',
-                            type: 'episode',
-                            title: 'The Heist',
-                            fullTitle: 'Great Show - S01E05 - The Heist',
-                            showTitle: 'Great Show',
-                            seasonNumber: 1,
-                            episodeNumber: 5,
-                            durationMs: narrowEnd - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: narrowEnd,
-                        elapsedMs: 0,
-                        remainingMs: narrowEnd - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
-                    {
-                        item: {
-                            ratingKey: 'ep-subtitle-2',
-                            type: 'episode',
-                            title: 'The Heist',
-                            fullTitle: 'Great Show - S01E05 - The Heist',
-                            showTitle: 'Great Show',
-                            seasonNumber: 1,
-                            episodeNumber: 5,
-                            durationMs: tinyEnd - tinyStart,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 1,
-                        },
-                        scheduledStartTime: tinyStart,
-                        scheduledEndTime: tinyEnd,
-                        elapsedMs: 0,
-                        remainingMs: tinyEnd - tinyStart,
-                        scheduleIndex: 1,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'ep-subtitle-1', type: 'episode', title: 'The Heist', fullTitle: 'Great Show - S01E05 - The Heist', showTitle: 'Great Show', seasonNumber: 1, episodeNumber: 5, durationMs: narrowEnd - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: narrowEnd, remainingMs: narrowEnd - start }),
+                    createProgram({ item: { ratingKey: 'ep-subtitle-2', type: 'episode', title: 'The Heist', fullTitle: 'Great Show - S01E05 - The Heist', showTitle: 'Great Show', seasonNumber: 1, episodeNumber: 5, durationMs: tinyEnd - tinyStart, year: 2026, scheduledIndex: 1 }, scheduledStartTime: tinyStart, scheduledEndTime: tinyEnd, remainingMs: tinyEnd - tinyStart, scheduleIndex: 1 }),
                 ],
             };
 
@@ -1861,28 +1241,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'ep-focused-1',
-                            type: 'episode',
-                            title: 'The Edge Of Recovery',
-                            fullTitle: 'Great Show - S01E09 - The Edge Of Recovery',
-                            showTitle: 'Great Show',
-                            seasonNumber: 1,
-                            episodeNumber: 9,
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'ep-focused-1', type: 'episode', title: 'The Edge Of Recovery', fullTitle: 'Great Show - S01E09 - The Edge Of Recovery', showTitle: 'Great Show', seasonNumber: 1, episodeNumber: 9, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                 ],
             };
 
@@ -1917,28 +1276,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'ep-focused-no-split-1',
-                            type: 'episode',
-                            title: 'Episode Without Split Lanes',
-                            fullTitle: 'Episode Without Split Lanes',
-                            showTitle: '',
-                            seasonNumber: 1,
-                            episodeNumber: 2,
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'ep-focused-no-split-1', type: 'episode', title: 'Episode Without Split Lanes', showTitle: '', seasonNumber: 1, episodeNumber: 2, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                 ],
             };
 
@@ -1978,25 +1316,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'movie-focused-1',
-                            type: 'movie',
-                            title: 'The Square',
-                            fullTitle,
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2017,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'movie-focused-1', title: 'The Square', fullTitle, durationMs: end - start, year: 2017 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                 ],
             };
 
@@ -2021,25 +1341,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'ticker-1',
-                            type: 'movie',
-                            title: 'An Extremely Long Program Title That Must Overflow',
-                            fullTitle: 'An Extremely Long Program Title That Must Overflow',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'ticker-1', title: 'An Extremely Long Program Title That Must Overflow', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2074,25 +1376,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'ticker-disabled-1',
-                            type: 'movie',
-                            title: 'A Focused Title That Would Normally Overflow',
-                            fullTitle: 'A Focused Title That Would Normally Overflow',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'ticker-disabled-1', title: 'A Focused Title That Would Normally Overflow', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2125,25 +1409,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'fitting-movie-ticker-1',
-                            type: 'movie',
-                            title: 'Fitting Movie',
-                            fullTitle: 'Fitting Movie',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'fitting-movie-ticker-1', title: 'Fitting Movie', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2188,28 +1454,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'fitting-episode-ticker-1',
-                            type: 'episode',
-                            title: 'Readable Episode',
-                            fullTitle: 'Readable Show - S01E04 - Readable Episode',
-                            showTitle: 'Readable Show',
-                            seasonNumber: 1,
-                            episodeNumber: 4,
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'fitting-episode-ticker-1', type: 'episode', title: 'Readable Episode', fullTitle: 'Readable Show - S01E04 - Readable Episode', showTitle: 'Readable Show', seasonNumber: 1, episodeNumber: 4, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2264,25 +1509,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'ticker-text-shift-1',
-                            type: 'movie',
-                            title: 'Long Title That Requires Text Shift To Overflow',
-                            fullTitle: 'Long Title That Requires Text Shift To Overflow',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'ticker-text-shift-1', title: 'Long Title That Requires Text Shift To Overflow', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2315,25 +1542,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'ticker-ready-1',
-                            type: 'movie',
-                            title: 'A Very Long Title That Must Scroll In Tiny Tier',
-                            fullTitle: 'A Very Long Title That Must Scroll In Tiny Tier',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'ticker-ready-1', title: 'A Very Long Title That Must Scroll In Tiny Tier', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2374,25 +1583,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'ticker-clamp-only-1',
-                            type: 'movie',
-                            title: 'Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda',
-                            fullTitle: 'Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'ticker-clamp-only-1', title: 'Alpha Beta Gamma Delta Epsilon Zeta Eta Theta Iota Kappa Lambda', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2447,46 +1638,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'ep-focused-ticker-1',
-                            type: 'episode',
-                            title: episodeTitle,
-                            fullTitle: `${showTitle} - S01E09 - ${episodeTitle}`,
-                            showTitle,
-                            seasonNumber: 1,
-                            episodeNumber: 9,
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: mid,
-                        elapsedMs: 0,
-                        remainingMs: mid - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }, {
-                        item: {
-                            ratingKey: 'ep-focused-ticker-2',
-                            type: 'movie',
-                            title: 'Second Focus Target',
-                            fullTitle: 'Second Focus Target',
-                            durationMs: end - mid,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 1,
-                        },
-                        scheduledStartTime: mid,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - mid,
-                        scheduleIndex: 1,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'ep-focused-ticker-1', type: 'episode', title: episodeTitle, fullTitle: `${showTitle} - S01E09 - ${episodeTitle}`, showTitle, seasonNumber: 1, episodeNumber: 9, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: mid, remainingMs: mid - start }), createProgram({ item: { ratingKey: 'ep-focused-ticker-2', title: 'Second Focus Target', durationMs: end - mid, year: 2026, scheduledIndex: 1 }, scheduledStartTime: mid, scheduledEndTime: end, remainingMs: end - mid, scheduleIndex: 1 })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2539,25 +1691,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'movie-medium-1',
-                            type: 'movie',
-                            title: 'Medium Focus Movie',
-                            fullTitle: 'Medium Focus Movie',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'movie-medium-1', title: 'Medium Focus Movie', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                 ],
             };
 
@@ -2585,25 +1719,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'movie-medium-live-dot-1',
-                            type: 'movie',
-                            title: 'Focused Medium Live Dot',
-                            fullTitle: 'Focused Medium Live Dot',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - beforeCurrent,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'movie-medium-live-dot-1', title: 'Focused Medium Live Dot', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - beforeCurrent }),
                 ],
             };
 
@@ -2637,25 +1753,7 @@ describe('EPGVirtualizer', () => {
                 [channelId, {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + (24 * 60 * 60000),
-                    programs: [{
-                        item: {
-                            ratingKey: 'sliver-live-1',
-                            type: 'movie',
-                            title: 'Current Sliver Program',
-                            fullTitle: 'Current Sliver Program',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: now - start,
-                        remainingMs: end - now,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'sliver-live-1', title: 'Current Sliver Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, elapsedMs: now - start, remainingMs: end - now })],
                 }],
             ]);
 
@@ -2685,25 +1783,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
-                programs: [{
-                    item: {
-                        ratingKey: 'current-wide-partial-live-1',
-                        type: 'movie',
-                        title: 'Current Wide Partial Live',
-                        fullTitle: 'Current Wide Partial Live',
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: now - start,
-                    remainingMs: end - now,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'current-wide-partial-live-1', title: 'Current Wide Partial Live', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, elapsedMs: now - start, remainingMs: end - now })],
             };
             const schedules = new Map<string, ScheduleWindow>([[channelId, schedule]]);
             const key = `${channelId}-${start}`;
@@ -2743,28 +1823,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'episode-wide-1',
-                            type: 'episode',
-                            title: 'A Day At The Shore',
-                            fullTitle: 'Great Show - S01E03 - A Day At The Shore',
-                            showTitle: 'Great Show',
-                            seasonNumber: 1,
-                            episodeNumber: 3,
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'episode-wide-1', type: 'episode', title: 'A Day At The Shore', fullTitle: 'Great Show - S01E03 - A Day At The Shore', showTitle: 'Great Show', seasonNumber: 1, episodeNumber: 3, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                 ],
             };
 
@@ -2799,25 +1858,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'ticker-small-overflow-1',
-                            type: 'movie',
-                            title: 'Borderline Overflow Title',
-                            fullTitle: 'Borderline Overflow Title',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'ticker-small-overflow-1', title: 'Borderline Overflow Title', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2851,25 +1892,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'zero-width-focused-ticker-1',
-                            type: 'movie',
-                            title: 'Zero Width Focused Ticker Title',
-                            fullTitle: 'Zero Width Focused Ticker Title',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'zero-width-focused-ticker-1', title: 'Zero Width Focused Ticker Title', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2906,25 +1929,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'right-clip-focused-ticker-1',
-                            type: 'movie',
-                            title: 'Right Clip Ticker Title',
-                            fullTitle: 'Right Clip Ticker Title',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'right-clip-focused-ticker-1', title: 'Right Clip Ticker Title', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -2959,28 +1964,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                programs: [{
-                    item: {
-                        ratingKey: 'ep-normalized-show-title-1',
-                        type: 'episode',
-                        title: 'S01E09 - The Edge Of Recovery',
-                        fullTitle: 'Great Show - The Edge Of Recovery',
-                        showTitle: '',
-                        seasonNumber: 1,
-                        episodeNumber: 9,
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - start,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'ep-normalized-show-title-1', type: 'episode', title: 'S01E09 - The Edge Of Recovery', fullTitle: 'Great Show - The Edge Of Recovery', showTitle: '', seasonNumber: 1, episodeNumber: 9, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
             };
 
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
@@ -3013,25 +1997,7 @@ describe('EPGVirtualizer', () => {
                 const schedule: ScheduleWindow = {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                    programs: [{
-                        item: {
-                            ratingKey: 'ticker-reduce-1',
-                            type: 'movie',
-                            title: 'An Extremely Long Program Title That Must Overflow',
-                            fullTitle: 'An Extremely Long Program Title That Must Overflow',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    }],
+                    programs: [createProgram({ item: { ratingKey: 'ticker-reduce-1', title: 'An Extremely Long Program Title That Must Overflow', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start })],
                 };
 
                 virtualizer.setChannelCount(1);
@@ -3074,44 +2040,8 @@ describe('EPGVirtualizer', () => {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
                     programs: [
-                        {
-                            item: {
-                                ratingKey: 'ticker-a',
-                                type: 'movie',
-                                title: 'Overflow A Overflow A Overflow A',
-                                fullTitle: 'Overflow A Overflow A Overflow A',
-                                durationMs: mid - start,
-                                thumb: null,
-                                year: 2026,
-                                scheduledIndex: 0,
-                            },
-                            scheduledStartTime: start,
-                            scheduledEndTime: mid,
-                            elapsedMs: 0,
-                            remainingMs: mid - start,
-                            scheduleIndex: 0,
-                            loopNumber: 0,
-                            isCurrent: false,
-                        },
-                        {
-                            item: {
-                                ratingKey: 'ticker-b',
-                                type: 'movie',
-                                title: 'Second Program',
-                                fullTitle: 'Second Program',
-                                durationMs: end - mid,
-                                thumb: null,
-                                year: 2026,
-                                scheduledIndex: 1,
-                            },
-                            scheduledStartTime: mid,
-                            scheduledEndTime: end,
-                            elapsedMs: 0,
-                            remainingMs: end - mid,
-                            scheduleIndex: 1,
-                            loopNumber: 0,
-                            isCurrent: false,
-                        },
+                        createProgram({ item: { ratingKey: 'ticker-a', title: 'Overflow A Overflow A Overflow A', durationMs: mid - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: mid, remainingMs: mid - start }),
+                        createProgram({ item: { ratingKey: 'ticker-b', title: 'Second Program', durationMs: end - mid, year: 2026, scheduledIndex: 1 }, scheduledStartTime: mid, scheduledEndTime: end, remainingMs: end - mid, scheduleIndex: 1 }),
                     ],
                 };
 
@@ -3145,26 +2075,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                programs: [{
-                    item: {
-                        ratingKey: 'live-compact-1',
-                        type: 'movie',
-                        title: 'Live Program',
-                        fullTitle: 'Live Program',
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - now,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    // NOTE: EPGVirtualizer recomputes "current" from Date.now(); this fixture field is ignored here.
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'live-compact-1', title: 'Live Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - now })],
             };
             virtualizer.setChannelCount(1);
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
@@ -3185,25 +2096,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60 * 1000),
-                programs: [{
-                    item: {
-                        ratingKey: 'progress-current-1',
-                        type: 'movie',
-                        title: 'Current Program',
-                        fullTitle: 'Current Program',
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - (start + 5 * 60_000),
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'progress-current-1', title: 'Current Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - (start + 5 * 60_000) })],
             };
 
             virtualizer.setChannelCount(1);
@@ -3226,25 +2119,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60 * 1000),
-                programs: [{
-                    item: {
-                        ratingKey: 'progress-now-snapshot-1',
-                        type: 'movie',
-                        title: 'Snapshot Program',
-                        fullTitle: 'Snapshot Program',
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - (start + 5 * 60_000),
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'progress-now-snapshot-1', title: 'Snapshot Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - (start + 5 * 60_000) })],
             };
 
             virtualizer.setChannelCount(1);
@@ -3273,25 +2148,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60 * 1000),
-                programs: [{
-                    item: {
-                        ratingKey: 'progress-update-1',
-                        type: 'movie',
-                        title: 'Temporal Progress Program',
-                        fullTitle: 'Temporal Progress Program',
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - beforeCurrent,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'progress-update-1', title: 'Temporal Progress Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - beforeCurrent })],
             };
 
             virtualizer.setChannelCount(1);
@@ -3314,28 +2171,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60 * 1000),
-                programs: [{
-                    item: {
-                        ratingKey: 'row-aware-current-transition-1',
-                        type: 'episode',
-                        title: 'Drive-In',
-                        fullTitle: 'That 70s Show - S01E08 - Drive-In',
-                        showTitle: 'That 70s Show',
-                        seasonNumber: 1,
-                        episodeNumber: 8,
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - beforeCurrent,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'row-aware-current-transition-1', type: 'episode', title: 'Drive-In', fullTitle: 'That 70s Show - S01E08 - Drive-In', showTitle: 'That 70s Show', seasonNumber: 1, episodeNumber: 8, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - beforeCurrent })],
             };
 
             virtualizer.setChannelCount(1);
@@ -3368,28 +2204,7 @@ describe('EPGVirtualizer', () => {
                 ratingKey: string,
                 start: number,
                 end: number
-            ): ScheduledProgram => ({
-                item: {
-                    ratingKey,
-                    type: 'episode',
-                    title: 'Drive-In',
-                    fullTitle: 'That 70s Show - S01E08 - Drive-In',
-                    showTitle: 'That 70s Show',
-                    seasonNumber: 1,
-                    episodeNumber: 8,
-                    durationMs: end - start,
-                    thumb: null,
-                    year: 2026,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: start,
-                scheduledEndTime: end,
-                elapsedMs: now - start,
-                remainingMs: end - now,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            });
+            ): ScheduledProgram => (createProgram({ item: { ratingKey, type: 'episode', title: 'Drive-In', fullTitle: 'That 70s Show - S01E08 - Drive-In', showTitle: 'That 70s Show', seasonNumber: 1, episodeNumber: 8, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, elapsedMs: now - start, remainingMs: end - now }));
 
             const wideEnd = gridAnchorTime + 80 * 60 * 1000;
             const mediumEnd = gridAnchorTime + 40 * 60 * 1000;
@@ -3441,25 +2256,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60 * 1000),
-                programs: [{
-                    item: {
-                        ratingKey: 'progress-reset-1',
-                        type: 'movie',
-                        title: 'Temporal Progress Reset Program',
-                        fullTitle: 'Temporal Progress Reset Program',
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - beforeCurrent,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'progress-reset-1', title: 'Temporal Progress Reset Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - beforeCurrent })],
             };
 
             virtualizer.setChannelCount(1);
@@ -3485,26 +2282,7 @@ describe('EPGVirtualizer', () => {
             const schedule: ScheduleWindow = {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + 24 * 60 * 60 * 1000,
-                programs: [{
-                    item: {
-                        ratingKey: 'live-focused-1',
-                        type: 'movie',
-                        title: 'Focused Live Program',
-                        fullTitle: 'Focused Live Program',
-                        durationMs: end - start,
-                        thumb: null,
-                        year: 2026,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: start,
-                    scheduledEndTime: end,
-                    elapsedMs: 0,
-                    remainingMs: end - now,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    // NOTE: EPGVirtualizer recomputes "current" from Date.now(); this fixture field is ignored here.
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: 'live-focused-1', title: 'Focused Live Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - now })],
             };
             virtualizer.setChannelCount(1);
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
@@ -3523,25 +2301,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'tiny-time-focused',
-                            type: 'movie',
-                            title: 'Tiny Movie Focus',
-                            fullTitle: 'Tiny Movie Focus',
-                            durationMs: 20 * 60000,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: gridAnchorTime,
-                        scheduledEndTime: gridAnchorTime + (20 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 0,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'tiny-time-focused', title: 'Tiny Movie Focus', durationMs: 20 * 60000, year: 2026 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (20 * 60000), remainingMs: 0 }),
                 ],
             };
 
@@ -3565,25 +2325,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'focus-update-1',
-                            type: 'movie',
-                            title: 'Focus Update Program',
-                            fullTitle: 'Focus Update Program',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - start,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'focus-update-1', title: 'Focus Update Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                 ],
             };
 
@@ -3613,25 +2355,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'current-update-1',
-                            type: 'movie',
-                            title: 'Temporal Update Program',
-                            fullTitle: 'Temporal Update Program',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - beforeCurrent,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'current-update-1', title: 'Temporal Update Program', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - beforeCurrent }),
                 ],
             };
 
@@ -3666,28 +2390,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'focused-compact-current-ticker-1',
-                            type: 'episode',
-                            title: 'The Episode With A Long Marquee Title',
-                            fullTitle: 'Prestige Show - S01E03 - The Episode With A Long Marquee Title',
-                            showTitle: 'Prestige Show',
-                            seasonNumber: 1,
-                            episodeNumber: 3,
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - beforeCurrent,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'focused-compact-current-ticker-1', type: 'episode', title: 'The Episode With A Long Marquee Title', fullTitle: 'Prestige Show - S01E03 - The Episode With A Long Marquee Title', showTitle: 'Prestige Show', seasonNumber: 1, episodeNumber: 3, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - beforeCurrent }),
                 ],
             };
 
@@ -3732,25 +2435,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'focused-tiny-movie-overlay-1',
-                            type: 'movie',
-                            title: 'Focused Tiny Movie Overlay',
-                            fullTitle: 'Focused Tiny Movie Overlay',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: 0,
-                        remainingMs: end - beforeCurrent,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'focused-tiny-movie-overlay-1', title: 'Focused Tiny Movie Overlay', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - beforeCurrent }),
                 ],
             };
 
@@ -3786,28 +2471,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'focused-episode-medium-live-dot-1',
-                            type: 'episode',
-                            title: 'The Compact Badge Episode',
-                            fullTitle: 'Prestige Show - S01E03 - The Compact Badge Episode',
-                            showTitle: 'Prestige Show',
-                            seasonNumber: 1,
-                            episodeNumber: 3,
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: now - start,
-                        remainingMs: end - now,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'focused-episode-medium-live-dot-1', type: 'episode', title: 'The Compact Badge Episode', fullTitle: 'Prestige Show - S01E03 - The Compact Badge Episode', showTitle: 'Prestige Show', seasonNumber: 1, episodeNumber: 3, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, elapsedMs: now - start, remainingMs: end - now }),
                 ],
             };
 
@@ -3841,25 +2505,7 @@ describe('EPGVirtualizer', () => {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (24 * 60 * 60000),
                 programs: [
-                    {
-                        item: {
-                            ratingKey: 'focused-movie-immediate-live-refresh-1',
-                            type: 'movie',
-                            title: 'Immediate Badge Refresh',
-                            fullTitle: 'Immediate Badge Refresh',
-                            durationMs: end - start,
-                            thumb: null,
-                            year: 2026,
-                            scheduledIndex: 0,
-                        },
-                        scheduledStartTime: start,
-                        scheduledEndTime: end,
-                        elapsedMs: now - start,
-                        remainingMs: end - now,
-                        scheduleIndex: 0,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    },
+                    createProgram({ item: { ratingKey: 'focused-movie-immediate-live-refresh-1', title: 'Immediate Badge Refresh', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, elapsedMs: now - start, remainingMs: end - now }),
                 ],
             };
 
@@ -3896,78 +2542,21 @@ describe('EPGVirtualizer', () => {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + (24 * 60 * 60000),
                     programs: [
-                        {
-                            item: {
-                                ratingKey: 'focused-movie-only-1',
-                                type: 'movie',
-                                title: 'Movie Overlay Owner',
-                                fullTitle: 'Movie Overlay Owner',
-                                durationMs: end - start,
-                                thumb: null,
-                                year: 2026,
-                                scheduledIndex: 0,
-                            },
-                            scheduledStartTime: start,
-                            scheduledEndTime: end,
-                            elapsedMs: 0,
-                            remainingMs: end - start,
-                            scheduleIndex: 0,
-                            loopNumber: 0,
-                            isCurrent: false,
-                        },
+                        createProgram({ item: { ratingKey: 'focused-movie-only-1', title: 'Movie Overlay Owner', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                     ],
                 }],
                 [clipChannelId, {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + (24 * 60 * 60000),
                     programs: [
-                        {
-                            item: {
-                                ratingKey: 'focused-clip-no-movie-overlay-1',
-                                type: 'clip',
-                                title: 'Clip Should Stay Generic',
-                                fullTitle: 'Clip Should Stay Generic',
-                                durationMs: end - start,
-                                thumb: null,
-                                year: 2026,
-                                scheduledIndex: 0,
-                            },
-                            scheduledStartTime: start,
-                            scheduledEndTime: end,
-                            elapsedMs: 0,
-                            remainingMs: end - start,
-                            scheduleIndex: 0,
-                            loopNumber: 0,
-                            isCurrent: false,
-                        },
+                        createProgram({ item: { ratingKey: 'focused-clip-no-movie-overlay-1', type: 'clip', title: 'Clip Should Stay Generic', durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                     ],
                 }],
                 [episodeChannelId, {
                     startTime: gridAnchorTime,
                     endTime: gridAnchorTime + (24 * 60 * 60000),
                     programs: [
-                        {
-                            item: {
-                                ratingKey: 'focused-episode-compact-1',
-                                type: 'episode',
-                                title: 'The Split Lane Episode',
-                                fullTitle: 'Prestige Show - S01E03 - The Split Lane Episode',
-                                showTitle: 'Prestige Show',
-                                seasonNumber: 1,
-                                episodeNumber: 3,
-                                durationMs: end - start,
-                                thumb: null,
-                                year: 2026,
-                                scheduledIndex: 0,
-                            },
-                            scheduledStartTime: start,
-                            scheduledEndTime: end,
-                            elapsedMs: 0,
-                            remainingMs: end - start,
-                            scheduleIndex: 0,
-                            loopNumber: 0,
-                            isCurrent: false,
-                        },
+                        createProgram({ item: { ratingKey: 'focused-episode-compact-1', type: 'episode', title: 'The Split Lane Episode', fullTitle: 'Prestige Show - S01E03 - The Split Lane Episode', showTitle: 'Prestige Show', seasonNumber: 1, episodeNumber: 3, durationMs: end - start, year: 2026 }, scheduledStartTime: start, scheduledEndTime: end, remainingMs: end - start }),
                     ],
                 }],
             ]);
@@ -4002,25 +2591,7 @@ describe('EPGVirtualizer', () => {
             schedules.set('ch1', {
                 startTime: gridAnchorTime,
                 endTime: gridAnchorTime + (3 * 60 * 60000),
-                programs: [{
-                    item: {
-                        ratingKey: '1',
-                        type: 'movie',
-                        title: 'Movie 1',
-                        fullTitle: 'Movie 1',
-                        durationMs: 7200000,
-                        thumb: null,
-                        year: 2020,
-                        scheduledIndex: 0,
-                    },
-                    scheduledStartTime: gridAnchorTime,
-                    scheduledEndTime: gridAnchorTime + 7200000,
-                    elapsedMs: 0,
-                    remainingMs: 7200000,
-                    scheduleIndex: 0,
-                    loopNumber: 0,
-                    isCurrent: false,
-                }],
+                programs: [createProgram({ item: { ratingKey: '1', title: 'Movie 1', durationMs: 7200000 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + 7200000, remainingMs: 7200000 })],
             });
 
             virtualizer.setChannelCount(1);
@@ -4051,25 +2622,7 @@ describe('EPGVirtualizer', () => {
             for (const channelId of channelIds) {
                 const programs: ScheduledProgram[] = [];
                 for (let slot = 0; slot < 60; slot++) {
-                    programs.push({
-                        item: {
-                            ratingKey: `${channelId}-${slot}`,
-                            type: 'movie',
-                            title: `Program ${slot}`,
-                            fullTitle: `Program ${slot}`,
-                            durationMs: 1800000,
-                            thumb: null,
-                            year: 2020,
-                            scheduledIndex: slot,
-                        },
-                        scheduledStartTime: gridAnchorTime + (slot * 30 * 60000),
-                        scheduledEndTime: gridAnchorTime + ((slot + 1) * 30 * 60000),
-                        elapsedMs: 0,
-                        remainingMs: 1800000,
-                        scheduleIndex: slot,
-                        loopNumber: 0,
-                        isCurrent: false,
-                    });
+                    programs.push(createProgram({ item: { ratingKey: `${channelId}-${slot}`, title: `Program ${slot}`, durationMs: 1800000, scheduledIndex: slot }, scheduledStartTime: gridAnchorTime + (slot * 30 * 60000), scheduledEndTime: gridAnchorTime + ((slot + 1) * 30 * 60000), remainingMs: 1800000, scheduleIndex: slot }));
                 }
                 schedules.set(channelId, {
                     startTime: gridAnchorTime,
@@ -4097,25 +2650,7 @@ describe('EPGVirtualizer', () => {
             if (!channelId) {
                 throw new Error('Missing channelId for temporal class test.');
             }
-            const program: ScheduledProgram = {
-                item: {
-                    ratingKey: 'past-test',
-                    type: 'movie',
-                    title: 'Past Test',
-                    fullTitle: 'Past Test',
-                    durationMs: 1800000,
-                    thumb: null,
-                    year: 2020,
-                    scheduledIndex: 0,
-                },
-                scheduledStartTime: gridAnchorTime,
-                scheduledEndTime: gridAnchorTime + (30 * 60000),
-                elapsedMs: 0,
-                remainingMs: 1800000,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: false,
-            };
+            const program: ScheduledProgram = createProgram({ item: { ratingKey: 'past-test', title: 'Past Test', durationMs: 1800000 }, scheduledStartTime: gridAnchorTime, scheduledEndTime: gridAnchorTime + (30 * 60000), remainingMs: 1800000 });
             const schedules = new Map<string, ScheduleWindow>();
             schedules.set(channelId, {
                 startTime: gridAnchorTime,

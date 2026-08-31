@@ -1,4 +1,4 @@
-import { defineConfig, normalizePath, type PluginOption } from 'vite';
+import { defineConfig, type PluginOption } from 'vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(({ command, mode }) => {
@@ -27,12 +27,15 @@ export default defineConfig(({ command, mode }) => {
             emptyOutDir: true,
             target: 'es2018',
             sourcemap: isDevBuildProfile,
-            rollupOptions: {
+            rolldownOptions: {
                 output: {
-                    manualChunks(id): string | undefined {
-                        const normalizedId = normalizePath(id);
-                        if (normalizedId.includes('/node_modules/')) return 'vendor';
-                        return undefined;
+                    codeSplitting: {
+                        groups: [
+                            {
+                                name: 'vendor',
+                                test: /node_modules[\\/]/,
+                            },
+                        ],
                     },
                 },
             },
