@@ -35,6 +35,8 @@ interface NavigationInternalState {
     modalStack: string[];
     modalFocusableIds: Map<string, string[]>;
     modalPolicies: Map<string, NavigationModalPolicy>;
+    modalRestoreFocusIds: Map<string, string | null>;
+    modalBaseFocusId: string | null;
     isPointerActive: boolean;
     isInputBlocked: boolean;
     isRuntimeCommandGated: boolean;
@@ -78,6 +80,7 @@ export class NavigationManager
     private _boundFocusInHandler: (event: FocusEvent) => void;
     private _isInitialized: boolean = false;
     private _clickHandlers: Map<string, FocusableClickHandlers> = new Map();
+    private _pointerActivationsMovedFocus: WeakSet<MouseEvent> = new WeakSet();
     private readonly _focusPolicy: NavigationFocusPolicy;
     private readonly _remoteInputRouter: NavigationRemoteInputRouter;
     private readonly _directionalRepeatController: NavigationDirectionalRepeatController;
@@ -131,6 +134,8 @@ export class NavigationManager
             modalStack: [],
             modalFocusableIds: new Map(),
             modalPolicies: new Map(),
+            modalRestoreFocusIds: new Map(),
+            modalBaseFocusId: null,
             isPointerActive: false,
             isInputBlocked: false,
             isRuntimeCommandGated: false,
@@ -351,6 +356,13 @@ export class NavigationManager
             return false;
         }
 
+        // A self-edge is an intentional boundary (for example, the first/last item
+        // in a trapped TV popup). Treat it as no movement so repeat handling stops
+        // without re-running native focus, persistence, or focus-change listeners.
+        if (policyResult.targetId === currentId) {
+            return false;
+        }
+
         this.setFocus(policyResult.targetId);
         return true;
     }
@@ -366,13 +378,16 @@ export class NavigationManager
                 event.stopImmediatePropagation();
             }
         };
-        const clickHandler = (_event: MouseEvent): void => {
+        const clickHandler = (event: MouseEvent): void => {
             this.setFocus(element.id);
             if (this._focusManager.getFocusedElement()?.id !== element.id) {
                 return;
             }
             if (element.onSelect) {
                 element.onSelect();
+            }
+            if (this._focusManager.getCurrentFocusId() !== element.id) {
+                this._pointerActivationsMovedFocus.add(event);
             }
         };
         this._clickHandlers.set(element.id, {
@@ -417,7 +432,10 @@ export class NavigationManager
             return;
         }
 
-        this._focusManager.savePreModalFocus();
+        if (this._state.modalStack.length === 0) {
+            this._state.modalBaseFocusId = this._focusManager.getCurrentFocusId();
+        }
+        this._state.modalRestoreFocusIds.set(modalId, this._focusManager.getCurrentFocusId());
 
         this._state.modalStack.push(modalId);
         this._state.modalPolicies.set(modalId, { ...policy });
@@ -436,32 +454,71 @@ export class NavigationManager
         }
 
         let closedModalId: string;
+        let closedModalWasTop = false;
+        let restoreFocusId: string | null = null;
 
         if (modalId !== undefined) {
             const index = this._state.modalStack.indexOf(modalId);
             if (index === -1) {
                 return;
             }
+            closedModalWasTop = index === this._state.modalStack.length - 1;
+            restoreFocusId = this._state.modalRestoreFocusIds.get(modalId) ?? null;
             this._state.modalStack.splice(index, 1);
             this._state.modalFocusableIds.delete(modalId);
             this._state.modalPolicies.delete(modalId);
+            this._state.modalRestoreFocusIds.delete(modalId);
             closedModalId = modalId;
         } else {
             const topModal = this._state.modalStack.pop();
             if (topModal === undefined) {
                 return;
             }
+            closedModalWasTop = true;
+            restoreFocusId = this._state.modalRestoreFocusIds.get(topModal) ?? null;
             this._state.modalFocusableIds.delete(topModal);
             this._state.modalPolicies.delete(topModal);
+            this._state.modalRestoreFocusIds.delete(topModal);
             closedModalId = topModal;
         }
 
         this.emit('modalClose', { modalId: closedModalId });
 
         if (this._state.modalStack.length === 0) {
-            this._focusManager.restorePreModalFocus();
+            this._restoreModalFocus(this._state.modalBaseFocusId);
+            this._state.modalBaseFocusId = null;
+            this._state.modalRestoreFocusIds.clear();
+        } else if (closedModalWasTop) {
+            this._restoreModalFocus(restoreFocusId);
         }
 
+    }
+
+    private _restoreModalFocus(preferredFocusId: string | null): boolean {
+        const candidates: string[] = [];
+        if (preferredFocusId) {
+            candidates.push(preferredFocusId);
+        }
+
+        const activeModalId = this._state.modalStack[this._state.modalStack.length - 1];
+        if (activeModalId) {
+            for (const id of this._state.modalFocusableIds.get(activeModalId) ?? []) {
+                if (!candidates.includes(id)) {
+                    candidates.push(id);
+                }
+            }
+        }
+
+        for (const id of candidates) {
+            if (!this._isAllowedByActiveModal(id)) {
+                continue;
+            }
+            this.setFocus(id, { persist: false });
+            if (this._focusManager.getCurrentFocusId() === id) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public isModalOpen(modalId?: string): boolean {
@@ -694,6 +751,13 @@ export class NavigationManager
         const focusable = target.closest('.' + FOCUS_CLASSES.FOCUSABLE) as HTMLElement;
 
         if (focusable && focusable.id) {
+            // A registered activation may intentionally move focus (for example, into a newly
+            // opened popover). Only that click should suppress document-level retargeting; a
+            // normal pointer click still retargets when the current focus is elsewhere.
+            if (this._pointerActivationsMovedFocus.delete(event)) {
+                return;
+            }
+            if (this._focusManager.getCurrentFocusId() === focusable.id) return;
             this.setFocus(focusable.id);
         }
     };

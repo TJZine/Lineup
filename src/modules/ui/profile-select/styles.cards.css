@@ -19,15 +19,6 @@
     transition: transform 100ms ease-out, box-shadow 100ms ease-out;
 }
 
-.profile-row.focused,
-.profile-row:focus {
-    outline: none;
-    transform: scale(1.04);
-    box-shadow:
-        0 0 0 2px var(--onboarding-accent-alpha-60, rgba(200, 160, 100, 0.60)),
-        0 0 24px rgba(200, 160, 100, 0.12);
-}
-
 .profile-row.active {
     border-color: var(--onboarding-accent, rgb(200, 160, 100));
     background: radial-gradient(
@@ -46,6 +37,17 @@
     border: 2px solid var(--onboarding-accent, rgb(200, 160, 100));
     box-shadow: 0 4px 16px rgba(200, 160, 100, 0.15);
     transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.profile-row.focused,
+.profile-row:focus {
+    outline: var(--focus-ring-width, 3px) solid rgba(255, 255, 255, 0.92);
+    outline-offset: var(--focus-ring-offset, 4px);
+    transform: scale(1.04);
+    box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.86),
+        0 0 28px rgba(255, 255, 255, 0.32);
+    z-index: 1;
 }
 
 .profile-row.active .profile-last-used {

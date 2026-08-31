@@ -8,6 +8,7 @@ import { AppErrorCode } from '../../../../types/app-errors';
 import { ProfileSessionStore } from '../../../settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { createDeferred } from '../../../../__tests__/helpers';
+import { NavigationManager } from '../../../navigation';
 
 type NavigationStub = {
     registerFocusable: jest.Mock;
@@ -81,6 +82,39 @@ const settleScreen = async (screen: ProfileSelectScreen): Promise<void> => {
     await jest.runAllTimersAsync();
     await idle;
 };
+
+const createProfileUsers = (count: number): Array<{
+    id: string;
+    title: string;
+    thumb: string | null;
+    admin: boolean;
+    protected: boolean;
+}> => Array.from({ length: count }, (_, index) => ({
+    id: String(index + 1),
+    title: `Profile ${index + 1}`,
+    thumb: null,
+    admin: index === 0,
+    protected: false,
+}));
+
+const dispatchRemoteKey = (keyCode: number, type: 'keydown' | 'keyup' = 'keydown'): void => {
+    const event = new KeyboardEvent(type);
+    Object.defineProperty(event, 'keyCode', { configurable: true, value: keyCode });
+    document.dispatchEvent(event);
+};
+
+const getRegisteredFocusables = (nav: NavigationStub): Map<string, {
+    id: string;
+    neighbors: { up?: string; down?: string; left?: string; right?: string };
+}> => new Map(
+    nav.registerFocusable.mock.calls.map((call) => {
+        const focusable = call[0] as {
+            id: string;
+            neighbors: { up?: string; down?: string; left?: string; right?: string };
+        };
+        return [focusable.id, focusable] as const;
+    })
+);
 
 describe('ProfileSelectScreen', () => {
     let profileSessionStore: ProfileSessionStore;
@@ -180,6 +214,313 @@ describe('ProfileSelectScreen', () => {
         expect(container.textContent).toContain('Admin');
         expect(container.textContent).toContain('Kid');
     });
+
+    it.each([1, 2, 8, 9, 11])(
+        'maps %i profiles to deterministic five-column focus rows and action links',
+        async (profileCount) => {
+            const users = createProfileUsers(profileCount);
+            const orchestrator = createOrchestratorStub(users);
+            const nav = orchestrator.getNavigation();
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const screen = new ProfileSelectScreen(
+                container,
+                orchestrator as unknown as ProfileSelectScreenPorts,
+                profileSessionStore
+            );
+            screen.show();
+            await settleScreen(screen);
+
+            const list = container.querySelector('.profile-list') as HTMLElement | null;
+            expect(list?.style.getPropertyValue('--profile-grid-columns')).toBe('5');
+
+            const focusables = getRegisteredFocusables(nav);
+            const firstActionId = profileCount <= 1 ? 'btn-profile-main' : 'btn-profile-signout';
+            const finalRowLastId = `btn-profile-${profileCount}`;
+
+            for (let index = 0; index < profileCount; index += 1) {
+                const id = `btn-profile-${index + 1}`;
+                const rowStart = Math.floor(index / 5) * 5;
+                const column = index - rowStart;
+                const previousRowStart = rowStart - 5;
+                const nextRowStart = rowStart + 5;
+                const focusable = focusables.get(id);
+
+                expect(focusable).toBeDefined();
+                expect(focusable?.neighbors.left).toBe(
+                    column > 0 ? `btn-profile-${index}` : id
+                );
+                expect(focusable?.neighbors.right).toBe(
+                    column < 4 && index + 1 < profileCount ? `btn-profile-${index + 2}` : id
+                );
+                expect(focusable?.neighbors.up).toBe(previousRowStart < 0
+                    ? id
+                    : `btn-profile-${Math.min(previousRowStart + column, Math.min(previousRowStart + 4, profileCount - 1)) + 1}`);
+                expect(focusable?.neighbors.down).toBe(nextRowStart >= profileCount
+                    ? firstActionId
+                    : `btn-profile-${Math.min(nextRowStart + column, Math.min(nextRowStart + 4, profileCount - 1)) + 1}`);
+            }
+
+            expect(focusables.get(firstActionId)?.neighbors.up).toBe(finalRowLastId);
+            expect(focusables.get(firstActionId)?.neighbors.down).toBe(firstActionId);
+            if (profileCount <= 1) {
+                expect(focusables.get('btn-profile-main')?.neighbors.right).toBe('btn-profile-signout');
+                expect(focusables.get('btn-profile-signout')?.neighbors.left).toBe('btn-profile-main');
+            } else {
+                expect(focusables.get('btn-profile-signout')?.neighbors.left).toBe('btn-profile-signout');
+                expect(focusables.get('btn-profile-signout')?.neighbors.right).toBe('btn-profile-signout');
+            }
+        }
+    );
+
+    it('round-trips Up and Down within complete columns and clamps an incomplete final row', async () => {
+        const users = createProfileUsers(8);
+        const orchestrator = createOrchestratorStub(users);
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+
+        screen.show();
+        await settleScreen(screen);
+
+        const focusables = getRegisteredFocusables(nav);
+        expect(focusables.get('btn-profile-1')?.neighbors.down).toBe('btn-profile-6');
+        expect(focusables.get('btn-profile-6')?.neighbors.up).toBe('btn-profile-1');
+        expect(focusables.get('btn-profile-4')?.neighbors.down).toBe('btn-profile-8');
+        expect(focusables.get('btn-profile-8')?.neighbors.up).toBe('btn-profile-3');
+        expect(focusables.get('btn-profile-8')?.neighbors.down).toBe('btn-profile-signout');
+        expect(focusables.get('btn-profile-signout')?.neighbors.up).toBe('btn-profile-8');
+    });
+
+    it.each([5, 6])(
+        'proves real focus registration and held-edge behavior for %i profiles',
+        async (profileCount) => {
+            const users = createProfileUsers(profileCount);
+            const navigation = new NavigationManager();
+            navigation.initialize({
+                enablePointerMode: false,
+                keyRepeatDelayMs: 500,
+                keyRepeatIntervalMs: 100,
+                focusMemoryEnabled: true,
+                debugMode: false,
+            });
+            navigation.replaceScreen('profile-select');
+            const orchestrator = {
+                getNavigation: () => navigation,
+                getHomeUsers: jest.fn().mockResolvedValue(users),
+                switchHomeUser: jest.fn().mockResolvedValue(undefined),
+                useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
+                signOutPlex: jest.fn().mockResolvedValue(undefined),
+            } as unknown as ProfileSelectScreenPorts;
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            const screen = new ProfileSelectScreen(container, orchestrator, profileSessionStore);
+
+            try {
+                screen.show();
+                await settleScreen(screen);
+
+                const cardIds = Array.from({ length: profileCount }, (_, index) => `btn-profile-${index + 1}`);
+                const actionId = 'btn-profile-signout';
+                expect(navigation.getState().focusedElementId).toBe(cardIds[0]);
+
+                for (const id of [...cardIds, actionId]) {
+                    navigation.setFocus(id);
+                    const focusable = navigation.getFocusedElement();
+                    expect(focusable?.id).toBe(id);
+                    for (const neighbor of Object.values(focusable?.neighbors ?? {})) {
+                        expect(neighbor).toBeDefined();
+                        const target = neighbor ? document.getElementById(neighbor) as HTMLButtonElement | null : null;
+                        expect(target).not.toBeNull();
+                        expect(target?.classList.contains('focusable')).toBe(true);
+                        expect(target?.disabled).toBe(false);
+                    }
+                }
+
+                if (profileCount === 5) {
+                    navigation.setFocus('btn-profile-1');
+                    expect(navigation.moveFocus('left')).toBe(false);
+                    expect(navigation.getState().focusedElementId).toBe('btn-profile-1');
+                    expect(navigation.moveFocus('right')).toBe(true);
+                    expect(navigation.getState().focusedElementId).toBe('btn-profile-2');
+
+                    navigation.setFocus('btn-profile-5');
+                    expect(navigation.moveFocus('right')).toBe(false);
+                    expect(navigation.moveFocus('down')).toBe(true);
+                    expect(navigation.getState().focusedElementId).toBe(actionId);
+                    expect(navigation.moveFocus('up')).toBe(true);
+                    expect(navigation.getState().focusedElementId).toBe('btn-profile-5');
+                } else {
+                    navigation.setFocus('btn-profile-1');
+                    expect(navigation.moveFocus('down')).toBe(true);
+                    expect(navigation.getState().focusedElementId).toBe('btn-profile-6');
+                    expect(navigation.moveFocus('up')).toBe(true);
+                    expect(navigation.getState().focusedElementId).toBe('btn-profile-1');
+
+                    navigation.setFocus('btn-profile-6');
+                    expect(navigation.moveFocus('left')).toBe(false);
+                    expect(navigation.moveFocus('right')).toBe(false);
+                    expect(navigation.moveFocus('down')).toBe(true);
+                    expect(navigation.getState().focusedElementId).toBe(actionId);
+                    expect(navigation.moveFocus('up')).toBe(true);
+                    expect(navigation.getState().focusedElementId).toBe('btn-profile-6');
+                }
+
+                navigation.setFocus(actionId);
+                const edgeFocus = document.getElementById(actionId);
+                if (!edgeFocus) throw new Error('Sign-out action not found');
+                const nativeFocusSpy = jest.spyOn(edgeFocus, 'focus');
+                const focusChanges = jest.fn();
+                navigation.on('focusChange', focusChanges);
+
+                dispatchRemoteKey(40);
+                jest.advanceTimersByTime(1000);
+                dispatchRemoteKey(40, 'keyup');
+
+                expect(navigation.getState().focusedElementId).toBe(actionId);
+                expect(nativeFocusSpy).not.toHaveBeenCalled();
+                expect(focusChanges).not.toHaveBeenCalled();
+            } finally {
+                screen.destroy();
+                navigation.destroy();
+            }
+        }
+    );
+
+    it.each([8, 11])(
+        'moves through incomplete five-column rows with the real NavigationManager for %i profiles',
+        async (profileCount) => {
+            const users = createProfileUsers(profileCount);
+            const navigation = new NavigationManager();
+            navigation.initialize({
+                enablePointerMode: false,
+                keyRepeatDelayMs: 500,
+                keyRepeatIntervalMs: 100,
+                focusMemoryEnabled: true,
+                debugMode: false,
+            });
+            navigation.replaceScreen('profile-select');
+            const orchestrator = {
+                getNavigation: () => navigation,
+                getHomeUsers: jest.fn().mockResolvedValue(users),
+                switchHomeUser: jest.fn().mockResolvedValue(undefined),
+                useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
+                signOutPlex: jest.fn().mockResolvedValue(undefined),
+            } as unknown as ProfileSelectScreenPorts;
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            const screen = new ProfileSelectScreen(container, orchestrator, profileSessionStore);
+
+            try {
+                screen.show();
+                await settleScreen(screen);
+
+                navigation.setFocus('btn-profile-1');
+                expect(navigation.moveFocus('right')).toBe(true);
+                expect(navigation.getState().focusedElementId).toBe('btn-profile-2');
+                navigation.setFocus('btn-profile-5');
+                expect(navigation.moveFocus('right')).toBe(false);
+                expect(navigation.getState().focusedElementId).toBe('btn-profile-5');
+
+                navigation.setFocus('btn-profile-1');
+                expect(navigation.moveFocus('down')).toBe(true);
+                expect(navigation.getState().focusedElementId).toBe('btn-profile-6');
+                expect(navigation.moveFocus('up')).toBe(true);
+                expect(navigation.getState().focusedElementId).toBe('btn-profile-1');
+
+                const finalRowFirstId = profileCount === 8 ? 'btn-profile-6' : 'btn-profile-11';
+                const finalRowLastId = `btn-profile-${profileCount}`;
+                const previousRowLastId = profileCount === 8 ? 'btn-profile-5' : 'btn-profile-10';
+                const previousRowFirstId = profileCount === 8 ? 'btn-profile-3' : 'btn-profile-6';
+
+                navigation.setFocus(previousRowLastId);
+                expect(navigation.moveFocus('down')).toBe(true);
+                expect(navigation.getState().focusedElementId).toBe(finalRowLastId);
+                expect(navigation.moveFocus('up')).toBe(true);
+                expect(navigation.getState().focusedElementId).toBe(previousRowFirstId);
+
+                navigation.setFocus(finalRowFirstId);
+                expect(navigation.moveFocus('left')).toBe(false);
+                expect(navigation.getState().focusedElementId).toBe(finalRowFirstId);
+                navigation.setFocus(finalRowLastId);
+                expect(navigation.moveFocus('right')).toBe(false);
+                expect(navigation.getState().focusedElementId).toBe(finalRowLastId);
+
+                navigation.setFocus(finalRowLastId);
+                expect(navigation.moveFocus('down')).toBe(true);
+                expect(navigation.getState().focusedElementId).toBe('btn-profile-signout');
+                expect(navigation.moveFocus('up')).toBe(true);
+                expect(navigation.getState().focusedElementId).toBe(finalRowLastId);
+            } finally {
+                screen.destroy();
+                navigation.destroy();
+            }
+        }
+    );
+
+    it.each([0, 1])(
+        'routes Use Main Account through the real NavigationManager for %i profiles',
+        async (profileCount) => {
+            const users = createProfileUsers(profileCount);
+            const navigation = new NavigationManager();
+            navigation.initialize({
+                enablePointerMode: false,
+                keyRepeatDelayMs: 500,
+                keyRepeatIntervalMs: 100,
+                focusMemoryEnabled: true,
+                debugMode: false,
+            });
+            navigation.replaceScreen('profile-select');
+            const useMainAccountProfile = jest.fn().mockResolvedValue(undefined);
+            const orchestrator = {
+                getNavigation: () => navigation,
+                getHomeUsers: jest.fn().mockResolvedValue(users),
+                switchHomeUser: jest.fn().mockResolvedValue(undefined),
+                useMainAccountProfile,
+                signOutPlex: jest.fn().mockResolvedValue(undefined),
+            } as unknown as ProfileSelectScreenPorts;
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+            const screen = new ProfileSelectScreen(container, orchestrator, profileSessionStore);
+
+            try {
+                screen.show();
+                await settleScreen(screen);
+
+                const mainId = 'btn-profile-main';
+                expect(navigation.getState().focusedElementId).toBe(profileCount === 0 ? mainId : 'btn-profile-1');
+                if (profileCount === 1) {
+                    expect(navigation.moveFocus('down')).toBe(true);
+                    expect(navigation.getState().focusedElementId).toBe(mainId);
+                    expect(navigation.moveFocus('up')).toBe(true);
+                    expect(navigation.getState().focusedElementId).toBe('btn-profile-1');
+                    expect(navigation.moveFocus('down')).toBe(true);
+                }
+
+                expect(navigation.getState().focusedElementId).toBe(mainId);
+                expect(navigation.moveFocus('left')).toBe(false);
+                expect(navigation.moveFocus('right')).toBe(true);
+                expect(navigation.getState().focusedElementId).toBe('btn-profile-signout');
+                expect(navigation.moveFocus('right')).toBe(false);
+                expect(navigation.moveFocus('down')).toBe(false);
+                expect(navigation.moveFocus('left')).toBe(true);
+                expect(navigation.getState().focusedElementId).toBe(mainId);
+
+                dispatchRemoteKey(13);
+                await settleScreen(screen);
+                expect(useMainAccountProfile).toHaveBeenCalledTimes(1);
+            } finally {
+                screen.destroy();
+                navigation.destroy();
+            }
+        }
+    );
 
     it('renders restricted badge and informational tip text for restricted profiles', async () => {
         const users = [

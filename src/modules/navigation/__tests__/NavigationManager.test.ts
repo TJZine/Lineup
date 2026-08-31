@@ -366,6 +366,81 @@ describe('NavigationManager', () => {
             expect(onSelect).toHaveBeenCalledTimes(1);
         });
 
+        it('keeps focus moved by pointer activation instead of refocusing the clicked target', () => {
+            nav.destroy();
+            nav = new NavigationManager();
+            nav.initialize({
+                ...config,
+                enablePointerMode: true,
+            });
+
+            const anchor = createMockElement('pointer-anchor');
+            const popupOption = createMockElement('pointer-popup-option');
+            elements.push(anchor, popupOption);
+
+            nav.registerFocusable({
+                id: anchor.id,
+                element: anchor,
+                neighbors: {},
+                onSelect: (): void => {
+                    nav.setFocus(popupOption.id);
+                },
+            });
+            nav.registerFocusable({ id: popupOption.id, element: popupOption, neighbors: {} });
+            nav.setFocus(anchor.id);
+
+            const focusChanges: Array<{ from: string | null; to: string }> = [];
+            nav.on('focusChange', (change) => focusChanges.push(change));
+
+            anchor.click();
+
+            expect(nav.getState().focusedElementId).toBe(popupOption.id);
+            expect(focusChanges).toEqual([{ from: anchor.id, to: popupOption.id }]);
+        });
+
+        it('retargets a normal pointer click to the clicked focusable', () => {
+            nav.destroy();
+            nav = new NavigationManager();
+            nav.initialize({
+                ...config,
+                enablePointerMode: true,
+            });
+
+            const source = createMockElement('pointer-source');
+            const target = createMockElement('pointer-target');
+            const targetLabel = document.createElement('span');
+            target.appendChild(targetLabel);
+            elements.push(source, target);
+
+            nav.registerFocusable({ id: source.id, element: source, neighbors: {} });
+            nav.registerFocusable({ id: target.id, element: target, neighbors: {} });
+            nav.setFocus(source.id);
+
+            targetLabel.click();
+
+            expect(nav.getState().focusedElementId).toBe(target.id);
+        });
+
+        it('treats a self-edge as a blocked move without refocusing or emitting', () => {
+            const element = createMockElement('self-edge');
+            elements.push(element);
+            nav.registerFocusable({
+                id: element.id,
+                element,
+                neighbors: { up: element.id },
+            });
+            nav.setFocus(element.id);
+
+            const focusChanges = jest.fn();
+            nav.on('focusChange', focusChanges);
+            const focusSpy = jest.spyOn(element, 'focus');
+
+            expect(nav.moveFocus('up')).toBe(false);
+            expect(nav.getState().focusedElementId).toBe(element.id);
+            expect(focusSpy).not.toHaveBeenCalled();
+            expect(focusChanges).not.toHaveBeenCalled();
+        });
+
         it('does not activate a focused control after it becomes disabled or detached', () => {
             const el = createMockElement('btn-stale');
             elements.push(el);
@@ -665,6 +740,59 @@ describe('NavigationManager', () => {
 
             nav.closeModal();
             expect(nav.isModalOpen()).toBe(false);
+        });
+
+        it('restores chooser focus before unregistering it, then restores the base anchor', () => {
+            const anchor = createMockElement('dropdown-anchor');
+            const chooserOption = createMockElement('dropdown-option');
+            const errorAction = createMockElement('blocking-error-action');
+            elements.push(anchor, chooserOption, errorAction);
+
+            nav.registerFocusable({ id: anchor.id, element: anchor, neighbors: {} });
+            nav.registerFocusable({ id: chooserOption.id, element: chooserOption, neighbors: {} });
+            nav.registerFocusable({ id: errorAction.id, element: errorAction, neighbors: {} });
+            nav.setFocus(anchor.id);
+
+            nav.openModal('settings-dropdown-modal', [chooserOption.id]);
+            nav.setFocus(chooserOption.id);
+            nav.openModal('modal:error-overlay', [errorAction.id], {
+                dismissOnBack: true,
+                blocksBackgroundCommands: true,
+            });
+            nav.setFocus(errorAction.id);
+
+            nav.closeModal('modal:error-overlay');
+            nav.unregisterFocusable(errorAction.id);
+            expect(nav.getState().focusedElementId).toBe(chooserOption.id);
+
+            nav.closeModal('settings-dropdown-modal');
+            nav.unregisterFocusable(chooserOption.id);
+            expect(nav.getState().focusedElementId).toBe(anchor.id);
+        });
+
+        it('keeps the base focus when an underlying modal closes out of order', () => {
+            const anchor = createMockElement('out-of-order-anchor');
+            const chooserOption = createMockElement('out-of-order-option');
+            const errorAction = createMockElement('out-of-order-error');
+            elements.push(anchor, chooserOption, errorAction);
+
+            nav.registerFocusable({ id: anchor.id, element: anchor, neighbors: {} });
+            nav.registerFocusable({ id: chooserOption.id, element: chooserOption, neighbors: {} });
+            nav.registerFocusable({ id: errorAction.id, element: errorAction, neighbors: {} });
+            nav.setFocus(anchor.id);
+
+            nav.openModal('out-of-order-dropdown', [chooserOption.id]);
+            nav.setFocus(chooserOption.id);
+            nav.openModal('out-of-order-error', [errorAction.id]);
+            nav.setFocus(errorAction.id);
+
+            nav.closeModal('out-of-order-dropdown');
+            nav.unregisterFocusable(chooserOption.id);
+            expect(nav.getState().focusedElementId).toBe(errorAction.id);
+
+            nav.closeModal('out-of-order-error');
+            nav.unregisterFocusable(errorAction.id);
+            expect(nav.getState().focusedElementId).toBe(anchor.id);
         });
     });
 

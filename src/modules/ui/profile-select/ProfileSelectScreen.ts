@@ -16,6 +16,7 @@ import {
 import { renderProfilePinUserHeader } from './ProfilePinUserHeader';
 
 const PIN_LENGTH = 4;
+const PROFILE_GRID_COLUMNS = 5;
 const PIN_MODAL_ID = 'profile-pin';
 const PROFILE_TIP_DEFAULT = 'Tip: Set a PIN on the admin profile to prevent unwanted access.';
 const PROFILE_TIP_WITH_RESTRICTED = `${PROFILE_TIP_DEFAULT} "Restricted" labels are informational only.`;
@@ -134,6 +135,7 @@ export class ProfileSelectScreen {
 
         const list = document.createElement('div');
         list.className = 'profile-list';
+        list.style.setProperty('--profile-grid-columns', String(PROFILE_GRID_COLUMNS));
         shell.contentEl.appendChild(list);
         this._listEl = list;
 
@@ -779,6 +781,7 @@ export class ProfileSelectScreen {
 
         const userCount = this._userButtonIds.length;
         const firstActionId = showMain ? this._mainButton.id : this._signOutButton.id;
+        const finalRowCardId = this._userButtonIds[userCount - 1];
 
         focusableIds.forEach((id, index) => {
             const element = document.getElementById(id);
@@ -788,29 +791,46 @@ export class ProfileSelectScreen {
             const neighbors: FocusableElement['neighbors'] = {};
 
             if (isUserCard) {
-                // Horizontal navigation: Left/Right between user cards
-                if (index > 0) {
-                    const leftId = focusableIds[index - 1];
-                    if (leftId) {
-                        neighbors.left = leftId;
-                    }
+                const rowStart = Math.floor(index / PROFILE_GRID_COLUMNS) * PROFILE_GRID_COLUMNS;
+                const column = index - rowStart;
+                const previousRowStart = rowStart - PROFILE_GRID_COLUMNS;
+                const nextRowStart = rowStart + PROFILE_GRID_COLUMNS;
+
+                // Keep horizontal edges in their visual row instead of invoking spatial fallback.
+                neighbors.left = column > 0 ? this._userButtonIds[index - 1] ?? id : id;
+                neighbors.right = column < PROFILE_GRID_COLUMNS - 1 && index + 1 < userCount
+                    ? this._userButtonIds[index + 1] ?? id
+                    : id;
+
+                if (previousRowStart < 0) {
+                    neighbors.up = id;
+                } else {
+                    const previousRowEnd = Math.min(
+                        previousRowStart + PROFILE_GRID_COLUMNS - 1,
+                        userCount - 1
+                    );
+                    const previousRowIndex = Math.min(previousRowStart + column, previousRowEnd);
+                    neighbors.up = this._userButtonIds[previousRowIndex] ?? id;
                 }
-                if (index < userCount - 1) {
-                    const rightId = focusableIds[index + 1];
-                    if (rightId) {
-                        neighbors.right = rightId;
-                    }
+
+                if (nextRowStart >= userCount) {
+                    neighbors.down = firstActionId;
+                } else {
+                    const nextRowEnd = Math.min(nextRowStart + PROFILE_GRID_COLUMNS - 1, userCount - 1);
+                    const nextRowIndex = Math.min(nextRowStart + column, nextRowEnd);
+                    neighbors.down = this._userButtonIds[nextRowIndex] ?? firstActionId;
                 }
-                // Down from any user card → first action button
-                neighbors.down = firstActionId;
             } else {
-                // Action buttons: Left/Right between each other.
-                // Up is intentionally omitted — FocusManager spatial fallback
-                // picks the nearest profile card, preserving the Down→Up round-trip.
-                if (showMain && id === this._mainButton.id) {
+                const isMainAction = showMain && id === this._mainButton.id;
+                neighbors.up = finalRowCardId ?? id;
+                neighbors.down = id;
+
+                if (isMainAction) {
+                    neighbors.left = id;
                     neighbors.right = this._signOutButton.id;
-                } else if (showMain && id === this._signOutButton.id) {
-                    neighbors.left = this._mainButton.id;
+                } else if (id === this._signOutButton.id) {
+                    neighbors.left = showMain ? this._mainButton.id : id;
+                    neighbors.right = id;
                 }
             }
 
