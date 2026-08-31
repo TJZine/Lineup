@@ -18,9 +18,14 @@ import {
     type PendingChannel,
 } from './ChannelSetupPlanningTypes';
 import {
-    buildCrossLibraryPeopleCandidates, buildCrossLibraryPeopleSourceGroups, buildPerLibraryPeopleCandidates,
+    buildCrossLibraryPeopleCandidates,
+    buildCrossLibraryPeopleSourceGroups,
+    buildCrossLibraryPeopleSourceGroupsCooperatively,
+    buildPerLibraryPeopleCandidates,
+    buildPerLibraryPeopleCandidatesCooperatively,
     type ChannelSetupPeopleSeriesIndexByLibraryId,
 } from './ChannelSetupPeopleSeriesIndex';
+import { ChannelSetupPlanningIterationCheckpoint } from './ChannelSetupPlanningCheckpoint';
 type StrategyBuckets = Record<SetupStrategyKey, PendingChannel[]>;
 type CategoryCandidate = {
     strategy: SetupStrategyKey;
@@ -281,6 +286,26 @@ const countUniqueTagTitles = (
         )
     )
 ).length;
+const countUniqueTagTitlesCooperatively = async (
+    libraries: PlexLibrarySection[],
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    iterationCheckpoint: ChannelSetupPlanningIterationCheckpoint
+): Promise<number> => {
+    const titles = new Set<string>();
+    for (const library of libraries) {
+        for (const tag of tagsByLibraryId.get(library.id) ?? []) {
+            const title = tag.title.trim().toLowerCase();
+            if (title) {
+                titles.add(title);
+            }
+            const pause = iterationCheckpoint.afterIteration();
+            if (pause) {
+                await pause;
+            }
+        }
+    }
+    return titles.size;
+};
 export function buildChannelSetupStrategyBuckets(
     input: ChannelSetupStrategyBuildersInput
 ): ChannelSetupStrategyBuildResult {
@@ -289,6 +314,72 @@ export function buildChannelSetupStrategyBuckets(
     buildPerLibraryStrategyBuckets(state);
     buildCrossLibraryFacetStrategyBuckets(state);
     buildActorStudioStrategyBuckets(state);
+    return toStrategyBuildResult(state);
+}
+
+export async function buildChannelSetupStrategyBucketsCooperatively(
+    input: ChannelSetupStrategyBuildersInput,
+    checkpoint: () => Promise<void>
+): Promise<ChannelSetupStrategyBuildResult> {
+    const state = createStrategyBuildState(input);
+    const iterationCheckpoint = new ChannelSetupPlanningIterationCheckpoint(checkpoint);
+
+    await checkpoint();
+    buildPlaylistStrategyBuckets(state);
+    for (const library of input.selectedLibraries) {
+        await checkpoint();
+        buildCollectionStrategyBuckets(state, library);
+        buildRecentlyAddedStrategyBucket(state, library);
+        await buildPerLibraryFacetTagStrategyBucketCooperatively(state, library, {
+            strategy: 'genres',
+            tagsByLibraryId: state.input.genresByLibraryId,
+            categoryKey: (_sourceLibrary, tag) => tag.key,
+            baseSource: (sourceLibrary, tag) => createLibrarySource(sourceLibrary, { genre: tag.title }),
+        }, iterationCheckpoint);
+        await buildPerLibraryFacetTagStrategyBucketCooperatively(state, library, {
+            strategy: 'directors',
+            tagsByLibraryId: state.input.directorsByLibraryId,
+            categoryKey: (_sourceLibrary, tag) => tag.key,
+            baseSource: (sourceLibrary) => createLibrarySource(sourceLibrary),
+        }, iterationCheckpoint);
+        buildPerLibraryDecadeStrategyBuckets(state, library);
+    }
+
+    await checkpoint();
+    await buildCrossLibraryFacetStrategyBucketCooperatively(
+        state,
+        'genres',
+        input.genresByLibraryId,
+        'genre',
+        (tag) => ({ genre: tag.title }),
+        iterationCheckpoint
+    );
+    await checkpoint();
+    await buildCrossLibraryFacetStrategyBucketCooperatively(
+        state,
+        'directors',
+        input.directorsByLibraryId,
+        'director',
+        (tag) => ({ director: tag.title }),
+        iterationCheckpoint
+    );
+    await checkpoint();
+    await buildActorOrStudioStrategyBucketCooperatively(
+        state,
+        'studios',
+        'studio',
+        input.studiosByLibraryId,
+        iterationCheckpoint
+    );
+    await checkpoint();
+    await buildActorOrStudioStrategyBucketCooperatively(
+        state,
+        'actors',
+        'actor',
+        input.actorsByLibraryId,
+        iterationCheckpoint
+    );
+
     return toStrategyBuildResult(state);
 }
 function createStrategyBuildState(input: ChannelSetupStrategyBuildersInput): ChannelSetupStrategyBuildState {
@@ -499,6 +590,84 @@ function buildPerLibraryFacetTagStrategyBucket(
         });
     }
 }
+
+async function buildPerLibraryFacetTagStrategyBucketCooperatively(
+    state: ChannelSetupStrategyBuildState,
+    library: PlexLibrarySection,
+    descriptor: PerLibraryTagFamilyDescriptor & { strategy: 'genres' | 'directors' },
+    iterationCheckpoint: ChannelSetupPlanningIterationCheckpoint
+): Promise<void> {
+    if (!isStrategyEnabled(state, descriptor.strategy) || getStrategyScope(state, descriptor.strategy) !== 'per-library') {
+        return;
+    }
+    const candidates = descriptor.strategy === 'directors'
+        ? await buildPerLibraryPeopleCandidatesCooperatively({
+            indexByLibraryId: state.input.peopleSeriesIndexByLibraryId,
+            library,
+            family: 'directors',
+            tags: descriptor.tagsByLibraryId.get(library.id) ?? [],
+            minItems: state.input.minItems,
+            categoryKey: descriptor.categoryKey,
+            baseSource: descriptor.baseSource,
+            recordEligibility: (passesEligibility): void => recordMinItemOutcome(state, 'directors', passesEligibility),
+        }, iterationCheckpoint)
+        : await collectPerLibraryTagFamilyCandidatesCooperatively(
+            state,
+            library,
+            descriptor,
+            iterationCheckpoint
+        );
+    for (const candidate of sortCategoryCandidates(candidates)) {
+        const isDirector = descriptor.strategy === 'directors';
+        addStrategyChannel(state, descriptor.strategy, {
+            name: `${library.title} - ${candidate.categoryLabel}`,
+            contentSource: candidate.baseSource,
+            ...(isDirector
+                ? { contentFilters: [{ field: 'director' as const, operator: 'eq' as const, value: candidate.categoryLabel }] }
+                : {}),
+            playbackMode: 'shuffle',
+            shuffleSeed: state.input.seedFor(`${isDirector ? 'director' : 'genre'}:${library.id}:${candidate.categoryKey}`),
+            isAutoGenerated: true,
+            sourceLibraryId: library.id,
+            sourceLibraryName: library.title,
+        });
+        const pause = iterationCheckpoint.afterIteration();
+        if (pause) {
+            await pause;
+        }
+    }
+}
+
+async function collectPerLibraryTagFamilyCandidatesCooperatively(
+    state: ChannelSetupStrategyBuildState,
+    library: PlexLibrarySection,
+    descriptor: PerLibraryTagFamilyDescriptor,
+    iterationCheckpoint: ChannelSetupPlanningIterationCheckpoint
+): Promise<TagFamilyCandidate[]> {
+    const candidates: TagFamilyCandidate[] = [];
+    for (const tag of sortTagsByCountThenTitle(descriptor.tagsByLibraryId.get(library.id) ?? [])) {
+        const passesMinItems = tagMeetsMinItems(tag, state.input.minItems);
+        recordMinItemOutcome(state, descriptor.strategy, passesMinItems);
+        if (passesMinItems) {
+            const itemCount = getTagItemCount(tag);
+            candidates.push({
+                strategy: descriptor.strategy,
+                categoryKey: descriptor.categoryKey(library, tag),
+                categoryLabel: tag.title,
+                baseSource: descriptor.baseSource(library, tag),
+                sourceLibraryId: library.id,
+                sourceLibraryName: library.title,
+                tag,
+                ...(itemCount === undefined ? {} : { itemCount }),
+            });
+        }
+        const pause = iterationCheckpoint.afterIteration();
+        if (pause) {
+            await pause;
+        }
+    }
+    return candidates;
+}
 function buildPerLibraryDecadeStrategyBuckets(
     state: ChannelSetupStrategyBuildState,
     library: PlexLibrarySection
@@ -593,6 +762,123 @@ function buildCrossLibraryFacetStrategyBucket(
         recordMinItemOutcome(state, strategy, false, skipped);
     }
 }
+
+async function buildCrossLibraryFacetStrategyBucketCooperatively(
+    state: ChannelSetupStrategyBuildState,
+    strategy: 'genres' | 'directors',
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    seedPrefix: 'genre' | 'director',
+    buildLibraryFilter: (tag: PlexTagDirectoryItem) => Record<string, string | number>,
+    iterationCheckpoint: ChannelSetupPlanningIterationCheckpoint
+): Promise<void> {
+    if (!isStrategyEnabled(state, strategy) || getStrategyScope(state, strategy) !== 'cross-library') {
+        return;
+    }
+    const candidates = strategy === 'directors'
+        ? sortCategoryCandidates((await buildCrossLibraryPeopleSourceGroupsCooperatively({
+            libraries: state.input.selectedLibraries,
+            tagsByLibraryId,
+            indexByLibraryId: state.input.peopleSeriesIndexByLibraryId,
+            family: 'directors',
+            minItems: state.input.minItems,
+            createSource: (library, tag) => createLibrarySource(library, buildLibraryFilter(tag)),
+        }, iterationCheckpoint))
+            .filter((entry) => entry.hasUnknownCount || entry.totalCount >= state.input.minItems)
+            .map((entry) => withOptionalItemCount({
+                strategy,
+                categoryKey: entry.key,
+                categoryLabel: entry.title,
+                baseSource: entry.sources.length > 1
+                    ? { type: 'mixed', mixMode: 'interleave', sources: entry.sources }
+                    : entry.sources[0] ?? { type: 'manual', items: [] },
+            }, entry.totalCount > 0 ? entry.totalCount : undefined)))
+        : await buildCrossLibraryFacetCandidatesCooperatively(
+            state.input.selectedLibraries,
+            tagsByLibraryId,
+            state.input.minItems,
+            strategy,
+            buildLibraryFilter,
+            iterationCheckpoint
+        );
+    for (const candidate of candidates) {
+        recordMinItemOutcome(state, strategy, true);
+        addStrategyChannel(state, strategy, {
+            name: candidate.categoryLabel,
+            contentSource: candidate.baseSource,
+            playbackMode: 'shuffle',
+            shuffleSeed: state.input.seedFor(`${seedPrefix}:cross:${candidate.categoryKey}`),
+            isAutoGenerated: true,
+        });
+        const pause = iterationCheckpoint.afterIteration();
+        if (pause) {
+            await pause;
+        }
+    }
+    const skipped = await countUniqueTagTitlesCooperatively(
+        state.input.selectedLibraries,
+        tagsByLibraryId,
+        iterationCheckpoint
+    ) - candidates.length;
+    if (skipped > 0) {
+        recordMinItemOutcome(state, strategy, false, skipped);
+    }
+}
+
+async function buildCrossLibraryFacetCandidatesCooperatively(
+    libraries: PlexLibrarySection[],
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    minItems: number,
+    strategy: SetupStrategyKey,
+    buildLibraryFilter: (tag: PlexTagDirectoryItem) => Record<string, string | number>,
+    iterationCheckpoint: ChannelSetupPlanningIterationCheckpoint
+): Promise<CategoryCandidate[]> {
+    const grouped = new Map<
+        string,
+        { label: string; totalCount: number; hasUnknownCount: boolean; sources: ChannelConfig['contentSource'][] }
+    >();
+    for (const library of libraries) {
+        for (const tag of sortTagsByCountThenTitle(tagsByLibraryId.get(library.id) ?? [])) {
+            const key = tag.title.trim().toLowerCase();
+            if (key) {
+                const entry = grouped.get(key) ?? {
+                    label: tag.title,
+                    totalCount: 0,
+                    hasUnknownCount: false,
+                    sources: [],
+                };
+                if (tag.count === null) {
+                    entry.hasUnknownCount = true;
+                } else {
+                    entry.totalCount += tag.count;
+                }
+                entry.sources.push(createLibrarySource(library, buildLibraryFilter(tag)));
+                grouped.set(key, entry);
+            }
+            const pause = iterationCheckpoint.afterIteration();
+            if (pause) {
+                await pause;
+            }
+        }
+    }
+    const candidates: CategoryCandidate[] = [];
+    for (const [categoryKey, entry] of grouped.entries()) {
+        if (entry.hasUnknownCount || entry.totalCount >= minItems) {
+            candidates.push(withOptionalItemCount({
+                strategy,
+                categoryKey,
+                categoryLabel: entry.label,
+                baseSource: entry.sources.length > 1
+                    ? { type: 'mixed', mixMode: 'interleave', sources: entry.sources }
+                    : entry.sources[0] ?? { type: 'manual', items: [] },
+            }, entry.totalCount > 0 ? entry.totalCount : undefined));
+        }
+        const pause = iterationCheckpoint.afterIteration();
+        if (pause) {
+            await pause;
+        }
+    }
+    return sortCategoryCandidates(candidates);
+}
 function buildActorStudioStrategyBuckets(state: ChannelSetupStrategyBuildState): void {
     buildActorOrStudioStrategyBucket(state, 'studios', 'studio', state.input.studiosByLibraryId);
     buildActorOrStudioStrategyBucket(state, 'actors', 'actor', state.input.actorsByLibraryId);
@@ -613,6 +899,38 @@ function buildActorOrStudioStrategyBucket(
         return;
     }
     buildPerLibraryActorStudioStrategyBucket(state, strategy, tagType, tagsByLibraryId);
+}
+
+async function buildActorOrStudioStrategyBucketCooperatively(
+    state: ChannelSetupStrategyBuildState,
+    strategy: 'actors' | 'studios',
+    tagType: 'actor' | 'studio',
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    iterationCheckpoint: ChannelSetupPlanningIterationCheckpoint
+): Promise<void> {
+    if (!isStrategyEnabled(state, strategy)) {
+        return;
+    }
+    const scope = getStrategyScope(state, strategy);
+    const combineMode = state.input.config.actorStudioCombineMode ?? 'separate';
+    if (combineMode === 'combined' || scope === 'cross-library') {
+        await buildCombinedActorStudioStrategyBucketCooperatively(
+            state,
+            strategy,
+            tagType,
+            tagsByLibraryId,
+            scope,
+            iterationCheckpoint
+        );
+        return;
+    }
+    await buildPerLibraryActorStudioStrategyBucketCooperatively(
+        state,
+        strategy,
+        tagType,
+        tagsByLibraryId,
+        iterationCheckpoint
+    );
 }
 function buildCombinedActorStudioStrategyBucket(
     state: ChannelSetupStrategyBuildState,
@@ -644,6 +962,99 @@ function buildCombinedActorStudioStrategyBucket(
         });
     }
 }
+
+async function buildCombinedActorStudioStrategyBucketCooperatively(
+    state: ChannelSetupStrategyBuildState,
+    strategy: 'actors' | 'studios',
+    tagType: 'actor' | 'studio',
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    scope: 'per-library' | 'cross-library',
+    iterationCheckpoint: ChannelSetupPlanningIterationCheckpoint
+): Promise<void> {
+    const tags = strategy === 'actors'
+        ? await buildCrossLibraryPeopleSourceGroupsCooperatively({
+            libraries: state.input.selectedLibraries,
+            tagsByLibraryId,
+            indexByLibraryId: state.input.peopleSeriesIndexByLibraryId,
+            family: 'actors',
+            minItems: state.input.minItems,
+            createSource: (library, tag) => ({
+                ...createLibrarySource(library, buildChannelSetupTagFilter(tag, tagType)),
+            }),
+        }, iterationCheckpoint)
+        : await combineTagSourcesCooperatively(
+            state.input.selectedLibraries,
+            tagsByLibraryId,
+            tagType,
+            iterationCheckpoint
+        );
+    for (const tag of tags) {
+        const passesMinItems = tag.hasUnknownCount || tag.totalCount >= state.input.minItems;
+        recordMinItemOutcome(state, strategy, passesMinItems);
+        if (passesMinItems) {
+            addStrategyChannel(state, strategy, {
+                name: tag.title,
+                contentSource: {
+                    type: 'mixed',
+                    mixMode: scope === 'cross-library' ? 'interleave' : 'sequential',
+                    sources: tag.sources,
+                },
+                playbackMode: 'shuffle',
+                shuffleSeed: state.input.seedFor(`${tagType}:${tag.key}`),
+                isAutoGenerated: true,
+            });
+        }
+        const pause = iterationCheckpoint.afterIteration();
+        if (pause) {
+            await pause;
+        }
+    }
+}
+
+async function combineTagSourcesCooperatively(
+    libraries: PlexLibrarySection[],
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    type: 'actor' | 'studio',
+    iterationCheckpoint: ChannelSetupPlanningIterationCheckpoint
+): Promise<Array<{ key: string; title: string; totalCount: number; hasUnknownCount: boolean; sources: ChannelConfig['contentSource'][] }>> {
+    const grouped = new Map<
+        string,
+        { title: string; totalCount: number; hasUnknownCount: boolean; sources: ChannelConfig['contentSource'][] }
+    >();
+    for (const library of libraries) {
+        for (const tag of sortTagsByCountThenTitle(tagsByLibraryId.get(library.id) ?? [])) {
+            const groupKey = tag.title.trim().toLowerCase();
+            if (groupKey) {
+                const entry = grouped.get(groupKey) ?? {
+                    title: tag.title,
+                    totalCount: 0,
+                    hasUnknownCount: false,
+                    sources: [],
+                };
+                if (tag.count === null) {
+                    entry.hasUnknownCount = true;
+                } else {
+                    entry.totalCount += tag.count;
+                }
+                entry.sources.push({ ...createLibrarySource(library, buildChannelSetupTagFilter(tag, type)) });
+                grouped.set(groupKey, entry);
+            }
+            const pause = iterationCheckpoint.afterIteration();
+            if (pause) {
+                await pause;
+            }
+        }
+    }
+    return Array.from(grouped.entries())
+        .map(([key, entry]) => ({ key, ...entry }))
+        .sort((a, b) => {
+            const countDiff = b.totalCount - a.totalCount;
+            if (countDiff !== 0) return countDiff;
+            const titleDiff = a.title.localeCompare(b.title);
+            if (titleDiff !== 0) return titleDiff;
+            return a.key.localeCompare(b.key);
+        });
+}
 function buildPerLibraryActorStudioStrategyBucket(
     state: ChannelSetupStrategyBuildState,
     strategy: 'actors' | 'studios',
@@ -671,6 +1082,55 @@ function buildPerLibraryActorStudioStrategyBucket(
                 sourceLibraryId: library.id,
                 sourceLibraryName: library.title,
             });
+        }
+    }
+}
+
+async function buildPerLibraryActorStudioStrategyBucketCooperatively(
+    state: ChannelSetupStrategyBuildState,
+    strategy: 'actors' | 'studios',
+    tagType: 'actor' | 'studio',
+    tagsByLibraryId: ChannelSetupFacetMap<PlexTagDirectoryItem>,
+    iterationCheckpoint: ChannelSetupPlanningIterationCheckpoint
+): Promise<void> {
+    for (const library of state.input.selectedLibraries) {
+        const candidates = strategy === 'actors'
+            ? await buildPerLibraryPeopleCandidatesCooperatively({
+                indexByLibraryId: state.input.peopleSeriesIndexByLibraryId,
+                library,
+                family: 'actors',
+                tags: tagsByLibraryId.get(library.id) ?? [],
+                minItems: state.input.minItems,
+                categoryKey: (_sourceLibrary, tag) => tag.key,
+                baseSource: (sourceLibrary, tag) => createLibrarySource(
+                    sourceLibrary,
+                    buildChannelSetupTagFilter(tag, tagType)
+                ),
+                recordEligibility: (passesEligibility): void => recordMinItemOutcome(state, 'actors', passesEligibility),
+            }, iterationCheckpoint)
+            : await collectPerLibraryTagFamilyCandidatesCooperatively(state, library, {
+                strategy,
+                tagsByLibraryId,
+                categoryKey: (_sourceLibrary, tag) => tag.key,
+                baseSource: (sourceLibrary, tag) => createLibrarySource(
+                    sourceLibrary,
+                    buildChannelSetupTagFilter(tag, tagType)
+                ),
+            }, iterationCheckpoint);
+        for (const candidate of candidates) {
+            addStrategyChannel(state, strategy, {
+                name: `${candidate.categoryLabel} - ${library.title}`,
+                contentSource: candidate.baseSource,
+                playbackMode: 'shuffle',
+                shuffleSeed: state.input.seedFor(`${tagType}:${library.id}:${candidate.categoryKey}`),
+                isAutoGenerated: true,
+                sourceLibraryId: library.id,
+                sourceLibraryName: library.title,
+            });
+            const pause = iterationCheckpoint.afterIteration();
+            if (pause) {
+                await pause;
+            }
         }
     }
 }

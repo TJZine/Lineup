@@ -5,6 +5,7 @@
 import { ChannelSetupPlanningService } from '../planning/ChannelSetupPlanningService';
 import { ChannelSetupBuildExecutor } from '../build/ChannelSetupBuildExecutor';
 import { ChannelSetupFacetSnapshotLoader } from '../planning/ChannelSetupFacetSnapshotLoader';
+import * as PlanningCheckpoint from '../planning/ChannelSetupPlanningCheckpoint';
 import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';
 import type {
     IPlexLibrary,
@@ -2806,6 +2807,130 @@ describe('ChannelSetupPlanningService', () => {
                 warnings: ['timed out during genre scan'],
             }));
         } finally {
+            loadSnapshotSpy.mockRestore();
+        }
+    });
+
+    it('returns build cancellation when abort wins at a cooperative planning checkpoint', async () => {
+        jest.useFakeTimers();
+        const plexLibrary = {} as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const loadSnapshotSpy = jest.spyOn(ChannelSetupFacetSnapshotLoader.prototype, 'loadSnapshot');
+        const abortController = new AbortController();
+        try {
+            loadSnapshotSpy.mockResolvedValue({
+                status: 'ready',
+                playlists: [],
+                collectionsByLibraryId: new Map(),
+                genresByLibraryId: new Map([['movies', Array.from({ length: 3000 }, (_, index) =>
+                    makeTag({ key: `genre-${index}`, title: `Genre ${index}`, count: 20 })
+                )]]),
+                directorsByLibraryId: new Map(),
+                yearsByLibraryId: new Map(),
+                actorsByLibraryId: new Map(),
+                studiosByLibraryId: new Map(),
+                peopleSeriesIndexByLibraryId: new Map(),
+                warnings: [],
+                hasTransientLoadFailure: false,
+                errorsTotal: 0,
+                playlistMs: 0,
+                collectionsMs: 0,
+                libraryQueryMs: 0,
+            });
+
+            const pending = service.buildSetupPlan(
+                service.normalizeConfig(createConfig({
+                    selectedLibraryIds: ['movies'],
+                    maxChannels: 3000,
+                    strategyConfig: {
+                        genres: { enabled: true, priority: 1, scope: 'per-library' },
+                    },
+                })),
+                [makeLibrary({ id: 'movies', title: 'Movies', type: 'movie', contentCount: 60000 })],
+                abortController.signal,
+                'build',
+                jest.fn()
+            );
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(jest.getTimerCount()).toBeGreaterThan(0);
+            abortController.abort();
+
+            await expect(pending).resolves.toEqual(expect.objectContaining({
+                plan: null,
+                canceled: true,
+                lastTask: 'scan_library_items',
+            }));
+        } finally {
+            loadSnapshotSpy.mockRestore();
+            jest.useRealTimers();
+        }
+    });
+
+    it('returns build cancellation when abort wins at the final pre-publication checkpoint', async () => {
+        const plexLibrary = {} as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const loadSnapshotSpy = jest.spyOn(ChannelSetupFacetSnapshotLoader.prototype, 'loadSnapshot');
+        const abortController = new AbortController();
+        const originalCheckpoint = PlanningCheckpoint.yieldForChannelSetupPlanning;
+        let checkpointCount = 0;
+        const checkpointSpy = jest.spyOn(PlanningCheckpoint, 'yieldForChannelSetupPlanning')
+            .mockImplementation(async (signal): Promise<void> => {
+                checkpointCount += 1;
+                if (checkpointCount === 11) {
+                    abortController.abort();
+                }
+                if (signal?.aborted) {
+                    await originalCheckpoint(signal);
+                }
+            });
+        try {
+            loadSnapshotSpy.mockResolvedValue({
+                status: 'ready',
+                playlists: [],
+                collectionsByLibraryId: new Map(),
+                genresByLibraryId: new Map([['movies', [makeTag({ key: 'genre-1', title: 'Comedy', count: 20 })]]]),
+                directorsByLibraryId: new Map(),
+                yearsByLibraryId: new Map(),
+                actorsByLibraryId: new Map(),
+                studiosByLibraryId: new Map(),
+                peopleSeriesIndexByLibraryId: new Map(),
+                warnings: [],
+                hasTransientLoadFailure: false,
+                errorsTotal: 0,
+                playlistMs: 0,
+                collectionsMs: 0,
+                libraryQueryMs: 0,
+            });
+
+            const result = await service.buildSetupPlan(
+                service.normalizeConfig(createConfig({
+                    selectedLibraryIds: ['movies'],
+                    strategyConfig: {
+                        genres: { enabled: true, priority: 1, scope: 'per-library' },
+                    },
+                })),
+                [makeLibrary({ id: 'movies', title: 'Movies', type: 'movie', contentCount: 20 })],
+                abortController.signal,
+                'build',
+                jest.fn()
+            );
+
+            expect(checkpointCount).toBe(11);
+            expect(result).toEqual(expect.objectContaining({
+                plan: null,
+                canceled: true,
+                lastTask: 'scan_library_items',
+            }));
+        } finally {
+            checkpointSpy.mockRestore();
             loadSnapshotSpy.mockRestore();
         }
     });

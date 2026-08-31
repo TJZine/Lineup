@@ -3,6 +3,7 @@ import { buildChannelSetupFacetCountFilter } from './ChannelSetupTagFilters';
 import { createAbortError } from './ChannelSetupFacetSnapshotAbort';
 import type { ChannelBuildProgress } from '../types';
 import type { ChannelSetupFacetCountRecoveryFamily } from './ChannelSetupFacetFamilies';
+import { ChannelSetupPlanningIterationCheckpoint } from './ChannelSetupPlanningCheckpoint';
 
 export type FacetCountRecoveryLimiter = <T>(task: () => Promise<T>) => Promise<T>;
 
@@ -37,15 +38,24 @@ type ChannelSetupFacetCountRecoveryWorkerOptions = {
     getLastTask: () => ChannelBuildProgress['task'] | undefined;
     addLibraryQueryMs: (durationMs: number) => void;
     maxConcurrency: number;
+    checkpoint: () => Promise<void>;
 };
 
 export class ChannelSetupFacetCountRecoveryWorker {
     constructor(private readonly options: ChannelSetupFacetCountRecoveryWorkerOptions) { }
 
     async recover(): Promise<PlexTagDirectoryItem[]> {
-        const unknownIndexes = this.options.tags
-            .map((tag, index) => (tag.count === null ? index : -1))
-            .filter((index) => index >= 0);
+        const iterationCheckpoint = new ChannelSetupPlanningIterationCheckpoint(this.options.checkpoint);
+        const unknownIndexes: number[] = [];
+        for (let index = 0; index < this.options.tags.length; index += 1) {
+            if (this.options.tags[index]?.count === null) {
+                unknownIndexes.push(index);
+            }
+            const pause = iterationCheckpoint.afterIteration();
+            if (pause) {
+                await pause;
+            }
+        }
         if (unknownIndexes.length === 0) {
             return this.options.tags;
         }
@@ -58,7 +68,7 @@ export class ChannelSetupFacetCountRecoveryWorker {
             );
         }
         const workerCount = Math.min(maxConcurrency, unknownIndexes.length);
-        const queue = [...unknownIndexes];
+        let queueCursor = 0;
         const siblingAbortController = new AbortController();
         let hasFirstError = false;
         let firstError: unknown;
@@ -72,11 +82,12 @@ export class ChannelSetupFacetCountRecoveryWorker {
                 : linkedAbortSignal.signal.reason ?? createAbortError(this.options.getLastTask());
         const workers = Array.from({ length: workerCount }, async (): Promise<void> => {
             try {
-                while (queue.length > 0) {
+                while (queueCursor < unknownIndexes.length) {
                     if (linkedAbortSignal.signal.aborted) {
                         throw getAbortRejection();
                     }
-                    const tagIndex = queue.shift();
+                    const tagIndex = unknownIndexes[queueCursor];
+                    queueCursor += 1;
                     if (tagIndex === undefined) {
                         if (linkedAbortSignal.signal.aborted) {
                             throw getAbortRejection();

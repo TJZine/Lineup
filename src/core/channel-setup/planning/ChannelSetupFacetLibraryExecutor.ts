@@ -65,6 +65,7 @@ type ChannelSetupFacetLibraryExecutorOptions = {
     reportSnapshotProgress: (progress: ChannelBuildProgress) => void;
     addPartialWarning: (task: ChannelBuildProgress['task'], detail: string, error: unknown) => void;
     abortSiblingRequests: () => void;
+    checkpoint: () => Promise<void>;
 };
 const MAX_FACET_COUNT_RECOVERY_CONCURRENCY = 8;
 export class ChannelSetupFacetLibraryExecutor {
@@ -296,7 +297,12 @@ export class ChannelSetupFacetLibraryExecutor {
         }
         const startedAt = performance.now();
         try {
-            const index = await buildChannelSetupPeopleSeriesIndexForLibrary({ plexLibrary: this._options.plexLibrary, library, signal: librarySignal });
+            const index = await buildChannelSetupPeopleSeriesIndexForLibrary({
+                plexLibrary: this._options.plexLibrary,
+                library,
+                signal: librarySignal,
+                checkpoint: this._options.checkpoint,
+            });
             this._options.loadState.peopleSeriesIndexByLibraryId.set(library.id, index);
         } catch (error) {
             if (isPlexLibraryScopeSupersededError(error)) {
@@ -412,7 +418,7 @@ export class ChannelSetupFacetLibraryExecutor {
         countRecoveryLimiter: FacetCountRecoveryLimiter
     ): Promise<ChannelSetupFacetSnapshot | null> {
         const tags = definition.tagsByLibraryId.get(library.id) ?? [];
-        if (tags.length === 0 || tags.every((tag) => tag.count !== null)) {
+        if (tags.length === 0) {
             return null;
         }
         try {
@@ -467,6 +473,7 @@ export class ChannelSetupFacetLibraryExecutor {
             getLastTask: this._options.getLastTask,
             addLibraryQueryMs: (durationMs): void => this._options.loadState.addLibraryQueryMs(durationMs),
             maxConcurrency: MAX_FACET_COUNT_RECOVERY_CONCURRENCY,
+            checkpoint: this._options.checkpoint,
         }).recover();
     }
 }

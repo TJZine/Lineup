@@ -11,6 +11,36 @@ import {
 import { CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS } from '../planning/ChannelSetupFacetFamilies';
 
 describe('ChannelSetupFacetCountRecoveryWorker', () => {
+    it('checkpoints while scanning one large native-facet result with no missing counts', async () => {
+        const tags = Array.from({ length: 300 }, (_, index) => ({
+            key: `genre-${index}`,
+            title: `Genre ${index}`,
+            count: index,
+        }));
+        const checkpoint = jest.fn(async (): Promise<void> => undefined);
+        const plexLibrary = {
+            getLibraryItemCount: jest.fn(),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+
+        const result = await new ChannelSetupFacetCountRecoveryWorker({
+            plexLibrary,
+            libraryId: 'shows',
+            mediaType: 2,
+            family: 'genre',
+            tags,
+            tagSignal: new AbortController().signal,
+            countRecoveryLimiter: <T>(task: () => Promise<T>): Promise<T> => task(),
+            getLastTask: (): 'scan_library_items' => 'scan_library_items',
+            addLibraryQueryMs: jest.fn(),
+            maxConcurrency: 1,
+            checkpoint,
+        }).recover();
+
+        expect(checkpoint).toHaveBeenCalledTimes(2);
+        expect(result).toBe(tags);
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalled();
+    });
+
     it('uses the canonical native facet count-recovery families in unavailable-count errors', () => {
         for (const descriptor of CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS) {
             expect(() => assertRecoveredTagCount(
@@ -47,6 +77,7 @@ describe('ChannelSetupFacetCountRecoveryWorker', () => {
                 getLastTask: (): 'scan_library_items' => 'scan_library_items',
                 addLibraryQueryMs,
                 maxConcurrency: 1,
+                checkpoint: async (): Promise<void> => undefined,
             }).recover();
 
             expect(result).toEqual([{ key: 'genre-1', title: 'Drama', count: 12 }]);
@@ -77,6 +108,7 @@ describe('ChannelSetupFacetCountRecoveryWorker', () => {
             getLastTask: (): 'scan_library_items' => 'scan_library_items',
             addLibraryQueryMs: jest.fn(),
             maxConcurrency: 0,
+            checkpoint: async (): Promise<void> => undefined,
         }).recover()).rejects.toThrow('maxConcurrency must be at least 1');
 
         expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalled();
@@ -100,6 +132,7 @@ describe('ChannelSetupFacetCountRecoveryWorker', () => {
             getLastTask: (): 'scan_library_items' => 'scan_library_items',
             addLibraryQueryMs: jest.fn(),
             maxConcurrency: 1,
+            checkpoint: async (): Promise<void> => undefined,
         }).recover()).rejects.toMatchObject({
             name: 'AbortError',
         });

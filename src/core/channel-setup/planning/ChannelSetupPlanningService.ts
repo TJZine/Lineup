@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import {
     buildChannelSetupPlan,
+    buildChannelSetupPlanCooperatively,
     buildChannelSetupPlanDiagnostics,
 } from './ChannelSetupPlanner';
 import {
@@ -31,6 +32,7 @@ import {
 } from './ChannelSetupFacetSnapshotLoader';
 import { createEmptyChannelSetupEstimates } from './ChannelSetupPlanningTypes';
 import { normalizeChannelSetupConfig } from '../config/normalizeChannelSetupConfig';
+import { yieldForChannelSetupPlanning } from './ChannelSetupPlanningCheckpoint';
 
 function throwIfChannelSetupAborted(signal: AbortSignal | null | undefined): void {
     if (signal?.aborted) {
@@ -276,20 +278,29 @@ export class ChannelSetupPlanningService {
             };
         }
 
-        const plan = buildChannelSetupPlan({
-            config,
-            libraries,
-            playlists: snapshot.playlists,
-            collectionsByLibraryId: snapshot.collectionsByLibraryId,
-            genresByLibraryId: snapshot.genresByLibraryId,
-            directorsByLibraryId: snapshot.directorsByLibraryId,
-            yearsByLibraryId: snapshot.yearsByLibraryId,
-            actorsByLibraryId: snapshot.actorsByLibraryId,
-            studiosByLibraryId: snapshot.studiosByLibraryId,
-            peopleSeriesIndexByLibraryId: snapshot.peopleSeriesIndexByLibraryId,
-            warnings: snapshot.warnings,
-            seedFor: (value: string): number => this._hashSeed(value),
-        });
+        let plan: ReturnType<typeof buildChannelSetupPlan>;
+        try {
+            plan = await buildChannelSetupPlanCooperatively({
+                config,
+                libraries,
+                playlists: snapshot.playlists,
+                collectionsByLibraryId: snapshot.collectionsByLibraryId,
+                genresByLibraryId: snapshot.genresByLibraryId,
+                directorsByLibraryId: snapshot.directorsByLibraryId,
+                yearsByLibraryId: snapshot.yearsByLibraryId,
+                actorsByLibraryId: snapshot.actorsByLibraryId,
+                studiosByLibraryId: snapshot.studiosByLibraryId,
+                peopleSeriesIndexByLibraryId: snapshot.peopleSeriesIndexByLibraryId,
+                warnings: snapshot.warnings,
+                seedFor: (value: string): number => this._hashSeed(value),
+            }, () => yieldForChannelSetupPlanning(signal));
+        } catch (error) {
+            if (signal?.aborted && reportProgress !== undefined) {
+                const abortedTask = getAbortErrorTask(error);
+                return createCanceledPlanBuildResult(abortedTask ?? 'scan_library_items');
+            }
+            throw error;
+        }
         if (plan.pendingChannels.length === 0 && snapshot.errorsTotal === 0) {
             const hasTransientLoadFailure = snapshot.hasTransientLoadFailure;
             return {

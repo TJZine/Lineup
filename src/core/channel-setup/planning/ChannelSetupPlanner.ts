@@ -12,7 +12,10 @@ import type {
     PlexTagDirectoryItem,
 } from '../../../modules/plex/library';
 import type { ChannelConfig } from '../../../modules/scheduler/channel-manager';
-import { buildChannelSetupStrategyBuckets } from './ChannelSetupStrategyBuilders';
+import {
+    buildChannelSetupStrategyBuckets,
+    buildChannelSetupStrategyBucketsCooperatively,
+} from './ChannelSetupStrategyBuilders';
 import {
     createChannelSetupFacetFamilyRecord,
     type ChannelSetupNativeFacetFamily,
@@ -198,6 +201,74 @@ const isSeriesDerivedChannel = (
 };
 export function buildChannelSetupPlan(input: ChannelSetupPlanInput): ChannelSetupPlan {
     return buildChannelSetupPlanInternal(input).plan;
+}
+export async function buildChannelSetupPlanCooperatively(
+    input: ChannelSetupPlanInput,
+    checkpoint: () => Promise<void>
+): Promise<ChannelSetupPlan> {
+    const {
+        config,
+        libraries,
+        playlists,
+        collectionsByLibraryId,
+        genresByLibraryId,
+        directorsByLibraryId,
+        yearsByLibraryId,
+        actorsByLibraryId,
+        studiosByLibraryId,
+        peopleSeriesIndexByLibraryId = new Map(),
+        warnings,
+        seedFor,
+    } = input;
+    const { effectiveMaxChannels, minItems } = resolvePlanningLimits(config);
+    const selectedLibraries = selectConfiguredLibraries(libraries, config);
+
+    const strategyBuild = await buildChannelSetupStrategyBucketsCooperatively({
+        config,
+        selectedLibraries,
+        playlists,
+        collectionsByLibraryId,
+        genresByLibraryId,
+        directorsByLibraryId,
+        yearsByLibraryId,
+        actorsByLibraryId,
+        studiosByLibraryId,
+        peopleSeriesIndexByLibraryId,
+        minItems,
+        seedFor,
+    }, checkpoint);
+    const showLibraryIds = new Set(
+        selectedLibraries
+            .filter((library) => library.type === 'show')
+            .map((library) => library.id)
+    );
+
+    await checkpoint();
+    const baseOrderedUnadjusted = orderStrategyChannels(
+        strategyBuild.strategyBuckets,
+        createStrategyPriorityResolver(config)
+    );
+    const baseOrdered = normalizeSeriesPlayback(baseOrderedUnadjusted, showLibraryIds, config);
+    await checkpoint();
+    const withAlternateLineups = expandAlternateLineups(baseOrdered, config, seedFor);
+    await checkpoint();
+    const withVariants = expandPlaybackVariants(withAlternateLineups, showLibraryIds, config, seedFor);
+    await checkpoint();
+    const { pending, reachedMaxChannels } = allocatePendingChannels(
+        withVariants,
+        effectiveMaxChannels,
+        createStrategyPriorityResolver(config)
+    );
+    const estimates = estimatePendingChannels(pending);
+    await checkpoint();
+
+    return {
+        pendingChannels: pending,
+        estimates,
+        warnings: [...warnings],
+        skipped: strategyBuild.skipped,
+        reachedMaxChannels,
+    };
 }
 export function buildChannelSetupPlanDiagnostics(input: ChannelSetupPlanInput): ChannelSetupPlannerDiagnostics {
     return buildChannelSetupPlanInternal(input, true).diagnostics!;

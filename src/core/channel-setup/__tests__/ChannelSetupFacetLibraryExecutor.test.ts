@@ -62,6 +62,7 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
             reportSnapshotProgress: jest.fn(),
             addPartialWarning: (task, detail, error): void => loadState.addPartialWarning(task, detail, error),
             abortSiblingRequests: jest.fn(),
+            checkpoint: async (): Promise<void> => undefined,
         });
     };
 
@@ -193,6 +194,7 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
             reportSnapshotProgress,
             addPartialWarning: (task, detail, error): void => loadState.addPartialWarning(task, detail, error),
             abortSiblingRequests: jest.fn(),
+            checkpoint: async (): Promise<void> => undefined,
         });
 
         await expect(executor.loadLibraryFacets(createFacetPlanningLibrary(), 0)).resolves.toBeNull();
@@ -251,6 +253,7 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
             reportSnapshotProgress: jest.fn(),
             addPartialWarning: (task, detail, error): void => loadState.addPartialWarning(task, detail, error),
             abortSiblingRequests,
+            checkpoint: async (): Promise<void> => undefined,
         });
 
         try {
