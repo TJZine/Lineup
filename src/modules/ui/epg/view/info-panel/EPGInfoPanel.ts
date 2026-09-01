@@ -448,7 +448,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             clearLogo.alt = titleState.isEpisode
                 ? titleState.showTitleText
                 : titleState.titleText;
-            if (clearLogo.getAttribute('src') !== clearLogoUrl) {
+            if (
+                clearLogo.getAttribute('src') !== clearLogoUrl
+                || (clearLogo.complete && clearLogo.naturalWidth === 0)
+            ) {
                 clearLogo.src = clearLogoUrl;
             }
             clearLogo.style.display = 'block';

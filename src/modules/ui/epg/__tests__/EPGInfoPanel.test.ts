@@ -73,6 +73,12 @@ describe('EPGInfoPanel', () => {
             },
         ],
     });
+    const markImageLoaded = (image: HTMLImageElement): void => {
+        Object.defineProperties(image, {
+            complete: { configurable: true, value: true },
+            naturalWidth: { configurable: true, value: 1 },
+        });
+    };
 
     beforeEach(() => {
         class MockImage {
@@ -220,6 +226,7 @@ describe('EPGInfoPanel', () => {
         expect(poster.getAttribute('src')).toContain('/latest-thumb.jpg');
         expect(backdrop.getAttribute('src')).toContain('/latest-art.jpg');
         expect(clearLogo.getAttribute('src')).toContain('/latest-logo.png');
+        markImageLoaded(clearLogo);
 
         const sourceAssignments = jest.fn();
         for (const image of [poster, backdrop, clearLogo]) {
@@ -251,6 +258,7 @@ describe('EPGInfoPanel', () => {
         const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
         const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement;
         const clearLogo = container.querySelector('.epg-info-clear-logo') as HTMLImageElement;
+        markImageLoaded(clearLogo);
         const sourceAssignments = jest.fn();
         for (const image of [poster, backdrop, clearLogo]) {
             Object.defineProperty(image, 'src', {
@@ -275,6 +283,40 @@ describe('EPGInfoPanel', () => {
         expect(clearLogo.style.display).toBe('block');
         expect(poster.alt).toBe('Same');
         expect(clearLogo.alt).toBe('Same Program');
+    });
+
+    it('retries a clear logo that fails while hidden by a fast update and preserves text fallback', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
+        panel.setThumbResolver((path) => path ? `https://img.example${path}` : null);
+        const program = createMockProgram(null, {
+            title: 'Retry Logo',
+            fullTitle: 'Retry Logo',
+            clearLogo: '/retry-logo.png',
+        });
+        panel.updateFull(program);
+
+        const clearLogo = container.querySelector('.epg-info-clear-logo') as HTMLImageElement;
+        const title = container.querySelector('.epg-info-title') as HTMLElement;
+        panel.updateFast(program);
+        Object.defineProperties(clearLogo, {
+            complete: { configurable: true, value: true },
+            naturalWidth: { configurable: true, value: 0 },
+        });
+        const sourceAssignments = jest.fn((value: string) => clearLogo.setAttribute('src', value));
+        Object.defineProperty(clearLogo, 'src', {
+            configurable: true,
+            get: (): string => clearLogo.getAttribute('src') ?? '',
+            set: sourceAssignments,
+        });
+
+        panel.updateFull(program);
+
+        expect(sourceAssignments).toHaveBeenCalledWith('https://img.example/retry-logo.png');
+        expect(clearLogo.style.display).toBe('block');
+        expect(title.style.display).toBe('none');
+        clearLogo.onerror?.(new Event('error'));
+        expect(clearLogo.style.display).toBe('none');
+        expect(title.style.display).toBe('');
     });
 
     describe('thumb resolver', () => {
