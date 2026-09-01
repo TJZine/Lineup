@@ -334,6 +334,9 @@ describe('NavigationManager', () => {
             prior.addEventListener('click', nativeClick);
 
             nav.registerFocusable({ id: replacement.id, element: replacement, neighbors: {} });
+            expect(prior.classList.contains('focusable')).toBe(false);
+            expect(prior.classList.contains('focused')).toBe(false);
+            expect(replacement.classList.contains('focusable')).toBe(true);
             nav.openModal('modal', []);
             prior.click();
             nav.closeModal();

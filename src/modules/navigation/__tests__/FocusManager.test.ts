@@ -17,6 +17,15 @@ type LayoutOptions = {
     visibility?: string;
 };
 
+const CSS_HIDDEN_STATES: Array<[string, (element: HTMLElement) => void]> = [
+    ['display none', (element): void => {
+        element.style.display = 'none';
+    }],
+    ['visibility hidden', (element): void => {
+        element.style.visibility = 'hidden';
+    }],
+];
+
 // Mock elements
 function createMockElement(id: string): HTMLElement {
     const el = document.createElement('button');
@@ -96,6 +105,58 @@ describe('FocusManager', () => {
             expect(el.classList.contains('focused')).toBe(true);
         });
 
+        it('transfers current focus when a registration replaces the element for the same id', () => {
+            const prior = createMockElement('shared-id');
+            const replacement = createMockElement('shared-id');
+            elements.push(prior, replacement);
+            const priorOnFocus = jest.fn();
+            const replacementOnFocus = jest.fn();
+            focusManager.registerFocusable({
+                id: prior.id,
+                element: prior,
+                neighbors: {},
+                onFocus: priorOnFocus,
+            });
+            focusManager.focus(prior.id);
+            priorOnFocus.mockClear();
+
+            focusManager.registerFocusable({
+                id: replacement.id,
+                element: replacement,
+                neighbors: {},
+                onFocus: replacementOnFocus,
+            });
+
+            expect(prior.classList.contains('focusable')).toBe(false);
+            expect(prior.classList.contains('focused')).toBe(false);
+            expect(replacement.classList.contains('focusable')).toBe(true);
+            expect(replacement.classList.contains('focused')).toBe(true);
+            expect(document.activeElement).toBe(replacement);
+            expect(focusManager.getFocusedElement()?.element).toBe(replacement);
+            expect(priorOnFocus).not.toHaveBeenCalled();
+            expect(replacementOnFocus).not.toHaveBeenCalled();
+        });
+
+        it('clears current focus when the replacement element for the same id is ineligible', () => {
+            const prior = createMockElement('shared-id');
+            const replacement = createMockElement('shared-id');
+            replacement.style.display = 'none';
+            elements.push(prior, replacement);
+            const onBlur = jest.fn();
+            focusManager.registerFocusable({ id: prior.id, element: prior, neighbors: {}, onBlur });
+            focusManager.focus(prior.id);
+
+            focusManager.registerFocusable({ id: replacement.id, element: replacement, neighbors: {} });
+
+            expect(onBlur).toHaveBeenCalledTimes(1);
+            expect(focusManager.getCurrentFocusId()).toBeNull();
+            expect(focusManager.getFocusedElement()).toBeNull();
+            expect(prior.classList.contains('focusable')).toBe(false);
+            expect(prior.classList.contains('focused')).toBe(false);
+            expect(replacement.classList.contains('focused')).toBe(false);
+            expect(document.activeElement).not.toBe(prior);
+        });
+
         it('should return false for unregistered element', () => {
             const result = focusManager.focus('unknown');
 
@@ -135,6 +196,18 @@ describe('FocusManager', () => {
 
             expect(focusManager.focus(el.id)).toBe(false);
             expect(focusManager.getFocusedElement()).toBeNull();
+        });
+
+        it.each(CSS_HIDDEN_STATES)('does not focus or report onFocus for an element with %s', (_label, hide) => {
+            const onFocus = jest.fn();
+            const el = createMockElement('css-hidden');
+            elements.push(el);
+            focusManager.registerFocusable({ id: el.id, element: el, neighbors: {}, onFocus });
+            hide(el);
+
+            expect(focusManager.focus(el.id)).toBe(false);
+            expect(focusManager.getFocusedElement()).toBeNull();
+            expect(onFocus).not.toHaveBeenCalled();
         });
 
         it('should blur previous element when focusing new one', () => {
@@ -234,12 +307,8 @@ describe('FocusManager', () => {
                 neighbors: { left: 'btn1' },
             });
 
-            const computedStyleSpy = jest.spyOn(window, 'getComputedStyle');
-
             const neighbor = focusManager.findNeighbor('btn1', 'right');
             expect(neighbor).toBe('btn2');
-            expect(computedStyleSpy).not.toHaveBeenCalled();
-            computedStyleSpy.mockRestore();
         });
 
         it('rejects an ineligible explicit neighbor', () => {
@@ -573,6 +642,22 @@ describe('FocusManager', () => {
 
             expect(focusManager.restoreFocusState('home')).toBe(false);
             expect(focusManager.getFocusedElement()).toBeNull();
+        });
+
+        it.each(CSS_HIDDEN_STATES)('does not restore focus to an element with %s', (_label, hide) => {
+            const onFocus = jest.fn();
+            const el = createMockElement('saved-css-hidden');
+            elements.push(el);
+            focusManager.registerFocusable({ id: el.id, element: el, neighbors: {}, onFocus });
+            focusManager.focus(el.id);
+            focusManager.saveFocusState('home');
+            focusManager.blur();
+            onFocus.mockClear();
+            hide(el);
+
+            expect(focusManager.restoreFocusState('home')).toBe(false);
+            expect(focusManager.getFocusedElement()).toBeNull();
+            expect(onFocus).not.toHaveBeenCalled();
         });
 
         it('restores by restoreGroup + highest restorePriority when saved id no longer exists', () => {

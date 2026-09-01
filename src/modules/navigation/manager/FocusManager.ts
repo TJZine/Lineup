@@ -40,9 +40,25 @@ export class FocusManager implements IFocusManager {
     }
 
     public registerFocusable(element: FocusableElement): void {
+        const previous = this._state.focusableElements.get(element.id);
+        const replacesElement = previous !== undefined && previous.element !== element.element;
+        const replacesCurrentFocus = replacesElement && this._state.currentFocusId === element.id;
+        if (replacesCurrentFocus && !this._isEligible(element.element)) {
+            this.blur();
+            previous.element.blur();
+        }
+        if (replacesElement) {
+            previous.element.classList.remove(FOCUS_CLASSES.FOCUSABLE, FOCUS_CLASSES.FOCUSED);
+        }
+
         this._state.focusableElements.set(element.id, element);
         element.element.tabIndex = -1;
         element.element.classList.add(FOCUS_CLASSES.FOCUSABLE);
+        const remainsFocused = this._state.currentFocusId === element.id;
+        element.element.classList.toggle(FOCUS_CLASSES.FOCUSED, remainsFocused);
+        if (replacesElement && remainsFocused) {
+            this.updateFocusRing(element.id);
+        }
     }
 
     public unregisterFocusable(elementId: string): void {
@@ -417,10 +433,19 @@ export class FocusManager implements IFocusManager {
     }
 
     private _isEligible(element: HTMLElement): boolean {
-        return element.isConnected
-            && !element.matches(':disabled')
-            && element.getAttribute('aria-disabled') !== 'true'
-            && element.closest('[hidden], [aria-hidden="true"], .hidden') === null;
+        if (
+            !element.isConnected
+            || element.matches(':disabled')
+            || element.getAttribute('aria-disabled') === 'true'
+            || element.closest('[hidden], [aria-hidden="true"], .hidden') !== null
+        ) {
+            return false;
+        }
+
+        const style = window.getComputedStyle(element);
+        return style.display !== 'none'
+            && style.visibility !== 'hidden'
+            && style.visibility !== 'collapse';
     }
 
     private _isVisible(element: HTMLElement, rect?: DOMRect): boolean {
