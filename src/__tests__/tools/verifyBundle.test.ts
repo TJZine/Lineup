@@ -452,7 +452,7 @@ describe('verify-bundle', () => {
         expect(result.stderr).not.toContain('Bootstrap-containing startup entry');
     });
 
-    it('fails when eager startup CSS exceeds the byte guard', () => {
+    it('fails when eager startup CSS reaches the byte guard', () => {
         const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-bundle-'));
         tempRoots.push(tempRoot);
 

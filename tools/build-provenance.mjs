@@ -4,7 +4,6 @@ import {
     lstatSync,
     mkdirSync,
     readFileSync,
-    readlinkSync,
     writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
@@ -51,6 +50,14 @@ function getUntrackedBuildPaths(cwd) {
         .sort();
 }
 
+function getTrackedBuildPaths(cwd) {
+    const output = runGit(cwd, ['ls-files', '-z', '--', ...BUILD_RELEVANT_PATHS]);
+    return String(output)
+        .split('\0')
+        .filter(Boolean)
+        .sort();
+}
+
 export function captureSourceProvenance(cwd = process.cwd()) {
     const gitHead = String(runGit(cwd, ['rev-parse', 'HEAD'])).trim();
     const relevantDirtySummary = String(runGit(
@@ -66,17 +73,24 @@ export function captureSourceProvenance(cwd = process.cwd()) {
     hash.update(`git-head\0${gitHead}\0`);
     hash.update(trackedDiff);
 
+    for (const relativePath of getTrackedBuildPaths(cwd)) {
+        const stat = lstatSync(path.resolve(cwd, relativePath), { throwIfNoEntry: false });
+        if (stat?.isSymbolicLink()) {
+            fail(`Unsupported tracked build input symlink: ${relativePath}`);
+        }
+    }
+
     for (const relativePath of getUntrackedBuildPaths(cwd)) {
         const absolutePath = path.resolve(cwd, relativePath);
         const stat = lstatSync(absolutePath);
         hash.update(`untracked\0${relativePath}\0`);
         if (stat.isSymbolicLink()) {
-            hash.update(`symlink\0${readlinkSync(absolutePath)}\0`);
-        } else if (stat.isFile()) {
-            hash.update(readFileSync(absolutePath));
-        } else {
+            fail(`Unsupported untracked build input symlink: ${relativePath}`);
+        }
+        if (!stat.isFile()) {
             fail(`Unsupported untracked build input: ${relativePath}`);
         }
+        hash.update(readFileSync(absolutePath));
     }
 
     return {
