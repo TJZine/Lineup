@@ -1053,10 +1053,24 @@ describe('ChannelSetupSessionController', () => {
 
     it('can retry review immediately after Back even when the aborted request does not settle', async (): Promise<void> => {
         const first = createDeferred<typeof DEFAULT_REVIEW>();
+        const staleReview = {
+            ...DEFAULT_REVIEW,
+            diff: {
+                ...DEFAULT_REVIEW.diff,
+                summary: { created: 1, removed: 0, unchanged: 0 },
+            },
+        };
+        const newerReview = {
+            ...DEFAULT_REVIEW,
+            diff: {
+                ...DEFAULT_REVIEW.diff,
+                summary: { created: 2, removed: 0, unchanged: 0 },
+            },
+        };
         const getSetupReview = jest
             .fn()
             .mockImplementationOnce(() => first.promise)
-            .mockResolvedValueOnce(DEFAULT_REVIEW);
+            .mockResolvedValueOnce(newerReview);
         const controller = new ChannelSetupSessionController({
             workflowPort: createWorkflowPort({ getSetupReview }),
             getSelectedServerId: (): string | null => 'server-1',
@@ -1075,10 +1089,10 @@ describe('ChannelSetupSessionController', () => {
         await controller.ensureReviewLoaded(jest.fn());
 
         expect(getSetupReview).toHaveBeenCalledTimes(2);
-        expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
-        first.resolve(DEFAULT_REVIEW);
+        expect(controller.getSnapshot().review).toEqual(newerReview);
+        first.resolve(staleReview);
         await firstLoad;
-        expect(controller.getSnapshot().review).toEqual(DEFAULT_REVIEW);
+        expect(controller.getSnapshot().review).toEqual(newerReview);
     });
 
     it('ensureReviewLoaded() propagates onStateChange errors after cleanup without leaking loading state', async (): Promise<void> => {

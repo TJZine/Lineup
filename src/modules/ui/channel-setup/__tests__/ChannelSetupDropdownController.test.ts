@@ -4,7 +4,6 @@
 
 import { ChannelSetupDropdownController } from '../ChannelSetupDropdownController';
 import { createNavigationMock } from './channel-setup-test-helpers';
-import type { FocusableElement } from '../../../navigation/contracts/interfaces';
 import { NavigationManager } from '../../../navigation';
 
 describe('ChannelSetupDropdownController', () => {
@@ -26,11 +25,22 @@ describe('ChannelSetupDropdownController', () => {
         container.appendChild(anchor);
         document.body.appendChild(container);
 
-        const nav = createNavigationMock();
+        const nav = new NavigationManager();
+        nav.initialize({
+            enablePointerMode: true,
+            keyRepeatDelayMs: 500,
+            keyRepeatIntervalMs: 100,
+            focusMemoryEnabled: true,
+            debugMode: false,
+        });
+        navigationManagers.push(nav);
+        const unregisterFocusable = jest.spyOn(nav, 'unregisterFocusable');
         const controller = new ChannelSetupDropdownController();
         const onSelect = jest.fn();
         const renderStep = jest.fn();
         const setPreferredFocusId = jest.fn();
+        nav.registerFocusable({ id: anchor.id, element: anchor, neighbors: {} });
+        nav.setFocus(anchor.id);
 
         controller.open({
             anchorId: anchor.id,
@@ -42,21 +52,22 @@ describe('ChannelSetupDropdownController', () => {
             onSelect,
         }, {
             container,
-            nav: nav as never,
+            nav,
             setPreferredFocusId,
             renderStep,
         });
         controller.deferRender();
 
-        const selectedOption = nav.focusables.get('setup-dropdown-option-1') as FocusableElement | undefined;
-        selectedOption?.onSelect?.();
+        const selectedOption = container.querySelector<HTMLButtonElement>('#setup-dropdown-option-1');
+        expect(selectedOption).not.toBeNull();
+        selectedOption?.click();
 
         expect(onSelect).toHaveBeenCalledWith('merge');
         expect(container.querySelector('#setup-dropdown')).toBeNull();
         expect(setPreferredFocusId).toHaveBeenCalledWith(anchor.id);
         expect(renderStep).toHaveBeenCalledTimes(1);
-        expect(nav.unregisterFocusable).toHaveBeenCalledWith('setup-dropdown-option-0');
-        expect(nav.unregisterFocusable).toHaveBeenCalledWith('setup-dropdown-option-1');
+        expect(unregisterFocusable).toHaveBeenCalledWith('setup-dropdown-option-0');
+        expect(unregisterFocusable).toHaveBeenCalledWith('setup-dropdown-option-1');
     });
 
     it('dismisses to the anchor focus target and clears pending deferred renders', () => {
@@ -86,6 +97,42 @@ describe('ChannelSetupDropdownController', () => {
 
         expect(container.querySelector('#setup-dropdown')).toBeNull();
         expect(nav.setFocus).toHaveBeenLastCalledWith(anchor.id);
+        expect(renderStep).toHaveBeenCalledTimes(1);
+        controller.flushDeferredRender(renderStep);
+        expect(renderStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('flushes a pending deferred render after closing into an empty option state', () => {
+        const container = document.createElement('div');
+        const anchor = document.createElement('button');
+        anchor.id = 'setup-build-mode';
+        container.appendChild(anchor);
+        document.body.appendChild(container);
+        const nav = createNavigationMock();
+        const controller = new ChannelSetupDropdownController();
+        const renderStep = jest.fn();
+        const deps = {
+            container,
+            nav: nav as never,
+            setPreferredFocusId: jest.fn(),
+            renderStep,
+        };
+
+        controller.open({
+            anchorId: anchor.id,
+            options: [{ label: 'Replace', value: 'replace' }],
+            currentValue: 'replace',
+            onSelect: jest.fn(),
+        }, deps);
+        controller.deferRender();
+        controller.open({
+            anchorId: anchor.id,
+            options: [],
+            currentValue: 'replace',
+            onSelect: jest.fn(),
+        }, deps);
+
+        expect(container.querySelector('#setup-dropdown')).toBeNull();
         expect(renderStep).toHaveBeenCalledTimes(1);
         controller.flushDeferredRender(renderStep);
         expect(renderStep).toHaveBeenCalledTimes(1);

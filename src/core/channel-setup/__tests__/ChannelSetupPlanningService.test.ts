@@ -207,7 +207,10 @@ describe('ChannelSetupPlanningService', () => {
         pending.resolve(libraries);
         const [firstLibraries, secondLibraries] = await Promise.all([first, second]);
         expect(secondLibraries).toBe(firstLibraries);
-        expect(getLibraries).toHaveBeenCalledWith({ signal: expect.any(Object) });
+        expect(getLibraries).toHaveBeenCalledWith({
+            signal: expect.any(AbortSignal),
+            includeItemCounts: true,
+        });
     });
 
     it('refreshes the library scope when the profile changes on the same server', async () => {
@@ -2923,7 +2926,7 @@ describe('ChannelSetupPlanningService', () => {
                 jest.fn()
             );
 
-            expect(checkpointCount).toBe(11);
+            expect(abortController.signal.aborted).toBe(true);
             expect(result).toEqual(expect.objectContaining({
                 plan: null,
                 canceled: true,

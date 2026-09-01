@@ -64,6 +64,7 @@ export class ChannelSetupDropdownController {
     ): void {
         this.close();
         if (config.options.length === 0) {
+            this.flushDeferredRender(deps.renderStep);
             return;
         }
         const anchor = document.getElementById(config.anchorId);

@@ -368,7 +368,10 @@ export class ChannelSetupPlanningService {
         }
 
         const controller = new AbortController();
-        const libraryRequest = this._deps.plexLibrary.getLibraries({ signal: controller.signal });
+        const libraryRequest = this._deps.plexLibrary.getLibraries({
+            signal: controller.signal,
+            includeItemCounts: true,
+        });
         const clearInflight = (): void => {
             if (
                 this._inflightLibraryAcquisition?.generation === scope.generation
