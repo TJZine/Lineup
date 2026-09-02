@@ -84,13 +84,36 @@ describe('NowPlayingInfoOverlay', () => {
         ) as HTMLImageElement;
         const title = container.querySelector(`.${NOW_PLAYING_INFO_CLASSES.TITLE}`) as HTMLElement;
 
-        Object.defineProperty(clearLogo, 'getBoundingClientRect', {
-            value: () => ({ height: 10 } as unknown as DOMRect),
+        Object.defineProperties(clearLogo, {
+            naturalWidth: { configurable: true, value: 1200 },
+            naturalHeight: { configurable: true, value: 100 },
+            getBoundingClientRect: { configurable: true, value: () => ({ width: 520 }) },
         });
 
         (clearLogo.onload as unknown as (() => void))?.();
 
         expect(clearLogo.style.display).toBe('none');
+        expect(title.style.display).toBe('');
+    });
+
+    it('ignores a stale clear logo completion after the URL changes', () => {
+        overlay.show({ ...baseViewModel, clearLogoUrl: 'https://example.com/old.png' });
+        const clearLogo = container.querySelector(
+            `.${NOW_PLAYING_INFO_CLASSES.CLEAR_LOGO}`
+        ) as HTMLImageElement;
+        const title = container.querySelector(`.${NOW_PLAYING_INFO_CLASSES.TITLE}`) as HTMLElement;
+        const staleOnload = clearLogo.onload;
+
+        overlay.update({ ...baseViewModel, clearLogoUrl: 'https://example.com/new.png' });
+        Object.defineProperties(clearLogo, {
+            naturalWidth: { configurable: true, value: 400 },
+            naturalHeight: { configurable: true, value: 120 },
+            getBoundingClientRect: { configurable: true, value: () => ({ width: 280 }) },
+        });
+        staleOnload?.call(clearLogo, new Event('load'));
+
+        expect(clearLogo.getAttribute('src')).toBe('https://example.com/new.png');
+        expect(clearLogo.style.visibility).toBe('hidden');
         expect(title.style.display).toBe('');
     });
 

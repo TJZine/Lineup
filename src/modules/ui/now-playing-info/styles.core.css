@@ -103,7 +103,7 @@
 }
 
 .now-playing-info-clear-logo {
-  max-height: 84px;
+  height: 84px;
   max-width: min(520px, 90%);
   object-fit: contain;
   object-position: left center;

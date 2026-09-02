@@ -195,7 +195,7 @@
 }
 
 .epg-info-clear-logo {
-  max-height: 54px;
+  height: 72px;
   max-width: min(520px, 100%);
   object-fit: contain;
   object-position: left center;

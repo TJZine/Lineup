@@ -6,12 +6,14 @@ import type { EpgItemDetails } from '../../model/domainTypes';
 import { formatContentRatingBadge } from '../../../../../utils/contentRating';
 import { EpgPreferencesStore } from '../../../../settings/EpgPreferencesStore';
 import { NowPlayingDisplayStore } from '../../../../settings/NowPlayingDisplayStore';
+import { isClearLogoUsable } from '../../../common/ClearLogoPresentation';
 import { EPGInfoPanelDetailsLoader } from '../info-panel/EPGInfoPanelDetailsLoader';
 import { EPGInfoPanelDynamicBackground } from '../info-panel/EPGInfoPanelDynamicBackground';
 import { resolveEpisodeTitlePresentation } from '../EPGEpisodeTitlePresentation';
 import { formatAudioCodec, formatAudioDetail } from '../../../../../utils/mediaFormat';
 
 const QUALITY_BADGE_SLOT_COUNT = 5;
+const CLEAR_LOGO_TARGET_HEIGHT = 72;
 
 type InfoPanelTemplateBindings = {
     backdrop: HTMLImageElement | null;
@@ -269,6 +271,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
      */
     destroy(): void {
         this.detailsLoader.destroy();
+        if (this.clearLogoElement) {
+            this.clearLogoElement.onload = null;
+            this.clearLogoElement.onerror = null;
+        }
         if (this.containerElement) {
             this.containerElement.remove();
             this.containerElement = null;
@@ -310,6 +316,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         this.containerElement.style.visibility = 'hidden';
         this.containerElement.style.opacity = '0';
         this.isVisible = false;
+        if (this.clearLogoElement) {
+            this.clearLogoElement.onload = null;
+            this.clearLogoElement.onerror = null;
+        }
         this.detailsLoader.clearHdrFetch();
         this.detailsLoader.clearPosterFetch();
         this.dynamicBackground.clearDynamicColor();
@@ -383,7 +393,9 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         }
         if (this.clearLogoElement) {
             this.clearLogoElement.onerror = null;
+            this.clearLogoElement.onload = null;
             this.clearLogoElement.style.display = 'none';
+            this.clearLogoElement.style.visibility = '';
             this.clearLogoElement.alt = '';
         }
         this.restoreTextVisibilityForLogoFallback(titleState);
@@ -433,15 +445,42 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             : null;
 
         if (clearLogoUrl && clearLogo) {
+            const expectedSrc = clearLogoUrl;
             clearLogo.onerror = (): void => {
+                if (clearLogo.getAttribute('src') !== expectedSrc) return;
                 clearLogo.onerror = null;
+                clearLogo.onload = null;
+                clearLogo.style.visibility = '';
                 clearLogo.removeAttribute('src');
                 clearLogo.alt = '';
                 clearLogo.style.display = 'none';
+                this.restoreTextVisibilityForLogoFallback(titleState);
+            };
+            clearLogo.onload = (): void => {
+                if (clearLogo.getAttribute('src') !== expectedSrc) return;
+                clearLogo.onerror = null;
+                clearLogo.onload = null;
+
+                if (!isClearLogoUsable(
+                    clearLogo.naturalWidth,
+                    clearLogo.naturalHeight,
+                    CLEAR_LOGO_TARGET_HEIGHT,
+                    clearLogo.getBoundingClientRect().width
+                )) {
+                    clearLogo.style.visibility = '';
+                    clearLogo.removeAttribute('src');
+                    clearLogo.alt = '';
+                    clearLogo.style.display = 'none';
+                    this.restoreTextVisibilityForLogoFallback(titleState);
+                    return;
+                }
+
+                clearLogo.style.visibility = '';
                 if (titleState.isEpisode) {
-                    if (showTitle) showTitle.style.display = titleState.hasShowTitleText ? 'block' : 'none';
-                } else {
+                    if (showTitle) showTitle.style.display = 'none';
                     if (title) title.style.display = '';
+                } else if (title) {
+                    title.style.display = 'none';
                 }
             };
 
@@ -455,12 +494,10 @@ export class EPGInfoPanel implements IEPGInfoPanel {
                 clearLogo.src = clearLogoUrl;
             }
             clearLogo.style.display = 'block';
-
-            if (titleState.isEpisode) {
-                if (showTitle) showTitle.style.display = 'none';
-                if (title) title.style.display = '';
-            } else {
-                if (title) title.style.display = 'none';
+            clearLogo.style.visibility = 'hidden';
+            this.restoreTextVisibilityForLogoFallback(titleState);
+            if (clearLogo.complete && clearLogo.naturalWidth > 0) {
+                clearLogo.onload?.(new Event('load'));
             }
         } else {
             this.clearClearLogo(titleState);
@@ -471,10 +508,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         const clearLogo = this.clearLogoElement;
         if (clearLogo) {
             clearLogo.onerror = null;
+            clearLogo.onload = null;
             if (clearLogo.hasAttribute('src')) {
                 clearLogo.removeAttribute('src');
             }
             clearLogo.style.display = 'none';
+            clearLogo.style.visibility = '';
             clearLogo.alt = '';
         }
         this.restoreTextVisibilityForLogoFallback(titleState);

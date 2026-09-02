@@ -1,9 +1,11 @@
 import { PLAYER_OSD_CLASSES } from './constants';
 import type { IPlayerOsdOverlay } from './interfaces';
 import type { PlayerOsdConfig, PlayerOsdViewModel } from './types';
+import { isClearLogoUsable } from '../common/ClearLogoPresentation';
 import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const CLEAR_LOGO_TARGET_HEIGHT = 60;
 
 type PlayerOsdElements = {
     panel: HTMLElement | null;
@@ -152,8 +154,12 @@ export class PlayerOsdOverlay implements IPlayerOsdOverlay {
                     img.onerror = null;
                     img.onload = null;
 
-                    const renderedHeight = img.getBoundingClientRect().height;
-                    const isUsable = renderedHeight >= 24;
+                    const isUsable = isClearLogoUsable(
+                        img.naturalWidth,
+                        img.naturalHeight,
+                        CLEAR_LOGO_TARGET_HEIGHT,
+                        img.getBoundingClientRect().width
+                    );
 
                     img.style.visibility = '';
                     if (isUsable) {
