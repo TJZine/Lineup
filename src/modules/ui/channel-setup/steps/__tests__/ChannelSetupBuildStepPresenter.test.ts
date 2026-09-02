@@ -206,7 +206,7 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect(beginBuild).toHaveBeenCalled();
         expect(ctx.statusEl.textContent).toBe('Channels ready.');
         expect(ctx.contentEl.querySelector('.setup-progress-task')?.textContent).toBe('Complete');
-        expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 2 channels. Skipped 1.');
+        expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 2 channels. 1 candidates not created.');
         expect((ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).disabled).toBe(false);
         expect(deps.focus.unregisterAll).toHaveBeenCalled();
     });

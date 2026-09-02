@@ -382,7 +382,7 @@ export class ChannelSetupBuildStepPresenter {
         const guideRefresh = outcome.result.guideRefresh;
         ctx.statusEl.textContent = this._buildSuccessStatus(outcome.bookkeepingError, guideRefresh);
         taskLabel.textContent = 'Complete';
-        detailLabel.textContent = `Created ${outcome.result.created} channels. Skipped ${outcome.result.skipped}.`;
+        detailLabel.textContent = `Created ${outcome.result.created} channels. ${outcome.result.skipped} candidates not created.`;
         barFill.style.width = '100%';
         barFill.classList.remove('indeterminate');
         ctx.errorEl.textContent = this._buildSuccessWarning(outcome.bookkeepingError, guideRefresh);
