@@ -240,6 +240,11 @@
   letter-spacing: 0.2px;
 }
 
+.settings-screen .setup-toggle.selected:not(.focused):not(:focus):not(:focus-visible) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 .setup-toggle.disabled {
   opacity: 0.5;
   cursor: not-allowed;
