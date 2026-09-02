@@ -237,16 +237,11 @@ describe('focused EPG overflow style contract', () => {
         expect(subtitleTicker).toContain('transform: none');
     });
 
-    it('keeps forced-colors focus, progress, and library selection visible', () => {
+    it('keeps forced-colors focus and library selection visible', () => {
         const cellFocus = blockWithin(
             cellsCss,
             '@media (forced-colors: active)',
             '.epg-cell.focused'
-        );
-        const progress = blockWithin(
-            cellsCss,
-            '@media (forced-colors: active)',
-            '.epg-cell-progress-fill'
         );
         const pickerFocus = blockWithin(
             gridCss,
@@ -265,7 +260,6 @@ describe('focused EPG overflow style contract', () => {
         );
 
         expect(cellFocus).toContain('outline: 3px solid CanvasText');
-        expect(progress).toContain('background: Highlight');
         expect(pillFocus).toContain('outline: 2px solid Highlight');
         expect(pickerFocus).toContain('background: Highlight');
         expect(pickerFocus).toContain('color: HighlightText');

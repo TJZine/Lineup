@@ -37,7 +37,6 @@ const makeConfig = (): EPGConfig => ({
     totalHours: 24,
     pixelsPerMinute: 4,
     rowHeight: 80,
-    showCurrentTimeIndicator: true,
     autoScrollToNow: true,
 });
 

@@ -106,7 +106,6 @@ describe('EPGCoordinatorPolicies', () => {
                     timeSlotMinutes: slotMinutes,
                     pixelsPerMinute: 2,
                     rowHeight: 64,
-                    showCurrentTimeIndicator: true,
                     autoScrollToNow: false,
                 }),
                 getChannelManager: (): { getAllChannels: () => ChannelConfig[] } => ({ getAllChannels: (): ChannelConfig[] => channels }),

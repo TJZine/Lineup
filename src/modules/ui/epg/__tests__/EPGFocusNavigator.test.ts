@@ -85,7 +85,6 @@ describe('EPGFocusNavigator', () => {
             totalHours: 24,
             pixelsPerMinute: 4,
             rowHeight: 80,
-            showCurrentTimeIndicator: true,
             autoScrollToNow: false,
         };
         const events: Array<[keyof EPGEventMap, unknown]> = [];

@@ -76,29 +76,27 @@ export function isSliverCell(cellData: RenderedCellInput): boolean {
 }
 
 export function getVisibleTextMetrics(input: {
-    rawLeftPx: number;
-    clippedLeftPx: number;
-    clippedWidthPx: number;
+    cellLeftPx: number;
+    cellWidthPx: number;
     visibleWindowStartMinutes: number;
     visibleWindowEndMinutes: number;
     pixelsPerMinute: number;
 }): EPGCellVisibleTextMetrics {
     const {
-        rawLeftPx,
-        clippedLeftPx,
-        clippedWidthPx,
+        cellLeftPx,
+        cellWidthPx,
         visibleWindowStartMinutes,
         visibleWindowEndMinutes,
         pixelsPerMinute,
     } = input;
-    const clippedRightPx = clippedLeftPx + clippedWidthPx;
+    const cellRightPx = cellLeftPx + cellWidthPx;
     const visibleWindowLeftPx = visibleWindowStartMinutes * pixelsPerMinute;
     const visibleWindowRightPx = visibleWindowEndMinutes * pixelsPerMinute;
-    const visibleLeftPx = Math.max(clippedLeftPx, visibleWindowLeftPx);
-    const visibleRightPx = Math.min(clippedRightPx, visibleWindowRightPx);
+    const visibleLeftPx = Math.max(cellLeftPx, visibleWindowLeftPx);
+    const visibleRightPx = Math.min(cellRightPx, visibleWindowRightPx);
     const visibleWidthPx = Math.max(0, visibleRightPx - visibleLeftPx);
-    const hiddenLeftPx = Math.max(0, visibleLeftPx - clippedLeftPx);
-    const isLeftClippedByCell = rawLeftPx < 0;
+    const hiddenLeftPx = Math.max(0, visibleLeftPx - cellLeftPx);
+    const isLeftClippedByCell = cellLeftPx < 0;
     const isLeftClippedByScroll = hiddenLeftPx > 0;
 
     if (!isLeftClippedByScroll || visibleWidthPx <= 0) {
@@ -113,7 +111,7 @@ export function getVisibleTextMetrics(input: {
     }
 
     const desiredShiftPx = hiddenLeftPx;
-    const maxShiftPx = Math.max(0, clippedWidthPx - (TEXT_GUTTER_PX + TEXT_RIGHT_GUTTER_PX));
+    const maxShiftPx = Math.max(0, cellWidthPx - (TEXT_GUTTER_PX + TEXT_RIGHT_GUTTER_PX));
     const safeTextShiftPx = Math.max(0, Math.min(desiredShiftPx, maxShiftPx));
 
     return {
@@ -275,47 +273,19 @@ export function getCellWidthPresentation(
     };
 }
 
-export function getProgressFillWidth(cellData: CellRenderData, nowMs: number): string {
-    if (cellData.kind !== 'program' || !cellData.isCurrent) {
-        return '0%';
-    }
-
-    const duration = cellData.program.scheduledEndTime - cellData.program.scheduledStartTime;
-    if (duration <= 0) {
-        return '0%';
-    }
-
-    const elapsed = nowMs - cellData.program.scheduledStartTime;
-    const progress = Math.max(0, Math.min(100, (elapsed / duration) * 100));
-    return `${progress.toFixed(2)}%`;
-}
-
 export function getEffectiveTickerClientWidth(
     target: TickerTarget,
-    cellWidthPx: number,
-    visibleWidthPx: number,
-    textShiftPx: number
+    visibleWidthPx: number
 ): number {
-    const shiftedClientWidth = Math.max(0, target.viewport.clientWidth - textShiftPx);
-    if (visibleWidthPx >= cellWidthPx) {
-        return shiftedClientWidth;
-    }
-    return Math.max(0, Math.min(shiftedClientWidth, visibleWidthPx));
+    return Math.max(0, Math.min(target.viewport.clientWidth, visibleWidthPx));
 }
 
 export function measureReadyStateTickerOverflow(
     target: TickerTarget,
-    cellWidthPx: number,
-    visibleWidthPx: number,
-    textShiftPx: number
+    visibleWidthPx: number
 ): number {
     target.viewport.classList.add(target.readyClass);
-    const effectiveClientWidth = getEffectiveTickerClientWidth(
-        target,
-        cellWidthPx,
-        visibleWidthPx,
-        textShiftPx
-    );
+    const effectiveClientWidth = getEffectiveTickerClientWidth(target, visibleWidthPx);
     const contentWidth = Math.max(target.content.scrollWidth, target.viewport.scrollWidth);
     return Math.max(0, contentWidth - effectiveClientWidth);
 }

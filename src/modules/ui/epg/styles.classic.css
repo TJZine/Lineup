@@ -178,17 +178,6 @@
   background: rgba(8, 11, 18, 0.42);
 }
 
-.epg-container.layout-classic .epg-cell-progress {
-  --epg-current-progress-track: rgba(0, 0, 0, 0.62);
-  --epg-current-progress-fill: var(--color-primary-light, var(--color-primary));
-  --epg-current-progress-edge: rgba(255, 255, 255, 0.18);
-  height: 4px;
-}
-
-.epg-container.layout-classic .epg-cell-progress-fill {
-  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.42);
-}
-
 @media (forced-colors: active) {
   .epg-container.layout-classic .epg-classic-showcase-pip {
     outline: 2px solid CanvasText;

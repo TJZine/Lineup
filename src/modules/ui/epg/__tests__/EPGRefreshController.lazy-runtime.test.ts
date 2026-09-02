@@ -61,7 +61,6 @@ const createDeps = (): EPGRefreshControllerDeps => ({
         timeSlotMinutes: 30,
         pixelsPerMinute: 4,
         rowHeight: 80,
-        showCurrentTimeIndicator: true,
         autoScrollToNow: true,
     }),
     getLocalMidnightMs: () => 0,

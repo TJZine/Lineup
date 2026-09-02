@@ -33,7 +33,6 @@ export interface EPGConfig {
     /** Maximum auto-fit pixels per minute */
     maxPixelsPerMinute?: number;
     rowHeight: number;
-    showCurrentTimeIndicator: boolean;
     autoScrollToNow: boolean;
     onVisibleRangeChange?: (range: EpgVisibleRange) => void;
     /** Optional callback to resolve relative Plex thumb paths to absolute URLs, with optional size hints. */

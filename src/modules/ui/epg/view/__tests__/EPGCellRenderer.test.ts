@@ -124,6 +124,13 @@ const stubDimension = (element: HTMLElement, property: keyof HTMLElement, value:
     });
 };
 
+const stubRenderedWidth = (element: HTMLElement, width: number): void => {
+    Object.defineProperty(element, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({ width }),
+    });
+};
+
 const installQueuedAnimationFrame = (): {
     flushNext: () => void;
     request: jest.SpiedFunction<typeof requestAnimationFrame>;
@@ -208,9 +215,8 @@ describe('EPGCellRenderer', () => {
 
     it('computes visible text metrics and applies clamped text shift state', () => {
         const metrics = renderer.computeVisibleTextMetrics({
-            rawLeftPx: -20,
-            clippedLeftPx: 0,
-            clippedWidthPx: 60,
+            cellLeftPx: -20,
+            cellWidthPx: 80,
             visibleWindowStartMinutes: 10,
             visibleWindowEndMinutes: 20,
             pixelsPerMinute: 4,
@@ -220,7 +226,7 @@ describe('EPGCellRenderer', () => {
             visibleLeftPx: 40,
             visibleRightPx: 60,
             visibleWidthPx: 20,
-            safeTextShiftPx: 36,
+            safeTextShiftPx: 56,
             isLeftClippedByCell: true,
             isLeftClippedByScroll: true,
         });
@@ -234,7 +240,7 @@ describe('EPGCellRenderer', () => {
         }));
 
         expect(element.classList.contains(EPG_CLASSES.CELL_TEXT_SHIFTED)).toBe(true);
-        expect(element.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('36px');
+        expect(element.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('56px');
         expect(element.classList.contains(EPG_CLASSES.CELL_FOCUSED)).toBe(true);
         expect(element.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(true);
 
@@ -442,7 +448,7 @@ describe('EPGCellRenderer', () => {
         expect(query(constrained, EPG_CLASSES.CELL_TIME).style.display).toBe('none');
     });
 
-    it('updates live badge and progress fill for current cells and resets them when temporal state changes', () => {
+    it('updates the live badge for current cells without rendering per-cell progress', () => {
         const element = renderer.createElement();
         const startTimeMs = TEST_START_MS;
         const endTimeMs = startTimeMs + 40 * 60_000;
@@ -455,12 +461,11 @@ describe('EPGCellRenderer', () => {
         renderer.updateCellContent(currentCell, startTimeMs + 10 * 60_000);
 
         const liveBadge = query(element, EPG_CLASSES.LIVE_BADGE);
-        const progressFill = query(element, EPG_CLASSES.CELL_PROGRESS_FILL);
         expect(liveBadge.hidden).toBe(false);
         expect(liveBadge.textContent).toBe('');
         expect(liveBadge.classList.contains(EPG_CLASSES.CELL_LIVE_COMPACT)).toBe(true);
         expect(liveBadge.getAttribute('aria-label')).toBe('Currently playing');
-        expect(progressFill.style.width).toBe('25%');
+        expect(element.querySelector('.epg-cell-progress')).toBeNull();
 
         renderer.updateTemporalPresentation(makeProgramCell(element, {
             width: 240,
@@ -471,7 +476,6 @@ describe('EPGCellRenderer', () => {
 
         expect(liveBadge.hidden).toBe(true);
         expect(liveBadge.textContent).toBe('');
-        expect(progressFill.style.width).toBe('0%');
         expect(element.classList.contains(EPG_CLASSES.CELL_PAST)).toBe(true);
     });
 
@@ -533,7 +537,6 @@ describe('EPGCellRenderer', () => {
         expect(query(element, EPG_CLASSES.CELL_TITLE_TEXT).textContent).toBe('');
         expect(query(element, EPG_CLASSES.CELL_SUBTITLE).style.display).toBe('none');
         expect(query(element, EPG_CLASSES.LIVE_BADGE).hidden).toBe(true);
-        expect(query(element, EPG_CLASSES.CELL_PROGRESS_FILL).style.width).toBe('0%');
 
         renderer.updateCellContent(makePlaceholderCell(element), TEST_START_MS);
 
@@ -542,7 +545,6 @@ describe('EPGCellRenderer', () => {
         expect(query(element, EPG_CLASSES.CELL_META).style.display).toBe('none');
         expect(query(element, EPG_CLASSES.CELL_SUBTITLE).style.display).toBe('none');
         expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('');
-        expect(query(element, EPG_CLASSES.CELL_PROGRESS_FILL).style.width).toBe('0%');
     });
 
     it('clears recycled secondary text for placeholder, non-episode, and sliver cells without clearing state classes', () => {
@@ -624,6 +626,83 @@ describe('EPGCellRenderer', () => {
         expect(query(element, EPG_CLASSES.CELL_SUBTITLE_TEXT).textContent).toBe('');
     });
 
+    it.each([
+        { type: 'movie' as const, textShiftPx: 0, contentWidth: 105, overflows: false },
+        { type: 'movie' as const, textShiftPx: 24, contentWidth: 105, overflows: false },
+        { type: 'episode' as const, textShiftPx: 0, contentWidth: 105, overflows: false },
+        { type: 'episode' as const, textShiftPx: 24, contentWidth: 105, overflows: false },
+        { type: 'movie' as const, textShiftPx: 0, contentWidth: 150, overflows: true },
+        { type: 'movie' as const, textShiftPx: 24, contentWidth: 150, overflows: true },
+        { type: 'episode' as const, textShiftPx: 0, contentWidth: 150, overflows: true },
+        { type: 'episode' as const, textShiftPx: 24, contentWidth: 150, overflows: true },
+    ])('measures focused $type text with overflow=$overflows at a $textShiftPx px shift', ({
+        type,
+        textShiftPx,
+        contentWidth,
+        overflows,
+    }) => {
+        jest.useFakeTimers();
+        const animationFrame = installQueuedAnimationFrame();
+        const element = renderer.createElement();
+        const cellData = makeProgramCell(element, {
+            width: 180,
+            visibleWidthPx: 180,
+            isFocused: true,
+            textShiftPx,
+            program: makeProgram({
+                item: type === 'episode'
+                    ? {
+                        ratingKey: `ticker-episode-${textShiftPx}-${contentWidth}`,
+                        type,
+                        title: 'Focused Episode Title',
+                        fullTitle: 'Focused Show Title - S01E02 - Focused Episode Title',
+                        showTitle: 'Focused Show Title',
+                        seasonNumber: 1,
+                        episodeNumber: 2,
+                    }
+                    : {
+                        ratingKey: `ticker-movie-${textShiftPx}-${contentWidth}`,
+                        type,
+                        title: 'Focused Movie Title',
+                        fullTitle: 'Focused Movie Title',
+                    },
+            }),
+        });
+        renderer.updateCellContent(cellData, TEST_START_MS);
+
+        const targets = [query(element, EPG_CLASSES.CELL_TITLE)];
+        if (type === 'episode') targets.push(query(element, EPG_CLASSES.CELL_SUBTITLE));
+        for (const target of targets) {
+            const content = target.firstElementChild as HTMLElement;
+            stubDimension(target, 'clientWidth', 120);
+            stubDimension(target, 'scrollWidth', 1320);
+            stubDimension(target, 'clientHeight', 24);
+            stubDimension(target, 'scrollHeight', 24);
+            stubDimension(content, 'scrollWidth', 0);
+            stubRenderedWidth(content, contentWidth);
+        }
+
+        renderer.syncFocusedTicker(cellData);
+        animationFrame.flushNext();
+
+        for (const target of targets) {
+            expect(target.className.includes('ticker-ready')).toBe(overflows);
+            if (overflows) {
+                expect(target.getAttribute('style')).toContain('ticker-distance-px: 30px');
+                expect(target.getAttribute('style')).toContain('ticker-duration');
+            } else {
+                expect(target.getAttribute('style') ?? '').not.toContain('ticker-distance');
+                expect(target.getAttribute('style') ?? '').not.toContain('ticker-duration');
+            }
+        }
+        expect(jest.getTimerCount()).toBe(overflows ? 1 : 0);
+
+        jest.advanceTimersByTime(900);
+        for (const target of targets) {
+            expect(target.className.includes('ticker-running')).toBe(overflows);
+        }
+    });
+
     it('arms focused ticker after the public delay and clears ticker state by element', () => {
         jest.useFakeTimers();
         const animationFrame = installQueuedAnimationFrame();
@@ -650,7 +729,8 @@ describe('EPGCellRenderer', () => {
         stubDimension(title, 'scrollWidth', 260);
         stubDimension(title, 'clientHeight', 24);
         stubDimension(title, 'scrollHeight', 24);
-        stubDimension(titleText, 'scrollWidth', 260);
+        stubDimension(titleText, 'scrollWidth', 0);
+        stubRenderedWidth(titleText, 260);
 
         renderer.syncFocusedTicker(cellData);
         animationFrame.flushNext();
@@ -686,10 +766,12 @@ describe('EPGCellRenderer', () => {
 
         const firstTitle = query(firstElement, EPG_CLASSES.CELL_TITLE);
         const secondTitle = query(secondElement, EPG_CLASSES.CELL_TITLE);
-        const firstWidthRead = jest.fn(() => 260);
-        const secondWidthRead = jest.fn(() => 280);
-        Object.defineProperty(firstTitle, 'scrollWidth', { configurable: true, get: firstWidthRead });
-        Object.defineProperty(secondTitle, 'scrollWidth', { configurable: true, get: secondWidthRead });
+        const firstTitleText = query(firstElement, EPG_CLASSES.CELL_TITLE_TEXT);
+        const secondTitleText = query(secondElement, EPG_CLASSES.CELL_TITLE_TEXT);
+        const firstWidthRead = jest.fn(() => ({ width: 260 }));
+        const secondWidthRead = jest.fn(() => ({ width: 280 }));
+        Object.defineProperty(firstTitleText, 'getBoundingClientRect', { configurable: true, value: firstWidthRead });
+        Object.defineProperty(secondTitleText, 'getBoundingClientRect', { configurable: true, value: secondWidthRead });
         stubDimension(firstTitle, 'clientWidth', 100);
         stubDimension(secondTitle, 'clientWidth', 100);
 
