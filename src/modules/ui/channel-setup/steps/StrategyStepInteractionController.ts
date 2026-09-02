@@ -25,8 +25,6 @@ import {
 const GUIDE_ORDER_RESET_ID = 'setup-guide-order-reset';
 
 type AdjustableControl = {
-    cyclePrev: () => boolean;
-    cycleNext: () => boolean;
     isDisabled: () => boolean;
     openDropdown: () => void;
 };
@@ -43,12 +41,6 @@ type StrategyStepInteractionAdapters = {
     resetStep2Scroll: () => void;
     setPreferredFocusId: (focusId: string | null) => void;
     setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean) => void;
-    stepPreset: (
-        options: number[],
-        current: number,
-        dir: 'left' | 'right',
-        mode: 'clamp' | 'wrap'
-    ) => number;
     updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void) => void;
 };
 
@@ -137,17 +129,13 @@ export class StrategyStepInteractionController {
             | 'renderStep'
             | 'setPreferredFocusId'
             | 'updateStrategyState'
-        > & {
-            schedulePreview: () => void;
-        }
+        >
     ): void {
         adapters.setPreferredFocusId(focusId);
         this._rememberActiveDetailFocus(focusId, adapters.getSessionSnapshot());
         adapters.updateStrategyState((draft: StrategyStepMutableState) => {
             mutate(draft);
         });
-        adapters.schedulePreview();
-
         if (adapters.hasActiveDropdown()) {
             adapters.deferDropdownRender();
             return;
@@ -170,7 +158,6 @@ export class StrategyStepInteractionController {
         > & {
             channelLimitOptions: number[];
             minItemsOptions: number[];
-            schedulePreview: () => void;
         }
     ): void {
         const config = this._buildDropdownConfig(controlId, adapters);
@@ -185,7 +172,6 @@ export class StrategyStepInteractionController {
         adapters: StrategyStepInteractionAdapters & {
             channelLimitOptions: number[];
             minItemsOptions: number[];
-            schedulePreview: () => void;
         }
     ): void {
         if (event.handled) {
@@ -208,14 +194,6 @@ export class StrategyStepInteractionController {
         const activeCategoryButtonId = this.categoryButtonId(this._activeStrategyCategory);
         const adjustableControl = this._getAdjustableControl(focusedId, adapters, session);
         if (adjustableControl && !adjustableControl.isDisabled()) {
-            if (
-                (event.button === 'left' || event.button === 'right')
-                && (event.isRepeat || event.isLongPress)
-            ) {
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                return;
-            }
             if (event.button === 'ok') {
                 event.handled = true;
                 event.originalEvent.preventDefault();
@@ -225,17 +203,6 @@ export class StrategyStepInteractionController {
             if (event.button === 'right') {
                 event.handled = true;
                 event.originalEvent.preventDefault();
-                adjustableControl.cycleNext();
-                return;
-            }
-            if (event.button === 'left') {
-                event.handled = true;
-                event.originalEvent.preventDefault();
-                const changed = adjustableControl.cyclePrev();
-                if (!changed) {
-                    adapters.setPreferredFocusId(activeCategoryButtonId);
-                    nav.setFocus(activeCategoryButtonId);
-                }
                 return;
             }
         }
@@ -269,7 +236,6 @@ export class StrategyStepInteractionController {
                 this._lastReorder = null;
                 adapters.setPreferredFocusId(this.priorityRowId(strategy));
                 this._rememberedDetailFocusByCategory['priority-order'] = this.priorityRowId(strategy);
-                adapters.schedulePreview();
                 adapters.renderStep();
                 adapters.setPriorityRowGrabbedVisual(strategy, false);
                 return;
@@ -314,7 +280,6 @@ export class StrategyStepInteractionController {
             const focusId = this.priorityRowId(strategy);
             adapters.setPreferredFocusId(focusId);
             this._rememberedDetailFocusByCategory['priority-order'] = focusId;
-            adapters.schedulePreview();
             adapters.renderStep();
             this._lastReorder = null;
             adapters.setPriorityRowGrabbedVisual(strategy, true);
@@ -394,9 +359,7 @@ export class StrategyStepInteractionController {
         adapters: Pick<
             StrategyStepInteractionAdapters,
             'getSessionSnapshot' | 'renderStep' | 'setPreferredFocusId' | 'updateStrategyState'
-        > & {
-            schedulePreview: () => void;
-        }
+        >
     ): void {
         const session = adapters.getSessionSnapshot();
         const activeOrder = this._getActiveStrategyOrder(session);
@@ -412,7 +375,6 @@ export class StrategyStepInteractionController {
         adapters.updateStrategyState((draft) => {
             draft.strategyOrder = this._mergeActiveOrder(draft.strategyOrder, draft.strategies, defaultActiveOrder);
         });
-        adapters.schedulePreview();
         adapters.renderStep();
     }
 
@@ -483,7 +445,6 @@ export class StrategyStepInteractionController {
         > & {
             channelLimitOptions: number[];
             minItemsOptions: number[];
-            schedulePreview: () => void;
         }
     ): StrategyStepDropdownConfig | null {
         const session = adapters.getSessionSnapshot();
@@ -517,12 +478,10 @@ export class StrategyStepInteractionController {
             | 'openDropdown'
             | 'renderStep'
             | 'setPreferredFocusId'
-            | 'stepPreset'
             | 'updateStrategyState'
         > & {
             channelLimitOptions: number[];
             minItemsOptions: number[];
-            schedulePreview: () => void;
         },
         session: ChannelSetupSessionSnapshot
     ): AdjustableControl | null {
@@ -536,47 +495,9 @@ export class StrategyStepInteractionController {
         }
 
         return {
-            cyclePrev: (): boolean => this._cycleDescriptorOption(controlId, descriptor, session, 'left', adapters),
-            cycleNext: (): boolean => this._cycleDescriptorOption(controlId, descriptor, session, 'right', adapters),
             isDisabled: () => this._isDescriptorDisabled(descriptor, session),
             openDropdown,
         };
-    }
-
-    private _cycleDescriptorOption(
-        controlId: string,
-        descriptor: StrategyControlDescriptor,
-        session: ChannelSetupSessionSnapshot,
-        direction: 'left' | 'right',
-        adapters: Pick<
-            StrategyStepInteractionAdapters,
-            | 'deferDropdownRender'
-            | 'getSessionSnapshot'
-            | 'hasActiveDropdown'
-            | 'renderStep'
-            | 'setPreferredFocusId'
-            | 'stepPreset'
-            | 'updateStrategyState'
-        > & {
-            channelLimitOptions: number[];
-            minItemsOptions: number[];
-            schedulePreview: () => void;
-        }
-    ): boolean {
-        if (this._isDescriptorDisabled(descriptor, session)) {
-            return false;
-        }
-
-        const options = descriptor.options(adapters);
-        const current = descriptor.currentValue(session);
-        const next = descriptor.cycleMode === 'preset'
-            ? adapters.stepPreset(options.map(Number), Number(current), direction, 'clamp')
-            : this._stepOption(options, current, direction);
-        if (next === current) {
-            return false;
-        }
-        this.applySettingChange(controlId, (draft) => descriptor.applyValue(draft, next), adapters);
-        return true;
     }
 
     private _getControlDescriptor(controlId: string): StrategyControlDescriptor | null {
@@ -737,38 +658,6 @@ export class StrategyStepInteractionController {
             return;
         }
         this._rememberedDetailFocusByCategory[this._activeStrategyCategory] = controlId;
-    }
-
-    private _stepOption<T extends string | number>(
-        options: readonly T[],
-        current: T,
-        direction: 'left' | 'right'
-    ): T {
-        if (options.length === 0) {
-            return current;
-        }
-        const currentIndex = options.indexOf(current);
-        let baseIndex = currentIndex;
-        if (baseIndex < 0) {
-            if (typeof current === 'number' && options.every((option) => typeof option === 'number')) {
-                baseIndex = 0;
-                let smallestDiff = Math.abs((options[0] as number) - current);
-                for (let index = 1; index < options.length; index += 1) {
-                    const option = options[index] as number;
-                    const diff = Math.abs(option - current);
-                    if (diff < smallestDiff) {
-                        baseIndex = index;
-                        smallestDiff = diff;
-                    }
-                }
-            } else {
-                baseIndex = 0;
-            }
-        }
-        const nextIndex = direction === 'left'
-            ? Math.max(0, baseIndex - 1)
-            : Math.min(options.length - 1, baseIndex + 1);
-        return options[nextIndex] ?? current;
     }
 
     private _capitalize(value: string): string {

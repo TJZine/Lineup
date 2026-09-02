@@ -9,6 +9,7 @@ import {
     isChannelSwitchSuccessful,
 } from '../../../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../../../types/channelSwitch';
+import type { PlaybackStartOutcome } from '../../../../types/playbackStart';
 import { renderCappedWarnings } from '../../common/render/renderCappedWarnings';
 import { formatChannelSetupUserCopy } from '../ChannelSetupUserCopy';
 import type { ChannelSetupFocusCoordinator } from '../focus/ChannelSetupFocusCoordinator';
@@ -22,12 +23,37 @@ import { BuildProgressStepController } from './BuildProgressStepController';
 import { BuildReviewStepController } from './BuildReviewStepController';
 import type { StepRenderContext } from '../stepContracts';
 import type { BuildReviewStateSnapshot } from './types';
+import { ChannelBuilderGuideTransitionDiagnostics } from '../ChannelBuilderGuideTransitionDiagnostics';
+
+interface DoneAttempt {
+    controller: AbortController;
+    token: number;
+    button: HTMLButtonElement;
+    provisionalPlayerVisible: boolean;
+    diagnostics: ChannelBuilderGuideTransitionDiagnostics;
+}
 
 export class ChannelSetupBuildStepPresenter {
     private readonly _buildReviewStep = new BuildReviewStepController();
     private readonly _buildProgressStep = new BuildProgressStepController();
     private readonly _maxPreviewWarnings = 5;
     private _lastInitialChannelNumber: number | null = null;
+    private _activeDoneAttempt: DoneAttempt | null = null;
+    private _diagnostics: ChannelBuilderGuideTransitionDiagnostics | null = null;
+
+    cancelDoneTransition(): void {
+        const attempt = this._activeDoneAttempt;
+        if (!attempt) return;
+        this._activeDoneAttempt = null;
+        attempt.controller.abort();
+        attempt.diagnostics.close('canceled');
+    }
+
+    dispose(): void {
+        this.cancelDoneTransition();
+        this._diagnostics?.close('canceled');
+        this._diagnostics = null;
+    }
 
     render(
         ctx: StepRenderContext,
@@ -39,6 +65,8 @@ export class ChannelSetupBuildStepPresenter {
             setPreferredFocusId: (focusId: string | null) => void;
             getVisibilityToken: () => number;
             renderStep: () => void;
+            revealPlayerProvisionally: () => void;
+            restoreSetupAfterProvisionalReveal: () => void;
         }
     ): void {
         const session = deps.session.getSnapshot();
@@ -98,6 +126,8 @@ export class ChannelSetupBuildStepPresenter {
             setPreferredFocusId: (focusId: string | null) => void;
             getVisibilityToken: () => number;
             renderStep: () => void;
+            revealPlayerProvisionally: () => void;
+            restoreSetupAfterProvisionalReveal: () => void;
         }
     ): void {
         const getReviewState = (): BuildReviewStateSnapshot => {
@@ -201,6 +231,8 @@ export class ChannelSetupBuildStepPresenter {
             setPreferredFocusId: (focusId: string | null) => void;
             getVisibilityToken: () => number;
             renderStep: () => void;
+            revealPlayerProvisionally: () => void;
+            restoreSetupAfterProvisionalReveal: () => void;
         }
     ): void {
         const session = deps.session.getSnapshot();
@@ -221,25 +253,150 @@ export class ChannelSetupBuildStepPresenter {
                 deps.session.setStep(2);
                 deps.renderStep();
             },
-            onDone: () => {
+            onDone: (doneButton) => {
                 const initialChannelNumber = this._lastInitialChannelNumber;
                 if (initialChannelNumber === null) {
                     ctx.errorEl.textContent = 'Channels were created, but no starting channel is available.';
                     return;
                 }
 
-                deps.screenPorts.switchToChannelByNumberWithOutcome(initialChannelNumber)
-                    .then((outcome) => this._handleDoneChannelSwitchOutcome(ctx, outcome, initialChannelNumber, deps))
-                    .catch((error: unknown) => {
-                        if (isAbortLikeError(error)) return;
-                        ctx.errorEl.textContent = 'Channels were created, but playback could not start.';
-                        console.warn(`Switch to channel ${initialChannelNumber} failed:`, summarizeErrorForLog(error));
-                    });
+                void this._startDoneTransition(ctx, initialChannelNumber, doneButton, deps);
             },
             startBuild: async (ui) => {
                 await this._startBuild(ctx, deps, ui);
             },
         });
+    }
+
+    private async _startDoneTransition(
+        ctx: StepRenderContext,
+        initialChannelNumber: number,
+        doneButton: HTMLButtonElement,
+        deps: {
+            screenPorts: ChannelSetupScreenPorts;
+            getVisibilityToken: () => number;
+            revealPlayerProvisionally: () => void;
+            restoreSetupAfterProvisionalReveal: () => void;
+        }
+    ): Promise<void> {
+        this._cancelActiveDoneAttempt(deps, true, 'superseded');
+        const diagnostics = this._diagnostics ??= new ChannelBuilderGuideTransitionDiagnostics(
+            (event, data) => deps.screenPorts.appendBuilderGuideDiagnostic(event, data)
+        );
+        diagnostics.begin();
+        const attempt: DoneAttempt = {
+            controller: new AbortController(),
+            token: deps.getVisibilityToken(),
+            button: doneButton,
+            provisionalPlayerVisible: false,
+            diagnostics,
+        };
+        this._activeDoneAttempt = attempt;
+        doneButton.disabled = true;
+        const playbackStartCapture: { promise: Promise<PlaybackStartOutcome> | null } = { promise: null };
+
+        try {
+            const outcome = await deps.screenPorts.switchToChannelByNumberWithOutcome(initialChannelNumber, {
+                signal: attempt.controller.signal,
+                beforeProgramStart: () => {
+                    if (!this._isCurrentDoneAttempt(attempt, deps)) {
+                        attempt.controller.abort();
+                        return;
+                    }
+                    attempt.diagnostics.record('setup-provisional-hide', { provisional: true });
+                    deps.revealPlayerProvisionally();
+                    attempt.provisionalPlayerVisible = true;
+                    attempt.diagnostics.record('player-show', { provisional: true });
+                    attempt.diagnostics.record('scheduler-program-start-request');
+                    playbackStartCapture.promise = deps.screenPorts.waitForNextPlaybackStart(attempt.controller.signal);
+                },
+            });
+            if (!this._isCurrentDoneAttempt(attempt, deps)) return;
+            attempt.diagnostics.record('channel-switch-settlement', { outcome: outcome.kind });
+
+            if (isChannelSwitchSuccessful(outcome)) {
+                const playbackStart = playbackStartCapture.promise;
+                if (!playbackStart) {
+                    this._restoreFailedDoneAttempt(attempt, deps);
+                    ctx.errorEl.textContent = 'Channels were created, but playback could not start.';
+                    attempt.diagnostics.record('playback-start-settlement', { outcome: 'missing' });
+                    attempt.diagnostics.close('failure');
+                    return;
+                }
+                const playbackOutcome = await playbackStart;
+                if (!this._isCurrentDoneAttempt(attempt, deps)) return;
+                attempt.diagnostics.record('playback-start-settlement', { outcome: playbackOutcome.kind });
+                if (playbackOutcome.kind === 'failed') {
+                    this._restoreFailedDoneAttempt(attempt, deps);
+                    ctx.errorEl.textContent = 'Channels were created, but playback could not start.';
+                    attempt.diagnostics.close('failure');
+                    return;
+                }
+                if (playbackOutcome.kind === 'superseded') {
+                    this._restoreFailedDoneAttempt(attempt, deps);
+                    attempt.diagnostics.close('superseded');
+                    return;
+                }
+                this._activeDoneAttempt = null;
+                deps.screenPorts.getNavigation()?.replaceScreen('player');
+                attempt.diagnostics.record('guide-open');
+                deps.screenPorts.openEPG();
+                attempt.diagnostics.recordGuideShown();
+                return;
+            }
+
+            attempt.controller.abort();
+            this._restoreFailedDoneAttempt(attempt, deps);
+            this._handleDoneChannelSwitchOutcome(ctx, outcome, initialChannelNumber);
+            attempt.diagnostics.close(isChannelSwitchAborted(outcome) ? 'canceled' : 'failure');
+        } catch (error: unknown) {
+            if (!this._isCurrentDoneAttempt(attempt, deps)) return;
+            const aborted = isAbortLikeError(error, attempt.controller.signal);
+            attempt.controller.abort();
+            this._restoreFailedDoneAttempt(attempt, deps);
+            if (aborted) {
+                this._handleDoneChannelSwitchOutcome(ctx, { kind: 'aborted' }, initialChannelNumber);
+                attempt.diagnostics.close('canceled');
+                return;
+            }
+            ctx.errorEl.textContent = 'Channels were created, but playback could not start.';
+            attempt.diagnostics.close('failure');
+            console.warn(`Switch to channel ${initialChannelNumber} failed:`, summarizeErrorForLog(error));
+        }
+    }
+
+    private _isCurrentDoneAttempt(attempt: DoneAttempt, deps: { getVisibilityToken: () => number }): boolean {
+        return this._activeDoneAttempt === attempt
+            && !attempt.controller.signal.aborted
+            && attempt.token === deps.getVisibilityToken();
+    }
+
+    private _restoreFailedDoneAttempt(
+        attempt: DoneAttempt,
+        deps: { restoreSetupAfterProvisionalReveal: () => void }
+    ): void {
+        this._activeDoneAttempt = null;
+        if (attempt.provisionalPlayerVisible) {
+            deps.restoreSetupAfterProvisionalReveal();
+            attempt.provisionalPlayerVisible = false;
+        }
+        attempt.button.disabled = false;
+    }
+
+    private _cancelActiveDoneAttempt(
+        deps: { restoreSetupAfterProvisionalReveal: () => void },
+        restoreSetup: boolean,
+        outcome: 'canceled' | 'superseded'
+    ): void {
+        const attempt = this._activeDoneAttempt;
+        if (!attempt) return;
+        this._activeDoneAttempt = null;
+        attempt.controller.abort();
+        attempt.diagnostics.close(outcome);
+        if (restoreSetup && attempt.provisionalPlayerVisible) {
+            deps.restoreSetupAfterProvisionalReveal();
+            attempt.button.disabled = false;
+        }
     }
 
     private _applyBuildCanceledUI(
@@ -411,14 +568,8 @@ export class ChannelSetupBuildStepPresenter {
     private _handleDoneChannelSwitchOutcome(
         ctx: StepRenderContext,
         outcome: ChannelSwitchOutcome,
-        initialChannelNumber: number,
-        deps: { screenPorts: ChannelSetupScreenPorts }
+        initialChannelNumber: number
     ): void {
-        if (isChannelSwitchSuccessful(outcome)) {
-            deps.screenPorts.getNavigation()?.replaceScreen('player');
-            deps.screenPorts.openEPG();
-            return;
-        }
         if (isChannelSwitchFailed(outcome)) {
             ctx.errorEl.textContent = `Channels were created, but channel ${initialChannelNumber} could not start.`;
             return;

@@ -4,7 +4,7 @@
 
 import { MAX_CHANNELS } from '../../../../scheduler/channel-manager/constants';
 import { createDefaultStrategyOrder, createDefaultStrategyState } from '../../ChannelSetupSessionState';
-import type { EstimateKey, StrategyStepMutableState } from '../../ChannelSetupSessionContracts';
+import type { StrategyStepMutableState } from '../../ChannelSetupSessionContracts';
 import { StrategyStepController } from '../StrategyStepController';
 import { STEP2_CONTROL_IDS } from '../../strategyConstants';
 import { getStrategyControlDescriptor } from '../StrategyStepControlDescriptors';
@@ -12,9 +12,6 @@ import type { StepRenderContext } from '../../stepContracts';
 import type {
     StrategyStepDeps,
 } from '../types';
-
-const INTERNAL_SETUP_COPY_PATTERN =
-    /\b(?:stop and re-plan|re-plan|planner|execution|cleanup|slice|blocked plan|plan blocked)\b|partial setup plan/i;
 
 const createContext = (): StepRenderContext => ({
     contentEl: document.createElement('div'),
@@ -44,11 +41,6 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
         maxChannels: 200,
         minItems: 1,
         setupContext: 'unknown',
-        previewPanelId: 'preview-panel',
-        preview: null,
-        previewError: null,
-        previewStatus: 'idle',
-        isPreviewLoading: false,
     },
     strategyKeys: createDefaultStrategyOrder(),
     categoryButtonId: (category) => `category-${category}`,
@@ -58,13 +50,6 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
     grabbedPriorityKey: null,
     scopeButtonId: (strategy) => `scope-${strategy}`,
     strategySupportsMixedScope: (strategy) => strategy === 'genres' || strategy === 'directors' || strategy === 'studios' || strategy === 'actors',
-    buildPreviewRow: jest.fn((label: string, value: number | string, key?: EstimateKey) => {
-        const row = document.createElement('div');
-        row.dataset.key = key ?? '';
-        row.textContent = `${label}: ${value}`;
-        return row;
-    }),
-    renderCappedWarnings: jest.fn(),
     applyCategoryChange: jest.fn(),
     applySettingChange: jest.fn((_focusId: string, mutate: (state: StrategyStepMutableState) => void) => {
         const draft: StrategyStepMutableState = {
@@ -93,8 +78,6 @@ const createDeps = (overrides: Partial<StrategyStepDeps> = {}): StrategyStepDeps
     onNext: jest.fn(),
     registerStep2Focusables: jest.fn(),
     detailText: 'Detail text',
-    schedulePreview: jest.fn(),
-    preloadReview: jest.fn(),
     ...overrides,
 });
 
@@ -154,6 +137,14 @@ describe('StrategyStepController', () => {
         expect((ctx.contentEl.querySelector('#setup-series-variant-block-size') as HTMLButtonElement).disabled).toBe(true);
     });
 
+    it('describes playback variants as extra base TV channels', () => {
+        const descriptor = getStrategyControlDescriptor(STEP2_CONTROL_IDS.seriesVariantType);
+
+        expect(descriptor?.label).toBe('Extra Series Channel');
+        expect(descriptor?.meta).toContain('one different playback-order variant per eligible base TV category');
+        expect(descriptor?.meta).toContain('excludes actor/director channels and alternate copies');
+    });
+
     it('renders adjustable build controls from the shared descriptor contract', () => {
         const deps = createDeps({
             state: {
@@ -191,68 +182,12 @@ describe('StrategyStepController', () => {
         }
     });
 
-    it('toggles the preview strip details in place', () => {
-        const ctx = createContext();
-        document.body.appendChild(ctx.contentEl);
-        const deps = createDeps({
-            state: {
-                ...createDeps().state,
-                preview: {
-                    estimates: {
-                        total: 8,
-                        collections: 1,
-                        playlists: 1,
-                        genres: 1,
-                        directors: 1,
-                        decades: 1,
-                        recentlyAdded: 1,
-                        studios: 1,
-                        actors: 1,
-                    },
-                    warnings: [],
-                    reachedMaxChannels: false,
-                },
-            },
-        });
-        const controller = new StrategyStepController();
+    it('keeps Step 2 configuration-only without estimate UI', () => {
+        const { ctx } = renderController();
 
-        controller.render(ctx, deps);
-        const toggle = ctx.contentEl.querySelector('#setup-preview-toggle') as HTMLButtonElement;
-        const previewPanel = ctx.contentEl.querySelector('#preview-panel') as HTMLElement;
-
-        expect(previewPanel.hidden).toBe(true);
-        toggle.click();
-        expect(toggle.getAttribute('aria-expanded')).toBe('true');
-        expect(previewPanel.hidden).toBe(false);
-    });
-
-    it('collapses floating Guide Order preview details when internal focus leaves the preview toggle', () => {
-        const { ctx, deps } = renderController({
-            state: {
-                ...createDeps().state,
-                activeStrategyCategory: 'priority-order',
-            },
-        });
-
-        const strip = ctx.contentEl.querySelector('.setup-preview-strip') as HTMLElement | null;
-        const toggle = ctx.contentEl.querySelector('#setup-preview-toggle') as HTMLButtonElement | null;
-
-        expect(strip?.classList.contains('setup-preview-strip--floating-details')).toBe(true);
-        expect(strip?.classList.contains('is-collapsed')).toBe(true);
-
-        toggle?.click();
-
-        expect(strip?.classList.contains('is-collapsed')).toBe(false);
-        expect(ctx.contentEl.querySelector('#preview-panel')?.parentElement).toBe(strip);
-
-        const focusOptions = (deps.registerStep2Focusables as jest.Mock).mock.calls[0]?.[4] as
-            | { onFocus?: (id: string) => void }
-            | undefined;
-        focusOptions?.onFocus?.('category-priority-order');
-
-        expect(strip?.classList.contains('is-collapsed')).toBe(true);
-        expect(toggle?.getAttribute('aria-expanded')).toBe('false');
-        expect((ctx.contentEl.querySelector('#preview-panel') as HTMLElement | null)?.hidden).toBe(true);
+        expect(ctx.contentEl.querySelector('.setup-preview-strip')).toBeNull();
+        expect(ctx.contentEl.querySelector('#setup-preview-toggle')).toBeNull();
+        expect(ctx.contentEl.querySelector('.setup-preview-loading')).toBeNull();
     });
 
     it('routes adjustable controls through the interaction owner hook', () => {
@@ -339,8 +274,6 @@ describe('StrategyStepController', () => {
         expect(deps.onBack).toHaveBeenCalledTimes(1);
         expect(deps.onNext).toHaveBeenCalledTimes(1);
         expect(deps.registerStep2Focusables).toHaveBeenCalledTimes(1);
-        expect(deps.schedulePreview).toHaveBeenCalledTimes(1);
-        expect(deps.preloadReview).toHaveBeenCalledTimes(1);
         expect(ctx.detailEl.textContent).toBe('Detail text');
     });
 
@@ -557,76 +490,6 @@ describe('StrategyStepController', () => {
         expect(limitsDraft.minItems).toBe(1);
     });
 
-    it('renders preview warnings, loading states, and detailed estimate rows', () => {
-        const { ctx: blockedCtx } = renderController({
-            state: {
-                ...createDeps().state,
-                previewError: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
-                previewStatus: 'blocked',
-            },
-        });
-        const blockedCopy = blockedCtx.contentEl.querySelector('.setup-preview-warning')?.textContent ?? '';
-        expect(blockedCopy).toContain('Plex does not provide usable genres data for Shows.');
-        expect(blockedCopy).toContain('Try again later, disable that source, or continue with supported channel types.');
-        expect(blockedCopy).not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
-
-        const { ctx: slowCtx } = renderController({
-            state: {
-                ...createDeps().state,
-                previewError: 'Timed out',
-                previewStatus: 'slow',
-            },
-        });
-        expect(slowCtx.contentEl.querySelector('.setup-preview-warning')?.textContent).toContain('Preview timed out');
-
-        const warnings = [
-            'Required studios tag directory (type=4) failed for Movies (Directory must be an array); stop and re-plan.',
-            'Partial setup plan (fetch_collections): fetch_collections failed for Shows (collections endpoint failed)',
-        ];
-        const { ctx: previewCtx, deps: previewDeps } = renderController({
-            state: {
-                ...createDeps().state,
-                isPreviewLoading: true,
-                preview: {
-                    estimates: {
-                        total: 8,
-                        collections: 1,
-                        playlists: 1,
-                        genres: 1,
-                        directors: 1,
-                        decades: 1,
-                        recentlyAdded: 1,
-                        studios: 1,
-                        actors: 1,
-                    },
-                    warnings,
-                    reachedMaxChannels: true,
-                },
-            },
-        });
-
-        expect(previewDeps.buildPreviewRow).toHaveBeenCalledTimes(9);
-        expect(previewDeps.renderCappedWarnings).toHaveBeenCalledWith(
-            [
-                'Plex could not read studios data for Movies. Try again later, disable that source, or continue with supported channel types.',
-                'Collections could not be included for Shows: collections endpoint failed. Try again later, disable that source, or continue with supported channel types.',
-            ],
-            expect.any(HTMLDivElement)
-        );
-        expect(previewCtx.contentEl.querySelector('.setup-preview-updating')?.textContent).toContain('Updating');
-        expect(previewCtx.contentEl.querySelectorAll('.setup-preview-warning')).toHaveLength(1);
-        expect(previewCtx.contentEl.querySelector('.setup-preview-strip-summary-text')?.textContent).toBe('Est. 8 channels');
-
-        const { ctx: loadingCtx } = renderController({
-            state: {
-                ...createDeps().state,
-                isPreviewLoading: true,
-                preview: null,
-            },
-        });
-        expect(loadingCtx.contentEl.querySelector('.setup-preview-loading')?.textContent).toContain('Estimating');
-    });
-
     it('renders guide order move, disabled, contextual hint, and reset states', () => {
         const { ctx: upCtx } = renderController({
             state: {
@@ -671,7 +534,6 @@ describe('StrategyStepController', () => {
             'priority-decades',
             'priority-directors',
             'setup-guide-order-hint',
-            'setup-preview-toggle',
         ]);
         reset.click();
         expect(downDeps.resetGuideOrder).toHaveBeenCalledWith('setup-guide-order-reset');

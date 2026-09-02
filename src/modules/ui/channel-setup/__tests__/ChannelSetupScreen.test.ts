@@ -3,7 +3,7 @@
  */
 
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
-import type { StrategyStepMutableState } from '../ChannelSetupSessionContracts';
+import { ChannelSetupWorkflowPresenter } from '../ChannelSetupWorkflowPresenter';
 import type { PlexLibrarySection } from '../../../plex/library/types';
 import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
@@ -268,6 +268,10 @@ describe('ChannelSetupScreen', () => {
 
     it('cleans up keyPress handlers and focus registrations across show/hide/destroy cycles', async () => {
         const container = createBodyAppendedTestContainer();
+        const cancelDoneTransition = jest.spyOn(
+            ChannelSetupWorkflowPresenter.prototype,
+            'cancelDoneTransition'
+        );
 
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
@@ -283,6 +287,7 @@ describe('ChannelSetupScreen', () => {
         expect(nav.focusables.size).toBeGreaterThan(0);
 
         screen.hide();
+        expect(cancelDoneTransition).toHaveBeenCalledTimes(1);
         expect(nav.off).toHaveBeenCalledTimes(1);
         expect(nav.focusables.size).toBe(0);
         const unregisterCallsAfterHide = nav.unregisterFocusable.mock.calls.length;
@@ -294,9 +299,11 @@ describe('ChannelSetupScreen', () => {
         expect(nav.focusables.size).toBeGreaterThan(0);
 
         screen.destroy();
+        expect(cancelDoneTransition).toHaveBeenCalledTimes(2);
         expect(nav.off).toHaveBeenCalledTimes(2);
         expect(nav.focusables.size).toBe(0);
         expect(nav.unregisterFocusable.mock.calls.length).toBeGreaterThan(unregisterCallsAfterHide);
+        cancelDoneTransition.mockRestore();
     });
 
     it('clears grabbed priority visuals before a reopened session reloads libraries', async () => {
@@ -516,7 +523,7 @@ describe('ChannelSetupScreen', () => {
         expect(container.querySelector('#setup-strategy-collections')).toBeNull();
     });
 
-    it('registers Step 2 focusables in deterministic category-detail-footer order', async () => {
+    it('keeps Step 2 vertical focus movement inside each pane', async () => {
         const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
@@ -535,11 +542,13 @@ describe('ChannelSetupScreen', () => {
         expect(nav.focusables.get('setup-category-build-options')?.neighbors.down).toBe('setup-category-series-ordering');
         expect(nav.focusables.get('setup-category-series-ordering')?.neighbors.down).toBe('setup-category-limits');
         expect(nav.focusables.get('setup-category-limits')?.neighbors.down).toBe('setup-category-priority-order');
-        expect(nav.focusables.get('setup-category-priority-order')?.neighbors.down).toBe('setup-strategy-collections');
-        expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-preview-toggle');
-        expect(nav.focusables.get('setup-preview-toggle')?.neighbors.down).toBe('setup-back');
-        expect(nav.focusables.get('setup-back')?.neighbors.down).toBe('setup-next');
-        expect(nav.focusables.get('setup-next')?.neighbors.up).toBe('setup-back');
+        expect(nav.focusables.get('setup-category-priority-order')?.neighbors.down).toBe('setup-back');
+        expect(nav.focusables.get('setup-strategy-collections')?.neighbors.up).toBe('setup-strategy-collections');
+        expect(nav.focusables.get('setup-strategy-recentlyAdded')?.neighbors.down).toBe('setup-next');
+        expect(nav.focusables.get('setup-back')?.neighbors.up).toBe('setup-category-priority-order');
+        expect(nav.focusables.get('setup-back')?.neighbors.down).toBe('setup-back');
+        expect(nav.focusables.get('setup-next')?.neighbors.up).toBe('setup-strategy-recentlyAdded');
+        expect(nav.focusables.get('setup-next')?.neighbors.down).toBe('setup-next');
     });
 
     it('handles category-to-detail right transfer and remembers last focused control per category', async () => {
@@ -654,121 +663,6 @@ describe('ChannelSetupScreen', () => {
         expect(event.handled).toBe(true);
         expect(event.originalEvent.preventDefault).toHaveBeenCalled();
         expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-content-sources');
-    });
-
-    it('cycles an adjustable control with right/left keys without opening the dropdown', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        const nav = createNavigationMock();
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSelectedServerId: jest.fn(() => 'server-1'),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-category-limits');
-        clickButton(container, '#setup-min-items');
-        clickButton(container, '#setup-dropdown-option-2');
-        expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('10');
-
-        nav.setMockFocus('setup-min-items');
-        nav.setFocus.mockClear();
-        const rightEvent = nav.emitKeyPress('right');
-        expect(rightEvent.handled).toBe(true);
-        expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('20');
-        expect(container.querySelector('#setup-dropdown')).toBeNull();
-        expect(nav.setFocus).not.toHaveBeenLastCalledWith('setup-category-limits');
-
-        const leftEvent = nav.emitKeyPress('left');
-        expect(leftEvent.handled).toBe(true);
-        expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('10');
-        expect(container.querySelector('#setup-dropdown')).toBeNull();
-        expect(nav.setFocus).not.toHaveBeenLastCalledWith('setup-category-limits');
-    });
-
-    it('steps off-preset block-size controls from the nearest preset during inline left/right navigation', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        const nav = createNavigationMock();
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSelectedServerId: jest.fn(() => 'server-1'),
-            getChannelSetupRecord: jest.fn(() => ({
-                serverId: 'server-1',
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                selectedLibraryIds: ['movies'],
-                maxChannels: MAX_CHANNELS,
-                buildMode: 'replace',
-                actorStudioCombineMode: 'separate',
-                minItemsPerChannel: DEFAULT_MIN_ITEMS_PER_CHANNEL,
-                strategyConfig: Object.fromEntries(
-                    SETUP_STRATEGY_KEYS.map((key, index) => [
-                        key,
-                        { enabled: true, priority: index + 1, scope: 'per-library' },
-                    ])
-                ) as Record<
-                    typeof SETUP_STRATEGY_KEYS[number],
-                    { enabled: boolean; priority: number; scope: 'per-library' | 'cross-library' }
-                >,
-                channelExpansion: {
-                    addAlternateLineups: true,
-                    alternateLineupCopies: 2,
-                    variantType: 'block',
-                    variantBlockSize: 5,
-                },
-                seriesOrdering: {
-                    basePlaybackMode: 'block',
-                    baseBlockSize: 5,
-                },
-            })),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-category-series-ordering');
-
-        const session = Reflect.get(screen as object, '_session') as {
-            updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void) => void;
-        };
-        session.updateStrategyState((draft) => {
-            draft.seriesOrdering.baseBlockSize = 6;
-            draft.channelExpansion.variantBlockSize = 6;
-        });
-        clickButton(container, '#setup-category-limits');
-        clickButton(container, '#setup-category-series-ordering');
-        await flushPromises();
-
-        const baseBlockButton = container.querySelector('#setup-series-base-block-size') as HTMLButtonElement | null;
-        const variantBlockButton = container.querySelector('#setup-series-variant-block-size') as HTMLButtonElement | null;
-
-        expect(baseBlockButton?.disabled).toBe(false);
-        expect(variantBlockButton?.disabled).toBe(false);
-        expect(baseBlockButton?.textContent ?? '').toContain('6');
-        expect(variantBlockButton?.textContent ?? '').toContain('6');
-
-        nav.setMockFocus('setup-series-base-block-size');
-        const leftBase = nav.emitKeyPress('left');
-
-        expect(leftBase.handled).toBe(true);
-        expect((container.querySelector('#setup-series-base-block-size') as HTMLButtonElement | null)?.textContent ?? '').toContain('4');
-        expect(container.querySelector('#setup-dropdown')).toBeNull();
-
-        nav.setMockFocus('setup-series-variant-block-size');
-        const rightVariant = nav.emitKeyPress('right');
-
-        expect(rightVariant.handled).toBe(true);
-        expect((container.querySelector('#setup-series-variant-block-size') as HTMLButtonElement | null)?.textContent ?? '').toContain('5');
-        expect(container.querySelector('#setup-dropdown')).toBeNull();
     });
 
     it('returns focus to the category rail when left is pressed at the first inline option', async () => {
@@ -1032,16 +926,13 @@ describe('ChannelSetupScreen', () => {
             expect(container.querySelector('#setup-dropdown')).toBeNull();
         });
 
-    it('updates preview after selection and supports inline left decrement', async () => {
-            jest.useFakeTimers();
+        it('updates a dropdown selection and returns Left to the category rail', async () => {
             const container = createBodyAppendedTestContainer();
 
             const nav = createNavigationMock();
-            const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
             const { workflowPort, screenPorts } = createSplitScreenPorts({
                 getNavigation: jest.fn(() => nav as unknown as INavigationManager),
                 getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-                getSetupPreview,
                 getSelectedServerId: jest.fn(() => 'server-1'),
             });
 
@@ -1050,91 +941,19 @@ describe('ChannelSetupScreen', () => {
             await flushPromises();
             await enterStep2(container);
 
-            jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
-            await flushPromises();
-            getSetupPreview.mockClear();
-
             clickButton(container, '#setup-category-limits');
             clickButton(container, '#setup-min-items');
             clickButton(container, '#setup-dropdown-option-2');
             await flushPromises();
-
-            jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
-            await flushPromises();
-            expect(getSetupPreview).toHaveBeenCalled();
+            expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('10');
 
             nav.setMockFocus('setup-min-items');
             const leftEvent = nav.emitKeyPress('left');
 
             expect(leftEvent.handled).toBe(true);
-            expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('5');
-        });
-
-        it('keeps dropdown open while preview refresh state changes are emitted', async () => {
-            jest.useFakeTimers();
-            const container = createBodyAppendedTestContainer();
-
-            let resolvePreview: ((value: typeof DEFAULT_PREVIEW) => void) | undefined;
-            const previewPromise = new Promise<typeof DEFAULT_PREVIEW>((resolve) => {
-                resolvePreview = resolve;
-            });
-
-            const { workflowPort, screenPorts } = createSplitScreenPorts({
-                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-                getSetupPreview: jest.fn(() => previewPromise),
-                getSelectedServerId: jest.fn(() => 'server-1'),
-            });
-
-            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-            screen.show();
-            await flushPromises();
-            await enterStep2(container);
-
-            clickButton(container, '#setup-category-limits');
-            clickButton(container, '#setup-min-items');
-            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
-
-            clickButton(container, '#setup-dropdown-option-2');
-            clickButton(container, '#setup-min-items');
-            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
-
-            jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
-            await flushPromises();
-
-            expect(container.querySelector('#setup-dropdown')).not.toBeNull();
-
-            resolvePreview?.(DEFAULT_PREVIEW);
-            await flushPromises();
-            jest.useRealTimers();
-        });
-
-        it('surfaces a slow preview state on Step 2 instead of leaving the estimate spinner active', async () => {
-            jest.useFakeTimers();
-            const container = createBodyAppendedTestContainer();
-
-            const { workflowPort, screenPorts } = createSplitScreenPorts({
-                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-                getSetupPreview: jest.fn().mockResolvedValue({
-                    ...DEFAULT_PREVIEW,
-                    status: 'slow',
-                    message: 'Estimating channels is taking too long. Try again in a moment or reduce the selected libraries.',
-                    failureReason: 'timeout',
-                }),
-                getSelectedServerId: jest.fn(() => 'server-1'),
-            });
-
-            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-            screen.show();
-            await flushPromises();
-            await enterStep2(container);
-
-            jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
-            await flushPromises();
-
-            expect(container.textContent ?? '').not.toContain('Estimating channels...');
-            expect(container.textContent ?? '').toContain('Preview timed out:');
-            expect(container.textContent ?? '').toContain('Estimating channels is taking too long.');
-            jest.useRealTimers();
+            expect(leftEvent.originalEvent.preventDefault).toHaveBeenCalled();
+            expect((container.querySelector('#setup-min-items') as HTMLButtonElement | null)?.textContent ?? '').toContain('10');
+            expect(nav.setFocus).toHaveBeenLastCalledWith('setup-category-limits');
         });
 
         it('cleans up dropdown on hide', async () => {
@@ -1162,122 +981,11 @@ describe('ChannelSetupScreen', () => {
         });
     });
 
-    it('renders preview strip below split and collapsed by default', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        const split = container.querySelector('.setup-split');
-        const strip = container.querySelector('.setup-preview-strip');
-        expect(split).not.toBeNull();
-        expect(strip).not.toBeNull();
-        expect(split?.nextElementSibling).toBe(strip);
-
-        expect(container.querySelector('.setup-detail-pane #setup-preview-panel')).toBeNull();
-        const previewPanel = strip?.querySelector('#setup-preview-panel') as HTMLElement | null;
-        expect(previewPanel).not.toBeNull();
-
-        const toggle = container.querySelector('#setup-preview-toggle') as HTMLButtonElement | null;
-        expect(toggle?.getAttribute('aria-expanded')).toBe('false');
-        expect(toggle?.getAttribute('aria-controls')).toBe('setup-preview-panel');
-        expect(strip?.classList.contains('is-collapsed')).toBe(true);
-        expect(previewPanel?.hidden).toBe(true);
-    });
-
-    it('toggles preview strip details with the preview toggle button', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        const strip = container.querySelector('.setup-preview-strip');
-        const toggle = container.querySelector('#setup-preview-toggle') as HTMLButtonElement | null;
-        const previewPanel = container.querySelector('#setup-preview-panel') as HTMLElement | null;
-
-        expect(strip?.classList.contains('is-collapsed')).toBe(true);
-        expect(toggle?.getAttribute('aria-expanded')).toBe('false');
-        expect(previewPanel?.hidden).toBe(true);
-
-        clickButton(container, '#setup-preview-toggle');
-        expect(strip?.classList.contains('is-collapsed')).toBe(false);
-        expect(toggle?.getAttribute('aria-expanded')).toBe('true');
-        expect(previewPanel?.hidden).toBe(false);
-
-        clickButton(container, '#setup-preview-toggle');
-        expect(strip?.classList.contains('is-collapsed')).toBe(true);
-        expect(toggle?.getAttribute('aria-expanded')).toBe('false');
-        expect(previewPanel?.hidden).toBe(true);
-    });
-
-    it('keeps preview strip expanded across Step 2 re-renders', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-preview-toggle');
-        expect(container.querySelector('.setup-preview-strip')?.classList.contains('is-collapsed')).toBe(false);
-        expect(container.querySelector('#setup-preview-toggle')?.getAttribute('aria-expanded')).toBe('true');
-        expect((container.querySelector('#setup-preview-panel') as HTMLElement | null)?.hidden).toBe(false);
-
-        // Trigger a Step 2 re-render via a setting change.
-        clickButton(container, '#setup-strategy-collections');
-        await flushPromises();
-
-        expect(container.querySelector('.setup-preview-strip')?.classList.contains('is-collapsed')).toBe(false);
-        expect(container.querySelector('#setup-preview-toggle')?.getAttribute('aria-expanded')).toBe('true');
-        expect((container.querySelector('#setup-preview-panel') as HTMLElement | null)?.hidden).toBe(false);
-    });
-
-    it('registers preview toggle in Step 2 focusables', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        const nav = createNavigationMock();
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        expect(nav.focusables.has('setup-preview-toggle')).toBe(true);
-        expect(nav.focusables.get('setup-preview-toggle')?.neighbors.down).toBe('setup-back');
-    });
-
-    it('caps preview warnings with stable class output and singular/plural remainder copy', async () => {
+    it('keeps Step 2 free of estimate UI and preview planning work', async () => {
         jest.useFakeTimers();
         const container = createBodyAppendedTestContainer();
 
-        const previews = [
-            { ...DEFAULT_PREVIEW, warnings: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] },
-            { ...DEFAULT_PREVIEW, warnings: ['A', 'B', 'C', 'D', 'E', 'F'] },
-        ];
-        let callCount = 0;
-        const getSetupPreview = jest.fn().mockImplementation(() =>
-            Promise.resolve(previews[Math.min(callCount++, previews.length - 1)])
-        );
+        const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSetupPreview,
@@ -1292,19 +1000,9 @@ describe('ChannelSetupScreen', () => {
         jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
 
-        const initialWarnings = Array.from(container.querySelectorAll('.setup-preview-warning'));
-        expect(initialWarnings.length).toBeGreaterThan(0);
-        for (const warning of initialWarnings) {
-            expect(warning.classList.contains('setup-preview-warning')).toBe(true);
-        }
-        expect(container.textContent).toContain('And 2 more warnings…');
-
-        clickButton(container, '#setup-strategy-playlists');
-        await flushPromises();
-        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
-        await flushPromises();
-
-        expect(container.textContent).toContain('And 1 more warning…');
+        expect(getSetupPreview).not.toHaveBeenCalled();
+        expect(container.querySelector('.setup-preview-strip')).toBeNull();
+        expect(container.querySelector('#setup-preview-toggle')).toBeNull();
     });
 
     it('shows category activity dots only for strategy categories with enabled strategies', async () => {
@@ -1708,7 +1406,7 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
 
         expect(getSetupReview).not.toHaveBeenCalled();
-        expect(container.querySelector('#setup-preview-toggle')).not.toBeNull();
+        expect(container.querySelector('#setup-strategy-collections')).not.toBeNull();
     });
 
     it('does not start review loading after hide before deferred kickoff runs', async () => {
@@ -1733,56 +1431,6 @@ describe('ChannelSetupScreen', () => {
         await flushPromises();
 
         expect(getSetupReview).not.toHaveBeenCalled();
-    });
-
-    it('keeps build progress stable when a delayed preview resolves after fast-path transition', async () => {
-        jest.useFakeTimers();
-        const container = createBodyAppendedTestContainer();
-
-        let resolvePreview: ((value: typeof DEFAULT_PREVIEW | PromiseLike<typeof DEFAULT_PREVIEW>) => void) | undefined;
-        const getSetupPreview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_PREVIEW>((resolve) => {
-            resolvePreview = resolve;
-        }));
-        let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | undefined;
-        const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
-            resolveBuild = resolve;
-        }));
-
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            getSetupPreview,
-            createChannelsFromSetup,
-            getSelectedServerId: jest.fn(() => 'server-1'),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
-        await flushPromises();
-        expect(getSetupPreview).toHaveBeenCalledTimes(1);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        expect(container.textContent ?? '').toContain('Building channels');
-
-        if (!resolvePreview) {
-            throw new Error('Expected preview resolver to be set');
-        }
-        resolvePreview(DEFAULT_PREVIEW);
-        await flushPromises();
-
-        expect(container.textContent ?? '').toContain('Building channels');
-        expect(createChannelsFromSetup).toHaveBeenCalledTimes(1);
-
-        if (!resolveBuild) {
-            throw new Error('Expected build resolver to be set');
-        }
-        resolveBuild(DEFAULT_BUILD_RESULT);
-        await flushPromises();
     });
 
     it('renders scope controls only for strategies that support mixed sources', async () => {
@@ -1917,49 +1565,14 @@ describe('ChannelSetupScreen', () => {
         expect(moveWithoutGrab.handled).toBe(true);
     });
 
-    it('does not snap focus back to a stale priority row during preview rerenders', async () => {
-        jest.useFakeTimers();
+    it('preserves grabbed priority visuals across click-triggered rerenders', async () => {
         const container = createBodyAppendedTestContainer();
 
         const nav = createNavigationMock();
-        const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
             getSelectedServerId: jest.fn(() => 'server-1'),
-            getSetupPreview,
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-category-priority-order');
-        nav.setFocus.mockClear();
-
-        clickButton(container, '#setup-priority-row-playlists');
-        nav.setMockFocus('setup-category-priority-order');
-
-        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
-        await flushPromises();
-
-        expect(getSetupPreview).toHaveBeenCalled();
-        const lastFocused = nav.setFocus.mock.calls.at(-1)?.[0];
-        expect(lastFocused).toBe('setup-category-priority-order');
-    });
-
-    it('preserves grabbed priority visuals across click-triggered and preview-triggered rerenders', async () => {
-        jest.useFakeTimers();
-        const container = createBodyAppendedTestContainer();
-
-        const nav = createNavigationMock();
-        const getSetupPreview = jest.fn().mockResolvedValue(DEFAULT_PREVIEW);
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getNavigation: jest.fn(() => nav as unknown as INavigationManager),
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSelectedServerId: jest.fn(() => 'server-1'),
-            getSetupPreview,
         });
 
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
@@ -1985,10 +1598,6 @@ describe('ChannelSetupScreen', () => {
             )
         ).toBe(true);
 
-        jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
-        await flushPromises();
-
-        expect(getSetupPreview).toHaveBeenCalled();
         expect(
             (container.querySelector('#setup-priority-row-playlists') as HTMLButtonElement | null)?.classList.contains(
                 'setup-priority-row--grabbed'

@@ -25,6 +25,7 @@ import {
     type OrchestratorEventCleanupReporter,
 } from './OrchestratorEventCleanupReporter';
 import type { RecoverableAsyncFailureReporter } from '../runtime/OrchestratorRuntimeSeams';
+import type { PlaybackStartOutcome } from '../../../types/playbackStart';
 import {
     observeRecoverableAsyncFailure,
     safelyReportCleanupFailures,
@@ -41,7 +42,7 @@ export interface OrchestratorEventBinderDeps {
     getChannelManager: () => IChannelManager | null;
     wireNavigationCoordinatorEvents: () => Array<() => void>;
     wireEpgCoordinatorEvents: () => Array<() => void>;
-    handleProgramStartTracked: (program: ScheduledProgram) => Promise<void>;
+    handleProgramStartTracked: (program: ScheduledProgram) => Promise<PlaybackStartOutcome>;
     handleScheduleDayRollover: () => Promise<void>;
     handlePlayerEnded: () => void;
     handlePlayerTrackChange: (event: { type: 'audio' | 'subtitle'; trackId: string | null }) => void;

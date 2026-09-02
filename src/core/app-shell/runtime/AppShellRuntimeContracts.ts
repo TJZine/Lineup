@@ -18,7 +18,8 @@ import type { BlockingErrorOverlayAction } from '../chrome/AppBlockingErrorOverl
 import type { ToastInput } from '../../../shared/toast';
 import type { IDisposable } from '../../../utils/interfaces';
 import type { AppErrorCode } from '../../../types/app-errors';
-import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
+import type { ChannelSwitchOutcome, ChannelSwitchPresentationOptions } from '../../../types/channelSwitch';
+import type { PlaybackStartOutcome } from '../../../types/playbackStart';
 import type { EpgScheduleRefreshOutcome } from '../../../shared/epgRefresh';
 import type {
     SelectedServerQuarantineCommandState,
@@ -86,8 +87,13 @@ export interface AppShellChannelSetupRuntimePort {
     getChannelSetupScreenWorkflowPort(): ChannelSetupScreenWorkflowPort;
     getSelectedServerId(): string | null;
     openServerSelect(): void;
-    switchToChannelByNumberWithOutcome(number: number, options?: { signal?: AbortSignal }): Promise<ChannelSwitchOutcome>;
+    switchToChannelByNumberWithOutcome(
+        number: number,
+        options?: ChannelSwitchPresentationOptions
+    ): Promise<ChannelSwitchOutcome>;
+    waitForNextPlaybackStart(signal?: AbortSignal): Promise<PlaybackStartOutcome>;
     openEPG(): void;
+    appendBuilderGuideDiagnostic(event: string, data: unknown): void;
 }
 
 export interface AppShellSettingsRuntimePort {

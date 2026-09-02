@@ -100,6 +100,80 @@ describe('ChannelSetupFocusCoordinator', () => {
         expect(nav.unregisterFocusable).toHaveBeenCalledWith('footer-1');
     });
 
+    it('keeps Step 2 vertical movement within the active pane and links only pane edges', () => {
+        const nav = createNavigationMock();
+        const coordinator = new ChannelSetupFocusCoordinator({
+            getNavigation: (): INavigationManager => nav as unknown as INavigationManager,
+        });
+        const categoryButtons = ['cat-1', 'cat-2', 'cat-3'].map((id) => {
+            const button = document.createElement('button');
+            button.id = id;
+            return button;
+        });
+        const detailButtons = ['detail-1', 'detail-2'].map((id) => {
+            const button = document.createElement('button');
+            button.id = id;
+            return button;
+        });
+        const backButton = document.createElement('button');
+        backButton.id = 'back';
+        const nextButton = document.createElement('button');
+        nextButton.id = 'next';
+
+        coordinator.registerStep2({
+            categoryButtons,
+            detailButtons,
+            footerButtons: [backButton, nextButton],
+            activeCategoryId: 'cat-2',
+            detailFocusTarget: 'detail-1',
+            preferredFocusId: null,
+            onDetailFocus: jest.fn(),
+        });
+
+        expect(nav.focusables.get('cat-1')?.neighbors).toEqual({
+            up: 'cat-1',
+            down: 'cat-2',
+            left: 'cat-1',
+            right: 'cat-1',
+        });
+        expect(nav.focusables.get('cat-2')?.neighbors).toEqual({
+            up: 'cat-1',
+            down: 'cat-3',
+            left: 'cat-2',
+            right: 'detail-1',
+        });
+        expect(nav.focusables.get('cat-3')?.neighbors).toEqual({
+            up: 'cat-2',
+            down: 'back',
+            left: 'cat-3',
+            right: 'cat-3',
+        });
+        expect(nav.focusables.get('detail-1')?.neighbors).toEqual({
+            up: 'detail-1',
+            down: 'detail-2',
+            left: 'cat-2',
+            right: 'detail-1',
+        });
+        expect(nav.focusables.get('detail-2')?.neighbors).toEqual({
+            up: 'detail-1',
+            down: 'next',
+            left: 'cat-2',
+            right: 'detail-2',
+        });
+        expect(nav.focusables.get('back')?.neighbors).toEqual({
+            up: 'cat-3',
+            down: 'back',
+            left: 'back',
+            right: 'next',
+        });
+        expect(nav.focusables.get('next')?.neighbors).toEqual({
+            up: 'detail-2',
+            down: 'next',
+            left: 'back',
+            right: 'next',
+        });
+    });
+
     it('registers library-step bulk neighbors through the coordinator-owned registry', () => {
         const nav = createNavigationMock();
         const coordinator = new ChannelSetupFocusCoordinator({

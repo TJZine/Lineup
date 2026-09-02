@@ -1,9 +1,5 @@
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
 import {
-    formatChannelSetupUserCopy,
-    formatChannelSetupWarningCopy,
-} from '../ChannelSetupUserCopy';
-import {
     ADVANCED_STRATEGY_KEYS,
     CONTENT_STRATEGY_KEYS,
     DEFAULT_STRATEGY_PRIORITIES,
@@ -41,17 +37,6 @@ const STRATEGY_META = {
     actors: { label: 'Actors', detail: 'Channels by actor (Movies/TV).' },
 } satisfies Record<SetupStrategyKey, { label: string; detail: string }>;
 
-const ORDERED_PREVIEW_STRATEGY_KEYS: Array<keyof typeof STRATEGY_META> = [
-    'collections',
-    'recentlyAdded',
-    'playlists',
-    'genres',
-    'directors',
-    'decades',
-    'studios',
-    'actors',
-];
-
 const CATEGORY_TITLES: Record<StrategyCategoryKey, string> = {
     'content-sources': 'Content Sources',
     'advanced-sources': 'Advanced Sources',
@@ -64,8 +49,6 @@ const CATEGORY_TITLES: Record<StrategyCategoryKey, string> = {
 const GUIDE_ORDER_RESET_ID = 'setup-guide-order-reset';
 
 export class StrategyStepController {
-    private _previewExpanded = false;
-
     private _categoryHasActiveStrategies(
         category: StrategyCategoryKey,
         state: StrategyStepDeps['state']
@@ -334,61 +317,12 @@ export class StrategyStepController {
 
         const isGuideOrderActive = state.activeStrategyCategory === 'priority-order';
         const detailScroll = this._renderDetailPane(activeControls, activeCategoryTitle, { isCompactGuideOrder: isGuideOrderActive });
-        const previewPanel = this._renderPreviewPanel(deps, state);
 
         right.appendChild(detailScroll);
         split.appendChild(left);
         split.appendChild(right);
         ctx.contentEl.appendChild(split);
-
-        const previewStrip = document.createElement('section');
-        previewStrip.className = `setup-preview-strip is-collapsed${isGuideOrderActive ? ' setup-preview-strip--floating-details' : ''}`;
-        previewStrip.setAttribute('aria-label', 'Estimate summary');
-
-        const previewSummary = document.createElement('div');
-        previewSummary.className = 'setup-preview-strip-summary';
-
-        const previewSummaryText = document.createElement('span');
-        previewSummaryText.className = 'setup-preview-strip-summary-text';
-        const totalEstimate = state.preview?.estimates.total;
-        previewSummaryText.textContent = Number.isFinite(totalEstimate)
-            ? `Est. ${totalEstimate} channels`
-            : 'Estimate pending';
-
-        const previewToggle = document.createElement('button');
-        previewToggle.id = 'setup-preview-toggle';
-        previewToggle.type = 'button';
-        previewToggle.className = 'screen-button secondary setup-preview-strip-toggle';
-        previewToggle.setAttribute('aria-controls', state.previewPanelId);
-
-        const setExpanded = (expanded: boolean): void => {
-            this._previewExpanded = expanded;
-            previewStrip.classList.toggle('is-collapsed', !expanded);
-            previewToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-            previewToggle.textContent = expanded ? 'Hide Details' : 'Show Details';
-            previewPanel.hidden = !expanded;
-        };
-
-        setExpanded(this._previewExpanded);
-        previewToggle.addEventListener('click', () => setExpanded(!this._previewExpanded));
-        if (isGuideOrderActive) {
-            previewStrip.addEventListener('focusout', (event) => {
-                const nextFocus = event.relatedTarget;
-                if (!(nextFocus instanceof Node) || !previewStrip.contains(nextFocus)) setExpanded(false);
-            });
-        }
-
-        previewSummary.append(previewSummaryText, previewToggle);
-        previewStrip.append(previewSummary, previewPanel);
-        ctx.contentEl.appendChild(previewStrip);
-
-        const detailFocusables = [...activeControls, previewToggle];
-        const footerOptions = isGuideOrderActive ? {
-            onFocus: (id: string): void => {
-                if (id !== previewToggle.id) setExpanded(false);
-            },
-        } : {};
-        this._renderFooterActions(ctx, deps, state, categoryButtons, detailFocusables, footerOptions);
+        this._renderFooterActions(ctx, deps, state, categoryButtons, activeControls);
     }
 
     private _renderCategoryRail(
@@ -536,97 +470,12 @@ export class StrategyStepController {
         return activeOrder.some((key, index) => key !== defaultOrder[index]);
     }
 
-    private _renderPreviewPanel(deps: StrategyStepDeps, state: StrategyStepDeps['state']): HTMLElement {
-        const previewPanel = document.createElement('div');
-        previewPanel.id = state.previewPanelId;
-        previewPanel.className = 'setup-preview';
-        previewPanel.setAttribute('role', 'region');
-
-        const previewTitleId = `${state.previewPanelId}-title`;
-        previewPanel.setAttribute('aria-labelledby', previewTitleId);
-
-        const previewTitle = document.createElement('div');
-        previewTitle.id = previewTitleId;
-        previewTitle.className = 'setup-preview-title';
-        previewTitle.textContent = 'Estimate';
-        previewPanel.appendChild(previewTitle);
-
-        if (state.previewError) {
-            const error = document.createElement('div');
-            error.className = 'setup-preview-warning';
-            if (state.previewStatus === 'blocked') {
-                error.textContent = formatChannelSetupUserCopy(state.previewError, 'estimate');
-            } else if (state.previewStatus === 'slow') {
-                error.textContent = `Preview timed out: ${formatChannelSetupUserCopy(state.previewError, 'estimate')}`;
-            } else {
-                error.textContent = formatChannelSetupUserCopy(state.previewError, 'estimate');
-            }
-            previewPanel.appendChild(error);
-            return previewPanel;
-        }
-
-        if (state.preview) {
-            const { estimates, warnings, reachedMaxChannels } = state.preview;
-
-            const rows = document.createElement('div');
-            rows.className = 'setup-preview-rows';
-            rows.appendChild(deps.buildPreviewRow('Total planned', estimates.total, 'total'));
-            for (const key of ORDERED_PREVIEW_STRATEGY_KEYS) {
-                rows.appendChild(deps.buildPreviewRow(STRATEGY_META[key].label, estimates[key], key));
-            }
-            previewPanel.appendChild(rows);
-
-            if (state.isPreviewLoading) {
-                const updating = document.createElement('div');
-                updating.className = 'setup-preview-updating';
-                updating.classList.add('panel-spinner');
-                updating.textContent = 'Updating...';
-                previewPanel.appendChild(updating);
-            }
-
-            if (reachedMaxChannels) {
-                const cap = document.createElement('div');
-                cap.className = 'setup-preview-warning';
-                cap.textContent = 'Reached max channel limit; extra channels will be skipped.';
-                previewPanel.appendChild(cap);
-            }
-
-            if (warnings.length > 0) {
-                const warningList = document.createElement('div');
-                warningList.className = 'setup-preview-warnings';
-                deps.renderCappedWarnings(warnings.map(formatChannelSetupWarningCopy), warningList);
-                previewPanel.appendChild(warningList);
-            }
-
-            return previewPanel;
-        }
-
-        if (state.isPreviewLoading) {
-            const loading = document.createElement('div');
-            loading.className = 'setup-preview-loading';
-            loading.classList.add('panel-spinner');
-            loading.textContent = 'Estimating channels...';
-            previewPanel.appendChild(loading);
-            return previewPanel;
-        }
-
-        const empty = document.createElement('div');
-        empty.className = 'setup-preview-empty';
-        empty.textContent = 'Estimates will appear after a short pause.';
-        previewPanel.appendChild(empty);
-        return previewPanel;
-    }
-
     private _renderFooterActions(
         ctx: StepRenderContext,
         deps: StrategyStepDeps,
         state: StrategyStepDeps['state'],
         categoryButtons: HTMLButtonElement[],
-        activeControls: HTMLButtonElement[],
-        options: {
-            onFocus?: (id: string) => void;
-            onDetailFocus?: (id: string) => void;
-        } = {}
+        activeControls: HTMLButtonElement[]
     ): void {
         const actions = document.createElement('div');
         actions.className = 'button-row';
@@ -654,12 +503,9 @@ export class StrategyStepController {
             categoryButtons,
             activeControls,
             backButton,
-            nextButton,
-            Object.keys(options).length > 0 ? options : undefined
+            nextButton
         );
 
         ctx.detailEl.textContent = deps.detailText;
-        deps.schedulePreview();
-        deps.preloadReview();
     }
 }

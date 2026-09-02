@@ -106,7 +106,7 @@ export function packageWebos({
     }
     mkdirSync(outputDir, { recursive: true });
 
-    const result = crossSpawn.sync(aresPackage, [distDir, '-o', outputDir], {
+    const result = crossSpawn.sync(aresPackage, ['--no-minify', distDir, '-o', outputDir], {
         encoding: 'utf8',
         timeout: timeoutMs,
         windowsHide: true,

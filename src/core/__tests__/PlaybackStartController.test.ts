@@ -78,7 +78,7 @@ describe('PlaybackStartController', () => {
         const program = makeProgram();
         const { controller, deps, videoPlayer } = makeSetup();
 
-        await controller.handleProgramStart(program);
+        await expect(controller.handleProgramStart(program)).resolves.toEqual({ kind: 'started' });
 
         expect(deps.markProgramStarting).toHaveBeenCalledWith(program);
         expect(deps.handleProgramStartUiSideEffects).toHaveBeenCalledWith(program);
@@ -125,7 +125,7 @@ describe('PlaybackStartController', () => {
             tryHandleStreamResolverPermissionError: jest.fn().mockReturnValue(true),
         });
 
-        await controller.handleProgramStart(makeProgram());
+        await expect(controller.handleProgramStart(makeProgram())).resolves.toEqual({ kind: 'failed' });
 
         expect(deps.tryHandleStreamResolverAuthError).toHaveBeenCalledWith(permissionError);
         expect(deps.tryHandleStreamResolverPermissionError).toHaveBeenCalledWith(permissionError);
@@ -304,7 +304,7 @@ describe('PlaybackStartController', () => {
         (videoPlayer.loadStream as jest.Mock).mockRejectedValueOnce(loadError);
         deps.attemptTranscodeFallbackForCurrentProgram.mockResolvedValueOnce(true);
 
-        await controller.handleProgramStart(makeProgram());
+        await expect(controller.handleProgramStart(makeProgram())).resolves.toEqual({ kind: 'started' });
 
         expect(deps.logPlaybackStartFailure).toHaveBeenCalledWith(loadError);
         expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith(
@@ -319,7 +319,7 @@ describe('PlaybackStartController', () => {
         const { controller, deps, videoPlayer } = makeSetup();
         (videoPlayer.loadStream as jest.Mock).mockRejectedValueOnce(loadError);
 
-        await controller.handleProgramStart(makeProgram());
+        await expect(controller.handleProgramStart(makeProgram())).resolves.toEqual({ kind: 'failed' });
 
         expect(deps.attemptTranscodeFallbackForCurrentProgram).toHaveBeenCalledWith(
             'programStart',

@@ -506,7 +506,11 @@ function expandPlaybackVariants(
     const variantLabel = variantType === 'sequential' ? 'Sequential' : 'Block';
     const withVariants: PendingChannel[] = [...channels];
     for (const channel of channels) {
-        if (variantType === 'sequential' && (channel.lineupReplicaIndex ?? 0) > 0) {
+        if (
+            (channel.lineupReplicaIndex ?? 0) > 0
+            || channel.buildStrategy === 'actors'
+            || channel.buildStrategy === 'directors'
+        ) {
             continue;
         }
         const isSeriesDerived = isSeriesDerivedChannel(channel, showLibraryIds);

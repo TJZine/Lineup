@@ -1269,15 +1269,29 @@ export class AppOrchestrator {
         return this._channelSwitchRuntime.switchToChannelWithOutcome(channelId, options);
     }
 
-    async switchToChannelByNumber(number: number, options?: { signal?: AbortSignal }): Promise<void> {
+    async switchToChannelByNumber(
+        number: number,
+        options?: import('../channel-tuning').ChannelSwitchOptions
+    ): Promise<void> {
         await this._channelSwitchRuntime.switchToChannelByNumber(number, options);
     }
 
     async switchToChannelByNumberWithOutcome(
         number: number,
-        options?: { signal?: AbortSignal }
+        options?: import('../channel-tuning').ChannelSwitchOptions
     ): Promise<ChannelSwitchOutcome> {
         return this._channelSwitchRuntime.switchToChannelByNumberWithOutcome(number, options);
+    }
+
+    appendBuilderGuideDiagnostic(event: string, data: unknown): void {
+        this._issueDiagnosticsStore.append('channel-builder-guide-transition', event, data);
+    }
+
+    waitForNextPlaybackStart(
+        signal?: AbortSignal
+    ): Promise<import('../../types/playbackStart').PlaybackStartOutcome> {
+        this._assertNotShutdown('waitForNextPlaybackStart');
+        return this._requirePlaybackRuntimeController().waitForNextProgramStart(signal);
     }
 
     openEPG(): void {

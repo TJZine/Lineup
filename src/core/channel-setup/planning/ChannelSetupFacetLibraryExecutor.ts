@@ -28,7 +28,7 @@ import {
     CHANNEL_SETUP_NATIVE_FACET_FAMILY_DESCRIPTORS,
 } from './ChannelSetupFacetFamilies';
 import { shouldLoadNativeFacetForLibrary } from './ChannelSetupNativeFacetEligibility';
-import { buildChannelSetupPeopleSeriesIndexForLibrary } from './ChannelSetupPeopleSeriesIndex';
+import { buildChannelSetupPeopleIndexForLibrary } from './ChannelSetupPeopleSeriesIndex';
 import type {
     ChannelSetupFacetSnapshot,
     ChannelSetupPlexRequestIntent,
@@ -137,7 +137,7 @@ export class ChannelSetupFacetLibraryExecutor {
                 this._options.abortSiblingRequests();
                 return countRecoveryFailure;
             }
-            await this._loadPeopleSeriesIndex(library, librarySignal, libraryFailureStopRequested);
+            await this._loadPeopleIndex(library, librarySignal, libraryFailureStopRequested);
             return null;
         } finally {
             removeLibrarySignalForwarder?.();
@@ -291,13 +291,13 @@ export class ChannelSetupFacetLibraryExecutor {
                 };
             });
     }
-    private async _loadPeopleSeriesIndex(library: PlexLibrarySection, librarySignal: AbortSignal, libraryFailureStopRequested: () => boolean): Promise<void> {
-        if (library.type !== 'show' || !this._requiresPeopleSeriesIndex() || libraryFailureStopRequested() || this._options.failureStopRequested()) {
+    private async _loadPeopleIndex(library: PlexLibrarySection, librarySignal: AbortSignal, libraryFailureStopRequested: () => boolean): Promise<void> {
+        if (!this._requiresPeopleIndex(library) || libraryFailureStopRequested() || this._options.failureStopRequested()) {
             return;
         }
         const startedAt = performance.now();
         try {
-            const index = await buildChannelSetupPeopleSeriesIndexForLibrary({
+            const index = await buildChannelSetupPeopleIndexForLibrary({
                 plexLibrary: this._options.plexLibrary,
                 library,
                 signal: librarySignal,
@@ -314,15 +314,39 @@ export class ChannelSetupFacetLibraryExecutor {
             if (this._options.failureStopRequested() || libraryFailureStopRequested()) {
                 return;
             }
-            console.warn(`Failed to build TV people breadth index for ${library.title}:`, summarizeErrorForLog(error));
+            const warningLabel = library.type === 'show'
+                ? 'TV people breadth index'
+                : 'Movie people item index';
+            const skippedChannelLabel = library.type === 'show'
+                ? 'actor/director TV channels'
+                : 'actor/director channels';
+            console.warn(`Failed to build ${warningLabel} for ${library.title}:`, summarizeErrorForLog(error));
             this._options.loadState.markWarningOnlyTransientLoadFailure();
-            this._options.addPartialWarning('scan_library_items', `TV people breadth index failed for ${library.title}; actor/director TV channels from this library were skipped`, error);
+            this._options.addPartialWarning(
+                'scan_library_items',
+                `${warningLabel} failed for ${library.title}; ${skippedChannelLabel} from this library were skipped`,
+                error
+            );
         } finally {
             this._options.loadState.addLibraryQueryMs(performance.now() - startedAt);
         }
     }
-    private _requiresPeopleSeriesIndex(): boolean {
-        return this._options.config.strategyConfig.actors.enabled || this._options.config.strategyConfig.directors.enabled;
+    private _requiresPeopleIndex(library: PlexLibrarySection): boolean {
+        const actorsEnabled = this._options.config.strategyConfig.actors.enabled;
+        const directorsEnabled = this._options.config.strategyConfig.directors.enabled;
+        if (library.type === 'show') {
+            return actorsEnabled || directorsEnabled;
+        }
+        if (library.type !== 'movie') {
+            return false;
+        }
+        return (
+            actorsEnabled
+            && (this._options.loadState.actorsByLibraryId.get(library.id) ?? []).some((tag) => tag.count === null)
+        ) || (
+            directorsEnabled
+            && (this._options.loadState.directorsByLibraryId.get(library.id) ?? []).some((tag) => tag.count === null)
+        );
     }
     private _fetchNativeFacetTags(
         descriptor: ChannelSetupNativeFacetFamilyDescriptor,
@@ -417,6 +441,9 @@ export class ChannelSetupFacetLibraryExecutor {
         libraryFailureStopRequested: () => boolean,
         countRecoveryLimiter: FacetCountRecoveryLimiter
     ): Promise<ChannelSetupFacetSnapshot | null> {
+        if (definition.family === 'actors' || definition.family === 'directors') {
+            return null;
+        }
         const tags = definition.tagsByLibraryId.get(library.id) ?? [];
         if (tags.length === 0) {
             return null;

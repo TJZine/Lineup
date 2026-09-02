@@ -802,9 +802,9 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
         let countRequestIndex = 0;
         const loader = new ChannelSetupFacetSnapshotLoader({
             plexLibrary: createPlexLibrary({
-                getActors: jest.fn().mockResolvedValue([
-                    { key: 'actor-1', title: 'Alex Actor', count: null },
-                    { key: 'actor-2', title: 'Blair Actor', count: null },
+                getStudios: jest.fn().mockResolvedValue([
+                    { key: 'studio-1', title: 'Studio One', count: null },
+                    { key: 'studio-2', title: 'Studio Two', count: null },
                 ]),
                 getLibraryItemCount: jest.fn().mockImplementation((_libraryId, options) => {
                     countRequestIndex++;
@@ -827,7 +827,7 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
                     strategyConfig: {
                         ...createConfig().strategyConfig,
                         genres: { enabled: false, priority: 3, scope: 'per-library' },
-                        actors: { enabled: true, priority: 8, scope: 'per-library' },
+                        studios: { enabled: true, priority: 7, scope: 'per-library' },
                     },
                 }),
                 [createLibrary()],
@@ -859,9 +859,9 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
         });
         const loader = new ChannelSetupFacetSnapshotLoader({
             plexLibrary: createPlexLibrary({
-                getActors: jest.fn().mockResolvedValue([
-                    { key: 'actor-1', title: 'Alex Actor', count: null },
-                    { key: 'actor-2', title: 'Blair Actor', count: null },
+                getStudios: jest.fn().mockResolvedValue([
+                    { key: 'studio-1', title: 'Studio One', count: null },
+                    { key: 'studio-2', title: 'Studio Two', count: null },
                 ]),
                 getLibraryItemCount: jest.fn().mockImplementation((_libraryId, options) => {
                     countRequestIndex++;
@@ -886,7 +886,7 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
                     strategyConfig: {
                         ...createConfig().strategyConfig,
                         genres: { enabled: false, priority: 3, scope: 'per-library' },
-                        actors: { enabled: true, priority: 8, scope: 'per-library' },
+                        studios: { enabled: true, priority: 7, scope: 'per-library' },
                     },
                 }),
                 [createLibrary()],
@@ -902,7 +902,7 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
             resolveFirstCount(null);
             await expect(loadPromise).resolves.toMatchObject({
                 status: 'blocked',
-                message: expect.stringContaining('actor count unavailable for Alex Actor'),
+                message: expect.stringContaining('studio count unavailable for Studio One'),
             });
         } finally {
             warnSpy.mockRestore();
@@ -915,8 +915,8 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
         let maxActiveCountRequests = 0;
         const loader = new ChannelSetupFacetSnapshotLoader({
             plexLibrary: createPlexLibrary({
-                getActors: jest.fn().mockResolvedValue([
-                    { key: 'actor-1', title: 'Alex Actor', count: null },
+                getGenres: jest.fn().mockResolvedValue([
+                    { key: 'genre-1', title: 'Genre One', count: null },
                 ]),
                 getStudios: jest.fn().mockResolvedValue([
                     { key: 'studio-1', title: 'Studio One', count: null },
@@ -938,9 +938,8 @@ describe('ChannelSetupFacetSnapshotLoader', () => {
             createConfig({
                 strategyConfig: {
                     ...createConfig().strategyConfig,
-                    genres: { enabled: false, priority: 3, scope: 'per-library' },
                     studios: { enabled: true, priority: 7, scope: 'per-library' },
-                    actors: { enabled: true, priority: 8, scope: 'per-library' },
+                    genres: { enabled: true, priority: 3, scope: 'per-library' },
                 },
             }),
             [createLibrary()],

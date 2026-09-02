@@ -1072,7 +1072,8 @@ function buildPerLibraryActorStudioStrategyBucket(
             strategy, tagsByLibraryId, categoryKey: (_sourceLibrary, tag) => tag.key,
             baseSource: (sourceLibrary, tag) => createLibrarySource(sourceLibrary, buildChannelSetupTagFilter(tag, tagType)),
         });
-        for (const candidate of candidates) {
+        const orderedCandidates = strategy === 'actors' ? sortCategoryCandidates(candidates) : candidates;
+        for (const candidate of orderedCandidates) {
             addStrategyChannel(state, strategy, {
                 name: `${candidate.categoryLabel} - ${library.title}`,
                 contentSource: candidate.baseSource,
@@ -1117,7 +1118,8 @@ async function buildPerLibraryActorStudioStrategyBucketCooperatively(
                     buildChannelSetupTagFilter(tag, tagType)
                 ),
             }, iterationCheckpoint);
-        for (const candidate of candidates) {
+        const orderedCandidates = strategy === 'actors' ? sortCategoryCandidates(candidates) : candidates;
+        for (const candidate of orderedCandidates) {
             addStrategyChannel(state, strategy, {
                 name: `${candidate.categoryLabel} - ${library.title}`,
                 contentSource: candidate.baseSource,

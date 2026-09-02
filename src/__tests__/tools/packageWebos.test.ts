@@ -133,6 +133,7 @@ describe('package-webos public CLI', () => {
         const cli = writeFakeCli(root, [
             "import { writeFileSync } from 'node:fs';",
             "import path from 'node:path';",
+            "if (!process.argv.includes('--no-minify')) process.exit(18);",
             "const output = process.argv[process.argv.indexOf('-o') + 1];",
             "writeFileSync(path.join(output, 'com.lineup.app_1.0.0_all.ipk'), 'ipk');",
         ].join('\n'));
@@ -147,7 +148,8 @@ describe('package-webos public CLI', () => {
         const cli = writeFakeCli(root, [
             "import { writeFileSync } from 'node:fs';",
             "import path from 'node:path';",
-            "const [dist, , output] = process.argv.slice(2);",
+            "const dist = process.argv[process.argv.indexOf('--no-minify') + 1];",
+            "const output = process.argv[process.argv.indexOf('-o') + 1];",
             "writeFileSync(path.join(output, 'com.lineup.app_1.0.0_all.ipk'), 'ipk');",
             "writeFileSync(path.join(dist, 'assets/app.js'), 'mutated');",
         ].join('\n'));

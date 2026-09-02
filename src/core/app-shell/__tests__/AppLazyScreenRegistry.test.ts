@@ -120,7 +120,9 @@ const makePortFactory = (): PortFactoryLike => ({
             getSelectedServerId: jest.fn().mockReturnValue(null),
             openServerSelect: jest.fn(),
             switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
+            waitForNextPlaybackStart: jest.fn().mockResolvedValue({ kind: 'started' }),
             openEPG: jest.fn(),
+            appendBuilderGuideDiagnostic: jest.fn(),
         },
     })),
     createSettingsRuntimePorts: jest.fn((): AppLazySettingsRuntimePorts => ({

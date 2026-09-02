@@ -14,7 +14,7 @@ import {
     createMockPlexLibrary,
     type FacetPlanningConfigOverrides,
 } from './ChannelSetupFacetPlanningTestHelpers';
-import { PlexLibraryScopeSupersededError } from '../../../modules/plex/library';
+import { PlexLibraryScopeSupersededError, type PlexMediaItem } from '../../../modules/plex/library';
 import { createDeferred } from '../../../__tests__/helpers';
 
 const createConfig = (overrides: FacetPlanningConfigOverrides = {}): ChannelSetupConfig => createFacetPlanningConfig({
@@ -38,6 +38,26 @@ const createFailureBuilder = (
     addWarning: (message) => loadState.addWarning(message),
     incrementErrors: () => loadState.incrementErrors(),
     snapshotData: (hasTransientLoadFailure) => loadState.snapshotData(hasTransientLoadFailure, getLastTask()),
+});
+
+const createMovie = (
+    ratingKey: string,
+    people: { actors?: string[]; directors?: string[] } = {}
+): PlexMediaItem => ({
+    ratingKey,
+    key: `/library/metadata/${ratingKey}`,
+    type: 'movie',
+    title: ratingKey,
+    sortTitle: ratingKey,
+    summary: '',
+    year: 2024,
+    durationMs: 1000,
+    addedAt: new Date(0),
+    updatedAt: new Date(0),
+    thumb: null,
+    art: null,
+    media: [],
+    ...people,
 });
 
 describe('ChannelSetupFacetLibraryExecutor', () => {
@@ -110,7 +130,7 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
         const siblingSettled = createDeferred<void>();
         const signals: AbortSignal[] = [];
         plexLibrary.getGenres.mockResolvedValue([{ key: 'genre-1', title: 'Comedy', count: null }]);
-        plexLibrary.getDirectors.mockResolvedValue([{ key: 'director-1', title: 'Director', count: null }]);
+        plexLibrary.getStudios.mockResolvedValue([{ key: 'studio-1', title: 'Studio', count: null }]);
         plexLibrary.getLibraryItemCount.mockImplementation((_libraryId, options) => {
             const signal = options?.signal;
             if (!signal) throw new Error('Expected count recovery signal');
@@ -129,7 +149,7 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
             strategyConfig: {
                 ...baseConfig.strategyConfig,
                 genres: { enabled: true, priority: 3, scope: 'per-library' },
-                directors: { enabled: true, priority: 4, scope: 'per-library' },
+                studios: { enabled: true, priority: 7, scope: 'per-library' },
             },
         });
 
@@ -167,6 +187,128 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
             'lib-1',
             expect.objectContaining({ filter: { type: 4 } })
         );
+    });
+
+    it('skips TV actor and director count recovery while preserving the people-series index', async () => {
+        const loadState = new ChannelSetupFacetSnapshotLoadState();
+        const plexLibrary = createMockPlexLibrary();
+        const episode: PlexMediaItem = {
+            ratingKey: 'episode-1',
+            key: '/library/metadata/episode-1',
+            type: 'episode',
+            title: 'Episode 1',
+            sortTitle: 'Episode 1',
+            summary: '',
+            year: 2024,
+            durationMs: 1000,
+            addedAt: new Date(0),
+            updatedAt: new Date(0),
+            thumb: null,
+            art: null,
+            grandparentRatingKey: 'series-1',
+            actors: ['Alex Actor'],
+            directors: ['Dana Director'],
+            media: [],
+        };
+        plexLibrary.getActors.mockResolvedValue([
+            { key: 'actor-1', title: 'Alex Actor', count: null },
+        ]);
+        plexLibrary.getDirectors.mockResolvedValue([
+            { key: 'director-1', title: 'Dana Director', count: null },
+        ]);
+        plexLibrary.getLibraryItems.mockResolvedValue([episode]);
+        const baseConfig = createConfig();
+        const config = createConfig({
+            strategyConfig: {
+                ...baseConfig.strategyConfig,
+                actors: { enabled: true, priority: 8, scope: 'per-library' },
+                directors: { enabled: true, priority: 4, scope: 'per-library' },
+            },
+        });
+
+        await expect(createExecutor(plexLibrary, config, loadState).loadLibraryFacets(
+            createFacetPlanningLibrary({ type: 'show', title: 'Shows', contentCount: 1 }),
+            0
+        )).resolves.toBeNull();
+
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalled();
+        expect(loadState.actorsByLibraryId.get('lib-1')).toEqual([
+            { key: 'actor-1', title: 'Alex Actor', count: null },
+        ]);
+        expect(loadState.directorsByLibraryId.get('lib-1')).toEqual([
+            { key: 'director-1', title: 'Dana Director', count: null },
+        ]);
+        expect(loadState.peopleSeriesIndexByLibraryId.get('lib-1')?.actorsByName.get('alex actor'))
+            .toEqual({ title: 'Alex Actor', episodeCount: 1, distinctSeriesCount: 1 });
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledWith('lib-1', expect.objectContaining({
+            filter: { type: 4 },
+        }));
+    });
+
+    it('uses one shared movie scan and no per-person count recovery for unknown actors and directors', async () => {
+        const loadState = new ChannelSetupFacetSnapshotLoadState();
+        const plexLibrary = createMockPlexLibrary();
+        plexLibrary.getActors.mockResolvedValue([
+            { key: 'actor-1', title: 'Alex Actor', count: null },
+        ]);
+        plexLibrary.getDirectors.mockResolvedValue([
+            { key: 'director-1', title: 'Dana Director', count: null },
+        ]);
+        plexLibrary.getLibraryItems.mockResolvedValue([
+            createMovie('movie-1', { actors: ['Alex Actor'], directors: ['Dana Director'] }),
+            createMovie('movie-2', { actors: ['Alex Actor'] }),
+        ]);
+        const baseConfig = createConfig();
+        const config = createConfig({
+            strategyConfig: {
+                ...baseConfig.strategyConfig,
+                actors: { enabled: true, priority: 8, scope: 'per-library' },
+                directors: { enabled: true, priority: 4, scope: 'per-library' },
+            },
+        });
+
+        await expect(createExecutor(plexLibrary, config, loadState)
+            .loadLibraryFacets(createFacetPlanningLibrary(), 0)).resolves.toBeNull();
+
+        expect(loadState.actorsByLibraryId.get('lib-1')).toEqual([
+            { key: 'actor-1', title: 'Alex Actor', count: null },
+        ]);
+        expect(loadState.directorsByLibraryId.get('lib-1')).toEqual([
+            { key: 'director-1', title: 'Dana Director', count: null },
+        ]);
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalled();
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledWith('lib-1', expect.objectContaining({
+            filter: { type: 1 },
+        }));
+        expect(loadState.peopleSeriesIndexByLibraryId.get('lib-1')?.actorsByName.get('alex actor'))
+            .toEqual({ title: 'Alex Actor', episodeCount: 2, distinctSeriesCount: 0 });
+        expect(loadState.peopleSeriesIndexByLibraryId.get('lib-1')?.directorsByName.get('dana director'))
+            .toEqual({ title: 'Dana Director', episodeCount: 1, distinctSeriesCount: 0 });
+    });
+
+    it('avoids a movie scan when all enabled people tag counts are known', async () => {
+        const plexLibrary = createMockPlexLibrary();
+        plexLibrary.getActors.mockResolvedValue([
+            { key: 'actor-1', title: 'Alex Actor', count: 8 },
+        ]);
+        plexLibrary.getDirectors.mockResolvedValue([
+            { key: 'director-1', title: 'Dana Director', count: 6 },
+        ]);
+        const baseConfig = createConfig();
+        const config = createConfig({
+            strategyConfig: {
+                ...baseConfig.strategyConfig,
+                actors: { enabled: true, priority: 8, scope: 'per-library' },
+                directors: { enabled: true, priority: 4, scope: 'per-library' },
+            },
+        });
+
+        await expect(createExecutor(plexLibrary, config)
+            .loadLibraryFacets(createFacetPlanningLibrary(), 0)).resolves.toBeNull();
+
+        expect(plexLibrary.getLibraryItems).not.toHaveBeenCalled();
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalled();
     });
 
     it('hydrates unknown native facet counts through count recovery without changing loaded tags', async () => {

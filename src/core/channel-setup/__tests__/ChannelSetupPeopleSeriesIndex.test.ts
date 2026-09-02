@@ -1,5 +1,7 @@
 import type { PlexLibrarySection, PlexMediaItem } from '../../../modules/plex/library';
 import {
+    createPeopleIndexFromItems,
+    createPeopleIndexFromItemsCooperatively,
     createPeopleSeriesIndexFromEpisodes,
     createPeopleSeriesIndexFromEpisodesCooperatively,
 } from '../planning/ChannelSetupPeopleSeriesIndex';
@@ -37,6 +39,35 @@ const createEpisodes = (count: number): PlexMediaItem[] => Array.from({ length: 
     media: [],
 } as PlexMediaItem));
 
+const movieLibrary: PlexLibrarySection = {
+    ...library,
+    id: 'movies',
+    uuid: 'movies-uuid',
+    title: 'Movies',
+    type: 'movie',
+};
+
+const createMovie = (
+    ratingKey: string,
+    people: { actors?: string[]; directors?: string[] }
+): PlexMediaItem => ({
+    ratingKey,
+    key: `/library/metadata/${ratingKey}`,
+    type: 'movie',
+    title: ratingKey,
+    sortTitle: ratingKey,
+    summary: '',
+    year: 2024,
+    durationMs: 1000,
+    addedAt: new Date(0),
+    updatedAt: new Date(0),
+    thumb: null,
+    art: null,
+    media: [],
+    ...(people.actors ? { actors: people.actors } : {}),
+    ...(people.directors ? { directors: people.directors } : {}),
+});
+
 describe('ChannelSetupPeopleSeriesIndex cooperative planning', () => {
     afterEach(() => {
         jest.useRealTimers();
@@ -71,5 +102,44 @@ describe('ChannelSetupPeopleSeriesIndex cooperative planning', () => {
         abortController.abort();
 
         await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    });
+
+    it('counts each movie once per normalized person and keeps sync/cooperative results identical', async () => {
+        const movies = [
+            createMovie('movie-1', {
+                actors: [' Alex Actor ', 'alex actor', ''],
+                directors: ['Dana Director'],
+            }),
+            createMovie('movie-2', {
+                actors: ['Alex Actor'],
+                directors: ['Dana Director', 'Other Director'],
+            }),
+        ];
+        const expected = createPeopleIndexFromItems(movieLibrary, movies);
+
+        const actual = await createPeopleIndexFromItemsCooperatively(
+            movieLibrary,
+            movies,
+            async (): Promise<void> => undefined
+        );
+
+        expect(actual).toEqual(expected);
+        expect(actual.actorsByName.get('alex actor')).toEqual({
+            title: 'Alex Actor',
+            episodeCount: 2,
+            distinctSeriesCount: 0,
+        });
+        expect(actual.directorsByName.get('dana director')?.episodeCount).toBe(2);
+    });
+
+    it('ignores missing and malformed movie people metadata without creating entries', () => {
+        const malformed = createMovie('movie-1', {
+            actors: [null, undefined, 42, '  '] as unknown as string[],
+        });
+
+        const index = createPeopleIndexFromItems(movieLibrary, [malformed]);
+
+        expect(index.actorsByName.size).toBe(0);
+        expect(index.directorsByName.size).toBe(0);
     });
 });

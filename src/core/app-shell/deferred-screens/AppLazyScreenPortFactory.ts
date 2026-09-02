@@ -8,7 +8,8 @@ import type {
 } from '../../../modules/ui/server-select';
 import type { GuideSettingChange, SettingsPersistenceResult } from '../../../modules/ui/settings/types';
 import type { ThemeName } from '../../../modules/ui/theme';
-import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
+import type { ChannelSwitchOutcome, ChannelSwitchPresentationOptions } from '../../../types/channelSwitch';
+import type { PlaybackStartOutcome } from '../../../types/playbackStart';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
@@ -43,8 +44,13 @@ interface AppShellChannelSetupRuntimeSource {
     getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
     getSelectedServerId(): string | null;
     openServerSelect(): void;
-    switchToChannelByNumberWithOutcome(number: number, options?: { signal?: AbortSignal }): Promise<ChannelSwitchOutcome>;
+    switchToChannelByNumberWithOutcome(
+        number: number,
+        options?: ChannelSwitchPresentationOptions
+    ): Promise<ChannelSwitchOutcome>;
+    waitForNextPlaybackStart(signal?: AbortSignal): Promise<PlaybackStartOutcome>;
     openEPG(): void;
+    appendBuilderGuideDiagnostic(event: string, data: unknown): void;
 }
 
 export const createChannelSetupRuntimePort = (
@@ -61,7 +67,10 @@ export const createChannelSetupRuntimePort = (
         openServerSelect: () => runtime.openServerSelect(),
         switchToChannelByNumberWithOutcome: (number, options) =>
             runtime.switchToChannelByNumberWithOutcome(number, options),
+        waitForNextPlaybackStart: (signal) => runtime.waitForNextPlaybackStart(signal),
         openEPG: () => runtime.openEPG(),
+        appendBuilderGuideDiagnostic: (event, data) =>
+            runtime.appendBuilderGuideDiagnostic(event, data),
     };
 };
 
@@ -189,7 +198,10 @@ export class AppLazyScreenPortFactory {
                 openServerSelect: () => runtime.openServerSelect(),
                 switchToChannelByNumberWithOutcome: (number, options) =>
                     runtime.switchToChannelByNumberWithOutcome(number, options),
+                waitForNextPlaybackStart: (signal) => runtime.waitForNextPlaybackStart(signal),
                 openEPG: () => runtime.openEPG(),
+                appendBuilderGuideDiagnostic: (event, data) =>
+                    runtime.appendBuilderGuideDiagnostic(event, data),
             },
         };
     }

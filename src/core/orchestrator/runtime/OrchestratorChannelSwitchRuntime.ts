@@ -99,7 +99,7 @@ export class OrchestratorChannelSwitchRuntime {
 
     async switchToChannelByNumber(
         number: number,
-        options?: { signal?: AbortSignal }
+        options?: ChannelSwitchOptions
     ): Promise<void> {
         this._deps.assertNotShutdown('switchToChannelByNumber');
         const channelTuning = this._deps.getChannelTuning();
@@ -113,7 +113,7 @@ export class OrchestratorChannelSwitchRuntime {
 
     async switchToChannelByNumberWithOutcome(
         number: number,
-        options?: { signal?: AbortSignal }
+        options?: ChannelSwitchOptions
     ): Promise<ChannelSwitchOutcome> {
         this._deps.assertNotShutdown('switchToChannelByNumber');
         const channelTuning = this._deps.getChannelTuning();

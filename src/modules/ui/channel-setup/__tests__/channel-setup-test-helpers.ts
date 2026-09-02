@@ -188,7 +188,9 @@ export const createScreenPorts = (
     getSelectedServerId: jest.fn(() => 'server-1'),
     openServerSelect: jest.fn(),
     switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
+    waitForNextPlaybackStart: jest.fn().mockResolvedValue({ kind: 'started' }),
     openEPG: jest.fn(),
+    appendBuilderGuideDiagnostic: jest.fn(),
     ...overrides,
 });
 

@@ -32,7 +32,6 @@ export class ChannelSetupScreen {
     private _preferredFocusId: string | null = null;
     private _visibilityToken = 0;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
-    private _previewPanelId = 'setup-preview-panel';
 
     private _resetStepUi(statusText: string): void {
         this._dropdown.reset();
@@ -95,7 +94,6 @@ export class ChannelSetupScreen {
             dropdown: this._dropdown,
             screenPorts: this._screenPorts,
             contentEl: this._contentEl,
-            previewPanelId: this._previewPanelId,
             getPreferredFocusId: (): string | null => this._preferredFocusId,
             setPreferredFocusId: (focusId): void => {
                 this._preferredFocusId = focusId;
@@ -108,6 +106,14 @@ export class ChannelSetupScreen {
                 this._resetStep2ScrollContainers();
             },
             toDomId: (raw): string => raw.replace(/[^a-zA-Z0-9_-]/g, '_'),
+            revealPlayerProvisionally: (): void => {
+                this._container.style.display = 'none';
+                this._container.classList.remove('visible');
+            },
+            restoreSetupAfterProvisionalReveal: (): void => {
+                this._container.style.display = 'flex';
+                this._container.classList.add('visible');
+            },
         });
         this._libraryStepPresenter = new LibraryStepPresenter({
             session: this._session,
@@ -126,6 +132,7 @@ export class ChannelSetupScreen {
 
     destroy(): void {
         this.hide();
+        this._workflowPresenter.dispose();
         this._destroyScreenShell?.();
         this._destroyScreenShell = null;
     }
@@ -180,6 +187,7 @@ export class ChannelSetupScreen {
     }
 
     hide(): void {
+        this._workflowPresenter.cancelDoneTransition();
         this._visibilityToken += 1;
         this._resetStepUi('');
         this._session.endSession();

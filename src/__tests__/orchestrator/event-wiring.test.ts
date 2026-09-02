@@ -108,7 +108,7 @@ const makeBinder = (overrides: Partial<OrchestratorEventBinderDeps> = {}): Binde
         getChannelManager: () => channelManager,
         wireNavigationCoordinatorEvents: () => [navigationCleanup],
         wireEpgCoordinatorEvents: () => [epgCleanup],
-        handleProgramStartTracked: jest.fn(async () => undefined),
+        handleProgramStartTracked: jest.fn(async () => ({ kind: 'started' } as const)),
         handleScheduleDayRollover: jest.fn(async () => undefined),
         handlePlayerEnded: jest.fn(),
         handlePlayerTrackChange: jest.fn(),

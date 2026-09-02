@@ -1,6 +1,5 @@
 import { DEFAULT_CHANNEL_SETUP_MAX, MAX_CHANNELS } from '../../scheduler/channel-manager/constants';
 import type { INavigationManager, KeyEvent } from '../../navigation/contracts/interfaces';
-import { isAbortLikeError, summarizeErrorForLog } from '../../../utils/errors';
 import { ChannelSetupDropdownController } from './ChannelSetupDropdownController';
 import { ChannelSetupSessionController } from './ChannelSetupSessionController';
 import {
@@ -36,13 +35,14 @@ export class ChannelSetupWorkflowPresenter {
             dropdown: ChannelSetupDropdownController;
             screenPorts: ChannelSetupScreenPorts;
             contentEl: HTMLElement;
-            previewPanelId: string;
             getPreferredFocusId: () => string | null;
             setPreferredFocusId: (focusId: string | null) => void;
             getVisibilityToken: () => number;
             renderStep: () => void;
             resetStep2Scroll: () => void;
             toDomId: (raw: string) => string;
+            revealPlayerProvisionally: () => void;
+            restoreSetupAfterProvisionalReveal: () => void;
         }
     ) {
         this._strategyInteraction = new StrategyStepInteractionController({
@@ -66,6 +66,14 @@ export class ChannelSetupWorkflowPresenter {
         });
     }
 
+    cancelDoneTransition(): void {
+        this._buildStep.cancelDoneTransition();
+    }
+
+    dispose(): void {
+        this._buildStep.dispose();
+    }
+
     handleStrategyKeyPress(event: KeyEvent, nav: INavigationManager): void {
         this._strategyInteraction.handleKeyPress(event, nav, this._createStrategyInteractionAdapters());
     }
@@ -86,11 +94,6 @@ export class ChannelSetupWorkflowPresenter {
                 maxChannels: session.maxChannels,
                 minItems: session.minItems,
                 setupContext: session.setupContext,
-                previewPanelId: this._deps.previewPanelId,
-                preview: session.preview,
-                previewError: session.previewError,
-                previewStatus: session.previewStatus,
-                isPreviewLoading: session.isPreviewLoading,
             },
             strategyKeys: SETUP_STRATEGY_KEYS,
             categoryButtonId: (category) => this._strategyInteraction.categoryButtonId(category),
@@ -100,11 +103,6 @@ export class ChannelSetupWorkflowPresenter {
             grabbedPriorityKey: this._strategyInteraction.getGrabbedPriorityKey(),
             scopeButtonId: (strategy) => this._strategyInteraction.scopeButtonId(strategy),
             strategySupportsMixedScope,
-            buildPreviewRow: (label, value, key) =>
-                this._buildStep.buildPreviewRow(this._deps.session.getSnapshot(), label, value, key),
-            renderCappedWarnings: (warnings, container) => {
-                this._buildStep.renderCappedPreviewWarnings(warnings, container);
-            },
             applyCategoryChange: (category, focusId) => {
                 this._strategyInteraction.applyCategoryChange(category, focusId, strategyInteraction);
             },
@@ -144,55 +142,8 @@ export class ChannelSetupWorkflowPresenter {
             detailText: session.strategies.genres.enabled || session.strategies.directors.enabled
                 ? 'Performance warning: may be slow on large libraries.'
                 : '',
-            schedulePreview: () => strategyInteraction.schedulePreview(),
-            preloadReview: () => this._preloadReviewFromStep2(),
         });
         this._setPriorityRowGrabbedVisual(this._strategyInteraction.getGrabbedPriorityKey(), true);
-    }
-
-    private _preloadReviewFromStep2(): void {
-        const session = this._deps.session.getSnapshot();
-        if (!this._shouldPreloadReview(session)) {
-            return;
-        }
-
-        const token = this._deps.getVisibilityToken();
-        void Promise.resolve()
-            .then(() => {
-                const current = this._deps.session.getSnapshot();
-                if (
-                    token !== this._deps.getVisibilityToken()
-                    || !this._shouldPreloadReview(current)
-                ) {
-                    return;
-                }
-                return this._deps.session.ensureReviewLoaded(() => {
-                    const latest = this._deps.session.getSnapshot();
-                    if (
-                        token !== this._deps.getVisibilityToken()
-                        || latest.step !== 3
-                    ) {
-                        return;
-                    }
-                    this._deps.renderStep();
-                });
-            })
-            .catch((error: unknown) => {
-                if (isAbortLikeError(error)) return;
-                console.warn('Preload review failed:', summarizeErrorForLog(error));
-            });
-    }
-
-    private _shouldPreloadReview(session: ChannelSetupSessionSnapshot): boolean {
-        return session.step === 2
-            && session.recordApplied
-            && session.setupContext === 'existing'
-            && session.previewStatus === 'ready'
-            && session.preview !== null
-            && !session.isBuilding
-            && !session.isReviewLoading
-            && !session.review
-            && !session.reviewError;
     }
 
     renderBuildStep(ctx: StepRenderContext): void {
@@ -204,6 +155,8 @@ export class ChannelSetupWorkflowPresenter {
             setPreferredFocusId: this._deps.setPreferredFocusId,
             getVisibilityToken: this._deps.getVisibilityToken,
             renderStep: this._deps.renderStep,
+            revealPlayerProvisionally: this._deps.revealPlayerProvisionally,
+            restoreSetupAfterProvisionalReveal: this._deps.restoreSetupAfterProvisionalReveal,
         });
     }
 
@@ -226,19 +179,10 @@ export class ChannelSetupWorkflowPresenter {
             registerStep2: (options: RegisterStep2FocusOptions): boolean => this._deps.focus.registerStep2(options),
             renderStep: this._deps.renderStep,
             resetStep2Scroll: this._deps.resetStep2Scroll,
-            schedulePreview: (): void => {
-                this._deps.session.schedulePreview(() => this._deps.renderStep());
-            },
             setPreferredFocusId: this._deps.setPreferredFocusId,
             setPriorityRowGrabbedVisual: (strategy: SetupStrategyKey | null, grabbed: boolean): void => {
                 this._setPriorityRowGrabbedVisual(strategy, grabbed);
             },
-            stepPreset: (
-                options: number[],
-                current: number,
-                dir: 'left' | 'right',
-                mode: 'clamp' | 'wrap'
-            ): number => stepPreset(options, current, dir, mode),
             updateStrategyState: (mutate: (draft: StrategyStepMutableState) => void): void => {
                 this._deps.session.updateStrategyState(mutate);
             },
@@ -262,41 +206,3 @@ export class ChannelSetupWorkflowPresenter {
         el?.setAttribute('aria-grabbed', grabbed ? 'true' : 'false');
     }
 }
-
-const getNearestOptionIndex = (options: number[], current: number): number => {
-    const first = options[0];
-    if (first === undefined) return -1;
-    let nearestIndex = 0;
-    let smallestDiff = Math.abs(first - current);
-    for (let i = 1; i < options.length; i++) {
-        const option = options[i];
-        if (option === undefined) continue;
-        const diff = Math.abs(option - current);
-        if (diff < smallestDiff) {
-            smallestDiff = diff;
-            nearestIndex = i;
-        }
-    }
-    return nearestIndex;
-};
-
-const stepPreset = (
-    options: number[],
-    current: number,
-    dir: 'left' | 'right',
-    mode: 'clamp' | 'wrap'
-): number => {
-    if (options.length === 0) return current;
-    const currentIndex = options.indexOf(current);
-    const baseIndex = currentIndex >= 0 ? currentIndex : getNearestOptionIndex(options, current);
-    if (baseIndex < 0) return current;
-    const lastIndex = options.length - 1;
-    const nextIndex = mode === 'wrap'
-        ? dir === 'left'
-            ? (baseIndex - 1 + options.length) % options.length
-            : (baseIndex + 1) % options.length
-        : dir === 'left'
-            ? Math.max(0, baseIndex - 1)
-            : Math.min(lastIndex, baseIndex + 1);
-    return options[nextIndex] ?? current;
-};

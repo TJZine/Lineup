@@ -29,7 +29,6 @@ export type StrategyControlDescriptor = {
     currentValue: (session: ChannelSetupSessionSnapshot) => StrategyControlValue;
     stateText: (state: StrategyStepStateSnapshot) => string;
     applyValue: (draft: StrategyStepMutableState, value: StrategyControlValue) => void;
-    cycleMode?: 'discrete' | 'preset';
     isDisabled?: (session: ChannelSetupSessionSnapshot | StrategyStepStateSnapshot) => boolean;
     isSelected?: (state: StrategyStepStateSnapshot) => boolean;
 };
@@ -99,8 +98,8 @@ export const STRATEGY_CONTROL_DESCRIPTORS: readonly StrategyControlDescriptor[] 
     },
     {
         controlId: STEP2_CONTROL_IDS.seriesVariantType,
-        label: 'Variant Type',
-        meta: 'Optional extra series channel mode.',
+        label: 'Extra Series Channel',
+        meta: 'Adds one different playback-order variant per eligible base TV category; excludes actor/director channels and alternate copies.',
         options: (): readonly StrategyControlValue[] => SERIES_VARIANT_TYPE_OPTIONS,
         currentValue: (session): StrategyControlValue => session.channelExpansion.variantType,
         stateText: (state): string => {
@@ -119,8 +118,8 @@ export const STRATEGY_CONTROL_DESCRIPTORS: readonly StrategyControlDescriptor[] 
     },
     {
         controlId: STEP2_CONTROL_IDS.seriesVariantBlockSize,
-        label: 'Variant Block Size',
-        meta: 'Block size for generated block variants.',
+        label: 'Extra Series Block Size',
+        meta: 'Episodes per show in the extra block-order channel.',
         options: (): readonly StrategyControlValue[] => SERIES_BLOCK_PRESETS,
         currentValue: (session): StrategyControlValue => session.channelExpansion.variantBlockSize,
         stateText: (state): string => String(state.channelExpansion.variantBlockSize),
@@ -139,7 +138,6 @@ export const STRATEGY_CONTROL_DESCRIPTORS: readonly StrategyControlDescriptor[] 
         applyValue: (draft, value): void => {
             draft.maxChannels = Number(value);
         },
-        cycleMode: 'preset',
     },
     {
         controlId: STEP2_CONTROL_IDS.minItems,
@@ -151,7 +149,6 @@ export const STRATEGY_CONTROL_DESCRIPTORS: readonly StrategyControlDescriptor[] 
         applyValue: (draft, value): void => {
             draft.minItems = Number(value);
         },
-        cycleMode: 'preset',
     },
 ];
 

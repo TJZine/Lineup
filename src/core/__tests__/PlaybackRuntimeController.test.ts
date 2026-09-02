@@ -11,6 +11,7 @@ import {
     type PlaybackRuntimeControllerDeps,
 } from '../orchestrator/priority-one/PlaybackRuntimeController';
 import type { OrchestratorPlaybackStateAccessors } from '../orchestrator/runtime/OrchestratorPlaybackStateAccessors';
+import type { PlaybackStartOutcome } from '../../types/playbackStart';
 
 const requiredPlaybackPreparationStubs = {
     resolveStreamForProgram: jest.fn(),
@@ -488,17 +489,67 @@ describe('PlaybackRuntimeController', () => {
 
     it('trackProgramStart stores and returns the provided promise', async () => {
         const { controller } = makeSetup();
-        const deferred = createDeferred<void>();
+        const deferred = createDeferred<PlaybackStartOutcome>();
 
         expect(controller.trackProgramStart(deferred.promise)).toBe(deferred.promise);
 
-        deferred.resolve(undefined);
+        deferred.resolve({ kind: 'started' });
         await deferred.promise;
+    });
+
+    it('waits for the next tracked program start and returns its settlement', async () => {
+        const { controller } = makeSetup();
+        const start = createDeferred<PlaybackStartOutcome>();
+        let settled = false;
+        const wait = controller.waitForNextProgramStart().then((outcome) => {
+            settled = true;
+            return outcome;
+        });
+
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        controller.trackProgramStart(start.promise);
+        start.resolve({ kind: 'started' });
+
+        await expect(wait).resolves.toEqual({ kind: 'started' });
+    });
+
+    it('sanitizes a rejected tracked start as failed for its waiter', async () => {
+        const { controller } = makeSetup();
+        const start = createDeferred<PlaybackStartOutcome>();
+        const wait = controller.waitForNextProgramStart();
+        controller.trackProgramStart(start.promise);
+
+        start.reject(new Error('private playback failure'));
+
+        await expect(wait).resolves.toEqual({ kind: 'failed' });
+        await expect(start.promise).rejects.toThrow('private playback failure');
+    });
+
+    it('passes through a sanitized failed start settlement', async () => {
+        const { controller } = makeSetup();
+        const wait = controller.waitForNextProgramStart();
+
+        controller.trackProgramStart(Promise.resolve({ kind: 'failed' }));
+
+        await expect(wait).resolves.toEqual({ kind: 'failed' });
+        await Promise.resolve();
+        expect(controller.isOverlayReopenSafe()).toBe(true);
+    });
+
+    it('supersedes the prior waiter when a newer caller waits', async () => {
+        const { controller } = makeSetup();
+        const first = controller.waitForNextProgramStart();
+        const second = controller.waitForNextProgramStart();
+
+        await expect(first).resolves.toEqual({ kind: 'superseded' });
+        controller.trackProgramStart(Promise.resolve({ kind: 'started' }));
+        await expect(second).resolves.toEqual({ kind: 'started' });
     });
 
     it('clears pending overlay readiness and tracked promise when the active program start rejects', async () => {
         const { controller, deps, callOrder } = makeSetup();
-        const deferred = createDeferred<void>();
+        const deferred = createDeferred<PlaybackStartOutcome>();
         const error = new Error('program start failed');
 
         const tracked = controller.trackProgramStart(deferred.promise);
@@ -532,8 +583,8 @@ describe('PlaybackRuntimeController', () => {
 
     it('ignores rejection cleanup from an older program start after a newer one is tracked', async () => {
         const { controller } = makeSetup();
-        const older = createDeferred<void>();
-        const newer = createDeferred<void>();
+        const older = createDeferred<PlaybackStartOutcome>();
+        const newer = createDeferred<PlaybackStartOutcome>();
         const olderError = new Error('older program start failed');
 
         controller.trackProgramStart(older.promise);
@@ -547,7 +598,7 @@ describe('PlaybackRuntimeController', () => {
         expect(controller.isOverlayReopenSafe()).toBe(false);
         expect(controller.getOverlayReadinessSnapshot().pendingReason).toBe('program-start');
 
-        newer.resolve(undefined);
+        newer.resolve({ kind: 'started' });
         await newer.promise;
 
         expect(controller.isOverlayReopenSafe()).toBe(false);
@@ -570,7 +621,7 @@ describe('PlaybackRuntimeController', () => {
 
     it('marks overlay reopen as unsafe after a program start until playback returns to playing', () => {
         const { controller } = makeSetup();
-        const deferred = createDeferred<void>();
+        const deferred = createDeferred<PlaybackStartOutcome>();
         const paused: PlaybackState = {
             status: 'paused',
             currentTimeMs: 1000,
@@ -601,7 +652,7 @@ describe('PlaybackRuntimeController', () => {
 
     it('exposes overlay readiness snapshot timing for phase-1 proof instrumentation', () => {
         const { controller } = makeSetup();
-        const deferred = createDeferred<void>();
+        const deferred = createDeferred<PlaybackStartOutcome>();
         const before = controller.getOverlayReadinessSnapshot();
         expect(before.pendingReason).toBe('none');
         expect(before.pendingSinceMs).toBeNull();
@@ -647,8 +698,8 @@ describe('PlaybackRuntimeController', () => {
     });
 
     it('handleLifecycleResume awaits a newer tracked program start triggered during sync and skips play', async () => {
-        const originalStart = createDeferred<void>();
-        const replacementStart = createDeferred<void>();
+        const originalStart = createDeferred<PlaybackStartOutcome>();
+        const replacementStart = createDeferred<PlaybackStartOutcome>();
         const { controller, deps } = makeSetup((callOrder) => ({
             schedulerRuntime: {
                 ...makeSchedulerRuntimeMocks(callOrder),
@@ -666,12 +717,12 @@ describe('PlaybackRuntimeController', () => {
         expect(deps.schedulerRuntime.syncSchedulerToCurrentTime).toHaveBeenCalledTimes(1);
         expect(deps.playback.playPlayer).not.toHaveBeenCalled();
 
-        replacementStart.resolve(undefined);
+        replacementStart.resolve({ kind: 'started' });
         await resumePromise;
 
         expect(deps.playback.playPlayer).not.toHaveBeenCalled();
 
-        originalStart.resolve(undefined);
+        originalStart.resolve({ kind: 'superseded' });
         await originalStart.promise;
     });
 
