@@ -12,8 +12,7 @@ const rootStylesheets = [
     './styles/themes.css',
     './styles/video.css',
 ];
-const featureStylesheets = [
-    'epg',
+const eagerFeatureStylesheets = [
     'now-playing-info',
     'player-osd',
     'channel-number-overlay',
@@ -23,17 +22,20 @@ const featureStylesheets = [
     'playback-options',
     'exit-confirm',
     'settings',
-    'profile-select',
-    'server-select',
-    'audio-setup',
-    'channel-setup',
 ].map((feature) => `./modules/ui/${feature}/styles.css`);
-const stylesheetSeams = [...rootStylesheets, ...featureStylesheets, './styles/shell.css'];
+const stylesheetSeams = [...rootStylesheets, ...eagerFeatureStylesheets, './styles/shell.css'];
+const deferredStyleOwners = new Map([
+    ['modules/ui/profile-select/index.ts', './styles.css'],
+    ['modules/ui/server-select/index.ts', './styles.css'],
+    ['modules/ui/audio-setup/index.ts', './styles.css'],
+    ['modules/ui/channel-setup/index.ts', './styles.css'],
+    ['modules/ui/epg/component/EPGComponent.ts', '../styles.css'],
+]);
 
-function getSideEffectStylesheetImports(): string[] {
+function getSideEffectStylesheetImports(sourcePath: string = indexPath): string[] {
     const source = ts.createSourceFile(
-        indexPath,
-        readFileSync(indexPath, 'utf8'),
+        sourcePath,
+        readFileSync(sourcePath, 'utf8'),
         ts.ScriptTarget.Latest,
         true,
         ts.ScriptKind.TS
@@ -66,6 +68,13 @@ describe('src/index', () => {
 
     it('composes only root-owned stylesheets and feature stylesheet seams', () => {
         expect(getSideEffectStylesheetImports()).toEqual(stylesheetSeams);
+    });
+
+    it('loads deferred feature styles from their concrete dynamic module owners', () => {
+        for (const [relativePath, stylesheet] of deferredStyleOwners) {
+            const ownerPath = path.resolve(__dirname, '..', relativePath);
+            expect(getSideEffectStylesheetImports(ownerPath)).toEqual([stylesheet]);
+        }
     });
 
     it('installs the lineup bootstrap exactly once on direct module import', async () => {

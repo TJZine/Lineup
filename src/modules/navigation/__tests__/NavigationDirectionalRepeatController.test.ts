@@ -49,6 +49,15 @@ describe('NavigationDirectionalRepeatController', () => {
         expect(tryMoveFocus).toHaveBeenCalledTimes(1);
     });
 
+    it('stops immediately when the first move reaches a bounded edge', () => {
+        tryMoveFocus.mockReturnValue(false);
+
+        controller.handleDirectionalKeyDown('up', false);
+        jest.advanceTimersByTime(1000);
+
+        expect(tryMoveFocus).toHaveBeenCalledTimes(1);
+    });
+
     it('does not start repeat on key repeat events', () => {
         controller.handleDirectionalKeyDown('up', true);
 

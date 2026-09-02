@@ -62,6 +62,7 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
             reportSnapshotProgress: jest.fn(),
             addPartialWarning: (task, detail, error): void => loadState.addPartialWarning(task, detail, error),
             abortSiblingRequests: jest.fn(),
+            checkpoint: async (): Promise<void> => undefined,
         });
     };
 
@@ -193,6 +194,7 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
             reportSnapshotProgress,
             addPartialWarning: (task, detail, error): void => loadState.addPartialWarning(task, detail, error),
             abortSiblingRequests: jest.fn(),
+            checkpoint: async (): Promise<void> => undefined,
         });
 
         await expect(executor.loadLibraryFacets(createFacetPlanningLibrary(), 0)).resolves.toBeNull();
@@ -208,6 +210,21 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
         expect(reportSnapshotProgress).toHaveBeenCalledWith(expect.objectContaining({
             task: 'scan_library_items',
             detail: 'Movies',
+        }));
+    });
+
+    it('requires facet-directory entries when the library item count is unknown', async () => {
+        const plexLibrary = createMockPlexLibrary();
+        plexLibrary.getGenres.mockResolvedValue([
+            { key: 'genre-1', title: 'Comedy', count: 3 },
+        ]);
+        const executor = createExecutor(plexLibrary, createEnabledGenreConfig());
+
+        await expect(executor.loadLibraryFacets(createFacetPlanningLibrary({ contentCount: null }), 0))
+            .resolves.toBeNull();
+
+        expect(plexLibrary.getGenres).toHaveBeenCalledWith('lib-1', expect.objectContaining({
+            requireEntries: true,
         }));
     });
 
@@ -236,6 +253,7 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
             reportSnapshotProgress: jest.fn(),
             addPartialWarning: (task, detail, error): void => loadState.addPartialWarning(task, detail, error),
             abortSiblingRequests,
+            checkpoint: async (): Promise<void> => undefined,
         });
 
         try {

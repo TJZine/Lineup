@@ -3,6 +3,7 @@
  */
 
 import { createDropdownPopover } from '../CreateDropdownPopover';
+import { NavigationManager } from '../../../navigation';
 
 type StubFocusable = {
     id: string;
@@ -55,6 +56,8 @@ const defineRect = (element: HTMLElement, rect: Partial<DOMRect>): void => {
 };
 
 describe('createDropdownPopover', () => {
+    const navigationManagers: NavigationManager[] = [];
+
     beforeEach(() => {
         Object.defineProperty(window, 'innerHeight', {
             configurable: true,
@@ -63,17 +66,35 @@ describe('createDropdownPopover', () => {
     });
 
     afterEach(() => {
+        for (const navigation of navigationManagers) {
+            navigation.destroy();
+        }
+        navigationManagers.length = 0;
         document.body.innerHTML = '';
         jest.restoreAllMocks();
     });
 
+    const createRealNavigation = (): NavigationManager => {
+        const navigation = new NavigationManager();
+        navigation.initialize({
+            enablePointerMode: true,
+            keyRepeatDelayMs: 500,
+            keyRepeatIntervalMs: 100,
+            focusMemoryEnabled: true,
+            debugMode: false,
+        });
+        navigationManagers.push(navigation);
+        return navigation;
+    };
+
     it('renders options with role="option" and container with role="listbox"', () => {
         const container = document.createElement('div');
         const anchor = document.createElement('button');
+        anchor.id = 'settings-layout';
         document.body.append(container);
         container.append(anchor);
 
-        createDropdownPopover({
+        const dropdown = createDropdownPopover({
             anchor,
             container,
             options: makeOptions(3),
@@ -87,6 +108,13 @@ describe('createDropdownPopover', () => {
 
         expect(container.querySelector('#settings-dropdown')?.getAttribute('role')).toBe('listbox');
         expect(container.querySelectorAll('.settings-dropdown-option[role="option"]')).toHaveLength(3);
+        expect(container.querySelector('#settings-dropdown')?.id).toBe('settings-dropdown');
+        expect(anchor.getAttribute('aria-haspopup')).toBe('listbox');
+        expect(anchor.getAttribute('aria-controls')).toBe('settings-dropdown');
+        expect(anchor.getAttribute('aria-expanded')).toBe('true');
+
+        dropdown.destroy();
+        expect(anchor.getAttribute('aria-expanded')).toBe('false');
     });
 
     it('marks current value with aria-selected and selected css modifier', () => {
@@ -140,6 +168,205 @@ describe('createDropdownPopover', () => {
         expect(onSelect).toHaveBeenCalledWith('2');
     });
 
+    it('uses NavigationManager activation exactly once for a pointer option click', () => {
+        const container = document.createElement('div');
+        const anchor = document.createElement('button');
+        anchor.id = 'settings-layout';
+        const nav = createRealNavigation();
+        const onSelect = jest.fn();
+        document.body.append(container);
+        container.append(anchor);
+
+        nav.registerFocusable({ id: anchor.id, element: anchor, neighbors: {} });
+        nav.setFocus(anchor.id);
+        const dropdown = createDropdownPopover({
+            anchor,
+            container,
+            options: makeOptions(2),
+            currentValue: '0',
+            onSelect,
+            onDismiss: () => {},
+            nav,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        });
+
+        const option = container.querySelector('#settings-dropdown-option-1');
+        if (!(option instanceof HTMLButtonElement)) {
+            throw new Error('Expected option button');
+        }
+        option.click();
+
+        expect(onSelect).toHaveBeenCalledTimes(1);
+        expect(onSelect).toHaveBeenCalledWith('1');
+        dropdown.destroy();
+    });
+
+    it('contains background pointer activation and restores the anchor on dismissal', () => {
+        const container = document.createElement('div');
+        const anchor = document.createElement('button');
+        anchor.id = 'settings-layout';
+        const background = document.createElement('button');
+        background.id = 'settings-background';
+        const backgroundSelect = jest.fn();
+        const onDismiss = jest.fn();
+        const nav = createRealNavigation();
+        document.body.append(container);
+        container.append(anchor, background);
+
+        nav.registerFocusable({ id: anchor.id, element: anchor, neighbors: {} });
+        nav.registerFocusable({
+            id: background.id,
+            element: background,
+            neighbors: {},
+            onSelect: backgroundSelect,
+        });
+        nav.setFocus(anchor.id);
+        const closeModalSpy = jest.spyOn(nav, 'closeModal');
+        const dropdown = createDropdownPopover({
+            anchor,
+            container,
+            options: makeOptions(2),
+            currentValue: '0',
+            onSelect: () => {},
+            onDismiss,
+            nav,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        });
+
+        expect(nav.isModalOpen('settings-dropdown-modal')).toBe(true);
+        expect(nav.getState().focusedElementId).toBe('settings-dropdown-option-0');
+
+        background.click();
+
+        expect(backgroundSelect).not.toHaveBeenCalled();
+        expect(nav.getState().focusedElementId).toBe('settings-dropdown-option-0');
+
+        dropdown.dismiss();
+
+        expect(onDismiss).toHaveBeenCalledTimes(1);
+        expect(closeModalSpy).toHaveBeenCalledTimes(1);
+        expect(nav.isModalOpen('settings-dropdown-modal')).toBe(false);
+        expect(nav.getState().focusedElementId).toBe(anchor.id);
+        expect(anchor.getAttribute('aria-expanded')).toBe('false');
+
+        dropdown.destroy();
+        expect(closeModalSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not open an expanded popup when options are empty', () => {
+        const container = document.createElement('div');
+        const anchor = document.createElement('button');
+        const onDismiss = jest.fn();
+        document.body.append(container);
+        container.append(anchor);
+
+        const dropdown = createDropdownPopover({
+            anchor,
+            container,
+            options: [],
+            currentValue: '',
+            onSelect: jest.fn(),
+            onDismiss,
+            nav: null,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        });
+
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+        expect(anchor.getAttribute('aria-expanded')).not.toBe('true');
+        dropdown.dismiss();
+        expect(onDismiss).not.toHaveBeenCalled();
+    });
+
+    it('leaves a same-class replacement intact when the stale handle is destroyed', () => {
+        const container = document.createElement('div');
+        const anchor = document.createElement('button');
+        const nav = createNavigationStub();
+        const firstDismiss = jest.fn();
+        document.body.append(container);
+        container.append(anchor);
+
+        const first = createDropdownPopover({
+            anchor,
+            container,
+            options: makeOptions(2),
+            currentValue: '0',
+            onSelect: () => {},
+            onDismiss: firstDismiss,
+            nav,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        });
+        const replacement = createDropdownPopover({
+            anchor,
+            container,
+            options: makeOptions(3),
+            currentValue: '2',
+            onSelect: () => {},
+            onDismiss: () => {},
+            nav,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        });
+
+        first.destroy();
+        first.dismiss();
+
+        expect(firstDismiss).not.toHaveBeenCalled();
+        expect(container.querySelectorAll('#settings-dropdown-option-2')).toHaveLength(1);
+        expect(nav.focusables.has('settings-dropdown-option-2')).toBe(true);
+        expect(anchor.getAttribute('aria-expanded')).toBe('true');
+
+        replacement.destroy();
+        expect(container.querySelector('#settings-dropdown')).toBeNull();
+    });
+
+    it('does not let a stale handle close a replacement modal', () => {
+        const container = document.createElement('div');
+        const anchor = document.createElement('button');
+        anchor.id = 'settings-layout';
+        const nav = createRealNavigation();
+        document.body.append(container);
+        container.append(anchor);
+        nav.registerFocusable({ id: anchor.id, element: anchor, neighbors: {} });
+        nav.setFocus(anchor.id);
+
+        const first = createDropdownPopover({
+            anchor,
+            container,
+            options: makeOptions(2),
+            currentValue: '0',
+            onSelect: () => {},
+            onDismiss: () => {},
+            nav,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        });
+        const closeModalSpy = jest.spyOn(nav, 'closeModal');
+        const replacement = createDropdownPopover({
+            anchor,
+            container,
+            options: makeOptions(2),
+            currentValue: '1',
+            onSelect: () => {},
+            onDismiss: () => {},
+            nav,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        });
+
+        expect(closeModalSpy).toHaveBeenCalledTimes(1);
+        first.destroy();
+        expect(closeModalSpy).toHaveBeenCalledTimes(1);
+        expect(nav.isModalOpen('settings-dropdown-modal')).toBe(true);
+        expect(nav.getState().focusedElementId).toBe('settings-dropdown-option-1');
+
+        replacement.destroy();
+        expect(closeModalSpy).toHaveBeenCalledTimes(2);
+    });
+
     it('registers D-pad focusables when nav is provided', () => {
         const container = document.createElement('div');
         const anchor = document.createElement('button');
@@ -163,6 +390,31 @@ describe('createDropdownPopover', () => {
         expect(nav.focusables.get('settings-dropdown-option-1')?.neighbors.up).toBe('settings-dropdown-option-0');
         expect(nav.focusables.get('settings-dropdown-option-1')?.neighbors.down).toBe('settings-dropdown-option-2');
         expect(nav.setFocus).toHaveBeenCalledWith('settings-dropdown-option-1');
+    });
+
+    it('self-loops vertical edges so focus cannot escape the dropdown', () => {
+        const container = document.createElement('div');
+        const anchor = document.createElement('button');
+        const nav = createNavigationStub();
+        document.body.append(container);
+        container.append(anchor);
+
+        createDropdownPopover({
+            anchor,
+            container,
+            options: makeOptions(3),
+            currentValue: '1',
+            onSelect: () => {},
+            onDismiss: () => {},
+            nav,
+            cssClass: 'settings-dropdown',
+            optionCssClass: 'settings-dropdown-option',
+        });
+
+        expect(nav.focusables.get('settings-dropdown-option-0')?.neighbors.up)
+            .toBe('settings-dropdown-option-0');
+        expect(nav.focusables.get('settings-dropdown-option-2')?.neighbors.down)
+            .toBe('settings-dropdown-option-2');
     });
 
     it('keeps left and right navigation trapped on the focused dropdown option', () => {

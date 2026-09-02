@@ -4,8 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
+    buildMeasurementReport,
+    parseOptions,
     summarizeBundle,
     summarizeTimingSamples,
+    validateBuildProvenance,
 } from '../measure-runtime-chunk-performance.mjs';
 
 function writeAsset(distDir, relativePath, byteCount) {
@@ -34,7 +37,7 @@ function writeFixture(tempRoot) {
     writeAsset(distDir, 'assets/index-entry.js', 100);
     writeAsset(distDir, 'assets/index-static.js', 40);
     writeAsset(distDir, 'assets/index.css', 30);
-    writeAsset(distDir, 'assets/Orchestrator-test.js', 500);
+    writeAsset(distDir, 'assets/AppOrchestrator-test.js', 500);
 
     writeFileSync(
         path.join(distDir, 'bundle-stats.json'),
@@ -72,19 +75,19 @@ function writeFixture(tempRoot) {
                 },
                 orchestrator: {
                     id: '/src/core/orchestrator/AppOrchestrator.ts',
-                    moduleParts: { 'assets/Orchestrator-test.js': 'orchestrator-part' },
+                    moduleParts: { 'assets/AppOrchestrator-test.js': 'orchestrator-part' },
                     imported: [],
                     importedBy: [],
                 },
                 plex: {
                     id: '/src/modules/plex/library/PlexLibrary.ts',
-                    moduleParts: { 'assets/Orchestrator-test.js': 'plex-part' },
+                    moduleParts: { 'assets/AppOrchestrator-test.js': 'plex-part' },
                     imported: [],
                     importedBy: [],
                 },
                 player: {
                     id: '/src/modules/player/VideoPlayer.ts',
-                    moduleParts: { 'assets/Orchestrator-test.js': 'player-part' },
+                    moduleParts: { 'assets/AppOrchestrator-test.js': 'player-part' },
                     imported: [],
                     importedBy: [],
                 },
@@ -105,7 +108,7 @@ test('summarizeBundle reports runtime chunk bytes and top attribution', () => {
         assert.equal(summary.entry_js_bytes, 140);
         assert.equal(summary.bootstrap_entry_bytes, 100);
         assert.equal(summary.eager_css_bytes, 30);
-        assert.equal(summary.runtime_chunk_file, 'assets/Orchestrator-test.js');
+        assert.equal(summary.runtime_chunk_file, 'assets/AppOrchestrator-test.js');
         assert.equal(summary.runtime_chunk_bytes, 500);
         assert.equal(summary.top_modules[0].path, 'src/modules/plex/library/PlexLibrary.ts');
         assert.equal(summary.top_modules[0].rendered_bytes, 120);
@@ -116,6 +119,72 @@ test('summarizeBundle reports runtime chunk bytes and top attribution', () => {
     } finally {
         rmSync(tempRoot, { recursive: true, force: true });
     }
+});
+
+test('parseOptions defaults timing collection to the TV viewport', () => {
+    const options = parseOptions([]);
+
+    assert.equal(options.viewport, '1920x1080');
+    assert.equal(options.runs, 7);
+    assert.equal(options.cachePolicy, 'cold');
+});
+
+test('buildMeasurementReport contains measured evidence without a speculative disposition', () => {
+    const buildProvenance = {
+        schema_version: 1,
+        build_profile: 'lean',
+        git_head: 'abc123',
+        source_fingerprint_sha256: 'def456',
+        relevant_dirty_summary: '',
+    };
+    const report = buildMeasurementReport({
+        buildProfile: 'lean',
+        buildProvenance,
+        gitHead: 'abc123',
+        gitDirtySummary: '',
+        nodeVersion: 'v24.0.0',
+        timestamp: '2026-08-30T00:00:00.000Z',
+        bundle: { runtime_chunk_file: 'assets/AppOrchestrator-test.js' },
+        timing: { runtime_import_ms: { median: 10, min: 10, max: 10 } },
+        url: 'http://127.0.0.1:5173/',
+        browserUserAgent: 'test-browser',
+        viewport: '1920x1080',
+        cachePolicy: 'cold',
+        runCount: 7,
+    });
+
+    assert.equal(report.bundle.runtime_chunk_file, 'assets/AppOrchestrator-test.js');
+    assert.deepEqual(report.build_provenance, buildProvenance);
+    assert.equal(report.timing.runtime_import_ms.median, 10);
+    assert.equal('disposition' in report, false);
+});
+
+test('validateBuildProvenance accepts only the matching source state and profile', () => {
+    const source = {
+        schema_version: 1,
+        git_head: 'abc123',
+        source_fingerprint_sha256: 'def456',
+        relevant_dirty_summary: '',
+    };
+    const build = { ...source, build_profile: 'lean' };
+
+    assert.equal(validateBuildProvenance(build, source, 'lean'), build);
+    assert.throws(
+        () => validateBuildProvenance({ ...build, git_head: 'other' }, source, 'lean'),
+        /different commit/u
+    );
+    assert.throws(
+        () => validateBuildProvenance({ ...build, source_fingerprint_sha256: 'other' }, source, 'lean'),
+        /does not match the current build-relevant source state/u
+    );
+    assert.throws(
+        () => validateBuildProvenance({ ...build, build_profile: 'dev' }, source, 'lean'),
+        /measurement expects lean/u
+    );
+    assert.throws(
+        () => validateBuildProvenance({}, source, 'lean'),
+        /unsupported schema/u
+    );
 });
 
 test('summarizeTimingSamples requires every RC-S1 timing field', () => {

@@ -452,6 +452,41 @@ describe('verify-bundle', () => {
         expect(result.stderr).not.toContain('Bootstrap-containing startup entry');
     });
 
+    it('fails when eager startup CSS reaches the byte guard', () => {
+        const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-bundle-'));
+        tempRoots.push(tempRoot);
+
+        const distDir = writeBundleFixture(
+            tempRoot,
+            [
+                htmlEntryFixture(),
+                {
+                    uid: 'index',
+                    id: moduleId('src/index'),
+                    chunk: 'assets/main.js',
+                    imported: [{ uid: 'bootstrap' }],
+                },
+                {
+                    uid: 'bootstrap',
+                    id: moduleId('src/bootstrap'),
+                    chunk: 'assets/main.js',
+                },
+                ...requiredDeferredModuleFixtures(),
+            ],
+            {
+                'assets/main.js': 100,
+                'assets/main.css': 100000,
+                ...Object.fromEntries(requiredDeferredModules.map((_modulePath, index) => [`assets/deferred-${index}.js`, 10])),
+            }
+        );
+
+        const result = runVerifier(distDir);
+
+        expect(result.status).toBe(1);
+        expect(result.stdout).toContain('eager CSS bytes: 100000');
+        expect(result.stderr).toContain('Eager startup CSS is 100000 bytes');
+    });
+
     it('stops when an HTML module script cannot be mapped to bundle metadata', () => {
         const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'lineup-verify-bundle-'));
         tempRoots.push(tempRoot);

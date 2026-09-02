@@ -2,6 +2,11 @@ import type { LifecycleAppError } from '../../../modules/lifecycle/types';
 import type { INavigationManager, NavigationModalPolicy } from '../../../modules/navigation';
 import { emitBestEffortWarning, summarizeErrorForLog } from '../../../utils/errors';
 
+const DEFAULT_BLOCKING_ERROR_MODAL_POLICY: NavigationModalPolicy = {
+    dismissOnBack: true,
+    blocksBackgroundCommands: true,
+};
+
 export interface BlockingErrorOverlayAction {
     id?: string;
     label: string;
@@ -144,7 +149,7 @@ export class AppBlockingErrorOverlayPresenter {
         nav?.cancelPendingChannelInput();
         this._presentationVersion += 1;
         this._actionPending = false;
-        this._modalPolicy = options?.modalPolicy;
+        this._modalPolicy = options?.modalPolicy ?? DEFAULT_BLOCKING_ERROR_MODAL_POLICY;
         this._container.removeAttribute('aria-busy');
         const modalWasOpen = nav?.isModalOpen(this._modalId) ?? false;
         if (nav && modalWasOpen) {
@@ -158,7 +163,7 @@ export class AppBlockingErrorOverlayPresenter {
         this._render(error, actions);
         this._container.classList.remove('hidden');
 
-        if (nav && this._focusableIds.length > 0) {
+        if (nav) {
             if (this._modalCloseHandler === null) {
                 this._modalCloseHandler = ({ modalId }): void => {
                     if (modalId !== this._modalId) {
@@ -169,11 +174,7 @@ export class AppBlockingErrorOverlayPresenter {
             }
             nav.on('modalClose', this._modalCloseHandler);
             if (!nav.isModalOpen(this._modalId)) {
-                if (this._modalPolicy) {
-                    nav.openModal(this._modalId, this._focusableIds, this._modalPolicy);
-                } else {
-                    nav.openModal(this._modalId, this._focusableIds);
-                }
+                nav.openModal(this._modalId, this._focusableIds, this._modalPolicy);
             }
             const preferred = this._preferredFocusId ?? this._focusableIds[0] ?? null;
             if (preferred) {

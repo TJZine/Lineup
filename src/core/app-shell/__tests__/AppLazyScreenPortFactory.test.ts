@@ -53,6 +53,7 @@ type MockRuntimeOrchestrator = {
 
 const createScreenWorkflowPort = (): jest.Mocked<ChannelSetupScreenWorkflowPort> => ({
     invalidateFacetSnapshot: jest.fn(),
+    invalidateSessionData: jest.fn(),
     getLibrariesForSetup: jest.fn((_signal?: AbortSignal | null) => Promise.resolve([])),
     getChannelSetupRecord: jest.fn((_serverId: string) => null),
     getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
@@ -355,6 +356,7 @@ describe('AppLazyScreenPortFactory', () => {
         expect('getSetupPlanDiagnostics' in screenWorkflowPort).toBe(false);
 
         screenWorkflowPort.invalidateFacetSnapshot();
+        screenWorkflowPort.invalidateSessionData();
         await screenWorkflowPort.getLibrariesForSetup(signal);
         screenWorkflowPort.getChannelSetupRecord('server-1');
         screenWorkflowPort.getSetupContextForSelectedServer();
@@ -364,6 +366,7 @@ describe('AppLazyScreenPortFactory', () => {
         screenWorkflowPort.markSetupComplete('server-1', config);
 
         expect(fullWorkflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+        expect(fullWorkflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
         expect(fullWorkflowPort.getLibrariesForSetup).toHaveBeenCalledWith(signal);
         expect(fullWorkflowPort.getChannelSetupRecord).toHaveBeenCalledWith('server-1');
         expect(fullWorkflowPort.getSetupContextForSelectedServer).toHaveBeenCalledTimes(1);
@@ -386,7 +389,9 @@ describe('AppLazyScreenPortFactory', () => {
         expect(screenWorkflowPort).not.toBe(workflowPort);
         expect('getSetupPlanDiagnostics' in (screenWorkflowPort ?? {})).toBe(false);
         screenWorkflowPort?.invalidateFacetSnapshot();
+        screenWorkflowPort?.invalidateSessionData();
         expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+        expect(workflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
         expect(runtimePort?.getSelectedServerId()).toBe('server-1');
         runtimePort?.openServerSelect();
         runtimePort?.openEPG();
@@ -424,6 +429,7 @@ describe('AppLazyScreenPortFactory', () => {
         expect(selectedServerStorageGetter in (channelSetupInput?.screenPorts ?? {})).toBe(false);
         expect(serverHealthStorageGetter in (channelSetupInput?.screenPorts ?? {})).toBe(false);
         channelSetupInput?.workflowPort.invalidateFacetSnapshot();
+        channelSetupInput?.workflowPort.invalidateSessionData();
 
         expect(channelSetupInput?.screenPorts.getSelectedServerId()).toBe('server-1');
         channelSetupInput?.screenPorts.openServerSelect();
@@ -434,6 +440,7 @@ describe('AppLazyScreenPortFactory', () => {
         expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
         expect(orchestrator.getChannelSetupWorkflowPort).toHaveBeenCalledTimes(1);
         expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
+        expect(workflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(12, undefined);
     });
 

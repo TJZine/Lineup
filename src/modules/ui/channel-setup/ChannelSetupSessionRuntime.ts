@@ -4,7 +4,10 @@ import type {
     ChannelSetupRecord,
 } from '../../../core/channel-setup/types';
 import { isChannelSetupWorkflowUnavailableError } from '../../../core/channel-setup/workflow/ChannelSetupWorkflowPort';
-import { isAbortLikeError } from '../../../utils/errors';
+import {
+    emitBestEffortWarning,
+    isAbortLikeError,
+} from '../../../utils/errors';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from './constants';
 import type {
     ChannelSetupBuildHandlers,
@@ -14,6 +17,34 @@ import type {
 } from './ChannelSetupSessionContracts';
 import type { ChannelSetupSessionState } from './ChannelSetupSessionState';
 import type { ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
+
+const REVIEW_ERROR_NAMES = new Set([
+    'Error',
+    'TypeError',
+    'RangeError',
+    'ReferenceError',
+    'SyntaxError',
+    'URIError',
+]);
+
+const summarizeReviewFailureForLog = (error: unknown): { name: string; locations?: string[] } => {
+    if (!(error instanceof Error) || typeof error.stack !== 'string') {
+        return { name: 'NonErrorReviewFailure' };
+    }
+    const locations = error.stack
+        .split(/\r?\n/u)
+        .slice(1, 9)
+        .flatMap((frame) => {
+            const match = frame.match(/(?:^|[/\\])([^/\\?#():\s]+\.(?:js|mjs|ts))(?:[?#][^)\s]*)?:(\d+):(\d+)\)?\s*$/u);
+            return match?.[1] && match[2] && match[3]
+                ? [`${match[1]}:${match[2]}:${match[3]}`]
+                : [];
+        });
+    return {
+        name: REVIEW_ERROR_NAMES.has(error.name) ? error.name : 'Error',
+        ...(locations.length > 0 ? { locations } : {}),
+    };
+};
 
 export class ChannelSetupSessionRuntime {
     private static readonly PREVIEW_TIMEOUT_MS = 15000;
@@ -37,7 +68,7 @@ export class ChannelSetupSessionRuntime {
     beginSession(): void {
         this._deps.state.sessionToken += 1;
         this._resetState();
-        this._invalidateFacetSnapshotIfAvailable();
+        this._invalidateSessionDataIfAvailable();
     }
 
     endSession(): void {
@@ -138,7 +169,9 @@ export class ChannelSetupSessionRuntime {
 
     clearReviewAndReturnToStep2(): void {
         this._reviewAbortController?.abort();
+        this._reviewAbortController = null;
         const state = this._deps.state;
+        state.isReviewLoading = false;
         state.review = null;
         state.reviewError = null;
         state.replaceConfirm = false;
@@ -246,14 +279,16 @@ export class ChannelSetupSessionRuntime {
             if (isAbortLikeError(error, reviewAbortController.signal)) {
                 return;
             }
-            state.reviewError = error instanceof Error ? error.message : 'Unable to load review.';
+            emitBestEffortWarning('Channel setup review failed:', summarizeReviewFailureForLog(error));
+            state.reviewError = 'Unable to prepare your review. Try again.';
             state.review = null;
         } finally {
-            if (token === state.sessionToken) {
+            if (
+                token === state.sessionToken
+                && this._reviewAbortController === reviewAbortController
+            ) {
                 state.isReviewLoading = false;
-                if (this._reviewAbortController === reviewAbortController) {
-                    this._reviewAbortController = null;
-                }
+                this._reviewAbortController = null;
                 emitStateChange();
             }
         }
@@ -368,6 +403,16 @@ export class ChannelSetupSessionRuntime {
     private _invalidateFacetSnapshotIfAvailable(): void {
         try {
             this._deps.workflowPort.invalidateFacetSnapshot();
+        } catch (error) {
+            if (!isChannelSetupWorkflowUnavailableError(error)) {
+                throw error;
+            }
+        }
+    }
+
+    private _invalidateSessionDataIfAvailable(): void {
+        try {
+            this._deps.workflowPort.invalidateSessionData();
         } catch (error) {
             if (!isChannelSetupWorkflowUnavailableError(error)) {
                 throw error;

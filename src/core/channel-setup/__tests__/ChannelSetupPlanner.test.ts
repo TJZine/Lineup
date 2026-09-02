@@ -1,7 +1,9 @@
 import {
     buildChannelSetupPlan,
+    buildChannelSetupPlanCooperatively,
     buildChannelSetupPlanDiagnostics,
 } from '../planning/ChannelSetupPlanner';
+import { yieldForChannelSetupPlanning } from '../planning/ChannelSetupPlanningCheckpoint';
 import {
     createChannelIdentityKey,
     diffChannelPlans,
@@ -113,6 +115,220 @@ const makeExistingChannel = (planned: PendingChannel, index: number): ChannelCon
 };
 
 describe('ChannelSetupPlanner', () => {
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    const cooperativeParityCases: Array<{
+        name: string;
+        strategy: 'genres' | 'directors' | 'studios' | 'actors';
+        scope: 'per-library' | 'cross-library';
+        combineMode: 'separate' | 'combined';
+        withExpansion?: boolean;
+    }> = [
+        { name: 'genres per-library', strategy: 'genres', scope: 'per-library', combineMode: 'separate' },
+        { name: 'genres cross-library', strategy: 'genres', scope: 'cross-library', combineMode: 'separate' },
+        { name: 'directors per-library', strategy: 'directors', scope: 'per-library', combineMode: 'separate' },
+        { name: 'directors cross-library', strategy: 'directors', scope: 'cross-library', combineMode: 'separate' },
+        { name: 'studios separate per-library', strategy: 'studios', scope: 'per-library', combineMode: 'separate' },
+        { name: 'studios combined per-library', strategy: 'studios', scope: 'per-library', combineMode: 'combined' },
+        { name: 'studios cross-library', strategy: 'studios', scope: 'cross-library', combineMode: 'separate' },
+        { name: 'actors separate per-library', strategy: 'actors', scope: 'per-library', combineMode: 'separate' },
+        { name: 'actors combined per-library', strategy: 'actors', scope: 'per-library', combineMode: 'combined' },
+        { name: 'actors cross-library', strategy: 'actors', scope: 'cross-library', combineMode: 'separate' },
+        { name: 'genres with alternate lineups and block variants', strategy: 'genres', scope: 'per-library', combineMode: 'separate', withExpansion: true },
+    ];
+
+    it.each(cooperativeParityCases)('keeps sync/cooperative parity for $name', async ({
+        strategy,
+        scope,
+        combineMode,
+        withExpansion,
+    }) => {
+        const libraries = [
+            { id: 'library-a', title: 'Alpha Shows', type: 'show', contentCount: 120 },
+            { id: 'library-b', title: 'Beta Movies', type: 'movie', contentCount: 90 },
+        ] as PlexLibrarySection[];
+        const tagsByLibraryId = new Map([
+            ['library-a', [
+                { key: `${strategy}-shared-a`, title: 'Shared', count: 30 },
+                { key: `${strategy}-alpha`, title: 'Alpha Only', count: 12 },
+            ]],
+            ['library-b', [
+                { key: `${strategy}-shared-b`, title: 'Shared', count: 25 },
+                { key: `${strategy}-beta`, title: 'Beta Only', count: 8 },
+            ]],
+        ]);
+        const emptyTags = new Map<string, Array<{ key: string; title: string; count: number }>>();
+        const peopleSeriesIndexByLibraryId = new Map([
+            ['library-a', createPeopleSeriesIndexFromEpisodes(libraries[0]!, [
+                createEpisode('episode-1', 'series-1', { actors: ['Shared', 'Alpha Only'], directors: ['Shared', 'Alpha Only'] }),
+                createEpisode('episode-2', 'series-2', { actors: ['Shared', 'Alpha Only'], directors: ['Shared', 'Alpha Only'] }),
+                createEpisode('episode-3', 'series-3', { actors: ['Shared', 'Alpha Only'], directors: ['Shared', 'Alpha Only'] }),
+            ])],
+        ]);
+        const strategyConfig = createStrategyConfig({
+            [strategy]: { enabled: true, scope },
+        });
+        const input: Parameters<typeof buildChannelSetupPlan>[0] = {
+            config: createConfig({
+                selectedLibraryIds: libraries.map((library) => library.id),
+                maxChannels: 100,
+                strategyConfig,
+                actorStudioCombineMode: combineMode,
+                ...(withExpansion ? {
+                    channelExpansion: {
+                        addAlternateLineups: true,
+                        alternateLineupCopies: 1,
+                        variantType: 'block',
+                        variantBlockSize: 4,
+                    },
+                } : {}),
+            }),
+            libraries,
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: strategy === 'genres' ? tagsByLibraryId : emptyTags,
+            directorsByLibraryId: strategy === 'directors' ? tagsByLibraryId : emptyTags,
+            yearsByLibraryId: emptyTags,
+            actorsByLibraryId: strategy === 'actors' ? tagsByLibraryId : emptyTags,
+            studiosByLibraryId: strategy === 'studios' ? tagsByLibraryId : emptyTags,
+            peopleSeriesIndexByLibraryId,
+            warnings: ['fixture warning'],
+            seedFor,
+        };
+
+        const synchronous = buildChannelSetupPlan(input);
+        const cooperative = await buildChannelSetupPlanCooperatively(
+            input,
+            async (): Promise<void> => undefined
+        );
+
+        expect(cooperative).toEqual(synchronous);
+    });
+
+    it('cooperatively yields while preserving exact output for a large deterministic plan', async () => {
+        jest.useFakeTimers();
+        const actors = Array.from({ length: 3000 }, (_, index) => ({
+            key: `actor-${index}`,
+            title: `Actor ${String(index).padStart(4, '0')}`,
+            count: 20,
+        }));
+        const input = {
+            config: createConfig({
+                selectedLibraryIds: ['movie-1'],
+                maxChannels: 3000,
+                strategyConfig: createStrategyConfig({ actors: { enabled: true } }),
+            }),
+            libraries: [{ id: 'movie-1', title: 'Movies', type: 'movie', contentCount: 60000 }] as PlexLibrarySection[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([['movie-1', actors]]),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
+            warnings: ['preserved warning'],
+            seedFor,
+        };
+        const expected = buildChannelSetupPlan(input);
+        let checkpointCount = 0;
+        let settled = false;
+
+        const pending = buildChannelSetupPlanCooperatively(input, async () => {
+            checkpointCount += 1;
+            await yieldForChannelSetupPlanning(null);
+        }).then((plan) => {
+            settled = true;
+            return plan;
+        });
+
+        expect(settled).toBe(false);
+        for (let index = 0; index < 100 && !settled; index += 1) {
+            await jest.advanceTimersToNextTimerAsync();
+        }
+        const actual = await pending;
+
+        expect(checkpointCount).toBeGreaterThan(20);
+        expect(actual).toEqual(expected);
+    });
+
+    it('keeps abort authoritative inside one large actor-family workload', async () => {
+        const abortController = new AbortController();
+        const actors = Array.from({ length: 1000 }, (_, index) => ({
+            key: `actor-${index}`,
+            title: `Actor ${index}`,
+            count: 20,
+        }));
+        const input = {
+            config: createConfig({
+                selectedLibraryIds: ['movie-1'],
+                maxChannels: 1000,
+                strategyConfig: createStrategyConfig({ actors: { enabled: true } }),
+            }),
+            libraries: [{ id: 'movie-1', title: 'Movies', type: 'movie', contentCount: 20000 }] as PlexLibrarySection[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([['movie-1', actors]]),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        };
+        let checkpointCount = 0;
+        const pending = buildChannelSetupPlanCooperatively(input, async () => {
+            checkpointCount += 1;
+            if (checkpointCount === 8) {
+                abortController.abort();
+            }
+            if (abortController.signal.aborted) {
+                await yieldForChannelSetupPlanning(abortController.signal);
+            }
+        });
+
+        await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+        expect(checkpointCount).toBe(8);
+    });
+
+    it('keeps abort authoritative after allocation and estimation but before plan publication', async () => {
+        const abortController = new AbortController();
+        const input = {
+            config: createConfig({
+                selectedLibraryIds: ['movie-1'],
+                strategyConfig: createStrategyConfig({ genres: { enabled: true } }),
+            }),
+            libraries: [{ id: 'movie-1', title: 'Movies', type: 'movie', contentCount: 20 }] as PlexLibrarySection[],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map([['movie-1', [{ key: 'genre-1', title: 'Comedy', count: 20 }]]]),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
+            warnings: [],
+            seedFor,
+        };
+        let checkpointCount = 0;
+
+        const pending = buildChannelSetupPlanCooperatively(input, async () => {
+            checkpointCount += 1;
+            if (checkpointCount === 11) {
+                abortController.abort();
+            }
+            if (abortController.signal.aborted) {
+                await yieldForChannelSetupPlanning(abortController.signal);
+            }
+        });
+
+        await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+        expect(checkpointCount).toBe(11);
+    });
+
     it('defaults alternateLineupCopies to 1 when addAlternateLineups is true but copies is non-finite', () => {
         const playlists: PlexPlaylist[] = [
             {

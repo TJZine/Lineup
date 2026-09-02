@@ -73,6 +73,12 @@ describe('EPGInfoPanel', () => {
             },
         ],
     });
+    const markImageLoaded = (image: HTMLImageElement): void => {
+        Object.defineProperties(image, {
+            complete: { configurable: true, value: true },
+            naturalWidth: { configurable: true, value: 1 },
+        });
+    };
 
     beforeEach(() => {
         class MockImage {
@@ -163,6 +169,154 @@ describe('EPGInfoPanel', () => {
 
         expect(badges).toHaveLength(5);
         expect(badges.every((badge) => badge.style.display === 'none')).toBe(true);
+    });
+
+    it('keeps transient focus updates text-only and loads latest artwork only on the full update', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '2');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
+        const resolver = jest.fn((path: string | null, width?: number, height?: number) =>
+            path ? `https://img.example${path}?${width}x${height}` : null
+        );
+        panel.setThumbResolver(resolver);
+
+        const first = createMockProgram('/first-thumb.jpg', {
+            ratingKey: 'first',
+            title: 'First',
+            fullTitle: 'First Program',
+            art: '/first-art.jpg',
+            clearLogo: '/first-logo.png',
+        });
+        const latest = createMockProgram('/latest-thumb.jpg', {
+            ratingKey: 'latest',
+            title: 'Latest',
+            fullTitle: 'Latest Program',
+            art: '/latest-art.jpg',
+            clearLogo: '/latest-logo.png',
+        });
+        panel.updateFull(first);
+
+        const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+        const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement;
+        const clearLogo = container.querySelector('.epg-info-clear-logo') as HTMLImageElement;
+        const title = container.querySelector('.epg-info-title') as HTMLElement;
+        const firstPosterUrl = poster.getAttribute('src');
+        const firstBackdropUrl = backdrop.getAttribute('src');
+        const firstClearLogoUrl = clearLogo.getAttribute('src');
+        resolver.mockClear();
+
+        panel.updateFast(latest);
+
+        expect(title.textContent).toBe('Latest Program');
+        expect(title.style.display).toBe('');
+        expect(resolver).not.toHaveBeenCalled();
+        expect(poster.getAttribute('src')).toBe(firstPosterUrl);
+        expect(backdrop.getAttribute('src')).toBe(firstBackdropUrl);
+        expect(clearLogo.getAttribute('src')).toBe(firstClearLogoUrl);
+        expect(poster.style.display).toBe('none');
+        expect(backdrop.style.display).toBe('none');
+        expect(clearLogo.style.display).toBe('none');
+        expect(poster.alt).toBe('');
+        expect(clearLogo.alt).toBe('');
+
+        panel.updateFull(latest);
+
+        expect(resolver).toHaveBeenCalledWith('/latest-thumb.jpg', 320, 480);
+        expect(resolver).toHaveBeenCalledWith('/latest-art.jpg', 960, 540);
+        expect(resolver).toHaveBeenCalledWith('/latest-logo.png', 520, 84);
+        expect(poster.getAttribute('src')).toContain('/latest-thumb.jpg');
+        expect(backdrop.getAttribute('src')).toContain('/latest-art.jpg');
+        expect(clearLogo.getAttribute('src')).toContain('/latest-logo.png');
+        markImageLoaded(clearLogo);
+
+        const sourceAssignments = jest.fn();
+        for (const image of [poster, backdrop, clearLogo]) {
+            Object.defineProperty(image, 'src', {
+                configurable: true,
+                get: (): string => image.getAttribute('src') ?? '',
+                set: sourceAssignments,
+            });
+        }
+        panel.updateFull(latest);
+        expect(sourceAssignments).not.toHaveBeenCalled();
+    });
+
+    it('hides and reuses same-program artwork across a fast-to-full update', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '2');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
+        panel.setThumbResolver((path, width, height) =>
+            path ? `https://img.example${path}?${width}x${height}` : null
+        );
+        const program = createMockProgram('/same-thumb.jpg', {
+            ratingKey: 'same',
+            title: 'Same',
+            fullTitle: 'Same Program',
+            art: '/same-art.jpg',
+            clearLogo: '/same-logo.png',
+        });
+        panel.updateFull(program);
+
+        const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
+        const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement;
+        const clearLogo = container.querySelector('.epg-info-clear-logo') as HTMLImageElement;
+        markImageLoaded(clearLogo);
+        const sourceAssignments = jest.fn();
+        for (const image of [poster, backdrop, clearLogo]) {
+            Object.defineProperty(image, 'src', {
+                configurable: true,
+                get: (): string => image.getAttribute('src') ?? '',
+                set: sourceAssignments,
+            });
+        }
+
+        panel.updateFast(program);
+        expect(sourceAssignments).not.toHaveBeenCalled();
+        expect(poster.style.display).toBe('none');
+        expect(backdrop.style.display).toBe('none');
+        expect(clearLogo.style.display).toBe('none');
+        expect(poster.alt).toBe('');
+        expect(clearLogo.alt).toBe('');
+
+        panel.updateFull(program);
+        expect(sourceAssignments).not.toHaveBeenCalled();
+        expect(poster.style.display).toBe('block');
+        expect(backdrop.style.display).toBe('block');
+        expect(clearLogo.style.display).toBe('block');
+        expect(poster.alt).toBe('Same');
+        expect(clearLogo.alt).toBe('Same Program');
+    });
+
+    it('retries a clear logo that fails while hidden by a fast update and preserves text fallback', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
+        panel.setThumbResolver((path) => path ? `https://img.example${path}` : null);
+        const program = createMockProgram(null, {
+            title: 'Retry Logo',
+            fullTitle: 'Retry Logo',
+            clearLogo: '/retry-logo.png',
+        });
+        panel.updateFull(program);
+
+        const clearLogo = container.querySelector('.epg-info-clear-logo') as HTMLImageElement;
+        const title = container.querySelector('.epg-info-title') as HTMLElement;
+        panel.updateFast(program);
+        Object.defineProperties(clearLogo, {
+            complete: { configurable: true, value: true },
+            naturalWidth: { configurable: true, value: 0 },
+        });
+        const sourceAssignments = jest.fn((value: string) => clearLogo.setAttribute('src', value));
+        Object.defineProperty(clearLogo, 'src', {
+            configurable: true,
+            get: (): string => clearLogo.getAttribute('src') ?? '',
+            set: sourceAssignments,
+        });
+
+        panel.updateFull(program);
+
+        expect(sourceAssignments).toHaveBeenCalledWith('https://img.example/retry-logo.png');
+        expect(clearLogo.style.display).toBe('block');
+        expect(title.style.display).toBe('none');
+        clearLogo.onerror?.(new Event('error'));
+        expect(clearLogo.style.display).toBe('none');
+        expect(title.style.display).toBe('');
     });
 
     describe('thumb resolver', () => {

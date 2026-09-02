@@ -310,7 +310,6 @@ export function measureReadyStateTickerOverflow(
     textShiftPx: number
 ): number {
     target.viewport.classList.add(target.readyClass);
-    void target.viewport.offsetWidth;
     const effectiveClientWidth = getEffectiveTickerClientWidth(
         target,
         cellWidthPx,

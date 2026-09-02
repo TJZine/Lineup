@@ -10,6 +10,7 @@ const sharedConfig = {
         }],
     },
     moduleNameMapper: {
+        '^.+\\.css$': '<rootDir>/src/__tests__/mocks/style.ts',
         '^@types/(.*)$': '<rootDir>/src/types/$1',
         '^@modules/(.*)$': '<rootDir>/src/modules/$1',
         '^@utils/(.*)$': '<rootDir>/src/utils/$1',

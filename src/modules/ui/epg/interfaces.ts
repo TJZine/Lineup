@@ -90,7 +90,7 @@ export interface IEPGInfoPanel {
 
     update(program: ScheduledProgram): void;
 
-    // Fast update without poster/description.
+    // Fast update without artwork/description.
     updateFast(program: ScheduledProgram): void;
 
     // Full update including poster/description.

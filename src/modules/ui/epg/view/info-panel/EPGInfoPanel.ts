@@ -201,6 +201,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         const backdropImage = document.createElement('img');
         backdropImage.className = EPG_CLASSES.INFO_BACKDROP_IMG;
         backdropImage.setAttribute('alt', '');
+        backdropImage.style.display = 'none';
         backdrop.appendChild(backdropImage);
         fragment.appendChild(backdrop);
 
@@ -209,6 +210,7 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         const poster = document.createElement('img');
         poster.className = EPG_CLASSES.INFO_POSTER;
         poster.setAttribute('alt', '');
+        poster.style.display = 'none';
         posterWrap.appendChild(poster);
         fragment.appendChild(posterWrap);
 
@@ -346,23 +348,45 @@ export class EPGInfoPanel implements IEPGInfoPanel {
 
         const infoBackgroundMode = this.resolveInfoBackgroundMode();
         this.applyModeClass(infoBackgroundMode);
-        this.updatePoster(program, 'fast', infoBackgroundMode);
-
-        this.updateNonPosterContent(program, { allowHdrFetch: options?.allowHdrFetch ?? false, showDescription: false });
+        this.updateNonPosterContent(program, {
+            allowArtwork: false,
+            allowHdrFetch: options?.allowHdrFetch ?? false,
+            showDescription: false,
+        });
     }
 
     private updateNonPosterContent(
         program: ScheduledProgram,
-        options: { allowHdrFetch: boolean; showDescription: boolean }
+        options: { allowArtwork: boolean; allowHdrFetch: boolean; showDescription: boolean }
     ): void {
         const titleState = this.applyTitleText(program);
-        this.applyClearLogo(program, titleState);
+        if (options.allowArtwork) {
+            this.applyClearLogo(program, titleState);
+        } else {
+            this.hideArtworkForFastUpdate(titleState);
+        }
 
         this.updateMetaAndTags(program);
         this.applyGenres(program);
         this.applyDescription(program, options.showDescription);
 
         this.updateQualityBadges(program, undefined, { allowHdrFetch: options.allowHdrFetch });
+    }
+
+    private hideArtworkForFastUpdate(titleState: TitleDisplayState): void {
+        if (this.posterElement) {
+            this.posterElement.style.display = 'none';
+            this.posterElement.alt = '';
+        }
+        if (this.backdropElement) {
+            this.backdropElement.style.display = 'none';
+        }
+        if (this.clearLogoElement) {
+            this.clearLogoElement.onerror = null;
+            this.clearLogoElement.style.display = 'none';
+            this.clearLogoElement.alt = '';
+        }
+        this.restoreTextVisibilityForLogoFallback(titleState);
     }
 
     private applyTitleText(program: ScheduledProgram): TitleDisplayState {
@@ -424,7 +448,12 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             clearLogo.alt = titleState.isEpisode
                 ? titleState.showTitleText
                 : titleState.titleText;
-            clearLogo.src = clearLogoUrl;
+            if (
+                clearLogo.getAttribute('src') !== clearLogoUrl
+                || (clearLogo.complete && clearLogo.naturalWidth === 0)
+            ) {
+                clearLogo.src = clearLogoUrl;
+            }
             clearLogo.style.display = 'block';
 
             if (titleState.isEpisode) {
@@ -433,13 +462,22 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             } else {
                 if (title) title.style.display = 'none';
             }
-        } else if (clearLogo) {
+        } else {
+            this.clearClearLogo(titleState);
+        }
+    }
+
+    private clearClearLogo(titleState: TitleDisplayState): void {
+        const clearLogo = this.clearLogoElement;
+        if (clearLogo) {
             clearLogo.onerror = null;
-            clearLogo.removeAttribute('src');
+            if (clearLogo.hasAttribute('src')) {
+                clearLogo.removeAttribute('src');
+            }
             clearLogo.style.display = 'none';
             clearLogo.alt = '';
-            this.restoreTextVisibilityForLogoFallback(titleState);
         }
+        this.restoreTextVisibilityForLogoFallback(titleState);
     }
 
     private restoreTextVisibilityForLogoFallback(titleState: TitleDisplayState): void {
@@ -516,7 +554,11 @@ export class EPGInfoPanel implements IEPGInfoPanel {
 
         const infoBackgroundMode = this.resolveInfoBackgroundMode();
         this.applyModeClass(infoBackgroundMode);
-        this.updateNonPosterContent(program, { allowHdrFetch: true, showDescription: true });
+        this.updateNonPosterContent(program, {
+            allowArtwork: true,
+            allowHdrFetch: true,
+            showDescription: true,
+        });
 
         this.updatePoster(program, 'full', infoBackgroundMode);
     }
@@ -689,14 +731,18 @@ export class EPGInfoPanel implements IEPGInfoPanel {
             if (art) {
                 const resolvedBackdrop = this.thumbResolver?.(art, 960, 540) || null;
                 if (resolvedBackdrop) {
-                    backdrop.src = resolvedBackdrop;
+                    if (backdrop.getAttribute('src') !== resolvedBackdrop) {
+                        backdrop.src = resolvedBackdrop;
+                    }
                     backdrop.style.display = 'block';
                     return;
                 }
             }
         }
 
-        backdrop.removeAttribute('src');
+        if (backdrop.hasAttribute('src')) {
+            backdrop.removeAttribute('src');
+        }
         backdrop.style.display = 'none';
     }
 
@@ -706,14 +752,18 @@ export class EPGInfoPanel implements IEPGInfoPanel {
         resolvedUrl: string
     ): void {
         const { item } = program;
-        poster.src = resolvedUrl;
+        if (poster.getAttribute('src') !== resolvedUrl) {
+            poster.src = resolvedUrl;
+        }
         const showTitle = item.type === 'episode' ? this.getEffectiveShowTitle(item) : '';
         poster.alt = showTitle.length ? showTitle : item.title;
         poster.style.display = 'block';
     }
 
     private hidePoster(poster: HTMLImageElement): void {
-        poster.removeAttribute('src');
+        if (poster.hasAttribute('src')) {
+            poster.removeAttribute('src');
+        }
         poster.style.display = 'none';
     }
 

@@ -114,6 +114,7 @@ describe('EPGComponent', () => {
     });
 
     it('applies classic presentation behavior on show and overlay presentation behavior after layout switch', () => {
+        jest.useFakeTimers();
         const channel = createMockChannel(0);
         epg.loadChannels([channel]);
         epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
@@ -127,6 +128,7 @@ describe('EPGComponent', () => {
         expect(poster.getAttribute('src')).toBeNull();
 
         epg.setLayoutMode('overlay');
+        jest.advanceTimersByTime(200);
 
         expect(poster.style.display).toBe('block');
         expect(poster.getAttribute('src')).toContain('poster-a.jpg');
@@ -241,6 +243,7 @@ describe('EPGComponent', () => {
     afterEach(() => {
         epg.destroy();
         container.remove();
+        jest.useRealTimers();
     });
 
     it('sets --epg-row-height on the container from config.rowHeight', () => {
@@ -915,6 +918,7 @@ describe('EPGComponent', () => {
         });
 
         it('refreshes the focused info panel content when switching from classic to overlay mode', () => {
+            jest.useFakeTimers();
             const channel = createMockChannel(0);
             epg.loadChannels([channel]);
             epg.loadScheduleForChannel(channel.id, createDetailedSchedule(channel.id));
@@ -928,6 +932,7 @@ describe('EPGComponent', () => {
             expect(poster.getAttribute('src')).toBeNull();
 
             epg.setLayoutMode('overlay');
+            jest.advanceTimersByTime(200);
 
             expect(poster.style.display).toBe('block');
             expect(poster.getAttribute('src')).toContain('poster-a.jpg');
@@ -1003,13 +1008,13 @@ describe('EPGComponent', () => {
             const description = container.querySelector('.epg-info-description') as HTMLElement;
             const inner = description.querySelector('.epg-info-description-inner') as HTMLElement;
 
-            expect(poster.getAttribute('src')).toContain('poster-b.jpg');
-            expect(poster.style.display).toBe('block');
+            expect(poster.getAttribute('src')).toBeNull();
+            expect(poster.style.display).toBe('none');
             expect(inner.textContent?.trim()).toBe('');
             expect(description.style.display).toBe('none');
 
             jest.advanceTimersByTime(199);
-            expect(poster.getAttribute('src')).toContain('poster-b.jpg');
+            expect(poster.getAttribute('src')).toBeNull();
             expect(inner.textContent?.trim()).toBe('');
 
             jest.advanceTimersByTime(1);
@@ -1034,7 +1039,8 @@ describe('EPGComponent', () => {
             const description = container.querySelector('.epg-info-description') as HTMLElement;
             const inner = description.querySelector('.epg-info-description-inner') as HTMLElement;
 
-            expect(poster.getAttribute('src')).toContain('poster-a.jpg');
+            expect(poster.getAttribute('src')).toBeNull();
+            expect(poster.style.display).toBe('none');
             expect(inner.textContent?.trim()).toBe('');
         });
 
@@ -1054,7 +1060,8 @@ describe('EPGComponent', () => {
             const description = container.querySelector('.epg-info-description') as HTMLElement;
             const inner = description.querySelector('.epg-info-description-inner') as HTMLElement;
 
-            expect(poster.getAttribute('src')).toContain('poster-a.jpg');
+            expect(poster.getAttribute('src')).toBeNull();
+            expect(poster.style.display).toBe('none');
             expect(inner.textContent?.trim()).toBe('');
         });
     });

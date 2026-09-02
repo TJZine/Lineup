@@ -29,6 +29,7 @@ export const createChannelSetupScreenWorkflowPort = (
     workflowPort: ChannelSetupWorkflowPort
 ): ChannelSetupScreenWorkflowPort => ({
     invalidateFacetSnapshot: () => workflowPort.invalidateFacetSnapshot(),
+    invalidateSessionData: () => workflowPort.invalidateSessionData(),
     getLibrariesForSetup: (signal) => workflowPort.getLibrariesForSetup(signal),
     getChannelSetupRecord: (serverId) => workflowPort.getChannelSetupRecord(serverId),
     getSetupContextForSelectedServer: () => workflowPort.getSetupContextForSelectedServer(),

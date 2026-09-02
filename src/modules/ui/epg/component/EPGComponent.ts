@@ -1,3 +1,5 @@
+import '../styles.css';
+
 import { EventEmitter } from '../../../../utils/EventEmitter';
 import { EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from '../constants';
 import { EPGChannelList } from '../view/EPGChannelList';

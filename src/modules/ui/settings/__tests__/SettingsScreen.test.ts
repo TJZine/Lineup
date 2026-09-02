@@ -7,39 +7,56 @@ import { SettingsStore } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { GuideSettingChange, SettingsPersistenceResult } from '../types';
 import { THEME_OPTIONS, THEME_CLASSES, type ThemeName } from '../../theme/themeDefinitions';
+import { NavigationManager, type KeyEvent } from '../../../navigation';
 import { activateCategory, createNavigationStub } from './settings-screen-test-helpers';
 
 const ALL_THEME_CLASSES = Object.values(THEME_CLASSES).filter(Boolean);
-const REAL_REQUEST_ANIMATION_FRAME = window.requestAnimationFrame;
-const REAL_CANCEL_ANIMATION_FRAME = window.cancelAnimationFrame;
 const CREATED_CONTAINERS: HTMLElement[] = [];
 
-const setupQueuedRaf = (): {
-    rafQueue: Array<{ id: number; cb: FrameRequestCallback }>;
-    cancelSpy: jest.SpyInstance<void, [handle: number]>;
-    restore: () => void;
-} => {
-    const rafQueue: Array<{ id: number; cb: FrameRequestCallback }> = [];
-    let nextId = 1;
-    const rafSpy = jest.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback): number => {
-        const id = nextId++;
-        rafQueue.push({ id, cb });
-        return id;
+const chooseSettingOption = (container: HTMLElement, selectId: string, optionIndex: number): void => {
+    const select = container.querySelector(`#${selectId}`) as HTMLButtonElement | null;
+    if (!select) {
+        throw new Error(`Setting select ${selectId} not found`);
+    }
+    select.click();
+
+    const options = container.querySelectorAll<HTMLButtonElement>('.settings-dropdown-option');
+    const option = options[optionIndex];
+    if (!option) {
+        throw new Error(`Setting option ${optionIndex} not found for ${selectId}`);
+    }
+    option.click();
+};
+
+const createRealNavigation = (): NavigationManager => {
+    const navigation = new NavigationManager();
+    navigation.initialize({
+        enablePointerMode: true,
+        keyRepeatDelayMs: 500,
+        keyRepeatIntervalMs: 100,
+        focusMemoryEnabled: true,
+        debugMode: false,
     });
-    const cancelSpy = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation((handle: number): void => {
-        const index = rafQueue.findIndex((entry) => entry.id === handle);
-        if (index >= 0) {
-            rafQueue.splice(index, 1);
-        }
-    });
-    return {
-        rafQueue,
-        cancelSpy,
-        restore: (): void => {
-            rafSpy.mockRestore();
-            cancelSpy.mockRestore();
-        },
-    };
+    navigation.replaceScreen('settings');
+    return navigation;
+};
+
+const makeKeyEvent = (
+    button: KeyEvent['button'],
+    options: Partial<Pick<KeyEvent, 'isRepeat' | 'isLongPress'>> = {}
+): KeyEvent => ({
+    button,
+    isRepeat: options.isRepeat ?? false,
+    isLongPress: options.isLongPress ?? false,
+    timestamp: Date.now(),
+    originalEvent: new KeyboardEvent('keydown'),
+    handled: false,
+});
+
+const dispatchRemoteKey = (keyCode: number, type: 'keydown' | 'keyup'): void => {
+    const event = new KeyboardEvent(type);
+    Object.defineProperty(event, 'keyCode', { configurable: true, value: keyCode });
+    document.dispatchEvent(event);
 };
 
 const createScreen = (
@@ -78,33 +95,7 @@ const createScreen = (
     return { container, nav, screen };
 };
 
-beforeEach(() => {
-    Object.defineProperty(window, 'requestAnimationFrame', {
-        configurable: true,
-        writable: true,
-        value: (cb: FrameRequestCallback): number => {
-            cb(16);
-            return 1;
-        },
-    });
-    Object.defineProperty(window, 'cancelAnimationFrame', {
-        configurable: true,
-        writable: true,
-        value: (): void => {},
-    });
-});
-
 afterEach(() => {
-    Object.defineProperty(window, 'requestAnimationFrame', {
-        configurable: true,
-        writable: true,
-        value: REAL_REQUEST_ANIMATION_FRAME,
-    });
-    Object.defineProperty(window, 'cancelAnimationFrame', {
-        configurable: true,
-        writable: true,
-        value: REAL_CANCEL_ANIMATION_FRAME,
-    });
     for (const container of CREATED_CONTAINERS.splice(0, CREATED_CONTAINERS.length)) {
         container.remove();
     }
@@ -167,8 +158,7 @@ describe('SettingsScreen (Guide settings)', () => {
         screen.show();
         activateCategory(container, 'appearance');
 
-        const layoutSelect = container.querySelector('#settings-epg-layout-mode') as HTMLButtonElement;
-        layoutSelect.click();
+        chooseSettingOption(container, 'settings-epg-layout-mode', 1);
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'classic' });
@@ -181,8 +171,7 @@ describe('SettingsScreen (Guide settings)', () => {
         screen.show();
         activateCategory(container, 'appearance');
 
-        const select = container.querySelector('#settings-epg-past-items') as HTMLButtonElement;
-        select.click();
+        chooseSettingOption(container, 'settings-epg-past-items', 1);
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBe('0');
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'pastItemsWindow', value: '0' });
@@ -195,12 +184,7 @@ describe('SettingsScreen (Guide settings)', () => {
         screen.show();
         activateCategory(container, 'appearance');
 
-        const select = container.querySelector('#settings-epg-info-background-mode') as HTMLButtonElement | null;
-        if (!select) {
-            throw new Error('Info background mode select not found');
-        }
-
-        select.click();
+        chooseSettingOption(container, 'settings-epg-info-background-mode', 1);
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBe('2');
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'infoBackgroundMode', mode: 2 });
@@ -219,10 +203,10 @@ describe('SettingsScreen (Guide settings)', () => {
 
         expect(select.textContent).toContain('Artwork Bleed');
 
-        select.click();
+        chooseSettingOption(container, 'settings-epg-info-background-mode', 1);
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBe('2');
 
-        select.click();
+        chooseSettingOption(container, 'settings-epg-info-background-mode', 2);
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBe('1');
     });
 
@@ -264,8 +248,7 @@ describe('SettingsScreen (Guide settings)', () => {
         screen.show();
         activateCategory(container, 'appearance');
 
-        const densitySelect = container.querySelector('#settings-epg-density') as HTMLButtonElement;
-        densitySelect.click();
+        chooseSettingOption(container, 'settings-epg-density', 1);
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('wide');
         expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'guideDensity', density: 'wide' });
@@ -444,6 +427,132 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(nav.getFocusedElement()?.id).toBe('settings-epg-layout-mode');
     });
 
+    it('keeps a real pointer-opened dropdown trapped and restores its anchor state on dismissal and selection', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const navigation = createRealNavigation();
+        const screen = new SettingsScreen({
+            container,
+            getNavigation: (): NavigationManager => navigation,
+            onGuideSettingChange: jest.fn(),
+        });
+
+        try {
+            screen.show();
+            (container.querySelector('#settings-category-appearance') as HTMLButtonElement).click();
+
+            const select = container.querySelector('#settings-epg-layout-mode') as HTMLButtonElement | null;
+            if (!select) throw new Error('Guide layout select not found');
+
+            select.click();
+            expect(container.querySelector('#settings-dropdown')).not.toBeNull();
+            expect(select.getAttribute('aria-haspopup')).toBe('listbox');
+            expect(select.getAttribute('aria-controls')).toBe('settings-dropdown');
+            expect(select.getAttribute('aria-expanded')).toBe('true');
+            expect(navigation.getState().focusedElementId).toBe('settings-dropdown-option-0');
+
+            expect(navigation.moveFocus('up')).toBe(false);
+            expect(navigation.getState().focusedElementId).toBe('settings-dropdown-option-0');
+            navigation.setFocus('settings-dropdown-option-1');
+            expect(navigation.moveFocus('down')).toBe(false);
+            expect(navigation.getState().focusedElementId).toBe('settings-dropdown-option-1');
+
+            const dismissEvent = makeKeyEvent('back');
+            navigation.emit('keyPress', dismissEvent);
+            expect(dismissEvent.handled).toBe(true);
+            expect(container.querySelector('#settings-dropdown')).toBeNull();
+            expect(select.getAttribute('aria-expanded')).toBe('false');
+            expect(navigation.getState().focusedElementId).toBe(select.id);
+            expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+
+            select.click();
+            const replacementOption = container.querySelector('#settings-dropdown-option-1') as HTMLButtonElement | null;
+            if (!replacementOption) throw new Error('Replacement guide layout option not found');
+            replacementOption.click();
+
+            const restoredSelect = container.querySelector('#settings-epg-layout-mode') as HTMLButtonElement | null;
+            expect(container.querySelector('#settings-dropdown')).toBeNull();
+            expect(restoredSelect?.getAttribute('aria-expanded')).toBe('false');
+            expect(navigation.getState().focusedElementId).toBe('settings-epg-layout-mode');
+            expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
+        } finally {
+            screen.destroy();
+            navigation.destroy();
+        }
+    });
+
+    it('restores focus to newly registered controls after a chooser invalidates settings state', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const navigation = createRealNavigation();
+        const screen = new SettingsScreen({
+            container,
+            getNavigation: (): NavigationManager => navigation,
+            onGuideSettingChange: jest.fn(),
+        });
+
+        try {
+            screen.show();
+            const select = container.querySelector('#settings-subtitle-mode') as HTMLButtonElement | null;
+            if (!select) throw new Error('Subtitle mode select not found');
+
+            select.click();
+            const option = container.querySelector('#settings-dropdown-option-0') as HTMLButtonElement | null;
+            if (!option) throw new Error('Subtitle mode option not found');
+            option.click();
+
+            const restoredSelect = container.querySelector('#settings-subtitle-mode') as HTMLButtonElement | null;
+            expect(container.querySelector('#settings-dropdown')).toBeNull();
+            expect(restoredSelect).not.toBeNull();
+            expect(restoredSelect?.getAttribute('aria-expanded')).toBe('false');
+            expect(navigation.getState().focusedElementId).toBe('settings-subtitle-mode');
+            expect(navigation.getFocusedElement()?.element).toBe(restoredSelect);
+        } finally {
+            screen.destroy();
+            navigation.destroy();
+        }
+    });
+
+    it('ignores repeated and long-press Left and OK without reopening or changing a chooser', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const navigation = createRealNavigation();
+        const screen = new SettingsScreen({
+            container,
+            getNavigation: (): NavigationManager => navigation,
+            onGuideSettingChange: jest.fn(),
+        });
+
+        try {
+            screen.show();
+            navigation.setFocus('settings-category-appearance');
+            navigation.setFocus('settings-epg-layout-mode');
+            dispatchRemoteKey(13, 'keydown');
+            dispatchRemoteKey(13, 'keyup');
+            expect(container.querySelector('#settings-dropdown')).not.toBeNull();
+
+            const focusBefore = navigation.getState().focusedElementId;
+            for (const event of [
+                makeKeyEvent('left', { isRepeat: true }),
+                makeKeyEvent('left', { isLongPress: true }),
+                makeKeyEvent('ok', { isRepeat: true }),
+                makeKeyEvent('ok', { isLongPress: true }),
+            ]) {
+                navigation.emit('keyPress', event);
+                expect(event.handled).toBe(true);
+            }
+
+            expect(container.querySelector('#settings-dropdown')).not.toBeNull();
+            expect(navigation.getState().focusedElementId).toBe(focusBefore);
+            expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+        } finally {
+            screen.destroy();
+            navigation.destroy();
+        }
+    });
+
     it('closes and unregisters dropdown option focusables on destroy', () => {
         const { container, nav, screen } = createScreen(jest.fn());
 
@@ -477,7 +586,7 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(container.querySelector('#settings-dropdown')).toBeNull();
     });
 
-    it('cycles select with left/right keys and returns to rail at left edge', () => {
+    it('opens select choices with RIGHT, returns to the rail with LEFT, and ignores repeats', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);
         localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
@@ -489,26 +598,29 @@ describe('SettingsScreen (Guide settings)', () => {
         const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
         expect(typeof keyHandler).toBe('function');
 
-        keyHandler?.({ handled: false, button: 'right' });
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
+        const rightEvent = { handled: false, button: 'right', isRepeat: false, isLongPress: false };
+        keyHandler?.(rightEvent);
+        expect(rightEvent.handled).toBe(true);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
+        expect(container.querySelector('#settings-dropdown')).not.toBeNull();
 
-        keyHandler?.({ handled: false, button: 'right' });
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('classic');
+        const repeatRightEvent = { handled: false, button: 'right', isRepeat: true, isLongPress: false };
+        keyHandler?.(repeatRightEvent);
+        expect(repeatRightEvent.handled).toBe(true);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
 
-        const leftEvent = { handled: false, button: 'left' };
+        const dismissEvent = { handled: false, button: 'back', isRepeat: false, isLongPress: false };
+        keyHandler?.(dismissEvent);
+
+        nav.setFocus('settings-epg-layout-mode');
+        const leftEvent = { handled: false, button: 'left', isRepeat: false, isLongPress: false };
         keyHandler?.(leftEvent);
         expect(leftEvent.handled).toBe(true);
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
-        expect(nav.getFocusedElement()?.id).toBe('settings-epg-layout-mode');
-
-        const edgeLeftEvent = { handled: false, button: 'left' };
-        keyHandler?.(edgeLeftEvent);
-        expect(edgeLeftEvent.handled).toBe(true);
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE)).toBe('overlay');
         expect(nav.getFocusedElement()?.id).toBe('settings-category-appearance');
     });
 
-    it('rolls back a failed remote-key select change and restores metadata after retry', () => {
+    it('rolls back a failed chooser selection and restores metadata after retry', () => {
         const onGuideSettingChange = jest.fn();
         const { container, nav, screen } = createScreen(onGuideSettingChange);
         localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
@@ -528,7 +640,15 @@ describe('SettingsScreen (Guide settings)', () => {
             originalSetItem.call(this, key, value);
         });
 
-        keyHandler?.({ handled: false, button: 'right' });
+        keyHandler?.({
+            handled: false,
+            button: 'right',
+            isRepeat: false,
+            isLongPress: false,
+        });
+        const dropdown = container.querySelector('#settings-dropdown') as HTMLElement;
+        const classicOption = dropdown.querySelectorAll<HTMLButtonElement>('.settings-dropdown-option')[1];
+        classicOption?.click();
 
         const select = container.querySelector('#settings-epg-layout-mode') as HTMLButtonElement;
         expect(select.querySelector('.setup-toggle-value')?.textContent).toBe('Overlay');
@@ -540,7 +660,11 @@ describe('SettingsScreen (Guide settings)', () => {
         expect(nav.getFocusedElement()?.id).toBe('settings-epg-layout-mode');
 
         setSpy.mockRestore();
-        keyHandler?.({ handled: false, button: 'right' });
+        nav.setFocus('settings-epg-layout-mode');
+        nav.focusables.get('settings-epg-layout-mode')?.onSelect?.();
+        const retryDropdown = container.querySelector('#settings-dropdown') as HTMLElement;
+        retryDropdown.querySelectorAll<HTMLButtonElement>('.settings-dropdown-option')[1]?.click();
+
         expect(select.querySelector('.setup-toggle-value')?.textContent).toBe('Classic (PIP)');
         expect(select.querySelector('.setup-toggle-meta')?.textContent).toBe(
             'Overlay keeps full-screen video; Classic shows PIP'
@@ -662,87 +786,70 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(nav.getFocusedElement()?.id).toBe('settings-guide-library-tabs');
     });
 
-	    it('moves focus into the newly-rendered detail pane when RIGHT is pressed during a deferred category swap', () => {
-	        const { rafQueue, restore } = setupQueuedRaf();
+	    it('renders the detail pane and registers its controls synchronously on category change', () => {
+        const { container, nav, screen } = createScreen(jest.fn());
+        screen.show();
 
-	        try {
-	            const { container, nav, screen } = createScreen(jest.fn());
-	            screen.show();
+        const appearanceButton = container.querySelector('#settings-category-appearance') as HTMLButtonElement | null;
+        if (!appearanceButton) {
+            throw new Error('Appearance category not found');
+        }
+        appearanceButton.click();
 
-            // Trigger a deferred swap by switching categories while detail items exist.
-            const appearanceButton = container.querySelector('#settings-category-appearance') as HTMLButtonElement | null;
-            if (!appearanceButton) {
-                throw new Error('Appearance category not found');
-            }
-            appearanceButton.click();
+        const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
+        expect(detailItems?.classList.contains('transitioning')).toBe(false);
+        expect(container.querySelector('#settings-guide-library-tabs')).not.toBeNull();
+        expect(nav.focusables.has('settings-guide-library-tabs')).toBe(true);
 
-            // Focus the newly selected category and press RIGHT before the swap frame runs.
-            nav.setFocus('settings-category-appearance');
-            const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
-            expect(typeof keyHandler).toBe('function');
-            keyHandler?.({ handled: false, button: 'right' });
+        nav.setFocus('settings-category-appearance');
+        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
+        expect(typeof keyHandler).toBe('function');
+        keyHandler?.({
+            handled: false,
+            button: 'right',
+            isRepeat: false,
+            isLongPress: false,
+        });
 
-	            const swapFrame = rafQueue.shift()?.cb;
-	            if (!swapFrame) {
-	                throw new Error('Expected swap frame');
-	            }
-	            swapFrame(16);
+        expect(nav.getFocusedElement()?.id).toBe('settings-guide-library-tabs');
+    });
 
-            // After detail items exist, focus should transfer into the detail pane.
-            expect(nav.getFocusedElement()?.id).toBe('settings-guide-library-tabs');
-	        } finally {
-	            restore();
-	        }
-	    });
+    it('renders the new category before the real focus-change notification and emits it once', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const navigation = createRealNavigation();
+        const screen = new SettingsScreen({
+            container,
+            getNavigation: (): NavigationManager => navigation,
+            onGuideSettingChange: jest.fn(),
+        });
 
-	    it('cancels deferred swap work and clears pending intent on hide', () => {
-	        const { rafQueue, cancelSpy, restore } = setupQueuedRaf();
+        try {
+            screen.show();
+            const focusChanges: Array<{ from: string | null; to: string }> = [];
+            let detailWasRegisteredAtNotification = false;
+            navigation.on('focusChange', (change) => {
+                focusChanges.push(change);
+                if (change.to === 'settings-category-appearance') {
+                    detailWasRegisteredAtNotification = navigation.getFocusedElement()?.id
+                        === 'settings-category-appearance'
+                        && container.querySelector('#settings-guide-library-tabs') !== null;
+                }
+            });
 
-	        try {
-	            const { container, nav, screen } = createScreen(jest.fn());
-	            screen.show();
+            navigation.setFocus('settings-category-appearance');
 
-            // Queue a deferred swap and preserve the same RIGHT-into-detail intent as the
-            // existing deferred-swap focus test before hiding.
-            const appearanceButton = container.querySelector('#settings-category-appearance') as HTMLButtonElement | null;
-            if (!appearanceButton) {
-                throw new Error('Appearance category not found');
-            }
-            appearanceButton.click();
-            nav.setFocus('settings-category-appearance');
-            const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
-            expect(typeof keyHandler).toBe('function');
-            keyHandler?.({ handled: false, button: 'right' });
-
-	            const swapFrameId = rafQueue[0]?.id;
-	            if (!swapFrameId) {
-	                throw new Error('Expected deferred swap frame');
-	            }
-
-	            screen.hide();
-	            expect(cancelSpy).toHaveBeenCalled();
-            const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
-            expect(detailItems?.classList.contains('transitioning')).toBe(false);
-
-	            // The deferred swap frame must be canceled (it should not be runnable after hide).
-	            expect(rafQueue.find((entry) => entry.id === swapFrameId)).toBeUndefined();
-
-	            screen.show();
-	            expect(nav.getFocusedElement()?.id).toBe('settings-category-appearance');
-	            nav.setFocus.mockClear();
-
-	            // Only advance frames scheduled after show().
-	            while (rafQueue.length > 0) {
-	                const frame = rafQueue.shift()?.cb;
-	                frame?.(16);
-	            }
-
-	            expect(nav.setFocus).not.toHaveBeenCalledWith(expect.stringContaining('settings-guide-library-tabs'));
-	            expect(nav.getFocusedElement()?.id).toBe('settings-category-appearance');
-	        } finally {
-	            restore();
-	        }
-	    });
+            expect(focusChanges).toEqual([{
+                from: 'settings-category-audio_subtitles',
+                to: 'settings-category-appearance',
+            }]);
+            expect(detailWasRegisteredAtNotification).toBe(true);
+            expect(navigation.getState().focusedElementId).toBe('settings-category-appearance');
+        } finally {
+            screen.destroy();
+            navigation.destroy();
+        }
+    });
 
     it('renders header and profile identity row inside the left rail', () => {
         const { container, screen } = createScreen(jest.fn(), () => 'TestUser');
@@ -784,88 +891,23 @@ describe('SettingsScreen (Two-pane layout)', () => {
         expect(container.querySelector('.settings-profile-name')?.textContent).toBe('SecondUser');
     });
 
-	    it('applies transitioning class during category detail swap and removes it after reveal frame', () => {
-	        const { rafQueue, restore } = setupQueuedRaf();
+	    it('keeps the detail pane visible without a blank crossfade during category changes', () => {
+	        const { container, screen } = createScreen(jest.fn());
+        screen.show();
 
-        try {
-            const { container, screen } = createScreen(jest.fn());
-            screen.show();
+        const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
+        const playbackCategory = container.querySelector(
+            '#settings-category-playback_hdr'
+        ) as HTMLButtonElement | null;
+        if (!detailItems || !playbackCategory) {
+            throw new Error('Expected settings detail controls');
+        }
 
-            const detailItems = container.querySelector('.settings-detail-items') as HTMLElement | null;
-            if (!detailItems) {
-                throw new Error('settings-detail-items not found');
-            }
+        playbackCategory.click();
 
-            const playbackCategory = container.querySelector(
-                '#settings-category-playback_hdr'
-            ) as HTMLButtonElement | null;
-            if (!playbackCategory) {
-                throw new Error('Playback category not found');
-            }
-
-            playbackCategory.click();
-
-            expect(detailItems.classList.contains('transitioning')).toBe(true);
-            expect(container.querySelector('#settings-keep-playing')).toBeNull();
-
-	            const swapFrame = rafQueue.shift()?.cb;
-	            if (!swapFrame) {
-	                throw new Error('Expected swap frame');
-	            }
-	            swapFrame(16);
-            expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
-            expect(detailItems.classList.contains('transitioning')).toBe(true);
-
-	            const revealFrame = rafQueue.shift()?.cb;
-	            if (!revealFrame) {
-	                throw new Error('Expected reveal frame');
-	            }
-	            revealFrame(32);
-	            expect(detailItems.classList.contains('transitioning')).toBe(false);
-	        } finally {
-	            restore();
-	        }
-	    });
-
-	    it('re-registers active detail focusables after deferred category swap', () => {
-	        const { rafQueue, restore } = setupQueuedRaf();
-
-        try {
-            const { container, nav, screen } = createScreen(jest.fn());
-            screen.show();
-
-            const playbackCategory = container.querySelector(
-                '#settings-category-playback_hdr'
-            ) as HTMLButtonElement | null;
-            if (!playbackCategory) {
-                throw new Error('Playback category not found');
-            }
-
-            playbackCategory.click();
-
-            // Before swap frame runs, only rail focusables are registered.
-            expect(nav.focusables.has('settings-keep-playing')).toBe(false);
-
-	            const swapFrame = rafQueue.shift()?.cb;
-	            if (!swapFrame) {
-	                throw new Error('Expected swap frame');
-	            }
-	            swapFrame(16);
-
-            // After deferred render, detail focusables must be present for D-pad navigation.
-            expect(nav.focusables.has('settings-keep-playing')).toBe(true);
-            const categoryFocusable = nav.focusables.get('settings-category-playback_hdr');
-            expect(categoryFocusable?.neighbors.right).toBe('settings-keep-playing');
-
-	            const revealFrame = rafQueue.shift()?.cb;
-	            if (!revealFrame) {
-	                throw new Error('Expected reveal frame');
-	            }
-	            revealFrame(32);
-	        } finally {
-	            restore();
-	        }
-	    });
+        expect(detailItems.classList.contains('transitioning')).toBe(false);
+        expect(container.querySelector('#settings-keep-playing')).not.toBeNull();
+    });
 
     it('wires left/right pane transfer and per-category remembered focus', () => {
         const { container, nav, screen } = createScreen(jest.fn());
@@ -1057,14 +1099,8 @@ describe('SettingsScreen (Transcode controls)', () => {
         screen.show();
         activateCategory(container, 'playback_hdr');
 
-        const select = container.querySelector('#settings-transcode-quality') as HTMLButtonElement | null;
-        if (!select) {
-            throw new Error('Transcode quality select not found');
-        }
+        chooseSettingOption(container, 'settings-transcode-quality', 1);
 
-        select.click();
-
-        // Click cycles from Default -> first cap tier.
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY)).toBe('12000-1080p');
     });
 
@@ -1091,26 +1127,17 @@ describe('SettingsScreen (Theme selection)', () => {
         document.body.classList.remove(...ALL_THEME_CLASSES);
     });
 
-    it('cycles to DirecTV and applies the theme class', () => {
+    it('applies the selected theme from the chooser', () => {
         const { container, nav, screen } = createScreen(jest.fn());
 
         screen.show();
         activateCategory(container, 'appearance');
 
         const directvIndex = THEME_OPTIONS.findIndex((option) => option.theme === 'directv');
-        const currentIndex = THEME_OPTIONS.findIndex((option) => option.theme === 'ember-steel');
         expect(directvIndex).toBeGreaterThanOrEqual(0);
-        expect(currentIndex).toBeGreaterThanOrEqual(0);
 
         nav.setFocus('settings-theme');
-        const keyHandler = nav.on.mock.calls.find((call) => call[0] === 'keyPress')?.[1];
-        expect(typeof keyHandler).toBe('function');
-
-        const delta = directvIndex - currentIndex;
-        const button = delta >= 0 ? 'right' : 'left';
-        for (let i = 0; i < Math.abs(delta); i += 1) {
-            keyHandler?.({ handled: false, button });
-        }
+        chooseSettingOption(container, 'settings-theme', directvIndex);
 
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.THEME)).toBe('directv');
         expect(document.body.classList.contains('theme-directv')).toBe(true);

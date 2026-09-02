@@ -113,6 +113,7 @@ const makePortFactory = (): PortFactoryLike => ({
             }),
             markSetupComplete: jest.fn(),
             invalidateFacetSnapshot: jest.fn(),
+            invalidateSessionData: jest.fn(),
         },
         screenPorts: {
             getNavigation: jest.fn().mockReturnValue(null),

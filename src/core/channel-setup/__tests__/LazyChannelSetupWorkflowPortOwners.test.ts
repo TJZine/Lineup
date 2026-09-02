@@ -48,6 +48,7 @@ const createDeps = (): LazyChannelSetupWorkflowPortOwnersDeps => ({
     primeEpgChannels: jest.fn(),
     refreshEpgSchedules: jest.fn().mockResolvedValue(undefined),
     clearRerunRequest: jest.fn(),
+    getActiveUserId: jest.fn(() => 'user-1'),
     getSelectedServerId: jest.fn(() => 'server-1'),
     getExistingChannelCount: jest.fn(() => 0),
 });
@@ -71,6 +72,7 @@ describe('createLazyChannelSetupWorkflowPortOwners', () => {
         const planningService = {
             getLibrariesForSetup: jest.fn().mockResolvedValue([]),
             invalidateFacetSnapshot: jest.fn(),
+            invalidateSessionData: jest.fn(),
         } as unknown as ChannelSetupPlanningService;
         mockPlanningServiceConstructor.mockImplementation(() => planningService);
         const owners = createLazyChannelSetupWorkflowPortOwners(createDeps());
@@ -83,6 +85,22 @@ describe('createLazyChannelSetupWorkflowPortOwners', () => {
         expect(mockPlanningServiceConstructor).toHaveBeenCalledTimes(1);
     });
 
+    it('invalidates session data on the cached planning service after lazy load', async () => {
+        const planningService = {
+            getLibrariesForSetup: jest.fn().mockResolvedValue([]),
+            invalidateSessionData: jest.fn(),
+        } as unknown as ChannelSetupPlanningService;
+        mockPlanningServiceConstructor.mockImplementation(() => planningService);
+        const owners = createLazyChannelSetupWorkflowPortOwners(createDeps());
+
+        await owners.planningService.getLibrariesForSetup();
+        owners.planningService.invalidateSessionData();
+        await flushPromises();
+
+        expect(planningService.invalidateSessionData).toHaveBeenCalledTimes(1);
+        expect(mockPlanningServiceConstructor).toHaveBeenCalledTimes(1);
+    });
+
     it('logs best-effort facet invalidation failures without surfacing them', async () => {
         const invalidationError = new Error('facet invalidation failed with X-Plex-Token=secret');
         const debugSpy = jest.spyOn(globalThis.console, 'debug').mockImplementation(() => undefined);
@@ -91,6 +109,7 @@ describe('createLazyChannelSetupWorkflowPortOwners', () => {
             invalidateFacetSnapshot: jest.fn(() => {
                 throw invalidationError;
             }),
+            invalidateSessionData: jest.fn(),
         } as unknown as ChannelSetupPlanningService;
         mockPlanningServiceConstructor.mockImplementation(() => planningService);
         const owners = createLazyChannelSetupWorkflowPortOwners(createDeps());

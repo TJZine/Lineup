@@ -10,7 +10,7 @@ describe('createSettingsToggle', () => {
         document.body.innerHTML = '';
     });
 
-    it('toggles state, classes, and callback behavior on click', () => {
+    it('toggles state, classes, and callback behavior through activation', () => {
         const onChange = jest.fn(() => ({ ok: true } as const));
         const toggle = createSettingsToggle({
             id: 'theme-toggle',
@@ -20,7 +20,7 @@ describe('createSettingsToggle', () => {
             onChange,
         });
 
-        toggle.element.click();
+        toggle.activate();
 
         expect(toggle.element.classList.contains('selected')).toBe(true);
         expect(toggle.element.querySelector('.setup-toggle-state')?.textContent).toBe('On');
@@ -50,7 +50,7 @@ describe('createSettingsToggle', () => {
         expect(toggle.element.querySelector('.setup-toggle-meta')?.textContent).toBe('Enable the theme.');
     });
 
-    it('ignores disabled clicks and restores callback behavior after re-enable', () => {
+    it('ignores disabled activation and restores callback behavior after re-enable', () => {
         const onChange = jest.fn(() => ({ ok: true } as const));
         const toggle = createSettingsToggle({
             id: 'theme-toggle',
@@ -63,12 +63,12 @@ describe('createSettingsToggle', () => {
 
         toggle.setDisabled(true);
         expect(toggle.isDisabled()).toBe(true);
-        toggle.element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        toggle.activate();
         expect(onChange).not.toHaveBeenCalled();
 
         toggle.setDisabled(false);
         expect(toggle.isDisabled()).toBe(false);
-        toggle.element.click();
+        toggle.activate();
 
         expect(onChange).toHaveBeenCalledTimes(1);
         expect(onChange).toHaveBeenCalledWith(true);
@@ -86,7 +86,7 @@ describe('createSettingsToggle', () => {
             onChange,
         });
 
-        toggle.element.click();
+        toggle.activate();
 
         const meta = toggle.element.querySelector('.setup-toggle-meta');
         expect(toggle.element.querySelector('.setup-toggle-state')?.textContent).toBe('Off');
@@ -94,7 +94,7 @@ describe('createSettingsToggle', () => {
         expect(meta?.getAttribute('role')).toBe('status');
         expect(meta?.getAttribute('aria-live')).toBe('polite');
 
-        toggle.element.click();
+        toggle.activate();
 
         expect(toggle.element.querySelector('.setup-toggle-state')?.textContent).toBe('On');
         expect(meta?.textContent).toBe('Enable the theme.');

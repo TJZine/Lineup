@@ -208,6 +208,14 @@ export class StrategyStepInteractionController {
         const activeCategoryButtonId = this.categoryButtonId(this._activeStrategyCategory);
         const adjustableControl = this._getAdjustableControl(focusedId, adapters, session);
         if (adjustableControl && !adjustableControl.isDisabled()) {
+            if (
+                (event.button === 'left' || event.button === 'right')
+                && (event.isRepeat || event.isLongPress)
+            ) {
+                event.handled = true;
+                event.originalEvent.preventDefault();
+                return;
+            }
             if (event.button === 'ok') {
                 event.handled = true;
                 event.originalEvent.preventDefault();

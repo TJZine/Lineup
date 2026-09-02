@@ -300,6 +300,7 @@ describe('App bootstrap smoke', () => {
 
     const createFullChannelSetupWorkflowPort = (): jest.Mocked<ChannelSetupWorkflowPort> => ({
         invalidateFacetSnapshot: jest.fn(),
+        invalidateSessionData: jest.fn(),
         getLibrariesForSetup: jest.fn((_signal?: AbortSignal | null) => Promise.resolve([])),
         getChannelSetupRecord: jest.fn((_serverId: string) => null),
         getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
@@ -830,7 +831,11 @@ describe('App bootstrap smoke', () => {
             actions: [],
         } as never);
 
-        expect(openModal).toHaveBeenCalledWith('modal:error-overlay', ['error-overlay-action-0']);
+        expect(openModal).toHaveBeenCalledWith(
+            'modal:error-overlay',
+            ['error-overlay-action-0'],
+            { dismissOnBack: true, blocksBackgroundCommands: true }
+        );
         expect(cancelPendingChannelInput).toHaveBeenCalledTimes(1);
         expect(registerFocusable).toHaveBeenCalledTimes(1);
         expect(setFocus).toHaveBeenCalledWith('error-overlay-action-0', { persist: false });

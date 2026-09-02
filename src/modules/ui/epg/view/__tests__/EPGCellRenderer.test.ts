@@ -124,6 +124,34 @@ const stubDimension = (element: HTMLElement, property: keyof HTMLElement, value:
     });
 };
 
+const installQueuedAnimationFrame = (): {
+    flushNext: () => void;
+    request: jest.SpiedFunction<typeof requestAnimationFrame>;
+    cancel: jest.SpiedFunction<typeof cancelAnimationFrame>;
+} => {
+    const callbacks = new Map<number, FrameRequestCallback>();
+    let nextHandle = 1;
+    const request = jest.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+        const handle = nextHandle++;
+        callbacks.set(handle, callback);
+        return handle;
+    });
+    const cancel = jest.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation((handle) => {
+        callbacks.delete(handle);
+    });
+
+    return {
+        flushNext: (): void => {
+            const next = callbacks.entries().next().value as [number, FrameRequestCallback] | undefined;
+            if (!next) return;
+            callbacks.delete(next[0]);
+            next[1](0);
+        },
+        request,
+        cancel,
+    };
+};
+
 describe('EPGCellRenderer', () => {
     let renderer: EPGCellRenderer;
 
@@ -598,6 +626,7 @@ describe('EPGCellRenderer', () => {
 
     it('arms focused ticker after the public delay and clears ticker state by element', () => {
         jest.useFakeTimers();
+        const animationFrame = installQueuedAnimationFrame();
         const element = renderer.createElement();
         const cellData = makeProgramCell(element, {
             width: 180,
@@ -624,6 +653,7 @@ describe('EPGCellRenderer', () => {
         stubDimension(titleText, 'scrollWidth', 260);
 
         renderer.syncFocusedTicker(cellData);
+        animationFrame.flushNext();
 
         expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
         expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING)).toBe(false);
@@ -642,5 +672,52 @@ describe('EPGCellRenderer', () => {
         expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_RUNNING)).toBe(false);
         expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('');
         expect(title.style.getPropertyValue('--epg-title-ticker-duration-ms')).toBe('');
+    });
+
+    it('measures only the latest focused cell when focus changes within one frame', () => {
+        jest.useFakeTimers();
+        const animationFrame = installQueuedAnimationFrame();
+        const firstElement = renderer.createElement();
+        const secondElement = renderer.createElement();
+        const firstCell = makeProgramCell(firstElement, { key: 'first', isFocused: true });
+        const secondCell = makeProgramCell(secondElement, { key: 'second', isFocused: true });
+        renderer.updateCellContent(firstCell, TEST_START_MS);
+        renderer.updateCellContent(secondCell, TEST_START_MS);
+
+        const firstTitle = query(firstElement, EPG_CLASSES.CELL_TITLE);
+        const secondTitle = query(secondElement, EPG_CLASSES.CELL_TITLE);
+        const firstWidthRead = jest.fn(() => 260);
+        const secondWidthRead = jest.fn(() => 280);
+        Object.defineProperty(firstTitle, 'scrollWidth', { configurable: true, get: firstWidthRead });
+        Object.defineProperty(secondTitle, 'scrollWidth', { configurable: true, get: secondWidthRead });
+        stubDimension(firstTitle, 'clientWidth', 100);
+        stubDimension(secondTitle, 'clientWidth', 100);
+
+        renderer.syncFocusedTicker(firstCell);
+        renderer.syncFocusedTicker(secondCell);
+
+        expect(animationFrame.request).toHaveBeenCalledTimes(1);
+        animationFrame.flushNext();
+        expect(firstWidthRead).not.toHaveBeenCalled();
+        expect(secondWidthRead).toHaveBeenCalled();
+        expect(firstTitle.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(false);
+        expect(secondTitle.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(true);
+    });
+
+    it('cancels pending ticker measurement during lifecycle cleanup', () => {
+        const animationFrame = installQueuedAnimationFrame();
+        const element = renderer.createElement();
+        const cellData = makeProgramCell(element, { isFocused: true });
+        renderer.updateCellContent(cellData, TEST_START_MS);
+        const title = query(element, EPG_CLASSES.CELL_TITLE);
+        stubDimension(title, 'scrollWidth', 260);
+        stubDimension(title, 'clientWidth', 100);
+
+        renderer.syncFocusedTicker(cellData);
+        renderer.clearFocusedTickers();
+        animationFrame.flushNext();
+
+        expect(animationFrame.cancel).toHaveBeenCalledTimes(1);
+        expect(title.classList.contains(EPG_CLASSES.CELL_TITLE_TICKER_READY)).toBe(false);
     });
 });

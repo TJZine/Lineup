@@ -26,7 +26,6 @@ export interface SettingsScreenFocusCoordinatorOptions {
     getSelect: (id: string) => SettingsSelectControl | undefined;
     setActiveCategory: (categoryId: SettingsCategoryId, options?: SettingsScreenSetActiveCategoryOptions) => void;
     isVisible: () => boolean;
-    isDeferredDetailSwapActive: () => boolean;
 }
 
 export class SettingsScreenFocusCoordinator {
@@ -44,13 +43,12 @@ export class SettingsScreenFocusCoordinator {
         options?: SettingsScreenSetActiveCategoryOptions
     ) => void;
     private readonly _isVisible: () => boolean;
-    private readonly _isDeferredDetailSwapActive: () => boolean;
     private _activeDropdown: SettingsDropdownHandle | null = null;
     private _focusableIds: string[] = [];
     private _lastFocusedItemByCategory: Partial<Record<SettingsCategoryId, string>> = {};
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _navKeyHandlerOwner: INavigationManager | null = null;
-    private _pendingFocusRestore: { categoryId: SettingsCategoryId; preferredFocusId: string | null } | null = null;
+    private _categoryFocusTransactionId: string | null = null;
 
     public constructor(options: SettingsScreenFocusCoordinatorOptions) {
         this._container = options.container;
@@ -64,15 +62,10 @@ export class SettingsScreenFocusCoordinator {
         this._getSelect = options.getSelect;
         this._setActiveCategory = options.setActiveCategory;
         this._isVisible = options.isVisible;
-        this._isDeferredDetailSwapActive = options.isDeferredDetailSwapActive;
     }
 
     public getCategoryButtonId(id: SettingsCategoryId): string {
         return `settings-category-${id}`;
-    }
-
-    public hasRegisteredFocusables(): boolean {
-        return this._focusableIds.length > 0;
     }
 
     public resolveCategoryChangePreferredFocus(
@@ -101,28 +94,7 @@ export class SettingsScreenFocusCoordinator {
 
         const categoryButtonId = this.getCategoryButtonId(categoryId);
         const preferredFocusId = this._getPreferredDetailFocusId(categoryId) ?? categoryButtonId;
-        if (this._isDeferredDetailSwapActive() && preferredFocusId !== categoryButtonId) {
-            this.setPendingFocusRestore(categoryId, preferredFocusId);
-        }
         this.resetFocusables(preferredFocusId);
-    }
-
-    public setPendingFocusRestore(categoryId: SettingsCategoryId, preferredFocusId: string | null): void {
-        this._pendingFocusRestore = { categoryId, preferredFocusId };
-    }
-
-    public consumePendingFocusRestore(categoryId: SettingsCategoryId | null): string | null {
-        if (!categoryId || this._pendingFocusRestore?.categoryId !== categoryId) {
-            return null;
-        }
-
-        const preferredFocusId = this._pendingFocusRestore.preferredFocusId;
-        this._pendingFocusRestore = null;
-        return preferredFocusId;
-    }
-
-    public clearPendingFocusRestore(): void {
-        this._pendingFocusRestore = null;
     }
 
     public attachKeyHandler(): void {
@@ -140,6 +112,14 @@ export class SettingsScreenFocusCoordinator {
                 return;
             }
 
+            if (
+                (event.isRepeat || event.isLongPress)
+                && (event.button === 'left' || event.button === 'right' || event.button === 'ok')
+            ) {
+                event.handled = true;
+                return;
+            }
+
             const focusedId = nav.getFocusedElement()?.id;
             if (!focusedId) return;
 
@@ -151,20 +131,8 @@ export class SettingsScreenFocusCoordinator {
             }
 
             const select = this._getSelect(focusedId);
-            if (select && !select.isDisabled() && event.button === 'left') {
-                const changed = select.cyclePrev();
-                if (!changed) {
-                    const activeCategoryId = this._getActiveCategoryId();
-                    if (activeCategoryId) {
-                        nav.setFocus(this.getCategoryButtonId(activeCategoryId));
-                    }
-                }
-                event.handled = true;
-                return;
-            }
-
             if (select && !select.isDisabled() && event.button === 'right') {
-                select.cycleNext();
+                this.openDropdownForSelect(focusedId);
                 event.handled = true;
                 return;
             }
@@ -196,6 +164,8 @@ export class SettingsScreenFocusCoordinator {
 
         const select = this._getSelect(selectId);
         if (!select || select.isDisabled()) return;
+        const options = select.getOptions();
+        if (options.length === 0) return;
 
         const nav = this._getNavigation();
         let dropdown: SettingsDropdownHandle | null = null;
@@ -203,7 +173,7 @@ export class SettingsScreenFocusCoordinator {
         dropdown = createDropdownPopover({
             anchor: select.element,
             container: this._container,
-            options: select.getOptions().map((option) => ({
+            options: options.map((option) => ({
                 label: option.label,
                 value: String(option.value),
             })),
@@ -251,7 +221,10 @@ export class SettingsScreenFocusCoordinator {
         }
     }
 
-    public registerFocusables(preferredFocusId?: string | null): void {
+    public registerFocusables(
+        preferredFocusId?: string | null,
+        preserveFocusId?: string | null
+    ): void {
         const nav = this._getNavigation();
         if (!nav) return;
 
@@ -298,7 +271,13 @@ export class SettingsScreenFocusCoordinator {
                 }
                 onFocus = (): void => {
                     if (this._getActiveCategoryId() === categoryId) return;
-                    this._setActiveCategory(categoryId, { preferredFocusId: id });
+                    const previousTransactionId = this._categoryFocusTransactionId;
+                    this._categoryFocusTransactionId = id;
+                    try {
+                        this._setActiveCategory(categoryId, { preferredFocusId: id });
+                    } finally {
+                        this._categoryFocusTransactionId = previousTransactionId;
+                    }
                 };
                 onSelect = (): void => {
                     this._setActiveCategory(categoryId, { preferredFocusId: id });
@@ -324,7 +303,7 @@ export class SettingsScreenFocusCoordinator {
                         this.openDropdownForSelect(id);
                     }
                     : (): void => {
-                        element.click();
+                        this._getToggle(id)?.activate();
                     };
             } else if (switchProfileId && id === switchProfileId) {
                 if (lastDetailId) {
@@ -333,9 +312,6 @@ export class SettingsScreenFocusCoordinator {
                 if (activeCategoryButtonId) {
                     neighbors.left = activeCategoryButtonId;
                 }
-                onSelect = (): void => {
-                    element.click();
-                };
             }
 
             const focusable: FocusableElement = {
@@ -352,7 +328,24 @@ export class SettingsScreenFocusCoordinator {
             entries.push(focusable);
         }
 
-        this._focusableIds = syncFocusableRegistry(nav, this._focusableIds, entries);
+        const preserveCurrentFocus =
+            preserveFocusId !== undefined
+            && preserveFocusId !== null
+            && preserveFocusId === currentFocusId
+            && this._focusableIds.includes(preserveFocusId);
+        if (preserveCurrentFocus) {
+            for (const id of this._focusableIds) {
+                if (id !== preserveFocusId) {
+                    nav.unregisterFocusable(id);
+                }
+            }
+            for (const entry of entries) {
+                nav.registerFocusable(entry);
+            }
+            this._focusableIds = entries.map((entry) => entry.id);
+        } else {
+            this._focusableIds = syncFocusableRegistry(nav, this._focusableIds, entries);
+        }
         const focusableIds = this._focusableIds;
 
         const currentFocusedCategoryId = currentFocusId ? this._getCategoryIdFromButtonId(currentFocusId) : null;
@@ -367,12 +360,17 @@ export class SettingsScreenFocusCoordinator {
                 : activeCategoryButtonId && focusableIds.includes(activeCategoryButtonId)
                     ? activeCategoryButtonId
                     : focusableIds[0];
-        if (preferredId) {
+        if (preferredId && !preserveCurrentFocus) {
             nav.setFocus(preferredId);
         }
     }
 
     public resetFocusables(preferredFocusId?: string | null): void {
+        const preserveFocusId = this._categoryFocusTransactionId;
+        if (preserveFocusId && this._focusableIds.includes(preserveFocusId)) {
+            this.registerFocusables(preferredFocusId, preserveFocusId);
+            return;
+        }
         this.unregisterFocusables();
         this.registerFocusables(preferredFocusId);
     }
@@ -390,7 +388,7 @@ export class SettingsScreenFocusCoordinator {
         this.unregisterFocusables();
         this._focusableIds = [];
         this._lastFocusedItemByCategory = {};
-        this._pendingFocusRestore = null;
+        this._categoryFocusTransactionId = null;
     }
 
     private _dismissDropdown(): void {

@@ -32,6 +32,7 @@ export function isChannelSetupWorkflowUnavailableError(error: unknown): boolean 
 
 export interface ChannelSetupWorkflowPort {
     invalidateFacetSnapshot(): void;
+    invalidateSessionData(): void;
     getLibrariesForSetup(signal?: AbortSignal | null): Promise<PlexLibrarySection[]>;
     getChannelSetupRecord(serverId: string): ChannelSetupRecord | null;
     getSetupContextForSelectedServer(): ChannelSetupContext;

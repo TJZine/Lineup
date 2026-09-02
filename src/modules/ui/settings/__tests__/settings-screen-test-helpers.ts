@@ -11,8 +11,15 @@ export const createNavigationStub = (): {
     off: jest.Mock;
 } => {
     const focusables = new Map<string, FocusableElement>();
+    const clickHandlers = new Map<string, () => void>();
     let focusedId: string | null = null;
     const listeners = new Map<keyof NavigationEventMap, Set<(payload: never) => void>>();
+
+    const setFocus = jest.fn((id: string): void => {
+        if (!focusables.has(id)) return;
+        focusedId = id;
+        focusables.get(id)?.onFocus?.();
+    });
 
     const off = jest.fn(<K extends keyof NavigationEventMap>(
         event: K,
@@ -38,19 +45,33 @@ export const createNavigationStub = (): {
     return {
         focusables,
         registerFocusable: jest.fn((element: FocusableElement) => {
+            const previousHandler = clickHandlers.get(element.id);
+            if (previousHandler) {
+                focusables.get(element.id)?.element.removeEventListener('click', previousHandler);
+            }
+
             focusables.set(element.id, element);
+            const clickHandler = (): void => {
+                if (!focusables.has(element.id)) return;
+                focusedId = element.id;
+                element.onFocus?.();
+                element.onSelect?.();
+            };
+            clickHandlers.set(element.id, clickHandler);
+            element.element.addEventListener('click', clickHandler);
         }),
         unregisterFocusable: jest.fn((id: string) => {
+            const clickHandler = clickHandlers.get(id);
+            if (clickHandler) {
+                focusables.get(id)?.element.removeEventListener('click', clickHandler);
+                clickHandlers.delete(id);
+            }
             focusables.delete(id);
             if (focusedId === id) {
                 focusedId = null;
             }
         }),
-        setFocus: jest.fn((id: string) => {
-            if (!focusables.has(id)) return;
-            focusedId = id;
-            focusables.get(id)?.onFocus?.();
-        }),
+        setFocus,
         getFocusedElement: jest.fn(() => (focusedId ? focusables.get(focusedId) ?? null : null)),
         on,
         off,

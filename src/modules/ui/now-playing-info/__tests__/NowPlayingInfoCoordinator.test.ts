@@ -589,10 +589,36 @@ describe('NowPlayingInfoCoordinator', () => {
         expect(lastUpdate.description).toBe('New summary');
     });
 
-    it('handleModalOpen maps schedule art to backdropUrl', () => {
+    it('handleModalOpen resizes schedule art for backdropUrl', () => {
+        const plexLibrary = makePlexLibrary({
+            getImageUrl: jest.fn((path: string) => `http://resized${path}`),
+        });
+        const buildPlexResourceUrl = jest.fn((path: string) => `http://fallback${path}`);
         const scheduler = makeScheduler();
         const { coordinator, overlay } = setup({
             getScheduler: () => scheduler,
+            getPlexLibrary: () => plexLibrary,
+            buildPlexResourceUrl,
+        });
+
+        coordinator.handleModalOpen(modalId);
+
+        const viewModel = (overlay.show as jest.Mock).mock.calls[0]?.[0] as {
+            backdropUrl?: string;
+        };
+        expect(viewModel.backdropUrl).toBe('http://resized/art');
+        expect(plexLibrary.getImageUrl).toHaveBeenCalledWith('/art', 1920, 1080);
+        expect(plexLibrary.getImageUrl).toHaveBeenCalledWith('/thumb', 111, 222);
+        expect(buildPlexResourceUrl).not.toHaveBeenCalledWith('/art');
+        coordinator.handleModalClose(modalId);
+    });
+
+    it('falls back to the resource URL when backdrop resizing is unavailable', () => {
+        const plexLibrary = makePlexLibrary({
+            getImageUrl: jest.fn().mockReturnValue(null),
+        });
+        const { coordinator, overlay } = setup({
+            getPlexLibrary: () => plexLibrary,
             buildPlexResourceUrl: jest.fn((path) => `http://mock${path}`) as unknown as (path: string) => string,
         });
 
@@ -602,11 +628,13 @@ describe('NowPlayingInfoCoordinator', () => {
             backdropUrl?: string;
         };
         expect(viewModel.backdropUrl).toBe('http://mock/art');
+        expect(plexLibrary.getImageUrl).toHaveBeenCalledWith('/art', 1920, 1080);
         coordinator.handleModalClose(modalId);
     });
 
     it('details art overrides schedule art for backdropUrl', async () => {
         const plexLibrary = makePlexLibrary({
+            getImageUrl: jest.fn((path: string) => `http://resized${path}`),
             getItem: jest.fn().mockResolvedValue({
                 ratingKey: 'rk1',
                 title: 'Detail Title',
@@ -624,7 +652,8 @@ describe('NowPlayingInfoCoordinator', () => {
 
         const updates = (overlay.update as jest.Mock).mock.calls;
         const lastUpdate = updates[updates.length - 1]?.[0] as { backdropUrl?: string };
-        expect(lastUpdate.backdropUrl).toBe('http://mock/detail-art');
+        expect(lastUpdate.backdropUrl).toBe('http://resized/detail-art');
+        expect(plexLibrary.getImageUrl).toHaveBeenCalledWith('/detail-art', 1920, 1080);
         coordinator.handleModalClose(modalId);
     });
 

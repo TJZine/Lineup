@@ -12,6 +12,10 @@ import { extractHdrLabelFromPlexMedia } from '../../plex/stream/policy/hdr';
 import { formatContentRatingBadge } from '../../../utils/contentRating';
 import { summarizeErrorForLog } from '../../../utils/errors';
 
+// Cinematic mode fills the documented 1920x1080 TV surface.
+const NOW_PLAYING_INFO_BACKDROP_WIDTH = 1920;
+const NOW_PLAYING_INFO_BACKDROP_HEIGHT = 1080;
+
 interface NowPlayingInfoCoordinatorDeps {
     nowPlayingModalId: string;
 
@@ -285,7 +289,18 @@ export class NowPlayingInfoCoordinator {
             }
         }
         if (backdropPath) {
-            backdropUrl = this.deps.buildPlexResourceUrl(backdropPath);
+            const plexLibrary = this.deps.getPlexLibrary();
+            if (plexLibrary) {
+                const resized = plexLibrary.getImageUrl(
+                    backdropPath,
+                    NOW_PLAYING_INFO_BACKDROP_WIDTH,
+                    NOW_PLAYING_INFO_BACKDROP_HEIGHT
+                );
+                backdropUrl = resized || null;
+            }
+            if (!backdropUrl) {
+                backdropUrl = this.deps.buildPlexResourceUrl(backdropPath);
+            }
         }
         const preferClearLogos = this._nowPlayingDisplayStore.readPreferClearLogosEnabledAndClean(true);
         const clearLogoPath =

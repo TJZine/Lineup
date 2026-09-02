@@ -35,6 +35,8 @@ interface NavigationInternalState {
     modalStack: string[];
     modalFocusableIds: Map<string, string[]>;
     modalPolicies: Map<string, NavigationModalPolicy>;
+    modalRestoreFocusIds: Map<string, string | null>;
+    modalBaseFocusId: string | null;
     isPointerActive: boolean;
     isInputBlocked: boolean;
     isRuntimeCommandGated: boolean;
@@ -42,6 +44,12 @@ interface NavigationInternalState {
 
 export interface NavigationManagerOptions {
     readDebugLoggingEnabled?: () => boolean;
+}
+
+interface FocusableClickHandlers {
+    element: HTMLElement;
+    guard: (event: MouseEvent) => void;
+    activate: (event: MouseEvent) => void;
 }
 
 /**
@@ -71,7 +79,8 @@ export class NavigationManager
     private _keyUpDisposable: IDisposable | null = null;
     private _boundFocusInHandler: (event: FocusEvent) => void;
     private _isInitialized: boolean = false;
-    private _clickHandlers: Map<string, () => void> = new Map();
+    private _clickHandlers: Map<string, FocusableClickHandlers> = new Map();
+    private _pointerActivationsMovedFocus: WeakSet<MouseEvent> = new WeakSet();
     private readonly _focusPolicy: NavigationFocusPolicy;
     private readonly _remoteInputRouter: NavigationRemoteInputRouter;
     private readonly _directionalRepeatController: NavigationDirectionalRepeatController;
@@ -125,6 +134,8 @@ export class NavigationManager
             modalStack: [],
             modalFocusableIds: new Map(),
             modalPolicies: new Map(),
+            modalRestoreFocusIds: new Map(),
+            modalBaseFocusId: null,
             isPointerActive: false,
             isInputBlocked: false,
             isRuntimeCommandGated: false,
@@ -186,7 +197,9 @@ export class NavigationManager
             this._keyUpDisposable = null;
         }
 
-        this._clickHandlers.clear();
+        for (const elementId of this._clickHandlers.keys()) {
+            this._removeClickHandlers(elementId);
+        }
 
         this._remoteHandler.destroy();
         this._focusManager.clear();
@@ -219,7 +232,7 @@ export class NavigationManager
 
         this.emit('screenChange', { from, to: screen });
 
-        if (this._state.config.focusMemoryEnabled) {
+        if (this._state.config.focusMemoryEnabled && this._state.modalStack.length === 0) {
             this._focusManager.restoreFocusState(screen);
         }
 
@@ -258,7 +271,7 @@ export class NavigationManager
 
         this.emit('screenChange', { from, to: previousScreen });
 
-        if (this._state.config.focusMemoryEnabled) {
+        if (this._state.config.focusMemoryEnabled && this._state.modalStack.length === 0) {
             this._focusManager.restoreFocusState(previousScreen);
         }
 
@@ -289,6 +302,10 @@ export class NavigationManager
     }
 
     public setFocus(elementId: string, options?: { persist?: boolean }): void {
+        if (!this._isAllowedByActiveModal(elementId)) {
+            return;
+        }
+
         const previousId = this._focusManager.getCurrentFocusId();
         const success = this._focusManager.focus(elementId);
 
@@ -307,7 +324,7 @@ export class NavigationManager
     }
 
     public restoreFocusForCurrentScreen(): boolean {
-        if (!this._state.config.focusMemoryEnabled) {
+        if (!this._state.config.focusMemoryEnabled || this._state.modalStack.length > 0) {
             return false;
         }
         return this._focusManager.restoreFocusState(this._state.currentScreen);
@@ -339,41 +356,51 @@ export class NavigationManager
             return false;
         }
 
+        // A self-edge is an intentional boundary (for example, the first/last item
+        // in a trapped TV popup). Treat it as no movement so repeat handling stops
+        // without re-running native focus, persistence, or focus-change listeners.
+        if (policyResult.targetId === currentId) {
+            return false;
+        }
+
         this.setFocus(policyResult.targetId);
         return true;
     }
 
     public registerFocusable(element: FocusableElement): void {
-        const existingElement = this._focusManager.getElement(element.id);
-        const existingHandler = this._clickHandlers.get(element.id);
-        if (existingHandler) {
-            if (existingElement) {
-                existingElement.element.removeEventListener('click', existingHandler);
-            }
-            this._clickHandlers.delete(element.id);
-        }
+        this._removeClickHandlers(element.id);
 
         this._focusManager.registerFocusable(element);
 
-        const clickHandler = (): void => {
+        const clickGuard = (event: MouseEvent): void => {
+            if (!this._isAllowedByActiveModal(element.id)) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        };
+        const clickHandler = (event: MouseEvent): void => {
             this.setFocus(element.id);
+            if (this._focusManager.getFocusedElement()?.id !== element.id) {
+                return;
+            }
             if (element.onSelect) {
                 element.onSelect();
             }
+            if (this._focusManager.getCurrentFocusId() !== element.id) {
+                this._pointerActivationsMovedFocus.add(event);
+            }
         };
-        this._clickHandlers.set(element.id, clickHandler);
+        this._clickHandlers.set(element.id, {
+            element: element.element,
+            guard: clickGuard,
+            activate: clickHandler,
+        });
+        element.element.addEventListener('click', clickGuard, true);
         element.element.addEventListener('click', clickHandler);
     }
 
     public unregisterFocusable(elementId: string): void {
-        const handler = this._clickHandlers.get(elementId);
-        if (handler) {
-            const element = this._focusManager.getElement(elementId);
-            if (element) {
-                element.element.removeEventListener('click', handler);
-            }
-            this._clickHandlers.delete(elementId);
-        }
+        this._removeClickHandlers(elementId);
         this._focusManager.unregisterFocusable(elementId);
     }
 
@@ -405,7 +432,10 @@ export class NavigationManager
             return;
         }
 
-        this._focusManager.savePreModalFocus();
+        if (this._state.modalStack.length === 0) {
+            this._state.modalBaseFocusId = this._focusManager.getCurrentFocusId();
+        }
+        this._state.modalRestoreFocusIds.set(modalId, this._focusManager.getCurrentFocusId());
 
         this._state.modalStack.push(modalId);
         this._state.modalPolicies.set(modalId, { ...policy });
@@ -424,32 +454,71 @@ export class NavigationManager
         }
 
         let closedModalId: string;
+        let closedModalWasTop = false;
+        let restoreFocusId: string | null = null;
 
         if (modalId !== undefined) {
             const index = this._state.modalStack.indexOf(modalId);
             if (index === -1) {
                 return;
             }
+            closedModalWasTop = index === this._state.modalStack.length - 1;
+            restoreFocusId = this._state.modalRestoreFocusIds.get(modalId) ?? null;
             this._state.modalStack.splice(index, 1);
             this._state.modalFocusableIds.delete(modalId);
             this._state.modalPolicies.delete(modalId);
+            this._state.modalRestoreFocusIds.delete(modalId);
             closedModalId = modalId;
         } else {
             const topModal = this._state.modalStack.pop();
             if (topModal === undefined) {
                 return;
             }
+            closedModalWasTop = true;
+            restoreFocusId = this._state.modalRestoreFocusIds.get(topModal) ?? null;
             this._state.modalFocusableIds.delete(topModal);
             this._state.modalPolicies.delete(topModal);
+            this._state.modalRestoreFocusIds.delete(topModal);
             closedModalId = topModal;
         }
 
         this.emit('modalClose', { modalId: closedModalId });
 
         if (this._state.modalStack.length === 0) {
-            this._focusManager.restorePreModalFocus();
+            this._restoreModalFocus(this._state.modalBaseFocusId);
+            this._state.modalBaseFocusId = null;
+            this._state.modalRestoreFocusIds.clear();
+        } else if (closedModalWasTop) {
+            this._restoreModalFocus(restoreFocusId);
         }
 
+    }
+
+    private _restoreModalFocus(preferredFocusId: string | null): boolean {
+        const candidates: string[] = [];
+        if (preferredFocusId) {
+            candidates.push(preferredFocusId);
+        }
+
+        const activeModalId = this._state.modalStack[this._state.modalStack.length - 1];
+        if (activeModalId) {
+            for (const id of this._state.modalFocusableIds.get(activeModalId) ?? []) {
+                if (!candidates.includes(id)) {
+                    candidates.push(id);
+                }
+            }
+        }
+
+        for (const id of candidates) {
+            if (!this._isAllowedByActiveModal(id)) {
+                continue;
+            }
+            this.setFocus(id, { persist: false });
+            if (this._focusManager.getCurrentFocusId() === id) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public isModalOpen(modalId?: string): boolean {
@@ -573,7 +642,7 @@ export class NavigationManager
 
     private _handleOkButton(): void {
         const focused = this._focusManager.getFocusedElement();
-        if (focused) {
+        if (focused && this._isAllowedByActiveModal(focused.id)) {
             if (focused.onSelect) {
                 focused.onSelect();
             } else {
@@ -613,6 +682,15 @@ export class NavigationManager
             case 'server-select':
                 this.replaceScreen('auth');
                 break;
+            case 'profile-select':
+                this.replaceScreen('auth');
+                break;
+            case 'audio-setup':
+                this.replaceScreen('server-select');
+                break;
+            case 'channel-setup':
+                this.replaceScreen('audio-setup');
+                break;
             case 'settings':
             case 'channel-edit':
                 this.replaceScreen('player');
@@ -624,6 +702,24 @@ export class NavigationManager
 
     private _blocksBackgroundCommands(): boolean {
         return this.getActiveModalPolicy()?.blocksBackgroundCommands === true;
+    }
+
+    private _isAllowedByActiveModal(elementId: string): boolean {
+        const activeModalId = this._state.modalStack[this._state.modalStack.length - 1];
+        if (activeModalId === undefined) {
+            return true;
+        }
+        return this._state.modalFocusableIds.get(activeModalId)?.includes(elementId) === true;
+    }
+
+    private _removeClickHandlers(elementId: string): void {
+        const handlers = this._clickHandlers.get(elementId);
+        if (!handlers) {
+            return;
+        }
+        handlers.element.removeEventListener('click', handlers.guard, true);
+        handlers.element.removeEventListener('click', handlers.activate);
+        this._clickHandlers.delete(elementId);
     }
 
     private _initializePointerMode(): void {
@@ -655,6 +751,13 @@ export class NavigationManager
         const focusable = target.closest('.' + FOCUS_CLASSES.FOCUSABLE) as HTMLElement;
 
         if (focusable && focusable.id) {
+            // A registered activation may intentionally move focus (for example, into a newly
+            // opened popover). Only that click should suppress document-level retargeting; a
+            // normal pointer click still retargets when the current focus is elsewhere.
+            if (this._pointerActivationsMovedFocus.delete(event)) {
+                return;
+            }
+            if (this._focusManager.getCurrentFocusId() === focusable.id) return;
             this.setFocus(focusable.id);
         }
     };

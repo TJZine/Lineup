@@ -15,6 +15,7 @@ export interface ChannelSetupWorkflowPortOwners {
     planningService: Pick<
         ChannelSetupPlanningService,
         | 'invalidateFacetSnapshot'
+        | 'invalidateSessionData'
         | 'getLibrariesForSetup'
         | 'getSetupPreview'
         | 'getSetupReview'
@@ -40,6 +41,7 @@ export const createChannelSetupWorkflowPort = (
 
     return {
         invalidateFacetSnapshot: (): void => requireOwners().planningService.invalidateFacetSnapshot(),
+        invalidateSessionData: (): void => requireOwners().planningService.invalidateSessionData(),
         getLibrariesForSetup: async (signal?: AbortSignal | null) =>
             requireOwners().planningService.getLibrariesForSetup(signal ?? null),
         getChannelSetupRecord: (serverId: string) => requireOwners().recordStore.getRecord(serverId),

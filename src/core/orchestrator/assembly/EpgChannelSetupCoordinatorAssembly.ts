@@ -191,6 +191,7 @@ export function buildChannelSetupOwners(
             clearRerunRequest: (): void => {
                 coordinator.clearRerunRequest();
             },
+            getActiveUserId: input.schedule.getActiveUserId,
             getSelectedServerId,
             getExistingChannelCount,
         }),

@@ -127,6 +127,16 @@ describe('StrategyStepController', () => {
         expect(deps.applyCategoryChange).toHaveBeenCalledWith('advanced-sources', 'category-advanced-sources');
     });
 
+    it('clears a review failure when returning to the strategy step', () => {
+        const ctx = createContext();
+        ctx.errorEl.textContent = 'o is not a function';
+        document.body.appendChild(ctx.contentEl);
+
+        new StrategyStepController().render(ctx, createDeps());
+
+        expect(ctx.errorEl.textContent).toBe('');
+    });
+
     it('keeps block-size controls disabled when series mode and variant mode are not block', () => {
         const ctx = createContext();
         document.body.appendChild(ctx.contentEl);

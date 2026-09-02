@@ -18,6 +18,7 @@ import type {
     ChannelSetupFacetSnapshotData,
     ChannelSetupPlexRequestIntent,
 } from './ChannelSetupPlanningTypes';
+import { yieldForChannelSetupPlanning } from './ChannelSetupPlanningCheckpoint';
 
 type ChannelSetupFacetSnapshotLoadSessionOptions = {
     plexLibrary: IPlexLibrary;
@@ -200,6 +201,7 @@ export class ChannelSetupFacetSnapshotLoadSession {
             reportSnapshotProgress: (progress): void => this._reportSnapshotProgress(progress),
             addPartialWarning: (task, detail, error): void => this._addPartialWarning(task, detail, error),
             abortSiblingRequests: (): void => this._abortSiblingRequests(),
+            checkpoint: (): Promise<void> => yieldForChannelSetupPlanning(this._requestSignal),
         }).loadLibraryFacets(library, libIndex);
         this._firstFailure = this._firstFailure ?? failure;
         return failure;
