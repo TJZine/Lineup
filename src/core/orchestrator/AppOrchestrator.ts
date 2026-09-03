@@ -956,6 +956,11 @@ export class AppOrchestrator {
             teardown.run('navigation.destroy', () => this._navigation?.destroy());
             this._navigation = null;
         }
+        if (this._playbackRuntimeController) {
+            teardown.run('playbackRuntimeController.dispose', () =>
+                this._playbackRuntimeController?.dispose()
+            );
+        }
 
         const teardownFailures = teardown.getFailures();
         if (teardownFailures.length > 0) {

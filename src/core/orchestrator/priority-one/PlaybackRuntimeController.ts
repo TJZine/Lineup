@@ -126,6 +126,10 @@ export class PlaybackRuntimeController {
         this._takeNextProgramStartWaiter()?.resolve(outcome);
     }
 
+    public dispose(): void {
+        this._settleNextProgramStartWaiter({ kind: 'superseded' });
+    }
+
     public isOverlayReopenSafe(): boolean {
         return this._overlayReadiness.pendingReason === 'none';
     }

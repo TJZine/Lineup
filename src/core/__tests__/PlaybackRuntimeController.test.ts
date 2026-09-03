@@ -547,6 +547,27 @@ describe('PlaybackRuntimeController', () => {
         await expect(second).resolves.toEqual({ kind: 'started' });
     });
 
+    it('settles a pending program-start waiter as superseded on dispose', async () => {
+        const { controller } = makeSetup();
+        const wait = controller.waitForNextProgramStart();
+
+        controller.dispose();
+
+        await expect(wait).resolves.toEqual({ kind: 'superseded' });
+    });
+
+    it('settles a signaled waiter on dispose and tolerates a later abort', async () => {
+        const { controller } = makeSetup();
+        const aborter = new AbortController();
+        const wait = controller.waitForNextProgramStart(aborter.signal);
+
+        controller.dispose();
+
+        await expect(wait).resolves.toEqual({ kind: 'superseded' });
+        expect((): void => aborter.abort()).not.toThrow();
+        expect((): void => controller.dispose()).not.toThrow();
+    });
+
     it('clears pending overlay readiness and tracked promise when the active program start rejects', async () => {
         const { controller, deps, callOrder } = makeSetup();
         const deferred = createDeferred<PlaybackStartOutcome>();
