@@ -551,6 +551,83 @@ describe('ChannelSetupStrategyBuilders', () => {
         expect(cooperativePlan.pendingChannels.map((channel) => channel.name)).toEqual(['Zed Actor - TV']);
     });
 
+    it('orders null-count TV directors by derived index count before applying the channel cap', async () => {
+        const tvLibrary = createLibrary({ id: 'tv-1', title: 'TV', type: 'show' });
+        const peopleSeriesIndex = createPeopleSeriesIndexFromEpisodes(tvLibrary, [
+            createEpisode('zed-1', 'zed-series-1', { directors: ['Zed Director'] }),
+            createEpisode('zed-2', 'zed-series-2', { directors: ['Zed Director'] }),
+            createEpisode('zed-3', 'zed-series-3', { directors: ['Zed Director'] }),
+            createEpisode('zed-4', 'zed-series-1', { directors: ['Zed Director'] }),
+            createEpisode('zed-5', 'zed-series-2', { directors: ['Zed Director'] }),
+            createEpisode('alpha-1', 'alpha-series-1', { directors: ['Alpha Director'] }),
+            createEpisode('alpha-2', 'alpha-series-2', { directors: ['Alpha Director'] }),
+            createEpisode('alpha-3', 'alpha-series-3', { directors: ['Alpha Director'] }),
+            createEpisode('alpha-4', 'alpha-series-1', { directors: ['Alpha Director'] }),
+            createEpisode('beta-1', 'beta-series-1', { directors: ['Beta Director'] }),
+            createEpisode('beta-2', 'beta-series-2', { directors: ['Beta Director'] }),
+            createEpisode('beta-3', 'beta-series-3', { directors: ['Beta Director'] }),
+            createEpisode('beta-4', 'beta-series-1', { directors: ['Beta Director'] }),
+        ]);
+        const config = createConfig({
+            selectedLibraryIds: ['tv-1'],
+            maxChannels: 1,
+            minItemsPerChannel: 3,
+            strategyConfig: {
+                ...createConfig().strategyConfig,
+                playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                directors: { enabled: true, priority: 4, scope: 'per-library' },
+            },
+        });
+        const input = {
+            config,
+            libraries: [tvLibrary],
+            selectedLibraries: [tvLibrary],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map([['tv-1', [
+                createTag('Alpha Director', null, 'director-alpha'),
+                createTag('Beta Director', null, 'director-beta'),
+                createTag('Zed Director', null, 'director-zed'),
+            ]]]),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map([['tv-1', peopleSeriesIndex]]),
+            minItems: 3,
+            seedFor: (value: string): number => value.length,
+        };
+
+        const syncResult = buildChannelSetupStrategyBuckets(input);
+        expect(syncResult.strategyBuckets.directors.map((channel) => channel.name)).toEqual([
+            'TV - Zed Director',
+            'TV - Alpha Director',
+            'TV - Beta Director',
+        ]);
+
+        const cooperativeResult = await buildChannelSetupStrategyBucketsCooperatively(
+            input,
+            async (): Promise<void> => undefined
+        );
+        expect(cooperativeResult.strategyBuckets.directors.map((channel) => channel.name)).toEqual([
+            'TV - Zed Director',
+            'TV - Alpha Director',
+            'TV - Beta Director',
+        ]);
+
+        const planInput = { ...input, warnings: [] };
+        const syncPlan = buildChannelSetupPlan(planInput);
+        expect(syncPlan.reachedMaxChannels).toBe(true);
+        expect(syncPlan.pendingChannels.map((channel) => channel.name)).toEqual(['TV - Zed Director']);
+
+        const cooperativePlan = await buildChannelSetupPlanCooperatively(
+            planInput,
+            async (): Promise<void> => undefined
+        );
+        expect(cooperativePlan.reachedMaxChannels).toBe(true);
+        expect(cooperativePlan.pendingChannels.map((channel) => channel.name)).toEqual(['TV - Zed Director']);
+    });
+
     it('keeps movie people eligible by movie item count without a TV index', () => {
         const result = buildChannelSetupStrategyBuckets({
             config: createConfig({

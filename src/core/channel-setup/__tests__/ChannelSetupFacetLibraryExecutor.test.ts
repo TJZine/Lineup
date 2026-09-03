@@ -240,6 +240,8 @@ describe('ChannelSetupFacetLibraryExecutor', () => {
         ]);
         expect(loadState.peopleSeriesIndexByLibraryId.get('lib-1')?.actorsByName.get('alex actor'))
             .toEqual({ title: 'Alex Actor', episodeCount: 1, distinctSeriesCount: 1 });
+        expect(loadState.peopleSeriesIndexByLibraryId.get('lib-1')?.directorsByName.get('dana director'))
+            .toEqual({ title: 'Dana Director', episodeCount: 1, distinctSeriesCount: 1 });
         expect(plexLibrary.getLibraryItems).toHaveBeenCalledWith('lib-1', expect.objectContaining({
             filter: { type: 4 },
         }));
