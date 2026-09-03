@@ -2,7 +2,7 @@
 
 - Status: **Ready for remediation**
 - Task family: Guide schedule loading, retry/recovery, and lifecycle correctness
-- Source baseline: commit `47bc6a43` plus the existing uncommitted working tree
+- Source baseline: commit `47bc6a43`
 - Primary evidence: [`2026-09-02 LG C3 collaborative QA`](../qa/reports/2026-09-02-lg-c3-collaborative-qa.md)
 - Sanitized checkpoints: [`guide-loading-checkpoints.json`](../qa/evidence/2026-09-02-lg-c3-collaborative-qa/guide-loading-checkpoints.json)
 
@@ -114,11 +114,30 @@ rather than inventing permanent policy.
 ## Verification
 
 - Focused Jest for EPG refresh runtime, warm queue, cache, coordinator, and
-  virtualizer presentation.
-- `npm run verify` because the change touches UI, lifecycle, async workflows, and
-  runtime behavior.
+  virtualizer presentation. Files include
+  `src/modules/ui/epg/__tests__/EPGScheduleRefreshRuntime.test.ts`,
+  `src/modules/ui/epg/__tests__/EPGBackgroundWarmQueue.test.ts`,
+  `src/modules/ui/epg/__tests__/EPGRefreshController.test.ts`,
+  `src/modules/ui/epg/__tests__/EPGCoordinator.test.ts`,
+  `src/modules/ui/epg/__tests__/EPGScheduleCacheStore.test.ts`, and
+  `src/modules/ui/epg/__tests__/EPGVirtualizer.test.ts`; run
+  `npx jest <file>` for each touched area, then `npm run verify` because the
+  change touches UI, lifecycle, async workflows, and runtime behavior.
 - `git diff --check`.
-- Physical LG C3 replay using the sanitized checkpoint matrix above.
+- Physical LG C3 replay using the sanitized checkpoint matrix above. Enable
+  capture via Settings > Debug Logging (see `docs/user-guide/settings.md`; it
+  applies immediately and must be restored to Off afterward, per the recording in
+  `docs/qa/reports/2026-09-02-lg-c3-collaborative-qa.md`). Store new sanitized
+  checkpoints alongside
+  `docs/qa/evidence/2026-09-02-lg-c3-collaborative-qa/`.
+- Timeout for "visible loading counts reach zero or explicit recoverable terminal
+  states" is the evidence cadence already required below (0/30/60/180 seconds);
+  no separate timeout is introduced here.
+- Pass/fail is behavioral: no visible channel stays in indefinite loading, no
+  stale schedule is published after a newer refresh owns the channel/range, and
+  Guide close/reopen is safe but no longer required for recovery. The
+  `_inFlightByChannel` ownership and warm-queue internals named above remain
+  diagnostic evidence for those verdicts, not contract gates.
 - Inspect the final diff and preserve the unrelated pre-existing working-tree
   changes.
 
