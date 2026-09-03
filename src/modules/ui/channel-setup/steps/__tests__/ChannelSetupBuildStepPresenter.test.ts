@@ -217,9 +217,42 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect(beginBuild).toHaveBeenCalled();
         expect(ctx.statusEl.textContent).toBe('Channels ready.');
         expect(ctx.contentEl.querySelector('.setup-progress-task')?.textContent).toBe('Complete');
-        expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 2 channels. 1 candidates not created.');
+        expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 2 channels. 1 candidate not created.');
         expect((ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).disabled).toBe(false);
         expect(deps.focus.unregisterAll).toHaveBeenCalled();
+    });
+
+    it('uses singular channel and candidate copy for single counts', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const beginBuild = jest.fn(async () => (
+            { kind: 'success', result: { ...DEFAULT_BUILD_RESULT, created: 1, skipped: 1 } }
+        ));
+        const deps = createDeps(snapshot, { beginBuild });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 1 channel. 1 candidate not created.');
+    });
+
+    it('uses singular channel copy in degraded success status for single counts', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 1, skipped: 0 },
+                bookkeepingError: 'Device storage is full.',
+            }),
+        });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        expect(ctx.statusEl.textContent).toBe('Channel created; setup save needed.');
     });
 
     it('uses degraded success copy when setup completion cannot be saved', async () => {

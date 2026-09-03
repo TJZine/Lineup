@@ -1,6 +1,7 @@
 import { APP_SHELL_CONTAINER_IDS } from '../common/appShellContainerIds';
 import { EPG_CONTAINER_ID } from '../epg/constants';
 import { CLASSIC_EPG_PIP_CLASS } from '../epg/startup/EPGStartupConfigRuntime';
+import { VIDEO_ELEMENT_ID } from '../../player/core/constants';
 
 type AppendTransitionDiagnostic = (event: string, data: unknown) => void;
 
@@ -41,9 +42,8 @@ export class ChannelBuilderGuideTransitionDiagnostics {
         this._playingRecorded = false;
         this._advancingRecorded = false;
         this._guideShown = false;
-        this._video = document.getElementById('lineup-video-player') instanceof HTMLVideoElement
-            ? document.getElementById('lineup-video-player') as HTMLVideoElement
-            : null;
+        const videoElement = document.getElementById(VIDEO_ELEMENT_ID);
+        this._video = videoElement instanceof HTMLVideoElement ? videoElement : null;
         this._lastObservedTime = this._video?.currentTime ?? 0;
         this.record('done-switch-request', {
             readiness: this._video && this._video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA ? 'ready' : 'pending',
@@ -84,16 +84,18 @@ export class ChannelBuilderGuideTransitionDiagnostics {
             visible: epg?.classList.contains('visible') ?? false,
             pipClass: videoContainer?.classList.contains(CLASSIC_EPG_PIP_CLASS) ?? false,
         });
+        const videoRect = safeRect(video);
+        const containerRect = safeRect(videoContainer);
         this.record('pip-presentation', {
             pipClass: videoContainer?.classList.contains(CLASSIC_EPG_PIP_CLASS) ?? false,
-            videoRectX: safeRect(video)?.x ?? 0,
-            videoRectY: safeRect(video)?.y ?? 0,
-            videoRectWidth: safeRect(video)?.width ?? 0,
-            videoRectHeight: safeRect(video)?.height ?? 0,
-            containerRectX: safeRect(videoContainer)?.x ?? 0,
-            containerRectY: safeRect(videoContainer)?.y ?? 0,
-            containerRectWidth: safeRect(videoContainer)?.width ?? 0,
-            containerRectHeight: safeRect(videoContainer)?.height ?? 0,
+            videoRectX: videoRect?.x ?? 0,
+            videoRectY: videoRect?.y ?? 0,
+            videoRectWidth: videoRect?.width ?? 0,
+            videoRectHeight: videoRect?.height ?? 0,
+            containerRectX: containerRect?.x ?? 0,
+            containerRectY: containerRect?.y ?? 0,
+            containerRectWidth: containerRect?.width ?? 0,
+            containerRectHeight: containerRect?.height ?? 0,
         });
         this._guideShown = true;
         if (!video) {

@@ -33,6 +33,10 @@ interface DoneAttempt {
     diagnostics: ChannelBuilderGuideTransitionDiagnostics;
 }
 
+function pluralize(count: number, singular: string, plural: string): string {
+    return count === 1 ? singular : plural;
+}
+
 export class ChannelSetupBuildStepPresenter {
     private readonly _buildReviewStep = new BuildReviewStepController();
     private readonly _buildProgressStep = new BuildProgressStepController();
@@ -537,12 +541,12 @@ export class ChannelSetupBuildStepPresenter {
 
         this._lastInitialChannelNumber = outcome.result.initialChannelNumber ?? null;
         const guideRefresh = outcome.result.guideRefresh;
-        ctx.statusEl.textContent = this._buildSuccessStatus(outcome.bookkeepingError, guideRefresh);
+        ctx.statusEl.textContent = this._buildSuccessStatus(outcome.result.created, outcome.bookkeepingError, guideRefresh);
         taskLabel.textContent = 'Complete';
-        detailLabel.textContent = `Created ${outcome.result.created} channels. ${outcome.result.skipped} candidates not created.`;
+        detailLabel.textContent = `Created ${outcome.result.created} ${pluralize(outcome.result.created, 'channel', 'channels')}. ${outcome.result.skipped} ${pluralize(outcome.result.skipped, 'candidate', 'candidates')} not created.`;
         barFill.style.width = '100%';
         barFill.classList.remove('indeterminate');
-        ctx.errorEl.textContent = this._buildSuccessWarning(outcome.bookkeepingError, guideRefresh);
+        ctx.errorEl.textContent = this._buildSuccessWarning(outcome.result.created, outcome.bookkeepingError, guideRefresh);
 
         cancelButton.disabled = false;
         doneButton.disabled = outcome.result.created === 0 || this._lastInitialChannelNumber === null;
@@ -580,41 +584,46 @@ export class ChannelSetupBuildStepPresenter {
     }
 
     private _buildSuccessStatus(
+        created: number,
         bookkeepingError: string | undefined,
         guideRefresh: ChannelSetupGuideRefreshSummary | undefined
     ): string {
+        const createdPrefix = `${pluralize(created, 'Channel', 'Channels')} created;`;
         if (guideRefresh?.kind === 'interrupted') {
-            return 'Channels created; guide refresh interrupted.';
+            return `${createdPrefix} guide refresh interrupted.`;
         }
         if (bookkeepingError) {
-            return 'Channels created; setup save needed.';
+            return `${createdPrefix} setup save needed.`;
         }
         if (guideRefresh?.kind === 'failed') {
-            return 'Channels created; guide refresh failed.';
+            return `${createdPrefix} guide refresh failed.`;
         }
         const refreshResult = guideRefresh?.result;
         if (refreshResult?.readiness === 'failed') {
-            return 'Channels created; guide refresh failed.';
+            return `${createdPrefix} guide refresh failed.`;
         }
         if (refreshResult?.readiness === 'skipped') {
-            return 'Channels created; guide refresh unavailable.';
+            return `${createdPrefix} guide refresh unavailable.`;
         }
         if (refreshResult?.readiness === 'partial') {
-            return 'Channels created; guide needs attention.';
+            return `${createdPrefix} guide needs attention.`;
         }
         return 'Channels ready.';
     }
 
     private _buildSuccessWarning(
+        created: number,
         bookkeepingError: string | undefined,
         guideRefresh: ChannelSetupGuideRefreshSummary | undefined
     ): string {
         const warnings: string[] = [];
+        const createdSubject = created === 1 ? 'Channel was created' : 'Channels were created';
+        const savedSubject = created === 1 ? 'Channel was saved' : 'Channels were saved';
         if (bookkeepingError) {
-            warnings.push(`Channels were created, but setup completion could not be saved: ${bookkeepingError}`);
+            warnings.push(`${createdSubject}, but setup completion could not be saved: ${bookkeepingError}`);
         }
         if (guideRefresh?.kind === 'interrupted') {
-            warnings.push('Channels were saved, but guide refresh was interrupted. Open the guide again after schedules finish loading.');
+            warnings.push(`${savedSubject}, but guide refresh was interrupted. Open the guide again after schedules finish loading.`);
             return warnings.join(' ');
         }
         if (guideRefresh?.kind === 'failed') {
