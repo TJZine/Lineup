@@ -98,20 +98,12 @@ function buildProgramRenderData(
     const overlapsVisibleWindow = program.scheduledEndTime > visibleWindowStartMs &&
         program.scheduledStartTime < visibleWindowEndMs;
     const cell = positionCell(program, args.gridAnchorTime, args.config.pixelsPerMinute, args.nowMs);
-    const rawLeft = cell.left;
-    let left = rawLeft;
-    let width = cell.width;
-    if (rawLeft < 0) {
-        width = Math.max(20, width + left);
-        left = 0;
-    }
 
     const programStartMinutes = (program.scheduledStartTime - args.gridAnchorTime) / 60000;
     const programEndMinutes = (program.scheduledEndTime - args.gridAnchorTime) / 60000;
     const textMetrics = args.cellRenderer.computeVisibleTextMetrics({
-        rawLeftPx: rawLeft,
-        clippedLeftPx: left,
-        clippedWidthPx: width,
+        cellLeftPx: cell.left,
+        cellWidthPx: cell.width,
         visibleWindowStartMinutes: args.context.visibleWindowStartMinutes,
         visibleWindowEndMinutes: args.context.visibleWindowEndMinutes,
         pixelsPerMinute: args.config.pixelsPerMinute,
@@ -124,8 +116,8 @@ function buildProgramRenderData(
             channelId: args.channelId,
             rowIndex: args.rowIndex,
             program,
-            left,
-            width,
+            left: cell.left,
+            width: cell.width,
             isPartial: programStartMinutes < args.context.visibleWindowStartMinutes ||
                 programEndMinutes > args.context.visibleWindowEndMinutes,
             isCurrent: cell.isCurrent,

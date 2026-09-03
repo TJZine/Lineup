@@ -77,6 +77,8 @@ describe('EPGInfoPanel', () => {
         Object.defineProperties(image, {
             complete: { configurable: true, value: true },
             naturalWidth: { configurable: true, value: 1 },
+            naturalHeight: { configurable: true, value: 1 },
+            getBoundingClientRect: { configurable: true, value: () => ({ width: 72 }) },
         });
     };
 
@@ -313,9 +315,31 @@ describe('EPGInfoPanel', () => {
 
         expect(sourceAssignments).toHaveBeenCalledWith('https://img.example/retry-logo.png');
         expect(clearLogo.style.display).toBe('block');
-        expect(title.style.display).toBe('none');
+        expect(title.style.display).toBe('');
         clearLogo.onerror?.(new Event('error'));
         expect(clearLogo.style.display).toBe('none');
+        expect(title.style.display).toBe('');
+    });
+
+    it('ignores a stale clear logo completion after the program changes', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
+        panel.setThumbResolver((path) => path ? `https://img.example${path}` : null);
+        panel.updateFull(createMockProgram(null, { fullTitle: 'Old', clearLogo: '/old.png' }));
+
+        const clearLogo = container.querySelector('.epg-info-clear-logo') as HTMLImageElement;
+        const title = container.querySelector('.epg-info-title') as HTMLElement;
+        const staleOnload = clearLogo.onload;
+        panel.updateFull(createMockProgram(null, { fullTitle: 'New', clearLogo: '/new.png' }));
+        Object.defineProperties(clearLogo, {
+            naturalWidth: { configurable: true, value: 400 },
+            naturalHeight: { configurable: true, value: 120 },
+            getBoundingClientRect: { configurable: true, value: () => ({ width: 240 }) },
+        });
+        staleOnload?.call(clearLogo, new Event('load'));
+
+        expect(clearLogo.getAttribute('src')).toBe('https://img.example/new.png');
+        expect(clearLogo.style.visibility).toBe('hidden');
+        expect(title.textContent).toBe('New');
         expect(title.style.display).toBe('');
     });
 
@@ -715,6 +739,33 @@ describe('EPGInfoPanel', () => {
             panel.hide();
             expect(panel.isShowing()).toBe(false);
         });
+
+        it.each(['hide', 'destroy'] as const)(
+            'clears pending clear logo handlers on %s',
+            (action) => {
+                localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
+                panel.setThumbResolver((path) => path ? `https://img${path}` : null);
+                panel.show(createMockProgram(null, { clearLogo: '/pending-logo.png' }));
+
+                const logo = container.querySelector('.epg-info-clear-logo') as HTMLImageElement;
+                const title = container.querySelector('.epg-info-title') as HTMLElement;
+                Object.defineProperties(logo, {
+                    naturalWidth: { configurable: true, value: 400 },
+                    naturalHeight: { configurable: true, value: 120 },
+                    getBoundingClientRect: { configurable: true, value: () => ({ width: 240 }) },
+                });
+
+                panel[action]();
+                expect(logo.onload).toBeNull();
+                expect(logo.onerror).toBeNull();
+
+                logo.dispatchEvent(new Event('load'));
+                logo.dispatchEvent(new Event('error'));
+                expect(title.style.display).toBe('');
+                expect(logo.style.visibility).toBe('hidden');
+                expect(logo.getAttribute('src')).toBe('https://img/pending-logo.png');
+            }
+        );
 
         it('should display program title', () => {
             const program = createMockProgram(null);
@@ -1189,7 +1240,7 @@ describe('EPGInfoPanel', () => {
             expect(poster.alt).toBe('Scavengers Reign');
         });
 
-        it('renders clear logo in place of title when enabled', () => {
+        it('renders clear logo in place of title only after it loads and is usable', () => {
             localStorage.setItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS, '1');
             try {
                 const resolver = jest.fn((path: string | null) => (path ? `https://img${path}` : null));
@@ -1202,6 +1253,15 @@ describe('EPGInfoPanel', () => {
                 const title = container.querySelector('.epg-info-title') as HTMLElement | null;
                 expect(logo?.style.display).toBe('block');
                 expect(logo?.src).toBe('https://img/clearlogo.png');
+                expect(title?.style.display).toBe('');
+
+                Object.defineProperties(logo, {
+                    naturalWidth: { configurable: true, value: 400 },
+                    naturalHeight: { configurable: true, value: 120 },
+                    getBoundingClientRect: { configurable: true, value: () => ({ width: 240 }) },
+                });
+                logo?.onload?.(new Event('load'));
+
                 expect(title?.style.display).toBe('none');
             } finally {
                 localStorage.removeItem(LINEUP_STORAGE_KEYS.PREFER_CLEAR_LOGOS);

@@ -88,12 +88,16 @@ type BuildStepPresenterTestDeps = {
         getSelectedServerId: jest.Mock;
         openServerSelect: jest.Mock;
         switchToChannelByNumberWithOutcome: jest.Mock;
+        waitForNextPlaybackStart: jest.Mock;
         openEPG: jest.Mock;
+        appendBuilderGuideDiagnostic: jest.Mock;
     };
     getPreferredFocusId: jest.Mock;
     setPreferredFocusId: jest.Mock;
     getVisibilityToken: jest.Mock;
     renderStep: jest.Mock;
+    revealPlayerProvisionally: jest.Mock;
+    restoreSetupAfterProvisionalReveal: jest.Mock;
 };
 
 const createDeps = (
@@ -121,13 +125,20 @@ const createDeps = (
             getNavigation: jest.fn(() => null),
             getSelectedServerId: jest.fn(() => 'server-1'),
             openServerSelect: jest.fn(),
-            switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
+            switchToChannelByNumberWithOutcome: jest.fn().mockImplementation((_number, options) => {
+                options?.beforeProgramStart?.();
+                return Promise.resolve({ kind: 'switched' });
+            }),
+            waitForNextPlaybackStart: jest.fn().mockResolvedValue({ kind: 'started' }),
             openEPG: jest.fn(),
+            appendBuilderGuideDiagnostic: jest.fn(),
         },
         getPreferredFocusId: jest.fn(() => null),
         setPreferredFocusId: jest.fn(),
         getVisibilityToken: jest.fn(() => 1),
         renderStep: jest.fn(),
+        revealPlayerProvisionally: jest.fn(),
+        restoreSetupAfterProvisionalReveal: jest.fn(),
     };
 };
 
@@ -206,9 +217,59 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect(beginBuild).toHaveBeenCalled();
         expect(ctx.statusEl.textContent).toBe('Channels ready.');
         expect(ctx.contentEl.querySelector('.setup-progress-task')?.textContent).toBe('Complete');
-        expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 2 channels. Skipped 1.');
+        expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 2 channels. 1 candidate not created.');
         expect((ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).disabled).toBe(false);
         expect(deps.focus.unregisterAll).toHaveBeenCalled();
+    });
+
+    it('uses singular channel and candidate copy for single counts', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const beginBuild = jest.fn(async () => (
+            { kind: 'success', result: { ...DEFAULT_BUILD_RESULT, created: 1, skipped: 1 } }
+        ));
+        const deps = createDeps(snapshot, { beginBuild });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 1 channel. 1 candidate not created.');
+    });
+
+    it('uses singular channel copy in normal success status for single counts', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 1, skipped: 0 },
+            }),
+        });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        expect(ctx.statusEl.textContent).toBe('Channel ready.');
+    });
+
+    it('uses singular channel copy in degraded success status for single counts', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 1, skipped: 0 },
+                bookkeepingError: 'Device storage is full.',
+            }),
+        });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        expect(ctx.statusEl.textContent).toBe('Channel created; setup save needed.');
     });
 
     it('uses degraded success copy when setup completion cannot be saved', async () => {
@@ -458,19 +519,161 @@ describe('ChannelSetupBuildStepPresenter', () => {
         await flushPromises();
 
         expect(replaceScreen).toHaveBeenCalledWith('player');
-        expect(deps.screenPorts.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(1);
+        expect(deps.screenPorts.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(1, {
+            signal: expect.any(AbortSignal),
+            beforeProgramStart: expect.any(Function),
+        });
+        expect(deps.revealPlayerProvisionally).toHaveBeenCalledTimes(1);
         expect(deps.screenPorts.openEPG).toHaveBeenCalledTimes(1);
         const switchOrder = deps.screenPorts.switchToChannelByNumberWithOutcome.mock.invocationCallOrder[0];
+        const waitOrder = deps.screenPorts.waitForNextPlaybackStart.mock.invocationCallOrder[0];
         const replaceOrder = replaceScreen.mock.invocationCallOrder[0];
         const epgOrder = deps.screenPorts.openEPG.mock.invocationCallOrder[0];
         expect(switchOrder).toBeDefined();
+        expect(waitOrder).toBeDefined();
         expect(replaceOrder).toBeDefined();
         expect(epgOrder).toBeDefined();
-        if (switchOrder === undefined || replaceOrder === undefined || epgOrder === undefined) {
+        if (switchOrder === undefined || waitOrder === undefined || replaceOrder === undefined || epgOrder === undefined) {
             throw new Error('Expected switch, navigation, and EPG calls to be recorded');
         }
-        expect(switchOrder).toBeLessThan(replaceOrder);
+        const revealOrder = deps.revealPlayerProvisionally.mock.invocationCallOrder[0];
+        expect(switchOrder).toBeLessThan(revealOrder as number);
+        expect(revealOrder).toBeLessThan(waitOrder);
+        expect(revealOrder).toBeLessThan(replaceOrder);
         expect(replaceOrder).toBeLessThan(epgOrder);
+    });
+
+    it('keeps Guide closed until the exact playback start settles', async () => {
+        const ctx = createContext();
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0 },
+            }),
+        });
+        let settlePlayback: ((outcome: { kind: 'started' }) => void) | undefined;
+        deps.screenPorts.waitForNextPlaybackStart.mockReturnValueOnce(new Promise((resolve) => {
+            settlePlayback = resolve;
+        }));
+        const replaceScreen = jest.fn();
+        deps.screenPorts.getNavigation.mockReturnValue({ replaceScreen, setFocus: jest.fn() });
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
+        await flushPromises();
+        expect(replaceScreen).not.toHaveBeenCalled();
+        expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
+
+        settlePlayback?.({ kind: 'started' });
+        await flushPromises();
+        expect(replaceScreen).toHaveBeenCalledWith('player');
+        expect(deps.screenPorts.openEPG).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not let an unrelated preparation-time start satisfy the intended Builder start', async () => {
+        const ctx = createContext();
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0 },
+            }),
+        });
+        let releasePreparation: (() => void) | undefined;
+        const preparation = new Promise<void>((resolve) => {
+            releasePreparation = resolve;
+        });
+        let nextStart: ((outcome: { kind: 'started' } | { kind: 'failed' }) => void) | null = null;
+        const emitProgramStart = (outcome: { kind: 'started' } | { kind: 'failed' }): void => {
+            nextStart?.(outcome);
+            nextStart = null;
+        };
+        deps.screenPorts.waitForNextPlaybackStart.mockImplementation(() => new Promise((resolve) => {
+            nextStart = resolve;
+        }));
+        deps.screenPorts.switchToChannelByNumberWithOutcome.mockImplementationOnce(async (_number, options) => {
+            await preparation;
+            options?.beforeProgramStart?.();
+            emitProgramStart({ kind: 'failed' });
+            return { kind: 'switched' };
+        });
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
+        emitProgramStart({ kind: 'started' });
+        expect(deps.screenPorts.waitForNextPlaybackStart).not.toHaveBeenCalled();
+        releasePreparation?.();
+        await flushPromises();
+
+        expect(ctx.errorEl.textContent).toBe('Channels were created, but playback could not start.');
+        expect(deps.restoreSetupAfterProvisionalReveal).toHaveBeenCalledTimes(1);
+        expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
+    });
+
+    it('keeps Guide closed when a switched outcome did not dispatch program start', async () => {
+        const ctx = createContext();
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0 },
+            }),
+        });
+        deps.screenPorts.switchToChannelByNumberWithOutcome.mockResolvedValueOnce({ kind: 'switched' });
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
+        await flushPromises();
+
+        expect(ctx.errorEl.textContent).toBe('Channels were created, but playback could not start.');
+        expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
+    });
+
+    it('restores Builder with recoverable copy when playback start fails', async () => {
+        const ctx = createContext();
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0 },
+            }),
+        });
+        deps.screenPorts.waitForNextPlaybackStart.mockResolvedValueOnce({ kind: 'failed' });
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
+        await flushPromises();
+
+        expect(deps.restoreSetupAfterProvisionalReveal).toHaveBeenCalledTimes(1);
+        expect(ctx.errorEl.textContent).toBe('Channels were created, but playback could not start.');
+        expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
+        expect((ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('restores Builder without a stale suffix when playback start is superseded', async () => {
+        const ctx = createContext();
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0 },
+            }),
+        });
+        deps.screenPorts.waitForNextPlaybackStart.mockResolvedValueOnce({ kind: 'superseded' });
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
+        await flushPromises();
+
+        expect(deps.restoreSetupAfterProvisionalReveal).toHaveBeenCalledTimes(1);
+        expect(ctx.errorEl.textContent).toBe('');
+        expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
     });
 
     it('uses the build-selected initial channel for Done and stays on setup when switch fails', async () => {
@@ -489,9 +692,12 @@ describe('ChannelSetupBuildStepPresenter', () => {
             setFocus: jest.fn(),
         });
 
-        deps.screenPorts.switchToChannelByNumberWithOutcome.mockResolvedValueOnce({
-            kind: 'failed',
-            reason: 'content_unavailable',
+        deps.screenPorts.switchToChannelByNumberWithOutcome.mockImplementationOnce((_number, options) => {
+            options?.beforeProgramStart?.();
+            return Promise.resolve({
+                kind: 'failed',
+                reason: 'content_unavailable',
+            });
         });
         new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
         await flushPromises();
@@ -499,7 +705,10 @@ describe('ChannelSetupBuildStepPresenter', () => {
         (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
         await flushPromises();
 
-        expect(deps.screenPorts.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(42);
+        expect(deps.screenPorts.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(42, expect.objectContaining({
+            signal: expect.any(AbortSignal),
+        }));
+        expect(deps.restoreSetupAfterProvisionalReveal).toHaveBeenCalledTimes(1);
         expect(replaceScreen).not.toHaveBeenCalled();
         expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
         expect(ctx.errorEl.textContent).toBe('Channels were created, but channel 42 could not start.');
@@ -521,16 +730,99 @@ describe('ChannelSetupBuildStepPresenter', () => {
             setFocus: jest.fn(),
         });
 
-        deps.screenPorts.switchToChannelByNumberWithOutcome.mockResolvedValueOnce({ kind: 'aborted' });
+        deps.screenPorts.switchToChannelByNumberWithOutcome.mockImplementationOnce((_number, options) => {
+            options?.beforeProgramStart?.();
+            return Promise.resolve({ kind: 'aborted' });
+        });
         new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
         await flushPromises();
 
         (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
         await flushPromises();
 
-        expect(deps.screenPorts.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(42);
+        expect(deps.screenPorts.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(42, expect.objectContaining({
+            signal: expect.any(AbortSignal),
+        }));
+        expect(deps.restoreSetupAfterProvisionalReveal).toHaveBeenCalledTimes(1);
         expect(replaceScreen).not.toHaveBeenCalled();
         expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
         expect(ctx.errorEl.textContent).toBe('Channels were created, but playback start was canceled.');
+    });
+
+    it('cancels a hidden-screen attempt and suppresses its late success suffix', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0 },
+            }),
+        });
+        let resolveSwitch: ((outcome: { kind: 'switched' }) => void) | undefined;
+        deps.screenPorts.switchToChannelByNumberWithOutcome.mockImplementationOnce((_number, options) => {
+            options?.beforeProgramStart?.();
+            return new Promise((resolve) => {
+                resolveSwitch = resolve;
+            });
+        });
+        const replaceScreen = jest.fn();
+        deps.screenPorts.getNavigation.mockReturnValue({ replaceScreen, setFocus: jest.fn() });
+        const presenter = new ChannelSetupBuildStepPresenter();
+        presenter.render(ctx, deps as never);
+        await flushPromises();
+
+        (ctx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
+        const signal = deps.screenPorts.switchToChannelByNumberWithOutcome.mock.calls[0]?.[1]?.signal as AbortSignal;
+        presenter.cancelDoneTransition();
+        resolveSwitch?.({ kind: 'switched' });
+        await flushPromises();
+
+        expect(signal.aborted).toBe(true);
+        expect(deps.screenPorts.openEPG).not.toHaveBeenCalled();
+        expect(replaceScreen).not.toHaveBeenCalled();
+    });
+
+    it('lets a newer Done attempt supersede a stale completion', async () => {
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 2, skipped: 0 },
+            }),
+        });
+        let resolveFirst: ((outcome: { kind: 'switched' }) => void) | undefined;
+        deps.screenPorts.switchToChannelByNumberWithOutcome
+            .mockImplementationOnce((_number, options) => {
+                options?.beforeProgramStart?.();
+                return new Promise((resolve) => {
+                    resolveFirst = resolve;
+                });
+            })
+            .mockImplementationOnce((_number, options) => {
+                options?.beforeProgramStart?.();
+                return Promise.resolve({ kind: 'switched' });
+            });
+        const replaceScreen = jest.fn();
+        deps.screenPorts.getNavigation.mockReturnValue({ replaceScreen, setFocus: jest.fn() });
+        const presenter = new ChannelSetupBuildStepPresenter();
+        const firstCtx = createContext();
+        const secondCtx = createContext();
+        presenter.render(firstCtx, deps as never);
+        await flushPromises();
+        (firstCtx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
+        const firstSignal = deps.screenPorts.switchToChannelByNumberWithOutcome.mock.calls[0]?.[1]?.signal as AbortSignal;
+
+        presenter.render(secondCtx, deps as never);
+        await flushPromises();
+        (secondCtx.contentEl.querySelector('#setup-done') as HTMLButtonElement).click();
+        await flushPromises();
+        resolveFirst?.({ kind: 'switched' });
+        await flushPromises();
+
+        expect(firstSignal.aborted).toBe(true);
+        expect(deps.restoreSetupAfterProvisionalReveal).toHaveBeenCalledTimes(1);
+        expect(replaceScreen).toHaveBeenCalledTimes(1);
+        expect(deps.screenPorts.openEPG).toHaveBeenCalledTimes(1);
     });
 });

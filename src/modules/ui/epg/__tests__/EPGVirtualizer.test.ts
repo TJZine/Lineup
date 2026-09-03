@@ -46,6 +46,12 @@ describe('EPGVirtualizer', () => {
             },
         };
     };
+    const stubRenderedWidth = (element: HTMLElement, width: number): void => {
+        Object.defineProperty(element, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => ({ width }),
+        });
+    };
 
     beforeEach(() => {
         container = document.createElement('div');
@@ -60,7 +66,6 @@ describe('EPGVirtualizer', () => {
             pixelsPerMinute: 4,
             autoFitPixelsPerMinute: false,
             rowHeight: 80,
-            showCurrentTimeIndicator: true,
             autoScrollToNow: false,
         };
 
@@ -413,7 +418,7 @@ describe('EPGVirtualizer', () => {
             expect(cell.style.width).toBe('960px');
         });
 
-        it('does not shift text when the cell is already clipped to the left edge', () => {
+        it('preserves full pre-anchor geometry and shifts text into the clipped viewport', () => {
             virtualizer.setChannelCount(1);
             const channelId = 'ch-left-clipped';
 
@@ -427,16 +432,16 @@ describe('EPGVirtualizer', () => {
                 }],
             ]);
 
-            // Visible window starts at anchor (00:00), so this program is both
-            // partial and left-clipped by layout clipping.
             const range = virtualizer.calculateVisibleRange({ channelOffset: 0, timeOffset: 0 });
             virtualizer.renderVisibleCells([channelId], schedules, range);
 
             const expectedKey = `${channelId}-${program.scheduledStartTime}`;
             const cell = container.querySelector(`[data-key="${expectedKey}"]`) as HTMLElement;
             expect(cell).not.toBeNull();
-            expect(cell.classList.contains(EPG_CLASSES.CELL_TEXT_SHIFTED)).toBe(false);
-            expect(cell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('');
+            expect(cell.style.left).toBe('-120px');
+            expect(cell.style.width).toBe('240px');
+            expect(cell.classList.contains(EPG_CLASSES.CELL_TEXT_SHIFTED)).toBe(true);
+            expect(cell.style.getPropertyValue('--epg-cell-text-shift-px')).toBe('120px');
         });
 
         it('marks genuinely short visible program cells as slivers', () => {
@@ -486,14 +491,18 @@ describe('EPGVirtualizer', () => {
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
             const meta = cell.querySelector(`.${EPG_CLASSES.CELL_META}`) as HTMLElement;
             const episode = cell.querySelector(`.${EPG_CLASSES.CELL_EPISODE}`) as HTMLElement;
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            const subtitleText = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE_TEXT}`) as HTMLElement;
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
 
             Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 180 });
+            stubRenderedWidth(titleText, 180);
             Object.defineProperty(title, 'clientWidth', { configurable: true, value: 40 });
             Object.defineProperty(subtitle, 'scrollWidth', { configurable: true, value: 200 });
+            stubRenderedWidth(subtitleText, 200);
             Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 40 });
 
             virtualizer.setFocusedCell(channelId, start);
@@ -1290,9 +1299,11 @@ describe('EPGVirtualizer', () => {
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
             const time = cell.querySelector(`.${EPG_CLASSES.CELL_TIME}`) as HTMLElement;
             Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 320 });
+            stubRenderedWidth(titleText, 320);
             Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
             Object.defineProperty(title, 'scrollHeight', { configurable: true, value: 40 });
             Object.defineProperty(title, 'clientHeight', { configurable: true, value: 40 });
@@ -1356,8 +1367,10 @@ describe('EPGVirtualizer', () => {
 
                 const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
                 const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+                const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
 
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 300 });
+                stubRenderedWidth(titleText, 300);
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
 
                 virtualizer.setFocusedCell(channelId, start);
@@ -1431,7 +1444,7 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 200 });
                 Object.defineProperty(title, 'scrollHeight', { configurable: true, value: 24 });
                 Object.defineProperty(title, 'clientHeight', { configurable: true, value: 24 });
-                Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 120 });
+                stubRenderedWidth(titleText, 120);
 
                 virtualizer.setFocusedCell(channelId, start);
                 title.classList.add(EPG_CLASSES.CELL_TITLE_TICKER_READY, EPG_CLASSES.CELL_TITLE_TICKER_RUNNING);
@@ -1478,10 +1491,10 @@ describe('EPGVirtualizer', () => {
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 200 });
                 Object.defineProperty(title, 'scrollHeight', { configurable: true, value: 24 });
                 Object.defineProperty(title, 'clientHeight', { configurable: true, value: 24 });
-                Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 130 });
+                stubRenderedWidth(titleText, 130);
                 Object.defineProperty(subtitle, 'scrollWidth', { configurable: true, value: 150 });
                 Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 200 });
-                Object.defineProperty(subtitleText, 'scrollWidth', { configurable: true, value: 150 });
+                stubRenderedWidth(subtitleText, 150);
 
                 virtualizer.setFocusedCell(channelId, start);
                 expect(subtitle.textContent).toBe('Readable Episode');
@@ -1506,7 +1519,7 @@ describe('EPGVirtualizer', () => {
             }
         });
 
-        it('recomputes visible overflow using text-shift width for focused cells', () => {
+        it('uses actual content width for shifted focused cells', () => {
             jest.useFakeTimers();
             try {
                 const channelId = 'ch-ticker-text-shift';
@@ -1525,8 +1538,10 @@ describe('EPGVirtualizer', () => {
 
                 const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
                 const title = cell.querySelector('.epg-cell-title') as HTMLElement;
+                const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
 
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 110 });
+                stubRenderedWidth(titleText, 110);
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 100 });
 
                 virtualizer.setFocusedCell(channelId, start);
@@ -1568,7 +1583,7 @@ describe('EPGVirtualizer', () => {
                     .querySelector('.epg-cell-title') as HTMLElement;
                 const focusedTitleText = focusedTitle.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
                 Object.defineProperty(focusedTitle, 'scrollWidth', { configurable: true, value: 320 });
-                Object.defineProperty(focusedTitleText, 'scrollWidth', { configurable: true, value: 320 });
+                stubRenderedWidth(focusedTitleText, 320);
                 Object.defineProperty(focusedTitle, 'clientWidth', { configurable: true, value: 80 });
                 virtualizer.setFocusedCell(channelId, start);
                 jest.advanceTimersByTime(16);
@@ -1586,7 +1601,7 @@ describe('EPGVirtualizer', () => {
             jest.useFakeTimers();
             try {
                 const channelId = 'ch-ticker-clamp-only';
-                const start = gridAnchorTime - 20 * 60 * 1000;
+                const start = gridAnchorTime;
                 const end = gridAnchorTime + 20 * 60 * 1000;
 
                 const schedule: ScheduleWindow = {
@@ -1662,10 +1677,10 @@ describe('EPGVirtualizer', () => {
                 const subtitle = focusedCell.querySelector('.epg-cell-subtitle') as HTMLElement;
                 const subtitleText = focusedCell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE_TEXT}`) as HTMLElement;
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 320 });
-                Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 320 });
+                stubRenderedWidth(titleText, 320);
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
                 Object.defineProperty(subtitle, 'scrollWidth', { configurable: true, value: 360 });
-                Object.defineProperty(subtitleText, 'scrollWidth', { configurable: true, value: 360 });
+                stubRenderedWidth(subtitleText, 360);
                 Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 80 });
                 virtualizer.setFocusedCell(channelId, start);
                 jest.advanceTimersByTime(16);
@@ -1881,7 +1896,7 @@ describe('EPGVirtualizer', () => {
                 const title = cell.querySelector('.epg-cell-title') as HTMLElement;
                 const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 88 });
-                Object.defineProperty(titleText, 'scrollWidth', { configurable: true, value: 88 });
+                stubRenderedWidth(titleText, 88);
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
                 virtualizer.setFocusedCell(channelId, start);
                 jest.advanceTimersByTime(16);
@@ -1950,8 +1965,10 @@ describe('EPGVirtualizer', () => {
 
                 const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
                 const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+                const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
 
                 Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 115 });
+                stubRenderedWidth(titleText, 115);
                 Object.defineProperty(title, 'clientWidth', { configurable: true, value: 80 });
 
                 virtualizer.setFocusedCell(channelId, start);
@@ -2064,7 +2081,9 @@ describe('EPGVirtualizer', () => {
 
                 const firstCell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
                 const firstTitle = firstCell.querySelector('.epg-cell-title') as HTMLElement;
+                const firstTitleText = firstCell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
                 Object.defineProperty(firstTitle, 'scrollWidth', { configurable: true, value: 260 });
+                stubRenderedWidth(firstTitleText, 260);
                 Object.defineProperty(firstTitle, 'clientWidth', { configurable: true, value: 80 });
 
                 virtualizer.setFocusedCell(channelId, start);
@@ -2101,7 +2120,7 @@ describe('EPGVirtualizer', () => {
             expect(badge.textContent).toBe('');
         });
 
-        it('renders progress width for current program cells', () => {
+        it('keeps current state without rendering per-cell progress', () => {
             const channelId = 'ch-progress-current';
             const start = gridAnchorTime;
             const end = gridAnchorTime + 20 * 60 * 1000;
@@ -2118,12 +2137,11 @@ describe('EPGVirtualizer', () => {
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
-            const fill = cell.querySelector('.epg-cell-progress-fill') as HTMLElement;
-            expect(fill).not.toBeNull();
-            expect(fill.style.width).toBe('25%');
+            expect(cell.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(true);
+            expect(cell.querySelector('.epg-cell-progress')).toBeNull();
         });
 
-        it('uses provided nowMs snapshot for current/progress calculations', () => {
+        it('uses provided nowMs snapshot for current-state calculations', () => {
             const channelId = 'ch-progress-now-snapshot';
             const start = gridAnchorTime;
             const end = gridAnchorTime + 20 * 60 * 1000;
@@ -2147,12 +2165,11 @@ describe('EPGVirtualizer', () => {
             );
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
-            const fill = cell.querySelector('.epg-cell-progress-fill') as HTMLElement;
-            expect(fill).not.toBeNull();
-            expect(fill.style.width).toBe('25%');
+            expect(cell.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(true);
+            expect((cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement).hidden).toBe(false);
         });
 
-        it('updates progress width when a cell becomes current via temporal refresh', () => {
+        it('updates current state without adding progress via temporal refresh', () => {
             const channelId = 'ch-progress-update';
             const start = gridAnchorTime + 10 * 60 * 1000;
             const end = start + 20 * 60 * 1000;
@@ -2171,8 +2188,8 @@ describe('EPGVirtualizer', () => {
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             virtualizer.updateTemporalClasses(start + 10 * 60_000);
-            const fill = cell.querySelector('.epg-cell-progress-fill') as HTMLElement;
-            expect(fill.style.width).toBe('50%');
+            expect(cell.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(true);
+            expect(cell.querySelector('.epg-cell-progress')).toBeNull();
         });
 
         it('keeps row-aware title layout when a wide episode becomes current via temporal refresh', () => {
@@ -2260,7 +2277,7 @@ describe('EPGVirtualizer', () => {
             expect(mediumEpisode.textContent).toBe('S01E08');
         });
 
-        it('resets progress width when a current program becomes past', () => {
+        it('moves a current program to past without adding progress', () => {
             const channelId = 'ch-progress-reset';
             const start = gridAnchorTime + 10 * 60 * 1000;
             const end = start + 20 * 60 * 1000;
@@ -2278,13 +2295,13 @@ describe('EPGVirtualizer', () => {
             virtualizer.renderVisibleCells([channelId], new Map([[channelId, schedule]]), range);
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
-            const fill = cell.querySelector('.epg-cell-progress-fill') as HTMLElement;
-
             virtualizer.updateTemporalClasses(start + 10 * 60_000);
-            expect(fill.style.width).toBe('50%');
+            expect(cell.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(true);
 
             virtualizer.updateTemporalClasses(end + 1);
-            expect(fill.style.width).toBe('0%');
+            expect(cell.classList.contains(EPG_CLASSES.CELL_CURRENT)).toBe(false);
+            expect(cell.classList.contains(EPG_CLASSES.CELL_PAST)).toBe(true);
+            expect(cell.querySelector('.epg-cell-progress')).toBeNull();
         });
 
         it('keeps compact current dot when narrow/tiny cell is focused', () => {
@@ -2415,28 +2432,32 @@ describe('EPGVirtualizer', () => {
 
             const cell = container.querySelector(`[data-key="${channelId}-${start}"]`) as HTMLElement;
             const title = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE}`) as HTMLElement;
+            const titleText = cell.querySelector(`.${EPG_CLASSES.CELL_TITLE_TEXT}`) as HTMLElement;
             const subtitle = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE}`) as HTMLElement;
+            const subtitleText = cell.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE_TEXT}`) as HTMLElement;
             const liveBadge = cell.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement;
 
             expect(cell.classList.contains(EPG_CLASSES.CELL_FOCUSED_COMPACT)).toBe(true);
             expect(liveBadge.hidden).toBe(true);
 
             Object.defineProperty(title, 'scrollWidth', { configurable: true, value: 160 });
+            stubRenderedWidth(titleText, 160);
             Object.defineProperty(title, 'clientWidth', {
                 configurable: true,
                 get: () => (liveBadge.hidden ? 100 : 92),
             });
             Object.defineProperty(subtitle, 'scrollWidth', { configurable: true, value: 40 });
+            stubRenderedWidth(subtitleText, 40);
             Object.defineProperty(subtitle, 'clientWidth', { configurable: true, value: 100 });
 
             virtualizer.setFocusedCell(channelId, start, beforeCurrent);
             jest.advanceTimersByTime(16);
-            expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('60px');
+            expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('80px');
 
             virtualizer.updateTemporalClasses(start + (2 * 60000));
 
             expect(liveBadge.hidden).toBe(false);
-            expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('60px');
+            expect(title.style.getPropertyValue('--epg-title-ticker-distance-px')).toBe('80px');
         });
 
         it('keeps focused tiny movie time hidden while live dot overlays top-right', () => {

@@ -123,15 +123,14 @@ describe('EPGCellPresentation', () => {
 
     it('computes visible text shift and ticker overflow from stable inputs', () => {
         expect(getVisibleTextMetrics({
-            rawLeftPx: -20,
-            clippedLeftPx: 0,
-            clippedWidthPx: 60,
+            cellLeftPx: -20,
+            cellWidthPx: 80,
             visibleWindowStartMinutes: 10,
             visibleWindowEndMinutes: 20,
             pixelsPerMinute: 4,
         })).toMatchObject({
             visibleWidthPx: 20,
-            safeTextShiftPx: 36,
+            safeTextShiftPx: 56,
             isLeftClippedByCell: true,
             isLeftClippedByScroll: true,
         });
@@ -153,8 +152,8 @@ describe('EPGCellPresentation', () => {
             supportsClampMeasurement: false,
         };
 
-        expect(getEffectiveTickerClientWidth(target, 200, 90, 10)).toBe(90);
-        expect(measureReadyStateTickerOverflow(target, 200, 90, 10)).toBe(60);
+        expect(getEffectiveTickerClientWidth(target, 90)).toBe(90);
+        expect(measureReadyStateTickerOverflow(target, 90)).toBe(60);
         expect(viewport.classList.contains('ready')).toBe(true);
     });
 });

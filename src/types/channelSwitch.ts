@@ -9,6 +9,11 @@ export type ChannelSwitchOutcome =
     | { kind: 'aborted' }
     | { kind: 'failed'; reason: ChannelSwitchFailureReason };
 
+export interface ChannelSwitchPresentationOptions {
+    signal?: AbortSignal;
+    beforeProgramStart?: () => void;
+}
+
 export const CHANNEL_SWITCH_OUTCOME = {
     switched: { kind: 'switched' },
     aborted: { kind: 'aborted' },

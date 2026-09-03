@@ -18,6 +18,7 @@ import { validateGuideSelectionSnapshot } from './GuideSelectionSnapshot';
 export type { ChannelSwitchOutcome } from '../../types/channelSwitch';
 import { CHANNEL_SWITCH_OUTCOME } from '../../types/channelSwitch';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
+import type { ChannelSwitchPresentationOptions } from '../../types/channelSwitch';
 import type {
     OperationContextUpstream,
     RetainedOperationLease,
@@ -68,8 +69,7 @@ interface QueuedSwitchRequest {
     operation: RetainedOperationLease;
 }
 
-export interface ChannelSwitchOptions {
-    signal?: AbortSignal;
+export interface ChannelSwitchOptions extends ChannelSwitchPresentationOptions {
     guideSelectionSnapshot?: GuideSelectionSnapshot;
 }
 
@@ -485,6 +485,8 @@ export class ChannelTuningCoordinator {
             operation.assertCurrent();
             this.deps.setPendingNowPlayingChannelId(channelId);
             operation.assertCurrent();
+            options?.beforeProgramStart?.();
+            operation.assertCurrent();
             scheduler.loadChannel(scheduleConfig);
             operation.assertCurrent();
             this.deps.setActiveScheduleDayKey(this.deps.getLocalDayKey(scheduleReferenceTimeMs));
@@ -598,7 +600,7 @@ export class ChannelTuningCoordinator {
 
     async switchToChannelByNumber(
         number: number,
-        options?: { signal?: AbortSignal }
+        options?: ChannelSwitchOptions
     ): Promise<ChannelSwitchOutcome> {
         if (this._operationContext.isSuspended || options?.signal?.aborted) {
             return CHANNEL_SWITCH_OUTCOME.aborted;

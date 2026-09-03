@@ -41,7 +41,9 @@ type MockRuntimeOrchestrator = {
     getSelectedServerId: jest.Mock;
     openServerSelect: jest.Mock;
     switchToChannelByNumberWithOutcome: jest.Mock;
+    waitForNextPlaybackStart: jest.Mock;
     openEPG: jest.Mock;
+    appendBuilderGuideDiagnostic: jest.Mock;
     requestChannelSetupRerun: jest.Mock;
     setSubtitleTrack: jest.Mock;
     onGuideSettingChange: jest.Mock;
@@ -150,7 +152,9 @@ const makeOrchestrator = (): MockRuntimeOrchestrator => ({
     getSelectedServerId: jest.fn().mockReturnValue('server-1'),
     openServerSelect: jest.fn(),
     switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
+    waitForNextPlaybackStart: jest.fn().mockResolvedValue({ kind: 'started' }),
     openEPG: jest.fn(),
+    appendBuilderGuideDiagnostic: jest.fn(),
     requestChannelSetupRerun: jest.fn(() => ({ ok: true as const, serverId: 'server-1' })),
     setSubtitleTrack: jest.fn().mockResolvedValue(undefined),
     onGuideSettingChange: jest.fn(),
@@ -398,6 +402,7 @@ describe('AppLazyScreenPortFactory', () => {
         await runtimePort?.switchToChannelByNumberWithOutcome(12);
         const controller = new AbortController();
         await runtimePort?.switchToChannelByNumberWithOutcome(12, { signal: controller.signal });
+        await runtimePort?.waitForNextPlaybackStart(controller.signal);
 
         expect(orchestrator.getChannelSetupWorkflowPort).toHaveBeenCalledTimes(1);
         expect(orchestrator.openServerSelect).toHaveBeenCalledTimes(1);
@@ -406,6 +411,7 @@ describe('AppLazyScreenPortFactory', () => {
         expect(orchestrator.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(12, {
             signal: controller.signal,
         });
+        expect(orchestrator.waitForNextPlaybackStart).toHaveBeenCalledWith(controller.signal);
     });
 
     it('returns null channel-setup runtime port without a source runtime', (): void => {
@@ -435,6 +441,7 @@ describe('AppLazyScreenPortFactory', () => {
         channelSetupInput?.screenPorts.openServerSelect();
         channelSetupInput?.screenPorts.openEPG();
         await channelSetupInput?.screenPorts.switchToChannelByNumberWithOutcome(12);
+        await channelSetupInput?.screenPorts.waitForNextPlaybackStart();
 
         expect(orchestrator.openServerSelect).toHaveBeenCalledTimes(1);
         expect(orchestrator.openEPG).toHaveBeenCalledTimes(1);
@@ -442,6 +449,7 @@ describe('AppLazyScreenPortFactory', () => {
         expect(workflowPort.invalidateFacetSnapshot).toHaveBeenCalledTimes(1);
         expect(workflowPort.invalidateSessionData).toHaveBeenCalledTimes(1);
         expect(orchestrator.switchToChannelByNumberWithOutcome).toHaveBeenCalledWith(12, undefined);
+        expect(orchestrator.waitForNextPlaybackStart).toHaveBeenCalledWith(undefined);
     });
 
     it('looks up channel-setup navigation from the current orchestrator at call time', (): void => {

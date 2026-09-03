@@ -7,6 +7,7 @@
 
 
 import { AppOrchestrator } from '../Orchestrator';
+import { PlaybackRuntimeController } from '../core/orchestrator/priority-one/PlaybackRuntimeController';
 import { AppErrorCode } from '../types/app-errors';
 import type { OrchestratorConfig } from '../core/orchestrator/contracts/OrchestratorTypes';
 import { EPGCoordinator } from '../modules/ui/epg';
@@ -98,7 +99,6 @@ const mockEpgConfig = {
     totalHours: 24,
     pixelsPerMinute: 4,
     rowHeight: 80,
-    showCurrentTimeIndicator: true,
     autoScrollToNow: true,
 };
 
@@ -2721,6 +2721,17 @@ describe('AppOrchestrator', () => {
             await orchestrator.shutdown();
 
             expect(mockChannelManager.dispose).toHaveBeenCalledTimes(1);
+        });
+
+        it('disposes the playback runtime controller on shutdown', async () => {
+            const disposeSpy = jest.spyOn(PlaybackRuntimeController.prototype, 'dispose');
+            try {
+                await orchestrator.shutdown();
+
+                expect(disposeSpy).toHaveBeenCalledTimes(1);
+            } finally {
+                disposeSpy.mockRestore();
+            }
         });
 
         it('makes concurrent shutdown callers wait for the active teardown', async () => {

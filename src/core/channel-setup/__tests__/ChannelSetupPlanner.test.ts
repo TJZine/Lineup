@@ -8,7 +8,10 @@ import {
     createChannelIdentityKey,
     diffChannelPlans,
 } from '../planning/ChannelSetupPlanningTypes';
-import { createPeopleSeriesIndexFromEpisodes } from '../planning/ChannelSetupPeopleSeriesIndex';
+import {
+    createPeopleIndexFromItems,
+    createPeopleSeriesIndexFromEpisodes,
+} from '../planning/ChannelSetupPeopleSeriesIndex';
 import { CHANNEL_SETUP_NATIVE_FACET_FAMILIES } from '../planning/ChannelSetupFacetFamilies';
 import type { ChannelSetupConfig, SetupStrategyConfig, SetupStrategyKey } from '../types';
 import type { PlexLibrarySection, PlexMediaItem, PlexPlaylist } from '../../../modules/plex/library';
@@ -71,6 +74,26 @@ const createEpisode = (
     media: [],
     ...people,
 } as PlexMediaItem);
+
+const createMovie = (
+    title: string,
+    people: { actors?: string[]; directors?: string[] }
+): PlexMediaItem => ({
+    ratingKey: title,
+    key: `/library/metadata/${title}`,
+    type: 'movie',
+    title,
+    sortTitle: title,
+    summary: '',
+    year: 2024,
+    durationMs: 1000,
+    addedAt: new Date(0),
+    updatedAt: new Date(0),
+    thumb: null,
+    art: null,
+    media: [],
+    ...people,
+});
 
 const makeExistingChannel = (planned: PendingChannel, index: number): ChannelConfig => {
     const existing: ChannelConfig = {
@@ -413,7 +436,7 @@ describe('ChannelSetupPlanner', () => {
         expect(diff.matchedPairs).toHaveLength(plan.pendingChannels.length);
     });
 
-    it('does not create sequential variants for alternate shuffle replicas', () => {
+    it.each(['sequential', 'block'] as const)('does not create %s variants for alternate shuffle replicas', (variantType) => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
                 selectedLibraryIds: ['show-1'],
@@ -421,7 +444,7 @@ describe('ChannelSetupPlanner', () => {
                 channelExpansion: {
                     addAlternateLineups: true,
                     alternateLineupCopies: 2,
-                    variantType: 'sequential',
+                    variantType,
                     variantBlockSize: 3,
                 },
             }),
@@ -438,15 +461,17 @@ describe('ChannelSetupPlanner', () => {
             seedFor,
         });
 
+        const variantLabel = variantType === 'sequential' ? 'Sequential' : 'Block';
         expect(plan.pendingChannels.map((channel) => channel.name)).toEqual([
             'Shows - Comedy',
             'Shows - Comedy (2)',
             'Shows - Comedy (3)',
-            'Shows - Comedy • Sequential',
+            `Shows - Comedy • ${variantLabel}`,
         ]);
-        expect(
-            plan.pendingChannels.filter((channel) => channel.isPlaybackModeVariant)
-        ).toHaveLength(1);
+        const variants = plan.pendingChannels.filter((channel) => channel.isPlaybackModeVariant);
+        expect(variants).toHaveLength(1);
+        expect(variants[0]?.lineupReplicaIndex).toBe(0);
+        expect(variants[0]?.playbackMode).toBe(variantType);
     });
 
     it('uses isPlaybackModeVariant as the canonical playback variant key in identity hashes', () => {
@@ -738,7 +763,7 @@ describe('ChannelSetupPlanner', () => {
         expect(plan.pendingChannels[0]?.blockSize).toBe(3);
     });
 
-    it('treats mixed TV-only channels as series-derived for base series ordering and variants', () => {
+    it.each(['actors', 'directors'] as const)('treats mixed TV-only %s channels as series-derived for base ordering but excludes them from variants', (strategy) => {
         const libraries = [
             { id: 's1', title: 'Shows A', type: 'show', contentCount: 10 },
             { id: 's2', title: 'Shows B', type: 'show', contentCount: 10 },
@@ -746,7 +771,7 @@ describe('ChannelSetupPlanner', () => {
         const plan = buildChannelSetupPlan({
             config: createConfig({
                 selectedLibraryIds: ['s1', 's2'],
-                strategyConfig: createStrategyConfig({ actors: { enabled: true, scope: 'cross-library' } }),
+                strategyConfig: createStrategyConfig({ [strategy]: { enabled: true, scope: 'cross-library' } }),
                 seriesOrdering: {
                     basePlaybackMode: 'block',
                     baseBlockSize: 3,
@@ -762,23 +787,26 @@ describe('ChannelSetupPlanner', () => {
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map(),
-            directorsByLibraryId: new Map(),
+            directorsByLibraryId: strategy === 'directors' ? new Map([
+                ['s1', [{ key: 'director-1', title: 'Jane Doe', count: 10 }]],
+                ['s2', [{ key: 'director-1', title: 'Jane Doe', count: 10 }]],
+            ]) : new Map(),
             yearsByLibraryId: new Map(),
-            actorsByLibraryId: new Map([
+            actorsByLibraryId: strategy === 'actors' ? new Map([
                 ['s1', [{ key: 'actor-1', title: 'Jane Doe', count: 10 }]],
                 ['s2', [{ key: 'actor-1', title: 'Jane Doe', count: 10 }]],
-            ]),
+            ]) : new Map(),
             studiosByLibraryId: new Map(),
             peopleSeriesIndexByLibraryId: new Map([
                 ['s1', createPeopleSeriesIndexFromEpisodes(libraries[0]!, [
-                    createEpisode('s1-1', 'show-a', { actors: ['Jane Doe'] }),
-                    createEpisode('s1-2', 'show-b', { actors: ['Jane Doe'] }),
-                    createEpisode('s1-3', 'show-c', { actors: ['Jane Doe'] }),
+                    createEpisode('s1-1', 'show-a', { [strategy]: ['Jane Doe'] }),
+                    createEpisode('s1-2', 'show-b', { [strategy]: ['Jane Doe'] }),
+                    createEpisode('s1-3', 'show-c', { [strategy]: ['Jane Doe'] }),
                 ])],
                 ['s2', createPeopleSeriesIndexFromEpisodes(libraries[1]!, [
-                    createEpisode('s2-1', 'show-d', { actors: ['Jane Doe'] }),
-                    createEpisode('s2-2', 'show-e', { actors: ['Jane Doe'] }),
-                    createEpisode('s2-3', 'show-f', { actors: ['Jane Doe'] }),
+                    createEpisode('s2-1', 'show-d', { [strategy]: ['Jane Doe'] }),
+                    createEpisode('s2-2', 'show-e', { [strategy]: ['Jane Doe'] }),
+                    createEpisode('s2-3', 'show-f', { [strategy]: ['Jane Doe'] }),
                 ])],
             ]),
             warnings: [],
@@ -790,11 +818,7 @@ describe('ChannelSetupPlanner', () => {
         expect(base?.contentSource.type).toBe('mixed');
         expect(base?.playbackMode).toBe('block');
         expect(base?.blockSize).toBe(3);
-
-        const sequentialVariant = plan.pendingChannels.find((channel) => channel.name === 'Jane Doe • Sequential');
-        expect(sequentialVariant).toBeDefined();
-        expect(sequentialVariant?.playbackMode).toBe('sequential');
-        expect(sequentialVariant?.isPlaybackModeVariant).toBe(true);
+        expect(plan.pendingChannels.some((channel) => channel.isPlaybackModeVariant)).toBe(false);
     });
 
     it('preserves known cross-library subtotals for ordering when another source omits counts', () => {
@@ -1122,6 +1146,11 @@ describe('ChannelSetupPlanner', () => {
     });
 
     it('reports fetched-tag and candidate counts for native facet families', () => {
+        const movieLibrary = { id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 } as PlexLibrarySection;
+        const peopleIndex = createPeopleIndexFromItems(movieLibrary, Array.from(
+            { length: 5 },
+            (_, index) => createMovie(`casey-${index}`, { actors: ['Casey Star'] })
+        ));
         const diagnostics = buildChannelSetupPlanDiagnostics({
             config: createConfig({
                 selectedLibraryIds: ['m1'],
@@ -1133,7 +1162,7 @@ describe('ChannelSetupPlanner', () => {
                     actors: { enabled: true },
                 }),
             }),
-            libraries: [{ id: 'm1', title: 'Movies', type: 'movie', contentCount: 25 }] as PlexLibrarySection[],
+            libraries: [movieLibrary],
             playlists: [],
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map([['m1', [
@@ -1155,6 +1184,7 @@ describe('ChannelSetupPlanner', () => {
                 { key: 'studio-a', title: 'Studio A', count: 7 },
                 { key: 'studio-b', title: 'Studio B', count: 3 },
             ]]]),
+            peopleSeriesIndexByLibraryId: new Map([['m1', peopleIndex]]),
             warnings: [],
             seedFor,
         });

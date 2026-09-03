@@ -10,6 +10,7 @@ import { PLEX_MEDIA_TYPES } from '../../../modules/plex/library';
 import type {
     IPlexLibrary,
     PlexLibrarySection,
+    PlexMediaItem,
     PlexTagDirectoryItem,
     PlexTagDirectoryUnsupportedReason,
 } from '../../../modules/plex/library';
@@ -40,6 +41,66 @@ const resolvePendingAfterMacrotask = async (): Promise<'pending'> => {
 };
 
 describe('ChannelSetupPlanningService', () => {
+    it('prepares a movie-people Review with one item scan and no per-person count requests', async () => {
+        const movies = Array.from({ length: 5 }, (_, index): PlexMediaItem => ({
+            ratingKey: `movie-${index}`,
+            key: `/library/metadata/movie-${index}`,
+            type: 'movie',
+            title: `Movie ${index}`,
+            sortTitle: `Movie ${index}`,
+            summary: '',
+            year: 2024,
+            durationMs: 1000,
+            addedAt: new Date(0),
+            updatedAt: new Date(0),
+            thumb: null,
+            art: null,
+            actors: ['Alex Actor'],
+            directors: ['Dana Director'],
+            media: [],
+        }));
+        const libraries = [makeLibrary({
+            id: 'movies',
+            title: 'Movies',
+            type: 'movie',
+            contentCount: movies.length,
+        })];
+        const plexLibrary = {
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getLibraryItems: jest.fn().mockResolvedValue(movies),
+            getLibraryItemCount: jest.fn(),
+            getActors: jest.fn().mockResolvedValue([
+                makeTag({ key: 'actor-1', title: 'Alex Actor', count: null }),
+            ]),
+            getDirectors: jest.fn().mockResolvedValue([
+                makeTag({ key: 'director-1', title: 'Dana Director', count: null }),
+            ]),
+        } as unknown as jest.Mocked<IPlexLibrary>;
+        const channelManager = {
+            getAllChannels: jest.fn().mockReturnValue([]),
+        } as unknown as jest.Mocked<IChannelManager>;
+        const service = new ChannelSetupPlanningService({ plexLibrary, channelManager });
+        const baseConfig = createConfig();
+        const config = service.normalizeConfig(createConfig({
+            selectedLibraryIds: ['movies'],
+            minItemsPerChannel: 5,
+            strategyConfig: {
+                ...baseConfig.strategyConfig,
+                actors: { enabled: true, priority: 8, scope: 'per-library' },
+                directors: { enabled: true, priority: 4, scope: 'per-library' },
+            },
+        }));
+
+        const review = await service.getSetupReview(config);
+
+        expect(review.preview.estimates).toMatchObject({ actors: 1, directors: 1 });
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        expect(plexLibrary.getLibraryItems).toHaveBeenCalledWith('movies', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.MOVIE },
+        }));
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalled();
+    });
+
     it('reuses resolved libraries across load, preview, review, diagnostics, and build', async () => {
         const libraries = [makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 1200 })];
         const getLibraries = jest.fn().mockResolvedValue(libraries);
@@ -1016,7 +1077,7 @@ describe('ChannelSetupPlanningService', () => {
         expect(nativeTagRequired.blockedMessage).toContain('stop and re-plan');
     });
 
-    it('recovers missing native tag counts before applying min-items filtering', async () => {
+    it('recovers non-people tag counts while using the TV people-series index for min-items filtering', async () => {
         const plexLibrary = {
             getPlaylists: jest.fn(),
             getCollections: jest.fn(),
@@ -1141,15 +1202,7 @@ describe('ChannelSetupPlanningService', () => {
             signal: expect.any(Object),
         }));
         expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
-            filter: { type: PLEX_MEDIA_TYPES.EPISODE, director: 'Jane Doe' },
-            signal: expect.any(Object),
-        }));
-        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
             filter: { type: PLEX_MEDIA_TYPES.SHOW, genre: 'Drama' },
-            signal: expect.any(Object),
-        }));
-        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
-            filter: { type: PLEX_MEDIA_TYPES.EPISODE, director: 'John Roe' },
             signal: expect.any(Object),
         }));
         expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
@@ -1160,14 +1213,6 @@ describe('ChannelSetupPlanningService', () => {
             filter: { type: PLEX_MEDIA_TYPES.EPISODE, year: '1981' },
             signal: expect.any(Object),
         }));
-        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
-            filter: { type: PLEX_MEDIA_TYPES.EPISODE, actor: 'Alex Star' },
-            signal: expect.any(Object),
-        }));
-        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('shows', expect.objectContaining({
-            filter: { type: PLEX_MEDIA_TYPES.EPISODE, actor: 'actor-2' },
-            signal: expect.any(Object),
-        }));
         expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('movies', expect.objectContaining({
             filter: { type: PLEX_MEDIA_TYPES.MOVIE, studio: 'Studio A' },
             signal: expect.any(Object),
@@ -1175,6 +1220,19 @@ describe('ChannelSetupPlanningService', () => {
         expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledWith('movies', expect.objectContaining({
             filter: { type: PLEX_MEDIA_TYPES.MOVIE, studio: 'studio-2' },
             signal: expect.any(Object),
+        }));
+        expect(plexLibrary.getLibraryItemCount).toHaveBeenCalledTimes(7);
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, director: 'Jane Doe' },
+        }));
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, director: 'John Roe' },
+        }));
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, actor: 'Alex Star' },
+        }));
+        expect(plexLibrary.getLibraryItemCount).not.toHaveBeenCalledWith('shows', expect.objectContaining({
+            filter: { type: PLEX_MEDIA_TYPES.EPISODE, actor: 'actor-2' },
         }));
     });
 

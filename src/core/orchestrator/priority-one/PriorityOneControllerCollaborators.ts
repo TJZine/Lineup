@@ -215,7 +215,7 @@ function createEventBinderDeps(
             input.events.wireNavigationCoordinatorEvents(),
         wireEpgCoordinatorEvents: (): Array<() => void> =>
             input.events.wireEpgCoordinatorEvents(),
-        handleProgramStartTracked: (program): Promise<void> => {
+        handleProgramStartTracked: (program): ReturnType<PlaybackStartController['handleProgramStart']> => {
             const promise = playbackStartController.handleProgramStart(program);
             return playbackRuntimeController.trackProgramStart(promise);
         },

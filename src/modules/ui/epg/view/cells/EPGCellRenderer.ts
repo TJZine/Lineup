@@ -8,7 +8,6 @@ import {
     getCellWidthTier,
     getEffectiveTickerClientWidth,
     getProgramCellTextLayout,
-    getProgressFillWidth,
     getRenderedVisibleWidthTier,
     getVisibleTextMetrics,
     isSliverCell,
@@ -39,7 +38,6 @@ type CellChildren = {
     subtitleText: HTMLElement | null;
     rail: HTMLElement | null;
     liveBadge: HTMLElement | null;
-    progressFill: HTMLElement | null;
 };
 
 export type { EPGCellVisibleTextMetrics } from '../cells/EPGCellPresentation';
@@ -94,13 +92,6 @@ export class EPGCellRenderer {
         time.className = EPG_CLASSES.CELL_TIME;
         rail.appendChild(time);
 
-        const progress = document.createElement('div');
-        progress.className = EPG_CLASSES.CELL_PROGRESS;
-        element.appendChild(progress);
-
-        const progressFill = document.createElement('div');
-        progressFill.className = EPG_CLASSES.CELL_PROGRESS_FILL;
-        progress.appendChild(progressFill);
         void this.getCellChildren(element);
         return element;
     }
@@ -110,7 +101,7 @@ export class EPGCellRenderer {
     }
 
     resetElement(element: HTMLElement): void {
-        const { meta, episode, subtitle, subtitleText, titleText, time, liveBadge, progressFill } = this.getCellChildren(element);
+        const { meta, episode, subtitle, subtitleText, titleText, time, liveBadge } = this.getCellChildren(element);
         this.clearFocusedTickersForElement(element);
         if (meta) {
             meta.style.display = 'none';
@@ -130,10 +121,6 @@ export class EPGCellRenderer {
             liveBadge.textContent = '';
             liveBadge.classList.remove(EPG_CLASSES.CELL_LIVE_COMPACT);
         }
-        if (progressFill) {
-            progressFill.style.width = '0%';
-        }
-
         element.style.left = '';
         element.style.width = '';
         element.style.top = '';
@@ -170,9 +157,8 @@ export class EPGCellRenderer {
     }
 
     computeVisibleTextMetrics(input: {
-        rawLeftPx: number;
-        clippedLeftPx: number;
-        clippedWidthPx: number;
+        cellLeftPx: number;
+        cellWidthPx: number;
         visibleWindowStartMinutes: number;
         visibleWindowEndMinutes: number;
         pixelsPerMinute: number;
@@ -180,7 +166,7 @@ export class EPGCellRenderer {
         return getVisibleTextMetrics(input);
     }
 
-    updateCellContent(cellData: EPGRenderedCellData, nowMs: number): void {
+    updateCellContent(cellData: EPGRenderedCellData, _nowMs: number): void {
         const element = cellData.cellElement;
         if (!element) return;
 
@@ -213,7 +199,6 @@ export class EPGCellRenderer {
         this.applyTextPresentation(children, cellData, textLayout);
         this.applyWidthPresentation(element, children, tier, cellData, textLayout);
         this.updateLiveBadge(element, cellData);
-        this.applyProgressPresentation(children, cellData, nowMs);
     }
 
     updatePositionPresentation(cellData: EPGRenderedCellData): void {
@@ -234,7 +219,7 @@ export class EPGCellRenderer {
         this.updateLiveBadge(element, cellData);
     }
 
-    updateTemporalPresentation(cellData: EPGRenderedCellData, nowMs: number): void {
+    updateTemporalPresentation(cellData: EPGRenderedCellData, _nowMs: number): void {
         const element = cellData.cellElement;
         if (!element) return;
 
@@ -242,7 +227,6 @@ export class EPGCellRenderer {
         element.classList.toggle(EPG_CLASSES.CELL_PAST, cellData.isPast);
         this.updateCellTimeLabelForCell(cellData);
         this.updateLiveBadge(element, cellData);
-        this.applyProgressPresentation(this.getCellChildren(element), cellData, nowMs);
     }
 
     clearFocusedTickers(): void {
@@ -321,18 +305,15 @@ export class EPGCellRenderer {
         if (targets.length === 0) return;
         this.clearTickerStateForTargets(targets);
 
-        const textShiftPx = Math.max(0, focusedCell.textShiftPx);
         const tier = this.getCellWidthTier(focusedCell.width);
         const activeTargets: TickerTarget[] = [];
 
         for (const target of targets) {
             const effectiveClientWidth = getEffectiveTickerClientWidth(
                 target,
-                focusedCell.width,
-                focusedCell.visibleWidthPx,
-                textShiftPx
+                focusedCell.visibleWidthPx
             );
-            const contentWidth = Math.max(target.content.scrollWidth, target.viewport.scrollWidth);
+            const contentWidth = target.content.getBoundingClientRect().width;
             const overflowPx = contentWidth - effectiveClientWidth;
             const clampHiddenPx = target.viewport.scrollHeight - target.viewport.clientHeight;
             const hasClampHiddenText =
@@ -347,9 +328,7 @@ export class EPGCellRenderer {
             const travelPx = hasClampHiddenText
                 ? measureReadyStateTickerOverflow(
                     target,
-                    focusedCell.width,
-                    focusedCell.visibleWidthPx,
-                    textShiftPx
+                    focusedCell.visibleWidthPx
                 )
                 : Math.max(overflowPx, 0);
             if (travelPx <= FOCUSED_TICKER_MIN_OVERFLOW_PX) {
@@ -430,17 +409,9 @@ export class EPGCellRenderer {
             subtitleText: element.querySelector(`.${EPG_CLASSES.CELL_SUBTITLE_TEXT}`) as HTMLElement | null,
             rail: element.querySelector(`.${EPG_CLASSES.CELL_RAIL}`) as HTMLElement | null,
             liveBadge: element.querySelector(`.${EPG_CLASSES.LIVE_BADGE}`) as HTMLElement | null,
-            progressFill: element.querySelector(`.${EPG_CLASSES.CELL_PROGRESS_FILL}`) as HTMLElement | null,
         };
         this.cellChildrenCache.set(element, children);
         return children;
-    }
-
-    private applyProgressPresentation(children: CellChildren, cellData: CellRenderData, nowMs: number): void {
-        if (!children.progressFill) {
-            return;
-        }
-        children.progressFill.style.width = getProgressFillWidth(cellData, nowMs);
     }
 
     private applyTextPresentation(

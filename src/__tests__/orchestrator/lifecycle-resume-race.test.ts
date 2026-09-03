@@ -133,7 +133,7 @@ const wireLifecycleResumeHarness = (overrides: {
         getChannelManager: (): null => null,
         wireNavigationCoordinatorEvents: (): Array<() => void> => [],
         wireEpgCoordinatorEvents: (): Array<() => void> => [],
-        handleProgramStartTracked: (program): Promise<void> => {
+        handleProgramStartTracked: (program): ReturnType<PlaybackStartController['handleProgramStart']> => {
             const promise = playbackStartController.handleProgramStart(program);
             return playbackRuntimeController.trackProgramStart(promise);
         },

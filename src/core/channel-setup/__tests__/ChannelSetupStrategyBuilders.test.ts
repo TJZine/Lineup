@@ -1,5 +1,15 @@
-import { buildChannelSetupStrategyBuckets } from '../planning/ChannelSetupStrategyBuilders';
-import { createPeopleSeriesIndexFromEpisodes } from '../planning/ChannelSetupPeopleSeriesIndex';
+import {
+    buildChannelSetupStrategyBuckets,
+    buildChannelSetupStrategyBucketsCooperatively,
+} from '../planning/ChannelSetupStrategyBuilders';
+import {
+    buildChannelSetupPlan,
+    buildChannelSetupPlanCooperatively,
+} from '../planning/ChannelSetupPlanner';
+import {
+    createPeopleIndexFromItems,
+    createPeopleSeriesIndexFromEpisodes,
+} from '../planning/ChannelSetupPeopleSeriesIndex';
 import type { ChannelSetupConfig } from '../types';
 import type {
     PlexCollection,
@@ -91,6 +101,26 @@ const createEpisode = (
     media: [],
     ...people,
 } as PlexMediaItem);
+
+const createMovie = (
+    title: string,
+    people: { actors?: string[]; directors?: string[] }
+): PlexMediaItem => ({
+    ratingKey: title,
+    key: `/library/metadata/${title}`,
+    type: 'movie',
+    title,
+    sortTitle: title,
+    summary: '',
+    year: 2024,
+    durationMs: 1000,
+    addedAt: new Date(0),
+    updatedAt: new Date(0),
+    thumb: null,
+    art: null,
+    media: [],
+    ...people,
+});
 
 describe('ChannelSetupStrategyBuilders', () => {
     it('accounts for playlist candidates before and after min-items filtering', () => {
@@ -444,6 +474,159 @@ describe('ChannelSetupStrategyBuilders', () => {
         expect(result.skipped).toBe(4);
     });
 
+    it('orders null-count TV actors by derived index count before applying the channel cap', async () => {
+        const tvLibrary = createLibrary({ id: 'tv-1', title: 'TV', type: 'show' });
+        const peopleSeriesIndex = createPeopleSeriesIndexFromEpisodes(tvLibrary, [
+            createEpisode('zed-1', 'zed-series-1', { actors: ['Zed Actor'] }),
+            createEpisode('zed-2', 'zed-series-2', { actors: ['Zed Actor'] }),
+            createEpisode('zed-3', 'zed-series-3', { actors: ['Zed Actor'] }),
+            createEpisode('zed-4', 'zed-series-1', { actors: ['Zed Actor'] }),
+            createEpisode('zed-5', 'zed-series-2', { actors: ['Zed Actor'] }),
+            createEpisode('alpha-1', 'alpha-series-1', { actors: ['Alpha Actor'] }),
+            createEpisode('alpha-2', 'alpha-series-2', { actors: ['Alpha Actor'] }),
+            createEpisode('alpha-3', 'alpha-series-3', { actors: ['Alpha Actor'] }),
+            createEpisode('alpha-4', 'alpha-series-1', { actors: ['Alpha Actor'] }),
+            createEpisode('beta-1', 'beta-series-1', { actors: ['Beta Actor'] }),
+            createEpisode('beta-2', 'beta-series-2', { actors: ['Beta Actor'] }),
+            createEpisode('beta-3', 'beta-series-3', { actors: ['Beta Actor'] }),
+            createEpisode('beta-4', 'beta-series-1', { actors: ['Beta Actor'] }),
+        ]);
+        const config = createConfig({
+            selectedLibraryIds: ['tv-1'],
+            maxChannels: 1,
+            minItemsPerChannel: 3,
+            strategyConfig: {
+                ...createConfig().strategyConfig,
+                playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                actors: { enabled: true, priority: 8, scope: 'per-library' },
+            },
+        });
+        const input = {
+            config,
+            libraries: [tvLibrary],
+            selectedLibraries: [tvLibrary],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([['tv-1', [
+                createTag('Alpha Actor', null, 'actor-alpha'),
+                createTag('Beta Actor', null, 'actor-beta'),
+                createTag('Zed Actor', null, 'actor-zed'),
+            ]]]),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map([['tv-1', peopleSeriesIndex]]),
+            minItems: 3,
+            seedFor: (value: string): number => value.length,
+        };
+
+        const syncResult = buildChannelSetupStrategyBuckets(input);
+        expect(syncResult.strategyBuckets.actors.map((channel) => channel.name)).toEqual([
+            'Zed Actor - TV',
+            'Alpha Actor - TV',
+            'Beta Actor - TV',
+        ]);
+
+        const cooperativeResult = await buildChannelSetupStrategyBucketsCooperatively(
+            input,
+            async (): Promise<void> => undefined
+        );
+        expect(cooperativeResult.strategyBuckets.actors.map((channel) => channel.name)).toEqual([
+            'Zed Actor - TV',
+            'Alpha Actor - TV',
+            'Beta Actor - TV',
+        ]);
+
+        const planInput = { ...input, warnings: [] };
+        const syncPlan = buildChannelSetupPlan(planInput);
+        expect(syncPlan.reachedMaxChannels).toBe(true);
+        expect(syncPlan.pendingChannels.map((channel) => channel.name)).toEqual(['Zed Actor - TV']);
+
+        const cooperativePlan = await buildChannelSetupPlanCooperatively(
+            planInput,
+            async (): Promise<void> => undefined
+        );
+        expect(cooperativePlan.reachedMaxChannels).toBe(true);
+        expect(cooperativePlan.pendingChannels.map((channel) => channel.name)).toEqual(['Zed Actor - TV']);
+    });
+
+    it('orders null-count TV directors by derived index count before applying the channel cap', async () => {
+        const tvLibrary = createLibrary({ id: 'tv-1', title: 'TV', type: 'show' });
+        const peopleSeriesIndex = createPeopleSeriesIndexFromEpisodes(tvLibrary, [
+            createEpisode('zed-1', 'zed-series-1', { directors: ['Zed Director'] }),
+            createEpisode('zed-2', 'zed-series-2', { directors: ['Zed Director'] }),
+            createEpisode('zed-3', 'zed-series-3', { directors: ['Zed Director'] }),
+            createEpisode('zed-4', 'zed-series-4', { directors: ['Zed Director'] }),
+            createEpisode('zed-5', 'zed-series-5', { directors: ['Zed Director'] }),
+            createEpisode('alpha-1', 'alpha-series-1', { directors: ['Alpha Director'] }),
+            createEpisode('alpha-2', 'alpha-series-2', { directors: ['Alpha Director'] }),
+            createEpisode('alpha-3', 'alpha-series-3', { directors: ['Alpha Director'] }),
+            createEpisode('alpha-4', 'alpha-series-4', { directors: ['Alpha Director'] }),
+            createEpisode('beta-1', 'beta-series-1', { directors: ['Beta Director'] }),
+            createEpisode('beta-2', 'beta-series-2', { directors: ['Beta Director'] }),
+            createEpisode('beta-3', 'beta-series-3', { directors: ['Beta Director'] }),
+        ]);
+        const config = createConfig({
+            selectedLibraryIds: ['tv-1'],
+            maxChannels: 1,
+            minItemsPerChannel: 3,
+            strategyConfig: {
+                ...createConfig().strategyConfig,
+                playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                directors: { enabled: true, priority: 4, scope: 'per-library' },
+            },
+        });
+        const input = {
+            config,
+            libraries: [tvLibrary],
+            selectedLibraries: [tvLibrary],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map([['tv-1', [
+                createTag('Alpha Director', null, 'director-alpha'),
+                createTag('Beta Director', null, 'director-beta'),
+                createTag('Zed Director', null, 'director-zed'),
+            ]]]),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map(),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map([['tv-1', peopleSeriesIndex]]),
+            minItems: 3,
+            seedFor: (value: string): number => value.length,
+        };
+
+        const syncResult = buildChannelSetupStrategyBuckets(input);
+        expect(syncResult.strategyBuckets.directors.map((channel) => channel.name)).toEqual([
+            'TV - Zed Director',
+            'TV - Alpha Director',
+            'TV - Beta Director',
+        ]);
+
+        const cooperativeResult = await buildChannelSetupStrategyBucketsCooperatively(
+            input,
+            async (): Promise<void> => undefined
+        );
+        expect(cooperativeResult.strategyBuckets.directors.map((channel) => channel.name)).toEqual([
+            'TV - Zed Director',
+            'TV - Alpha Director',
+            'TV - Beta Director',
+        ]);
+
+        const planInput = { ...input, warnings: [] };
+        const syncPlan = buildChannelSetupPlan(planInput);
+        expect(syncPlan.reachedMaxChannels).toBe(true);
+        expect(syncPlan.pendingChannels.map((channel) => channel.name)).toEqual(['TV - Zed Director']);
+
+        const cooperativePlan = await buildChannelSetupPlanCooperatively(
+            planInput,
+            async (): Promise<void> => undefined
+        );
+        expect(cooperativePlan.reachedMaxChannels).toBe(true);
+        expect(cooperativePlan.pendingChannels.map((channel) => channel.name)).toEqual(['TV - Zed Director']);
+    });
+
     it('keeps movie people eligible by movie item count without a TV index', () => {
         const result = buildChannelSetupStrategyBuckets({
             config: createConfig({
@@ -474,6 +657,166 @@ describe('ChannelSetupStrategyBuilders', () => {
         expect(result.strategyBuckets.directors).toHaveLength(1);
     });
 
+    it('uses derived movie people counts for exact filtering and count-first ordering in sync and cooperative plans', async () => {
+        const movieLibrary = createLibrary();
+        const movieIndex = createPeopleIndexFromItems(movieLibrary, [
+            createMovie('above-1', { actors: ['Zed Above'], directors: ['Zed Director'] }),
+            createMovie('above-2', { actors: ['Zed Above'], directors: ['Zed Director'] }),
+            createMovie('above-3', { actors: ['Zed Above'], directors: ['Zed Director'] }),
+            createMovie('above-4', { actors: ['Zed Above'], directors: ['Zed Director'] }),
+            createMovie('equal-1', { actors: ['Alpha Equal'], directors: ['Alpha Director'] }),
+            createMovie('equal-2', { actors: ['Alpha Equal'], directors: ['Alpha Director'] }),
+            createMovie('equal-3', { actors: ['Alpha Equal'], directors: ['Alpha Director'] }),
+            createMovie('below-1', { actors: ['Below'], directors: ['Below Director'] }),
+            createMovie('below-2', { actors: ['Below'], directors: ['Below Director'] }),
+        ]);
+        const config = createConfig({
+            maxChannels: 1,
+            minItemsPerChannel: 3,
+            strategyConfig: {
+                ...createConfig().strategyConfig,
+                playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                actors: { enabled: true, priority: 8, scope: 'per-library' },
+                directors: { enabled: true, priority: 4, scope: 'per-library' },
+            },
+        });
+        const input = {
+            config,
+            libraries: [movieLibrary],
+            selectedLibraries: [movieLibrary],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map([['lib-1', [
+                createTag('Alpha Director', null, 'director-equal'),
+                createTag('Below Director', null, 'director-below'),
+                createTag('Zed Director', null, 'director-above'),
+            ]]]),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([['lib-1', [
+                createTag('Alpha Equal', null, 'actor-equal'),
+                createTag('Below', null, 'actor-below'),
+                createTag('Missing Person', null, 'actor-missing'),
+                createTag('Zed Above', null, 'actor-above'),
+            ]]]),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map([['lib-1', movieIndex]]),
+            minItems: 3,
+            seedFor: (value: string): number => value.length,
+        };
+
+        const syncBuckets = buildChannelSetupStrategyBuckets(input);
+        const cooperativeBuckets = await buildChannelSetupStrategyBucketsCooperatively(
+            input,
+            async (): Promise<void> => undefined
+        );
+        expect(syncBuckets.strategyBuckets.actors.map((channel) => channel.name)).toEqual([
+            'Zed Above - Movies',
+            'Alpha Equal - Movies',
+        ]);
+        expect(syncBuckets.strategyBuckets.directors.map((channel) => channel.name)).toEqual([
+            'Movies - Zed Director',
+            'Movies - Alpha Director',
+        ]);
+        expect(cooperativeBuckets).toEqual(syncBuckets);
+        expect(syncBuckets.candidatesBeforeMinItems).toMatchObject({ actors: 4, directors: 3 });
+        expect(syncBuckets.candidatesAfterMinItems).toMatchObject({ actors: 2, directors: 2 });
+
+        const actorOnlyInput = {
+            ...input,
+            config: {
+                ...config,
+                strategyConfig: {
+                    ...config.strategyConfig,
+                    directors: { enabled: false, priority: 4, scope: 'per-library' as const },
+                },
+            },
+            directorsByLibraryId: new Map<string, PlexTagDirectoryItem[]>(),
+        };
+        const syncPlan = buildChannelSetupPlan({ ...actorOnlyInput, warnings: [] });
+        const cooperativePlan = await buildChannelSetupPlanCooperatively(
+            { ...actorOnlyInput, warnings: [] },
+            async (): Promise<void> => undefined
+        );
+        expect(syncPlan.pendingChannels.map((channel) => channel.name)).toEqual(['Zed Above - Movies']);
+        expect(cooperativePlan).toEqual(syncPlan);
+    });
+
+    it('preserves a known movie tag count when a shared people scan has no matching metadata', () => {
+        const movieLibrary = createLibrary();
+        const movieIndex = createPeopleIndexFromItems(movieLibrary, [
+            createMovie('movie-1', { directors: ['Indexed Director'] }),
+        ]);
+        const result = buildChannelSetupStrategyBuckets({
+            config: createConfig({
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                    actors: { enabled: true, priority: 8, scope: 'per-library' },
+                },
+            }),
+            selectedLibraries: [movieLibrary],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([['lib-1', [
+                createTag('Known Native Actor', 7, 'actor-known'),
+            ]]]),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map([['lib-1', movieIndex]]),
+            minItems: 5,
+            seedFor: (value) => value.length,
+        });
+
+        expect(result.strategyBuckets.actors.map((channel) => channel.name)).toEqual([
+            'Known Native Actor - Movies',
+        ]);
+    });
+
+    it('skips unknown movie people sources when their required item index is unavailable', async () => {
+        const unavailableLibrary = createLibrary({ id: 'movie-missing', title: 'Missing Index' });
+        const knownLibrary = createLibrary({ id: 'movie-known', title: 'Known Counts' });
+        const input = {
+            config: createConfig({
+                selectedLibraryIds: ['movie-missing', 'movie-known'],
+                actorStudioCombineMode: 'combined',
+                strategyConfig: {
+                    ...createConfig().strategyConfig,
+                    playlists: { enabled: false, priority: 2, scope: 'per-library' },
+                    actors: { enabled: true, priority: 8, scope: 'cross-library' },
+                },
+            }),
+            selectedLibraries: [unavailableLibrary, knownLibrary],
+            playlists: [],
+            collectionsByLibraryId: new Map(),
+            genresByLibraryId: new Map(),
+            directorsByLibraryId: new Map(),
+            yearsByLibraryId: new Map(),
+            actorsByLibraryId: new Map([
+                ['movie-missing', [createTag('Shared Actor', null, 'actor-missing')]],
+                ['movie-known', [createTag('Shared Actor', 7, 'actor-known')]],
+            ]),
+            studiosByLibraryId: new Map(),
+            peopleSeriesIndexByLibraryId: new Map(),
+            minItems: 5,
+            seedFor: (value: string): number => value.length,
+        };
+        const syncResult = buildChannelSetupStrategyBuckets(input);
+        const cooperativeResult = await buildChannelSetupStrategyBucketsCooperatively(
+            input,
+            async (): Promise<void> => undefined
+        );
+
+        expect(syncResult.strategyBuckets.actors).toHaveLength(1);
+        expect(syncResult.strategyBuckets.actors[0]?.contentSource).toMatchObject({
+            type: 'mixed',
+            sources: [expect.objectContaining({ libraryId: 'movie-known' })],
+        });
+        expect(cooperativeResult).toEqual(syncResult);
+    });
+
     it('keeps cross-library people sources library-scoped when TV breadth fails', () => {
         const movieLibrary = createLibrary({ id: 'movie-1', title: 'Movies', type: 'movie' });
         const eligibleTvLibrary = createLibrary({ id: 'tv-1', title: 'Good TV', type: 'show' });
@@ -492,6 +835,13 @@ describe('ChannelSetupStrategyBuilders', () => {
             createEpisode('tv-thin-4', 'show-a', { actors: ['Shared Person'], directors: ['Shared Director'] }),
             createEpisode('tv-thin-5', 'show-a', { actors: ['Shared Person'], directors: ['Shared Director'] }),
         ]);
+        const movieIndex = createPeopleIndexFromItems(movieLibrary, Array.from(
+            { length: 5 },
+            (_, index) => createMovie(`movie-${index}`, {
+                actors: ['Shared Person'],
+                directors: ['Shared Director'],
+            })
+        ));
 
         const result = buildChannelSetupStrategyBuckets({
             config: createConfig({
@@ -509,18 +859,19 @@ describe('ChannelSetupStrategyBuilders', () => {
             collectionsByLibraryId: new Map(),
             genresByLibraryId: new Map(),
             directorsByLibraryId: new Map([
-                ['movie-1', [createTag('Shared Director', 5, 'director-movie')]],
+                ['movie-1', [createTag('Shared Director', null, 'director-movie')]],
                 ['tv-1', [createTag('Shared Director', 5, 'director-tv-good')]],
                 ['tv-2', [createTag('Shared Director', 5, 'director-tv-thin')]],
             ]),
             yearsByLibraryId: new Map(),
             actorsByLibraryId: new Map([
-                ['movie-1', [createTag('Shared Person', 5, 'actor-movie')]],
+                ['movie-1', [createTag('Shared Person', null, 'actor-movie')]],
                 ['tv-1', [createTag('Shared Person', 5, 'actor-tv-good')]],
                 ['tv-2', [createTag('Shared Person', 5, 'actor-tv-thin')]],
             ]),
             studiosByLibraryId: new Map(),
             peopleSeriesIndexByLibraryId: new Map([
+                ['movie-1', movieIndex],
                 ['tv-1', eligibleIndex],
                 ['tv-2', rejectedIndex],
             ]),

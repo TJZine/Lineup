@@ -256,6 +256,7 @@
 .screen-button:focus,
 .screen-button:focus-visible {
   outline: none;
+  color: #ffffff;
   background: var(--onboarding-focus-bg, rgba(255, 255, 255, 0.16));
   border-color: var(--onboarding-accent-alpha-45, rgba(200, 160, 100, 0.45));
   box-shadow:

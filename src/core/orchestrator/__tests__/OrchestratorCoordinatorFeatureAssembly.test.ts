@@ -204,7 +204,6 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
             totalHours: 24,
             pixelsPerMinute: 4,
             rowHeight: 80,
-            showCurrentTimeIndicator: true,
             autoScrollToNow: true,
             onVisibleRangeChange: previousOnVisibleRangeChange,
         };
@@ -684,7 +683,6 @@ describe('OrchestratorCoordinatorFeatureAssembly', () => {
                 totalHours: 24,
                 pixelsPerMinute: 4,
                 rowHeight: 80,
-                showCurrentTimeIndicator: true,
                 autoScrollToNow: false,
             },
         } as OrchestratorCoordinatorAssemblyInput['config'];

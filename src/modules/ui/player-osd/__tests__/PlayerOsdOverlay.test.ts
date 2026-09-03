@@ -247,8 +247,10 @@ describe('PlayerOsdOverlay', () => {
         expect(logo.getAttribute('alt')).toBe(baseViewModel.title);
         expect(title.style.display).toBe('');
 
-        Object.defineProperty(logo, 'getBoundingClientRect', {
-            value: () => ({ height: 30 } as unknown as DOMRect),
+        Object.defineProperties(logo, {
+            naturalWidth: { configurable: true, value: 400 },
+            naturalHeight: { configurable: true, value: 120 },
+            getBoundingClientRect: { configurable: true, value: () => ({ width: 200 }) },
         });
         (logo.onload as unknown as (() => void))?.();
         expect(logo.style.visibility).toBe('');
@@ -286,8 +288,10 @@ describe('PlayerOsdOverlay', () => {
         const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
         const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
 
-        Object.defineProperty(logo, 'getBoundingClientRect', {
-            value: () => ({ height: 30 } as unknown as DOMRect),
+        Object.defineProperties(logo, {
+            naturalWidth: { configurable: true, value: 400 },
+            naturalHeight: { configurable: true, value: 120 },
+            getBoundingClientRect: { configurable: true, value: () => ({ width: 200 }) },
         });
 
         (logo.onload as unknown as (() => void))?.();
@@ -311,6 +315,25 @@ describe('PlayerOsdOverlay', () => {
         expect(logo.onload).toBeNull();
     });
 
+    it('ignores a stale clear logo completion after the URL changes', () => {
+        overlay.setViewModel({ ...baseViewModel, clearLogoUrl: 'http://example/old.png' });
+        const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
+        const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
+        const staleOnload = logo.onload;
+
+        overlay.setViewModel({ ...baseViewModel, clearLogoUrl: 'http://example/new.png' });
+        Object.defineProperties(logo, {
+            naturalWidth: { configurable: true, value: 400 },
+            naturalHeight: { configurable: true, value: 120 },
+            getBoundingClientRect: { configurable: true, value: () => ({ width: 200 }) },
+        });
+        staleOnload?.call(logo, new Event('load'));
+
+        expect(logo.getAttribute('src')).toBe('http://example/new.png');
+        expect(logo.style.visibility).toBe('hidden');
+        expect(title.style.display).toBe('');
+    });
+
     it('falls back to title when clear logo renders too small', () => {
         overlay.setViewModel({ ...baseViewModel, clearLogoUrl: 'http://example/tiny.png' });
         overlay.show();
@@ -318,8 +341,10 @@ describe('PlayerOsdOverlay', () => {
         const logo = container.querySelector(`.${PLAYER_OSD_CLASSES.CLEAR_LOGO}`) as HTMLImageElement;
         const title = container.querySelector(`.${PLAYER_OSD_CLASSES.TITLE}`) as HTMLElement;
 
-        Object.defineProperty(logo, 'getBoundingClientRect', {
-            value: () => ({ height: 10 } as unknown as DOMRect),
+        Object.defineProperties(logo, {
+            naturalWidth: { configurable: true, value: 1200 },
+            naturalHeight: { configurable: true, value: 100 },
+            getBoundingClientRect: { configurable: true, value: () => ({ width: 520 }) },
         });
 
         (logo.onload as unknown as (() => void))?.();

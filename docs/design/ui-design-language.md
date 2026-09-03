@@ -178,6 +178,15 @@ font-variant-numeric: tabular-nums;
 - Displays channel number + name
 - Orchestrator-controlled visibility
 
+### Clear-Logo Legibility
+
+- Keep the text title visible until clear-logo artwork has loaded and passed the usability check.
+- Preserve the artwork aspect ratio and cap its width at 520px; never stretch it or impose a minimum width.
+- At the 1920x1080 design resolution, target 60px high in the compact Player OSD, 72px in the Guide information panel, and 84px in the full Now Playing information overlay.
+- Estimate the contained artwork height from its natural aspect ratio, target height, and width cap. Fall back to the text title when the result would be below 44px.
+- Broken, missing, stale, or unusably wide artwork must leave the text title intact.
+- Do not add pixel-alpha or canvas analysis without evidence from real transparent-padded assets.
+
 ### Mini Guide — "Top-Edge Shelf"
 
 - Full-width top-anchored scrim, flush to top/left/right edges

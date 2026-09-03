@@ -115,7 +115,8 @@ describe('ChannelSetupScreen contracts', () => {
         for (const category of STRATEGY_CATEGORIES) {
             expect(container.querySelector(`#setup-category-${category}`)).not.toBeNull();
         }
-        expect(container.querySelector('#setup-preview-panel')).not.toBeNull();
+        expect(container.querySelector('#setup-preview-panel')).toBeNull();
+        expect(container.querySelector('.setup-preview-strip')).toBeNull();
 
         for (const key of CONTENT_STRATEGY_KEYS) {
             expect(container.querySelector(`#setup-strategy-${key}`)).not.toBeNull();

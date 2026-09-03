@@ -3,6 +3,11 @@ import type {
     ScheduledProgram,
     ScheduledProgramIdentity,
 } from '../../../modules/scheduler/scheduler';
+import type { PlaybackStartOutcome } from '../../../types/playbackStart';
+
+const STARTED: PlaybackStartOutcome = { kind: 'started' };
+const FAILED: PlaybackStartOutcome = { kind: 'failed' };
+const SUPERSEDED: PlaybackStartOutcome = { kind: 'superseded' };
 
 export interface PlaybackStartControllerDeps {
     getVideoPlayer: () => Pick<IVideoPlayer, 'loadStream' | 'play'> | null;
@@ -40,13 +45,13 @@ export class PlaybackStartController {
 
     constructor(private readonly _deps: PlaybackStartControllerDeps) {}
 
-    public async handleProgramStart(program: ScheduledProgram): Promise<void> {
+    public async handleProgramStart(program: ScheduledProgram): Promise<PlaybackStartOutcome> {
         const sequence = ++this._programStartSequence;
         const isStale = (): boolean => sequence !== this._programStartSequence;
         const videoPlayer = this._deps.getVideoPlayer();
 
         if (!videoPlayer) {
-            return;
+            return FAILED;
         }
 
         const {
@@ -80,7 +85,7 @@ export class PlaybackStartController {
             ) {
                 await discardPrepared();
                 abort();
-                return;
+                return SUPERSEDED;
             }
 
             await videoPlayer.loadStream(prepared.descriptor);
@@ -91,7 +96,7 @@ export class PlaybackStartController {
             ) {
                 await discardPrepared();
                 abort();
-                return;
+                return SUPERSEDED;
             }
 
             await videoPlayer.play();
@@ -101,7 +106,7 @@ export class PlaybackStartController {
             ) {
                 await discardPrepared();
                 abort();
-                return;
+                return SUPERSEDED;
             }
 
             accepted = prepared;
@@ -112,19 +117,19 @@ export class PlaybackStartController {
             ) {
                 await discardPrepared();
                 abort();
-                return;
+                return SUPERSEDED;
             }
 
             if (this._deps.tryHandleStreamResolverAuthError(error)) {
                 await discardPrepared();
                 abort();
-                return;
+                return FAILED;
             }
 
             if (this._deps.tryHandleStreamResolverPermissionError(error)) {
                 await discardPrepared();
                 abort();
-                return;
+                return FAILED;
             }
 
             this._deps.logPlaybackStartFailure(error);
@@ -138,7 +143,7 @@ export class PlaybackStartController {
                 await discardPrepared();
                 this._deps.handlePlaybackFailure('programStart', error);
                 abort();
-                return;
+                return FAILED;
             }
 
             if (
@@ -147,21 +152,21 @@ export class PlaybackStartController {
             ) {
                 await discardPrepared();
                 abort();
-                return;
+                return SUPERSEDED;
             }
 
             await discardPrepared();
             if (fallbackApplied) {
                 abort();
-                return;
+                return STARTED;
             }
             this._deps.handlePlaybackFailure('programStart', error);
             abort();
-            return;
+            return FAILED;
         }
 
         if (!accepted) {
-            return;
+            return FAILED;
         }
 
         this._deps.commitPreparedStream(accepted);
@@ -172,5 +177,6 @@ export class PlaybackStartController {
         } finally {
             this._deps.resetPlaybackFailureGuard();
         }
+        return STARTED;
     }
 }

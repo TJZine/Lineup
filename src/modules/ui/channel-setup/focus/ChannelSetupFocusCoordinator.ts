@@ -90,33 +90,57 @@ export class ChannelSetupFocusCoordinator {
             onDetailFocus,
         } = options;
 
-        const focusableButtons = [...categoryButtons, ...detailButtons, ...footerButtons]
-            .filter((button) => !button.disabled);
-
-        const detailIdSet = new Set<string>(
-            detailButtons.filter((button) => !button.disabled).map((button) => button.id)
-        );
+        const focusableCategories = categoryButtons.filter((button) => !button.disabled);
+        const focusableDetails = detailButtons.filter((button) => !button.disabled);
+        const focusableFooters = footerButtons.filter((button) => !button.disabled);
+        const focusableButtons = [...focusableCategories, ...focusableDetails, ...focusableFooters];
+        const categoryIdSet = new Set(focusableCategories.map((button) => button.id));
+        const detailIdSet = new Set(focusableDetails.map((button) => button.id));
+        const footerIdSet = new Set(focusableFooters.map((button) => button.id));
+        const backButton = focusableFooters[0];
+        const nextButton = focusableFooters[1] ?? focusableFooters[0];
         const entries: FocusableElement[] = [];
-        for (const [index, button] of focusableButtons.entries()) {
+        for (const button of focusableButtons) {
             const neighbors: FocusableElement['neighbors'] = {};
-            const up = index > 0 ? focusableButtons[index - 1] : undefined;
-            if (up) {
+            if (categoryIdSet.has(button.id)) {
+                const index = focusableCategories.indexOf(button);
+                const up = focusableCategories[index - 1] ?? button;
+                const down = focusableCategories[index + 1] ?? backButton ?? button;
                 neighbors.up = up.id;
-            }
-            const down = index < focusableButtons.length - 1 ? focusableButtons[index + 1] : undefined;
-            if (down) {
                 neighbors.down = down.id;
-            }
-
-            if (button.id === activeCategoryId && detailFocusTarget) {
-                neighbors.right = detailFocusTarget;
+                neighbors.left = button.id;
+                if (button.id === activeCategoryId && detailFocusTarget && detailIdSet.has(detailFocusTarget)) {
+                    neighbors.right = detailFocusTarget;
+                } else {
+                    neighbors.right = button.id;
+                }
+            } else if (detailIdSet.has(button.id)) {
+                const index = focusableDetails.indexOf(button);
+                const up = focusableDetails[index - 1] ?? button;
+                const down = focusableDetails[index + 1] ?? nextButton ?? button;
+                neighbors.up = up.id;
+                neighbors.down = down.id;
+                neighbors.left = categoryIdSet.has(activeCategoryId) ? activeCategoryId : button.id;
+                neighbors.right = button.id;
+            } else if (footerIdSet.has(button.id)) {
+                const index = focusableFooters.indexOf(button);
+                const previousFooter = focusableFooters[index - 1];
+                const nextFooter = focusableFooters[index + 1];
+                neighbors.left = previousFooter?.id ?? button.id;
+                neighbors.right = nextFooter?.id ?? button.id;
+                if (button === backButton) {
+                    neighbors.up = focusableCategories[focusableCategories.length - 1]?.id ?? button.id;
+                } else if (button === nextButton) {
+                    neighbors.up = focusableDetails[focusableDetails.length - 1]?.id
+                        ?? backButton?.id
+                        ?? button.id;
+                } else {
+                    neighbors.up = button.id;
+                }
+                neighbors.down = button.id;
             }
 
             const isDetailButton = detailIdSet.has(button.id);
-            if (isDetailButton) {
-                neighbors.left = activeCategoryId;
-            }
-
             entries.push({
                 id: button.id,
                 element: button,

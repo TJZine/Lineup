@@ -49,7 +49,7 @@ export class BuildProgressStepController {
         doneButton.textContent = 'Done';
         doneButton.disabled = true;
         doneButton.addEventListener('click', () => {
-            deps.onDone();
+            deps.onDone(doneButton);
         });
         actions.appendChild(doneButton);
 

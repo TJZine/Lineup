@@ -43,8 +43,11 @@ The guided setup wizard can generate many channels in one pass.
   - Actor and director channels are excluded from alternate lineup copies so high-cardinality people categories do not multiply the generated lineup.
 - **Alternate Lineup Copies**:
   - Number of extra copies per generated channel (`1` to `3`).
-- **Add Sequential Channels**:
-  - Adds one sequential companion channel for each generated non-sequential, series-derived base channel; alternate lineup copies do not get sequential companions.
+- **Extra Series Channel**:
+  - Adds one different playback-order variant (`Sequential` or `Block`) for each eligible base TV category.
+  - Actor and director channels, plus alternate lineup copies, are excluded. This setting creates an extra playback channel; it does not reorder alternate lineups.
+  - No extra channel is added when the selected mode already matches **Base Series Mode** (and, for Block mode, its block size).
+  - **Extra Series Block Size** controls how many episodes per show play before switching when `Block` is selected.
   - Naming format:
     - `Action • Sequential`
 

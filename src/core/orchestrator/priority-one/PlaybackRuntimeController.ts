@@ -11,6 +11,7 @@ import type {
     PriorityOneUiRuntimePort,
     RecoverableAsyncFailureReporter,
 } from '../runtime/OrchestratorRuntimeSeams';
+import type { PlaybackStartOutcome } from '../../../types/playbackStart';
 
 type PlayerTimeUpdatePayload = {
     currentTimeMs: number;
@@ -41,7 +42,12 @@ export interface OverlayReadinessSnapshot {
 }
 
 export class PlaybackRuntimeController {
-    private _lastProgramStartPromise: Promise<void> | null = null;
+    private _lastProgramStartPromise: Promise<PlaybackStartOutcome> | null = null;
+    private _nextProgramStartWaiter: {
+        resolve: (outcome: PlaybackStartOutcome) => void;
+        signal: AbortSignal | undefined;
+        onAbort: () => void;
+    } | null = null;
     private _overlayReadiness: OverlayReadinessSnapshot = {
         pendingReason: 'none',
         pendingSinceMs: null,
@@ -59,12 +65,26 @@ export class PlaybackRuntimeController {
         return decision.sessionId;
     }
 
-    public trackProgramStart(promise: Promise<void>): Promise<void> {
+    public trackProgramStart(promise: Promise<PlaybackStartOutcome>): Promise<PlaybackStartOutcome> {
         this._lastProgramStartPromise = promise;
         this._overlayReadiness.pendingReason = 'program-start';
         this._overlayReadiness.pendingSinceMs = Date.now();
 
+        const waiter = this._takeNextProgramStartWaiter();
+        if (waiter) {
+            void promise.then(waiter.resolve, () => waiter.resolve({ kind: 'failed' }));
+        }
+
         void promise
+            .then((outcome) => {
+                if (
+                    outcome.kind !== 'started'
+                    && this._lastProgramStartPromise === promise
+                ) {
+                    this._overlayReadiness.pendingReason = 'none';
+                    this._overlayReadiness.pendingSinceMs = null;
+                }
+            })
             .catch(() => {
                 if (this._lastProgramStartPromise !== promise) {
                     return;
@@ -79,6 +99,35 @@ export class PlaybackRuntimeController {
             });
 
         return promise;
+    }
+
+    public waitForNextProgramStart(signal?: AbortSignal): Promise<PlaybackStartOutcome> {
+        this._settleNextProgramStartWaiter({ kind: 'superseded' });
+        if (signal?.aborted) return Promise.resolve({ kind: 'superseded' });
+
+        return new Promise((resolve) => {
+            const onAbort = (): void => {
+                if (this._nextProgramStartWaiter?.resolve !== resolve) return;
+                this._settleNextProgramStartWaiter({ kind: 'superseded' });
+            };
+            this._nextProgramStartWaiter = { resolve, signal, onAbort };
+            signal?.addEventListener('abort', onAbort, { once: true });
+        });
+    }
+
+    private _takeNextProgramStartWaiter(): typeof this._nextProgramStartWaiter {
+        const waiter = this._nextProgramStartWaiter;
+        this._nextProgramStartWaiter = null;
+        waiter?.signal?.removeEventListener('abort', waiter.onAbort);
+        return waiter;
+    }
+
+    private _settleNextProgramStartWaiter(outcome: PlaybackStartOutcome): void {
+        this._takeNextProgramStartWaiter()?.resolve(outcome);
+    }
+
+    public dispose(): void {
+        this._settleNextProgramStartWaiter({ kind: 'superseded' });
     }
 
     public isOverlayReopenSafe(): boolean {

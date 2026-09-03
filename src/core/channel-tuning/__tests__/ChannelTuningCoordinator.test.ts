@@ -753,6 +753,22 @@ describe('ChannelTuningCoordinator', () => {
         expect(deps.saveLifecycleState).toHaveBeenCalledTimes(1);
     });
 
+    it('runs the caller presentation callback immediately before scheduler load emits program start', async () => {
+        const { coordinator, scheduler } = createCoordinator();
+        const order: string[] = [];
+        scheduler.loadChannel.mockImplementation(() => {
+            order.push('load');
+        });
+
+        await coordinator.switchToChannel('ch1', {
+            beforeProgramStart: () => {
+                order.push('presentation');
+            },
+        });
+
+        expect(order).toEqual(['presentation', 'load']);
+    });
+
     it('clears pending now-playing channel when sync fails', async () => {
         const { coordinator, deps, scheduler } = createCoordinator();
         scheduler.syncToCurrentTime.mockImplementation(() => {

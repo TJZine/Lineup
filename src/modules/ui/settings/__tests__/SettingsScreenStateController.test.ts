@@ -192,6 +192,16 @@ it('writes past-items window values using the shared EPG preference contract', (
         throw new Error('Past items item not found');
     }
 
+    expect(pastItems.description).toBe(
+        'Auto keeps the current slot for shows and at least 15 min for movies'
+    );
+    expect((pastItems as SettingsSelectConfig).options.map((option) => option.label)).toEqual([
+        'Auto (Recommended)',
+        'Current slot',
+        'At least 15 min',
+        'At least 30 min',
+    ]);
+
     (pastItems as SettingsSelectConfig).onChange(2);
 
     expect(onGuideSettingChange).toHaveBeenCalledWith({

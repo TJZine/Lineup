@@ -1,0 +1,71 @@
+{
+  "fixtureResults": [
+    {
+      "lineupSize": 189,
+      "result": "no-loading-observed",
+      "coverage": "complete forward traversal from channel 1 through channel 189",
+      "focusRetained": true
+    },
+    {
+      "lineupSize": 390,
+      "result": "transient-and-persistent-loading-reproduced",
+      "observations": [
+        {
+          "kind": "transient",
+          "approximateChannel": 112,
+          "userObservedDurationSeconds": "3-4",
+          "note": "All program cells in the newly exposed row initially showed loading, then resolved."
+        },
+        {
+          "kind": "transient",
+          "distanceFromPriorOccurrenceRows": "approximately 6",
+          "note": "A second row-level loading occurrence resolved before the inspector read completed."
+        },
+        {
+          "kind": "instrumented-batch",
+          "peakLoadingCells": 9,
+          "resolvedCells": 8,
+          "timeFromPeakToOneRemainingMs": 26198,
+          "finalLoadingCells": 1
+        },
+        {
+          "kind": "persistent-before-relaunch",
+          "focusedChannel": 341,
+          "visibleChannelRange": [339, 345],
+          "checkpoints": [
+            { "elapsedSeconds": 0, "loadingCells": 1, "focusedCellLoading": true },
+            { "elapsedSeconds": 36, "loadingCells": 1, "focusedCellLoading": true },
+            { "elapsedSeconds": 68, "loadingCells": 1, "focusedCellLoading": true },
+            { "elapsedSeconds": 126, "loadingCells": 1, "focusedCellLoading": true },
+            { "elapsedSeconds": 184, "loadingCells": 1, "focusedCellLoading": true }
+          ]
+        },
+        {
+          "kind": "persistent-after-relaunch",
+          "visibleChannelRange": [1, 9],
+          "checkpoints": [
+            { "elapsedSeconds": 0, "loadingCells": 6, "focusedCellPresent": false },
+            { "elapsedSeconds": 37, "loadingCells": 6, "focusedCellPresent": false },
+            { "elapsedSeconds": 69, "loadingCells": 6, "focusedCellPresent": false },
+            { "elapsedSeconds": 126, "loadingCells": 6, "focusedCellPresent": false },
+            { "elapsedSeconds": 183, "loadingCells": 6, "focusedCellPresent": false }
+          ],
+          "video": {
+            "readyState": 4,
+            "pipWidth": 672,
+            "pipHeight": 378
+          }
+        },
+        {
+          "kind": "guide-reopen-recovery",
+          "action": "close Guide with Back, then open Guide again",
+          "approximateRecoverySeconds": 1,
+          "loadingCellsAfterRecovery": 0,
+          "focusRestored": true,
+          "videoReadyState": 4
+        }
+      ]
+    }
+  ],
+  "privacy": "This file contains no media titles, Plex identifiers, authenticated URLs, tokens, headers, or server identifiers."
+}

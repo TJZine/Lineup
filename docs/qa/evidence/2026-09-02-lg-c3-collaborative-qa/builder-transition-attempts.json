@@ -1,0 +1,71 @@
+{
+  "candidate": {
+    "commit": "47bc6a43",
+    "package": "packages/com.lineup.app_1.0.0_all.ipk",
+    "packageSha256": "07a6200b810b2e610d005803b5524bf4cbfe385c1841b313773b8999530c2fe4",
+    "candidateTreeSha256": "3d2a11b6be175d431495214c0629c8bb5975fd154aea3084a9e3c51de50eaf23"
+  },
+  "acceptance": {
+    "result": "pass",
+    "physicallyConfirmedVisibleAudiblePip": "2/2",
+    "note": "The inspector geometry is corroborating evidence only. The physical LG C3 observation is authoritative for the protected video plane."
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "lineupCreated": 189,
+      "candidatesNotCreated": 1939,
+      "physicalObservation": {
+        "pipVisible": true,
+        "audioPresent": true,
+        "guideFocusVisible": true,
+        "stuckOverlay": false,
+        "briefFullscreenPlayerBeforeGuide": true,
+        "persistentBlackPip": false
+      },
+      "events": [
+        { "event": "done-switch-request", "elapsedMs": 1, "readyState": 4, "videoWidth": 3840, "videoHeight": 2076 },
+        { "event": "readiness-ready", "elapsedMs": 10 },
+        { "event": "setup-provisional-hide", "elapsedMs": 82 },
+        { "event": "player-show", "elapsedMs": 85 },
+        { "event": "scheduler-program-start-request", "elapsedMs": 87 },
+        { "event": "channel-switch-settlement", "elapsedMs": 642, "outcome": "switched" },
+        { "event": "first-playing", "elapsedMs": 1322 },
+        { "event": "playback-start-settlement", "elapsedMs": 1341, "outcome": "started" },
+        { "event": "guide-open", "elapsedMs": 1361 },
+        { "event": "guide-show", "elapsedMs": 2199, "layout": "classic-pip" },
+        { "event": "pip-presentation", "elapsedMs": 2201, "x": 24, "y": 72, "width": 672, "height": 378, "containerWidth": 1920, "containerHeight": 1080 },
+        { "event": "first-advancing-time", "elapsedMs": 2482 },
+        { "event": "attempt-settled", "elapsedMs": 2485, "outcome": "success" }
+      ]
+    },
+    {
+      "attempt": 2,
+      "lineupCreated": 189,
+      "candidatesNotCreated": 1939,
+      "physicalObservation": {
+        "pipVisible": true,
+        "audioPresent": true,
+        "guideFocusVisible": true,
+        "stuckOverlay": false,
+        "briefFullscreenPlayerBeforeGuide": true,
+        "persistentBlackPip": false
+      },
+      "events": [
+        { "event": "done-switch-request", "elapsedMs": 0, "readyState": 4, "videoWidth": 3840, "videoHeight": 1600 },
+        { "event": "readiness-ready", "elapsedMs": 5 },
+        { "event": "setup-provisional-hide", "elapsedMs": 46 },
+        { "event": "player-show", "elapsedMs": 54 },
+        { "event": "scheduler-program-start-request", "elapsedMs": 63 },
+        { "event": "channel-switch-settlement", "elapsedMs": 650, "outcome": "switched" },
+        { "event": "first-playing", "elapsedMs": 1048 },
+        { "event": "playback-start-settlement", "elapsedMs": 1063, "outcome": "started" },
+        { "event": "guide-open", "elapsedMs": 1079 },
+        { "event": "guide-show", "elapsedMs": 1610, "layout": "classic-pip" },
+        { "event": "pip-presentation", "elapsedMs": 1621, "x": 24, "y": 72, "width": 672, "height": 378, "containerWidth": 1920, "containerHeight": 1080 },
+        { "event": "first-advancing-time", "elapsedMs": 2103 },
+        { "event": "attempt-settled", "elapsedMs": 2114, "outcome": "success" }
+      ]
+    }
+  ]
+}

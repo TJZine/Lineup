@@ -28,7 +28,6 @@ describe('EPGTimeHeader', () => {
             pixelsPerMinute: 4,
             autoFitPixelsPerMinute: false,
             rowHeight: 80,
-            showCurrentTimeIndicator: true,
             autoScrollToNow: false,
         };
         timeHeader = new EPGTimeHeader();

@@ -125,7 +125,6 @@ describe('EPGGridRuntimeController', () => {
             totalHours: 24,
             pixelsPerMinute: 4,
             rowHeight: 80,
-            showCurrentTimeIndicator: true,
             autoScrollToNow: false,
             onVisibleRangeChange: (range) => visibleRanges.push(range),
         };

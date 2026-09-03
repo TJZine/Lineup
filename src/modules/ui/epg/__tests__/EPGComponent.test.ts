@@ -44,7 +44,6 @@ describe('EPGComponent', () => {
             pixelsPerMinute: 4,
             autoFitPixelsPerMinute: false,
             rowHeight: 80,
-            showCurrentTimeIndicator: true,
             autoScrollToNow: false,
             layoutMode: overrides.layoutMode ?? 'classic',
             resolveThumbUrl: (url) => url,
@@ -386,7 +385,6 @@ describe('EPGComponent', () => {
                     pixelsPerMinute: 4,
                     autoFitPixelsPerMinute: false,
                     rowHeight: 80,
-                    showCurrentTimeIndicator: true,
                     autoScrollToNow: false,
                 });
             }).toThrow('EPG container element not found');
@@ -957,7 +955,6 @@ describe('EPGComponent', () => {
                 minPixelsPerMinute: 6,
                 maxPixelsPerMinute: 12,
                 rowHeight: 80,
-                showCurrentTimeIndicator: true,
                 autoScrollToNow: false,
             });
 
@@ -1325,7 +1322,6 @@ describe('EPGComponent', () => {
                 totalHours: 24,
                 pixelsPerMinute: 4,
                 rowHeight: 80,
-                showCurrentTimeIndicator: true,
                 autoScrollToNow: false,
             });
             newEpg.show();
@@ -1503,7 +1499,6 @@ describe('EPGComponent', () => {
                 totalHours: 24,
                 pixelsPerMinute: 4,
                 rowHeight: 80,
-                showCurrentTimeIndicator: true,
                 autoScrollToNow: true,
             });
 

@@ -1,8 +1,11 @@
 import { NOW_PLAYING_INFO_CLASSES, NOW_PLAYING_INFO_DEFAULTS } from './constants';
 import type { INowPlayingInfoOverlay } from './interfaces';
 import type { NowPlayingInfoConfig, NowPlayingInfoViewModel } from './types';
+import { isClearLogoUsable } from '../common/ClearLogoPresentation';
 import { createOverlayPrimitives } from '../common/OverlayPrimitives';
 import { formatTimecode } from '../common/formatTimecode';
+
+const CLEAR_LOGO_TARGET_HEIGHT = 84;
 
 export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
     private containerElement: HTMLElement | null = null;
@@ -275,8 +278,12 @@ export class NowPlayingInfoOverlay implements INowPlayingInfoOverlay {
                     clearLogo.onerror = null;
                     clearLogo.onload = null;
 
-                    const renderedHeight = clearLogo.getBoundingClientRect().height;
-                    const isUsable = renderedHeight >= 32;
+                    const isUsable = isClearLogoUsable(
+                        clearLogo.naturalWidth,
+                        clearLogo.naturalHeight,
+                        CLEAR_LOGO_TARGET_HEIGHT,
+                        clearLogo.getBoundingClientRect().width
+                    );
 
                     clearLogo.style.visibility = '';
                     if (isUsable) {

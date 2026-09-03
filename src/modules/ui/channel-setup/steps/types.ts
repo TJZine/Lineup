@@ -1,12 +1,10 @@
 import type {
     ChannelSetupConfig,
     ChannelSetupContext,
-    ChannelSetupPreview,
     ChannelSetupReview,
 } from '../../../../core/channel-setup/types';
 import type { PlexLibrarySection } from '../../../plex/library';
 import type {
-    EstimateKey,
     StrategyStepMutableState,
 } from '../ChannelSetupSessionContracts';
 import type { SetupStrategyKey, StrategyCategoryKey } from '../strategyConstants';
@@ -34,11 +32,6 @@ export interface LibraryStepDeps {
 export interface StrategyStepStateSnapshot extends StrategyStepMutableState {
     activeStrategyCategory: StrategyCategoryKey;
     setupContext: ChannelSetupContext;
-    previewPanelId: string;
-    preview: ChannelSetupPreview | null;
-    previewError: string | null;
-    previewStatus: 'idle' | 'loading' | 'ready' | 'blocked' | 'slow' | 'error';
-    isPreviewLoading: boolean;
 }
 
 export interface StrategyStepDeps {
@@ -51,8 +44,6 @@ export interface StrategyStepDeps {
     grabbedPriorityKey: SetupStrategyKey | null;
     scopeButtonId: (strategy: SetupStrategyKey) => string;
     strategySupportsMixedScope: (strategy: SetupStrategyKey) => boolean;
-    buildPreviewRow: (label: string, value: number | string, key?: EstimateKey) => HTMLElement;
-    renderCappedWarnings: (warnings: string[], container: HTMLElement) => void;
     applyCategoryChange: (category: StrategyCategoryKey, focusId: string) => void;
     applySettingChange: (
         focusId: string,
@@ -73,8 +64,6 @@ export interface StrategyStepDeps {
         }
     ) => void;
     detailText: string;
-    schedulePreview: () => void;
-    preloadReview: () => void;
 }
 
 export interface BuildReviewStateSnapshot {
@@ -112,6 +101,6 @@ export interface BuildProgressDeps {
     state: BuildProgressStateSnapshot;
     registerLinearFocusables: (buttons: HTMLElement[]) => void;
     onCancelOrBack: (button: HTMLButtonElement) => void;
-    onDone: () => void;
+    onDone: (button: HTMLButtonElement) => void;
     startBuild: (ui: BuildProgressUiRefs) => Promise<void>;
 }

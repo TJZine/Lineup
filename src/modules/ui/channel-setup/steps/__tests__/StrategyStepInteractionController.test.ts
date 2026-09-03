@@ -8,6 +8,7 @@ import type {
     StrategyStepMutableState,
 } from '../../ChannelSetupSessionContracts';
 import { StrategyStepInteractionController } from '../StrategyStepInteractionController';
+import { STRATEGY_CONTROL_DESCRIPTORS } from '../StrategyStepControlDescriptors';
 import { STEP2_CONTROL_IDS } from '../../strategyConstants';
 
 const createSnapshot = (
@@ -68,19 +69,8 @@ const createAdapters = (
     registerStep2: jest.fn(() => false),
     renderStep: jest.fn(),
     resetStep2Scroll: jest.fn(),
-    schedulePreview: jest.fn(),
     setPreferredFocusId: jest.fn(),
     setPriorityRowGrabbedVisual: jest.fn(),
-    stepPreset: jest.fn((options: number[], current: number, dir: 'left' | 'right') => {
-        const index = options.indexOf(current);
-        if (index < 0) {
-            return current;
-        }
-        const nextIndex = dir === 'left'
-            ? Math.max(0, index - 1)
-            : Math.min(options.length - 1, index + 1);
-        return options[nextIndex] ?? current;
-    }),
     updateStrategyState: jest.fn((mutate: (draft: StrategyStepMutableState) => void) => {
         const draft: StrategyStepMutableState = {
             strategies: JSON.parse(JSON.stringify(snapshot.strategies)) as StrategyStepMutableState['strategies'],
@@ -158,50 +148,114 @@ describe('StrategyStepInteractionController', () => {
 
         expect(adapters.setPreferredFocusId).toHaveBeenCalledWith('setup-strategy-playlists');
         expect(adapters.updateStrategyState).toHaveBeenCalledTimes(1);
-        expect(adapters.schedulePreview).toHaveBeenCalledTimes(1);
         expect(adapters.renderStep).toHaveBeenCalledTimes(1);
     });
 
-    it('handleKeyPress adjusts build mode with left/right on adjustable controls', () => {
-        const controller = new StrategyStepInteractionController({
-            strategySupportsMixedScope: (): boolean => false,
-            toDomId: (raw): string => raw,
-        });
+    const descriptorCategory = (controlId: string): 'build-options' | 'series-ordering' | 'limits' => {
+        if (
+            controlId === STEP2_CONTROL_IDS.buildMode
+            || controlId === STEP2_CONTROL_IDS.combineMode
+            || controlId === STEP2_CONTROL_IDS.addAlternateLineups
+            || controlId === STEP2_CONTROL_IDS.alternateLineupCopies
+        ) {
+            return 'build-options';
+        }
+        if (
+            controlId === STEP2_CONTROL_IDS.seriesBaseMode
+            || controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize
+            || controlId === STEP2_CONTROL_IDS.seriesVariantType
+            || controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize
+        ) {
+            return 'series-ordering';
+        }
+        return 'limits';
+    };
+
+    const snapshotForDescriptor = (controlId: string): ChannelSetupSessionSnapshot => {
         const snapshot = createSnapshot();
-        const adapters = createAdapters(snapshot);
-        const nav = createNav(STEP2_CONTROL_IDS.buildMode);
-        const event = createEvent('right');
+        if (controlId === STEP2_CONTROL_IDS.alternateLineupCopies) {
+            snapshot.channelExpansion.addAlternateLineups = true;
+        }
+        if (controlId === STEP2_CONTROL_IDS.seriesBaseBlockSize) {
+            snapshot.seriesOrdering.basePlaybackMode = 'block';
+        }
+        if (controlId === STEP2_CONTROL_IDS.seriesVariantBlockSize) {
+            snapshot.channelExpansion.variantType = 'block';
+        }
+        return snapshot;
+    };
 
-        controller.handleKeyPress(event, nav as never, adapters);
+    for (const descriptor of STRATEGY_CONTROL_DESCRIPTORS) {
+        it(`keeps ${descriptor.controlId} dropdown-only for D-pad right and left`, () => {
+            const controller = createController();
+            const category = descriptorCategory(descriptor.controlId);
+            controller.applyCategoryChange(category, `setup-category-${category}`, {
+                renderStep: jest.fn(),
+                resetStep2Scroll: jest.fn(),
+                setPreferredFocusId: jest.fn(),
+                setPriorityRowGrabbedVisual: jest.fn(),
+            });
+            const snapshot = snapshotForDescriptor(descriptor.controlId);
 
-        expect(event.handled).toBe(true);
-        expect(event.originalEvent.preventDefault).toHaveBeenCalled();
-        expect(adapters.updateStrategyState).toHaveBeenCalledTimes(1);
-        expect(adapters.schedulePreview).toHaveBeenCalledTimes(1);
-        expect(adapters.renderStep).toHaveBeenCalledTimes(1);
-    });
+            const rightAdapters = createAdapters(snapshot);
+            const right = createEvent('right');
+            controller.handleKeyPress(right, createNav(descriptor.controlId) as never, rightAdapters);
+            expect(right.handled).toBe(true);
+            expect(right.originalEvent.preventDefault).toHaveBeenCalledTimes(1);
+            expect(rightAdapters.openDropdown).not.toHaveBeenCalled();
+            expect(rightAdapters.updateStrategyState).not.toHaveBeenCalled();
+
+            const okAdapters = createAdapters(snapshot);
+            const ok = createEvent('ok');
+            controller.handleKeyPress(ok, createNav(descriptor.controlId) as never, okAdapters);
+            expect(ok.handled).toBe(true);
+            expect(ok.originalEvent.preventDefault).toHaveBeenCalledTimes(1);
+            expect(okAdapters.openDropdown).toHaveBeenCalledTimes(1);
+            expect(okAdapters.updateStrategyState).not.toHaveBeenCalled();
+
+            const leftAdapters = createAdapters(snapshot);
+            const leftNav = createNav(descriptor.controlId);
+            const left = createEvent('left');
+            controller.handleKeyPress(left, leftNav as never, leftAdapters);
+            expect(left.handled).toBe(true);
+            expect(left.originalEvent.preventDefault).toHaveBeenCalledTimes(1);
+            expect(leftAdapters.openDropdown).not.toHaveBeenCalled();
+            expect(leftAdapters.updateStrategyState).not.toHaveBeenCalled();
+            expect(leftAdapters.setPreferredFocusId).toHaveBeenCalledWith(`setup-category-${category}`);
+            expect(leftNav.setFocus).toHaveBeenCalledWith(`setup-category-${category}`);
+        });
+    }
 
     it.each([
-        ['left', 'repeat', { isRepeat: true }],
-        ['right', 'repeat', { isRepeat: true }],
-        ['left', 'long press', { isLongPress: true }],
-        ['right', 'long press', { isLongPress: true }],
-    ] as const)('consumes adjustable-control %s %s without changing state or focus', (button, _label, options) => {
-        const controller = createController();
-        const adapters = createAdapters(createSnapshot());
-        const nav = createNav(STEP2_CONTROL_IDS.buildMode);
-        const event = createEvent(button, options);
+        ['repeat', { isRepeat: true }],
+        ['long press', { isLongPress: true }],
+    ] as const)('keeps descriptor D-pad handling stable for %s input', (_label, options) => {
+        for (const descriptor of STRATEGY_CONTROL_DESCRIPTORS) {
+            const controller = createController();
+            const category = descriptorCategory(descriptor.controlId);
+            controller.applyCategoryChange(category, `setup-category-${category}`, {
+                renderStep: jest.fn(),
+                resetStep2Scroll: jest.fn(),
+                setPreferredFocusId: jest.fn(),
+                setPriorityRowGrabbedVisual: jest.fn(),
+            });
+            const adapters = createAdapters(snapshotForDescriptor(descriptor.controlId));
+            const right = createEvent('right', options);
+            controller.handleKeyPress(right, createNav(descriptor.controlId) as never, adapters);
+            expect(right.handled).toBe(true);
+            expect(adapters.updateStrategyState).not.toHaveBeenCalled();
+            expect(adapters.openDropdown).not.toHaveBeenCalled();
 
-        controller.handleKeyPress(event, nav as never, adapters);
-
-        expect(event.handled).toBe(true);
-        expect(event.originalEvent.preventDefault).toHaveBeenCalledTimes(1);
-        expect(adapters.updateStrategyState).not.toHaveBeenCalled();
-        expect(adapters.schedulePreview).not.toHaveBeenCalled();
-        expect(adapters.renderStep).not.toHaveBeenCalled();
-        expect(adapters.setPreferredFocusId).not.toHaveBeenCalled();
-        expect(nav.setFocus).not.toHaveBeenCalled();
-        expect(nav.getFocusedElement()).toEqual({ id: STEP2_CONTROL_IDS.buildMode });
+            const leftAdapters = createAdapters(snapshotForDescriptor(descriptor.controlId));
+            const leftNav = createNav(descriptor.controlId);
+            const left = createEvent('left', options);
+            controller.handleKeyPress(left, leftNav as never, leftAdapters);
+            expect(left.handled).toBe(true);
+            expect(leftAdapters.updateStrategyState).not.toHaveBeenCalled();
+            expect(leftAdapters.openDropdown).not.toHaveBeenCalled();
+            expect(leftAdapters.setPreferredFocusId).toHaveBeenCalledWith(`setup-category-${category}`);
+            expect(leftNav.setFocus).toHaveBeenCalledWith(`setup-category-${category}`);
+        }
     });
 
     it('grabs and reorders priority rows directly from the controller state machine', () => {
@@ -422,7 +476,6 @@ describe('StrategyStepInteractionController', () => {
 
             config?.onSelect(selectedValue);
             expect(adapters.updateStrategyState).toHaveBeenCalledTimes(1);
-            expect(adapters.schedulePreview).toHaveBeenCalledTimes(1);
             expect(adapters.renderStep).toHaveBeenCalledTimes(1);
         }
     );
@@ -472,156 +525,6 @@ describe('StrategyStepInteractionController', () => {
             noFocusAdapters
         );
         expect(noFocusAdapters.updateStrategyState).not.toHaveBeenCalled();
-    });
-
-    it('handleKeyPress uses adjustable controls for dropdown open, option cycling, and category fallback', () => {
-        const controller = createController();
-
-        const okAdapters = createAdapters(createSnapshot());
-        controller.handleKeyPress(createEvent('ok'), createNav(STEP2_CONTROL_IDS.buildMode) as never, okAdapters);
-        expect(okAdapters.openDropdown).toHaveBeenCalledTimes(1);
-
-        const cycleAdapters = createAdapters(createSnapshot(), {
-            updateStrategyState: jest.fn(),
-        });
-        controller.handleKeyPress(createEvent('right'), createNav(STEP2_CONTROL_IDS.combineMode) as never, cycleAdapters);
-        expect(cycleAdapters.updateStrategyState).toHaveBeenCalledTimes(1);
-        expect(cycleAdapters.schedulePreview).toHaveBeenCalledTimes(1);
-
-        const leftBoundaryNav = createNav(STEP2_CONTROL_IDS.buildMode);
-        const leftBoundaryAdapters = createAdapters(createSnapshot({
-            buildMode: 'replace',
-        }));
-        controller.handleKeyPress(createEvent('left'), leftBoundaryNav as never, leftBoundaryAdapters);
-        expect(leftBoundaryAdapters.setPreferredFocusId).toHaveBeenCalledWith('setup-category-content-sources');
-        expect(leftBoundaryNav.setFocus).toHaveBeenCalledWith('setup-category-content-sources');
-
-        const stringFallbackAdapters = createAdapters(createSnapshot({
-            buildMode: 'unknown' as never,
-        }));
-        controller.handleKeyPress(createEvent('right'), createNav(STEP2_CONTROL_IDS.buildMode) as never, stringFallbackAdapters);
-        expect(stringFallbackAdapters.updateStrategyState).toHaveBeenCalledTimes(1);
-
-        controller.applyCategoryChange('build-options', 'setup-category-build-options', {
-            renderStep: jest.fn(),
-            resetStep2Scroll: jest.fn(),
-            setPreferredFocusId: jest.fn(),
-            setPriorityRowGrabbedVisual: jest.fn(),
-        });
-        const numericFallbackAdapters = createAdapters(createSnapshot({
-            channelExpansion: {
-                addAlternateLineups: true,
-                alternateLineupCopies: 4 as never,
-                variantType: 'none',
-                variantBlockSize: 3,
-            },
-        }));
-        controller.handleKeyPress(
-            createEvent('left'),
-            createNav(STEP2_CONTROL_IDS.alternateLineupCopies) as never,
-            numericFallbackAdapters
-        );
-        expect(numericFallbackAdapters.updateStrategyState).toHaveBeenCalledTimes(1);
-    });
-
-    it.each([
-        [
-            STEP2_CONTROL_IDS.combineMode,
-            createSnapshot({ actorStudioCombineMode: 'combined' }),
-            'left',
-            'content-sources',
-        ],
-        [
-            STEP2_CONTROL_IDS.alternateLineupCopies,
-            createSnapshot({
-                channelExpansion: {
-                    addAlternateLineups: true,
-                    alternateLineupCopies: 2,
-                    variantType: 'none',
-                    variantBlockSize: 3,
-                },
-            }),
-            'right',
-            'content-sources',
-        ],
-        [
-            STEP2_CONTROL_IDS.seriesBaseMode,
-            createSnapshot({
-                seriesOrdering: {
-                    basePlaybackMode: 'sequential',
-                    baseBlockSize: 3,
-                },
-            }),
-            'right',
-            'content-sources',
-        ],
-        [
-            STEP2_CONTROL_IDS.seriesBaseBlockSize,
-            createSnapshot({
-                seriesOrdering: {
-                    basePlaybackMode: 'block',
-                    baseBlockSize: 3,
-                },
-            }),
-            'right',
-            'content-sources',
-        ],
-        [
-            STEP2_CONTROL_IDS.seriesVariantType,
-            createSnapshot({
-                channelExpansion: {
-                    addAlternateLineups: false,
-                    alternateLineupCopies: 1,
-                    variantType: 'sequential',
-                    variantBlockSize: 3,
-                },
-            }),
-            'right',
-            'content-sources',
-        ],
-        [
-            STEP2_CONTROL_IDS.seriesVariantBlockSize,
-            createSnapshot({
-                channelExpansion: {
-                    addAlternateLineups: false,
-                    alternateLineupCopies: 1,
-                    variantType: 'block',
-                    variantBlockSize: 3,
-                },
-            }),
-            'right',
-            'content-sources',
-        ],
-        [
-            STEP2_CONTROL_IDS.maxChannels,
-            createSnapshot({ maxChannels: 100 }),
-            'right',
-            'content-sources',
-        ],
-        [
-            STEP2_CONTROL_IDS.minItems,
-            createSnapshot({ minItems: 5 }),
-            'right',
-            'content-sources',
-        ],
-    ] as const)('handleKeyPress cycles %s directly through the interaction owner', (controlId, snapshot, button, expectedCategory) => {
-        const controller = createController();
-        const adapters = createAdapters(snapshot);
-        const nav = createNav(controlId);
-        const event = createEvent(button);
-
-        controller.handleKeyPress(event, nav as never, adapters);
-
-        expect(event.handled).toBe(true);
-        expect(adapters.updateStrategyState).toHaveBeenCalledTimes(1);
-        expect(adapters.schedulePreview).toHaveBeenCalledTimes(1);
-        if (controlId === STEP2_CONTROL_IDS.maxChannels) {
-            expect(adapters.stepPreset).toHaveBeenCalledWith([50, 100, 200], 100, 'right', 'clamp');
-        }
-        if (controlId === STEP2_CONTROL_IDS.minItems) {
-            expect(adapters.stepPreset).toHaveBeenCalledWith([1, 5, 10], 5, 'right', 'clamp');
-        }
-        expect(controller.getActiveStrategyCategory()).toBe(expectedCategory);
     });
 
     it('handleKeyPress manages priority grab state, repeats, and reorder boundaries', () => {
@@ -794,7 +697,6 @@ describe('StrategyStepInteractionController', () => {
         expect(draft.strategies.genres.enabled).toBe(false);
         expect(draft.strategies.decades.enabled).toBe(false);
         expect(adapters.setPreferredFocusId).toHaveBeenCalledWith('setup-priority-row-playlists');
-        expect(adapters.schedulePreview).toHaveBeenCalledTimes(1);
     });
 
     it('handleKeyPress blocks focus escape while a guide-order row is grabbed', () => {

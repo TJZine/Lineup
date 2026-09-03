@@ -18,7 +18,6 @@ describe('withEpgVisibleRangeChangeBinding', () => {
             totalHours: 24,
             pixelsPerMinute: 4,
             rowHeight: 80,
-            showCurrentTimeIndicator: true,
             autoScrollToNow: false,
             onVisibleRangeChange: previousOnVisibleRangeChange,
         };

@@ -43,9 +43,9 @@ const SUBTITLE_MODE_OPTIONS = SUBTITLE_MODES.map((mode) => ({
 
 const EPG_PAST_ITEMS_LABELS: Record<EpgPastItemsWindow, string> = {
     auto: 'Auto (Recommended)',
-    '0': 'Now (0m)',
-    '15': '15m',
-    '30': '30m',
+    '0': 'Current slot',
+    '15': 'At least 15 min',
+    '30': 'At least 30 min',
 };
 
 const EPG_PAST_ITEMS_OPTIONS = EPG_PAST_ITEMS_WINDOWS.map((storageValue) => ({
@@ -281,7 +281,7 @@ export class SettingsScreenStateController {
                 {
                     id: 'settings-epg-past-items',
                     label: 'Past Items',
-                    description: 'Auto uses Shows: 0m, Movies: 15m',
+                    description: 'Auto keeps the current slot for shows and at least 15 min for movies',
                     value: this._readEpgPastItemsWindowValue(),
                     options: EPG_PAST_ITEMS_OPTIONS.map((option, index) => ({
                         label: option.label,

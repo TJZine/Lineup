@@ -81,26 +81,30 @@ export interface ChannelSetupPeopleBreadthDiagnostic {
 
 type MutablePeopleEntry = {
     title: string;
-    episodeCount: number;
-    seriesKeys: Set<string>;
+    itemCount: number;
+    seriesKeys: Set<string> | null;
 };
 
 type MutablePeopleIndex = Record<ChannelSetupPeopleFamily, Map<string, MutablePeopleEntry>>;
 
-export async function buildChannelSetupPeopleSeriesIndexForLibrary(options: {
+export async function buildChannelSetupPeopleIndexForLibrary(options: {
     plexLibrary: IPlexLibrary;
     library: PlexLibrarySection;
     signal: AbortSignal;
     checkpoint: () => Promise<void>;
 }): Promise<ChannelSetupPeopleSeriesLibraryIndex> {
-    const episodes = await options.plexLibrary.getLibraryItems(options.library.id, {
-        filter: { type: PLEX_MEDIA_TYPES.EPISODE },
+    const items = await options.plexLibrary.getLibraryItems(options.library.id, {
+        filter: {
+            type: options.library.type === 'show'
+                ? PLEX_MEDIA_TYPES.EPISODE
+                : PLEX_MEDIA_TYPES.MOVIE,
+        },
         signal: options.signal,
     });
 
-    return createPeopleSeriesIndexFromEpisodesCooperatively(
+    return createPeopleIndexFromItemsCooperatively(
         options.library,
-        episodes,
+        items,
         options.checkpoint
     );
 }
@@ -109,18 +113,30 @@ export function createPeopleSeriesIndexFromEpisodes(
     library: PlexLibrarySection,
     episodes: readonly PlexMediaItem[]
 ): ChannelSetupPeopleSeriesLibraryIndex {
+    return createPeopleIndexFromItems(library, episodes);
+}
+
+export function createPeopleIndexFromItems(
+    library: PlexLibrarySection,
+    items: readonly PlexMediaItem[]
+): ChannelSetupPeopleSeriesLibraryIndex {
     const mutable: MutablePeopleIndex = {
         actors: new Map(),
         directors: new Map(),
     };
 
-    for (const episode of episodes) {
-        const seriesKey = getEpisodeSeriesKey(library.id, episode);
-        if (!seriesKey) {
-            continue;
+    for (const item of items) {
+        if (library.type === 'show') {
+            const seriesKey = getEpisodeSeriesKey(library.id, item);
+            if (!seriesKey) {
+                continue;
+            }
+            addItemPeople(mutable.actors, item.actors, seriesKey);
+            addItemPeople(mutable.directors, item.directors, seriesKey);
+        } else {
+            addItemPeople(mutable.actors, item.actors, null);
+            addItemPeople(mutable.directors, item.directors, null);
         }
-        addEpisodePeople(mutable.actors, episode.actors, seriesKey);
-        addEpisodePeople(mutable.directors, episode.directors, seriesKey);
     }
 
     return {
@@ -136,17 +152,30 @@ export async function createPeopleSeriesIndexFromEpisodesCooperatively(
     episodes: readonly PlexMediaItem[],
     checkpoint: () => Promise<void>
 ): Promise<ChannelSetupPeopleSeriesLibraryIndex> {
+    return createPeopleIndexFromItemsCooperatively(library, episodes, checkpoint);
+}
+
+export async function createPeopleIndexFromItemsCooperatively(
+    library: PlexLibrarySection,
+    items: readonly PlexMediaItem[],
+    checkpoint: () => Promise<void>
+): Promise<ChannelSetupPeopleSeriesLibraryIndex> {
     const mutable: MutablePeopleIndex = {
         actors: new Map(),
         directors: new Map(),
     };
     const iterationCheckpoint = new ChannelSetupPlanningIterationCheckpoint(checkpoint);
 
-    for (const episode of episodes) {
-        const seriesKey = getEpisodeSeriesKey(library.id, episode);
-        if (seriesKey) {
-            addEpisodePeople(mutable.actors, episode.actors, seriesKey);
-            addEpisodePeople(mutable.directors, episode.directors, seriesKey);
+    for (const item of items) {
+        if (library.type === 'show') {
+            const seriesKey = getEpisodeSeriesKey(library.id, item);
+            if (seriesKey) {
+                addItemPeople(mutable.actors, item.actors, seriesKey);
+                addItemPeople(mutable.directors, item.directors, seriesKey);
+            }
+        } else {
+            addItemPeople(mutable.actors, item.actors, null);
+            addItemPeople(mutable.directors, item.directors, null);
         }
         const pause = iterationCheckpoint.afterIteration();
         if (pause) {
@@ -203,7 +232,11 @@ export function getPeopleTagItemCount(options: {
     family: ChannelSetupPeopleFamily;
     tag: PlexTagDirectoryItem;
 }): number | undefined {
-    if (options.library.type !== 'show') {
+    const libraryIndex = options.indexByLibraryId?.get(options.library.id);
+    if (options.library.type !== 'show' && options.tag.count !== null) {
+        return options.tag.count;
+    }
+    if (!libraryIndex) {
         return getTagItemCount(options.tag);
     }
     return getPeopleSeriesIndexEntry(
@@ -211,7 +244,7 @@ export function getPeopleTagItemCount(options: {
         options.library.id,
         options.family,
         options.tag
-    )?.episodeCount;
+    )?.episodeCount ?? 0;
 }
 
 export function peopleTagMeetsEligibility(options: {
@@ -222,7 +255,8 @@ export function peopleTagMeetsEligibility(options: {
     minItems: number;
 }): boolean {
     if (options.library.type !== 'show') {
-        return tagMeetsMinItems(options.tag, options.minItems);
+        const count = getPeopleTagItemCount(options);
+        return count !== undefined && count >= options.minItems;
     }
     return tvPeopleTagMeetsBreadth(
         options.indexByLibraryId,
@@ -285,14 +319,17 @@ export function buildCrossLibraryPeopleSourceGroups(options: {
     for (const library of options.libraries) {
         for (const tag of sortTagsByCountThenTitle(options.tagsByLibraryId.get(library.id) ?? [])) {
             const key = normalizePeopleSeriesIndexName(tag.title);
-            const thinTvSource = library.type === 'show' && !tvPeopleTagMeetsBreadth(
-                options.indexByLibraryId,
-                library.id,
-                options.family,
-                tag,
-                options.minItems
-            );
-            if (!key || thinTvSource) {
+            const itemCount = getPeopleTagItemCount({ ...options, library, tag });
+            const ineligibleSource = library.type === 'show'
+                ? !tvPeopleTagMeetsBreadth(
+                    options.indexByLibraryId,
+                    library.id,
+                    options.family,
+                    tag,
+                    options.minItems
+                )
+                : itemCount === undefined || itemCount === 0;
+            if (!key || ineligibleSource) {
                 continue;
             }
             const group = grouped.get(key) ?? {
@@ -302,7 +339,7 @@ export function buildCrossLibraryPeopleSourceGroups(options: {
                 hasUnknownCount: false,
                 sources: [],
             };
-            applyPeopleGroupCount(group, getPeopleTagItemCount({ ...options, library, tag }));
+            applyPeopleGroupCount(group, itemCount);
             group.sources.push(options.createSource(library, tag));
             grouped.set(key, group);
         }
@@ -326,14 +363,17 @@ export async function buildCrossLibraryPeopleSourceGroupsCooperatively(
     for (const library of options.libraries) {
         for (const tag of sortTagsByCountThenTitle(options.tagsByLibraryId.get(library.id) ?? [])) {
             const key = normalizePeopleSeriesIndexName(tag.title);
-            const thinTvSource = library.type === 'show' && !tvPeopleTagMeetsBreadth(
-                options.indexByLibraryId,
-                library.id,
-                options.family,
-                tag,
-                options.minItems
-            );
-            if (key && !thinTvSource) {
+            const itemCount = getPeopleTagItemCount({ ...options, library, tag });
+            const ineligibleSource = library.type === 'show'
+                ? !tvPeopleTagMeetsBreadth(
+                    options.indexByLibraryId,
+                    library.id,
+                    options.family,
+                    tag,
+                    options.minItems
+                )
+                : itemCount === undefined || itemCount === 0;
+            if (key && !ineligibleSource) {
                 const group = grouped.get(key) ?? {
                     key,
                     title: tag.title,
@@ -341,7 +381,7 @@ export async function buildCrossLibraryPeopleSourceGroupsCooperatively(
                     hasUnknownCount: false,
                     sources: [],
                 };
-                applyPeopleGroupCount(group, getPeopleTagItemCount({ ...options, library, tag }));
+                applyPeopleGroupCount(group, itemCount);
                 group.sources.push(options.createSource(library, tag));
                 grouped.set(key, group);
             }
@@ -472,7 +512,10 @@ function buildPeopleBreadthDiagnostic(options: {
     minItems: number;
 }): ChannelSetupPeopleBreadthDiagnostic {
     if (options.library.type !== 'show') {
-        const qualified = options.tags.filter((tag) => tag.count === null || tag.count >= options.minItems);
+        const qualified = options.tags.filter((tag) => peopleTagMeetsEligibility({
+            ...options,
+            tag,
+        }));
         return {
             libraryId: options.library.id,
             libraryName: options.library.title,
@@ -487,7 +530,7 @@ function buildPeopleBreadthDiagnostic(options: {
             missingEpisodeIndexCount: 0,
             sampleQualified: qualified.slice(0, 5).map((tag) => ({
                 title: tag.title,
-                episodeCount: tag.count ?? 0,
+                episodeCount: getPeopleTagItemCount({ ...options, tag }) ?? 0,
                 distinctSeriesCount: 0,
             })),
             sampleRejectedBelowDistinctSeries: [],
@@ -527,13 +570,16 @@ function buildPeopleBreadthDiagnostic(options: {
     };
 }
 
-function addEpisodePeople(
+function addItemPeople(
     peopleByName: Map<string, MutablePeopleEntry>,
     people: readonly string[] | undefined,
-    seriesKey: string
+    seriesKey: string | null
 ): void {
     const uniquePeople = new Map<string, string>();
     for (const person of people ?? []) {
+        if (typeof person !== 'string') {
+            continue;
+        }
         const normalizedName = normalizePeopleSeriesIndexName(person);
         if (normalizedName && !uniquePeople.has(normalizedName)) {
             uniquePeople.set(normalizedName, person.trim());
@@ -542,21 +588,19 @@ function addEpisodePeople(
     for (const [normalizedName, title] of uniquePeople) {
         const entry = peopleByName.get(normalizedName) ?? {
             title,
-            episodeCount: 0,
-            seriesKeys: new Set<string>(),
+            itemCount: 0,
+            seriesKeys: seriesKey === null ? null : new Set<string>(),
         };
-        entry.episodeCount += 1;
-        entry.seriesKeys.add(seriesKey);
+        entry.itemCount += 1;
+        if (seriesKey !== null) {
+            entry.seriesKeys?.add(seriesKey);
+        }
         peopleByName.set(normalizedName, entry);
     }
 }
 
 function getTagItemCount(tag: PlexTagDirectoryItem): number | undefined {
     return tag.count === null ? undefined : tag.count;
-}
-
-function tagMeetsMinItems(tag: PlexTagDirectoryItem, minItems: number): boolean {
-    return tag.count === null || tag.count >= minItems;
 }
 
 function sortTagsByCountThenTitle(tags: readonly PlexTagDirectoryItem[]): PlexTagDirectoryItem[] {
@@ -606,8 +650,8 @@ function freezeEntryMap(
     for (const [name, entry] of source.entries()) {
         result.set(name, Object.freeze({
             title: entry.title,
-            episodeCount: entry.episodeCount,
-            distinctSeriesCount: entry.seriesKeys.size,
+            episodeCount: entry.itemCount,
+            distinctSeriesCount: entry.seriesKeys?.size ?? 0,
         }));
     }
     return result;
@@ -621,8 +665,8 @@ async function freezeEntryMapCooperatively(
     for (const [name, entry] of source.entries()) {
         result.set(name, Object.freeze({
             title: entry.title,
-            episodeCount: entry.episodeCount,
-            distinctSeriesCount: entry.seriesKeys.size,
+            episodeCount: entry.itemCount,
+            distinctSeriesCount: entry.seriesKeys?.size ?? 0,
         }));
         const pause = iterationCheckpoint.afterIteration();
         if (pause) {
