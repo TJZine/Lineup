@@ -608,7 +608,7 @@ export class ChannelSetupBuildStepPresenter {
         if (refreshResult?.readiness === 'partial') {
             return `${createdPrefix} guide needs attention.`;
         }
-        return 'Channels ready.';
+        return `${pluralize(created, 'Channel', 'Channels')} ready.`;
     }
 
     private _buildSuccessWarning(

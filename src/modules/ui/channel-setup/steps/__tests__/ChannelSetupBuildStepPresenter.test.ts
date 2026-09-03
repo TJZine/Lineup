@@ -237,6 +237,23 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect(ctx.contentEl.querySelector('.setup-progress-detail')?.textContent).toBe('Created 1 channel. 1 candidate not created.');
     });
 
+    it('uses singular channel copy in normal success status for single counts', async () => {
+        const ctx = createContext();
+        document.body.appendChild(ctx.contentEl);
+        const snapshot = createSnapshot({ isBuilding: true, review: DEFAULT_REVIEW });
+        const deps = createDeps(snapshot, {
+            beginBuild: jest.fn().mockResolvedValue({
+                kind: 'success',
+                result: { ...DEFAULT_BUILD_RESULT, created: 1, skipped: 0 },
+            }),
+        });
+
+        new ChannelSetupBuildStepPresenter().render(ctx, deps as never);
+        await flushPromises();
+
+        expect(ctx.statusEl.textContent).toBe('Channel ready.');
+    });
+
     it('uses singular channel copy in degraded success status for single counts', async () => {
         const ctx = createContext();
         document.body.appendChild(ctx.contentEl);
