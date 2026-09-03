@@ -1,5 +1,9 @@
 # LG C3 Deterministic UI Remediation Orchestrator Handoff
 
+> **Archived — completed remediation handoff. Do not execute.**
+> Historical reference only; the remediation scope it describes is closed.
+> Start new work from the current QA report or an active plan, not this file.
+
 - Status: **Complete**
 - Task family: physical-TV UI correctness and polish
 - Primary evidence: [`docs/qa/reports/2026-09-01-lg-c3-physical-qa.md`](../qa/reports/2026-09-01-lg-c3-physical-qa.md)
@@ -51,7 +55,7 @@ loading investigation:
 ### Burn-in subtitle failure and cross-program state leakage
 
 Keep entirely separate. It crosses Plex part selection, stream resolution,
-playback recovery, and preference/session ownership and needs repeated interactive
+playback recovery, and preference/session ownership and requires repeated interactive
 media testing with sanitized diagnostics.
 
 ### Channel Builder → Guide black PiP with audio
