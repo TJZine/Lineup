@@ -169,6 +169,16 @@ const settleBackgroundRefresh = async (runtime: EPGScheduleRefreshRuntime): Prom
     await idle;
 };
 
+const collectDiagnosticKeys = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+        return value.flatMap(collectDiagnosticKeys);
+    }
+    if (typeof value !== 'object' || value === null) {
+        return [];
+    }
+    return Object.entries(value).flatMap(([key, nested]) => [key, ...collectDiagnosticKeys(nested)]);
+};
+
 describe('EPGScheduleRefreshRuntime', () => {
     const createObservedRetainedOperation = (
         assertCurrent: () => void
@@ -326,21 +336,69 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(getScheduleLoadConcurrency).toHaveBeenLastCalledWith(1, expect.any(Number), true);
     });
 
-    it('records schedule source diagnostics for immediate UI-applied rows when debug logging is enabled', async () => {
-        const { runtime, deps } = createRuntime();
+    it('records a bounded sanitized lifecycle for a successful visible row', async () => {
+        const { runtime, deps } = createRuntime({ isDebugEnabled: () => true });
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
+            'epg.scheduleRow.requestStarted',
             expect.objectContaining({
-                source: 'resolved-immediate',
+                refreshId: 1,
+                phase: 'immediate',
+                rowOrdinal: 0,
+                attemptCount: 1,
+                cacheOutcome: 'miss',
             })
         );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({
+                visibleChannelCount: 1,
+                immediateReadyChannelCount: 1,
+                networkRequestCount: 1,
+                focusKind: 'absent',
+            })
+        );
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleRow.settled',
+            expect.anything()
+        );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledTimes(3);
+
+        const diagnosticJson = JSON.stringify((deps.appendIssueDiagnostic as jest.Mock).mock.calls);
+        const debugJson = JSON.stringify((deps.appendDebugLog as jest.Mock).mock.calls);
+        expect(diagnosticJson).not.toContain('c1');
+        expect(diagnosticJson).not.toContain('Channel 1');
+        expect(diagnosticJson).not.toContain('c1-program');
+        expect(diagnosticJson).not.toContain('c1-0');
+        expect(debugJson).not.toContain('c1');
+        expect(debugJson).not.toContain('Channel 1');
+        expect(debugJson).not.toContain('c1-program');
+        expect(debugJson).not.toContain('c1-0');
+        const diagnosticKeys = collectDiagnosticKeys(
+            (deps.appendIssueDiagnostic as jest.Mock).mock.calls.map((call) => call[2])
+        );
+        expect(diagnosticKeys).toEqual(expect.not.arrayContaining([
+            'channelId',
+            'channelName',
+            'title',
+            'fullTitle',
+            'ratingKey',
+            'token',
+            'url',
+            'headers',
+            'rangeKey',
+            'safeError',
+            'error',
+            'message',
+        ]));
     });
 
     it('counts stale cache plus fresh resolution as one ready immediate channel', async () => {
@@ -391,6 +449,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             const cloneFailure = new Error('cache clone failed');
             let failCachedClone = false;
             const { runtime, deps } = createRuntime({
+                isDebugEnabled: () => true,
                 channelManager: {
                     getAllChannels: jest.fn(() => channels),
                     getChannel: jest.fn((channelId: string) => (
@@ -428,15 +487,22 @@ describe('EPGScheduleRefreshRuntime', () => {
 
             expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
                 'QA-003b',
-                'epg.backgroundWarmQueueFailed',
+                'epg.scheduleRow.settled',
                 expect.objectContaining({
-                    channelId: 'c8',
+                    rowOrdinal: 7,
                     phase: 'background',
-                    safeError: expect.objectContaining({
-                        message: expect.stringContaining('cache clone failed'),
-                    }),
+                    networkStarted: false,
+                    status: 'failure',
+                    cacheOutcome: 'fresh-hit',
+                    attemptCount: 0,
+                    failureStage: 'cache',
+                    errorKind: 'non-abort',
                 })
             );
+            expect(JSON.stringify([
+                ...(deps.appendIssueDiagnostic as jest.Mock).mock.calls,
+                ...(deps.appendDebugLog as jest.Mock).mock.calls,
+            ])).not.toContain('cache clone failed');
         } finally {
             jest.useRealTimers();
             if (priorRequestIdleCallback) {
@@ -456,6 +522,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         const channel = makeChannel('c1', 1);
         const failure = new Error('resolve failed');
         const { runtime, deps } = createRuntime({
+            isDebugEnabled: () => true,
             channelManager: {
                 getAllChannels: jest.fn(() => [channel]),
                 getChannel: jest.fn((channelId: string) => (channelId === channel.id ? channel : null)),
@@ -466,7 +533,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const result = await runtime.refreshForRange(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -481,13 +548,83 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleLoadFailed',
+            'epg.scheduleRow.settled',
             expect.objectContaining({
-                channelId: 'c1',
+                rowOrdinal: 0,
                 phase: 'immediate',
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('resolve failed'),
-                }),
+                attemptCount: 1,
+                networkStarted: true,
+                status: 'failure',
+                cacheOutcome: 'miss',
+                failureStage: 'resolution',
+                errorKind: 'non-abort',
+            })
+        );
+        expect(JSON.stringify([
+            ...(deps.appendIssueDiagnostic as jest.Mock).mock.calls,
+            ...(deps.appendDebugLog as jest.Mock).mock.calls,
+        ])).not.toContain('resolve failed');
+    });
+
+    it('classifies a live-scheduler failure before cache or network work', async () => {
+        const channel = makeChannel('c1', 1);
+        const { runtime, deps } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => [channel]),
+                getCurrentChannel: jest.fn(() => channel),
+            },
+            getScheduler: () => ({
+                getState: jest.fn(() => ({ isActive: true, channelId: channel.id })),
+                getScheduleWindow: jest.fn(() => createScheduleWindow(channel.id)),
+            } as unknown as IChannelScheduler),
+            cloneScheduleWindow: (): never => {
+                throw new Error('live clone failed');
+            },
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleRow.settled',
+            expect.objectContaining({
+                rowOrdinal: 0,
+                attemptCount: 0,
+                networkStarted: false,
+                cacheOutcome: 'not-checked',
+                failureStage: 'live-scheduler',
+            })
+        );
+    });
+
+    it('classifies a cached schedule UI publication failure without a network attempt', async () => {
+        const { runtime, deps, epg } = createRuntime();
+        const range = { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 };
+        await runtime.refreshForRange(range, 'visible-range');
+        runtime.clearLoadedScheduleMarkers();
+        (epg.loadScheduleForChannel as jest.Mock).mockImplementation(() => {
+            throw new Error('publication failed');
+        });
+
+        await runtime.refreshForRange(range, 'visible-range');
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenLastCalledWith(
+            'QA-003b',
+            'epg.scheduleRefresh.settled',
+            expect.anything()
+        );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleRow.settled',
+            expect.objectContaining({
+                rowOrdinal: 0,
+                attemptCount: 0,
+                networkStarted: false,
+                cacheOutcome: 'fresh-hit',
+                failureStage: 'publication',
             })
         );
     });
@@ -729,7 +866,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         }
     });
 
-    it('reports non-abort channel load failures that race with caller cancellation', async () => {
+    it('records caller invalidation but suppresses a later non-abort settlement', async () => {
         const abortReason = new DOMException('server selection hidden', 'AbortError');
         const loadError = new Error('resolver failed after abort');
         const controller = new AbortController();
@@ -745,7 +882,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         const refresh = runtime.refreshForRange(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'server-swap',
             { signal: controller.signal }
         );
@@ -757,15 +894,16 @@ describe('EPGScheduleRefreshRuntime', () => {
         await expect(refresh).rejects.toBe(abortReason);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleLoadFailed',
+            'epg.scheduleRow.invalidated',
             expect.objectContaining({
-                channelId: 'c1',
-                phase: 'immediate',
-                safeError: expect.objectContaining({
-                    message: 'resolver failed after abort',
-                }),
+                refreshId: 1,
+                rowOrdinal: 0,
+                networkStarted: true,
+                invalidation: 'caller-abort',
             })
         );
+        expect(JSON.stringify((deps.appendIssueDiagnostic as jest.Mock).mock.calls))
+            .not.toContain('resolver failed after abort');
     });
 
     it('suppresses a delayed non-abort failure after a newer refresh takes ownership', async () => {
@@ -830,8 +968,17 @@ describe('EPGScheduleRefreshRuntime', () => {
         );
         expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleLoadFailed',
-            expect.anything()
+            'epg.scheduleRow.settled',
+            expect.objectContaining({ refreshId: 1, status: 'failure' })
+        );
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleRow.invalidated',
+            expect.objectContaining({
+                refreshId: 1,
+                rowOrdinal: 0,
+                invalidation: 'newer-session',
+            })
         );
     });
 
@@ -1085,7 +1232,7 @@ describe('EPGScheduleRefreshRuntime', () => {
 
     it('does not apply schedules or refocus after aborting an active refresh', async () => {
         let runtimeUnderTest: EPGScheduleRefreshRuntime | null = null;
-        const { runtime, epg } = createRuntime({
+        const { runtime, epg, deps } = createRuntime({
             buildDailyScheduleConfig: (
                 selectedChannel: ChannelConfig,
                 items: ResolvedChannelContent['items']
@@ -1103,12 +1250,17 @@ describe('EPGScheduleRefreshRuntime', () => {
         runtimeUnderTest = runtime;
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
         expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
         expect(epg.focusNow).not.toHaveBeenCalled();
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleRow.invalidated',
+            expect.objectContaining({ invalidation: 'shutdown' })
+        );
     });
 
     it('uses resolved-immediate selected-row seed as a one-shot handoff', async () => {
@@ -1466,18 +1618,14 @@ describe('EPGScheduleRefreshRuntime', () => {
         schedulerState.channelId = channel.id;
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: channel.id,
-                source: 'live-scheduler',
-                sampleRatingKeys: ['live-program'],
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ liveSchedulerHitCount: 1 })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });
@@ -1514,7 +1662,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         });
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
@@ -1525,18 +1673,15 @@ describe('EPGScheduleRefreshRuntime', () => {
         resolveChannelContent.mockClear();
 
         await runtime.refreshForRange(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
         expect(resolveChannelContent).toHaveBeenCalledTimes(1);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: channel.id,
-                source: 'resolved-immediate',
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ networkRequestCount: 1 })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
         expect(getScheduleWindow).toHaveBeenCalledTimes(1);

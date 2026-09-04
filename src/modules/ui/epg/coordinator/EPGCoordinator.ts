@@ -11,7 +11,7 @@ import type {
 } from '../../../scheduler/scheduler';
 import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
-import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import { isAbortLikeError } from '../../../../utils/errors';
 import {
     computeNormalizedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
@@ -107,12 +107,12 @@ export class EPGCoordinator {
 
     private _reportIssue(
         event: string,
-        error: unknown,
+        _error: unknown,
         payload: Record<string, unknown> = {}
     ): void {
         this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, event, {
             ...payload,
-            safeError: summarizeErrorForLog(error),
+            errorKind: 'non-abort',
         });
     }
 
@@ -389,8 +389,6 @@ export class EPGCoordinator {
                 return;
             }
             this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.channelSelected', {
-                channelId: payload.channel.id,
-                ratingKey: payload.program.item.ratingKey,
                 scheduledStartTime,
                 scheduledEndTime,
                 scheduleIndex: payload.program.scheduleIndex,
@@ -400,8 +398,6 @@ export class EPGCoordinator {
             void this._switchToGuideSelectedChannel(payload.channel.id, payload.program, now).catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;
                 this._reportIssue('epg.switchToChannelFailed', error, {
-                    channelId: payload.channel.id,
-                    ratingKey: payload.program.item.ratingKey,
                     selectedAt: now,
                 });
             });
@@ -513,8 +509,6 @@ export class EPGCoordinator {
                 return;
             }
             this._reportIssue('epg.guideSnapshotBuildFailed', error, {
-                channelId,
-                ratingKey: program.item.ratingKey,
                 selectedAt,
             });
         } finally {
@@ -532,8 +526,6 @@ export class EPGCoordinator {
         );
         if (isChannelSwitchFailed(outcome)) {
             this._reportIssue('epg.switchToChannelFailed', new Error('Guide channel switch failed'), {
-                channelId,
-                ratingKey: program.item.ratingKey,
                 selectedAt,
                 reason: outcome.reason,
             });

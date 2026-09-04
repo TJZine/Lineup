@@ -325,6 +325,22 @@ describe('EPGComponent', () => {
 
             expect(debugRuntime.isEnabled).toHaveBeenCalled();
             expect(debugRuntime.append).toHaveBeenCalledWith('EPG.show', expect.any(Object));
+            expect(debugRuntime.append).toHaveBeenCalledWith(
+                'EPG.loadScheduleForChannel',
+                expect.objectContaining({
+                    rowOrdinal: 0,
+                    programCount: 2,
+                    focusKindBefore: 'absent',
+                    focusKindAfter: 'absent',
+                })
+            );
+            const loadPayload = (debugRuntime.append as jest.Mock).mock.calls.find(
+                ([event]) => event === 'EPG.loadScheduleForChannel'
+            )?.[1];
+            expect(loadPayload).not.toHaveProperty('channelId');
+            expect(loadPayload).not.toHaveProperty('focusKeyBefore');
+            expect(loadPayload).not.toHaveProperty('focusKeyAfter');
+            expect(JSON.stringify(loadPayload)).not.toContain(channel.id);
         } finally {
             localEpg.destroy();
             localContainer.remove();

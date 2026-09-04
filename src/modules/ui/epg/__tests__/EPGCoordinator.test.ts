@@ -292,10 +292,11 @@ describe('EPGCoordinator', () => {
         expect(debugRuntime.append).toHaveBeenCalledWith(
             'EPG.refreshEpgScheduleForLiveChannel.error',
             expect.objectContaining({
-                error: expect.objectContaining({
-                    message: expect.stringContaining('schedule window failed'),
-                }),
+                errorKind: 'non-abort',
             })
+        );
+        expect(JSON.stringify((debugRuntime.append as jest.Mock).mock.calls)).not.toContain(
+            'schedule window failed'
         );
     });
 
@@ -442,9 +443,7 @@ describe('EPGCoordinator', () => {
             'epg.initFailed',
             expect.objectContaining({
                 requestId: 1,
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('Init failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });
@@ -1103,7 +1102,7 @@ describe('EPGCoordinator', () => {
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
             reason: 'unavailable',
-            requestedLibraryId: null,
+            requestedSelection: 'all-libraries',
             source: 'prime-epg-channels',
         });
     });
@@ -1759,11 +1758,8 @@ describe('EPGCoordinator', () => {
         expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(1);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: 'c0',
-                source: 'live-scheduler',
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ liveSchedulerHitCount: 1 })
         );
 
         (epg.loadScheduleForChannel as jest.Mock).mockClear();
@@ -1908,8 +1904,8 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.liveRowOverwrite',
             expect.objectContaining({
-                channelId: 'c0',
                 source: 'live-scheduler',
+                hasCurrentProgram: false,
             })
         );
     });
@@ -1956,11 +1952,8 @@ describe('EPGCoordinator', () => {
         expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(1);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: 'c0',
-                source: 'live-scheduler',
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ liveSchedulerHitCount: 1 })
         );
     });
 
@@ -2045,8 +2038,7 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.channelSelected',
             expect.objectContaining({
-                channelId: 'c1',
-                ratingKey: 'c1-0',
+                scheduleIndex: 0,
             })
         );
 
@@ -2118,11 +2110,7 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.switchToChannelFailed',
             expect.objectContaining({
-                channelId: 'c1',
-                ratingKey: 'c1-0',
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('switch failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });
@@ -2181,8 +2169,7 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.switchToChannelFailed',
             expect.objectContaining({
-                channelId: 'c1',
-                ratingKey: 'c1-0',
+                errorKind: 'non-abort',
             })
         );
     });
@@ -2301,12 +2288,8 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.guideSnapshotBuildFailed',
             expect.objectContaining({
-                channelId: 'c1',
-                ratingKey: 'c1-0',
                 selectedAt: 5_000,
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('snapshot failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });
@@ -2812,7 +2795,7 @@ describe('EPGCoordinator', () => {
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
             reason: 'quota-exceeded',
-            requestedLibraryId: 'lib1',
+            requestedSelection: 'single-library',
         });
     });
 
@@ -2863,9 +2846,7 @@ describe('EPGCoordinator', () => {
                 reason: 'visible-range',
                 debounceMs: null,
                 range,
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('visible range failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });

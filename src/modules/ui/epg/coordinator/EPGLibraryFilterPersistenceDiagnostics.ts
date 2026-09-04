@@ -14,7 +14,7 @@ export function reportLibraryFilterPersistenceResult(
     }
     appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.libraryFilterPersistenceFailed', {
         reason: result.reason,
-        requestedLibraryId,
+        requestedSelection: requestedLibraryId === null ? 'all-libraries' : 'single-library',
         ...(source ? { source } : {}),
     });
 }

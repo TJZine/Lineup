@@ -11,7 +11,7 @@ import type {
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import type { GuideSettingChange } from '../../settings/types';
 import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore';
-import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import { isAbortLikeError } from '../../../../utils/errors';
 import type { IEPGComponent } from '../interfaces';
 import type { EpgVisibleRange } from '../types';
 import type { EPGScheduleRefreshRuntime } from '../runtime/EPGScheduleRefreshRuntime';
@@ -215,12 +215,12 @@ export class EPGRefreshController {
 
     private _reportIssue(
         event: string,
-        error: unknown,
+        _error: unknown,
         payload: Record<string, unknown> = {}
     ): void {
         this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, event, {
             ...payload,
-            safeError: summarizeErrorForLog(error),
+            errorKind: 'non-abort',
         });
     }
 
@@ -240,10 +240,10 @@ export class EPGRefreshController {
         const runtime = this._scheduleRefreshRuntime;
         this._scheduleRefreshRuntimeInvalidation += 1;
         this._lastScheduleRefreshRuntimeInvalidationReason = reason;
+        runtime?.dispose(reason);
         this._visibleRangeRefreshQueue.cancelPendingRefresh();
         this._scheduleRefreshRuntime = null;
         this._scheduleRefreshRuntimeLoad = null;
-        runtime?.dispose(reason);
     }
 
     cancelScheduledRefreshWork(reason: string): void {
@@ -352,26 +352,21 @@ export class EPGRefreshController {
                 return;
             }
 
-            const { epg, current, range, schedule } = liveRow;
+            const { epg, current, schedule } = liveRow;
             const now = Date.now();
             const currentProgram =
                 schedule.programs.find((program) => now >= program.scheduledStartTime && now < program.scheduledEndTime) ??
                 null;
             this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.liveRowOverwrite', {
-                channelId: current.id,
                 source: 'live-scheduler',
-                rangeStartTime: range.startTime,
-                rangeEndTime: range.endTime,
-                currentRatingKey: currentProgram?.item.ratingKey ?? null,
-                currentScheduledStartTime: currentProgram?.scheduledStartTime ?? null,
-                currentScheduledEndTime: currentProgram?.scheduledEndTime ?? null,
+                hasCurrentProgram: currentProgram !== null,
                 programCount: schedule.programs.length,
             });
             epg.loadScheduleForChannel(current.id, toEpgScheduleWindow(schedule));
-        } catch (error) {
+        } catch {
             if (this._isDebugEnabled()) {
                 this._appendDebugLog('EPG.refreshEpgScheduleForLiveChannel.error', {
-                    error: summarizeErrorForLog(error),
+                    errorKind: 'non-abort',
                 });
             }
         }
@@ -388,10 +383,10 @@ export class EPGRefreshController {
             }
 
             liveRow.epg.loadScheduleForChannel(liveRow.current.id, toEpgScheduleWindow(liveRow.schedule));
-        } catch (error) {
+        } catch {
             if (this._isDebugEnabled()) {
                 this._appendDebugLog('EPG.preseedCurrentChannelSchedule.error', {
-                    error: summarizeErrorForLog(error),
+                    errorKind: 'non-abort',
                 });
             }
         }

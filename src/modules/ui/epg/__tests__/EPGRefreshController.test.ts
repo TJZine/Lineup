@@ -221,7 +221,7 @@ describe('EPGRefreshController', () => {
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
             reason: 'unavailable',
-            requestedLibraryId: null,
+            requestedSelection: 'all-libraries',
             source: 'normalize-invalid-library-filter',
         });
     });
@@ -241,9 +241,7 @@ describe('EPGRefreshController', () => {
             expect.objectContaining({
                 reason: 'guide-settings',
                 debounceMs: 0,
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('refresh failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });
@@ -333,18 +331,15 @@ describe('EPGRefreshController', () => {
         resolveChannelContent.mockClear();
 
         await controller.refreshEpgSchedulesForRangeNow(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
         expect(resolveChannelContent).toHaveBeenCalledTimes(1);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: 'c1',
-                source: 'resolved-immediate',
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ networkRequestCount: 1 })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });
@@ -381,6 +376,47 @@ describe('EPGRefreshController', () => {
         );
     });
 
+    it('records the controller lifecycle reason before canceling an active range batch', async () => {
+        let markStarted: () => void = () => undefined;
+        const resolvePendingContent: Array<() => void> = [];
+        const started = new Promise<void>((resolve) => {
+            markStarted = resolve;
+        });
+        const { deps } = makeDeps({
+            channelManager: {
+                resolveChannelContent: jest.fn((id) => new Promise<ResolvedChannelContent>((resolve) => {
+                    resolvePendingContent.push(() => resolve({
+                        channelId: id,
+                        resolvedAt: Date.now(),
+                        items: makeResolvedItems(id),
+                        totalDurationMs: 60_000,
+                        orderedItems: makeResolvedItems(id),
+                    }));
+                    markStarted();
+                })),
+            },
+            scheduler: {
+                getState: jest.fn(() => makeSchedulerState(null, false)),
+            },
+        });
+        const controller = new EPGRefreshController(deps);
+        const refresh = controller.refreshEpgSchedulesForRangeNow(
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        await started;
+        controller.cancelScheduledRefreshWork('close-epg');
+        resolvePendingContent.forEach((resolve) => resolve());
+        await refresh;
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleRow.invalidated',
+            expect.objectContaining({ invalidation: 'guide-closed' })
+        );
+    });
+
     it('does not persist a preseeded live row as loaded state for the next non-live range refresh', async () => {
         const liveState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: 'c1' };
         const resolveChannelContent = jest.fn(async (id: string) => ({
@@ -410,18 +446,15 @@ describe('EPGRefreshController', () => {
         resolveChannelContent.mockClear();
 
         await controller.refreshEpgSchedulesForRangeNow(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
         expect(resolveChannelContent).toHaveBeenCalledTimes(1);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: 'c1',
-                source: 'resolved-immediate',
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ networkRequestCount: 1 })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });

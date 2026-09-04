@@ -527,7 +527,6 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         const focused = this.state.focusedCell;
         const isFocusedChannel = focused && this.state.channels[focused.channelIndex]?.id === channelId;
-        const focusKeyBefore = this._getFocusKey(focused);
         let didAutoFocus = false;
 
         if (isFocusedChannel && focused && !this.focusNavigator.isSelectInProgress()) {
@@ -555,13 +554,13 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         if (this._isDebugEnabled()) {
             const payload = {
-                channelId,
+                rowOrdinal: this.state.channels.findIndex((channel) => channel.id === channelId),
                 programCount: schedule.programs.length,
                 startTime: schedule.startTime,
                 endTime: schedule.endTime,
                 focusedChannel: isFocusedChannel,
-                focusKeyBefore,
-                focusKeyAfter: this._getFocusKey(this.state.focusedCell),
+                focusKindBefore: focused?.kind ?? 'absent',
+                focusKindAfter: this.state.focusedCell?.kind ?? 'absent',
                 didAutoFocus,
             };
             this._appendDebugLog('EPG.loadScheduleForChannel', payload);

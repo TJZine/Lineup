@@ -28,11 +28,12 @@ describe('EPGFocusNavigator', () => {
         isCurrent: false,
     });
 
-    const createHarness = (): {
+    const createHarness = (debugEnabled = false): {
         navigator: EPGFocusNavigator;
         config: EPGConfig;
         state: EPGInternalState;
         events: Array<[keyof EPGEventMap, unknown]>;
+        appendDebugLog: jest.Mock;
         renderGrid: jest.Mock;
         timeHeader: {
             updateScrollPosition: jest.Mock;
@@ -88,6 +89,7 @@ describe('EPGFocusNavigator', () => {
             autoScrollToNow: false,
         };
         const events: Array<[keyof EPGEventMap, unknown]> = [];
+        const appendDebugLog = jest.fn();
         const renderGrid = jest.fn();
         const timeHeader = { updateScrollPosition: jest.fn() };
         let libraryTabsFocused = false;
@@ -130,8 +132,8 @@ describe('EPGFocusNavigator', () => {
             emit: (event, payload): void => {
                 events.push([event, payload]);
             },
-            appendDebugLog: jest.fn(),
-            isDebugEnabled: (): boolean => false,
+            appendDebugLog,
+            isDebugEnabled: (): boolean => debugEnabled,
         });
 
         return {
@@ -139,6 +141,7 @@ describe('EPGFocusNavigator', () => {
             config,
             state,
             events,
+            appendDebugLog,
             renderGrid,
             timeHeader,
             libraryTabs,
@@ -196,6 +199,29 @@ describe('EPGFocusNavigator', () => {
         expect(navigator.handleSelect()).toBe(true);
         expect(events.some(([event]) => event === 'channelSelected')).toBe(true);
         expect(events.some(([event]) => event === 'programSelected')).toBe(true);
+    });
+
+    it('records selection diagnostics without channel, focus, or rating identifiers', () => {
+        const { navigator, appendDebugLog } = createHarness(true);
+
+        navigator.focusProgram(1, 1);
+        expect(navigator.handleSelect()).toBe(true);
+
+        expect(appendDebugLog).toHaveBeenCalledWith(
+            'EPG.handleSelect',
+            expect.objectContaining({
+                rowOrdinal: 1,
+                scheduleIndex: 1,
+                focusedKind: 'program',
+                scheduleLoaded: true,
+            })
+        );
+        const payload = appendDebugLog.mock.calls[0]?.[1];
+        expect(payload).not.toHaveProperty('channelId');
+        expect(payload).not.toHaveProperty('focusKey');
+        expect(payload).not.toHaveProperty('ratingKey');
+        expect(JSON.stringify(payload)).not.toContain('ch1');
+        expect(JSON.stringify(payload)).not.toContain('program-1');
     });
 
     it('dedupes same-tick program selection events', () => {

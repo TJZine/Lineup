@@ -315,9 +315,8 @@ export class EPGFocusNavigator {
 
         if (this.context.isDebugEnabled()) {
             const payload = {
-                channelId: channel.id,
-                focusKey: this.getFocusKey(focusedCell),
-                ratingKey: focusedCell.kind === 'program' ? focusedCell.program.item.ratingKey : null,
+                rowOrdinal: focusedCell.channelIndex,
+                scheduleIndex: focusedCell.kind === 'program' ? focusedCell.program.scheduleIndex : null,
                 scheduledStartTime:
                     focusedCell.kind === 'program'
                         ? focusedCell.program.scheduledStartTime
