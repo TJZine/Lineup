@@ -1,9 +1,12 @@
 # Guide Loading Recovery and Startup Warmup Execution Plan
 
-- Status: **Active; awaiting adversarial plan review**
+- Status: **Active; Muse implementation received; material implementation-review
+  corrections authorized through the configured `worker_luna` role; physical
+  validation blocked on an authorized LG C3 operator-access mechanism**
 - Task family: high-risk Guide correctness, focus, asynchronous lifecycle, and
   performance
 - Planning baseline: commit `b7cb7198` on `code-health`
+- Reviewed execution baseline: commit `ddf57b8f` on `code-health`
 - Prior handoff:
   [`2026-09-02-guide-schedule-loading-remediation-handoff.md`](./2026-09-02-guide-schedule-loading-remediation-handoff.md)
 - Physical evidence:
@@ -66,9 +69,13 @@ Guide readiness without delaying Guide chrome or competing with initial playback
   performs bounded timeout, rate-limit, and server-error retries, while the EPG
   owner receives both typed and generic non-abort failures and cannot safely infer
   permanence from error text. Never parse error messages to choose retry policy.
-- Every current non-abort failure therefore settles as unavailable. User OK is
-  the only EPG-owned retry and starts one targeted attempt. Repeated OK presses
-  while that attempt is active coalesce into it.
+- Every current UI-owning non-abort failure with no usable matching schedule
+  settles as unavailable. A failed refresh after a matching stale schedule was
+  published preserves that usable ready row and records only the bounded failure
+  diagnostic. A hidden-only failure does not publish row state unless a current
+  foreground caller adopted it before settlement. User OK is the only EPG-owned
+  retry and starts one targeted attempt. Repeated OK presses while that attempt
+  is active coalesce into it.
 - `Loading...` means an active current attempt only. `Retrying...` means the
   deliberate manual attempt is active. `Unavailable — OK to retry` means the
   current attempt settled unsuccessfully.
@@ -86,6 +93,11 @@ Guide readiness without delaying Guide chrome or competing with initial playback
 - Hidden warmup checks playback again before each queued batch. If playback is no
   longer playing, cancel the hidden queue. Foreground Guide work is not blocked
   by that gate.
+- The initialization warmup port is abortable and its returned promise settles
+  only after hidden schedule work drains. Startup/profile/server supersession,
+  quarantine, and shutdown cancel the active warmup; shutdown drains it before
+  ChannelManager or player teardown. This remains fire-and-forget after ready and
+  must not delay startup routing or Guide chrome.
 - Whole-lineup eager warming, new dependencies, compatibility paths, feature
   flags, generic task queues, and persisted schedule snapshots are deferred.
 
@@ -164,7 +176,14 @@ require one, stop and replan first.
   every visible channel. It uses the foreground lane and the existing
   cancellation/currentness authority.
 - At most one EPG attempt for a channel/range may be active. Repeated retry intents
-  coalesce; a later current foreground owner may adopt matching hidden work.
+  coalesce; a later current foreground owner may adopt matching hidden work only
+  when channel ID, schedule range key, EPG runtime generation, and an opaque
+  channel/source snapshot all match. Adoption retains the hidden operation's
+  currentness and adds a foreground publication waiter; it does not transfer stale
+  publication authority. Before cache or UI publication, both the producing work
+  and the adopting foreground waiter must still be current. If this match cannot
+  be proven without a new ChannelManager public revision/identity contract, stop
+  and return to planning.
 - A failed row remains D-pad focusable. Directional and large page/channel jumps
   preserve focus time and never depend on a real program cell existing.
 - OK on unavailable emits the retry intent and consumes the key. OK on loading or
@@ -192,6 +211,8 @@ require one, stop and replan first.
   channel, schedule seeds, or persistent state.
 - App startup, profile/server supersession, quarantine, shutdown, and Guide close
   retain one explicit cleanup path for timers, listeners, operations, and queues.
+  An active hidden warmup is aborted and drained before its ChannelManager/player
+  dependencies are disposed.
 
 ### Diagnostics and privacy
 
@@ -222,10 +243,139 @@ require one, stop and replan first.
 5. Stop before implementation if product intent, owner seam, failure-state
    contract, warmup gate, or proof surface is no longer decision-complete.
 
+#### 2026-09-04 adversarial review adjudication
+
+- **Resolved — exact implementor availability:** Meta Muse Spark 1.3 is not a
+  configured Codex role, but the installed Muse Code CLI accepts
+  `muse exec --model muse-spark-1.3 --reasoning-effort xhigh` and reports the
+  exact provider model in its run metadata. Phase 1 must use that execution
+  surface; substitution remains forbidden.
+- **Accepted — stale-cache failure semantics:** unavailable is limited to a
+  current UI-owning attempt with no usable matching schedule. A stale ready row
+  survives failed revalidation, and hidden-only failures do not publish.
+- **Accepted — adoption identity:** the prior authority-only wording was
+  insufficient. Matching now requires range, runtime generation, and an opaque
+  channel/source snapshot, plus final producer and foreground currentness.
+- **Accepted — warmup cancellation/drain:** the warmup port must own abort and
+  drainage, and shutdown must settle it before dependent teardown.
+- **Accepted — physical fixture executability:** the current development debug
+  API exposes no ChannelManager export/replace/flush/re-prime surface. Phase 5 is
+  blocked until the user authorizes an exact operator-only access mechanism; a
+  new debug mutation API is not implicitly approved by this plan.
+- **Accepted — state-specific accessibility proof:** unavailable must use visible,
+  non-shimmering action text and retain focus/forced-colors/reduced-motion
+  behavior. This is a bounded presentation/proof requirement, not a redesign.
+
+The reviewer rejected a new queue, dependency, persistence layer, Plex retry,
+scope expansion into schedule continuity or D-pad latency, and extraction based
+on line count alone.
+
+#### 2026-09-04 implementation review adjudication and authority update
+
+Meta Muse Spark 1.3 produced the initial uncommitted implementation and began its
+focused correction pass, then became unavailable when its subscription quota was
+exhausted. After that blocker was reported, the user explicitly authorized the
+configured read-only `reviewer` role for review and the configured `worker_luna`
+role for implementation. This later instruction supersedes the Muse-only
+correction requirement below; Phase 3 corrections must use `worker_luna`, remain
+bounded to accepted findings, and remain uncommitted for controller integration.
+
+The independent implementation review findings are adjudicated as follows:
+
+- **Accepted — terminal-state request authority:** same-range unavailable rows
+  must not automatically retry on scroll or reopen, and a component-held usable
+  schedule must remain ready after failed revalidation. Mismatched-range terminal
+  state is cleared before a new automatic attempt.
+- **Accepted — foreground precedence:** startup warmup must not start or replace
+  shared background work once Guide is visible. Both warmup/Guide race orders
+  require regression proof.
+- **Accepted — active cancellation:** warmup abort must propagate into an active
+  hidden resolver so drainage settles without waiting for transport timeout.
+- **Accepted — adoption authority and cleanup:** cache publication for adopted
+  work requires producer and adopting-foreground currentness; attempt cleanup
+  must never release a newer entry's retain. Cover cancelled adoption and three
+  overlapping attempts.
+- **Accepted — read-only warmup selection:** startup warmup must derive its
+  library-filter snapshot without persistence cleanup or any other write.
+- **Accepted — performance instrumentation:** record all-visible-settled time,
+  counting ready and unavailable visible rows, separately from overscan and full
+  background duration.
+- **Accepted — nearest overscan order:** after current/focused and visible rows,
+  overscan must be globally distance ordered rather than trailing-side-first,
+  including after a large jump.
+
+The review otherwise accepted focus, forced-colors, reduced-motion, privacy
+payloads, resource caps, and owner placement. Its optional simplification of
+`session.debugEnabled || true` may be included only while editing that method;
+unconditional sanitized issue diagnostics remain allowed.
+
+The post-correction re-review accepted the fixes above and identified three
+remaining material gaps, all accepted for a second bounded `worker_luna` pass:
+
+- **Accepted — held-schedule freshness and identity:** the component-held
+  schedule seam must preserve or expose load time plus the same opaque
+  channel/source identity used by runtime adoption. A matching held schedule is
+  fresh for two minutes, remains usable but revalidates through ten minutes, and
+  is unusable after ten minutes. A same-ID source replacement is not a match and
+  must not preserve or render the old source after failed refresh. Cover fresh
+  reopen, stale revalidation, and same-ID source replacement failure.
+- **Accepted — held-ready settlement accounting:** a matching usable held row is
+  marked ready immediately for first/all-visible timing and readiness accounting,
+  including when its direct or adopted revalidation later fails.
+- **Accepted — composition-root proof:** add focused AppOrchestrator assembly
+  coverage proving startup warmup options reach the current EPG coordinator and
+  shutdown awaits warmup drainage before ChannelManager/player teardown.
+
+The next net-diff review accepted those three corrections and identified two
+remaining correctness gaps, both accepted for a third bounded `worker_luna`
+pass:
+
+- **Accepted — preserve originating schedule age:** publishing a stale cache hit
+  into the component must carry the cache entry's original `loadedAt`; neither a
+  cache read nor a failed revalidation may renew that timestamp. Repeated stale
+  publications cannot extend usability past ten minutes from the originating
+  successful load. Cover multiple failed stale revalidations crossing the
+  original ten-minute boundary.
+- **Accepted — canonical schedule-source identity:** the opaque identity must be
+  deterministic for semantically equivalent content sources regardless of
+  object property order and must cover every input that can change schedule
+  generation, including playback mode, phase/shuffle/block settings, content
+  filters, sort order, duration constraints, and source content. Do not assume a
+  caller-supplied `updatedAt` is a monotonic replacement revision. Cover reordered
+  equivalent sources as a match and same-timestamp schedule-input changes as a
+  mismatch.
+
+The final follow-up review confirmed that both corrections are resolved: cache
+publication remains anchored to the originating successful load timestamp, and
+the canonical identity is deterministic while covering schedule-producing
+inputs. No material findings remain. Per the user's closeout direction, the
+review loop ends with that clean verdict.
+
+#### 2026-09-04 architecture attention disposition
+
+The final whole-owner review covered every changed production owner above 500
+lines. Each change remains inside its documented responsibility, so line count
+alone does not justify extraction in this bounded fix:
+
+- `EPGScheduleRefreshRuntime.ts` owns request authority, cache/adoption
+  currentness, failure publication, and metrics; `EPGRefreshController.ts` and
+  `EPGCoordinator.ts` retain Guide entrypoint and warmup policy coordination.
+- `EPGComponent.ts`, `DeferredEPGComponent.ts`, `EPGVirtualizer.ts`,
+  `EPGFocusNavigator.ts`, and `EPGCellRenderer.ts` retain component state,
+  deferred-shell parity, projection, focus, and cell presentation respectively.
+- `InitializationCoordinator.ts` retains startup warmup timing and drainage;
+  `AppOrchestrator.ts` adds composition-root wiring only.
+
+The full repository verification gate passed after the clean review. Physical LG
+C3 validation remains open because the authorized operator-access mechanism
+required by Phase 5 has not been supplied; P2 is therefore not closed.
+
 ### Phase 1 — Dispatch the sole implementor
 
-Invoke exactly Meta Muse Spark 1.3 at xhigh reasoning with this amended plan and
-the current task-owned file boundary. The implementor must:
+Invoke exactly Meta Muse Spark 1.3 through Muse Code with
+`muse exec --model muse-spark-1.3 --reasoning-effort xhigh`, this amended plan,
+and the current task-owned file boundary. Confirm the configured-model event
+before accepting edits. The implementor must:
 
 - make no commits and stage no files;
 - preserve unrelated changes;
@@ -276,8 +426,10 @@ test if the narrow startup callback/wiring changes.
 2. Require findings on correctness, stale publication, abort/supersession,
    retry/request storms, playback competition, priority inversion, cache bounds,
    focus/accessibility, privacy, architecture cohesion, and missing tests.
-3. Adjudicate every material finding. Send each accepted finding to the same exact
-   Meta Muse Spark 1.3 implementor for correction at xhigh.
+3. Adjudicate every material finding. The initial correction instruction targeted
+   the same Meta Muse Spark 1.3 implementor at xhigh; the later explicit authority
+   update above instead assigns the accepted correction package to the configured
+   `worker_luna` role.
 4. Rerun affected focused proof and request re-review only when the fix materially
    changes the review surface. Continue until no material findings remain or a
    genuine authority/product blocker is reached. Ignore style-only churn.
@@ -319,6 +471,13 @@ Do not release or deploy a production build.
 
 Before mutating the physical fixture:
 
+0. Resolve and document an authorized operator-access mechanism. Current source
+   does not expose ChannelManager backup, replacement, save flushing, or Guide
+   re-prime through the development debug API. Do not add or expose a mutation
+   bridge without a separate user decision covering its exact API, development-
+   only gating, teardown, and proof that it is absent from release builds. Until
+   that decision exists, Phase 5 is blocked.
+
 1. Use the running app's public `ChannelManager.exportChannels()` and current
    channel accessor to capture the active lineup plus current-channel identity to
    an operator-only temporary file outside the repository. Record only a checksum
@@ -332,6 +491,10 @@ Before mutating the physical fixture:
    modify a real Plex collection. If this cannot be done through the public owner
    without exposing credentials or private identifiers, stop and choose another
    deterministic failure injection; do not write raw localStorage.
+4. After each injected or restored replacement, explicitly re-prime EPG channels
+   through an existing public owner or relaunch before judging Guide behavior;
+   `replaceAllChannels()` does not itself publish a lineup-change event. Record
+   which path was used.
 
 Run these checks with Debug Logging enabled and Subtitle Debug Logging disabled:
 
@@ -406,6 +569,9 @@ evidence/closeout commit. Do not include private fixture content.
 - A newer successful schedule cannot be overwritten or cleared by an older
   failure/finally block.
 - Mixed adjacent success/failure rows render correctly and retain D-pad focus.
+- Unavailable action text is visible and non-shimmering, remains focusable, and
+  preserves forced-colors and reduced-motion behavior; loading/retrying animation
+  does not hide unavailable copy.
 - Loading/retrying placeholders cannot tune a channel; unavailable consumes OK as
   retry; normal program selection is unchanged.
 - Priority tests prove current/focused, actual visible, overscan, and background
@@ -441,6 +607,9 @@ Stop and return to the user before widening scope if:
   format, generic queue, or compatibility API;
 - device validation requires raw localStorage mutation, private evidence, or an
   unverified destructive lineup operation;
+- physical validation lacks a user-authorized operator-access mechanism that can
+  back up, replace, flush, and re-prime/relaunch through public owners without
+  shipping a release mutation surface;
 - playback/PiP regresses, hidden concurrency exceeds one, the background cap
   exceeds 96, requests storm, memory grows without the existing cap, focus becomes
   unusable, or large jumps regress;
