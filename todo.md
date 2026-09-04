@@ -1,11 +1,41 @@
 # Lineup Backlog (Post-MVP)
 
-Updated: 2026-03-04
+Updated: 2026-09-04
 
 This file tracks active and validated backlog work only.
 Implemented work has been moved to the "Completed / Removed" section to keep priorities clear.
 
 ## Priority 0 (Active)
+
+### Same-Day Channel Schedule Continuity Across Relaunch
+
+- [ ] Reproduce the observed same-channel program change across a same-day app
+  relaunch with sanitized pre/post channel-config, resolved-content, schedule,
+  and elapsed-position fingerprints.
+- [ ] Determine whether Plex collection ordering, membership, or duration drift
+  changes the input to deterministic shuffle despite stable saved seeds.
+- [ ] Define the continuity contract for source-library changes: preserve the
+  active daily lineup, intentionally regenerate it, or surface that it changed.
+- [ ] Fix the proven owner and add regression coverage for same-input schedule
+  determinism, controlled source drift, relaunch, and current-program position.
+- [ ] Validate on the physical TV without recording media titles, Plex IDs,
+  authenticated URLs, tokens, or server identifiers.
+
+Observed symptom:
+- The same channel showed a different program after an app relaunch on the same
+  day, and the replacement was already substantially in progress. Midnight
+  rollover does not explain the observation.
+
+Current hypothesis, not yet a root-cause claim:
+- The channel is backed by a shuffled Plex collection. Saved seeds are stable,
+  but the resolver preserves Plex response order before seeded shuffle, and the
+  phase offset depends on aggregate duration. A source-order, membership, or
+  duration change could therefore shift the generated schedule.
+
+Rationale:
+- Same-day continuity is a core linear-channel invariant. Treat this as a large,
+  independent correctness defect after the Guide loading/recovery P2; do not
+  conflate it with Guide rendering latency or terminal loading-state behavior.
 
 ### Endpoint Canonicalization Pass (Plex auth + subtitles)
 
