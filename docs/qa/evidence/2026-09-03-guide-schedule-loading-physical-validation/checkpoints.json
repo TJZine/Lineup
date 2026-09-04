@@ -1,0 +1,59 @@
+{
+  "status": "instrumentation-validated-p2-open",
+  "oldLineupTerminalFailures": {
+    "visibleCollectionBackedRows": 4,
+    "settlement": "source-resolution-failure",
+    "approximateSettlementMsRange": [22, 27],
+    "presentationAfterSettlement": "loading",
+    "guideReopenRecovered": false
+  },
+  "freshLineup": {
+    "lineupSize": 390,
+    "initialGuide": {
+      "renderedRows": 9,
+      "programCells": 15,
+      "loadingCells": 0,
+      "focusPresent": true,
+      "failedVisibleRows": 0
+    },
+    "rangeSamples": [
+      { "nearChannel": 20, "userPerception": "couple-seconds", "fullRefreshMs": 4512, "loadingCells": 0, "focusPresent": true },
+      { "nearChannel": 100, "userPerception": "several-seconds", "fullRefreshMs": 10500, "loadingCells": 0, "focusPresent": true },
+      { "nearChannel": 150, "userPerception": "few-seconds", "fullRefreshMs": 12848, "loadingCells": 0, "focusPresent": true },
+      { "nearChannel": 260, "userPerception": "instant", "fullRefreshMs": 2695, "loadingCells": 0, "focusPresent": true },
+      { "nearChannel": 340, "userPerception": "few-seconds", "fullRefreshMs": 22552, "loadingCells": 0, "focusPresent": true },
+      { "nearChannel": 350, "userPerception": "almost-ten-seconds", "fullRefreshMs": 20938, "loadingCells": 0, "focusPresent": true }
+    ],
+    "warmReverse": [
+      { "nearChannel": 340, "userPerception": "instant", "loadingCells": 0, "focusPresent": true },
+      { "nearChannel": 260, "userPerception": "instant", "loadingCells": 0, "focusPresent": true },
+      { "nearChannel": 150, "userPerception": "instant", "loadingCells": 0, "focusPresent": true },
+      { "nearChannel": 100, "userPerception": "instant", "loadingCells": 0, "focusPresent": true }
+    ]
+  },
+  "fullAppRelaunch": {
+    "result": "not-reproduced-once",
+    "openingWasStationary": false,
+    "checkpoints": [
+      { "elapsedSeconds": 0, "loadingCells": 0, "focusPresent": true },
+      { "elapsedSeconds": 30, "loadingCells": 0, "focusPresent": true },
+      { "elapsedSeconds": 60, "loadingCells": 0, "focusPresent": true },
+      { "elapsedSeconds": 180, "loadingCells": 0, "focusPresent": true }
+    ],
+    "guideCloseReopen": {
+      "userPerception": "instant",
+      "loadingCells": 0,
+      "focusPresent": true
+    }
+  },
+  "scheduleConsistencyObservation": {
+    "controlledReproductionPerformed": false,
+    "status": "unproven",
+    "nextEvidence": "sanitized pre/post channel, configuration, and schedule fingerprints"
+  },
+  "settingsAtCloseout": {
+    "debugLogging": "on-by-user-request",
+    "subtitleDebugLogging": "off"
+  },
+  "privacy": "This file contains no media titles, Plex identifiers, authenticated URLs, tokens, headers, or server identifiers."
+}
