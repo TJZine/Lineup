@@ -353,6 +353,20 @@ export class EPGCoordinator {
         return this._refreshController.refreshEpgSchedules(options);
     }
 
+    retryRowSchedule(channelId: string): void {
+        void this._refreshController.retryRowSchedule(channelId).catch((error: unknown) => {
+            if (isAbortLikeError(error)) return;
+            this._reportIssue('epg.retryRowScheduleFailed', error, {});
+        });
+    }
+
+    async warmCurrentViewportForStartup(options?: {
+        signal?: AbortSignal | null;
+        shouldContinue?: () => boolean;
+    }): Promise<void> {
+        await this._refreshController.warmCurrentViewportForStartup(options);
+    }
+
     refreshEpgScheduleForLiveChannel(): void {
         this._refreshController.refreshEpgScheduleForLiveChannel();
     }
@@ -420,6 +434,10 @@ export class EPGCoordinator {
         };
         epg.on('open', onOpen);
         epg.on('close', onClose);
+        const onRowRetry = (payload: { channelId: string }): void => {
+            this.retryRowSchedule(payload.channelId);
+        };
+        epg.on('rowRetryRequested', onRowRetry);
 
         return [
             (): void => {
@@ -433,6 +451,9 @@ export class EPGCoordinator {
             },
             (): void => {
                 epg.off('close', onClose);
+            },
+            (): void => {
+                epg.off('rowRetryRequested', onRowRetry);
             },
         ];
     }

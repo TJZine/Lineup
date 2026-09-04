@@ -563,6 +563,13 @@ export class AppOrchestrator {
                         return this._buildPlexResourceUrl(pathOrUrl);
                     },
                 },
+                epgWarmup: {
+                    warmCurrentViewportForStartup: (options?: {
+                        signal?: AbortSignal | null;
+                        shouldContinue?: () => boolean;
+                    }): Promise<void> =>
+                        this._epgCoordinator?.warmCurrentViewportForStartup(options) ?? Promise.resolve(),
+                },
             }
         );
 
@@ -833,6 +840,8 @@ export class AppOrchestrator {
             teardown.run('initCoordinator.clearAuthResume', () => initCoordinator.clearAuthResume());
             teardown.run('initCoordinator.clearServerResume', () => initCoordinator.clearServerResume());
             teardown.run('initCoordinator.clearProfileResume', () => initCoordinator.clearProfileResume());
+            await teardown.runAsync('initCoordinator.drainEpgWarmup', () =>
+                initCoordinator.drainEpgWarmupForShutdown());
         }
 
         if (this._scheduleDayRolloverController) {

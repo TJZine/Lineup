@@ -8,7 +8,13 @@ import type {
     EPGEventMap,
     EPGFocusPosition,
     EPGInternalState,
+    EpgRowLifecycleKind,
     ScheduledProgram,
+} from '../types';
+import {
+    EPG_ROW_LOADING_LABEL,
+    EPG_ROW_RETRYING_LABEL,
+    EPG_ROW_UNAVAILABLE_LABEL,
 } from '../types';
 
 type EmitEvent = <K extends keyof EPGEventMap>(event: K, payload: EPGEventMap[K]) => void;
@@ -332,7 +338,12 @@ export class EPGFocusNavigator {
         }
 
         if (focusedCell.kind === 'placeholder') {
-            return false;
+            const lifecycle = state.rowLifecycle.get(channel.id)?.kind ?? 'loading';
+            if (lifecycle !== 'unavailable') {
+                return false;
+            }
+            this.context.emit('rowRetryRequested', { channelId: channel.id });
+            return true;
         }
 
         this._isSelectInProgress = true;
@@ -421,6 +432,23 @@ export class EPGFocusNavigator {
         return Math.min(Math.max(requestedFocusTimeMs as number, start), end);
     }
 
+    private resolvePlaceholderLifecycle(channelId: string | undefined): EpgRowLifecycleKind {
+        if (!channelId) {
+            return 'loading';
+        }
+        return this.context.getState().rowLifecycle.get(channelId)?.kind ?? 'loading';
+    }
+
+    private resolvePlaceholderLabel(lifecycle: EpgRowLifecycleKind): string {
+        if (lifecycle === 'unavailable') {
+            return EPG_ROW_UNAVAILABLE_LABEL;
+        }
+        if (lifecycle === 'retrying') {
+            return EPG_ROW_RETRYING_LABEL;
+        }
+        return EPG_ROW_LOADING_LABEL;
+    }
+
     private focusPlaceholder(channelIndex: number, targetTime: number): void {
         const state = this.context.getState();
         const config = this.context.getConfig();
@@ -433,6 +461,8 @@ export class EPGFocusNavigator {
         const visibleEndMs = state.gridAnchorTime +
             ((state.scrollPosition.timeOffset + (config.visibleHours * 60)) * 60000);
         const clampedTime = Math.min(Math.max(targetTime, visibleStartMs), Math.max(visibleStartMs, visibleEndMs - 1));
+        const channelId = state.channels[channelIndex]?.id;
+        const lifecycle = this.resolvePlaceholderLifecycle(channelId);
 
         state.focusTimeMs = clampedTime;
         state.focusedCell = {
@@ -440,7 +470,7 @@ export class EPGFocusNavigator {
             channelIndex,
             programIndex: -1,
             placeholder: {
-                label: 'Loading...',
+                label: this.resolvePlaceholderLabel(lifecycle),
                 scheduledStartTime: visibleStartMs,
                 scheduledEndTime: visibleEndMs,
             },

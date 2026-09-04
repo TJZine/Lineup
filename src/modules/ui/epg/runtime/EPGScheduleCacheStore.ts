@@ -1,4 +1,6 @@
 import type { ScheduleWindow } from '../../../scheduler/scheduler';
+import type { ChannelConfig } from '../../../scheduler/channel-manager';
+import { isMatchingEpgChannelSnapshot } from '../types';
 
 export const EPG_SCHEDULE_CACHE_TTL_MS = 2 * 60_000;
 export const EPG_SCHEDULE_CACHE_STALE_TTL_MS = 10 * 60_000;
@@ -6,12 +8,14 @@ export const EPG_SCHEDULE_CACHE_STALE_TTL_MS = 10 * 60_000;
 type LoadedRangeEntry = {
     rangeKey: string;
     loadedAt: number;
+    channelSnapshot?: ChannelConfig;
 };
 
 type CachedScheduleEntry = {
     rangeKey: string;
     schedule: ScheduleWindow;
     loadedAt: number;
+    channelSnapshot?: ChannelConfig;
 };
 
 export class EPGScheduleCacheStore {
@@ -56,11 +60,18 @@ export class EPGScheduleCacheStore {
 
     getCachedSchedule(
         channelId: string,
-        rangeKey: string
-    ): { schedule: ScheduleWindow; isStale: boolean } | null {
+        rangeKey: string,
+        channelSnapshot?: ChannelConfig
+    ): { schedule: ScheduleWindow; isStale: boolean; loadedAt: number } | null {
         const key = this._getScheduleCacheKey(channelId, rangeKey);
         const entry = this._scheduleCache.get(key);
         if (!entry) {
+            return null;
+        }
+        if (
+            channelSnapshot &&
+            (!entry.channelSnapshot || !isMatchingEpgChannelSnapshot(entry.channelSnapshot, channelSnapshot))
+        ) {
             return null;
         }
 
@@ -73,10 +84,16 @@ export class EPGScheduleCacheStore {
         return {
             schedule: entry.schedule,
             isStale: ageMs > EPG_SCHEDULE_CACHE_TTL_MS,
+            loadedAt: entry.loadedAt,
         };
     }
 
-    storeSchedule(channelId: string, rangeKey: string, schedule: ScheduleWindow): void {
+    storeSchedule(
+        channelId: string,
+        rangeKey: string,
+        schedule: ScheduleWindow,
+        channelSnapshot?: ChannelConfig
+    ): void {
         const key = this._getScheduleCacheKey(channelId, rangeKey);
         if (this._scheduleCache.has(key)) {
             this._scheduleCache.delete(key);
@@ -85,13 +102,24 @@ export class EPGScheduleCacheStore {
             rangeKey,
             schedule,
             loadedAt: Date.now(),
+            ...(channelSnapshot ? { channelSnapshot } : {}),
         });
         this.prune(Date.now());
     }
 
-    isScheduleLoadedForRange(channelId: string, rangeKey: string): boolean {
+    isScheduleLoadedForRange(
+        channelId: string,
+        rangeKey: string,
+        channelSnapshot?: ChannelConfig
+    ): boolean {
         const entry = this._loadedRangeKeyByChannel.get(channelId);
         if (!entry || entry.rangeKey !== rangeKey) {
+            return false;
+        }
+        if (
+            channelSnapshot &&
+            (!entry.channelSnapshot || !isMatchingEpgChannelSnapshot(entry.channelSnapshot, channelSnapshot))
+        ) {
             return false;
         }
 
@@ -99,10 +127,11 @@ export class EPGScheduleCacheStore {
         return now - entry.loadedAt <= EPG_SCHEDULE_CACHE_TTL_MS;
     }
 
-    markScheduleLoaded(channelId: string, rangeKey: string): void {
+    markScheduleLoaded(channelId: string, rangeKey: string, channelSnapshot?: ChannelConfig): void {
         this._loadedRangeKeyByChannel.set(channelId, {
             rangeKey,
             loadedAt: Date.now(),
+            ...(channelSnapshot ? { channelSnapshot } : {}),
         });
     }
 

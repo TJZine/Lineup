@@ -1,7 +1,16 @@
 import { DeferredEPGComponent } from '../index';
 import { flushPromises } from '../../../../__tests__/helpers';
 import type { IEPGComponent } from '../interfaces';
-import type { EPGConfig, ChannelConfig, ScheduleWindow, ScheduledProgram, EPGState } from '../types';
+import type {
+    EPGConfig,
+    ChannelConfig,
+    ScheduleWindow,
+    ScheduledProgram,
+    EPGState,
+    EpgRowLifecycleState,
+    EpgHeldScheduleSnapshot,
+    EpgScheduleLoadMetadata,
+} from '../types';
 import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
 
 type RuntimeCall =
@@ -128,7 +137,20 @@ const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPG
         setVisibleHours(): void {}
         setNowWatchingBannerEnabled(): void {}
         setLibraryTabs(): void {}
-        loadScheduleForChannel(): void {}
+        loadScheduleForChannel(_channelId: string, _schedule: ScheduleWindow, _metadata?: EpgScheduleLoadMetadata): void {}
+        hasScheduleForChannelRange(): boolean {
+            return false;
+        }
+        getHeldScheduleForChannel(): EpgHeldScheduleSnapshot | null {
+            return null;
+        }
+        clearScheduleForChannel(): void {}
+        getRowLifecycle(): EpgRowLifecycleState | null {
+            return null;
+        }
+        setRowLifecycle(): void {}
+        clearRowLifecycle(): void {}
+        clearAllRowLifecycles(): void {}
         clearSchedules(): void {}
         refreshCurrentTime(): void {}
         focusChannel(): void {}

@@ -161,6 +161,10 @@ const makeDeps = (
         setNowWatchingBannerEnabled: jest.fn(),
         setLibraryTabs: jest.fn(),
         loadScheduleForChannel: jest.fn(),
+        getRowLifecycle: jest.fn().mockReturnValue(null),
+        setRowLifecycle: jest.fn(),
+        clearRowLifecycle: jest.fn(),
+        clearAllRowLifecycles: jest.fn(),
         clearSchedules: jest.fn(),
         getState: jest.fn().mockReturnValue({
             isVisible: false,
@@ -319,8 +323,13 @@ describe('EPGCoordinator', () => {
         });
 
         // The exclusive endpoint is extended by overscan once: endIndex = 20 + 7 = 27.
+        // Priority order is live/focused, actually visible in display order, then
+        // nearest overscan (trailing forward, leading nearest-first).
         expect(partitioned.bufferedRange).toEqual({ start: 3, endExclusive: 27 });
-        expect(partitioned.immediateChannels.at(-1)?.id).toBe('c26');
+        expect(partitioned.immediateChannels.slice(0, 10).map((channel) => channel.id)).toEqual(
+            ['c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16', 'c17', 'c18', 'c19']
+        );
+        expect(partitioned.immediateChannels.at(-1)?.id).toBe('c3');
     });
 
     it('preserves terminal, single-channel, and empty half-open endpoint behavior', () => {
@@ -338,7 +347,8 @@ describe('EPGCoordinator', () => {
             { visibleCount: 2, maxQueuedChannels: 120, aggressive: false }
         );
         expect(terminal.bufferedRange).toEqual({ start: 91, endExclusive: 100 });
-        expect(terminal.immediateChannels.at(-1)?.id).toBe('c99');
+        expect(terminal.immediateChannels.slice(0, 2).map((channel) => channel.id)).toEqual(['c98', 'c99']);
+        expect(terminal.immediateChannels.at(-1)?.id).toBe('c91');
 
         const single = partitionPrefetchChannels(
             channels,
@@ -347,7 +357,8 @@ describe('EPGCoordinator', () => {
             { visibleCount: 1, maxQueuedChannels: 120, aggressive: false }
         );
         expect(single.bufferedRange).toEqual({ start: 3, endExclusive: 18 });
-        expect(single.immediateChannels.at(-1)?.id).toBe('c17');
+        expect(single.immediateChannels[0]?.id).toBe('c10');
+        expect(single.immediateChannels.at(-1)?.id).toBe('c3');
 
         const empty = partitionPrefetchChannels(
             [],
@@ -1955,6 +1966,33 @@ describe('EPGCoordinator', () => {
             'epg.scheduleRefresh.settled',
             expect.objectContaining({ liveSchedulerHitCount: 1 })
         );
+    });
+
+    it('routes row retry intents to targeted runtime retries without a visible-range refresh', async () => {
+        const { deps, epg } = makeDeps();
+        const retrySpy = jest
+            .spyOn(EPGRefreshController.prototype, 'retryRowSchedule')
+            .mockResolvedValue(undefined);
+        const rangeSpy = jest.spyOn(EPGRefreshController.prototype, 'refreshEpgSchedulesForRange');
+        try {
+            const coordinator = new EPGCoordinator(deps);
+            coordinator.wireEpgEvents();
+
+            const retryHandler = (epg.on as jest.Mock).mock.calls.find(
+                (call) => call[0] === 'rowRetryRequested'
+            )?.[1] as ((payload: { channelId: string }) => void) | undefined;
+            expect(retryHandler).toBeDefined();
+            retryHandler?.({ channelId: 'c1' });
+            retryHandler?.({ channelId: 'c1' });
+            await flushPromises();
+
+            expect(retrySpy).toHaveBeenCalledTimes(2);
+            expect(retrySpy).toHaveBeenNthCalledWith(1, 'c1');
+            expect(rangeSpy).not.toHaveBeenCalled();
+        } finally {
+            retrySpy.mockRestore();
+            rangeSpy.mockRestore();
+        }
     });
 
     it('wireEpgEvents returns unsubscribers, forwards visibility changes, and triggers switch when program eligible', async () => {

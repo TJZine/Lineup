@@ -22,6 +22,8 @@ import type { EpgRetainedOperationContext } from '../runtime/EPGRetainedOperatio
 import {
     computeNormalizedLibraryFilterState,
     computeEpgScheduleRangeMs,
+    computeBackgroundWarmQueueCaps,
+    partitionPrefetchChannels,
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
 import { reportLibraryFilterPersistenceResult } from './EPGLibraryFilterPersistenceDiagnostics';
@@ -411,6 +413,103 @@ export class EPGRefreshController {
             return null;
         }
         return runtime.buildGuideSelectionSnapshot(request, signal);
+    }
+
+    async retryRowSchedule(channelId: string): Promise<void> {
+        const invalidation = this._scheduleRefreshRuntimeInvalidation;
+        const runtime = await this._getScheduleRefreshRuntime();
+        if (!runtime) {
+            return;
+        }
+        if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
+            return;
+        }
+        await runtime.retryChannelSchedule(channelId);
+    }
+
+    async warmCurrentViewportForStartup(options?: {
+        signal?: AbortSignal | null;
+        shouldContinue?: () => boolean;
+    }): Promise<void> {
+        const epgBeforeRuntimeLoad = this._deps.getEpg();
+        if (!epgBeforeRuntimeLoad || epgBeforeRuntimeLoad.isVisible()) {
+            return;
+        }
+        const invalidation = this._scheduleRefreshRuntimeInvalidation;
+        const runtime = await this._getScheduleRefreshRuntime();
+        if (!runtime) {
+            return;
+        }
+        if (invalidation !== this._scheduleRefreshRuntimeInvalidation) {
+            return;
+        }
+        const channelManager = this._deps.getChannelManager();
+        const config = this._deps.getEpgConfig();
+        const epg = this._deps.getEpg();
+        if (!channelManager || !config) {
+            return;
+        }
+        if (!epg || epg.isVisible() || options?.signal?.aborted) {
+            return;
+        }
+        if (options?.shouldContinue && !options.shouldContinue()) {
+            return;
+        }
+
+        // Startup warmup reads one normalized snapshot and never performs the
+        // cleanup/write side effects used by foreground preference reads.
+        const storageSnapshot = this._deps.epgPreferencesStore.readScheduleRangeSnapshot();
+        const allChannels = channelManager.getAllChannels();
+        const { selectedId, shouldFilter } = computeNormalizedLibraryFilterState(allChannels, storageSnapshot);
+        const visibleChannels = selectVisibleChannelsForLibraryFilter(allChannels, selectedId, shouldFilter);
+        if (visibleChannels.length === 0) {
+            return;
+        }
+        const scheduleRange = computeEpgScheduleRangeMs(
+            {
+                getEpgConfig: (): EPGConfig | null => config,
+                getChannelManager: (): IChannelManager | null => channelManager,
+                getLocalMidnightMs: (timeMs: number): number => this._deps.getLocalMidnightMs(timeMs),
+            },
+            Date.now(),
+            storageSnapshot
+        );
+        if (!scheduleRange) {
+            return;
+        }
+        const current = channelManager.getCurrentChannel();
+        const currentIndex = current
+            ? visibleChannels.findIndex((channel) => channel.id === current.id)
+            : 0;
+        const anchorIndex = currentIndex >= 0 ? currentIndex : 0;
+        const visibleCount = Math.max(1, config.visibleChannels);
+        const range = {
+            channelStart: anchorIndex,
+            channelEndExclusive: Math.min(visibleChannels.length, anchorIndex + visibleCount),
+            timeStartMs: 0,
+            timeEndMs: 0,
+        };
+        const backgroundCaps = computeBackgroundWarmQueueCaps(visibleChannels.length, visibleCount, false);
+        const partitioned = partitionPrefetchChannels(
+            visibleChannels,
+            { channelStart: range.channelStart, channelEndExclusive: range.channelEndExclusive },
+            { liveChannelId: current?.id ?? null, focusedChannelId: current?.id ?? null },
+            { visibleCount, maxQueuedChannels: backgroundCaps.maxQueuedChannels, aggressive: false }
+        );
+        const shouldContinue = (): boolean => {
+            if (options?.signal?.aborted || this._deps.getEpg()?.isVisible()) {
+                return false;
+            }
+            return options?.shouldContinue?.() ?? true;
+        };
+        if (!shouldContinue()) {
+            return;
+        }
+        await runtime.warmHiddenChannels(partitioned.immediateChannels, {
+            ...(options?.signal ? { signal: options.signal } : {}),
+            shouldContinue,
+            scheduleRange,
+        });
     }
 
     handleGuideSettingRefreshChange(change: GuideSettingChange): void {

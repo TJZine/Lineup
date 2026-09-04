@@ -117,6 +117,10 @@ const makeDeps = (
         focusChannel: jest.fn(),
         setGridAnchorTime: jest.fn(),
         loadScheduleForChannel: jest.fn(),
+        getRowLifecycle: jest.fn().mockReturnValue(null),
+        setRowLifecycle: jest.fn(),
+        clearRowLifecycle: jest.fn(),
+        clearAllRowLifecycles: jest.fn(),
         getFocusedProgram: jest.fn().mockReturnValue(null),
         focusNow: jest.fn(),
     } as unknown as IEPGComponent;

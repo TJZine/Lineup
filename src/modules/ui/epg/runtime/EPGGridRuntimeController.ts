@@ -146,7 +146,8 @@ export class EPGGridRuntimeController {
                 state.schedules,
                 range,
                 focusedKey,
-                state.currentTime
+                state.currentTime,
+                state.rowLifecycle
             );
 
             if (focused && focusedChannel) {

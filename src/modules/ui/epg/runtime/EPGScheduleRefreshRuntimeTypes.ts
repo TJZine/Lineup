@@ -18,6 +18,7 @@ export type BackgroundDebugState = {
     cacheHits: number;
     cacheMisses: number;
     firstVisibleScheduleReadyMs: number | null;
+    allVisibleRowsSettledMs: number | null;
 };
 
 export type AppliedScheduleSource =
@@ -70,14 +71,18 @@ export type RefreshMetrics = {
     immediateFastReadyChannelIds: Set<string>;
     backgroundLoadedChannelIds: Set<string>;
     backgroundFastReadyChannelIds: Set<string>;
+    visibleReadyChannelIds: Set<string>;
+    visibleUnavailableChannelIds: Set<string>;
     immediateLoadedCount: number;
     backgroundLoadedCount: number;
     failedChannelCount: number;
     firstVisibleScheduleReadyMs: number | null;
+    allVisibleRowsSettledMs: number | null;
 };
 
 export type RefreshSession = {
     refreshId: number;
+    generation: number;
     failurePublicationToken: number;
     reason: string;
     refreshStartedAt: number;
@@ -91,6 +96,7 @@ export type RefreshSession = {
     endTime: number;
     rangeKey: string;
     forceRefresh: boolean;
+    manualRetry: boolean;
     debugEnabled: boolean;
     immediateChannels: ChannelConfig[];
     backgroundChannels: ChannelConfig[];

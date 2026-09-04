@@ -51,6 +51,7 @@ export const EPG_CLASSES = {
     CELL_CURRENT: 'current',
     CELL_PAST: 'past',
     CELL_LOADING: 'loading',
+    CELL_UNAVAILABLE: 'unavailable',
     CELL_TEXT_SHIFTED: 'text-shifted',
     CELL_TITLE_FULL_ROW: 'epg-cell-title-full-row',
     CELL_TIER_WIDE: 'epg-cell-tier-wide',
