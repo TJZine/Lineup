@@ -49,7 +49,7 @@ without a current second responsibility or consumer.
 - Do not add pass-through services, one-implementation interfaces, generic helper
   layers, compatibility shims, speculative extension points, or configuration for
   requirements the product does not have.
-- Treat file size as an attention signal. Apply the review gates in
+- Treat file size as an attention signal. Use the diagnostics described in
   `docs/architecture/file-shape-guardrails.md`; never split solely to cross a
   numeric threshold.
 - Preserve public behavior unless the approved package explicitly changes it.
@@ -61,14 +61,8 @@ the surface actually touched.
 ## Execution Contract
 
 - Keep one package bounded by one owner, one seam, and one proof surface.
-- Use `worker_luna` by default when the package outcome, owner seam, contracts,
-  acceptance criteria, and direct proof are clear, including work that needs
-  repository comprehension, exact-file discovery, routine local design judgment,
-  focused test design, and diagnosis of failures caused by the implementation.
-- Use `worker` when the same settled package needs material local design judgment,
-  cross-boundary comprehension, complex diagnosis, or proof interpretation. Return
-  unresolved product, ownership, public-contract, architecture, or proof decisions
-  to planning.
+- Use the runbook's [delegation policy](docs/AGENTIC_DEV_WORKFLOW.md#delegation)
+  when a package benefits from delegation; package admission does not require a worker.
 - Parallel writers require disjoint files, symbols, fixtures, and verification.
   Serialize shared contracts, composition roots, and integration.
 - Add a final independent `reviewer` only when risk, novelty, blast radius, or
@@ -83,14 +77,10 @@ Record the risk class, primary verification mode, exact commands, expected
 outcomes, rationale, and whether new tests are needed. Use the command canon in
 `docs/AGENTIC_DEV_WORKFLOW.md`.
 
-At minimum:
-
-- focused tests plus typecheck and relevant lint for local logic changes;
-- `npm run verify` for UI, navigation, Orchestrator, Plex, lifecycle, settings,
-  persistence, runtime, or build changes;
-- `npm run verify:docs` for workflow, checklist, launcher, or reference-doc
-  changes; and
-- `git diff --check` plus a final diff inspection before closeout.
+Use the runbook's [verification gate](docs/AGENTIC_DEV_WORKFLOW.md#verification),
+including its nonbehavioral exception and reuse of still-current evidence. The
+checklist does not impose an additional gate based on file location or package
+membership. Inspect the final diff and run `git diff --check` before closeout.
 
 Close a package only when the source finding is resolved or explicitly accepted
 with one owner and revisit trigger, required behavior and contracts hold, proof
@@ -106,7 +96,8 @@ the completed PQR-1 through PQR-7 surfaces:
    with a revisit trigger.
 2. Confirm no package introduced behavior drift, public API widening,
    compatibility shims, unused abstraction, or ownership ambiguity.
-3. Run the strongest applicable current verification and record exact results.
+3. Confirm applicable current verification under the runbook and record exact results;
+   reuse inspected proof that remains current.
 4. Obtain one clean independent review of the final evidence.
 
 Completion is the evidence record above. An external health scan may be run only

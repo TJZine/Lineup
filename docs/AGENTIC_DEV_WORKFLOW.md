@@ -43,6 +43,13 @@ boundary merely to reduce context:
 Historical plans, baseline summaries, detector state, `docs/runs/**`, and archived
 material are evidence, never current task authority.
 
+Select boundary skills by the responsibility or contract being changed. Data
+origin alone does not require another skill: formatting a Plex-derived label does
+not change Plex policy, and a store with UI callers does not necessarily change UI
+lifecycle. Reuse existing task context; consult a peer only for an affected boundary
+whose guidance is not already established. Skills add local invariants and proof
+examples; this runbook owns verification gates, review, and delegation policy.
+
 ## Commands
 
 Bootstrap:
@@ -215,6 +222,35 @@ cover. Do not repeat an unchanged clean gate solely at closeout.
 
 Never claim platform, visual, device, or runtime proof that was not run. Full-suite
 verification does not replace a targeted reproduction or manual acceptance check.
+
+### Command Evidence And Suite Selection
+
+The scripts in `package.json` and Jest configurations define executable scope:
+
+| Command | Evidence |
+| --- | --- |
+| `npm test` / `npm run test:unit` | Same unit suite; excludes tool, contract/policy, and type-contract tests |
+| `npm run test:coverage` | Unit suite with coverage thresholds; includes the unit run |
+| `npm run test:contracts` | Contract/policy and `types.test.ts` suites under `jest.contracts.config.js` |
+| `npm run test:tools` / `npm run test:node-tools` | Separate TypeScript and Node tooling suites |
+| `npm run test:all` | Unit, contract, and both tooling suites; no coverage threshold or build proof |
+| `npm run verify:architecture` | ESLint plus advisory maintainability evidence; includes `lint` |
+| `npm run verify` | Typecheck, architecture/CSS lint, unit coverage, contract/tooling suites, docs structure, lean bundle analysis, and dev build |
+| `npm run verify:quick` | Typecheck plus `test:all`; does not replace the behavior gate above |
+
+Use the matching suite command with a focused test path (for example,
+`npm run test:contracts -- --runTestsByPath path/to/example.contract.test.ts`).
+Check discovery before claiming focused proof. Do not habitually run `test:all`,
+`lint`, or typecheck immediately before an unchanged `verify`; those checks are
+included. A targeted reproduction may still add evidence that the aggregate lacks.
+
+`verify:bundle` builds the lean analyzed profile unless `--skip-build` is supplied;
+use that flag only with a current analyzed artifact. The final `build` in `verify`
+checks the distinct dev profile and leaves dev output in `dist`. CI instead checks
+the lean candidate, removes analyzer metadata, verifies release contents/digest,
+and packages that candidate. Local aggregate success is not release-artifact or
+device proof. Preserve both profiles and reuse artifacts only under currentness
+rules above.
 
 ## Plans And Handoffs
 

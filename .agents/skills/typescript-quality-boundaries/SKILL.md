@@ -5,8 +5,7 @@ description: Use when changing Lineup production TypeScript, shared types, async
 
 # TypeScript Quality Boundaries
 
-Keep production states and ownership explicit enough that a bounded worker cannot
-silently widen the design:
+Keep production states and ownership explicit at Lineup's typed boundaries:
 
 - narrow `unknown` at the boundary; do not use `any`, double assertions, broad
   `Record<string, unknown>` bags, or non-null assertions to bypass an unresolved
@@ -19,6 +18,10 @@ silently widen the design:
 - preserve error causes while exposing sanitized, actionable application errors;
 - give timers, listeners, subscriptions, abort signals, and stale async completions
   one explicit owner and cleanup path;
+- reuse the affected owner's operation authority, receipt, or generation contract;
+  preserve currentness at publication and error boundaries, including synchronous
+  listener re-entry. A caller abort and superseded work may have different outcomes;
+  preserve their documented precedence rather than adding a generic stale guard;
 - prefer an existing focused owner over a generic helper, base class, service
   registry, compatibility adapter, or speculative abstraction;
 - add a dependency only when the task proves existing platform and repository tools

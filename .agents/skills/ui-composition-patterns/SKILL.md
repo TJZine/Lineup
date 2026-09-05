@@ -1,6 +1,6 @@
 ---
 name: ui-composition-patterns
-description: Use when building or refactoring screens, overlays, focus flows, or TV-facing UI behavior in Lineup, especially when layout, motion, timers, or D-pad navigation are involved.
+description: Build or change Lineup screens, overlays, and TV interaction, including layout, motion, D-pad navigation, focus restoration, and UI lifecycle fixes.
 ---
 
 # UI Composition Patterns
@@ -32,8 +32,11 @@ needed. Collaborate on new direction and material departures from approved desig
 ## Boundary Routing
 
 - If UI work starts changing ownership, hotspots, or composition roots, consult relevant guidance in `architecture-boundaries`.
-- If a screen or overlay owns storage-backed preferences/session state, consult relevant guidance in `persistence-boundaries`.
-- If the surface renders Plex-driven policy, stream state, or subtitle behavior, consult relevant guidance in `plex-integration-boundaries`.
+- Consult `persistence-boundaries` when changing persisted state, write outcomes,
+  or storage scope; displaying an existing preference does not itself cross that boundary.
+- Consult `plex-integration-boundaries` when changing Plex policy, transport,
+  credentials, or subtitle delivery; formatting an existing display result does
+  not itself require Plex context.
 
 ## Discovery Pattern
 
@@ -53,8 +56,12 @@ needed. Collaborate on new direction and material departures from approved desig
 - Preserve the edge-integrated visual language. Avoid floating-card regressions, opaque glass slabs, hard dividers, and surface box-shadows.
 - Match animation direction to anchor direction. Respect `prefers-reduced-motion`.
 - Keep screens and overlays bounded. `show()` should not hide network waits or large setup side effects.
-- Hidden UI must release timers, listeners, and transient focus state.
-- Separate view rendering from async coordination, persistence, and focus orchestration when the class starts carrying all three.
+- On hide, cancel visibility-scoped timers and pending UI publication, detach active
+  remote subscriptions, and unregister hidden focus targets. Retained DOM handlers
+  may live until destroy; release all instance-owned resources on destroy.
+- Preserve navigation-owned screen/modal focus memory across hide and registration
+  cleanup. Restore only eligible targets; preserve fallback groups/priorities and
+  generation checks on delayed restoration.
 - Reuse shared primitives before inventing new wrappers or styling patterns.
 - Keep D-pad focus ownership explicit. Preserve `data-action` hooks, status roles, and predictable cleanup paths.
 - Preserve ARIA/status semantics and remote-driven usability while refactoring.
@@ -63,18 +70,27 @@ needed. Collaborate on new direction and material departures from approved desig
 
 ## Composition Heuristics
 
-- If a screen owns rendering, focus, persistence, and async loading, split at least one concern out.
-- If an overlay grows conditional DOM assembly, move view-model shaping into a coordinator or presenter.
-- If focus logic becomes stateful or reusable, extract a focus coordinator similar to [`src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts`](../../../src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts).
-- If styling starts diverging from the design language, update the design doc first or explicitly justify the exception.
-- If `show()` or `hide()` starts coordinating network work, storage writes, or multi-step runtime policy, extract a controller/coordinator.
+- Mixed rendering, focus, persistence, and async loading warrant the cohesion test
+  in `architecture-boundaries`. Conditional DOM assembly or stateful focus alone
+  does not require extraction; move a distinct responsibility or resource lifecycle.
+- Reuse the current focus owner. For a distinct focus lifecycle, the existing
+  [`ChannelSetupFocusCoordinator`](../../../src/modules/ui/channel-setup/focus/ChannelSetupFocusCoordinator.ts)
+  is an example, not a required shape for every screen.
+- Agree on material departures from approved design before implementation, then
+  record the reusable rule or surface-local exception in its designated authority.
+- Keep network/storage/runtime policy behind its existing owner when `show()` or
+  `hide()` initiates it; bounded UI coordination can remain with the screen.
 - If a shared primitive starts accumulating feature-specific conditions, move that feature policy back up into the owning screen/coordinator.
 
 ## Verification
 
-- Run `npm run verify` for UI, navigation, Orchestrator, or Plex-facing UI changes.
+- Use the [runbook's verification gate](../../../docs/AGENTIC_DEV_WORKFLOW.md#verification),
+  including its nonbehavioral exception and reuse of current proof.
 - Re-test the exact remote/focus path touched by the change.
-- Confirm the hidden state leaves no stray timer, event listener, or stale focus target.
+- When lifecycle behavior changes, check show → hide → show, destroy, and late async
+  completion. Hidden UI must not capture remote input, regain focus, or publish
+  stale results. Exercise dropdown/modal Back restoration when affected; retained
+  handlers must work on reopen without duplicate registration.
 - Confirm `prefers-reduced-motion`, `role="status"`, and required `data-action` hooks remain intact where relevant.
 - Update [`docs/design/ui-design-language.md`](../../../docs/design/ui-design-language.md) when you intentionally change a reusable visual rule rather than quietly drifting implementation.
 

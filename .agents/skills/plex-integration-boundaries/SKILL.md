@@ -36,7 +36,8 @@ the stable Plex layers, not a second authoritative inventory.
 ## Boundary Routing
 
 - If the change affects persisted Plex auth or selected server state, consult relevant guidance in `persistence-boundaries`.
-- If the change leaks into screens, overlays, focus behavior, or user-visible playback UI, consult relevant guidance in `ui-composition-patterns`.
+- Consult `ui-composition-patterns` when changing rendering, interaction, focus,
+  or screen lifecycle; a typed result consumed by UI does not itself require UI context.
 - If the change affects composition roots, ownership, or cross-module wiring, consult relevant guidance in `architecture-boundaries`.
 
 ## Discovery Pattern
@@ -59,10 +60,34 @@ the stable Plex layers, not a second authoritative inventory.
 - Preserve the zero-transcode bias unless a product requirement explicitly needs a fallback.
 - Map Plex-specific payloads into app-facing types before they spread into unrelated modules.
 - Avoid slipping new transport or subtitle branches into `AppOrchestrator` when the real fix belongs in Plex policy code.
-- When a branch exists only to survive temporary cleanup, remove it in the same priority track instead of normalizing it as a permanent abstraction.
+- Remove a temporary compatibility path when current callers and the authorized
+  change establish that it is obsolete; historical priority tracks do not set scope.
 - Keep secrets and token-bearing URLs out of logs, errors, and debug surfaces.
 - Preserve deterministic selection policy. Connection/auth fallback behavior should stay explicit and testable, not emerge from scattered conditionals in callers.
 - Keep debug overrides as policy inputs, not permanent branching structure throughout the call chain.
+
+## Contracts To Preserve When Affected
+
+- Auth/discovery changes preserve existing operation authority and selection
+  receipts: acquisition/invalidation order, caller-abort precedence, and guards
+  before state, event, storage, and successful-return suffixes, including listener
+  re-entry. Use the [auth](../../../docs/api/plex-integration.md#authentication-iplexauth)
+  and [discovery](../../../docs/api/plex-integration.md#server-discovery-iplexserverdiscovery)
+  contracts rather than adding caller-owned counters.
+- Keep plex.tv account/Home credentials separate from selected PMS resource tokens.
+  Preserve bounded resource-token refresh/retry and endpoint-specific auth errors;
+  never introduce account-token fallback to PMS or token-bearing public server data.
+- Subtitle work spans Plex URL/auth/delivery policy and player fetch/conversion/track
+  lifecycle. Inspect the affected portions of
+  [SubtitleManager](../../../src/modules/player/subtitles/SubtitleManager.ts),
+  [subtitleFallbackPipeline](../../../src/modules/player/subtitles/subtitleFallbackPipeline.ts),
+  and their tests as well as Plex policy; keep each responsibility in its current layer.
+- Preserve secure authenticated subtitle attempts, response/body deadlines and size
+  limits, cancellation/currentness through body consumption, and track/blob cleanup.
+  The [stream contract](../../../docs/api/plex-integration.md#stream-resolution-iplexstreamresolver)
+  defines HLS/burn-in selection and delivery semantics: Lineup's `sidecar` and `embed`
+  labels are not proof of PMS native subtitle rendering. Requested burn-in is
+  distinct from confirmation by PMS decision evidence.
 
 ## Extraction Heuristics
 
@@ -73,8 +98,9 @@ the stable Plex layers, not a second authoritative inventory.
 
 ## Verification
 
-- Run focused Plex tests for the touched module.
-- Run `npm run verify` for changes that affect playback wiring, UI behavior, subtitles, or Orchestrator integration.
+- Use the [runbook's verification gate](../../../docs/AGENTIC_DEV_WORKFLOW.md#verification)
+  for all affected Plex behavior, including auth/discovery. Choose focused Plex and
+  player regressions for the changed contract and reuse still-current proof.
 - Update [`docs/api/plex-integration.md`](../../../docs/api/plex-integration.md) if the integration contract changes.
 - Confirm the diff did not introduce new Plex URL construction, token handling, or query-shaping logic into callers outside Plex modules.
 

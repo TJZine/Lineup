@@ -425,7 +425,9 @@ the FCP-11 owner split; it remains a screen adapter/step router with dropdown,
 build presentation, session/runtime, focus, and strategy/step behavior owned by
 package-local collaborators.
 
-The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md).
+Consult [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+only for checklist-linked admission/status. No cleanup package is currently active;
+these ownership surfaces are not an implicit remediation queue.
 
 ## Working Rules
 
@@ -439,5 +441,5 @@ The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](
 
 - Entry point: [`docs/architecture/README.md`](./README.md)
 - Module reference: [`docs/architecture/modules.md`](./modules.md)
-- Active backlog: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+- Cleanup admission/status: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - Workflow: [`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md)

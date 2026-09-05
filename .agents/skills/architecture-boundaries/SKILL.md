@@ -56,9 +56,8 @@ ownership, not automatic justification for another collaborator.
   assessment. File size or location alone does not require a reviewer.
 - Re-review only after a material finding or material review-surface change.
 
-Current named hotspots include `AppOrchestrator`, channel management, EPG
-composition, channel setup, Plex stream resolution, and settings composition. Use
-current source and `CURRENT_STATE.md` to resolve their exact owners.
+Use current source and `CURRENT_STATE.md` for the affected ownership surface and
+hotspot status; completed cleanup packages do not define current hotspots.
 
 ## Invariants
 
@@ -75,6 +74,7 @@ current source and `CURRENT_STATE.md` to resolve their exact owners.
 - Preserve the existing ESLint architecture rules and update current ownership docs
   when public ownership actually changes.
 
-Run risk-matched proof from the runbook, inspect the complete owner and diff, and
-confirm that the result neither accumulates a second responsibility nor fragments
+Run risk-matched proof from the runbook, inspect the affected owner surface and diff
+(expanding to the complete owner when needed), and confirm that the result neither
+accumulates a second responsibility nor fragments
 one responsibility across pass-through files.

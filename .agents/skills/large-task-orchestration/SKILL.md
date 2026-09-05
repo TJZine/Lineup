@@ -26,7 +26,7 @@ Bounded read-only discovery may precede this freeze when ownership is unclear. I
 packet still needs a specific objective, read scope, output, effort budget, and stop
 conditions. Explorers gather evidence; they do not decide or implement contracts.
 
-Keep live state in `update_plan`. Use `execution-plan-authoring` and a Sol planner
+Keep live state in `update_plan`. Use `execution-plan-authoring` and a separate planner
 only when unresolved seams, multiple boundaries, or a durable handoff justify the
 extra pass. Do not delegate an unresolved ownership or contract decision.
 
@@ -41,13 +41,9 @@ Route work deliberately:
 
 - use read-only explorers, documentation researchers, test/log analysts, and
   monitors for independent evidence or waits;
-- use `worker_luna` through `bounded-worker-execution` for bounded implementation
-  with clear outcomes, owner seams, contracts, and direct proof, including work
-  that needs repository comprehension and routine local coding judgment;
-- use the normal Sol worker when a settled bounded unit needs material local design
-  judgment, cross-boundary comprehension, complex diagnosis, or proof
-  interpretation; return unresolved product, ownership, public-contract,
-  architecture, or proof decisions to planning;
+- use `bounded-worker-execution` for settled implementation units, selecting the
+  current role under the runbook's [delegation policy](../../../docs/AGENTIC_DEV_WORKFLOW.md#delegation);
+  resolve consequential ownership/contract decisions before releasing dependent work;
 - use a fresh read-only reviewer when the runbook's Review criteria justify an
   independent assessment or the user requested it; state the concrete reason.
 
