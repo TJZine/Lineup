@@ -13,11 +13,13 @@ surfaces need collision protection.
 Use `worker_luna` by default for delegated implementation when the outcome, owner
 seam, contracts, acceptance criteria, and direct proof are clear. It may discover
 exact files, use repository comprehension and routine local design judgment, add
-focused tests, and diagnose failures caused by its implementation. It must stop
-when evidence exposes unresolved product intent, ownership, public behavior,
-architecture, proof depth, dependency or compatibility policy, or scope expansion.
-The controller reviews the diff, integrates it, and reruns the proof. Use `worker`
-instead when a settled bounded unit needs material local design judgment,
-cross-boundary comprehension, complex diagnosis, or proof interpretation; return
-unresolved product, owner, contract, architecture, or proof decisions to planning.
+focused tests, and diagnose failures caused by its implementation. Investigate
+uncertainty within the assigned owner and contracts. Return consequential scope,
+product, contract, dependency, or ownership decisions outside that boundary to the
+controller with evidence; the controller resolves them within user authorization
+before asking the user.
+
+The controller reviews the diff, integrates it, and confirms current proof under
+the runbook. Use `worker` when a settled bounded unit needs material local design
+judgment, cross-boundary comprehension, complex diagnosis, or proof interpretation.
 Route other delegation through `parallel-sidecars`.

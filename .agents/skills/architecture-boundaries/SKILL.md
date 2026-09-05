@@ -11,8 +11,9 @@ owns the present requirement without mixing independent responsibilities.
 
 ## Required Context
 
-Read [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md),
-the relevant owner, and the runbook's risk and verification rules. Load the cleanup
+Read relevant sections of [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md),
+the affected owner/callers, and the runbook's risk and verification rules. Expand
+when lifecycle, invariants, or contracts remain unclear. Load the cleanup
 checklist only for checklist-linked work and load other boundary skills only when
 their surfaces are actually involved.
 
@@ -37,7 +38,7 @@ ownership, not automatic justification for another collaborator.
 
 ## Architecture Attention
 
-- A changed production file over 500 lines requires this compact disposition:
+- When a change adds or moves responsibilities, record a compact disposition:
 
   ```text
   Owner:
@@ -47,11 +48,12 @@ ownership, not automatic justification for another collaborator.
   Evidence:
   ```
 
-- A changed production file over 800 lines, a composition root, or a hotspot named
-  in current architecture guidance requires a fresh independent `reviewer`
-  architecture/YAGNI pass over the whole owner, not only changed lines.
-- The 500/800 thresholds trigger attention and review; they never require a split,
-  prohibit cohesive growth, or fail verification by themselves.
+- Large files, composition roots, and named hotspots warrant attention to the
+  affected lifecycle, callers, and invariants; read the whole owner when needed.
+  The 500/800 thresholds do not themselves require a disposition, independent
+  reviewer, or split, prohibit cohesive growth, or fail verification.
+- Use the runbook's Review criteria when a consequential risk needs a second
+  assessment. File size or location alone does not require a reviewer.
 - Re-review only after a material finding or material review-surface change.
 
 Current named hotspots include `AppOrchestrator`, channel management, EPG

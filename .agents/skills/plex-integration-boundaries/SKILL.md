@@ -13,6 +13,9 @@ The main anti-pattern is mixing URL construction, auth handling, transport polic
 
 ## Required Reading
 
+Read the relevant sections and affected owners first. Expand to callers, adjacent
+contracts, or full documents when material questions remain. Reuse task context.
+
 1. [`docs/api/plex-integration.md`](../../../docs/api/plex-integration.md) for the public Plex contract
 2. [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md) for current ownership truth
 3. relevant sections of [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md) for verification and handoff rules
@@ -32,9 +35,9 @@ the stable Plex layers, not a second authoritative inventory.
 
 ## Boundary Routing
 
-- If the change affects persisted Plex auth or selected server state, also load `persistence-boundaries`.
-- If the change leaks into screens, overlays, focus behavior, or user-visible playback UI, also load `ui-composition-patterns`.
-- If the change affects composition roots, ownership, or cross-module wiring, also load `architecture-boundaries`.
+- If the change affects persisted Plex auth or selected server state, consult relevant guidance in `persistence-boundaries`.
+- If the change leaks into screens, overlays, focus behavior, or user-visible playback UI, consult relevant guidance in `ui-composition-patterns`.
+- If the change affects composition roots, ownership, or cross-module wiring, consult relevant guidance in `architecture-boundaries`.
 
 ## Discovery Pattern
 

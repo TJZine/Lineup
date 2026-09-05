@@ -13,8 +13,8 @@ invariants, acceptance criteria, verification, rollback, and stop conditions. Na
 likely files or an allowed write boundary; require exact file lists only when
 parallel writers or a sensitive shared surface need collision protection. Leave
 exact file discovery, helper names, local control flow, focused test organization,
-and routine failure diagnosis to implementation. Stop if product intent, ownership,
-or proof depth remains unresolved.
+and routine failure diagnosis to implementation. Investigate unresolved product,
+ownership, or proof questions; escalate only consequential decisions outside the task.
 
 Describe implementation risk and constraints without permanently binding a durable
 plan to a model. At dispatch, use `worker_luna` for a bounded unit whose outcome,

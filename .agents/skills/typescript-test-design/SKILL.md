@@ -24,7 +24,8 @@ Protect stable behavior through the nearest public seam:
   sequences, or tests that only restate branches;
 - keep tests deterministic under `--runInBand` and normal parallel Jest execution.
 
-Run the focused suite first, then `npm run typecheck` and the runbook-required gate.
-Use full `npm run verify` for UI, navigation, Orchestrator, Plex, runtime, or build
-behavior. Stop when the only testable seam is private; that usually signals a missing
-production owner or contract rather than a need for test-only access.
+Use the runbook's applicable static and suite gates without repeating still-current
+checks. If the apparent test seam is private, investigate the nearest observable
+behavior and existing tests. Choose meaningful proof within the current owner;
+do not add a production abstraction solely for test access. Escalate only a
+consequential unresolved contract or scope decision.

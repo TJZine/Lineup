@@ -18,6 +18,11 @@ This skill defines how Lineup UI should be composed and constrained once impleme
 
 ## Design Source Of Truth
 
+Read relevant sections and affected owners first; expand when a material design,
+contract, or lifecycle question remains. The design-language document below is the
+agreed UI authority recognized by `interface-design`; no duplicate `system.md` is
+needed. Collaborate on new direction and material departures from approved design.
+
 - [`docs/design/ui-design-language.md`](../../../docs/design/ui-design-language.md)
 - [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md)
 - [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md)
@@ -26,9 +31,9 @@ This skill defines how Lineup UI should be composed and constrained once impleme
 
 ## Boundary Routing
 
-- If UI work starts changing ownership, hotspots, or composition roots, also load `architecture-boundaries`.
-- If a screen or overlay owns storage-backed preferences/session state, also load `persistence-boundaries`.
-- If the surface renders Plex-driven policy, stream state, or subtitle behavior, also load `plex-integration-boundaries`.
+- If UI work starts changing ownership, hotspots, or composition roots, consult relevant guidance in `architecture-boundaries`.
+- If a screen or overlay owns storage-backed preferences/session state, consult relevant guidance in `persistence-boundaries`.
+- If the surface renders Plex-driven policy, stream state, or subtitle behavior, consult relevant guidance in `plex-integration-boundaries`.
 
 ## Discovery Pattern
 

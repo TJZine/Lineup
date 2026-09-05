@@ -13,6 +13,9 @@ Lineup's rule is simple: one storage namespace, one owner.
 
 ## Required Reading
 
+Read the relevant sections and affected owners first. Expand to callers, adjacent
+contracts, or full documents when material questions remain. Reuse task context.
+
 1. [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md) for the current storage owner map
 2. [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../../ARCHITECTURE_CLEANUP_CHECKLIST.md) only when the task explicitly implements or updates a checklist item
 3. relevant sections of [`docs/AGENTIC_DEV_WORKFLOW.md`](../../../docs/AGENTIC_DEV_WORKFLOW.md) for verification and handoff rules
@@ -35,9 +38,9 @@ migrations, or product policy.
 
 ## Boundary Routing
 
-- If the change is driven by a screen, overlay, or focus flow, also load `ui-composition-patterns`.
-- If the change changes ownership, composition roots, or cross-module wiring, also load `architecture-boundaries`.
-- If the change touches Plex auth, selected server state, or Plex-derived persisted policy, also load `plex-integration-boundaries`.
+- If the change is driven by a screen, overlay, or focus flow, consult relevant guidance in `ui-composition-patterns`.
+- If the change changes ownership, composition roots, or cross-module wiring, consult relevant guidance in `architecture-boundaries`.
+- If the change touches Plex auth, selected server state, or Plex-derived persisted policy, consult relevant guidance in `plex-integration-boundaries`.
 
 ## Core Rules
 

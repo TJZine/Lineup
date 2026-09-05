@@ -10,9 +10,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ## Steady-State Guardrails
 
-- Production file-size attention and review triggers live in [`file-shape-guardrails.md`](./file-shape-guardrails.md).
+- Production file-size diagnostics are described in [`file-shape-guardrails.md`](./file-shape-guardrails.md).
 - `npm run verify:maintainability` reports production files over 500 and 800 lines; it does not fail growth or require decomposition.
-- When changed, files over 500 lines require an architecture disposition. Files over 800 lines, composition roots, and named hotspots require a fresh independent architecture/YAGNI review of the whole owner.
+- Use the [workflow's review criteria](../AGENTIC_DEV_WORKFLOW.md#review) for independent review. Size and hotspot names guide investigation; they do not create an automatic reviewer gate.
 
 ## Product Invariants
 

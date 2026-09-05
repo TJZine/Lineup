@@ -8,16 +8,15 @@ The default output is a compact count; use
 
 ## Thresholds
 
-- Over 500 lines: when changed, record the compact architecture disposition from
-  the `architecture-boundaries` skill.
-- Over 800 lines: when changed, obtain a fresh independent `reviewer` architecture
-  and YAGNI review of the whole owner.
-- Composition roots and hotspots named in current architecture guidance require
-  the same fresh review regardless of their current line count.
+The 500/800-line thresholds, composition roots, and named hotspots guide attention
+to affected lifecycle, callers, and invariants. Expand to the whole owner when a
+behavior or ownership question requires it. They do not automatically require a
+written disposition, independent reviewer, or extraction. Use the workflow's
+review criteria when a concrete consequential risk merits a second assessment.
 
-These are attention and review triggers, not decomposition requirements. A large
-cohesive owner may grow; a smaller owner mixing independent responsibilities may
-need extraction. Never split solely to cross a numeric threshold.
+A large cohesive owner may grow; a smaller owner mixing independent
+responsibilities may need extraction. Never split solely to cross a numeric
+threshold. Record a brief cohesion decision when adding or moving responsibilities.
 
 ## Decision Standard
 

@@ -24,8 +24,8 @@ silently widen the design:
 - add a dependency only when the task proves existing platform and repository tools
   cannot meet the requirement.
 
-Before finishing, run focused behavior proof, `npm run typecheck`, relevant lint,
-and the runbook-required gate. Stop and resolve the seam when the change requires a
-new public shape, crosses domain ownership, or cannot represent its states without
-casts or fallback branches. Load the matching architecture, persistence, Plex, or UI
-boundary skill when those surfaces are involved.
+Resolve typing and ownership from current contracts and source. Escalate only a
+consequential decision outside the authorized scope that remains unresolved.
+Use the runbook's behavior-matched verification and reuse still-current results.
+Consult the matching architecture, persistence, Plex, or UI guidance when the
+changed boundary needs information beyond existing task context.
