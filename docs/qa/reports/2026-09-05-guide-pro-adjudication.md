@@ -2,6 +2,9 @@
 
 Status: **P2 open**. This brief records the adjudication of the supplied GPT Pro handoff and the implementation contract released by the controller. It does not close the incident or approve release deployment.
 
+The [exact implementation candidate and deferred physical handoff](2026-09-05-guide-shared-source-repair-candidate.md)
+record the resulting commit, development package, verification, and remaining QA.
+
 ## Evidence baseline and authority
 
 The evidence baseline is `a8ae5f24` (`origin/code-health`). Its production source is the tested implementation commit `57d7a2a4`; the later evidence commit contains documentation and evidence only. Any repair must establish a new exact implementation commit, build identity, installed artifact, and running entry hash before physical conclusions are attached to it.
