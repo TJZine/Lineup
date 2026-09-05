@@ -1,8 +1,7 @@
 # Guide Loading Recovery and Startup Warmup Execution Plan
 
-- Status: **Active; Muse implementation received; material implementation-review
-  corrections authorized through the configured `worker_luna` role; physical
-  validation blocked on an authorized LG C3 operator-access mechanism**
+- Status: **Active; implementation and automated verification complete;
+  LG C3 evidence retained; further performance work deferred to late MVP**
 - Task family: high-risk Guide correctness, focus, asynchronous lifecycle, and
   performance
 - Planning baseline: commit `b7cb7198` on `code-health`
@@ -27,6 +26,66 @@ source-resolution non-goal below. It does not authorize startup UI, collection
 repair, schedule continuity, a Guide redesign, or speculative performance tuning.
 Phase 5's operator cadence and fixture safeguards remain in force. Physical QA
 must use the resulting exact development implementation commit. No release.
+
+## 2026-09-05 Operator Acceptance Update
+
+The operator accepts prior physical unavailable-row OK retry/recovery observations
+as tested for now. A manufactured failure, new disposable fixture, and the full
+0/30/60/180-second fixture exercise are no longer required to proceed in this
+session. This is provisional acceptance of existing operator evidence, not a
+claim that the exact current candidate passed every controlled recovery case.
+Retain all recovery evidence and missing-proof notes for recurrence; P2 remains
+open with the retained gaps and deferred work below. Fixture backup/restore safeguards still
+apply if a fixture is actually introduced in future work.
+
+Treat the one launch failure as provisionally transient unless it recurs on a
+future install or launch. Full stop followed by launch recovered the same build;
+the cause remains unknown. Do not require a speculative launch fix for closeout.
+
+Subsequent device checks confirmed immediate-opening usability, foreground
+admission, the 96-channel background cap, focus, and physical playback/PiP.
+Hidden-startup warming was not exercised; preserve that physical proof gap.
+Further performance work is deferred below, with correctness and performance
+kept separate.
+Current evidence is retained in
+`docs/qa/reports/2026-09-05-guide-shared-source-device-session.md`
+(retained with the separate evidence commit).
+
+## Late-MVP Guide Performance TODO — deferred by operator
+
+On 2026-09-05 the operator deferred further Guide performance investigation until
+near the end of MVP development, prioritizing other product work now. Playback
+health has not been an observed problem per operator. Do not imply measured
+playback contention or device saturation. Stop additional performance QA and
+keep current concurrency, overscan, and cache settings unchanged for now.
+
+- [ ] Explain why hidden startup warming did not produce records with functioning
+  diagnostics; distinguish startup gate decisions from cache hits.
+- [ ] Investigate dense-source resolution delays near channels 333–335 and 370–375.
+  Channel 333 background work was adopted, so a blanket failure-to-prefetch claim
+  is disproven for that row. Separate queue/shared waiting, HTTP/server time,
+  parsing, generation, and actual visible-cell timing.
+- [ ] Measure device CPU/memory and request timings, then compare one bounded
+  settings change at a time against the current baseline. Do not treat software
+  caps as measured hardware limits.
+- [ ] Repeat cold and normal-rate forward/reverse dense-row scenarios on an exact
+  implementation commit; report correctness and performance separately.
+
+Preserve the current report and JSON under the 2026-09-05 Guide shared-source
+repair evidence names. This deferral does not claim missing physical hidden
+concurrency proof passed, erase provisional retry acceptance, or mark P2 fully
+closed. Revisit these retained gaps at late-MVP performance review or on regression.
+
+A brief official-documentation check found no numeric LG recommendation that
+justifies changing Lineup's current concurrency/overscan/cache settings without
+measurement. LG documents resource profiling via its developer tools:
+[Developer Workflow](https://webostv.developer.lge.com/develop/getting-started/developer-workflow).
+Its [Web Engine specification](https://webostv.developer.lge.com/develop/specifications/web-api-and-web-engine)
+also describes engine-cache lifetime across app termination; this is distinct
+from Lineup's application caches and does not explain the skipped warmup gate.
+
+The app comparison and applicability limits are retained in
+`docs/qa/reports/2026-09-05-webos-guide-performance-references.md`.
 
 ## Historical Next Session Orchestrator Handoff
 
