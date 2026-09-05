@@ -6,8 +6,15 @@ import {
 import type {
     ChannelConfig,
     IChannelManager,
+    ObserveSourceResolution,
     ResolvedChannelContent,
+    SourceResolutionDiagnostic,
 } from '../../../scheduler/channel-manager';
+import {
+    describeGuideFailure,
+    guideDiagnosticClock,
+    type GuideFailureDiagnostic,
+} from '../../../debug/GuideDiagnosticValues';
 import type {
     IChannelScheduler,
     ScheduleConfig,
@@ -115,6 +122,16 @@ type InFlightScheduleEntry = {
     schedule: ScheduleWindow | null;
     producerResultCurrent: boolean;
     outcome: InFlightScheduleOutcome;
+    failureObservation: ScheduleFailureObservation | null;
+};
+
+type ScheduleFailureObservation = {
+    failure: GuideFailureDiagnostic;
+    attemptControllerAborted: boolean;
+    sessionAborted: boolean;
+    matchesAttemptControllerReason: boolean;
+    matchesSessionSignalReason: boolean;
+    matchesOperationReason: boolean;
 };
 
 export interface EPGScheduleRefreshRuntimeDeps {
@@ -525,7 +542,7 @@ export class EPGScheduleRefreshRuntime {
                 phase: 'background',
                 backgroundChannelCount: channels.length,
                 failedChannelCount: metrics.failedChannelCount,
-                networkRequestCount: metrics.cacheMisses,
+                resolutionAttemptCount: metrics.cacheMisses,
                 loadedMarkerCount: metrics.alreadyLoaded,
                 freshCacheHitCount: metrics.cacheHits,
                 staleCacheHitCount: metrics.staleCacheHits,
@@ -805,7 +822,7 @@ export class EPGScheduleRefreshRuntime {
             backgroundChannelCount: session.backgroundChannels.length,
             immediateReadyChannelCount: result.immediateReadyChannelCount,
             failedChannelCount: metrics.failedChannelCount,
-            networkRequestCount: metrics.cacheMisses,
+            resolutionAttemptCount: metrics.cacheMisses,
             loadedMarkerCount: metrics.alreadyLoaded,
             freshCacheHitCount: metrics.cacheHits,
             staleCacheHitCount: metrics.staleCacheHits,
@@ -822,9 +839,10 @@ export class EPGScheduleRefreshRuntime {
         channelId: string,
         phase: RefreshPhase,
         cacheOutcome: ScheduleDiagnosticCacheOutcome,
-        networkStarted: boolean,
+        resolutionStarted: boolean,
         startedAt: number,
-        failureStage: ScheduleDiagnosticFailureStage
+        failureStage: ScheduleDiagnosticFailureStage,
+        observation: ScheduleFailureObservation
     ): void {
         runIfEpgRefreshCurrent(session, () => this._deps.appendIssueDiagnostic(
             QA_003B_ISSUE_ID,
@@ -833,15 +851,50 @@ export class EPGScheduleRefreshRuntime {
                 refreshId: session.refreshId,
                 phase,
                 rowOrdinal: session.channelOrdinals.get(channelId) ?? -1,
-                attemptCount: networkStarted ? 1 : 0,
-                networkStarted,
+                attemptCount: resolutionStarted ? 1 : 0,
+                resolutionStarted,
                 status: 'failure',
                 cacheOutcome,
                 failureStage,
                 errorKind: 'non-abort',
+                failure: observation.failure,
+                attemptControllerAborted: observation.attemptControllerAborted,
+                sessionAborted: observation.sessionAborted,
+                matchesAttemptControllerReason: observation.matchesAttemptControllerReason,
+                matchesSessionSignalReason: observation.matchesSessionSignalReason,
+                matchesOperationReason: observation.matchesOperationReason,
                 elapsedMs: Date.now() - startedAt,
             }
         ));
+    }
+
+    private _observeScheduleFailure(
+        error: unknown,
+        session: RefreshSession,
+        controller: AbortController | null
+    ): ScheduleFailureObservation {
+        const attemptSignal = controller?.signal ?? null;
+        const sessionSignal = session.signal;
+        const operationSignal = session.operation.signal;
+        return {
+            failure: describeGuideFailure(error),
+            attemptControllerAborted: attemptSignal?.aborted === true,
+            sessionAborted: sessionSignal?.aborted === true || operationSignal.aborted,
+            matchesAttemptControllerReason: attemptSignal?.aborted === true && error === attemptSignal.reason,
+            matchesSessionSignalReason: sessionSignal?.aborted === true && error === sessionSignal.reason,
+            matchesOperationReason: operationSignal.aborted && error === operationSignal.reason,
+        };
+    }
+
+    private _appendIssueDiagnosticBestEffort(
+        event: string,
+        payload: Record<string, unknown>
+    ): void {
+        try {
+            this._deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, event, payload);
+        } catch {
+            // Diagnostics must never change schedule resolution or publication.
+        }
     }
 
     private _applySchedule(
@@ -986,6 +1039,22 @@ export class EPGScheduleRefreshRuntime {
         let heldSchedule: EpgHeldScheduleSnapshot | null = null;
         let heldScheduleAgeMs: number | null = null;
         let shouldRevalidateHeldSchedule = false;
+        const sourceEvents: SourceResolutionDiagnostic[] = [];
+        let sourceEventsDropped = 0;
+        let resolutionStartedMonotonic: number | null = null;
+        let resolutionMs: number | null = null;
+        let generationMs: number | null = null;
+        let publicationMs: number | null = null;
+        let resolvedItemCount: number | null = null;
+        const onSourceDiagnostic: ObserveSourceResolution | undefined = session.debugEnabled
+            ? (diagnostic): void => {
+                if (sourceEvents.length < 8) {
+                    sourceEvents.push(diagnostic);
+                } else {
+                    sourceEventsDropped += 1;
+                }
+            }
+            : undefined;
 
         try {
             if (phase === 'immediate') {
@@ -1140,6 +1209,7 @@ export class EPGScheduleRefreshRuntime {
                 schedule: null,
                 producerResultCurrent: false,
                 outcome: 'pending',
+                failureObservation: null,
             };
             this._inFlightByChannel.set(channel.id, inFlightEntry);
             const onOperationAbort = (): void => {
@@ -1171,14 +1241,20 @@ export class EPGScheduleRefreshRuntime {
             }
 
             failureStage = 'resolution';
+            resolutionStartedMonotonic = guideDiagnosticClock().monotonicMs;
             const items =
                 phase === 'background'
                     ? await session.channelManager.resolveChannelItemsForSchedule(channel.id, {
                         signal: controller.signal,
+                        ...(onSourceDiagnostic ? { onSourceDiagnostic } : {}),
                     })
                     : (await session.channelManager.resolveChannelContent(channel.id, {
                         signal: controller.signal,
+                        ...(session.manualRetry ? { cacheMode: 'revalidate' as const } : {}),
+                        ...(onSourceDiagnostic ? { onSourceDiagnostic } : {}),
                     })).items;
+            resolutionMs = guideDiagnosticClock().monotonicMs - resolutionStartedMonotonic;
+            resolvedItemCount = items.length;
             if (!this._isChannelWorkCurrent(session, phase)) {
                 return;
             }
@@ -1188,6 +1264,7 @@ export class EPGScheduleRefreshRuntime {
             }
 
             failureStage = 'schedule-generation';
+            const generationStartedMonotonic = guideDiagnosticClock().monotonicMs;
             const scheduleConfig = this._deps.buildDailyScheduleConfig(channel, items, session.startTime);
             if (!this._isChannelWorkCurrent(session, phase)) {
                 return;
@@ -1199,6 +1276,7 @@ export class EPGScheduleRefreshRuntime {
                 index,
                 scheduleConfig.anchorTime
             );
+            generationMs = guideDiagnosticClock().monotonicMs - generationStartedMonotonic;
             if (!this._isChannelWorkCurrent(session, phase)) {
                 return;
             }
@@ -1209,6 +1287,7 @@ export class EPGScheduleRefreshRuntime {
                 inFlightEntry.producerResultCurrent = this._isProducerResultCurrent(session, inFlightEntry);
                 inFlightEntry.outcome = 'success';
             }
+            const publicationStartedMonotonic = guideDiagnosticClock().monotonicMs;
             this._applySchedule(session, metrics, channel.id, schedule, {
                 phase,
                 source: phase === 'background' ? 'resolved-background' : 'resolved-immediate',
@@ -1216,7 +1295,15 @@ export class EPGScheduleRefreshRuntime {
                 ...(phase === 'background' ? {} : { materializationSeed: items }),
                 ...(phase === 'background' ? { attemptController: controller } : {}),
             });
+            publicationMs = guideDiagnosticClock().monotonicMs - publicationStartedMonotonic;
         } catch (error) {
+            if (resolutionStartedMonotonic !== null && resolutionMs === null) {
+                resolutionMs = guideDiagnosticClock().monotonicMs - resolutionStartedMonotonic;
+            }
+            const failureObservation = this._observeScheduleFailure(error, session, controller);
+            if (inFlightEntry) {
+                inFlightEntry.failureObservation = failureObservation;
+            }
             if (isAbortLikeError(error) || (
                 controller?.signal.aborted === true && error === controller.signal.reason
             )) {
@@ -1248,7 +1335,8 @@ export class EPGScheduleRefreshRuntime {
                 cacheOutcome,
                 controller !== null,
                 requestStartedAt,
-                failureStage
+                failureStage,
+                failureObservation
             );
             if (phase === 'immediate' && !publishedUsableSchedule) {
                 this._publishUnavailableRow(session, metrics, channel.id);
@@ -1256,6 +1344,24 @@ export class EPGScheduleRefreshRuntime {
         } finally {
             removeOperationAbortListener();
             if (controller) {
+                const clock = guideDiagnosticClock();
+                this._appendIssueDiagnosticBestEffort('epg.scheduleRow.requestCompleted', {
+                    refreshId: session.refreshId,
+                    phase,
+                    rowOrdinal: session.channelOrdinals.get(channel.id) ?? -1,
+                    scheduleAdmissionMs: requestStartedAt - session.refreshStartedAt,
+                    resolutionMs,
+                    generationMs,
+                    publicationMs,
+                    itemCount: resolvedItemCount,
+                    outcome: inFlightEntry?.outcome === 'pending'
+                        ? (controller.signal.aborted ? 'aborted' : 'stale')
+                        : inFlightEntry?.outcome ?? (controller.signal.aborted ? 'aborted' : 'stale'),
+                    sourceEvents,
+                    sourceEventsDropped,
+                    timeOrigin: clock.timeOrigin,
+                    monotonicMs: clock.monotonicMs,
+                });
                 // Always settle our own entry so foreground adopters waiting on it
                 // can never deadlock, even when our operation was superseded. The
                 // controller identity guard keeps a newer owner entry safe.
@@ -1390,7 +1496,7 @@ export class EPGScheduleRefreshRuntime {
                         ? session.channelOrdinals.get(channel.id) ?? -1
                         : -1,
                     attemptCount: 0,
-                    networkStarted: false,
+                    resolutionStarted: false,
                     adoptedRefreshId: existing.refreshId,
                     adoptedPhase: existing.phase,
                 }
@@ -1427,7 +1533,12 @@ export class EPGScheduleRefreshRuntime {
                 existing.cacheOutcome,
                 true,
                 existing.startedAt,
-                'resolution'
+                'resolution',
+                existing.failureObservation ?? this._observeScheduleFailure(
+                    undefined,
+                    session,
+                    existing.controller
+                )
             );
             if (!this._getUsableHeldSchedule(session, channel)) {
                 this._publishUnavailableRow(session, metrics, channel.id);
@@ -1810,7 +1921,7 @@ export class EPGScheduleRefreshRuntime {
             phase: entry.phase,
             rowOrdinal: entry.rowOrdinal,
             attemptCount: 1,
-            networkStarted: true,
+            resolutionStarted: true,
             cacheOutcome: entry.cacheOutcome,
             invalidation,
             elapsedMs: Date.now() - entry.startedAt,

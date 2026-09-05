@@ -298,7 +298,8 @@ after this extraction.
 	  coordination, `resolution/ChannelResolutionCache.ts` owns resolved-content clone/stale
 	  policy, `resolution/ChannelRetryScheduler.ts` owns retry timers,
 	  `resolution/ChannelResolutionOperationContext.ts` owns cancel-first resolution-scope
-	  supersession and drain, and
+	  supersession and consumer drain; ChannelManager also awaits retired source
+	  producers before scope teardown, and
 	  `persistence/ChannelPersistenceSaveQueue.ts` owns debounced save promise/timer/warning
 	  orchestration through callbacks while delegating warning backoff timing to
 	  `src/utils/persistenceWarningBackoffPolicy.ts`. `import-export/ChannelImportNormalizer.ts`
@@ -313,6 +314,13 @@ after this extraction.
 	  sorting, content-level random playback mode, and delegation to the shared
 	  scheduler playback-ordering owner for common sequential/shuffle/block
 	  ordering
+- Shared source producers retain the common resolution scope; individual and
+  mixed-parent callers own only waiter cancellation. A final departing waiter
+  retires its producer, and retired producers remain tracked until settlement.
+  Explicit Guide retry carries `cacheMode: 'revalidate'` through ChannelManager
+  and ContentResolver: completed results are bypassed recursively while useful
+  in-flight work remains shareable. Existing explicit source invalidation keeps
+  its stronger cancellation semantics.
 - `src/core/channel-tuning/ChannelTuningCoordinator.ts` remains the channel-switch
   workflow owner. `ChannelTuningOperationContext.ts` owns general admission and
   retained suspension currentness, `ChannelInitialTuneAuthority.ts` owns opaque

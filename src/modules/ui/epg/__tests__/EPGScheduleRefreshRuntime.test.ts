@@ -1,10 +1,16 @@
 import { EPGScheduleRefreshRuntime, type EPGScheduleRefreshRuntimeDeps } from '../runtime/EPGScheduleRefreshRuntime';
+import { ChannelManager } from '../../../scheduler/channel-manager';
 import type {
     ChannelConfig,
     IChannelManager,
     PlaybackMode,
     ResolvedChannelContent,
 } from '../../../scheduler/channel-manager';
+import type { PlexMediaItemMinimal } from '../../../scheduler/channel-manager/contracts/interfaces';
+import {
+    createMockItem,
+    createMockLibrary,
+} from '../../../scheduler/channel-manager/__tests__/channel-manager-test-helpers';
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow } from '../../../scheduler/scheduler';
 import type { IEPGComponent } from '../interfaces';
 import type {
@@ -21,6 +27,13 @@ import {
     EPG_SCHEDULE_CACHE_TTL_MS,
 } from '../runtime/EPGScheduleCacheStore';
 import { createDeferred } from '../../../../__tests__/helpers';
+import {
+    installMockLocalStorage,
+    resetMockLocalStorage,
+    restoreOriginalLocalStorage,
+} from '../../../../__tests__/mocks/localStorage';
+
+installMockLocalStorage();
 
 const makeChannel = (id: string, number: number): ChannelConfig => ({
     id,
@@ -198,6 +211,14 @@ const collectDiagnosticKeys = (value: unknown): string[] => {
 };
 
 describe('EPGScheduleRefreshRuntime', () => {
+    beforeEach(() => {
+        resetMockLocalStorage();
+    });
+
+    afterAll(() => {
+        restoreOriginalLocalStorage();
+    });
+
     it('uses a deterministic schedule identity for equivalent sources and all schedule inputs', () => {
         const source = {
             type: 'library' as const,
@@ -507,7 +528,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             expect.objectContaining({
                 visibleChannelCount: 1,
                 immediateReadyChannelCount: 1,
-                networkRequestCount: 1,
+                resolutionAttemptCount: 1,
                 focusKind: 'absent',
             })
         );
@@ -516,7 +537,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             'epg.scheduleRow.settled',
             expect.anything()
         );
-        expect(deps.appendIssueDiagnostic).toHaveBeenCalledTimes(3);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledTimes(4);
 
         const diagnosticJson = JSON.stringify((deps.appendIssueDiagnostic as jest.Mock).mock.calls);
         const debugJson = JSON.stringify((deps.appendDebugLog as jest.Mock).mock.calls);
@@ -637,7 +658,7 @@ describe('EPGScheduleRefreshRuntime', () => {
                 expect.objectContaining({
                     rowOrdinal: 7,
                     phase: 'background',
-                    networkStarted: false,
+                    resolutionStarted: false,
                     status: 'failure',
                     cacheOutcome: 'fresh-hit',
                     attemptCount: 0,
@@ -699,11 +720,15 @@ describe('EPGScheduleRefreshRuntime', () => {
                 rowOrdinal: 0,
                 phase: 'immediate',
                 attemptCount: 1,
-                networkStarted: true,
+                resolutionStarted: true,
                 status: 'failure',
                 cacheOutcome: 'miss',
                 failureStage: 'resolution',
                 errorKind: 'non-abort',
+                failure: expect.objectContaining({
+                    errorClass: 'Error',
+                    errorCode: null,
+                }),
             })
         );
         expect(JSON.stringify([
@@ -739,7 +764,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             expect.objectContaining({
                 rowOrdinal: 0,
                 attemptCount: 0,
-                networkStarted: false,
+                resolutionStarted: false,
                 cacheOutcome: 'not-checked',
                 failureStage: 'live-scheduler',
             })
@@ -768,7 +793,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             expect.objectContaining({
                 rowOrdinal: 0,
                 attemptCount: 0,
-                networkStarted: false,
+                resolutionStarted: false,
                 cacheOutcome: 'fresh-hit',
                 failureStage: 'publication',
             })
@@ -1044,7 +1069,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             expect.objectContaining({
                 refreshId: 1,
                 rowOrdinal: 0,
-                networkStarted: true,
+                resolutionStarted: true,
                 invalidation: 'caller-abort',
             })
         );
@@ -1827,7 +1852,7 @@ describe('EPGScheduleRefreshRuntime', () => {
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
             'epg.scheduleRefresh.settled',
-            expect.objectContaining({ networkRequestCount: 1 })
+            expect.objectContaining({ resolutionAttemptCount: 1 })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
         expect(getScheduleWindow).toHaveBeenCalledTimes(1);
@@ -2298,6 +2323,9 @@ describe('EPGScheduleRefreshRuntime', () => {
         await second;
 
         expect(resolveChannelContent).toHaveBeenCalledTimes(1);
+        expect(resolveChannelContent).toHaveBeenCalledWith('c1', expect.objectContaining({
+            cacheMode: 'revalidate',
+        }));
         expect(epg.setRowLifecycle).toHaveBeenCalledWith('c1', expect.objectContaining({ kind: 'retrying' }));
         expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c1', expect.anything());
     });
@@ -2507,7 +2535,7 @@ describe('EPGScheduleRefreshRuntime', () => {
             expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
                 'QA-003b',
                 'epg.warmup.settled',
-                expect.objectContaining({ backgroundChannelCount: 3, networkRequestCount: 0 })
+                expect.objectContaining({ backgroundChannelCount: 3, resolutionAttemptCount: 0 })
             );
         } finally {
             if (priorRequestIdleCallback) {
@@ -2899,6 +2927,168 @@ describe('EPGScheduleRefreshRuntime', () => {
                 idleScheduler.cancelIdleCallback = priorCancelIdleCallback;
             }
             jest.useRealTimers();
+        }
+    });
+
+    it('keeps a current foreground row ready when another real manager consumer cancels shared source work', async () => {
+        const library = createMockLibrary();
+        const sourceResult = createDeferred<PlexMediaItemMinimal[]>();
+        library.getLibraryItems.mockReturnValue(sourceResult.promise);
+        const manager = new ChannelManager({ plexLibrary: library });
+        const sharedSource = {
+            type: 'library' as const,
+            libraryId: 'shared-library',
+            libraryType: 'movie' as const,
+            includeWatched: true,
+        };
+        const channelA = { ...makeChannel('external', 1), contentSource: sharedSource };
+        const channelB = { ...makeChannel('guide', 2), contentSource: sharedSource };
+        await manager.replaceAllChannels([channelA, channelB]);
+        const external = new AbortController();
+        const externalResolution = manager.resolveChannelContent(channelA.id, {
+            signal: external.signal,
+        });
+        await Promise.resolve();
+        const { runtime, epg } = createRuntime({
+            getChannelManager: () => manager,
+            getVisibleChannels: () => [channelB],
+        });
+
+        try {
+            const foreground = runtime.refreshForRange(
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+            await Promise.resolve();
+            external.abort('request-replaced');
+            sourceResult.resolve([createMockItem({ ratingKey: 'shared-result', durationMs: 60_000 })]);
+
+            await expect(externalResolution).rejects.toBe('request-replaced');
+            await expect(foreground).resolves.toEqual(expect.objectContaining({
+                readiness: 'ready',
+                failedChannelCount: 0,
+            }));
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(channelB.id, expect.anything());
+            expect(epg.setRowLifecycle).not.toHaveBeenCalledWith(
+                channelB.id,
+                expect.objectContaining({ kind: 'unavailable' })
+            );
+            expect(library.getLibraryItems).toHaveBeenCalledTimes(1);
+        } finally {
+            manager.dispose();
+        }
+    });
+
+    it('recovers a real manager row from completed empty source cache on targeted retry', async () => {
+        const library = createMockLibrary();
+        library.getLibraryItems
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([createMockItem({ ratingKey: 'restored-result', durationMs: 60_000 })]);
+        const manager = new ChannelManager({ plexLibrary: library });
+        const channel = {
+            ...makeChannel('guide', 1),
+            contentSource: {
+                type: 'library' as const,
+                libraryId: 'recovering-library',
+                libraryType: 'movie' as const,
+                includeWatched: true,
+            },
+        };
+        await manager.replaceAllChannels([channel]);
+        await expect(manager.resolveChannelContent(channel.id)).rejects.toMatchObject({
+            code: 'CONTENT_UNAVAILABLE',
+        });
+        const { runtime, epg, deps } = createRuntime({
+            getChannelManager: () => manager,
+            getVisibleChannels: () => [channel],
+            isDebugEnabled: () => true,
+        });
+
+        try {
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+            expect(epg.setRowLifecycle).toHaveBeenCalledWith(
+                channel.id,
+                expect.objectContaining({ kind: 'unavailable' })
+            );
+            const rowFailure = (deps.appendIssueDiagnostic as jest.Mock).mock.calls.find(
+                (call) => call[1] === 'epg.scheduleRow.settled'
+            )?.[2];
+            expect(rowFailure).toEqual(expect.objectContaining({
+                failure: expect.objectContaining({
+                    errorClass: 'ChannelError',
+                    errorCode: 'CONTENT_UNAVAILABLE',
+                }),
+            }));
+            const initialCompletion = (deps.appendIssueDiagnostic as jest.Mock).mock.calls.find(
+                (call) => call[1] === 'epg.scheduleRow.requestCompleted'
+            )?.[2];
+            expect(initialCompletion).toEqual(expect.objectContaining({
+                sourceEvents: expect.arrayContaining([
+                    expect.objectContaining({
+                        event: 'result',
+                        outcome: 'success',
+                        itemCount: 0,
+                    }),
+                ]),
+                sourceEventsDropped: 0,
+            }));
+            expect(JSON.stringify(rowFailure)).not.toContain('No content available');
+
+            await runtime.retryChannelSchedule(channel.id);
+
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(channel.id, expect.anything());
+            expect(library.getLibraryItems).toHaveBeenCalledTimes(2);
+            expect(manager.getAllChannels()).toEqual([expect.objectContaining({ id: channel.id })]);
+        } finally {
+            manager.dispose();
+        }
+    });
+
+    it('caps nested source diagnostics within one row completion record', async () => {
+        const manager = new ChannelManager({ plexLibrary: createMockLibrary() });
+        const channel = {
+            ...makeChannel('guide', 1),
+            contentSource: {
+                type: 'mixed' as const,
+                mixMode: 'sequential' as const,
+                sources: Array.from({ length: 5 }, (_, index) => ({
+                    type: 'manual' as const,
+                    items: [{
+                        ratingKey: `private-item-${index}`,
+                        title: `Private title ${index}`,
+                        durationMs: 60_000,
+                    }],
+                })),
+            },
+        };
+        await manager.replaceAllChannels([channel]);
+        const { runtime, deps } = createRuntime({
+            getChannelManager: () => manager,
+            getVisibleChannels: () => [channel],
+            isDebugEnabled: () => true,
+        });
+
+        try {
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+            const completion = (deps.appendIssueDiagnostic as jest.Mock).mock.calls.find(
+                (call) => call[1] === 'epg.scheduleRow.requestCompleted'
+            )?.[2];
+            expect(completion).toEqual(expect.objectContaining({
+                sourceEvents: expect.any(Array),
+                sourceEventsDropped: 4,
+            }));
+            expect(completion.sourceEvents).toHaveLength(8);
+            const diagnosticJson = JSON.stringify(completion);
+            expect(diagnosticJson).not.toContain('private-item');
+            expect(diagnosticJson).not.toContain('Private title');
+        } finally {
+            manager.dispose();
         }
     });
 });

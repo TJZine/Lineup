@@ -12,6 +12,13 @@ import type { PlexMediaType } from '../../../plex/shared/types';
 import type { IDisposable } from '../../../../utils/interfaces';
 import type { OperationContextUpstream } from '../../../../utils/RetainedOperationContext';
 import type { ChannelInitialResolutionAuthorization } from './ChannelResolutionAuthority';
+import type { ObserveSourceResolution } from './SourceResolutionDiagnostic';
+
+export type ChannelContentResolutionOptions = {
+    signal?: AbortSignal | null;
+    cacheMode?: 'default' | 'revalidate';
+    onSourceDiagnostic?: ObserveSourceResolution;
+};
 
 export interface IChannelManager {
     /**
@@ -85,7 +92,7 @@ export interface IChannelManager {
      * Resolve content for a channel (uses cache if valid).
      * @throws ChannelError if channel not found
      */
-    resolveChannelContent(channelId: string, options?: { signal?: AbortSignal | null }): Promise<ResolvedChannelContent>;
+    resolveChannelContent(channelId: string, options?: ChannelContentResolutionOptions): Promise<ResolvedChannelContent>;
 
     /**
      * Force refresh content for a channel (bypasses cache).
@@ -100,7 +107,7 @@ export interface IChannelManager {
      */
     resolveChannelItemsForSchedule(
         channelId: string,
-        options?: { signal?: AbortSignal | null }
+        options?: ChannelContentResolutionOptions
     ): Promise<ResolvedChannelContent['items']>;
 
     /**

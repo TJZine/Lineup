@@ -2749,6 +2749,30 @@ describe('AppOrchestrator', () => {
             expect(mockChannelManager.flushSaves).toHaveBeenCalledTimes(1);
         });
 
+        it('drains shared source producers before flushing saves and disposing dependencies', async () => {
+            let releaseDrain!: () => void;
+            const drain = new Promise<void>((resolve) => { releaseDrain = resolve; });
+            let markStarted!: () => void;
+            const started = new Promise<void>((resolve) => { markStarted = resolve; });
+            mockChannelManager.supersedeActiveResolutions.mockImplementationOnce(() => {
+                markStarted();
+                return drain;
+            });
+            const shutdown = orchestrator.shutdown();
+            try {
+                await started;
+                expect(mockChannelManager.supersedeActiveResolutions).toHaveBeenCalledTimes(1);
+                expect(mockChannelManager.flushSaves).not.toHaveBeenCalled();
+                expect(mockChannelManager.dispose).not.toHaveBeenCalled();
+                expect(mockVideoPlayer.destroy).not.toHaveBeenCalled();
+            } finally {
+                releaseDrain();
+                await shutdown;
+            }
+            expect(mockChannelManager.flushSaves).toHaveBeenCalledTimes(1);
+            expect(mockChannelManager.dispose).toHaveBeenCalledTimes(1);
+        });
+
         it('disposes channel manager on shutdown', async () => {
             await orchestrator.shutdown();
 

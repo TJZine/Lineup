@@ -14,7 +14,21 @@
   and
   [`checkpoints.json`](../qa/evidence/2026-09-03-guide-schedule-loading-physical-validation/checkpoints.json)
 
-## Next Session Orchestrator Handoff
+## 2026-09-05 Remediation Authority
+
+The fresh-build physical failures keep P2 open. The user subsequently delegated
+remediation scope decisions to the controller and authorized implementation,
+independent review, verification, and bounded LG C3 QA. The current
+[adjudication and execution brief](../qa/reports/2026-09-05-guide-pro-adjudication.md)
+governs that repair: shared source producer ownership/admission/drain, targeted
+source revalidation, composed Guide settlement proof, and bounded diagnostics.
+This narrowly supersedes the historical QA-only/no-production-edit handoff and
+source-resolution non-goal below. It does not authorize startup UI, collection
+repair, schedule continuity, a Guide redesign, or speculative performance tuning.
+Phase 5's operator cadence and fixture safeguards remain in force. Physical QA
+must use the resulting exact development implementation commit. No release.
+
+## Historical Next Session Orchestrator Handoff
 
 Copy this prompt into the next session:
 

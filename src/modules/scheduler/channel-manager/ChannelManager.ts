@@ -23,7 +23,13 @@ import {
 } from './resolution/ChannelResolutionErrorPolicy';
 import { cloneChannelForOwnership } from './authoring/ChannelDomainClone';
 import { ChannelError } from './ChannelErrors';
-import type { IChannelManager, ChannelCreateOptions, ChannelManagerConfig, IPlexLibraryMinimal } from './contracts/interfaces';
+import type {
+    ChannelContentResolutionOptions,
+    IChannelManager,
+    ChannelCreateOptions,
+    ChannelManagerConfig,
+    IPlexLibraryMinimal,
+} from './contracts/interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
     ChannelConfig,
@@ -55,8 +61,7 @@ const RESOLUTION_AFFECTING_UPDATE_FIELDS: readonly (keyof ChannelUpdateInput)[] 
     'shuffleSeed',
 ];
 
-type ChannelResolutionOptions = {
-    signal?: AbortSignal | null;
+type ChannelResolutionOptions = ChannelContentResolutionOptions & {
     shouldApply?: () => boolean;
     operationContext?: ChannelResolutionLease;
 };
@@ -199,8 +204,9 @@ export class ChannelManager implements IChannelManager {
 
     async supersedeActiveResolutions(): Promise<void> {
         this._retryScheduler.cancelAll();
+        const consumerDrain = this._resolutionOperations.supersedeAndDrain();
         this._contentResolver.clearCaches();
-        await this._resolutionOperations.supersedeAndDrain();
+        await Promise.all([consumerDrain, this._contentResolver.whenIdle()]);
     }
 
     resumeActiveResolutions(): void {
@@ -415,7 +421,7 @@ export class ChannelManager implements IChannelManager {
      */
     async resolveChannelContent(
         channelId: string,
-        options?: { signal?: AbortSignal | null }
+        options?: ChannelContentResolutionOptions
     ): Promise<ResolvedChannelContent> {
         this._resolutionOperations.assertGeneralAdmission();
         const channel = this._state.channels.get(channelId);
@@ -423,7 +429,9 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
-        const cached = this._resolutionCache.get(channelId);
+        const cached = options?.cacheMode === 'revalidate'
+            ? null
+            : this._resolutionCache.get(channelId);
         if (cached && !this._resolutionCache.isStale(cached)) {
             // Return cloned content so callers cannot mutate internal cache state.
             return this._resolutionCache.cloneContent(cached, {
@@ -457,7 +465,7 @@ export class ChannelManager implements IChannelManager {
 
     async resolveChannelItemsForSchedule(
         channelId: string,
-        options?: { signal?: AbortSignal | null }
+        options?: ChannelContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         this._resolutionOperations.assertGeneralAdmission();
         const channel = this._state.channels.get(channelId);
@@ -465,7 +473,9 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
-        const cached = this._resolutionCache.get(channelId);
+        const cached = options?.cacheMode === 'revalidate'
+            ? null
+            : this._resolutionCache.get(channelId);
         if (cached && !this._resolutionCache.isStale(cached)) {
             return this._resolutionCache.cloneItems(cached.items);
         }
@@ -650,6 +660,8 @@ export class ChannelManager implements IChannelManager {
         const rawItems = await this._contentResolver.resolveSource(channel.contentSource, {
             ...(options.signal !== undefined ? { signal: options.signal } : {}),
             operationContext: options.operationContext,
+            ...(options.cacheMode !== undefined ? { cacheMode: options.cacheMode } : {}),
+            ...(options.onSourceDiagnostic ? { onSourceDiagnostic: options.onSourceDiagnostic } : {}),
         });
         options.operationContext.assertCurrent();
 
@@ -766,7 +778,9 @@ export class ChannelManager implements IChannelManager {
             );
         }
         const operation = options.operationContext;
-        const cached = this._resolutionCache.get(channel.id);
+        const cached = options?.cacheMode === 'revalidate'
+            ? null
+            : this._resolutionCache.get(channel.id);
 
         try {
             const items = await this._resolveFilteredItems(channel, options);
@@ -826,7 +840,9 @@ export class ChannelManager implements IChannelManager {
         }
         const operation = options.operationContext;
         operation.assertCurrent();
-        const cached = this._resolutionCache.get(channel.id);
+        const cached = options?.cacheMode === 'revalidate'
+            ? null
+            : this._resolutionCache.get(channel.id);
 
         try {
             const items = await this._resolveFilteredItems(channel, options);

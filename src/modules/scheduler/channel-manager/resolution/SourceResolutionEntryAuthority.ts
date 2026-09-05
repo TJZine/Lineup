@@ -12,6 +12,7 @@ export type SourceResolutionScopeAuthority = Readonly<{
 
 export interface SourceResolutionOperationContext extends RetainedOperationLease {
     readonly authority: SourceResolutionScopeAuthority;
+    readonly commonScope: SourceResolutionScope;
     retain(label: string): SourceResolutionOperationContext;
 }
 
@@ -20,6 +21,10 @@ export class SourceResolutionScope implements SourceResolutionOperationContext {
         [sourceResolutionScopeBrand]: true as const,
     });
     private readonly _context: RetainedOperationContext;
+
+    get commonScope(): SourceResolutionScope {
+        return this;
+    }
 
     constructor(upstreams: readonly OperationContextUpstream[]) {
         this._context = new RetainedOperationContext(upstreams);
@@ -37,6 +42,7 @@ export class SourceResolutionScope implements SourceResolutionOperationContext {
         const lease = this._context.retain(label);
         return {
             authority: this.authority,
+            commonScope: this,
             signal: lease.signal,
             assertCurrent: (): void => lease.assertCurrent(),
             release: (): void => lease.release(),
@@ -72,6 +78,7 @@ export class SourceResolutionEntryAuthority implements RetainedOperationLease {
         const lease = this._context.retain(label);
         return {
             authority: this.scope.authority,
+            commonScope: this.scope.commonScope,
             signal: lease.signal,
             assertCurrent: (): void => lease.assertCurrent(),
             release: (): void => lease.release(),

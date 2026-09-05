@@ -343,7 +343,7 @@ describe('EPGRefreshController', () => {
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
             'epg.scheduleRefresh.settled',
-            expect.objectContaining({ networkRequestCount: 1 })
+            expect.objectContaining({ resolutionAttemptCount: 1 })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });
@@ -458,7 +458,7 @@ describe('EPGRefreshController', () => {
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
             'epg.scheduleRefresh.settled',
-            expect.objectContaining({ networkRequestCount: 1 })
+            expect.objectContaining({ resolutionAttemptCount: 1 })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });

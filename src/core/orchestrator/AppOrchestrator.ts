@@ -859,6 +859,10 @@ export class AppOrchestrator {
         this._eventBinder = null;
 
         const channelManager = this._channelManager;
+        if (channelManager) {
+            await teardown.runAsync('channelManager.supersedeActiveResolutions', () =>
+                channelManager.supersedeActiveResolutions());
+        }
         const flushChannelSaves = channelManager?.flushSaves;
         if (flushChannelSaves) {
             await teardown.runAsync('channelManager.flushSaves', () => flushChannelSaves.call(channelManager));
