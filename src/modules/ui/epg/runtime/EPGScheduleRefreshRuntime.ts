@@ -355,11 +355,6 @@ export class EPGScheduleRefreshRuntime {
                 return;
             }
         }
-        const currentLifecycle = epg.getRowLifecycle(channelId);
-        if (currentLifecycle && currentLifecycle.kind === 'retrying' && !existing) {
-            // Retrying flag without backing attempt (e.g. after invalidation); fall through
-            // to start one targeted attempt rather than wedging the row in Retrying....
-        }
         const operation = options?.operationContext
             ? options.operationContext.retain('manual-retry')
             : createEpgRetainedOperationContext([]);
