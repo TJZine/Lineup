@@ -1,0 +1,628 @@
+{
+  "date": "2026-09-05",
+  "status": "fresh_onboarding_cold_start_failure_preserved",
+  "p2Closed": false,
+  "repositoryHead": "57d7a2a4a4cc80b96d4939eb2405292841559424",
+  "testedDeviceCommit": "57d7a2a4a4cc80b96d4939eb2405292841559424",
+  "installedDevelopmentArtifact": {
+    "buildSucceeded": true,
+    "installSucceeded": true,
+    "launchSucceeded": true,
+    "profile": "dev",
+    "packageSha256": "760b03ca1486dc70244743f556a07bd5c11b401734c96307e4d528f53517719b",
+    "runningEntrySha256": "0f18814aa451edd3e640ac4f96605a041c269644fb52cb853d3a51fa3a8729b5",
+    "runningEntryMatchesManifest": true,
+    "fatalOverlay": false,
+    "videoPaused": false,
+    "videoReadyState": 4,
+    "physicalPostInstallConfirmation": {
+      "pictureGood": true,
+      "soundGood": true,
+      "source": "operator_report"
+    }
+  },
+  "operatorAccess": "inspector_existing_owner_methods_verified",
+  "blocker": "Same real-row startup failure reproduced on operator-rebuilt lineup without developer restoration between build and cold launch. Diagnosis/remediation decision required; P2 open.",
+  "realRowDiagnosis": {
+    "allFiveKeysPresentInOriginalLibrary": true,
+    "allFiveNamesMatchUniquely": true,
+    "sourcesMatchBackup": true,
+    "listedItemCounts": [
+      181,
+      127,
+      127,
+      96,
+      96
+    ],
+    "distinctSourceRetrievalCounts": [
+      181,
+      127,
+      96
+    ],
+    "directChannelResolutionNumbers": [
+      2,
+      3,
+      5
+    ],
+    "directChannelResolutionSucceeded": true,
+    "originalFailureStage": "resolution",
+    "originalFailureElapsedMsRange": [
+      36,
+      39
+    ],
+    "abortSignalCompatibilityProbePassed": true,
+    "cacheResetReproductionErrorCount": 0,
+    "coldGuideAndFailedTuneOverlapRealRowErrorCount": 0,
+    "overlapDisposableErrorCode": "CONTENT_UNAVAILABLE",
+    "temporaryResolutionWrappersRemoved": true,
+    "finalRows2Through6HaveSchedules": true,
+    "finalRows2Through6LoadingOrUnavailable": false,
+    "originalCauseEstablished": false,
+    "laterOperatorRecurrence": [
+      5,
+      6
+    ]
+  },
+  "interruptedTerminalTest": {
+    "numberEntryAttemptedTune": true,
+    "guideFocusMovesOnlyOnSuccessfulTune": true,
+    "currentChannelNumber": 1,
+    "unavailableRealChannelNumbers": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "allAffectedSourcesAreCollections": true,
+    "disposableRowReached": false,
+    "captureTimerStopped": true,
+    "guideVisible": true,
+    "videoPaused": false,
+    "videoReadyState": 4,
+    "fatalOverlay": false
+  },
+  "deviceActionsPerformed": [
+    "connected_inspector",
+    "reset_active_setup_marker",
+    "reloaded_app_page"
+  ],
+  "launchCommandIssued": true,
+  "startupError": {
+    "evidenceSource": "operator_report_and_inspector_dom",
+    "message": "Initial channel switch failed for [channel]: content_unavailable.",
+    "installedArtifactIdentityVerified": false,
+    "cause": null,
+    "statePreservation": "Preserved through diagnosis; subsequently reloaded after operator-authorized setup-marker reset"
+  },
+  "fixtureMutated": true,
+  "activeDisposableFixture": {
+    "channelCount": 391,
+    "disposableNumber": 391,
+    "currentChannelUnchanged": true,
+    "saveFlushed": true,
+    "guideReprimed": true,
+    "active": false
+  },
+  "setupReset": {
+    "staleLineupBackupWaivedByOperator": true,
+    "onlyActiveServerProfileSetupMarkerRemoved": true,
+    "authenticationVerifiedUnchangedBeforeReload": true,
+    "fatalOverlayAfterReload": false,
+    "channelSetupVisibleAfterReload": true,
+    "debugApiAvailableAfterReload": true,
+    "lineupRebuildCompleted": true,
+    "buildScreenChannelCount": 390,
+    "doneFocused": true,
+    "warningMentionOnBuildScreen": false,
+    "donePressed": true,
+    "playbackAfterRebuildVerified": true,
+    "playbackEvidenceSource": "operator_report",
+    "playbackPerceivedTiming": "fast",
+    "visibleGuideRowsLoadedOnOpen": true,
+    "pictureSoundIssuesReported": false,
+    "visibleErrorsReported": false,
+    "instrumentedOpeningTiming": null
+  },
+  "backupProof": {
+    "publicExportUsed": true,
+    "channelCount": 390,
+    "uniqueChannelIds": 390,
+    "currentChannelPresent": true,
+    "sha256": "30ff78cd48795a4fdb95c31e45e0f22ef56258f354c10e61dc2b45095a1f4523",
+    "operatorFileSaved": true,
+    "diskFileVerified": true,
+    "restorePathVerified": true
+  },
+  "restoreProof": {
+    "preInjectionRoundTripPassed": true,
+    "sha256MatchesBackup": true,
+    "saveFlushed": true,
+    "guideReprimed": true,
+    "finalRestorePending": false,
+    "publicReplacementCompleted": true,
+    "preRelaunchSha256MatchesBackup": true,
+    "disposableAbsent": true,
+    "coldCloseAndLaunchSucceeded": true,
+    "postRelaunchCount": 390,
+    "postRelaunchCurrentChannelNumber": 1,
+    "postRelaunchSha256": "3e2e0f37c17cd792bdca33a06fa8cd66cc00f0bad185664db5df665d08b75501",
+    "postRelaunchSha256MatchesBackup": false,
+    "backupRetained": true,
+    "postRelaunchVideoPaused": false,
+    "postRelaunchVideoReadyState": 4,
+    "postRelaunchFatalOverlay": false,
+    "normalizedSha256": "3cbcd6dd9904c3e360b135f814899ded2b67651701e0c3de4c4ad5f7f04f8b02",
+    "normalization": "Recursively sort object keys and exclude only each channel lastContentRefresh; preserve array order and all other values",
+    "normalizedPostRelaunchMatchesBackup": true,
+    "rawChecksumExceptionAcceptedByOperator": true
+  },
+  "terminalCheckpoints": [
+    {
+      "targetMs": 0,
+      "elapsedMs": 8,
+      "guideVisible": true,
+      "testCells": 1,
+      "testState": "unavailable",
+      "domFocusOnTest": false,
+      "focusedChannelIndex": 390,
+      "currentChannelNumber": 390,
+      "videoTime": 1802.955,
+      "videoPaused": false,
+      "fatalOverlay": false
+    },
+    {
+      "targetMs": 30000,
+      "elapsedMs": 30017,
+      "guideVisible": true,
+      "testCells": 1,
+      "testState": "unavailable",
+      "domFocusOnTest": false,
+      "focusedChannelIndex": 390,
+      "currentChannelNumber": 390,
+      "videoTime": 1832.92,
+      "videoPaused": false,
+      "fatalOverlay": false
+    },
+    {
+      "targetMs": 60000,
+      "elapsedMs": 60009,
+      "guideVisible": true,
+      "testCells": 1,
+      "testState": "unavailable",
+      "domFocusOnTest": false,
+      "focusedChannelIndex": 390,
+      "currentChannelNumber": 390,
+      "videoTime": 1862.91,
+      "videoPaused": false,
+      "fatalOverlay": false
+    },
+    {
+      "targetMs": 180000,
+      "elapsedMs": 180004,
+      "guideVisible": true,
+      "testCells": 1,
+      "testState": "unavailable",
+      "domFocusOnTest": false,
+      "focusedChannelIndex": 390,
+      "currentChannelNumber": 390,
+      "videoTime": 1982.906,
+      "videoPaused": false,
+      "fatalOverlay": false
+    }
+  ],
+  "coldRelaunches": [
+    {
+      "scenario": "operator immediate Guide opening after coordinated CLI cold close/launch",
+      "closeSucceeded": true,
+      "launchSucceeded": true,
+      "operatorReport": "Settled but several rows show Unavailable OK to retry; unexpected and regression from previous behavior",
+      "firstRefreshFromNavigationStartMs": 5717.4,
+      "warmupPreemptionProven": false,
+      "firstRefreshInvalidatedOrdinals": [
+        2,
+        3,
+        4
+      ],
+      "secondRefreshFailedOrdinals": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "failureStage": "resolution",
+      "errorKind": "non-abort",
+      "failureElapsedMs": [
+        50,
+        53,
+        45,
+        45,
+        46,
+        46,
+        48,
+        55
+      ],
+      "refreshSummary": {
+        "elapsedMs": 516,
+        "failedChannelCount": 8,
+        "networkRequestCount": 15,
+        "visibleReadyChannelCount": 2,
+        "visibleUnavailableChannelCount": 5,
+        "backgroundChannelCount": 96
+      },
+      "laterDomSnapshot": {
+        "sinceLaunchMs": 81864.4,
+        "programCells": 8,
+        "unavailable": 4,
+        "loading": 0,
+        "ready": 4,
+        "videoPaused": false,
+        "videoReadyState": 4,
+        "fatalOverlay": false
+      },
+      "deviceStatePreserved": true
+    },
+    {
+      "scenario": "fresh normal-onboarding lineup, operator immediate Guide open",
+      "preLaunchOperatorPlaybackAndGuideHealthy": true,
+      "developerReplacementBetweenBuildAndLaunch": false,
+      "closeSucceeded": true,
+      "launchSucceeded": true,
+      "operatorSameFailureConfirmed": true,
+      "firstRefreshFromNavigationStartMs": 5715.4,
+      "invalidatedOrdinals": [
+        2,
+        3,
+        4
+      ],
+      "failedOrdinals": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "failureStage": "resolution",
+      "failureElapsedMs": [
+        59,
+        56,
+        48,
+        46,
+        43,
+        42,
+        47,
+        52
+      ],
+      "refreshSummary": {
+        "elapsedMs": 764,
+        "failedChannelCount": 8,
+        "networkRequestCount": 15,
+        "visibleReadyChannelCount": 2,
+        "visibleUnavailableChannelCount": 5,
+        "backgroundChannelCount": 96
+      },
+      "snapshot": {
+        "sinceLaunchMs": 45989.9,
+        "cells": 8,
+        "unavailable": 4,
+        "loading": 0,
+        "ready": 4,
+        "videoPaused": false,
+        "videoReadyState": 4,
+        "fatalOverlay": false
+      },
+      "statePreserved": true,
+      "rootCauseEstablished": false
+    }
+  ],
+  "rangeSamples": [
+    {
+      "targetNumber": 10,
+      "firstSampleMs": 86.9,
+      "firstLoading": 0,
+      "firstUnavailable": 4,
+      "firstReady": 8,
+      "lastSampleMs": 5182.6,
+      "lastLoading": 0,
+      "lastUnavailable": 4,
+      "lastReady": 8
+    },
+    {
+      "targetNumber": 100,
+      "firstSampleMs": 63.8,
+      "firstLoading": 8,
+      "firstUnavailable": 0,
+      "firstReady": 0,
+      "lastSampleMs": 5224.1,
+      "lastLoading": 0,
+      "lastUnavailable": 0,
+      "lastReady": 25
+    },
+    {
+      "targetNumber": 155,
+      "firstSampleMs": 132.7,
+      "firstLoading": 8,
+      "firstUnavailable": 0,
+      "firstReady": 0,
+      "lastSampleMs": 5368.7,
+      "lastLoading": 0,
+      "lastUnavailable": 0,
+      "lastReady": 34
+    },
+    {
+      "targetNumber": 265,
+      "firstSampleMs": 167,
+      "firstLoading": 8,
+      "firstUnavailable": 0,
+      "firstReady": 0,
+      "lastSampleMs": 5446.5,
+      "lastLoading": 0,
+      "lastUnavailable": 0,
+      "lastReady": 15
+    },
+    {
+      "targetNumber": 340,
+      "firstSampleMs": 101.8,
+      "firstLoading": 8,
+      "firstUnavailable": 0,
+      "firstReady": 0,
+      "lastSampleMs": 5487.1,
+      "lastLoading": 8,
+      "lastUnavailable": 0,
+      "lastReady": 0
+    },
+    {
+      "targetNumber": 265,
+      "firstSampleMs": 178.5,
+      "firstLoading": 0,
+      "firstUnavailable": 0,
+      "firstReady": 17,
+      "lastSampleMs": 5219,
+      "lastLoading": 0,
+      "lastUnavailable": 0,
+      "lastReady": 17
+    },
+    {
+      "targetNumber": 155,
+      "firstSampleMs": 229.7,
+      "firstLoading": 1,
+      "firstUnavailable": 0,
+      "firstReady": 27,
+      "lastSampleMs": 5419.9,
+      "lastLoading": 0,
+      "lastUnavailable": 0,
+      "lastReady": 34
+    },
+    {
+      "targetNumber": 100,
+      "firstSampleMs": 213.6,
+      "firstLoading": 0,
+      "firstUnavailable": 0,
+      "firstReady": 36,
+      "lastSampleMs": 5245.7,
+      "lastLoading": 0,
+      "lastUnavailable": 0,
+      "lastReady": 36
+    },
+    {
+      "targetNumber": 10,
+      "firstSampleMs": 171.9,
+      "firstLoading": 0,
+      "firstUnavailable": 1,
+      "firstReady": 13,
+      "lastSampleMs": 5184.7,
+      "lastLoading": 0,
+      "lastUnavailable": 1,
+      "lastReady": 13
+    }
+  ],
+  "retryMetrics": {
+    "invalidSource": {
+      "operatorReport": "Possibly saw retrying briefly, then unavailable",
+      "states": [
+        {
+          "elapsedMs": 32,
+          "state": "unavailable",
+          "focusIndex": 390
+        },
+        {
+          "elapsedMs": 224927,
+          "state": "retrying",
+          "focusIndex": 390
+        },
+        {
+          "elapsedMs": 225060,
+          "state": "unavailable",
+          "focusIndex": 390
+        }
+      ],
+      "retryingDurationMs": 133,
+      "observedTargetCollectionRequests": 1,
+      "observedOtherCollectionRequests": 0,
+      "requestDurationMs": 76.1,
+      "guideVisible": true,
+      "focusIndex": 390,
+      "currentChannelNumber": 390,
+      "videoPaused": false,
+      "fatalOverlay": false,
+      "physicalPictureSoundConfirmationPending": true
+    },
+    "validSource": {
+      "input": "browser-generated DOM Enter keydown/keyup; operator authorized unattended actions",
+      "sourceRestoredThroughPublicOwner": true,
+      "saveFlushed": true,
+      "guideReprimed": true,
+      "siblingsUnchanged": true,
+      "currentUnchanged": true,
+      "states": [
+        {
+          "elapsedMs": 3,
+          "state": "unavailable",
+          "focusIndex": 390
+        },
+        {
+          "elapsedMs": 81,
+          "state": "retrying",
+          "focusIndex": 390
+        },
+        {
+          "elapsedMs": 582,
+          "state": "schedule",
+          "focusIndex": 390
+        }
+      ],
+      "observedCollectionRequests": 1,
+      "requestDurationMs": 319.4,
+      "guideVisible": true,
+      "focusIndex": 390,
+      "currentChannelNumber": 390,
+      "videoPaused": false,
+      "fatalOverlay": false
+    }
+  },
+  "resourceMetrics": {
+    "retainedRefreshBackgroundChannelCount": 96,
+    "scope": "Observed retained refresh summaries; not a maximum-concurrency proof",
+    "maximumConcurrency": null,
+    "startupTierOrder": null,
+    "oldAndCurrentLaunchEntriesMixed": true
+  },
+  "physicalFocusPlaybackPip": {
+    "source": "operator report after requested Up/Down batch at 340",
+    "focusMoved": true,
+    "audioIssuesReported": false,
+    "visualIssuesReported": false,
+    "channelSelectionPerformed": false,
+    "exactOneRowEachWayAndReturnNotExplicitlyConfirmed": true,
+    "pipSeparatelyConfirmed": false
+  },
+  "productionCodeChanged": false,
+  "releaseDeploymentPerformed": false,
+  "privateFixtureContentCaptured": false,
+  "connectivityChecks": {
+    "savedAndObservedOriginsMatch": false,
+    "initialMetadataCheck": "stopped_before_request_by_origin_guard",
+    "observedOriginIdentity": "fetch_failed",
+    "savedOriginIdentity": "fetch_failed_not_timeout",
+    "inspectorTransportError": "ERR_ADDRESS_UNREACHABLE",
+    "authenticatedCollectionRequestsSent": 0,
+    "collectionExistenceVerified": false,
+    "debugApiAvailable": false,
+    "afterOperatorConnectivityRestore": {
+      "identityStatusBothAddresses": 200,
+      "bothIdentitiesMatchSelectedServer": true,
+      "collectionMetadataStatusBothAddresses": 404,
+      "libraryListingStatus": 200,
+      "accessibleVideoLibraryCount": 6,
+      "collectionListingStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "collectionCounts": [
+        1,
+        73,
+        10,
+        32,
+        0,
+        0
+      ],
+      "allCountsMatchReportedTotals": true,
+      "failedCollectionKeyPresent": false
+    }
+  },
+  "terminalCheckpointTimebase": "Observation began after settled disposable row was reached; not initial Guide reveal/request",
+  "browserNavigation": {
+    "input": "synthetic DOM arrow keydown/keyup",
+    "orderedKeys": [
+      "ArrowUp",
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowDown"
+    ],
+    "observedFocusIndices": [
+      388,
+      386,
+      388,
+      0
+    ],
+    "unexpected": true,
+    "causeEstablished": false,
+    "physicalVerificationPending": true
+  },
+  "warmOpening": {
+    "input": "public EPGCoordinator.openEPG after cold relaunch and additional measured stable playback",
+    "preOpenVideoAdvanceSeconds": 10.037,
+    "samples": [
+      {
+        "elapsedMs": 277.1,
+        "loading": 5,
+        "unavailable": 0,
+        "ready": 2
+      },
+      {
+        "elapsedMs": 567.2,
+        "loading": 5,
+        "unavailable": 0,
+        "ready": 2
+      },
+      {
+        "elapsedMs": 1327.1,
+        "loading": 0,
+        "unavailable": 5,
+        "ready": 3
+      },
+      {
+        "elapsedMs": 5251,
+        "loading": 0,
+        "unavailable": 5,
+        "ready": 3
+      }
+    ],
+    "focusIndex": 0,
+    "videoPaused": false,
+    "zeroLoadingFirstCheckpointPassed": false,
+    "performanceTargetsPassed": false,
+    "timingIsSampledUpperBound": true
+  },
+  "rangeSampleMethod": "Existing public EPG focusChannel; screen-intersecting DOM program-cell counts, not unique row counts; sampled times are bounds; all focus indices matched target minus one and playback unpaused",
+  "extendedRange340": {
+    "samples": [
+      {
+        "elapsedMs": 79.8,
+        "loading": 8,
+        "ready": 0
+      },
+      {
+        "elapsedMs": 1109.8,
+        "loading": 8,
+        "ready": 0
+      },
+      {
+        "elapsedMs": 10384.7,
+        "loading": 4,
+        "ready": 21
+      },
+      {
+        "elapsedMs": 75580.2,
+        "loading": 0,
+        "ready": 39
+      }
+    ],
+    "unavailableAllSamples": 0,
+    "focusIndex": 339,
+    "videoPausedAllSamples": false,
+    "tenSecondTargetPassed": false,
+    "exactSettlementTimeUnknown": true
+  }
+}
