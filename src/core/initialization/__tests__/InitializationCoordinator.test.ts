@@ -15,6 +15,7 @@ import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
 import type { PlexSavedServerRestoreResult } from '../../../modules/plex/discovery';
+import { advanceTimersUntil } from '../../../__tests__/helpers';
 
 const SKIPPED_SAVED_SERVER_RESTORE = { kind: 'skipped_no_saved_server' } as const;
 const createSelectedSavedServerRestore = (): Extract<
@@ -1526,14 +1527,18 @@ describe('InitializationCoordinator (Plex Home)', () => {
         }
     });
 
-    it('drains an EPG warmup that fired before quarantine preparation', async () => {
+    it('cancels EPG readiness while draining warmup for quarantine preparation', async () => {
         jest.useFakeTimers();
-        let releaseWarmup!: () => void;
+        let readinessSignal: AbortSignal | null = null;
         const epgReadiness = {
-            ensureReady: jest.fn(() => new Promise<void>((resolve) => { releaseWarmup = resolve; })),
+            ensureReady: jest.fn((signal?: AbortSignal | null) => new Promise<void>((_resolve, reject) => {
+                readinessSignal = signal ?? null;
+                signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+            })),
         } as NonNullable<InitializationDependencies['readiness']['epg']>;
         const {
             coordinator,
+            callbacks,
             mocks: { plexDiscovery },
         } = makeCoordinator({ modules: { epg: { initialize: jest.fn() } as unknown as InitializationDependencies['modules']['epg'] }, readiness: { epg: epgReadiness } });
         try {
@@ -1546,12 +1551,12 @@ describe('InitializationCoordinator (Plex Home)', () => {
             const preparation = coordinator.prepareForSelectedServerQuarantine();
             let prepared = false;
             void preparation.then(() => { prepared = true; });
-            await Promise.resolve();
-            expect(prepared).toBe(false);
-
-            releaseWarmup();
+            await advanceTimersUntil(() => expect(prepared).toBe(true), { stepMs: 1, timeoutMs: 10 });
             await preparation;
+
+            expect((readinessSignal as AbortSignal | null)?.aborted).toBe(true);
             expect(prepared).toBe(true);
+            expect(callbacks.epgWarmup.warmCurrentViewportForStartup).not.toHaveBeenCalled();
         } finally {
             jest.useRealTimers();
         }
@@ -1675,6 +1680,48 @@ describe('InitializationCoordinator (Plex Home)', () => {
 
             const wasAborted = (observedSignal as AbortSignal | null)?.aborted === true;
             expect(wasAborted).toBe(true);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('cancels pending EPG readiness and drains it for shutdown', async () => {
+        jest.useFakeTimers();
+        let readinessSignal: AbortSignal | null = null;
+        const epgReadiness = {
+            ensureReady: jest.fn((signal?: AbortSignal | null) => new Promise<void>((_resolve, reject) => {
+                readinessSignal = signal ?? null;
+                signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+            })),
+        } as NonNullable<InitializationDependencies['readiness']['epg']>;
+        const {
+            coordinator,
+            callbacks,
+            mocks: { plexDiscovery },
+        } = makeCoordinator({
+            modules: {
+                epg: { initialize: jest.fn() } as unknown as InitializationDependencies['modules']['epg'],
+            },
+            readiness: { epg: epgReadiness },
+        });
+        try {
+            plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
+            plexDiscovery.isConnected.mockReturnValue(true);
+            await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
+            await jest.advanceTimersByTimeAsync(1500);
+            expect(epgReadiness.ensureReady).toHaveBeenCalledTimes(1);
+
+            const drainage = coordinator.drainEpgWarmupForShutdown();
+            let drained = false;
+            void drainage.then(() => { drained = true; });
+            await advanceTimersUntil(() => expect(drained).toBe(true), { stepMs: 1, timeoutMs: 10 });
+            await drainage;
+
+            expect((readinessSignal as AbortSignal | null)?.aborted).toBe(true);
+            expect(callbacks.epgWarmup.warmCurrentViewportForStartup).not.toHaveBeenCalled();
+            expect(callbacks.status.updateModuleStatus.mock.calls.some(
+                ([id, status]) => id === 'epg-ui' && (status === 'ready' || status === 'error')
+            )).toBe(false);
         } finally {
             jest.useRealTimers();
         }

@@ -97,7 +97,7 @@ export interface IEPGComponent {
 }
 
 export interface IEPGReadinessPort {
-    ensureReady(): Promise<void>;
+    ensureReady(signal?: AbortSignal | null): Promise<void>;
 }
 
 export interface IEPGInfoPanel {

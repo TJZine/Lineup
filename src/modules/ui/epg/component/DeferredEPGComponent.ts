@@ -1,4 +1,5 @@
 import { EventEmitter } from '../../../../utils/EventEmitter';
+import { readAbortSignalReason } from '../../../../utils/abortSignalReason';
 import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
 import {
     isMatchingEpgChannelSnapshot,
@@ -58,7 +59,10 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         this._loader = loader;
     }
 
-    async ensureReady(): Promise<void> {
+    async ensureReady(signal?: AbortSignal | null): Promise<void> {
+        if (signal?.aborted) {
+            throw readAbortSignalReason(signal);
+        }
         if (this._destroyed) {
             return;
         }
@@ -78,13 +82,38 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
             });
         }
 
-        await this._runtimeLoadPromise;
+        await (signal
+            ? this._awaitRuntimeLoadOrAbort(this._runtimeLoadPromise, signal)
+            : this._runtimeLoadPromise);
 
+        if (signal?.aborted) {
+            throw readAbortSignalReason(signal);
+        }
         if (this._destroyed) {
             return;
         }
 
         this._initializeRuntimeIfPossible();
+    }
+
+    private _awaitRuntimeLoadOrAbort(load: Promise<void>, signal: AbortSignal): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            let settled = false;
+            const finish = (settle: () => void): void => {
+                if (settled) return;
+                settled = true;
+                signal.removeEventListener('abort', onAbort);
+                settle();
+            };
+            const onAbort = (): void => finish(() => reject(readAbortSignalReason(signal)));
+
+            signal.addEventListener('abort', onAbort, { once: true });
+            void load.then(
+                () => finish(resolve),
+                (error: unknown) => finish(() => reject(error))
+            );
+            if (signal.aborted) onAbort();
+        });
     }
 
     initialize(config: EPGConfig): void {

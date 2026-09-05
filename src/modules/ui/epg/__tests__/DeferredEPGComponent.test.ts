@@ -286,6 +286,31 @@ describe('DeferredEPGComponent', () => {
         expect(loader).toHaveBeenCalledTimes(1);
     });
 
+    it('settles an aborted readiness wait without replaying initialization and keeps the load reusable', async () => {
+        const initialize = jest.fn();
+        let resolveLoader!: (value: { EPGComponent: new () => IEPGComponent }) => void;
+        const loader = jest.fn(() => new Promise<{ EPGComponent: new () => IEPGComponent }>((resolve) => {
+            resolveLoader = resolve;
+        }));
+        const component = new DeferredEPGComponent(loader as never);
+        const controller = new AbortController();
+        const abortReason = new DOMException('EPG readiness cancelled', 'AbortError');
+        component.initialize(makeConfig());
+
+        const readiness = component.ensureReady(controller.signal);
+        controller.abort(abortReason);
+
+        await expect(readiness).rejects.toBe(abortReason);
+        resolveLoader({ EPGComponent: createFakeRuntime({ initialize }) });
+        await flushPromises(4);
+
+        expect(initialize).not.toHaveBeenCalled();
+        await component.ensureReady();
+        expect(initialize).toHaveBeenCalledTimes(1);
+        expect(loader).toHaveBeenCalledTimes(1);
+        component.destroy();
+    });
+
     it('bridges runtime events and removes bridges on destroy', async () => {
         const runtimeHandlers = new Map<string, Array<(payload: unknown) => void>>();
         const destroy = jest.fn();

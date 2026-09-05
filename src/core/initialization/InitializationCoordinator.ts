@@ -405,8 +405,8 @@ export class InitializationCoordinator {
     isStartupInProgress(): boolean {
         return this._startupInProgress;
     }
-    async ensureEPGInitialized(): Promise<void> {
-        await this._initializeEpg();
+    async ensureEPGInitialized(signal?: AbortSignal | null): Promise<void> {
+        await this._initializeEpg({ signal });
     }
     clearAuthResume(): void {
         this._cancelEpgWarmup();
@@ -666,7 +666,7 @@ export class InitializationCoordinator {
             }
             throwIfStartupAborted(signal);
             epg.initialize(epgConfigWithResolver);
-            await this._deps.readiness.epg?.ensureReady();
+            await this._deps.readiness.epg?.ensureReady(signal);
             throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus(
                 'epg-ui',
@@ -748,7 +748,7 @@ export class InitializationCoordinator {
                     return;
                 }
                 try {
-                    await this.ensureEPGInitialized();
+                    await this.ensureEPGInitialized(abortController.signal);
                 } catch {
                     return;
                 }
