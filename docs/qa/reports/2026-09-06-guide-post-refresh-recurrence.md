@@ -275,3 +275,22 @@ launched once successfully for the final persistence batch. Fresh Inspector is
 attached, with its new-origin paste warning pending operator input. No package
 change accompanied this restart. Physical playback and repaired-row behavior
 after this restart remain pending.
+
+## Final relaunch persistence result and preload explanation
+
+The restarted manifest still identifies `7e716692`; timeOrigin changed to
+1788703199879.3. All 390 channel configurations retain the canonical baseline
+fingerprint. Sampled repaired references 19/20/45/46/51 are persisted and present
+in the same-library listing. This completes the direct relaunch persistence check.
+Guide was closed during that read, so zero visible loading was not a rendering
+verdict. Guide was subsequently opened for final operator playback/focus/row
+confirmation, which remains pending.
+
+The operator asked about Aggressive preload. Its stored preference is absent,
+which selects the default false. For 390 channels with the All filter, source
+policy changes normal/aggressive limits as follows: overscan 10/16 on either side;
+foreground row concurrency up to 8/10; background row concurrency 1/2; background
+queued channels up to 96/140; schedule-cache entries 240/360. These are row-work
+and cache limits, not a count of simultaneous Plex HTTP requests. Startup warmup
+remains conservative (`aggressive: false`). No setting was changed and no A/B
+performance comparison of Aggressive was run.
