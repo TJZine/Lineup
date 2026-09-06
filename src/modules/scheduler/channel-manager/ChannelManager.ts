@@ -488,11 +488,10 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
-        const cached = options?.cacheMode === 'revalidate'
-            ? null
-            : this._resolutionCache.get(channelId);
+        const cached = this._resolutionCache.get(channelId);
         if (
-            cached
+            options?.cacheMode !== 'revalidate'
+            && cached
             && !this._resolutionCache.isStale(cached)
             && isResolutionCacheCompatible(cached.channelSnapshot, channel)
         ) {
@@ -1014,9 +1013,7 @@ export class ChannelManager implements IChannelManager {
             );
         }
         const operation = options.operationContext;
-        const cached = options?.cacheMode === 'revalidate'
-            ? null
-            : this._resolutionCache.get(channel.id);
+        const cached = this._resolutionCache.get(channel.id);
 
         try {
             const items = await this._resolveFilteredItems(channel, options);
@@ -1082,9 +1079,7 @@ export class ChannelManager implements IChannelManager {
         }
         const operation = options.operationContext;
         operation.assertCurrent();
-        const cached = options?.cacheMode === 'revalidate'
-            ? null
-            : this._resolutionCache.get(channel.id);
+        const cached = this._resolutionCache.get(channel.id);
 
         try {
             const items = await this._resolveFilteredItems(channel, {

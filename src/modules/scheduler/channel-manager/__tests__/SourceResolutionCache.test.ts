@@ -209,7 +209,11 @@ describe('SourceResolutionCache', () => {
                 if (event.event === 'result') cache.invalidate(source);
             }
         )).rejects.toMatchObject({ name: 'AbortError' });
-        expect(cachedObservations).toEqual(observations);
+        expect(cachedObservations).toEqual([
+            { event: 'access', outcome: 'pending' },
+            { event: 'result', outcome: 'success' },
+            { event: 'settled', outcome: 'failure' },
+        ]);
         expect(replacementResolver).toHaveBeenCalledTimes(2);
 
         const accessCanceledOperation = scope.retain('access-canceled');
