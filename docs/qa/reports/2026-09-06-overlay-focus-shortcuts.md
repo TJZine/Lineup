@@ -67,3 +67,26 @@ Lineup was closed, the running-app list was empty, installation succeeded, and
 a single launch succeeded. Fresh Inspector attached. Its Console paste warning
 requires operator input before the runtime manifest check; physical shortcut and
 picture/sound confirmation remain pending. No release deployment or push occurred.
+
+## Live TV runtime shortcut batch
+
+Inspector read the packaged manifest and independently hashed the fetched entry:
+implementation `de1ba6007c80bd7070f8d7e368044c8e8841657e`, matching entry hash.
+The controller sent bounded DOM keydown/keyup pairs through the TV application's
+normal webOS key routing, using yellow/green/red, D-pad Down and Back. These are
+Inspector-generated inputs on the physical TV, not proof of physical remote
+hardware input delivery. Runtime results:
+
+- Yellow: Player to Settings, Guide hidden.
+- Green in Settings: screen and focused Settings control unchanged, Guide hidden.
+- D-pad Down: focus moved between Settings category controls; Guide stayed hidden.
+- Yellow again: returned to Player, Guide hidden, no modal.
+- Green in Player: Guide visible. Red left Guide visible with no modal.
+- Back: Guide hidden, Player retained.
+- Red from Player: no modal → modal open → modal closed within one bounded pair.
+
+An earlier separated red check reported an open modal again; the subsequent pair
+started with no modal and proved both toggle directions. Auto-hide between the
+separated probes is consistent with those readings; the paired result is the
+reliable toggle proof. No settings values or channel configuration were changed.
+Physical appearance and picture/sound confirmation remain pending operator reply.
