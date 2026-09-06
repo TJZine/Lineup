@@ -2,7 +2,7 @@
 
 P2 remains open. Recovery and shuffle-continuity implementation passed local
 verification and independent review under the 2026-09-06 plan; development device
-QA is pending. No new implementation has been installed or released.
+QA is pending. The development candidate is installed; no release deployment.
 The sections below preserve the investigation chronologically; later verification
 supersedes the explicitly pending checks recorded earlier.
 
@@ -135,3 +135,21 @@ Final independent review found no remaining actionable issues. The reviewer
 observed 39 recovery-boundary tests, 39 ordering tests, and a targeted EPG retry
 integration test passing. Foreground retry can publish the repaired schedule;
 the production `channelUpdated` subscribers do not invalidate that active retry.
+
+## Exact development candidate installed
+
+Implementation commits: `9eaf10b8` (stable shuffle) and
+`5b1f7a14b5a7c0a6eb86c829a3cd5c9f1f1ee0de` (reference recovery).
+After commit, `build:dev` succeeded with an empty build-relevant dirty summary.
+The development package's 70 source files were compared byte-for-byte against
+the packaged archive before installation.
+
+- Package SHA-256: `b24896152530a25ad3ff711f9011e65dc768a05febcb498d3cd35eb5003eb13c`
+- Entry: `assets/index-DCNhgkPp.js`
+- Entry SHA-256: `dddf4acc419ff59623bde71a2ec344f3a60bb62fc0eddd4c5876653d09108f4d`
+
+Lineup was closed, the running-app list was empty, installation succeeded, then
+one launch succeeded. Fresh Inspector shows the new entry and “Started
+successfully.” Runtime manifest/hash verification, operator picture/sound, and
+the recovery/relaunch batch remain pending. The new Inspector origin presents
+the browser paste-warning gate; no probe executed through it yet.
