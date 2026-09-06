@@ -53,3 +53,17 @@ typecheck, architecture/lint, stylelint, coverage thresholds, documentation,
 lean bundle verification and development build completed successfully. The final
 run did not repeat the initial worker-exit warning. Exact implementation packaging
 and physical shortcut QA remain pending.
+
+## Exact development candidate
+
+Implementation `de1ba6007c80bd7070f8d7e368044c8e8841657e` was built after commit
+with an empty build-relevant dirty summary. Entry `assets/index-DZ_vy_xG.js`
+SHA-256: `1205a80a6fc919ab70ee1318146c668cc68a721dbbae272b4835c72171e4ba46`.
+The development IPK SHA-256 is
+`bdd04b409034bc775b99d84ede90e8a825cad69a22c20155e7d28eb302f94d77`;
+all 70 packaged files matched the archived build byte for byte.
+
+Lineup was closed, the running-app list was empty, installation succeeded, and
+a single launch succeeded. Fresh Inspector attached. Its Console paste warning
+requires operator input before the runtime manifest check; physical shortcut and
+picture/sound confirmation remain pending. No release deployment or push occurred.
