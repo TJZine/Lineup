@@ -238,3 +238,19 @@ currently blocks runtime manifest/hash confirmation. Next: confirm picture/sound
 verify running identity, inspect/recover an untouched missing row (51 was identified
 before this install), check repaired schedule ownership through navigation, then
 relaunch and confirm persisted references/configuration. No release or push.
+
+## Corrected candidate: initial physical evidence
+
+Running manifest and entry hash match `7e716692` exactly; timeOrigin
+1788701799001.2. Before Guide opening, the 390-channel canonical configuration
+fingerprint remained unchanged. Previously repaired keys for 19/20/45/46 were
+present in the same-library listing after the full stop/install/relaunch. Channel
+51 still had a missing key with exactly one exact-name candidate.
+
+Opening Guide around current channel 49 resolved channel 51 to 31 items and 16
+programs. Its held schedule and loaded-cache snapshots match its manager source,
+the source is saved, and its row lifecycle is clear. The visible Guide had zero
+`.epg-cell.loading` rows; the recovery lookup had zero active producers. This
+contrasts with channel 45 on the previous build, where all Guide snapshots retained
+the old key after repair. Operator time/page-navigation confirmation and a further
+relaunch of the corrected candidate remain pending.
