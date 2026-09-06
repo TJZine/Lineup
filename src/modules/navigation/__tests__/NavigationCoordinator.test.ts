@@ -121,6 +121,7 @@ const makeNavigation = (): {
         getState: jest.fn().mockReturnValue(state),
         isModalOpen: jest.fn().mockReturnValue(false),
         isInputBlocked: jest.fn().mockReturnValue(false),
+        goBack: jest.fn().mockReturnValue(false),
         openModal: jest.fn(),
         closeModal: jest.fn(),
         goTo: jest.fn(),
@@ -1208,6 +1209,41 @@ describe('NavigationCoordinator', () => {
         expect(navigation.goTo).toHaveBeenCalledTimes(1);
     });
 
+    it('settings handler returns to the previous screen through the navigation stack', () => {
+        const { handlers, navigation } = setup();
+        (navigation.getCurrentScreen as jest.Mock).mockReturnValue('settings' as Screen);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+        (navigation.goBack as jest.Mock).mockReturnValue(true);
+
+        handlers.settings?.(undefined);
+
+        expect(navigation.goBack).toHaveBeenCalledTimes(1);
+        expect(navigation.replaceScreen).not.toHaveBeenCalled();
+    });
+
+    it('settings handler falls back to the player when settings is at the stack root', () => {
+        const { handlers, navigation } = setup();
+        (navigation.getCurrentScreen as jest.Mock).mockReturnValue('settings' as Screen);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+        (navigation.goBack as jest.Mock).mockReturnValue(false);
+
+        handlers.settings?.(undefined);
+
+        expect(navigation.goBack).toHaveBeenCalledTimes(1);
+        expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
+    });
+
+    it('settings handler leaves protected settings modals in place', () => {
+        const { handlers, navigation } = setup();
+        (navigation.getCurrentScreen as jest.Mock).mockReturnValue('settings' as Screen);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(true);
+
+        handlers.settings?.(undefined);
+
+        expect(navigation.goBack).not.toHaveBeenCalled();
+        expect(navigation.replaceScreen).not.toHaveBeenCalled();
+    });
+
     it('screen change shows/hides EPG and pauses/resumes player', () => {
         const { handlers, epg, videoPlayer, deps, navigation } = setup();
         (epg.isVisible as jest.Mock).mockReturnValue(false);
@@ -1479,9 +1515,10 @@ describe('NavigationCoordinator', () => {
         expect(epg.handleNavigation).not.toHaveBeenCalled();
     });
 
-    it('routes to EPG when overlay is visible and no modal open', () => {
+    it.each(['player', 'guide'] as Screen[])('routes to EPG when overlay is visible on %s with no modal open', (screen) => {
         const { handlers, epg, navigation } = setup();
         (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.getCurrentScreen as jest.Mock).mockReturnValue(screen);
         (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
         (epg.handleNavigation as jest.Mock).mockReturnValue(true);
 
@@ -1491,6 +1528,32 @@ describe('NavigationCoordinator', () => {
 
         expect(epg.handleNavigation).toHaveBeenCalledWith('right');
         expect(event.handled).toBe(true);
+    });
+
+    it.each([
+        'splash',
+        'auth',
+        'profile-select',
+        'server-select',
+        'audio-setup',
+        'channel-setup',
+        'home',
+        'channel-edit',
+        'settings',
+        'error',
+    ] as Screen[])('does not route navigation, selection, or paging to a visible EPG on %s', (screen) => {
+        const { handlers, epg, navigation } = setup();
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        (navigation.getCurrentScreen as jest.Mock).mockReturnValue(screen);
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+
+        handlers.keyPress?.(makeKeyEvent('left'));
+        handlers.keyPress?.(makeKeyEvent('ok'));
+        handlers.keyPress?.(makeKeyEvent('channelUp'));
+
+        expect(epg.handleNavigation).not.toHaveBeenCalled();
+        expect(epg.handleSelect).not.toHaveBeenCalled();
+        expect(epg.handlePage).not.toHaveBeenCalled();
     });
 
     it('routes to EPG when overlay is visible on player screen', () => {
@@ -1521,12 +1584,23 @@ describe('NavigationCoordinator', () => {
         expect(event.handled).toBe(true);
     });
 
-    it('hides EPG when entering settings screen', () => {
+    it.each([
+        'splash',
+        'auth',
+        'profile-select',
+        'server-select',
+        'audio-setup',
+        'channel-setup',
+        'home',
+        'channel-edit',
+        'settings',
+        'error',
+    ] as Screen[])('hides EPG when entering %s screen', (to) => {
         const { handlers, epg } = setup();
 
-        handlers.screenChange?.({ from: 'player', to: 'settings' });
+        handlers.screenChange?.({ from: 'player', to });
 
-        expect(epg.hide).toHaveBeenCalled();
+        expect(epg.hide).toHaveBeenCalledTimes(1);
     });
 
     it('preserves player continuity across settings roundtrip', () => {
@@ -1713,6 +1787,29 @@ describe('NavigationCoordinator', () => {
 
             handlers.screenChange?.({ from: 'guide', to: 'player' });
             const callsBeforeLeave = (epg.handleNavigation as jest.Mock).mock.calls.length;
+            expect(jest.getTimerCount()).toBe(0);
+            expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeLeave);
+        });
+
+        it('repeat stops when a visible EPG remains after leaving player or guide', async () => {
+            const { handlers, epg, navigation } = setup();
+            (epg.isVisible as jest.Mock).mockReturnValue(true);
+            (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+            (navigation.isInputBlocked as jest.Mock).mockReturnValue(false);
+            (epg.handleNavigation as jest.Mock).mockReturnValue(true);
+
+            handlers.keyPress?.(makeKeyEvent('left'));
+            await advanceTimersUntil(() => {
+                expect(epg.handleNavigation).toHaveBeenCalledTimes(2);
+            }, {
+                stepMs: 25,
+                timeoutMs: EPG_REPEAT_TIMING.INITIAL_DELAY_MS + 200,
+            });
+
+            (navigation.getCurrentScreen as jest.Mock).mockReturnValue('settings');
+            const callsBeforeLeave = (epg.handleNavigation as jest.Mock).mock.calls.length;
+            jest.advanceTimersByTime(EPG_REPEAT_TIMING.INTERVAL_1_MS + 1);
+
             expect(jest.getTimerCount()).toBe(0);
             expect(epg.handleNavigation).toHaveBeenCalledTimes(callsBeforeLeave);
         });

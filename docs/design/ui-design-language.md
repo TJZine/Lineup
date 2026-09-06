@@ -81,6 +81,15 @@ Overlay ordering is a shared contract, not a per-surface guess. The shared overl
 
 `--z-max` remains a boundary token for exceptional cases only. This contract locks relative ordering for later cleanup packages; it does not imply every runtime callsite has already migrated.
 
+### Runtime Overlay Focus
+
+Guide opens only from Player or the Guide navigation screen, with no modal open.
+It must not open or regain focus behind Settings, including when deferred Guide
+initialization finishes after navigation away. Now Playing Info does not open
+while Guide is visible. The yellow Settings shortcut toggles Settings: from
+Settings it follows screen Back navigation, with Player as the root fallback.
+An open Settings modal retains control; yellow does not dismiss its parent.
+
 ### Animations
 
 | Surface | Show | Hide | Duration |

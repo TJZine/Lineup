@@ -1,4 +1,5 @@
 import { EPGCoordinator, type EPGCoordinatorDeps } from '../coordinator/EPGCoordinator';
+import { DeferredEPGComponent } from '../component/DeferredEPGComponent';
 import type { EPGUiStatus } from '../types';
 import type { IEPGComponent } from '../interfaces';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
@@ -237,6 +238,7 @@ const makeDeps = (
 	        getChannelManager: () => channelManager,
 	        getScheduler: () => scheduler,
 	        getEpgUiStatus: () => 'ready',
+	        canOpenEpg: jest.fn().mockReturnValue(true),
 	        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
 	        getEpgConfig: () => ({ totalHours: 6, timeSlotMinutes: 30 } as EPGConfig),
 	        getLocalMidnightMs: (t: number) => t - (t % (24 * 60 * 60 * 1000)),
@@ -421,6 +423,21 @@ describe('EPGCoordinator', () => {
         expect(epg.focusNow).toHaveBeenCalled();
     });
 
+    it('does not start opening the guide when the current navigation state is ineligible', () => {
+        const ensure = jest.fn().mockResolvedValue(undefined);
+        const { deps, epg } = makeDeps({
+            canOpenEpg: jest.fn().mockReturnValue(false),
+            ensureEpgInitialized: ensure,
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+
+        expect(epg.show).not.toHaveBeenCalled();
+        expect(epg.focusNow).not.toHaveBeenCalled();
+        expect(ensure).not.toHaveBeenCalled();
+    });
+
     it('openEPG computes the initial refresh range from the post-show view window', async () => {
         const postShowRange = {
             startTime: 60_000,
@@ -463,6 +480,14 @@ describe('EPGCoordinator', () => {
             getEpgUiStatus: () => 'pending',
             ensureEpgInitialized: ensure,
         });
+        let visible = false;
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.openEPG();
@@ -484,12 +509,50 @@ describe('EPGCoordinator', () => {
 
     it('openEPG reports logical visibility immediately during deferred load and rolls it back on init failure', async () => {
         const error = new Error('Deferred init failed');
-        let visible = false;
-        const ensure = jest.fn().mockRejectedValue(error);
+        const deferredEpg = new DeferredEPGComponent(() => Promise.reject(error));
+        const { deps } = makeDeps({
+            getEpg: () => deferredEpg,
+            getEpgUiStatus: () => 'pending',
+            ensureEpgInitialized: () => deferredEpg.ensureReady(),
+        });
+        const hide = jest.spyOn(deferredEpg, 'hide');
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(1, true);
+
+        await flushPromises();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(2, false);
+        expect(hide).toHaveBeenCalledTimes(1);
+        expect(deferredEpg.isVisible()).toBe(false);
+        expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.initFailed',
+            expect.objectContaining({
+                requestId: 1,
+                errorKind: 'non-abort',
+            })
+        );
+    });
+
+    it('does not roll back or warn when deferred initialization fails after eligibility is lost', async () => {
+        const error = new Error('Deferred init failed after navigation');
+        let canOpen = true;
+        let rejectEnsure!: (reason: unknown) => void;
+        const ensure = jest.fn().mockImplementation(
+            () => new Promise<void>((_, reject) => {
+                rejectEnsure = reject;
+            })
+        );
         const { deps, epg } = makeDeps({
             getEpgUiStatus: () => 'pending',
+            canOpenEpg: () => canOpen,
             ensureEpgInitialized: ensure,
         });
+        let visible = false;
         (epg.show as jest.Mock).mockImplementation(() => {
             visible = true;
         });
@@ -500,14 +563,12 @@ describe('EPGCoordinator', () => {
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.openEPG();
-
-        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(1, true);
-
+        canOpen = false;
+        rejectEnsure(error);
         await flushPromises();
 
-        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(2, false);
-        expect(epg.hide).toHaveBeenCalledTimes(1);
-        expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+        expect(epg.hide).not.toHaveBeenCalled();
+        expect(deps.reportEpgInitWarning).not.toHaveBeenCalled();
     });
 
     it('openEPG rolls back visibility against current deps state when deferred init fails after the epg reference clears', async () => {
@@ -1220,6 +1281,14 @@ describe('EPGCoordinator', () => {
             getEpgUiStatus: () => status,
             ensureEpgInitialized: ensure,
         });
+        let visible = false;
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.openEPG();
@@ -1243,6 +1312,14 @@ describe('EPGCoordinator', () => {
             ensureEpgInitialized: ensure,
             getPreserveFocusOnOpen: () => true,
         });
+        let visible = false;
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.openEPG();
@@ -1281,6 +1358,55 @@ describe('EPGCoordinator', () => {
         expect(epg.hide).toHaveBeenCalledTimes(1);
         expect(epg.show).toHaveBeenCalledTimes(1);
         expect(epg.loadChannels).not.toHaveBeenCalled();
+    });
+
+    it('does not publish deferred initialization after the shown guide is hidden and navigation returns', async () => {
+        let status: EPGUiStatus = 'initializing';
+        let canOpen = true;
+        let resolveEnsure!: () => void;
+        const ensure = jest.fn().mockImplementation(
+            () => new Promise<void>((resolve) => {
+                resolveEnsure = resolve;
+            })
+        );
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => status,
+            canOpenEpg: () => canOpen,
+            ensureEpgInitialized: ensure,
+        });
+        let visible = false;
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+        const refreshSpy = jest
+            .spyOn(EPGRefreshController.prototype, 'refreshEpgSchedulesForRange')
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+        expect(epg.show).toHaveBeenCalledTimes(1);
+
+        canOpen = false;
+        epg.hide();
+        canOpen = true;
+        status = 'ready';
+        resolveEnsure();
+        await flushPromises();
+
+        expect(epg.show).toHaveBeenCalledTimes(1);
+        expect(epg.focusNow).toHaveBeenCalledTimes(1);
+        expect(refreshSpy).not.toHaveBeenCalled();
+        expect(deps.reportEpgInitWarning).not.toHaveBeenCalled();
+
+        coordinator.openEPG();
+
+        expect(epg.show).toHaveBeenCalledTimes(2);
+        expect(epg.focusNow).toHaveBeenCalledTimes(2);
+        expect(refreshSpy).toHaveBeenCalledTimes(1);
     });
 
     it('ignores stale initialization rejections after a newer open request starts', async () => {

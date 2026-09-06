@@ -42,6 +42,7 @@ export interface EPGCoordinatorDeps {
     getScheduler: () => IChannelScheduler | null;
 
     getEpgUiStatus: () => EpgUiStatus;
+    canOpenEpg: () => boolean;
     ensureEpgInitialized: () => Promise<void>;
 
     getEpgConfig: () => EPGConfig | null;
@@ -242,10 +243,19 @@ export class EPGCoordinator {
     }
 
     openEPG(): void {
+        if (!this.deps.canOpenEpg()) return;
         const initialEpg = this.deps.getEpg();
         if (!initialEpg) return;
         const requestId = ++this._openRequestId;
         const status = this.deps.getEpgUiStatus();
+
+        const isCurrentDeferredOpen = (): boolean =>
+            requestId === this._openRequestId &&
+            this.deps.canOpenEpg();
+
+        const canPublishDeferredOpen = (): boolean =>
+            isCurrentDeferredOpen() &&
+            initialEpg.isVisible();
 
         const showAndRefresh = (
             epgInstance: IEPGComponent,
@@ -278,7 +288,7 @@ export class EPGCoordinator {
         }
         void this.deps.ensureEpgInitialized()
             .then(() => {
-                if (requestId !== this._openRequestId) {
+                if (!canPublishDeferredOpen()) {
                     return;
                 }
                 const epgAfterInit = this.deps.getEpg();
@@ -289,7 +299,7 @@ export class EPGCoordinator {
                 showAndRefresh(epgAfterInit, { skipRefocus: true });
             })
             .catch((error: unknown) => {
-                if (requestId !== this._openRequestId) {
+                if (!isCurrentDeferredOpen()) {
                     return;
                 }
                 this._reportIssue('epg.initFailed', error, {
