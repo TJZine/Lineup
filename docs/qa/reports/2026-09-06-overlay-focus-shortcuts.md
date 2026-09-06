@@ -90,3 +90,12 @@ started with no modal and proved both toggle directions. Auto-hide between the
 separated probes is consistent with those readings; the paired result is the
 reliable toggle proof. No settings values or channel configuration were changed.
 Physical appearance and picture/sound confirmation remain pending operator reply.
+
+## Final operator confirmation
+
+The operator replied “yes everything looks good” to the request confirming the
+on-screen shortcut behavior and normal picture/sound. Combined with the exact
+runtime hash, live input/focus observations and full verification, this completes
+the bounded overlay shortcut QA on `de1ba600`. The three reported UX fixes are
+closed. This does not claim exhaustive QA of every screen/dialog combination.
+No release deployment or push occurred; unrelated worktree changes were preserved.

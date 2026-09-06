@@ -312,3 +312,9 @@ to Guide. Source inspection confirms the Guide shortcut has no active-screen
 guard, while input routing treats a visible Guide as active. Settings only hides
 Guide on entry. This is a navigation/overlay defect, not evidence of failed
 collection-reference recovery. Its bounded correction and verification are pending.
+
+The separate Settings/Guide shortcut defect and adjacent yellow-toggle/Now Playing
+conflict were subsequently corrected in `de1ba600`. Full verification, exact-runtime
+hash checks, a live TV shortcut batch and operator appearance/picture/sound
+confirmation passed. See `2026-09-06-overlay-focus-shortcuts.md` for the separate
+scope and proof; recovery and performance verdicts above remain unchanged.
