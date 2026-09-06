@@ -221,3 +221,20 @@ The full `npm run verify` passed: 354 unit suites (4,720 passed, one skipped),
 lint, coverage thresholds, docs and both build profiles. A read-only listing identified
 channel 51 as the first remaining missing-reference candidate for the next bounded
 device batch; no saved reference was changed to create a test fixture.
+
+## Corrected development candidate
+
+Snapshot correction commit: `7e716692fd94eae501b0dc5eb60514f2a90e7d1d`.
+Exact post-commit development build has an empty build-relevant dirty summary;
+70 packaged files matched the source artifact byte-for-byte.
+
+- Package SHA-256: `4961697fb428306f523bb9bb97d2dd798ec5b507e2382e213e9206d50c01204f`
+- Entry: `assets/index--N5uMIqq.js`
+- Entry SHA-256: `46f28a7493f31060a4f14693edd7557e2434c1deaacab0d4dde7879de9c25940`
+
+Full app close was followed by an empty running-app list, successful installation,
+one successful launch and fresh Inspector connection. The browser paste warning
+currently blocks runtime manifest/hash confirmation. Next: confirm picture/sound,
+verify running identity, inspect/recover an untouched missing row (51 was identified
+before this install), check repaired schedule ownership through navigation, then
+relaunch and confirm persisted references/configuration. No release or push.
