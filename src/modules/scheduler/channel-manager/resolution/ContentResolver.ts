@@ -16,6 +16,7 @@ import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
 import { isPlexLibraryScopeSupersededError } from '../../../plex/library';
 import { ContentItemMapper } from './ContentItemMapper';
 import { ContentSelectionPolicy } from './ContentSelectionPolicy';
+import { isConfirmedMissingCollectionError } from './ChannelResolutionErrorPolicy';
 import { SourceResolutionCache } from './SourceResolutionCache';
 import {
     SourceResolutionScope,
@@ -471,7 +472,12 @@ export class ContentResolver {
         options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         const allResolved = await Promise.all(
-            source.sources.map((subSource) => this.resolveSource(subSource, options))
+            source.sources.map((subSource) => this.resolveSource(subSource, options).catch((error: unknown) => {
+                if (subSource.type === 'collection' && isConfirmedMissingCollectionError(error)) {
+                    return [];
+                }
+                throw error;
+            }))
         );
         options?.operationContext?.assertCurrent();
 

@@ -9,10 +9,14 @@ Implemented work has been moved to the "Completed / Removed" section to keep pri
 
 ### Plex Collection Recreation Recovery and Unavailable Initial Channel Recovery
 
-Status: proposed solution accepted for backlog planning; not implemented by the
-Guide loading/retry/warmup fixes. Treat source recovery and startup recovery as
-separately verifiable work units. Do not expand the current physical Guide QA
-session into production remediation.
+Status: bounded source-reference recovery implemented and locally verified on
+2026-09-06; exact development device QA remains pending following a confirmed
+missing key and usable same-library replacement on the TV.
+Current authority: `docs/plans/2026-09-06-collection-reference-recovery-and-shuffle-continuity.md`.
+The earlier Guide loading/retry/warmup fixes did not implement this recovery.
+General startup fallback UI and legacy/ambiguous replacement UI remain separate.
+The checklist below retains the broader backlog contract; do not mark its deferred
+parts complete when the bounded automatic recovery lands.
 
 Observed evidence (LG C3, 2026-09-05):
 - Startup stops with `Initial channel switch failed for [channel]: content_unavailable`.
@@ -94,6 +98,10 @@ obsolete reference, but recurring recreation needs durable recovery. No Kometa
 dependency or integration-specific scheduler is required.
 
 ### Same-Day Channel Schedule Continuity Across Relaunch
+
+Status: response-order invariance for shuffled schedules is implemented and
+locally verified under the 2026-09-06 collection-recovery/continuity plan. Actual source
+membership/duration drift and daily snapshot policy remain separate, unproven work.
 
 - [ ] Reproduce the observed same-channel program change across a same-day app
   relaunch with sanitized pre/post channel-config, resolved-content, schedule,

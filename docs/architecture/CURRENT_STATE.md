@@ -276,7 +276,11 @@ after this extraction.
   `src/modules/scheduler/shared/prng.ts` owns seeded shuffle,
   `src/modules/scheduler/shared/blockPlayback.ts` owns block grouping, and
   `src/modules/scheduler/shared/playbackOrdering.ts` owns common
-  sequential/shuffle/block ordering plus scheduled-index normalization.
+  sequential/shuffle/block ordering plus scheduled-index normalization. Shuffle
+  inputs are copied and ordered by media rating key before seeded shuffling so
+  a changed Plex response order alone cannot change the resulting schedule.
+  Sequential and block modes retain their intentional source ordering; membership
+  or duration changes are not covered by this response-order guarantee.
   `src/modules/scheduler/scheduler/programIdentity.ts` owns scheduled-program
   occurrence identity construction/comparison for cross-module runtime callers
   such as playback recovery and orchestrator start/retry guards.
@@ -321,6 +325,14 @@ after this extraction.
   and ContentResolver: completed results are bypassed recursively while useful
   in-flight work remains shareable. Existing explicit source invalidation keeps
   its stronger cancellation semantics.
+- `resolution/CollectionRecoveryLookup.ts` owns active same-library collection
+  listing coalescing and consumer cancellation, with retired producer drain and
+  no completed-result cache. ChannelManager owns the guarded foreground reference
+  repair because channel identity, persistence, and event publication share its
+  state authority. Only a confirmed missing collection, a complete same-library
+  listing with one exact-name replacement, and usable filtered content permit a
+  persisted key replacement. Schedule-only/background resolution remains
+  nonmutating; it does not repair saved channel references.
 - `src/core/channel-tuning/ChannelTuningCoordinator.ts` remains the channel-switch
   workflow owner. `ChannelTuningOperationContext.ts` owns general admission and
   retained suspension currentness, `ChannelInitialTuneAuthority.ts` owns opaque

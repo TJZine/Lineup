@@ -1415,6 +1415,108 @@ describe('PlexLibrary', () => {
             expect(firstCollection?.childCount).toBe(25);
         });
 
+        it('fetches every collection page when the server reports a total', async () => {
+            mockFetchSequence([
+                {
+                    json: {
+                        MediaContainer: {
+                            totalSize: 2,
+                            offset: 0,
+                            Metadata: [{
+                                ratingKey: 'c1',
+                                key: '/library/collections/c1',
+                                title: 'Marvel',
+                                childCount: 25,
+                            }],
+                        },
+                    },
+                },
+                {
+                    json: {
+                        MediaContainer: {
+                            totalSize: 2,
+                            offset: 1,
+                            Metadata: [{
+                                ratingKey: 'c2',
+                                key: '/library/collections/c2',
+                                title: 'Star Wars',
+                                childCount: 12,
+                            }],
+                        },
+                    },
+                },
+            ]);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getCollections('1')).resolves.toEqual([
+                expect.objectContaining({ ratingKey: 'c1', title: 'Marvel' }),
+                expect.objectContaining({ ratingKey: 'c2', title: 'Star Wars' }),
+            ]);
+            expect(fetch).toHaveBeenCalledTimes(2);
+            expect((fetch as jest.Mock).mock.calls[1]?.[0]).toContain('X-Plex-Container-Start=1');
+        });
+
+        it('rejects a collection listing when a later page is not found', async () => {
+            mockFetchSequence([
+                {
+                    json: {
+                        MediaContainer: {
+                            totalSize: 2,
+                            offset: 0,
+                            Metadata: [{
+                                ratingKey: 'c1',
+                                key: '/library/collections/c1',
+                                title: 'Marvel',
+                                childCount: 25,
+                            }],
+                        },
+                    },
+                },
+                { json: {}, status: 404 },
+            ]);
+            const library = new PlexLibrary(mockConfig);
+            expectPlexLibraryWarn('[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/sections/1/all?type=18&includeGuids=1&includeMeta=1&X-Plex-Container-Start=1&X-Plex-Container-Size=100');
+
+            await expect(library.getCollections('1')).rejects.toMatchObject({
+                code: AppErrorCode.RESOURCE_NOT_FOUND,
+                httpStatus: 404,
+            });
+        });
+
+        it('rejects an early empty collection page when the reported total is incomplete', async () => {
+            mockFetchSequence([
+                {
+                    json: {
+                        MediaContainer: {
+                            totalSize: 2,
+                            offset: 0,
+                            Metadata: [{
+                                ratingKey: 'c1',
+                                key: '/library/collections/c1',
+                                title: 'Marvel',
+                                childCount: 25,
+                            }],
+                        },
+                    },
+                },
+                {
+                    json: {
+                        MediaContainer: {
+                            totalSize: 2,
+                            offset: 1,
+                            Metadata: [],
+                        },
+                    },
+                },
+            ]);
+            const library = new PlexLibrary(mockConfig);
+
+            await expect(library.getCollections('1')).rejects.toMatchObject({
+                code: AppErrorCode.PARSE_ERROR,
+                message: expect.stringContaining('ended before its reported total'),
+            });
+        });
+
         it('should return collection items', async () => {
             mockFetchJson(mockMediaItemResponse);
             const library = new PlexLibrary(mockConfig);
@@ -1424,11 +1526,25 @@ describe('PlexLibrary', () => {
             expect(items).toHaveLength(1);
         });
 
+        it('distinguishes an empty collection response from a confirmed missing collection', async () => {
+            const library = new PlexLibrary(mockConfig);
+            mockFetchJson({ MediaContainer: {} });
+            await expect(library.getCollectionItems('empty')).resolves.toEqual([]);
+
+            mockFetchJson({}, 404);
+            expectPlexLibraryWarn('[PlexLibrary] 404 Not Found: http://192.168.1.100:32400/library/collections/missing/children?includeGuids=1&includeMeta=1');
+            await expect(library.getCollectionItems('missing')).rejects.toMatchObject({
+                code: AppErrorCode.RESOURCE_NOT_FOUND,
+                httpStatus: 404,
+                message: 'Plex resource not found',
+            });
+        });
+
         it('throws typed parse error when collections response is empty-success noise', async () => {
             mockFetchTextResponse('');
             const library = new PlexLibrary(mockConfig);
             expectPlexLibraryError(
-                '[PlexLibrary] Parse error for http://192.168.1.100:32400/library/sections/1/all?type=18&includeGuids=1&includeMeta=1:',
+                '[PlexLibrary] Parse error for http://192.168.1.100:32400/library/sections/1/all?type=18&includeGuids=1&includeMeta=1&X-Plex-Container-Start=0&X-Plex-Container-Size=100:',
                 expect.objectContaining({
                     code: AppErrorCode.PARSE_ERROR,
                     message: expect.stringContaining('Empty response body'),

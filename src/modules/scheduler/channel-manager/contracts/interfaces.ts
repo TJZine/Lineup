@@ -7,7 +7,7 @@ import type {
     ChannelManagerEventMap,
     ChannelUpdateInput,
 } from './types';
-import type { PlexMediaFile } from '../../../plex/library';
+import type { PlexCollection, PlexMediaFile } from '../../../plex/library';
 import type { PlexMediaType } from '../../../plex/shared/types';
 import type { IDisposable } from '../../../../utils/interfaces';
 import type { OperationContextUpstream } from '../../../../utils/RetainedOperationContext';
@@ -212,6 +212,10 @@ export interface IPlexLibraryMinimal {
             signal?: AbortSignal | null;
         }
     ): Promise<PlexMediaItemMinimal[]>;
+    getCollections(
+        libraryId: string,
+        options?: { signal?: AbortSignal | null }
+    ): Promise<PlexCollection[]>;
     getCollectionItems(collectionKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItemMinimal[]>;
     getShowEpisodes(showKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItemMinimal[]>;
     getPlaylistItems(playlistKey: string, options?: { signal?: AbortSignal | null }): Promise<PlexMediaItemMinimal[]>;
