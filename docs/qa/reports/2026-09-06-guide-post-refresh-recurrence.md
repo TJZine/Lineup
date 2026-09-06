@@ -254,3 +254,24 @@ the source is saved, and its row lifecycle is clear. The visible Guide had zero
 contrasts with channel 45 on the previous build, where all Guide snapshots retained
 the old key after repair. Operator time/page-navigation confirmation and a further
 relaunch of the corrected candidate remain pending.
+
+## Full paging observation on corrected candidate
+
+The operator paged through all Guide channels and estimated every load below
+10 seconds. Some TV-show collections were slower; TV-show library block channels
+were the slowest. These are approximate operator observations, not instrumented
+latency bounds or proof that every time-navigation transition was exercised.
+
+The settled visible viewport had no loading/unavailable cells. Schedule work,
+collection lookup producers and lookup entries were all zero. The schedule cache
+had 240 entries against its configured 240-entry cap. This demonstrates that
+cache's bound and idle cleanup; it does not establish total memory usage, peak
+CPU, or a hardware performance ceiling. Repaired 19/20/45/46/51 references remained
+persisted. A malformed console expression produced a console-only SyntaxError
+before execution; its corrected read-only probe supplied these results.
+
+The corrected candidate was then fully closed (empty running-app list) and
+launched once successfully for the final persistence batch. Fresh Inspector is
+attached, with its new-origin paste warning pending operator input. No package
+change accompanied this restart. Physical playback and repaired-row behavior
+after this restart remain pending.
