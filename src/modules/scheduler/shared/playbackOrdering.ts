@@ -16,7 +16,9 @@ export function applyPlaybackOrdering(options: {
         case 'sequential':
             return normalizeScheduledIndexes(items);
         case 'shuffle':
-            return normalizeScheduledIndexes(shuffleItems(items, seed));
+            // Plex response order is not stable across reads. A seeded shuffle
+            // needs a stable input order to preserve the schedule on relaunch.
+            return normalizeScheduledIndexes(shuffleItems([...items].sort(compareContentIdentity), seed));
         case 'block':
             return normalizeScheduledIndexes(
                 applyBlockPlaybackMode({
@@ -29,6 +31,10 @@ export function applyPlaybackOrdering(options: {
         default:
             return assertNeverSharedPlaybackOrderingMode(mode);
     }
+}
+
+function compareContentIdentity(a: ResolvedContentItem, b: ResolvedContentItem): number {
+    return a.ratingKey < b.ratingKey ? -1 : a.ratingKey > b.ratingKey ? 1 : 0;
 }
 
 function normalizeScheduledIndexes(items: ResolvedContentItem[]): ResolvedContentItem[] {

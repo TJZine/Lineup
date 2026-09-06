@@ -2,6 +2,7 @@ import { LINEUP_STORAGE_KEYS } from '../../config/storageKeys';
 import {
     type SafeLocalStorageMutationResult,
     parseStoredEpgInfoBackgroundMode,
+    readStoredBoolean,
     readStoredBooleanAndClean,
     safeLocalStorageGet,
     safeLocalStorageRemove,
@@ -121,6 +122,30 @@ export class EpgPreferencesStore {
             pastItemsWindowSetting: this.readPastItemsWindowAndClean('auto'),
             tabsEnabled: this.readLibraryTabsEnabledAndClean(true),
             selectedLibraryId: this.readSelectedLibraryIdAndClean(),
+        };
+    }
+
+    /**
+     * Read the values used to compute a schedule range without mutating storage.
+     * Startup warmup is best-effort and must not turn a read into persistence
+     * cleanup while the foreground guide may be opening.
+     */
+    readScheduleRangeSnapshot(): EpgScheduleRangeSnapshot {
+        const rawPastItemsWindow = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW);
+        const pastItemsWindowSetting = rawPastItemsWindow && EPG_PAST_ITEMS_WINDOWS.includes(
+            rawPastItemsWindow as EpgPastItemsWindow
+        )
+            ? rawPastItemsWindow as EpgPastItemsWindow
+            : 'auto';
+        const selectedLibraryKey = this._getSelectedLibraryFilterKey();
+        const rawSelectedLibraryId = selectedLibraryKey
+            ? safeLocalStorageGet(selectedLibraryKey)
+            : null;
+
+        return {
+            pastItemsWindowSetting,
+            tabsEnabled: readStoredBoolean(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, true),
+            selectedLibraryId: rawSelectedLibraryId?.trim() || null,
         };
     }
 

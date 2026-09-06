@@ -1,8 +1,9 @@
 # Plan Authoring Standard
 
-Use a tracked plan only for durable cross-session memory or when explicitly
-requested. Routine work stays in `update_plan`; bounded single-session work may use
-a light execution brief.
+The [runbook](../AGENTIC_DEV_WORKFLOW.md#plans-and-handoffs) owns plan policy;
+this reference summarizes authoring details. Use a tracked plan only for durable
+cross-session memory or when explicitly requested. Routine work stays in
+`update_plan`; bounded single-session work may use a light execution brief.
 
 ## Required Core
 
@@ -11,7 +12,8 @@ An active tracked plan should state:
 - active status and task family;
 - goal and non-goals;
 - current owner seam;
-- files in scope and out of scope;
+- likely files or an allowed write boundary and important exclusions; exact file
+  lists only for concurrent writers or sensitive shared surfaces;
 - invariants and public contracts;
 - verification commands and expected outcomes;
 - stop/replan triggers;

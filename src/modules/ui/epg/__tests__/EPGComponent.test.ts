@@ -325,6 +325,22 @@ describe('EPGComponent', () => {
 
             expect(debugRuntime.isEnabled).toHaveBeenCalled();
             expect(debugRuntime.append).toHaveBeenCalledWith('EPG.show', expect.any(Object));
+            expect(debugRuntime.append).toHaveBeenCalledWith(
+                'EPG.loadScheduleForChannel',
+                expect.objectContaining({
+                    rowOrdinal: 0,
+                    programCount: 2,
+                    focusKindBefore: 'absent',
+                    focusKindAfter: 'absent',
+                })
+            );
+            const loadPayload = (debugRuntime.append as jest.Mock).mock.calls.find(
+                ([event]) => event === 'EPG.loadScheduleForChannel'
+            )?.[1];
+            expect(loadPayload).not.toHaveProperty('channelId');
+            expect(loadPayload).not.toHaveProperty('focusKeyBefore');
+            expect(loadPayload).not.toHaveProperty('focusKeyAfter');
+            expect(JSON.stringify(loadPayload)).not.toContain(channel.id);
         } finally {
             localEpg.destroy();
             localContainer.remove();
@@ -1116,6 +1132,122 @@ describe('EPGComponent', () => {
             const secondChannelIds = renderSpy.mock.calls[1]?.[0] as string[];
 
             expect(firstChannelIds).toBe(secondChannelIds);
+        });
+    });
+
+    describe('row lifecycle', () => {
+        it('stores and clears terminal row state without touching schedules', () => {
+            const channels = [createMockChannel(0)];
+            epg.loadChannels(channels);
+
+            expect(epg.getRowLifecycle('ch0')).toBeNull();
+
+            epg.setRowLifecycle('ch0', { kind: 'unavailable', rangeKey: 'day' });
+            expect(epg.getRowLifecycle('ch0')).toEqual({ kind: 'unavailable', rangeKey: 'day' });
+
+            epg.clearRowLifecycle('ch0', 'other-day');
+            expect(epg.getRowLifecycle('ch0')).toEqual({ kind: 'unavailable', rangeKey: 'day' });
+
+            epg.clearRowLifecycle('ch0', 'day');
+            expect(epg.getRowLifecycle('ch0')).toBeNull();
+        });
+
+        it('clears the terminal row when a matching schedule arrives', () => {
+            const channels = [createMockChannel(0)];
+            epg.loadChannels(channels);
+            epg.setRowLifecycle('ch0', { kind: 'retrying', rangeKey: 'day' });
+
+            epg.loadScheduleForChannel('ch0', createMockSchedule('ch0', 3));
+
+            expect(epg.getRowLifecycle('ch0')).toBeNull();
+            epg.show();
+            epg.focusProgram(0, 0);
+            expect(epg.getFocusedProgram()).not.toBeNull();
+        });
+
+        it('reports whether a component-held schedule matches the requested range', () => {
+            epg.loadChannels([createMockChannel(0)]);
+            epg.loadScheduleForChannel('ch0', {
+                startTime: 1_000,
+                endTime: 61_000,
+                programs: [],
+            });
+
+            expect(epg.hasScheduleForChannelRange('ch0', 1_000, 61_000)).toBe(true);
+            expect(epg.hasScheduleForChannelRange('ch0', 0, 60_000)).toBe(false);
+            expect(epg.hasScheduleForChannelRange('missing', 1_000, 61_000)).toBe(false);
+        });
+
+        it('exposes held schedule freshness and clears an old same-ID source before render', () => {
+            const original = createMockChannel(0);
+            const schedule = createDetailedSchedule(original.id);
+            epg.loadChannels([original]);
+            epg.loadScheduleForChannel(original.id, schedule);
+
+            expect(epg.getHeldScheduleForChannel(original.id)).toEqual(expect.objectContaining({
+                schedule,
+                loadedAt: expect.any(Number),
+                channelSnapshot: original,
+            }));
+
+            const replacement: ChannelConfig = {
+                ...original,
+                updatedAt: original.updatedAt + 1,
+                contentSource: {
+                    type: 'collection',
+                    collectionKey: 'replacement-source',
+                    collectionName: 'Replacement',
+                },
+            };
+            epg.loadChannels([replacement]);
+
+            expect(epg.getHeldScheduleForChannel(original.id)).toBeNull();
+            expect(epg.hasScheduleForChannelRange(original.id, schedule.startTime, schedule.endTime)).toBe(false);
+            epg.show();
+            expect(container.textContent).not.toContain('Program A');
+        });
+
+        it('drops terminal rows for removed channels and on full schedule clear', () => {
+            epg.loadChannels([createMockChannel(0), createMockChannel(1)]);
+            epg.setRowLifecycle('ch0', { kind: 'unavailable', rangeKey: 'day' });
+            epg.setRowLifecycle('ch1', { kind: 'unavailable', rangeKey: 'day' });
+
+            epg.loadChannels([createMockChannel(1)]);
+            expect(epg.getRowLifecycle('ch0')).toBeNull();
+            expect(epg.getRowLifecycle('ch1')).toEqual({ kind: 'unavailable', rangeKey: 'day' });
+
+            epg.clearSchedules();
+            expect(epg.getRowLifecycle('ch1')).toBeNull();
+        });
+
+        it('renders the unavailable retry action once the row settles', () => {
+            epg.loadChannels([createMockChannel(0)]);
+            epg.show();
+            epg.setRowLifecycle('ch0', { kind: 'unavailable', rangeKey: 'day' });
+
+            const titles = Array.from(container.querySelectorAll('.epg-cell-title')).map(
+                (title) => title.textContent
+            );
+            expect(titles).toContain('Unavailable — OK to retry');
+            const action = Array.from(container.querySelectorAll('.epg-cell')).find(
+                (cell) => cell.textContent === 'Unavailable — OK to retry' ||
+                    cell.querySelector('.epg-cell-title')?.textContent === 'Unavailable — OK to retry'
+            ) as HTMLElement | undefined;
+            expect(action?.classList.contains(EPG_CLASSES.CELL_UNAVAILABLE)).toBe(true);
+            expect(action?.classList.contains(EPG_CLASSES.CELL_LOADING)).toBe(false);
+        });
+
+        it('keeps unavailable presentation visible under forced colors without shimmer', () => {
+            const css = normalizeLineEndings(readFileSync('src/modules/ui/epg/styles.cells.css', 'utf8'));
+            const forcedColors = css.match(/@media\s*\(forced-colors:\s*active\)\s*{([\s\S]*?)}\s*$/);
+            expect(forcedColors).not.toBeNull();
+            expect(forcedColors?.[1]).toContain('.epg-cell.unavailable');
+            expect(css).toContain('.epg-cell.unavailable');
+            const unavailableRules = css.match(/\.epg-cell\.unavailable[^{]*{[^}]*}/g) ?? [];
+            expect(unavailableRules.length).toBeGreaterThan(0);
+            for (const rule of unavailableRules) {
+                expect(rule).not.toContain('animation');
+            }
         });
     });
 

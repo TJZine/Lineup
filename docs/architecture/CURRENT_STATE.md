@@ -10,9 +10,9 @@ If another architecture doc disagrees with this one, update the other doc or arc
 
 ## Steady-State Guardrails
 
-- Production file-size attention and review triggers live in [`file-shape-guardrails.md`](./file-shape-guardrails.md).
+- Production file-size diagnostics are described in [`file-shape-guardrails.md`](./file-shape-guardrails.md).
 - `npm run verify:maintainability` reports production files over 500 and 800 lines; it does not fail growth or require decomposition.
-- When changed, files over 500 lines require an architecture disposition. Files over 800 lines, composition roots, and named hotspots require a fresh independent architecture/YAGNI review of the whole owner.
+- Use the [workflow's review criteria](../AGENTIC_DEV_WORKFLOW.md#review) for independent review. Size and hotspot names guide investigation; they do not create an automatic reviewer gate.
 
 ## Product Invariants
 
@@ -276,7 +276,11 @@ after this extraction.
   `src/modules/scheduler/shared/prng.ts` owns seeded shuffle,
   `src/modules/scheduler/shared/blockPlayback.ts` owns block grouping, and
   `src/modules/scheduler/shared/playbackOrdering.ts` owns common
-  sequential/shuffle/block ordering plus scheduled-index normalization.
+  sequential/shuffle/block ordering plus scheduled-index normalization. Shuffle
+  inputs are copied and ordered by media rating key before seeded shuffling so
+  a changed Plex response order alone cannot change the resulting schedule.
+  Sequential and block modes retain their intentional source ordering; membership
+  or duration changes are not covered by this response-order guarantee.
   `src/modules/scheduler/scheduler/programIdentity.ts` owns scheduled-program
   occurrence identity construction/comparison for cross-module runtime callers
   such as playback recovery and orchestrator start/retry guards.
@@ -298,7 +302,8 @@ after this extraction.
 	  coordination, `resolution/ChannelResolutionCache.ts` owns resolved-content clone/stale
 	  policy, `resolution/ChannelRetryScheduler.ts` owns retry timers,
 	  `resolution/ChannelResolutionOperationContext.ts` owns cancel-first resolution-scope
-	  supersession and drain, and
+	  supersession and consumer drain; ChannelManager also awaits retired source
+	  producers before scope teardown, and
 	  `persistence/ChannelPersistenceSaveQueue.ts` owns debounced save promise/timer/warning
 	  orchestration through callbacks while delegating warning backoff timing to
 	  `src/utils/persistenceWarningBackoffPolicy.ts`. `import-export/ChannelImportNormalizer.ts`
@@ -313,6 +318,25 @@ after this extraction.
 	  sorting, content-level random playback mode, and delegation to the shared
 	  scheduler playback-ordering owner for common sequential/shuffle/block
 	  ordering
+- Shared source producers retain the common resolution scope; individual and
+  mixed-parent callers own only waiter cancellation. A final departing waiter
+  retires its producer, and retired producers remain tracked until settlement.
+  Explicit Guide retry carries `cacheMode: 'revalidate'` through ChannelManager
+  and ContentResolver: completed results are bypassed recursively while useful
+  in-flight work remains shareable. Existing explicit source invalidation keeps
+  its stronger cancellation semantics.
+- `resolution/CollectionRecoveryLookup.ts` owns active same-library collection
+  listing coalescing and consumer cancellation, with retired producer drain and
+  no completed-result cache. ChannelManager owns the guarded foreground reference
+  repair because channel identity, persistence, and event publication share its
+  state authority. Only a confirmed missing collection, a complete same-library
+  listing with one exact-name replacement, and usable filtered content permit a
+  persisted key replacement. Schedule-only/background resolution remains
+  nonmutating; it does not repair saved channel references.
+  Resolved channel content carries an owned channel snapshot, including any
+  completed reference repair. Guide uses that snapshot for schedule generation,
+  load metadata and cache/in-flight ownership; publication checks it against the
+  current manager identity so a later edit cannot inherit old resolved items.
 - `src/core/channel-tuning/ChannelTuningCoordinator.ts` remains the channel-switch
   workflow owner. `ChannelTuningOperationContext.ts` owns general admission and
   retained suspension currentness, `ChannelInitialTuneAuthority.ts` owns opaque
@@ -425,7 +449,9 @@ the FCP-11 owner split; it remains a screen adapter/step router with dropdown,
 build presentation, session/runtime, focus, and strategy/step behavior owned by
 package-local collaborators.
 
-The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md).
+Consult [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+only for checklist-linked admission/status. No cleanup package is currently active;
+these ownership surfaces are not an implicit remediation queue.
 
 ## Working Rules
 
@@ -439,5 +465,5 @@ The active remediation queue for these is [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](
 
 - Entry point: [`docs/architecture/README.md`](./README.md)
 - Module reference: [`docs/architecture/modules.md`](./modules.md)
-- Active backlog: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
+- Cleanup admission/status: [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
 - Workflow: [`docs/AGENTIC_DEV_WORKFLOW.md`](../AGENTIC_DEV_WORKFLOW.md)

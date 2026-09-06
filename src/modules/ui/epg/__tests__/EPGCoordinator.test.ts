@@ -1,4 +1,5 @@
 import { EPGCoordinator, type EPGCoordinatorDeps } from '../coordinator/EPGCoordinator';
+import { DeferredEPGComponent } from '../component/DeferredEPGComponent';
 import type { EPGUiStatus } from '../types';
 import type { IEPGComponent } from '../interfaces';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
@@ -74,6 +75,24 @@ const makeResolvedItem = (channelId: string, idx: number): ResolvedContentItem =
 } as ResolvedContentItem);
 
 const makeResolvedItems = (channelId: string): ResolvedContentItem[] => [makeResolvedItem(channelId, 0)];
+
+const findChannel = (channels: ChannelConfig[], channelId: string): ChannelConfig => {
+    const channel = channels.find((candidate) => candidate.id === channelId);
+    if (!channel) throw new Error(`Missing test channel ${channelId}`);
+    return channel;
+};
+
+const makeResolvedContent = (
+    channel: ChannelConfig,
+    items: ResolvedChannelContent['items'] = makeResolvedItems(channel.id)
+): ResolvedChannelContent => ({
+    channelId: channel.id,
+    channelSnapshot: channel,
+    resolvedAt: Date.now(),
+    items,
+    totalDurationMs: items.reduce((total, item) => total + item.durationMs, 0),
+    orderedItems: [...items],
+});
 
 const baseProgram = (channelId: string, idx: number): ScheduledProgram =>
 ({
@@ -161,6 +180,10 @@ const makeDeps = (
         setNowWatchingBannerEnabled: jest.fn(),
         setLibraryTabs: jest.fn(),
         loadScheduleForChannel: jest.fn(),
+        getRowLifecycle: jest.fn().mockReturnValue(null),
+        setRowLifecycle: jest.fn(),
+        clearRowLifecycle: jest.fn(),
+        clearAllRowLifecycles: jest.fn(),
         clearSchedules: jest.fn(),
         getState: jest.fn().mockReturnValue({
             isVisible: false,
@@ -185,10 +208,15 @@ const makeDeps = (
     const channels: ChannelConfig[] = Array.from({ length: 3 }, (_, i) => makeChannel(`c${i}`, i + 1));
     const channelManager: IChannelManager = {
         getAllChannels: () => channels,
+        getChannel(this: IChannelManager, channelId: string): ChannelConfig | null {
+            return this.getAllChannels().find((channel) => channel.id === channelId) ?? null;
+        },
         getCurrentChannel: () => channels[0],
-        resolveChannelContent: jest.fn().mockImplementation(async (id: string) => {
-            const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-            return { items } as ResolvedChannelContent;
+        resolveChannelContent: jest.fn().mockImplementation(async function (
+            this: IChannelManager,
+            id: string
+        ): Promise<ResolvedChannelContent> {
+            return makeResolvedContent(findChannel(this.getAllChannels(), id));
         }),
         resolveChannelItemsForSchedule: jest.fn().mockImplementation(async (id: string) => {
             const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
@@ -210,6 +238,7 @@ const makeDeps = (
 	        getChannelManager: () => channelManager,
 	        getScheduler: () => scheduler,
 	        getEpgUiStatus: () => 'ready',
+	        canOpenEpg: jest.fn().mockReturnValue(true),
 	        ensureEpgInitialized: jest.fn().mockResolvedValue(undefined),
 	        getEpgConfig: () => ({ totalHours: 6, timeSlotMinutes: 30 } as EPGConfig),
 	        getLocalMidnightMs: (t: number) => t - (t % (24 * 60 * 60 * 1000)),
@@ -292,10 +321,11 @@ describe('EPGCoordinator', () => {
         expect(debugRuntime.append).toHaveBeenCalledWith(
             'EPG.refreshEpgScheduleForLiveChannel.error',
             expect.objectContaining({
-                error: expect.objectContaining({
-                    message: expect.stringContaining('schedule window failed'),
-                }),
+                errorKind: 'non-abort',
             })
+        );
+        expect(JSON.stringify((debugRuntime.append as jest.Mock).mock.calls)).not.toContain(
+            'schedule window failed'
         );
     });
 
@@ -318,8 +348,13 @@ describe('EPGCoordinator', () => {
         });
 
         // The exclusive endpoint is extended by overscan once: endIndex = 20 + 7 = 27.
+        // Priority order is live/focused, actually visible in display order, then
+        // nearest overscan (trailing forward, leading nearest-first).
         expect(partitioned.bufferedRange).toEqual({ start: 3, endExclusive: 27 });
-        expect(partitioned.immediateChannels.at(-1)?.id).toBe('c26');
+        expect(partitioned.immediateChannels.slice(0, 10).map((channel) => channel.id)).toEqual(
+            ['c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16', 'c17', 'c18', 'c19']
+        );
+        expect(partitioned.immediateChannels.at(-1)?.id).toBe('c3');
     });
 
     it('preserves terminal, single-channel, and empty half-open endpoint behavior', () => {
@@ -337,7 +372,8 @@ describe('EPGCoordinator', () => {
             { visibleCount: 2, maxQueuedChannels: 120, aggressive: false }
         );
         expect(terminal.bufferedRange).toEqual({ start: 91, endExclusive: 100 });
-        expect(terminal.immediateChannels.at(-1)?.id).toBe('c99');
+        expect(terminal.immediateChannels.slice(0, 2).map((channel) => channel.id)).toEqual(['c98', 'c99']);
+        expect(terminal.immediateChannels.at(-1)?.id).toBe('c91');
 
         const single = partitionPrefetchChannels(
             channels,
@@ -346,7 +382,8 @@ describe('EPGCoordinator', () => {
             { visibleCount: 1, maxQueuedChannels: 120, aggressive: false }
         );
         expect(single.bufferedRange).toEqual({ start: 3, endExclusive: 18 });
-        expect(single.immediateChannels.at(-1)?.id).toBe('c17');
+        expect(single.immediateChannels[0]?.id).toBe('c10');
+        expect(single.immediateChannels.at(-1)?.id).toBe('c3');
 
         const empty = partitionPrefetchChannels(
             [],
@@ -384,6 +421,21 @@ describe('EPGCoordinator', () => {
         );
         // focusNow called when not preserving focus
         expect(epg.focusNow).toHaveBeenCalled();
+    });
+
+    it('does not start opening the guide when the current navigation state is ineligible', () => {
+        const ensure = jest.fn().mockResolvedValue(undefined);
+        const { deps, epg } = makeDeps({
+            canOpenEpg: jest.fn().mockReturnValue(false),
+            ensureEpgInitialized: ensure,
+        });
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+
+        expect(epg.show).not.toHaveBeenCalled();
+        expect(epg.focusNow).not.toHaveBeenCalled();
+        expect(ensure).not.toHaveBeenCalled();
     });
 
     it('openEPG computes the initial refresh range from the post-show view window', async () => {
@@ -428,6 +480,14 @@ describe('EPGCoordinator', () => {
             getEpgUiStatus: () => 'pending',
             ensureEpgInitialized: ensure,
         });
+        let visible = false;
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.openEPG();
@@ -442,21 +502,57 @@ describe('EPGCoordinator', () => {
             'epg.initFailed',
             expect.objectContaining({
                 requestId: 1,
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('Init failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });
 
     it('openEPG reports logical visibility immediately during deferred load and rolls it back on init failure', async () => {
         const error = new Error('Deferred init failed');
-        let visible = false;
-        const ensure = jest.fn().mockRejectedValue(error);
+        const deferredEpg = new DeferredEPGComponent(() => Promise.reject(error));
+        const { deps } = makeDeps({
+            getEpg: () => deferredEpg,
+            getEpgUiStatus: () => 'pending',
+            ensureEpgInitialized: () => deferredEpg.ensureReady(),
+        });
+        const hide = jest.spyOn(deferredEpg, 'hide');
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(1, true);
+
+        await flushPromises();
+
+        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(2, false);
+        expect(hide).toHaveBeenCalledTimes(1);
+        expect(deferredEpg.isVisible()).toBe(false);
+        expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.initFailed',
+            expect.objectContaining({
+                requestId: 1,
+                errorKind: 'non-abort',
+            })
+        );
+    });
+
+    it('does not roll back or warn when deferred initialization fails after eligibility is lost', async () => {
+        const error = new Error('Deferred init failed after navigation');
+        let canOpen = true;
+        let rejectEnsure!: (reason: unknown) => void;
+        const ensure = jest.fn().mockImplementation(
+            () => new Promise<void>((_, reject) => {
+                rejectEnsure = reject;
+            })
+        );
         const { deps, epg } = makeDeps({
             getEpgUiStatus: () => 'pending',
+            canOpenEpg: () => canOpen,
             ensureEpgInitialized: ensure,
         });
+        let visible = false;
         (epg.show as jest.Mock).mockImplementation(() => {
             visible = true;
         });
@@ -467,14 +563,12 @@ describe('EPGCoordinator', () => {
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.openEPG();
-
-        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(1, true);
-
+        canOpen = false;
+        rejectEnsure(error);
         await flushPromises();
 
-        expect(deps.onVisibilityChange).toHaveBeenNthCalledWith(2, false);
-        expect(epg.hide).toHaveBeenCalledTimes(1);
-        expect(deps.reportEpgInitWarning).toHaveBeenCalledWith(error);
+        expect(epg.hide).not.toHaveBeenCalled();
+        expect(deps.reportEpgInitWarning).not.toHaveBeenCalled();
     });
 
     it('openEPG rolls back visibility against current deps state when deferred init fails after the epg reference clears', async () => {
@@ -1103,7 +1197,7 @@ describe('EPGCoordinator', () => {
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
             reason: 'unavailable',
-            requestedLibraryId: null,
+            requestedSelection: 'all-libraries',
             source: 'prime-epg-channels',
         });
     });
@@ -1187,6 +1281,14 @@ describe('EPGCoordinator', () => {
             getEpgUiStatus: () => status,
             ensureEpgInitialized: ensure,
         });
+        let visible = false;
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.openEPG();
@@ -1210,6 +1312,14 @@ describe('EPGCoordinator', () => {
             ensureEpgInitialized: ensure,
             getPreserveFocusOnOpen: () => true,
         });
+        let visible = false;
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
         const coordinator = new EPGCoordinator(deps);
 
         coordinator.openEPG();
@@ -1248,6 +1358,55 @@ describe('EPGCoordinator', () => {
         expect(epg.hide).toHaveBeenCalledTimes(1);
         expect(epg.show).toHaveBeenCalledTimes(1);
         expect(epg.loadChannels).not.toHaveBeenCalled();
+    });
+
+    it('does not publish deferred initialization after the shown guide is hidden and navigation returns', async () => {
+        let status: EPGUiStatus = 'initializing';
+        let canOpen = true;
+        let resolveEnsure!: () => void;
+        const ensure = jest.fn().mockImplementation(
+            () => new Promise<void>((resolve) => {
+                resolveEnsure = resolve;
+            })
+        );
+        const { deps, epg } = makeDeps({
+            getEpgUiStatus: () => status,
+            canOpenEpg: () => canOpen,
+            ensureEpgInitialized: ensure,
+        });
+        let visible = false;
+        (epg.show as jest.Mock).mockImplementation(() => {
+            visible = true;
+        });
+        (epg.hide as jest.Mock).mockImplementation(() => {
+            visible = false;
+        });
+        (epg.isVisible as jest.Mock).mockImplementation(() => visible);
+        const refreshSpy = jest
+            .spyOn(EPGRefreshController.prototype, 'refreshEpgSchedulesForRange')
+            .mockResolvedValue(SKIPPED_REFRESH_RESULT);
+        const coordinator = new EPGCoordinator(deps);
+
+        coordinator.openEPG();
+        expect(epg.show).toHaveBeenCalledTimes(1);
+
+        canOpen = false;
+        epg.hide();
+        canOpen = true;
+        status = 'ready';
+        resolveEnsure();
+        await flushPromises();
+
+        expect(epg.show).toHaveBeenCalledTimes(1);
+        expect(epg.focusNow).toHaveBeenCalledTimes(1);
+        expect(refreshSpy).not.toHaveBeenCalled();
+        expect(deps.reportEpgInitWarning).not.toHaveBeenCalled();
+
+        coordinator.openEPG();
+
+        expect(epg.show).toHaveBeenCalledTimes(2);
+        expect(epg.focusNow).toHaveBeenCalledTimes(2);
+        expect(refreshSpy).toHaveBeenCalledTimes(1);
     });
 
     it('ignores stale initialization rejections after a newer open request starts', async () => {
@@ -1391,8 +1550,8 @@ describe('EPGCoordinator', () => {
         expect(capturedSignal?.aborted).toBe(false);
         controller.abort(abortReason);
         (resolveContent as unknown as (value: ResolvedChannelContent) => void)({
-            items: [makeResolvedItem('c1', 0)],
-        } as ResolvedChannelContent);
+            ...makeResolvedContent(channel),
+        });
 
         await expect(refresh).rejects.toBe(abortReason);
         expect(capturedSignal?.aborted).toBe(true);
@@ -1431,7 +1590,7 @@ describe('EPGCoordinator', () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
                 const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
                     const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-                    return { items } as ResolvedChannelContent;
+                    return makeResolvedContent(findChannel(manyChannels, id), items);
                 });
                 const resolveChannelItemsForSchedule = jest
                     .fn()
@@ -1504,7 +1663,7 @@ describe('EPGCoordinator', () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
                 const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
                     const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-                    return { items } as ResolvedChannelContent;
+                    return makeResolvedContent(findChannel(manyChannels, id), items);
                 });
                 const pendingWarmResolves = new Map<string, (items: ResolvedChannelContent['items']) => void>();
                 const resolveChannelItemsForSchedule = jest.fn().mockImplementation((id: string) => {
@@ -1578,7 +1737,7 @@ describe('EPGCoordinator', () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
                 const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
                     const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-                    return { items } as ResolvedChannelContent;
+                    return makeResolvedContent(findChannel(manyChannels, id), items);
                 });
                 const pendingWarmResolves = new Map<string, (items: ResolvedChannelContent['items']) => void>();
                 const resolveChannelItemsForSchedule = jest.fn().mockImplementation((id: string) => {
@@ -1694,7 +1853,7 @@ describe('EPGCoordinator', () => {
 
                     const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
                         const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-                        return { items } as ResolvedChannelContent;
+                        return makeResolvedContent(findChannel(manyChannels, id), items);
                     });
                     const resolveChannelItemsForSchedule = jest
                         .fn()
@@ -1759,11 +1918,8 @@ describe('EPGCoordinator', () => {
         expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(1);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: 'c0',
-                source: 'live-scheduler',
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ liveSchedulerHitCount: 1 })
         );
 
         (epg.loadScheduleForChannel as jest.Mock).mockClear();
@@ -1908,8 +2064,8 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.liveRowOverwrite',
             expect.objectContaining({
-                channelId: 'c0',
                 source: 'live-scheduler',
+                hasCurrentProgram: false,
             })
         );
     });
@@ -1932,7 +2088,7 @@ describe('EPGCoordinator', () => {
         const range = { channelStart: 0, channelEndExclusive: 2, timeStartMs: 0, timeEndMs: 0 };
         const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
             const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-            return { items } as ResolvedChannelContent;
+            return makeResolvedContent(findChannel(base.getAllChannels(), id), items);
         });
 
         const base = makeDeps().deps.getChannelManager()!;
@@ -1956,12 +2112,36 @@ describe('EPGCoordinator', () => {
         expect((epg.loadScheduleForChannel as jest.Mock).mock.calls.length).toBe(1);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: 'c0',
-                source: 'live-scheduler',
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ liveSchedulerHitCount: 1 })
         );
+    });
+
+    it('routes row retry intents to targeted runtime retries without a visible-range refresh', async () => {
+        const { deps, epg } = makeDeps();
+        const retrySpy = jest
+            .spyOn(EPGRefreshController.prototype, 'retryRowSchedule')
+            .mockResolvedValue(undefined);
+        const rangeSpy = jest.spyOn(EPGRefreshController.prototype, 'refreshEpgSchedulesForRange');
+        try {
+            const coordinator = new EPGCoordinator(deps);
+            coordinator.wireEpgEvents();
+
+            const retryHandler = (epg.on as jest.Mock).mock.calls.find(
+                (call) => call[0] === 'rowRetryRequested'
+            )?.[1] as ((payload: { channelId: string }) => void) | undefined;
+            expect(retryHandler).toBeDefined();
+            retryHandler?.({ channelId: 'c1' });
+            retryHandler?.({ channelId: 'c1' });
+            await flushPromises();
+
+            expect(retrySpy).toHaveBeenCalledTimes(2);
+            expect(retrySpy).toHaveBeenNthCalledWith(1, 'c1');
+            expect(rangeSpy).not.toHaveBeenCalled();
+        } finally {
+            retrySpy.mockRestore();
+            rangeSpy.mockRestore();
+        }
     });
 
     it('wireEpgEvents returns unsubscribers, forwards visibility changes, and triggers switch when program eligible', async () => {
@@ -2045,8 +2225,7 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.channelSelected',
             expect.objectContaining({
-                channelId: 'c1',
-                ratingKey: 'c1-0',
+                scheduleIndex: 0,
             })
         );
 
@@ -2118,11 +2297,7 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.switchToChannelFailed',
             expect.objectContaining({
-                channelId: 'c1',
-                ratingKey: 'c1-0',
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('switch failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });
@@ -2181,8 +2356,7 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.switchToChannelFailed',
             expect.objectContaining({
-                channelId: 'c1',
-                ratingKey: 'c1-0',
+                errorKind: 'non-abort',
             })
         );
     });
@@ -2301,12 +2475,8 @@ describe('EPGCoordinator', () => {
             'QA-003b',
             'epg.guideSnapshotBuildFailed',
             expect.objectContaining({
-                channelId: 'c1',
-                ratingKey: 'c1-0',
                 selectedAt: 5_000,
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('snapshot failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });
@@ -2812,7 +2982,7 @@ describe('EPGCoordinator', () => {
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
             reason: 'quota-exceeded',
-            requestedLibraryId: 'lib1',
+            requestedSelection: 'single-library',
         });
     });
 
@@ -2863,9 +3033,7 @@ describe('EPGCoordinator', () => {
                 reason: 'visible-range',
                 debounceMs: null,
                 range,
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('visible range failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });

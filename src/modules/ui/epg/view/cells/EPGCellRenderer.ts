@@ -132,6 +132,7 @@ export class EPGCellRenderer {
             EPG_CLASSES.CELL_CURRENT,
             EPG_CLASSES.CELL_PAST,
             EPG_CLASSES.CELL_LOADING,
+            EPG_CLASSES.CELL_UNAVAILABLE,
             EPG_CLASSES.CELL_TEXT_SHIFTED,
             EPG_CLASSES.CELL_TITLE_FULL_ROW,
             FOCUSED_MOVIE_OVERLAY_CLASS,
@@ -185,6 +186,7 @@ export class EPGCellRenderer {
                 cellData.program.scheduledEndTime
             );
             element.classList.remove(EPG_CLASSES.CELL_LOADING);
+            element.classList.remove(EPG_CLASSES.CELL_UNAVAILABLE);
         } else {
             if (children.titleText) children.titleText.textContent = cellData.placeholder.label;
             this.updateCellTimeLabel(
@@ -194,7 +196,13 @@ export class EPGCellRenderer {
                 cellData.placeholder.scheduledStartTime,
                 cellData.placeholder.scheduledEndTime
             );
-            element.classList.add(EPG_CLASSES.CELL_LOADING);
+            if (cellData.placeholder.lifecycle === 'unavailable') {
+                element.classList.remove(EPG_CLASSES.CELL_LOADING);
+                element.classList.add(EPG_CLASSES.CELL_UNAVAILABLE);
+            } else {
+                element.classList.remove(EPG_CLASSES.CELL_UNAVAILABLE);
+                element.classList.add(EPG_CLASSES.CELL_LOADING);
+            }
         }
         this.applyTextPresentation(children, cellData, textLayout);
         this.applyWidthPresentation(element, children, tier, cellData, textLayout);

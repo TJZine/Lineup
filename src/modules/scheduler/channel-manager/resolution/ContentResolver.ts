@@ -16,12 +16,14 @@ import { PLEX_MEDIA_TYPES } from '../../../plex/library/constants';
 import { isPlexLibraryScopeSupersededError } from '../../../plex/library';
 import { ContentItemMapper } from './ContentItemMapper';
 import { ContentSelectionPolicy } from './ContentSelectionPolicy';
+import { isConfirmedMissingCollectionError } from './ChannelResolutionErrorPolicy';
 import { SourceResolutionCache } from './SourceResolutionCache';
 import {
     SourceResolutionScope,
     type SourceResolutionOperationContext,
 } from './SourceResolutionEntryAuthority';
 import { isAbortLikeError } from '../../../../utils/errors';
+import type { ObserveSourceResolution } from '../contracts/SourceResolutionDiagnostic';
 
 
 const CONTENT_RESOLVER_CACHE_TTL_MS = 5 * 60_000;
@@ -31,6 +33,8 @@ type ContentResolutionOptions = {
     signal?: AbortSignal | null;
     operationContext?: SourceResolutionOperationContext;
     strict?: boolean;
+    cacheMode?: 'default' | 'revalidate';
+    onSourceDiagnostic?: ObserveSourceResolution;
 };
 
 /**
@@ -95,13 +99,21 @@ export class ContentResolver {
                 (sourceToResolve, entry) => this._resolveSourceUncached(sourceToResolve, {
                     signal: entry.signal,
                     operationContext: entry,
+                    ...(options?.cacheMode !== undefined ? { cacheMode: options.cacheMode } : {}),
+                    ...(options?.onSourceDiagnostic ? { onSourceDiagnostic: options.onSourceDiagnostic } : {}),
                 }),
                 operation,
-                options?.signal
+                options?.signal,
+                options?.cacheMode,
+                options?.onSourceDiagnostic
             );
         } finally {
             operation.release();
         }
+    }
+
+    whenIdle(): Promise<void> {
+        return this._sourceCache.whenIdle();
     }
 
     private async _resolveSourceUncached(
@@ -264,7 +276,9 @@ export class ContentResolver {
         options?.operationContext?.assertCurrent();
 
         const now = Date.now();
-        const cached = this._showCacheByLibraryId.get(source.libraryId);
+        const cached = options?.cacheMode === 'revalidate'
+            ? undefined
+            : this._showCacheByLibraryId.get(source.libraryId);
         let shows: PlexMediaItemMinimal[] | null = null;
         if (cached && now - cached.cachedAt < SHOW_CACHE_TTL_MS) {
             shows = cached.items;
@@ -458,7 +472,12 @@ export class ContentResolver {
         options?: ContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         const allResolved = await Promise.all(
-            source.sources.map((subSource) => this.resolveSource(subSource, options))
+            source.sources.map((subSource) => this.resolveSource(subSource, options).catch((error: unknown) => {
+                if (subSource.type === 'collection' && isConfirmedMissingCollectionError(error)) {
+                    return [];
+                }
+                throw error;
+            }))
         );
         options?.operationContext?.assertCurrent();
 

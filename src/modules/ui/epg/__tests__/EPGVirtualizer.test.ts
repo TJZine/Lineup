@@ -790,6 +790,71 @@ describe('EPGVirtualizer', () => {
             expect(title?.textContent).toBe('Loading...');
         });
 
+        it('renders retrying placeholders while a manual attempt is active', () => {
+            const channelIds = ['ch0'];
+            const schedules = new Map<string, ScheduleWindow>();
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+            virtualizer.renderVisibleCells(channelIds, schedules, range, undefined, Date.now(), new Map([
+                ['ch0', { kind: 'retrying', rangeKey: 'day' }],
+            ]));
+
+            const title = container.querySelector('.epg-cell-title');
+            expect(title?.textContent).toBe('Retrying...');
+        });
+
+        it('renders unavailable rows as focusable non-shimmering retry actions', () => {
+            const channelIds = ['ch0'];
+            const schedules = new Map<string, ScheduleWindow>();
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+            virtualizer.renderVisibleCells(channelIds, schedules, range, undefined, Date.now(), new Map([
+                ['ch0', { kind: 'unavailable', rangeKey: 'day' }],
+            ]));
+
+            const cell = container.querySelector('.epg-cell') as HTMLElement | null;
+            const title = container.querySelector('.epg-cell-title');
+            expect(title?.textContent).toBe('Unavailable — OK to retry');
+            expect(cell?.classList.contains(EPG_CLASSES.CELL_UNAVAILABLE)).toBe(true);
+            expect(cell?.classList.contains(EPG_CLASSES.CELL_LOADING)).toBe(false);
+
+            const focusTimeMs = gridAnchorTime + (30 * 60000);
+            const focused = virtualizer.setFocusedCell('ch0', focusTimeMs, focusTimeMs);
+            expect(focused).not.toBeNull();
+            expect(focused?.classList.contains('focused')).toBe(true);
+        });
+
+        it('renders a ready schedule instead of a stale unavailable lifecycle', () => {
+            const channelIds = ['ch0'];
+            const schedules = new Map<string, ScheduleWindow>([
+                ['ch0', {
+                    startTime: gridAnchorTime,
+                    endTime: gridAnchorTime + (3 * 60 * 60000),
+                    programs: [createProgram()],
+                }],
+            ]);
+
+            virtualizer.setChannelCount(1);
+            const range = virtualizer.calculateVisibleRange({
+                channelOffset: 0,
+                timeOffset: 0,
+            });
+            virtualizer.renderVisibleCells(channelIds, schedules, range, undefined, Date.now(), new Map([
+                ['ch0', { kind: 'unavailable', rangeKey: 'day' }],
+            ]));
+
+            expect(container.querySelector('.epg-cell-title')?.textContent).toBe('Program');
+            expect(container.querySelector(`.${EPG_CLASSES.CELL_UNAVAILABLE}`)).toBeNull();
+        });
+
         it('can focus a placeholder cell by time when schedules are missing', () => {
             const channelIds = ['ch0'];
             const schedules = new Map<string, ScheduleWindow>();

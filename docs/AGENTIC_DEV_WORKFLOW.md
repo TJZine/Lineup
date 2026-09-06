@@ -27,7 +27,10 @@ and [Anthropic Building Effective Agents](https://www.anthropic.com/engineering/
 
 ## Authority And Context Routing
 
-Read `AGENTS.md` and this runbook. Then load only the task-relevant sources:
+Use `AGENTS.md` and the relevant sections of this runbook. Load task-relevant
+sections of these sources and inspect affected owners and callers. Expand reading
+when a dependency, invariant, or contract remains unclear; do not omit a changed
+boundary merely to reduce context:
 
 - `docs/architecture/CURRENT_STATE.md`: ownership, hotspots, runtime flow
 - `ARCHITECTURE_CLEANUP_CHECKLIST.md`: active checklist-linked cleanup only
@@ -39,6 +42,13 @@ Read `AGENTS.md` and this runbook. Then load only the task-relevant sources:
 
 Historical plans, baseline summaries, detector state, `docs/runs/**`, and archived
 material are evidence, never current task authority.
+
+Select boundary skills by the responsibility or contract being changed. Data
+origin alone does not require another skill: formatting a Plex-derived label does
+not change Plex policy, and a store with UI callers does not necessarily change UI
+lifecycle. Reuse existing task context; consult a peer only for an affected boundary
+whose guidance is not already established. Skills add local invariants and proof
+examples; this runbook owns verification gates, review, and delegation policy.
 
 ## Commands
 
@@ -71,7 +81,7 @@ Choose the task family and risk before editing.
 | --- | --- | --- | --- |
 | Low | docs, comments, tiny isolated cleanup | one agent | focused check + diff audit |
 | Medium | bounded feature, bug fix, internal refactor | one agent plans and implements | focused tests + type/lint as applicable |
-| High | public contract, hotspot, Plex/security/persistence, broad UI/runtime, cross-session, or material workflow/control-plane change affecting entrypoints, routing, skills, roles, launchers, or verifier scope | explicit plan when needed + implementation + one independent final review | surface-specific proof; for control-plane changes, `npm run verify:docs`, `git diff --check`, and a direct consistency check of materially changed operative guidance |
+| High | public contract, hotspot, Plex/security/persistence, broad UI/runtime, cross-session, or material workflow/control-plane change affecting entrypoints, routing, skills, roles, or verifier scope | explicit plan when needed + implementation; independent review when a concrete consequential risk warrants it | surface-specific proof; for control-plane changes, `npm run verify:docs`, `git diff --check`, and a direct consistency check of materially changed operative guidance |
 
 Escalate only when the lower tier would materially weaken reliability.
 
@@ -91,7 +101,11 @@ Escalate only when the lower tier would materially weaken reliability.
 - Low risk has no mandatory independent review.
 - Medium risk gets an independent review only when novelty, blast radius, weak
   coverage, or hard-to-observe behavior justifies it.
-- High risk gets one independent final review by default.
+- Use one independent review when requested or when a consequential risk benefits
+  from a second assessment: novel security/data-loss boundaries, complex
+  concurrency or lifecycle changes, broad contract migrations, or weak proof of
+  changed behavior. State the concrete reason before dispatch. The high-risk label,
+  file size, or location alone does not require a reviewer.
 - Review a plan separately only when its seam or public contract is expensive to
   get wrong before implementation.
 - Re-review only after a material finding or material review-surface change. Do
@@ -120,7 +134,9 @@ local design judgment, cross-boundary comprehension, complex diagnosis, or proof
 interpretation. Return unresolved product, ownership, public-contract, architecture,
 or proof decisions to planning. Plans describe risk and constraints rather than
 permanently binding a model; the controller selects the current role at dispatch.
-The main agent reviews the diff, integrates it, and reruns the proof.
+The main agent reviews the diff, integrates it, and confirms current proof under
+Verification below. An approved write boundary may be established by the main agent
+within the user's task; it is not a separate user approval gate.
 
 The main agent owns decisions, integration, and final verification. Keep depth at
 one. Return concise findings rather than raw transcripts.
@@ -154,23 +170,37 @@ For every non-trivial change:
 - update current architecture, public contract, or checklist status in the same
   pass when the changed behavior makes those docs stale.
 
-If ownership, product intent, security behavior, or a public contract is unclear,
-stop and resolve it before implementation.
+Complete authorized work through implementation, verification, and repair of
+failures caused by the change. Resolve routine ownership, local design, and proof
+questions from current source, tests, relevant authority, and task decisions.
+Ask only when investigation leaves a consequential product, security, data-loss,
+public-contract, or scope choice outside existing authorization. New UI direction
+and material changes to approved design remain collaborative decisions.
 
-Production LOC is an attention signal, not a design rule. When changing a production
-file over 500 lines, record the compact architecture disposition defined by
-`architecture-boundaries`. A production file over 800 lines, a composition root,
-or a hotspot named in current architecture guidance requires a fresh independent
-`reviewer` pass over the whole owner. These thresholds neither force a
-split nor prohibit cohesive growth. Re-review only after a material finding or
-material review-surface change.
+Workers return decisions outside their boundary to the main agent; the main agent
+resolves them within the user's task before escalating to the user. Conflicting
+stale prose alone does not require confirmation when current intent is established.
+Continue independent work while a required decision is pending.
+
+Production LOC and named hotspots are attention signals. For behavior or ownership
+changes in a large owner, inspect the affected lifecycle, callers, and invariants;
+expand to the whole owner when needed. Record a brief cohesion decision when adding
+or moving responsibilities. The 500/800 thresholds do not themselves require a
+reviewer, a written disposition, or an extraction. Use the Review criteria above.
 
 ## Verification
 
 Choose the smallest proof that covers the changed surface:
 
+Use behavior and contract impact to select the gate. Comments, formatting, and
+demonstrably nonbehavioral edits may use focused structural/static checks even in
+UI, runtime, or hotspot files; briefly explain why broader verification adds no
+relevant proof. Inspect affected owners, callers, contracts, and existing tests
+before narrowing a gate. Uncertain behavior or integration impact retains the
+stronger gate below.
+
 - logic-only: focused tests, `npm run typecheck`, and relevant lint;
-- UI/navigation/Orchestrator/Plex/runtime/build: `npm run verify` plus any manual
+- UI/navigation/Orchestrator/Plex/runtime/build behavior: `npm run verify` plus any manual
   or device proof required by the task;
 - architecture attention evidence: `npm run verify:maintainability`; this reports
   production files over 500/800 lines but does not decide or enforce extraction;
@@ -178,13 +208,49 @@ Choose the smallest proof that covers the changed surface:
 - docs outside the control plane: link/source inspection and the smallest relevant
   docs check.
 
-`npm run verify:docs` validates only structural invariants: required entrypoints,
-tracked skill/config presence, TOML parseability and role safety, local Markdown
-links, and minimal active-plan metadata. It must not assert exact prose or encode a
-second copy of workflow policy.
+`npm run verify:docs` validates structural invariants: required authority
+entrypoints, present skill metadata, declared role paths, TOML parseability and role
+safety, local Markdown links, and minimal active-plan metadata. It does not require
+a fixed skill or role roster. It must not assert exact prose or encode a second
+copy of workflow policy.
+
+Verification remains current when its output was inspected and the checked code,
+inputs, dependencies, and relevant environment are unchanged. Reuse that evidence,
+including workers' observed results. Rerun affected checks when edits or integration
+invalidate it, and add integration proof for interactions the unit checks did not
+cover. Do not repeat an unchanged clean gate solely at closeout.
 
 Never claim platform, visual, device, or runtime proof that was not run. Full-suite
 verification does not replace a targeted reproduction or manual acceptance check.
+
+### Command Evidence And Suite Selection
+
+The scripts in `package.json` and Jest configurations define executable scope:
+
+| Command | Evidence |
+| --- | --- |
+| `npm test` / `npm run test:unit` | Same unit suite; excludes tool, contract/policy, and type-contract tests |
+| `npm run test:coverage` | Unit suite with coverage thresholds; includes the unit run |
+| `npm run test:contracts` | Contract/policy and `types.test.ts` suites under `jest.contracts.config.js` |
+| `npm run test:tools` / `npm run test:node-tools` | Separate TypeScript and Node tooling suites |
+| `npm run test:all` | Unit, contract, and both tooling suites; no coverage threshold or build proof |
+| `npm run verify:architecture` | ESLint plus advisory maintainability evidence; includes `lint` |
+| `npm run verify` | Typecheck, architecture/CSS lint, unit coverage, contract/tooling suites, docs structure, lean bundle analysis, and dev build |
+| `npm run verify:quick` | Typecheck plus `test:all`; does not replace the behavior gate above |
+
+Use the matching suite command with a focused test path (for example,
+`npm run test:contracts -- --runTestsByPath path/to/example.contract.test.ts`).
+Check discovery before claiming focused proof. Do not habitually run `test:all`,
+`lint`, or typecheck immediately before an unchanged `verify`; those checks are
+included. A targeted reproduction may still add evidence that the aggregate lacks.
+
+`verify:bundle` builds the lean analyzed profile unless `--skip-build` is supplied;
+use that flag only with a current analyzed artifact. The final `build` in `verify`
+checks the distinct dev profile and leaves dev output in `dist`. CI instead checks
+the lean candidate, removes analyzer metadata, verifies release contents/digest,
+and packages that candidate. Local aggregate success is not release-artifact or
+device proof. Preserve both profiles and reuse artifacts only under currentness
+rules above.
 
 ## Plans And Handoffs
 
@@ -212,7 +278,7 @@ already run, and blockers. Do not create a handoff artifact when the work is don
 Before claiming completion:
 
 1. confirm the requested outcome and authority-doc updates;
-2. run fresh risk-matched verification and read the result;
+2. confirm current risk-matched verification and inspect its results;
 3. inspect `git status --short`, the diff stat, and the task-owned diff;
 4. preserve and report unrelated user changes;
 5. adjudicate material reviewer findings;

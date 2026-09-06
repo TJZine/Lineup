@@ -63,6 +63,33 @@ describe('ScheduleCalculator', () => {
     });
 
     describe('buildScheduleIndex', () => {
+        it('preserves the current program and window after a shuffled collection is reread in a different order', () => {
+            const anchorTime = Date.UTC(2026, 8, 6);
+            const config: ScheduleConfig = {
+                channelId: 'reopened-collection',
+                anchorTime,
+                content: testContent,
+                playbackMode: 'shuffle',
+                shuffleSeed: 42,
+            };
+            const original = buildScheduleIndex(config, shuffler);
+            const rereadContent = [...testContent].reverse().map((item, scheduledIndex) => ({
+                ...item,
+                scheduledIndex,
+            }));
+            const reopened = buildScheduleIndex({ ...config, content: rereadContent }, new ShuffleGenerator());
+            const now = anchorTime + 8 * 60 * 60 * 1000 + 17 * 60 * 1000;
+
+            expect(reopened.orderedItems).toEqual(original.orderedItems);
+            expect(reopened.itemStartOffsets).toEqual(original.itemStartOffsets);
+            expect(calculateProgramAtTime(now, reopened, anchorTime))
+                .toEqual(calculateProgramAtTime(now, original, anchorTime));
+            expect(generateScheduleWindow(now, now + 3 * 60 * 60 * 1000, reopened, anchorTime))
+                .toEqual(generateScheduleWindow(now, now + 3 * 60 * 60 * 1000, original, anchorTime));
+            expect(rereadContent.map((item) => item.ratingKey))
+                .toEqual([...testContent].reverse().map((item) => item.ratingKey));
+        });
+
         it('should build index with correct total duration', () => {
             const config: ScheduleConfig = {
                 channelId: 'test-channel',

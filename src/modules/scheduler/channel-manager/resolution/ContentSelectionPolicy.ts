@@ -83,18 +83,14 @@ export class ContentSelectionPolicy {
             case 'sequential':
             case 'shuffle':
             case 'block':
+            case 'random':
                 return applyPlaybackOrdering({
                     items,
-                    mode,
+                    mode: mode === 'random' ? 'shuffle' : mode,
                     seed,
                     blockSize,
                     shuffleItems: shuffleWithSeed,
                 });
-            case 'random':
-                return shuffleWithSeed(items, seed).map((item, index) => ({
-                    ...item,
-                    scheduledIndex: index,
-                }));
             default:
                 throw new Error(`Unknown content playback mode: ${String(mode)}`);
         }

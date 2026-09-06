@@ -1,4 +1,6 @@
 {
+  "status": "historical",
+  "authority_note": "Historical membership and execution snapshot only; current work admission and policy come from ARCHITECTURE_CLEANUP_CHECKLIST.md and docs/AGENTIC_DEV_WORKFLOW.md. This file does not activate a queue or impose workflow gates.",
   "artifact_role": "authoritative exact membership for P13 post-P12 subjective backlog cleanup queue",
   "artifact_version": 1,
   "created_at": "2026-04-25",

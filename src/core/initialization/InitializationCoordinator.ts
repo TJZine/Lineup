@@ -143,6 +143,12 @@ export interface InitializationCallbacks {
         switchToChannel: (id: string) => Promise<ChannelSwitchOutcome>;
         openServerSelect: () => void;
     };
+    epgWarmup: {
+        warmCurrentViewportForStartup: (options?: {
+            signal?: AbortSignal | null;
+            shouldContinue?: () => boolean;
+        }) => Promise<void>;
+    };
     resources: {
         buildPlexResourceUrl: (pathOrUrl: string | null) => string | null;
     };
@@ -157,6 +163,7 @@ export class InitializationCoordinator {
     private _epgInitPromise: Promise<void> | null = null;
     private _epgWarmupTimerId: ReturnType<typeof setTimeout> | null = null;
     private _epgWarmupPromise: Promise<void> | null = null;
+    private _epgWarmupAbortController: AbortController | null = null;
     private readonly _selectedServerTransaction: InitializationSelectedServerTransaction;
     private readonly _startupHandoff: InitializationStartupHandoff;
     private readonly _quarantineAuthority = new InitializationQuarantineAuthority();
@@ -398,8 +405,8 @@ export class InitializationCoordinator {
     isStartupInProgress(): boolean {
         return this._startupInProgress;
     }
-    async ensureEPGInitialized(): Promise<void> {
-        await this._initializeEpg();
+    async ensureEPGInitialized(signal?: AbortSignal | null): Promise<void> {
+        await this._initializeEpg({ signal });
     }
     clearAuthResume(): void {
         this._cancelEpgWarmup();
@@ -659,7 +666,7 @@ export class InitializationCoordinator {
             }
             throwIfStartupAborted(signal);
             epg.initialize(epgConfigWithResolver);
-            await this._deps.readiness.epg?.ensureReady();
+            await this._deps.readiness.epg?.ensureReady(signal);
             throwIfStartupAborted(signal);
             this._callbacks.status.updateModuleStatus(
                 'epg-ui',
@@ -692,12 +699,37 @@ export class InitializationCoordinator {
         await this._deps.startupUiInitializer.ensureCorePlayerUiInitialized();
         throwIfStartupAborted(signal);
     }
+    async drainEpgWarmupForShutdown(): Promise<void> {
+        if (this._epgWarmupTimerId !== null) {
+            clearTimeout(this._epgWarmupTimerId);
+            this._epgWarmupTimerId = null;
+        }
+        this._epgWarmupAbortController?.abort('shutdown');
+        this._epgWarmupAbortController = null;
+        try {
+            await (this._epgWarmupPromise ?? Promise.resolve());
+        } catch {
+            // Best-effort drain; abort/supersession settles the warmup port.
+        }
+    }
+
     private _cancelEpgWarmup(): void {
         if (this._epgWarmupTimerId !== null) {
             clearTimeout(this._epgWarmupTimerId);
             this._epgWarmupTimerId = null;
         }
+        this._epgWarmupAbortController?.abort('superseded');
+        this._epgWarmupAbortController = null;
     }
+
+    private _isPlaybackPlayingForWarmup(): boolean {
+        try {
+            return this._deps.modules.videoPlayer?.isPlaying?.() === true;
+        } catch {
+            return false;
+        }
+    }
+
     private _scheduleEpgWarmup(assertCurrent?: () => void): void {
         this._cancelEpgWarmup();
         this._epgWarmupTimerId = setTimeout(() => {
@@ -707,12 +739,45 @@ export class InitializationCoordinator {
             } catch {
                 return;
             }
-            const warmup = this.ensureEPGInitialized().catch(() => {
-                // Best-effort warmup.
-            });
+            const abortController = new AbortController();
+            this._epgWarmupAbortController = abortController;
+            const warmup = (async (): Promise<void> => {
+                try {
+                    assertCurrent?.();
+                } catch {
+                    return;
+                }
+                try {
+                    await this.ensureEPGInitialized(abortController.signal);
+                } catch {
+                    return;
+                }
+                if (abortController.signal.aborted) {
+                    return;
+                }
+                try {
+                    assertCurrent?.();
+                } catch {
+                    return;
+                }
+                if (!this._isPlaybackPlayingForWarmup()) {
+                    return;
+                }
+                try {
+                    await this._callbacks.epgWarmup.warmCurrentViewportForStartup({
+                        signal: abortController.signal,
+                        shouldContinue: (): boolean => this._isPlaybackPlayingForWarmup(),
+                    });
+                } catch {
+                    // Best-effort warmup.
+                }
+            })();
             this._epgWarmupPromise = warmup;
             void warmup.finally(() => {
                 if (this._epgWarmupPromise === warmup) this._epgWarmupPromise = null;
+                if (this._epgWarmupAbortController === abortController) {
+                    this._epgWarmupAbortController = null;
+                }
             });
         }, InitializationCoordinator.EPG_WARMUP_DELAY_MS);
     }
