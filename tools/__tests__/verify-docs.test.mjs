@@ -181,10 +181,28 @@ test('accepts a reduced role roster and no local skills through the verifier ent
         mutateFile(fixtureRoot, '.codex/config.toml', (content) =>
             content.replace(/\n\[agents\.monitor\][\s\S]*?config_file = "agents\/monitor\.toml"\n/u, '\n')
         );
-        rmSync(path.join(fixtureRoot, '.agents'), { recursive: true });
+        execFileSync('git', ['rm', '-r', '-f', '--quiet', '.agents'], { cwd: fixtureRoot });
         execFileSync('git', ['rm', '-f', '--quiet', '.codex/agents/monitor.toml'], { cwd: fixtureRoot });
         const result = runVerifier(fixtureRoot);
         assert.equal(result.status, 0, result.stderr);
+    } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('reports a tracked skill deleted from the working tree', () => {
+    const fixtureRoot = createVerifierFixture();
+    try {
+        const relativePath = '.agents/skills/test-skill/SKILL.md';
+        rmSync(path.join(fixtureRoot, relativePath));
+
+        const result = runVerifier(fixtureRoot);
+
+        assert.equal(result.status, 1, result.stdout);
+        assert.match(
+            result.stderr,
+            /\.agents\/skills\/test-skill\/SKILL\.md: cannot read/u
+        );
     } finally {
         rmSync(fixtureRoot, { recursive: true, force: true });
     }

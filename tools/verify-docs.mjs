@@ -56,7 +56,7 @@ function workingFiles(pattern) {
             { cwd: root, encoding: 'utf8' }
         )
             .split('\n')
-            .filter((file) => file && existsSync(path.join(root, file)));
+            .filter(Boolean);
     } catch (error) {
         errors.push(`git working-file discovery failed for ${pattern}: ${error.message}`);
         return [];
