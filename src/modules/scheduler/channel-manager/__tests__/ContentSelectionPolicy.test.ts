@@ -62,6 +62,18 @@ describe('ContentSelectionPolicy', () => {
         )).toThrow('Unknown content playback mode: unexpected');
     });
 
+    it.each(['shuffle', 'random'] as const)('keeps %s content order stable across Plex response permutations', (mode) => {
+        const items = createItems();
+        const expected = policy.applyPlaybackMode(items, mode, 73);
+        const reversed = [...items].reverse();
+        expect(policy.applyPlaybackMode(reversed, mode, 73)).toEqual(expected);
+        expect(reversed.map((item) => item.ratingKey)).toEqual(['3', '2', '1']);
+        expect(policy.applyPlaybackMode(items, 'sequential', 73).map((item) => item.ratingKey))
+            .toEqual(['1', '2', '3']);
+        expect(policy.applyPlaybackMode(reversed, 'sequential', 73).map((item) => item.ratingKey))
+            .toEqual(['3', '2', '1']);
+    });
+
     it('applies genre and director filters with matching list semantics', () => {
         const items: ResolvedContentItem[] = [
             ...createItems(),
