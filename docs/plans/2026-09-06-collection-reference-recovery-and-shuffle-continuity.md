@@ -77,9 +77,16 @@ items. No channel-reference mutation was made during diagnosis.
   mutation removed, lifecycle/persistence proof added, foreground EPG retry traced.
   No remaining actionable findings.
 - [x] Full `npm run verify` passed, including 4,716 unit tests and dev/lean builds.
-- [ ] Full verification, exact commit and development device QA.
+- [x] Full verification, exact commit and development device QA (final `7e716692`).
 - [x] First development device batch: 19/20 repaired and persisted; 45 normal
   retry repaired in 230 ms. Configuration fingerprint preserved. Physical testing
   exposed a remaining stale Guide snapshot after repair; P2 remains open.
-- [ ] Snapshot correction: integrate bounded worker changes, independent review,
-  full verification, exact candidate, repeat navigation and relaunch QA.
+- [x] Snapshot correction: integrated and independently reviewed; full verification
+  passed (4,720 unit tests), exact `7e716692` passed physical paging, repaired-row
+  publication, configuration preservation, relaunch persistence and final
+  row/focus/picture/PiP/sound confirmation. See the recurrence QA report.
+
+The bounded recovery correctness work is complete. Preserve the earlier failing
+evidence and deferred broader recovery/continuity contracts. Performance tuning
+remains deferred. A separately reported Settings/Guide focus conflict is being
+corrected independently; it does not change the recovery candidate verdict.

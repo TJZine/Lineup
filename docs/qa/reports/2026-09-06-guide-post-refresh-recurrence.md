@@ -1,8 +1,9 @@
 # Guide unavailable rows after reported daily refresh — 2026-09-06
 
-P2 remains open. Device QA of the installed `5b1f7a14` development candidate proved
-reference recovery but exposed a stale Guide ownership defect during subsequent
-navigation. Its correction is in integration and verification. No release deployment.
+The bounded reference-recovery and stale Guide ownership corrections passed
+verification and physical navigation/relaunch QA on exact implementation `7e716692`.
+The original evidence is retained below. Broader recovery policy and performance
+work remain separate; no release deployment occurred.
 The sections below preserve the investigation chronologically; later verification
 supersedes the explicitly pending checks recorded earlier.
 
@@ -294,3 +295,20 @@ queued channels up to 96/140; schedule-cache entries 240/360. These are row-work
 and cache limits, not a count of simultaneous Plex HTTP requests. Startup warmup
 remains conservative (`aggressive: false`). No setting was changed and no A/B
 performance comparison of Aggressive was run.
+
+## Final physical confirmation and separate Settings focus defect
+
+The operator confirmed the final reopened Guide was populated around channel 51,
+with normal focus, picture/PiP and sound. Together with the preceding exact-runtime,
+configuration-preservation and relaunch checks, this completes the bounded
+correctness QA for `7e716692`. Performance remains a qualitative operator verdict:
+all-channel paging loads were estimated below ten seconds, with TV-show library
+blocks slowest. Cache-cap and idle-work observations do not establish a device
+CPU/memory ceiling or prove every possible refresh scenario.
+
+A separate physical-remote defect was then reported: with Settings open, pressing
+the green Guide button opened Guide behind the Settings pane and directed controls
+to Guide. Source inspection confirms the Guide shortcut has no active-screen
+guard, while input routing treats a visible Guide as active. Settings only hides
+Guide on entry. This is a navigation/overlay defect, not evidence of failed
+collection-reference recovery. Its bounded correction and verification are pending.

@@ -9,12 +9,12 @@ Implemented work has been moved to the "Completed / Removed" section to keep pri
 
 ### Plex Collection Recreation Recovery and Unavailable Initial Channel Recovery
 
-Status: bounded source-reference recovery implemented and locally verified on
-2026-09-06; exact development device QA remains pending following a confirmed
-missing key and usable same-library replacement on the TV.
-Device recovery succeeded, but subsequent navigation exposed stale Guide source
-snapshots. The result-owned snapshot correction is in verification; P2 remains
-open until that exact candidate passes navigation and relaunch checks.
+Status: bounded source-reference recovery and result-owned Guide snapshot correction
+passed full verification and exact `7e716692` physical navigation/relaunch QA on
+2026-09-06. Configuration preservation and repaired-reference persistence passed;
+the operator confirmed populated rows, focus, picture/PiP and sound. Investigation
+history remains in the recurrence report for future failures. Performance tuning
+and the broader recovery contracts below remain open.
 Current authority: `docs/plans/2026-09-06-collection-reference-recovery-and-shuffle-continuity.md`.
 The earlier Guide loading/retry/warmup fixes did not implement this recovery.
 General startup fallback UI and legacy/ambiguous replacement UI remain separate.
