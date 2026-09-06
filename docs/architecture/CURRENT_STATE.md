@@ -333,6 +333,10 @@ after this extraction.
   listing with one exact-name replacement, and usable filtered content permit a
   persisted key replacement. Schedule-only/background resolution remains
   nonmutating; it does not repair saved channel references.
+  Resolved channel content carries an owned channel snapshot, including any
+  completed reference repair. Guide uses that snapshot for schedule generation,
+  load metadata and cache/in-flight ownership; publication checks it against the
+  current manager identity so a later edit cannot inherit old resolved items.
 - `src/core/channel-tuning/ChannelTuningCoordinator.ts` remains the channel-switch
   workflow owner. `ChannelTuningOperationContext.ts` owns general admission and
   retained suspension currentness, `ChannelInitialTuneAuthority.ts` owns opaque

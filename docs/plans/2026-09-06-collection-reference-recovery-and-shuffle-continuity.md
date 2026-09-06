@@ -45,6 +45,11 @@ items. No channel-reference mutation was made during diagnosis.
    schedules once on upgrade; no promise of old-version schedule compatibility.
 6. Actual membership/duration changes, arbitrary legacy-source repair UI, startup
    fallback UI, and performance tuning remain outside this bounded repair.
+7. Device QA exposed stale Guide ownership after a successful key repair. Resolved
+   content must carry its exact owned channel snapshot; Guide propagates it into
+   generation, publication metadata, cache and in-flight ownership, and compares
+   it against current manager state before publication. Do not infer an allowed
+   key delta from a later read or silently accept unrelated edits.
 
 ## Ownership and proof
 
@@ -73,3 +78,8 @@ items. No channel-reference mutation was made during diagnosis.
   No remaining actionable findings.
 - [x] Full `npm run verify` passed, including 4,716 unit tests and dev/lean builds.
 - [ ] Full verification, exact commit and development device QA.
+- [x] First development device batch: 19/20 repaired and persisted; 45 normal
+  retry repaired in 230 ms. Configuration fingerprint preserved. Physical testing
+  exposed a remaining stale Guide snapshot after repair; P2 remains open.
+- [ ] Snapshot correction: integrate bounded worker changes, independent review,
+  full verification, exact candidate, repeat navigation and relaunch QA.

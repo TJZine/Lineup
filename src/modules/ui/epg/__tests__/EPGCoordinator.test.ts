@@ -75,6 +75,24 @@ const makeResolvedItem = (channelId: string, idx: number): ResolvedContentItem =
 
 const makeResolvedItems = (channelId: string): ResolvedContentItem[] => [makeResolvedItem(channelId, 0)];
 
+const findChannel = (channels: ChannelConfig[], channelId: string): ChannelConfig => {
+    const channel = channels.find((candidate) => candidate.id === channelId);
+    if (!channel) throw new Error(`Missing test channel ${channelId}`);
+    return channel;
+};
+
+const makeResolvedContent = (
+    channel: ChannelConfig,
+    items: ResolvedChannelContent['items'] = makeResolvedItems(channel.id)
+): ResolvedChannelContent => ({
+    channelId: channel.id,
+    channelSnapshot: channel,
+    resolvedAt: Date.now(),
+    items,
+    totalDurationMs: items.reduce((total, item) => total + item.durationMs, 0),
+    orderedItems: [...items],
+});
+
 const baseProgram = (channelId: string, idx: number): ScheduledProgram =>
 ({
     item: makeResolvedItem(channelId, idx),
@@ -189,10 +207,15 @@ const makeDeps = (
     const channels: ChannelConfig[] = Array.from({ length: 3 }, (_, i) => makeChannel(`c${i}`, i + 1));
     const channelManager: IChannelManager = {
         getAllChannels: () => channels,
+        getChannel(this: IChannelManager, channelId: string): ChannelConfig | null {
+            return this.getAllChannels().find((channel) => channel.id === channelId) ?? null;
+        },
         getCurrentChannel: () => channels[0],
-        resolveChannelContent: jest.fn().mockImplementation(async (id: string) => {
-            const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-            return { items } as ResolvedChannelContent;
+        resolveChannelContent: jest.fn().mockImplementation(async function (
+            this: IChannelManager,
+            id: string
+        ): Promise<ResolvedChannelContent> {
+            return makeResolvedContent(findChannel(this.getAllChannels(), id));
         }),
         resolveChannelItemsForSchedule: jest.fn().mockImplementation(async (id: string) => {
             const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
@@ -1401,8 +1424,8 @@ describe('EPGCoordinator', () => {
         expect(capturedSignal?.aborted).toBe(false);
         controller.abort(abortReason);
         (resolveContent as unknown as (value: ResolvedChannelContent) => void)({
-            items: [makeResolvedItem('c1', 0)],
-        } as ResolvedChannelContent);
+            ...makeResolvedContent(channel),
+        });
 
         await expect(refresh).rejects.toBe(abortReason);
         expect(capturedSignal?.aborted).toBe(true);
@@ -1441,7 +1464,7 @@ describe('EPGCoordinator', () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
                 const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
                     const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-                    return { items } as ResolvedChannelContent;
+                    return makeResolvedContent(findChannel(manyChannels, id), items);
                 });
                 const resolveChannelItemsForSchedule = jest
                     .fn()
@@ -1514,7 +1537,7 @@ describe('EPGCoordinator', () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
                 const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
                     const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-                    return { items } as ResolvedChannelContent;
+                    return makeResolvedContent(findChannel(manyChannels, id), items);
                 });
                 const pendingWarmResolves = new Map<string, (items: ResolvedChannelContent['items']) => void>();
                 const resolveChannelItemsForSchedule = jest.fn().mockImplementation((id: string) => {
@@ -1588,7 +1611,7 @@ describe('EPGCoordinator', () => {
                 const manyChannels = Array.from({ length: 240 }, (_, i) => makeChannel(`c${i}`, i + 1));
                 const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
                     const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-                    return { items } as ResolvedChannelContent;
+                    return makeResolvedContent(findChannel(manyChannels, id), items);
                 });
                 const pendingWarmResolves = new Map<string, (items: ResolvedChannelContent['items']) => void>();
                 const resolveChannelItemsForSchedule = jest.fn().mockImplementation((id: string) => {
@@ -1704,7 +1727,7 @@ describe('EPGCoordinator', () => {
 
                     const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
                         const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-                        return { items } as ResolvedChannelContent;
+                        return makeResolvedContent(findChannel(manyChannels, id), items);
                     });
                     const resolveChannelItemsForSchedule = jest
                         .fn()
@@ -1939,7 +1962,7 @@ describe('EPGCoordinator', () => {
         const range = { channelStart: 0, channelEndExclusive: 2, timeStartMs: 0, timeEndMs: 0 };
         const resolveChannelContent = jest.fn().mockImplementation(async (id: string) => {
             const items: ResolvedChannelContent['items'] = [makeResolvedItem(id, 0)];
-            return { items } as ResolvedChannelContent;
+            return makeResolvedContent(findChannel(base.getAllChannels(), id), items);
         });
 
         const base = makeDeps().deps.getChannelManager()!;

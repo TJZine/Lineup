@@ -1,5 +1,7 @@
 import { EPGScheduleRefreshRuntime, type EPGScheduleRefreshRuntimeDeps } from '../runtime/EPGScheduleRefreshRuntime';
 import { ChannelManager } from '../../../scheduler/channel-manager';
+import { PlexLibraryError } from '../../../plex/library';
+import { AppErrorCode } from '../../../../types/app-errors';
 import type {
     ChannelConfig,
     IChannelManager,
@@ -64,10 +66,14 @@ const makeResolvedItems = (channelId: string): ResolvedChannelContent['items'] =
     },
 ];
 
-const createResolvedContent = (channelId: string): ResolvedChannelContent => {
+const createResolvedContent = (
+    channelId: string,
+    channelSnapshot: ChannelConfig = makeChannel(channelId, 1)
+): ResolvedChannelContent => {
     const items = makeResolvedItems(channelId);
     return {
         channelId,
+        channelSnapshot,
         resolvedAt: Date.now(),
         items,
         totalDurationMs: items.reduce((sum, item) => sum + item.durationMs, 0),
@@ -185,6 +191,12 @@ const createRuntime = (
 
     Object.assign(epg, overrides.epg);
     Object.assign(channelManager, overrides.channelManager);
+    if (!overrides.channelManager?.resolveChannelContent) {
+        channelManager.resolveChannelContent = jest.fn(async (channelId: string) => createResolvedContent(
+            channelId,
+            channelManager.getChannel(channelId) ?? makeChannel(channelId, 1)
+        ));
+    }
 
     return {
         runtime: new EPGScheduleRefreshRuntime(deps),
@@ -217,6 +229,110 @@ describe('EPGScheduleRefreshRuntime', () => {
 
     afterAll(() => {
         restoreOriginalLocalStorage();
+    });
+
+    it('keeps a collection-repaired foreground schedule through same-range navigation', async () => {
+        const library = createMockLibrary();
+        const manager = new ChannelManager({ plexLibrary: library });
+        const channel = await manager.createChannel({
+            name: 'Recovered Collection',
+            sourceLibraryId: 'library-1',
+            contentSource: {
+                type: 'collection',
+                collectionKey: 'old-key',
+                collectionName: 'Daily Collection',
+            },
+        }, { initialContent: makeResolvedItems('recovery') });
+        library.getCollectionItems.mockImplementation(async (collectionKey) => {
+            if (collectionKey === 'old-key') {
+                throw new PlexLibraryError(
+                    AppErrorCode.RESOURCE_NOT_FOUND,
+                    'missing collection',
+                    404
+                );
+            }
+            return [createMockItem({ ratingKey: 'replacement-item', durationMs: 60_000 })];
+        });
+        library.getCollections.mockResolvedValue([{
+            ratingKey: 'new-key',
+            key: '/library/collections/new-key',
+            title: 'Daily Collection',
+            thumb: null,
+            childCount: 1,
+        }]);
+        let heldSchedule: EpgHeldScheduleSnapshot | null = null;
+        const getHeldSchedule = (): EpgHeldScheduleSnapshot | null => heldSchedule;
+        const { runtime, epg } = createRuntime({
+            channelManager: {
+                getAllChannels: (): ChannelConfig[] => manager.getAllChannels(),
+                getChannel: (channelId: string): ChannelConfig | null => manager.getChannel(channelId),
+                getCurrentChannel: (): ChannelConfig | null => null,
+                resolveChannelContent: (channelId, options) => manager.resolveChannelContent(channelId, options),
+                resolveChannelItemsForSchedule: (channelId, options) =>
+                    manager.resolveChannelItemsForSchedule(channelId, options),
+            },
+            epg: {
+                loadScheduleForChannel: jest.fn((_, schedule, metadata) => {
+                    if (metadata) {
+                        heldSchedule = { schedule, ...metadata };
+                    }
+                }),
+                getHeldScheduleForChannel: jest.fn(() => heldSchedule),
+            },
+        });
+
+        try {
+            await runtime.retryChannelSchedule(channel.id);
+            expect(getHeldSchedule()?.channelSnapshot.contentSource).toMatchObject({
+                type: 'collection',
+                collectionKey: 'new-key',
+            });
+            expect(manager.getChannel(channel.id)?.contentSource).toMatchObject({ collectionKey: 'new-key' });
+            const lookupCount = library.getCollectionItems.mock.calls.length;
+
+            await runtime.refreshForRange(
+                { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+                'visible-range'
+            );
+
+            expect(epg.clearScheduleForChannel).not.toHaveBeenCalled();
+            expect(library.getCollectionItems).toHaveBeenCalledTimes(lookupCount);
+            expect(getHeldSchedule()?.channelSnapshot.contentSource).toMatchObject({ collectionKey: 'new-key' });
+        } finally {
+            manager.dispose();
+        }
+    });
+
+    it('does not publish a resolved schedule when the channel is edited before continuation', async () => {
+        const original = makeChannel('c1', 1);
+        const edited: ChannelConfig = {
+            ...original,
+            contentSource: {
+                type: 'manual',
+                items: [{ ratingKey: 'edited', title: 'Edited', durationMs: 60_000 }],
+            },
+            updatedAt: 1,
+        };
+        let current = original;
+        const resolveChannelContent = jest.fn(async (): Promise<ResolvedChannelContent> => {
+            current = edited;
+            return createResolvedContent(original.id, original);
+        });
+        const { runtime, epg } = createRuntime({
+            channelManager: {
+                getAllChannels: jest.fn(() => [original]),
+                getChannel: jest.fn(() => current),
+                resolveChannelContent,
+            },
+        });
+
+        await runtime.refreshForRange(
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        expect(resolveChannelContent).toHaveBeenCalledTimes(1);
+        expect(epg.loadScheduleForChannel).not.toHaveBeenCalled();
     });
 
     it('uses a deterministic schedule identity for equivalent sources and all schedule inputs', () => {
@@ -968,7 +1084,10 @@ describe('EPGScheduleRefreshRuntime', () => {
                 resolveChannelContent: jest.fn((channelId: string, options?: { signal?: AbortSignal | null }) => {
                     callCount += 1;
                     if (callCount > 2) {
-                        return Promise.resolve(createResolvedContent(channelId));
+                        return Promise.resolve(createResolvedContent(
+                            channelId,
+                            channels.find((channel) => channel.id === channelId)
+                        ));
                     }
                     return new Promise<ResolvedChannelContent>((resolve) => {
                         if (callCount === 1) {
@@ -1003,7 +1122,9 @@ describe('EPGScheduleRefreshRuntime', () => {
             firstController.abort(firstAbortReason);
 
             expect((secondLoadSignal as AbortSignal | null)?.aborted).toBe(false);
-            (resolveSecond as unknown as (value: ResolvedChannelContent) => void)(createResolvedContent('c1'));
+            (resolveSecond as unknown as (value: ResolvedChannelContent) => void)(
+                createResolvedContent('c1', channels[0])
+            );
 
             await expect(secondRefresh).resolves.toEqual(expect.objectContaining({
                 readiness: 'ready',
@@ -1011,7 +1132,11 @@ describe('EPGScheduleRefreshRuntime', () => {
                 backgroundQueuedChannelCount: 11,
                 firstVisibleScheduleReady: true,
             }));
-            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c1', expect.any(Object));
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(
+                'c1',
+                expect.any(Object),
+                expect.objectContaining({ channelSnapshot: expect.anything() })
+            );
 
             const snapshot = await runtime.buildGuideSelectionSnapshot({
                 channelId: 'c1',
@@ -2327,7 +2452,11 @@ describe('EPGScheduleRefreshRuntime', () => {
             cacheMode: 'revalidate',
         }));
         expect(epg.setRowLifecycle).toHaveBeenCalledWith('c1', expect.objectContaining({ kind: 'retrying' }));
-        expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c1', expect.anything());
+        expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(
+            'c1',
+            expect.anything(),
+            expect.objectContaining({ channelSnapshot: expect.anything() })
+        );
     });
 
     it('promotes matching hidden work for an explicit retry', async () => {
@@ -2377,7 +2506,11 @@ describe('EPGScheduleRefreshRuntime', () => {
             await settleBackgroundRefresh(runtime);
 
             expect(resolveChannelContent).not.toHaveBeenCalledWith('c8', expect.anything());
-            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c8', expect.anything());
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(
+                'c8',
+                expect.anything(),
+                expect.objectContaining({ channelSnapshot: expect.anything() })
+            );
             expect((channelManager.resolveChannelItemsForSchedule as jest.Mock).mock.calls.filter(
                 ([channelId]) => channelId === 'c8'
             )).toHaveLength(1);
@@ -2671,7 +2804,11 @@ describe('EPGScheduleRefreshRuntime', () => {
 
             expect(backgroundItemsCalls).toBe(1);
             expect(resolveChannelContent).not.toHaveBeenCalledWith('c8');
-            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith('c8', expect.anything());
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(
+                'c8',
+                expect.anything(),
+                expect.objectContaining({ channelSnapshot: expect.anything() })
+            );
             expect(result.failedChannelCount).toBe(0);
             expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
                 'QA-003b',
@@ -2968,7 +3105,11 @@ describe('EPGScheduleRefreshRuntime', () => {
                 readiness: 'ready',
                 failedChannelCount: 0,
             }));
-            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(channelB.id, expect.anything());
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(
+                channelB.id,
+                expect.anything(),
+                expect.objectContaining({ channelSnapshot: expect.anything() })
+            );
             expect(epg.setRowLifecycle).not.toHaveBeenCalledWith(
                 channelB.id,
                 expect.objectContaining({ kind: 'unavailable' })
@@ -3039,7 +3180,11 @@ describe('EPGScheduleRefreshRuntime', () => {
 
             await runtime.retryChannelSchedule(channel.id);
 
-            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(channel.id, expect.anything());
+            expect(epg.loadScheduleForChannel).toHaveBeenCalledWith(
+                channel.id,
+                expect.anything(),
+                expect.objectContaining({ channelSnapshot: expect.anything() })
+            );
             expect(library.getLibraryItems).toHaveBeenCalledTimes(2);
             expect(manager.getAllChannels()).toEqual([expect.objectContaining({ id: channel.id })]);
         } finally {

@@ -925,6 +925,12 @@ export class EPGScheduleRefreshRuntime {
         } else if (!this._isRefreshSessionActive(session)) {
             return;
         }
+        if (
+            options?.channelSnapshot
+            && !this._isCurrentChannelSnapshot(session, channelId, options.channelSnapshot)
+        ) {
+            return;
+        }
         const shouldApplyToUi = phase !== 'background';
 
         assertEpgRefreshSessionCurrent(session);
@@ -956,13 +962,13 @@ export class EPGScheduleRefreshRuntime {
             }
             runIfEpgRefreshCurrent(session, () => {
                 const epgSchedule = toEpgScheduleWindow(schedule);
-                if (options?.loadedAt === undefined) {
+                if (!options?.channelSnapshot) {
                     session.epg.loadScheduleForChannel(channelId, epgSchedule);
                     return;
                 }
                 session.epg.loadScheduleForChannel(channelId, epgSchedule, {
-                    loadedAt: options.loadedAt,
-                    channelSnapshot: options.channelSnapshot!,
+                    loadedAt: options.loadedAt ?? Date.now(),
+                    channelSnapshot: options.channelSnapshot,
                 });
             });
             markVisibleReadyChannel(session, metrics, channelId);
@@ -1242,20 +1248,28 @@ export class EPGScheduleRefreshRuntime {
 
             failureStage = 'resolution';
             resolutionStartedMonotonic = guideDiagnosticClock().monotonicMs;
-            const items =
-                phase === 'background'
-                    ? await session.channelManager.resolveChannelItemsForSchedule(channel.id, {
+            let scheduleOwnerSnapshot = channel;
+            let items: ResolvedChannelContent['items'];
+            if (phase === 'background') {
+                items = await session.channelManager.resolveChannelItemsForSchedule(channel.id, {
                         signal: controller.signal,
                         ...(onSourceDiagnostic ? { onSourceDiagnostic } : {}),
-                    })
-                    : (await session.channelManager.resolveChannelContent(channel.id, {
+                    });
+            } else {
+                const resolved = await session.channelManager.resolveChannelContent(channel.id, {
                         signal: controller.signal,
                         ...(session.manualRetry ? { cacheMode: 'revalidate' as const } : {}),
                         ...(onSourceDiagnostic ? { onSourceDiagnostic } : {}),
-                    })).items;
+                    });
+                scheduleOwnerSnapshot = resolved.channelSnapshot;
+                items = resolved.items;
+            }
             resolutionMs = guideDiagnosticClock().monotonicMs - resolutionStartedMonotonic;
             resolvedItemCount = items.length;
             if (!this._isChannelWorkCurrent(session, phase)) {
+                return;
+            }
+            if (!this._isCurrentChannelSnapshot(session, channel.id, scheduleOwnerSnapshot)) {
                 return;
             }
             const active = this._inFlightByChannel.get(channel.id);
@@ -1265,7 +1279,11 @@ export class EPGScheduleRefreshRuntime {
 
             failureStage = 'schedule-generation';
             const generationStartedMonotonic = guideDiagnosticClock().monotonicMs;
-            const scheduleConfig = this._deps.buildDailyScheduleConfig(channel, items, session.startTime);
+            const scheduleConfig = this._deps.buildDailyScheduleConfig(
+                scheduleOwnerSnapshot,
+                items,
+                session.startTime
+            );
             if (!this._isChannelWorkCurrent(session, phase)) {
                 return;
             }
@@ -1283,6 +1301,7 @@ export class EPGScheduleRefreshRuntime {
             failureStage = 'publication';
             const schedule = { startTime: session.startTime, endTime: session.endTime, programs };
             if (inFlightEntry) {
+                inFlightEntry.channelSnapshot = scheduleOwnerSnapshot;
                 inFlightEntry.schedule = this._deps.cloneScheduleWindow(schedule);
                 inFlightEntry.producerResultCurrent = this._isProducerResultCurrent(session, inFlightEntry);
                 inFlightEntry.outcome = 'success';
@@ -1291,7 +1310,7 @@ export class EPGScheduleRefreshRuntime {
             this._applySchedule(session, metrics, channel.id, schedule, {
                 phase,
                 source: phase === 'background' ? 'resolved-background' : 'resolved-immediate',
-                channelSnapshot: channel,
+                channelSnapshot: scheduleOwnerSnapshot,
                 ...(phase === 'background' ? {} : { materializationSeed: items }),
                 ...(phase === 'background' ? { attemptController: controller } : {}),
             });
@@ -1518,7 +1537,7 @@ export class EPGScheduleRefreshRuntime {
                 this._applySchedule(session, metrics, channel.id, adoptedSchedule, {
                     phase,
                     source: 'resolved-background',
-                    channelSnapshot: channel,
+                    channelSnapshot: existing.channelSnapshot,
                 });
                 return;
             }
@@ -1559,10 +1578,19 @@ export class EPGScheduleRefreshRuntime {
         }
         try {
             entry.operation.assertCurrent();
-            return true;
+            return this._isCurrentChannelSnapshot(session, entry.channelSnapshot.id, entry.channelSnapshot);
         } catch {
             return false;
         }
+    }
+
+    private _isCurrentChannelSnapshot(
+        session: RefreshSession,
+        channelId: string,
+        snapshot: ChannelConfig
+    ): boolean {
+        const current = session.channelManager.getChannel(channelId);
+        return current !== null && isMatchingEpgChannelSnapshot(snapshot, current);
     }
 
     private _isAdoptionCurrent(entry: InFlightScheduleEntry, adoption: InFlightScheduleAdoption): boolean {

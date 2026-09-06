@@ -1,8 +1,8 @@
 # Guide unavailable rows after reported daily refresh — 2026-09-06
 
-P2 remains open. Recovery and shuffle-continuity implementation passed local
-verification and independent review under the 2026-09-06 plan; development device
-QA is pending. The development candidate is installed; no release deployment.
+P2 remains open. Device QA of the installed `5b1f7a14` development candidate proved
+reference recovery but exposed a stale Guide ownership defect during subsequent
+navigation. Its correction is in integration and verification. No release deployment.
 The sections below preserve the investigation chronologically; later verification
 supersedes the explicitly pending checks recorded earlier.
 
@@ -153,3 +153,71 @@ one launch succeeded. Fresh Inspector shows the new entry and “Started
 successfully.” Runtime manifest/hash verification, operator picture/sound, and
 the recovery/relaunch batch remain pending. The new Inspector origin presents
 the browser paste-warning gate; no probe executed through it yet.
+
+## First installed recovery batch
+
+Runtime manifest and entry SHA-256 match implementation `5b1f7a14` exactly;
+timeOrigin is 1788699039403.8. Before opening Guide, all 390 configurations matched
+the canonical baseline fingerprint, and channels 19/20 still held the old key.
+After opening Guide, both references changed and each channel resolved 67 items.
+Direct inspection of the existing persistence owner's stored record confirms
+both new references are saved. The canonical configuration fingerprint remains
+`f81361c418518165988e2a5015efb86e98f38be66faccfc2e1b589d77ebd0d28`.
+Recovery lookup counts returned to zero active producers and zero lookup entries;
+this is bounded cleanup evidence, not a total memory/resource verdict.
+
+The operator confirmed audio, video and D-pad movement normal, but reported renewed
+loading for 19/20 when moving to the current time. A later DOM check had no
+unavailable text and one focused cell. Operator confirmation of completion and
+elapsed loading time is pending; current-time range performance is not yet closed.
+Inspector screencast was black, so rendered TV confirmation relies on the operator.
+No artificial missing-reference fixture or manual persisted-key edit was used.
+Relaunch persistence proof remains pending.
+
+## Device finding: stale Guide owner after successful repair
+
+The operator confirmed 19/20 stayed loading at the current-time viewport, then
+closing/reopening Guide populated those and nearby pages. Channel 46 still loaded
+when approaching from channel 21 after reopening; tuning nearer (49) and reopening
+populated it. Channel 45 remained unavailable without a manual retry. These are
+operator observations, not measured loading timings.
+
+The earlier loading selector (`.epg-cell-loading`) was incorrect and its zero
+count is not valid proof. Correct visible DOM inspection found four
+`.epg-cell.loading` placeholders, including 19/20. The first probe also sampled
+Guide while closed. Physical observations supersede those incomplete checks.
+
+On 45/46, a same-library listing found 45's saved key absent and one exact-name
+match; 46's saved key was present. One normal controller `retryRowSchedule` for
+45 took 230 ms, changed its key, resolved 37 items, published 14 programs, and
+cleared its unavailable lifecycle. Immediately afterward, Guide's channel list,
+held-schedule snapshot, and loaded-cache snapshot all retained the old collection
+key. This directly proves a publication-owner mismatch after successful recovery.
+
+Independent source review confirms EPG retained a detached pre-resolution channel
+clone and omitted explicit metadata on fresh schedule publication. Root accepted
+the finding and specified a result-owned full channel snapshot, propagated through
+generation/publication/cache/in-flight ownership, with post-resolution currentness
+checks. Inferring an allowed key difference from a later manager read is rejected
+because it can bless unrelated edits. A bounded worker is implementing this
+correction and navigation regression. `5b1f7a14` is not a complete P2 fix; no
+additional physical acceptance is claimed from workaround reopening or retry.
+
+## Snapshot correction integration
+
+Resolved content now carries a deep-cloned full channel snapshot from its owner.
+Fresh cache returns carry the current compatible owner; asynchronous stale-cache
+fallback rejects superseded owners. Guide uses the result snapshot for generation,
+explicit component metadata and cache/in-flight ownership, checking the current
+manager identity before generation and publication. Background resolution retains
+its nonmutating contract. Independent review found no remaining actionable issues.
+
+Focused snapshot/recovery proof passed 106 tests. The initial full gate exposed
+three test harnesses still returning incomplete resolved-content mocks; these were
+migrated to faithful channel snapshots with no behavior assertions removed. Their
+109 tests pass, including independent confirmation of all 15 rollover tests.
+The full `npm run verify` passed: 354 unit suites (4,720 passed, one skipped),
+52 tooling tests (one skipped), 94 contract tests, Node tooling, typecheck,
+lint, coverage thresholds, docs and both build profiles. A read-only listing identified
+channel 51 as the first remaining missing-reference candidate for the next bounded
+device batch; no saved reference was changed to create a test fixture.

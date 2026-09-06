@@ -80,6 +80,12 @@ function affectsResolvedContent(updates: ChannelUpdateInput): boolean {
     );
 }
 
+function isResolutionCacheCompatible(cached: ChannelConfig, current: ChannelConfig): boolean {
+    return RESOLUTION_AFFECTING_UPDATE_FIELDS.every((field) =>
+        JSON.stringify(cached[field]) === JSON.stringify(current[field])
+    );
+}
+
 function createChannelNotFoundError(): ChannelError {
     return new ChannelError(
         AppErrorCode.CHANNEL_NOT_FOUND,
@@ -485,13 +491,23 @@ export class ChannelManager implements IChannelManager {
         const cached = options?.cacheMode === 'revalidate'
             ? null
             : this._resolutionCache.get(channelId);
-        if (cached && !this._resolutionCache.isStale(cached)) {
+        if (
+            cached
+            && !this._resolutionCache.isStale(cached)
+            && isResolutionCacheCompatible(cached.channelSnapshot, channel)
+        ) {
             // Return cloned content so callers cannot mutate internal cache state.
-            return this._resolutionCache.cloneContent(cached, {
+            return this._resolutionCache.cloneContent({
+                ...cached,
+                channelSnapshot: cloneChannelForOwnership(channel),
+            }, {
                 fromCache: true,
                 isStale: false,
                 cacheReason: 'fresh',
             });
+        }
+        if (cached && !isResolutionCacheCompatible(cached.channelSnapshot, channel)) {
+            this._resolutionCache.delete(channelId);
         }
 
         return this._resolveContentInternal(channel, options);
@@ -948,6 +964,7 @@ export class ChannelManager implements IChannelManager {
         const totalDurationMs = items.reduce((sum, item) => sum + item.durationMs, 0);
         return {
             channelId: channel.id,
+            channelSnapshot: cloneChannelForOwnership(channel),
             resolvedAt: Date.now(),
             items,
             totalDurationMs,
@@ -1020,7 +1037,10 @@ export class ChannelManager implements IChannelManager {
                 );
                 operation.assertCurrent();
                 this._retryScheduler.queue(channel.id);
-                return this._resolutionCache.cloneContent(cached, {
+                return this._resolutionCache.cloneContent({
+                    ...cached,
+                    channelSnapshot: cloneChannelForOwnership(channel),
+                }, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'network_error',
@@ -1033,7 +1053,10 @@ export class ChannelManager implements IChannelManager {
                     summarizeErrorForLog(error)
                 );
                 operation.assertCurrent();
-                return this._resolutionCache.cloneContent(cached, {
+                return this._resolutionCache.cloneContent({
+                    ...cached,
+                    channelSnapshot: cloneChannelForOwnership(channel),
+                }, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'content_unavailable',
@@ -1068,7 +1091,7 @@ export class ChannelManager implements IChannelManager {
                 ...options,
                 allowCollectionRecovery: true,
             });
-            operation.assertCurrent();
+            this._assertChannelStillCurrent(channel, operation);
             const result = this._createResolvedContent(channel, items);
 
             if (options?.shouldApply && !options.shouldApply()) {
@@ -1077,6 +1100,8 @@ export class ChannelManager implements IChannelManager {
 
             this._assertChannelStillCurrent(channel, operation);
             this._retryScheduler.cancel(channel.id);
+            this._applyResolvedContentMetadata(channel, result);
+            result.channelSnapshot = cloneChannelForOwnership(channel);
 
             // Cache
             operation.assertCurrent();
@@ -1084,9 +1109,6 @@ export class ChannelManager implements IChannelManager {
             operation.assertCurrent();
             this._emitter.emit('contentResolved', result);
 
-            this._assertChannelStillCurrent(channel, operation);
-            operation.assertCurrent();
-            this._applyResolvedContentMetadata(channel, result);
             this._assertChannelStillCurrent(channel, operation);
             operation.assertCurrent();
             this._state.channels.set(channel.id, channel);
@@ -1111,14 +1133,17 @@ export class ChannelManager implements IChannelManager {
 
             if (isNetworkError(error) && cached) {
                 const isStale = this._resolutionCache.isStale(cached);
+                this._assertChannelStillCurrent(channel, operation);
                 this._logger.warn(
                     `Resolution failed for channel ${channel.id} due to network error, using cached content (stale: ${isStale})`,
                     summarizeErrorForLog(error)
                 );
-                operation.assertCurrent();
                 this._retryScheduler.queue(channel.id);
-                operation.assertCurrent();
-                return this._resolutionCache.cloneContent(cached, {
+                this._assertChannelStillCurrent(channel, operation);
+                return this._resolutionCache.cloneContent({
+                    ...cached,
+                    channelSnapshot: cloneChannelForOwnership(channel),
+                }, {
                     fromCache: true,
                     isStale,
                     cacheReason: 'network_error',
@@ -1127,12 +1152,15 @@ export class ChannelManager implements IChannelManager {
 
             // Per spec: library/collection deleted should return stale cache.
             if (isGracefulAuthoringResolutionError(error) && cached) {
+                this._assertChannelStillCurrent(channel, operation);
                 this._logger.warn(
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
                 );
-                operation.assertCurrent();
-                return this._resolutionCache.cloneContent(cached, {
+                return this._resolutionCache.cloneContent({
+                    ...cached,
+                    channelSnapshot: cloneChannelForOwnership(channel),
+                }, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'content_unavailable',

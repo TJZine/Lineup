@@ -106,6 +106,11 @@ describe('ChannelManager collection reference recovery', () => {
         };
 
         expect(resolved.items).toHaveLength(1);
+        expect(resolved.channelSnapshot.contentSource).toMatchObject({
+            type: 'collection',
+            collectionKey: 'new-key',
+            collectionName: 'Daily Collection',
+        });
         expect(current?.contentSource).toMatchObject({
             type: 'collection',
             collectionKey: 'new-key',

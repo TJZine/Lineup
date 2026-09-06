@@ -46,6 +46,18 @@ const makeResolvedItems = (channelId: string): ResolvedChannelContent['items'] =
     },
 ];
 
+const makeResolvedContent = (
+    channel: ChannelConfig,
+    items: ResolvedChannelContent['items'] = makeResolvedItems(channel.id)
+): ResolvedChannelContent => ({
+    channelId: channel.id,
+    channelSnapshot: channel,
+    resolvedAt: Date.now(),
+    items,
+    totalDurationMs: items.reduce((total, item) => total + item.durationMs, 0),
+    orderedItems: [...items],
+});
+
 const makeScheduleWindow = (ratingKey: string): ScheduleWindow => ({
     startTime: 0,
     endTime: 60_000,
@@ -126,14 +138,9 @@ const makeDeps = (
     } as unknown as IEPGComponent;
     const channelManager: IChannelManager = {
         getAllChannels: jest.fn(() => channels),
+        getChannel: jest.fn((id: string) => channels.find((channel) => channel.id === id) ?? null),
         getCurrentChannel: jest.fn(() => channels[0] ?? null),
-        resolveChannelContent: jest.fn(async (id: string) => ({
-            channelId: id,
-            resolvedAt: Date.now(),
-            items: makeResolvedItems(id),
-            totalDurationMs: 60_000,
-            orderedItems: makeResolvedItems(id),
-        } as ResolvedChannelContent)),
+        resolveChannelContent: jest.fn(async () => makeResolvedContent(channels[0]!)),
         resolveChannelItemsForSchedule: jest.fn(async (id: string) => makeResolvedItems(id)),
     } as unknown as IChannelManager;
     const scheduler: IChannelScheduler = {
@@ -308,13 +315,8 @@ describe('EPGRefreshController', () => {
 
     it('does not persist a direct live-row overwrite as loaded state for the next non-live range refresh', async () => {
         const liveState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: 'c1' };
-        const resolveChannelContent = jest.fn(async (id: string) => ({
-            channelId: id,
-            resolvedAt: Date.now(),
-            items: makeResolvedItems(id),
-            totalDurationMs: 60_000,
-            orderedItems: makeResolvedItems(id),
-        } as ResolvedChannelContent));
+        const channel = makeChannel('c1', 1);
+        const resolveChannelContent = jest.fn(async () => makeResolvedContent(channel));
         const { deps, epg } = makeDeps({
             channelManager: {
                 resolveChannelContent,
@@ -349,13 +351,8 @@ describe('EPGRefreshController', () => {
     });
 
     it('cancels range refresh work while the schedule runtime import is still pending', async () => {
-        const resolveChannelContent = jest.fn(async (id: string) => ({
-            channelId: id,
-            resolvedAt: Date.now(),
-            items: makeResolvedItems(id),
-            totalDurationMs: 60_000,
-            orderedItems: makeResolvedItems(id),
-        } as ResolvedChannelContent));
+        const channel = makeChannel('c1', 1);
+        const resolveChannelContent = jest.fn(async () => makeResolvedContent(channel));
         const { deps, epg } = makeDeps({
             channelManager: {
                 resolveChannelContent,
@@ -390,11 +387,7 @@ describe('EPGRefreshController', () => {
             channelManager: {
                 resolveChannelContent: jest.fn((id) => new Promise<ResolvedChannelContent>((resolve) => {
                     resolvePendingContent.push(() => resolve({
-                        channelId: id,
-                        resolvedAt: Date.now(),
-                        items: makeResolvedItems(id),
-                        totalDurationMs: 60_000,
-                        orderedItems: makeResolvedItems(id),
+                        ...makeResolvedContent(makeChannel(id, 1)),
                     }));
                     markStarted();
                 })),
@@ -423,13 +416,8 @@ describe('EPGRefreshController', () => {
 
     it('does not persist a preseeded live row as loaded state for the next non-live range refresh', async () => {
         const liveState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: 'c1' };
-        const resolveChannelContent = jest.fn(async (id: string) => ({
-            channelId: id,
-            resolvedAt: Date.now(),
-            items: makeResolvedItems(id),
-            totalDurationMs: 60_000,
-            orderedItems: makeResolvedItems(id),
-        } as ResolvedChannelContent));
+        const channel = makeChannel('c1', 1);
+        const resolveChannelContent = jest.fn(async () => makeResolvedContent(channel));
         const { deps, epg } = makeDeps({
             channelManager: {
                 resolveChannelContent,
