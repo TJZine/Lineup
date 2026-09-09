@@ -50,12 +50,14 @@ describe('EPGScheduleCacheStore', () => {
 
     it('returns fresh cached schedules before TTL expires', () => {
         const store = new EPGScheduleCacheStore();
+        const loadedAt = Date.now();
         store.storeSchedule('c1', '0-60000', createWindow('c1'));
 
         const cached = store.getCachedSchedule('c1', '0-60000');
 
         expect(cached).not.toBeNull();
         expect(cached?.isStale).toBe(false);
+        expect(cached?.loadedAt).toBe(loadedAt);
         expect(cached?.schedule.programs[0]?.item.ratingKey).toBe('c1-0');
     });
 

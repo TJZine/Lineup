@@ -19,6 +19,7 @@ const mockChannel = {
 
 const resolvedContent: ResolvedChannelContent = {
     channelId: 'ch1',
+    channelSnapshot: mockChannel,
     items: [],
     orderedItems: [],
     totalDurationMs: 0,

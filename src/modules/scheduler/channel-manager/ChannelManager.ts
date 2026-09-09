@@ -2,6 +2,7 @@ import { EventEmitter } from '../../../utils/EventEmitter';
 import { summarizeErrorForLog } from '../../../utils/errors';
 import { AppErrorCode } from '../../../types/app-errors';
 import { ContentResolver } from './resolution/ContentResolver';
+import { CollectionRecoveryLookup } from './resolution/CollectionRecoveryLookup';
 import { ChannelAuthoringService, omitUndefinedChannelUpdates } from './authoring/ChannelAuthoringService';
 import { ChannelImportExportService } from './import-export/ChannelImportExportService';
 import { resolveChannelSeed } from './authoring/ChannelSeedPolicy';
@@ -18,12 +19,20 @@ import {
     getContentSourceLogIdentity,
     getHttpStatusForLog,
     isAccessDeniedResolutionError as isAccessDeniedError,
+    isConfirmedMissingCollectionError,
     isGracefulAuthoringResolutionError,
     isNetworkResolutionError as isNetworkError,
 } from './resolution/ChannelResolutionErrorPolicy';
 import { cloneChannelForOwnership } from './authoring/ChannelDomainClone';
 import { ChannelError } from './ChannelErrors';
-import type { IChannelManager, ChannelCreateOptions, ChannelManagerConfig, IPlexLibraryMinimal } from './contracts/interfaces';
+import type { PlexCollection } from '../../plex/library';
+import type {
+    ChannelContentResolutionOptions,
+    IChannelManager,
+    ChannelCreateOptions,
+    ChannelManagerConfig,
+    IPlexLibraryMinimal,
+} from './contracts/interfaces';
 import type { IDisposable } from '../../../utils/interfaces';
 import type {
     ChannelConfig,
@@ -55,15 +64,25 @@ const RESOLUTION_AFFECTING_UPDATE_FIELDS: readonly (keyof ChannelUpdateInput)[] 
     'shuffleSeed',
 ];
 
-type ChannelResolutionOptions = {
-    signal?: AbortSignal | null;
+type ChannelResolutionOptions = ChannelContentResolutionOptions & {
     shouldApply?: () => boolean;
     operationContext?: ChannelResolutionLease;
+    allowCollectionRecovery?: boolean;
+};
+
+type ActiveChannelResolutionOptions = ChannelResolutionOptions & {
+    operationContext: ChannelResolutionLease;
 };
 
 function affectsResolvedContent(updates: ChannelUpdateInput): boolean {
     return RESOLUTION_AFFECTING_UPDATE_FIELDS.some((field) =>
         Object.prototype.hasOwnProperty.call(updates, field)
+    );
+}
+
+function isResolutionCacheCompatible(cached: ChannelConfig, current: ChannelConfig): boolean {
+    return RESOLUTION_AFFECTING_UPDATE_FIELDS.every((field) =>
+        JSON.stringify(cached[field]) === JSON.stringify(current[field])
     );
 }
 
@@ -77,6 +96,42 @@ function createChannelNotFoundError(): ChannelError {
 
 function createStorageValidationError(message: string): ChannelError {
     return new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, message, false);
+}
+
+function createResolutionAbortError(): Error {
+    if (typeof DOMException !== 'undefined') {
+        return new DOMException('Resolution was superseded.', 'AbortError');
+    }
+    const error = new Error('Resolution was superseded.');
+    error.name = 'AbortError';
+    return error;
+}
+
+type CollectionSourceIdentity = {
+    collectionKey: string;
+    collectionName: string;
+    sourceLibraryId: string | undefined;
+};
+
+function captureCollectionSourceIdentity(
+    channel: ChannelConfig
+): CollectionSourceIdentity | null {
+    if (channel.contentSource.type !== 'collection') return null;
+    return {
+        collectionKey: channel.contentSource.collectionKey,
+        collectionName: channel.contentSource.collectionName,
+        sourceLibraryId: channel.sourceLibraryId,
+    };
+}
+
+function isSameCollectionSourceIdentity(
+    channel: ChannelConfig,
+    identity: CollectionSourceIdentity
+): boolean {
+    return channel.contentSource.type === 'collection'
+        && channel.contentSource.collectionKey === identity.collectionKey
+        && channel.contentSource.collectionName === identity.collectionName
+        && channel.sourceLibraryId === identity.sourceLibraryId;
 }
 
 /**
@@ -99,6 +154,7 @@ function generateUUID(): string {
 export class ChannelManager implements IChannelManager {
     private readonly _emitter: EventEmitter<ChannelManagerEventMap>;
     private readonly _contentResolver: ContentResolver;
+    private readonly _collectionRecoveryLookup: CollectionRecoveryLookup;
     private readonly _library: IPlexLibraryMinimal;
     private readonly _authoring: ChannelAuthoringService;
     private readonly _importExport: ChannelImportExportService;
@@ -122,6 +178,7 @@ export class ChannelManager implements IChannelManager {
             error: console.error.bind(console),
         };
         this._contentResolver = new ContentResolver(this._library, this._logger);
+        this._collectionRecoveryLookup = new CollectionRecoveryLookup(this._library);
         this._authoring = new ChannelAuthoringService({
             generateId: generateUUID,
             now: Date.now,
@@ -165,6 +222,7 @@ export class ChannelManager implements IChannelManager {
     }
 
     clearRuntimeState(): void {
+        this._collectionRecoveryLookup.clear();
         this._retryScheduler.cancelAll();
         try {
             this._persistence.flush(this._getPersistableState());
@@ -198,9 +256,15 @@ export class ChannelManager implements IChannelManager {
     }
 
     async supersedeActiveResolutions(): Promise<void> {
+        this._collectionRecoveryLookup.clear();
         this._retryScheduler.cancelAll();
+        const consumerDrain = this._resolutionOperations.supersedeAndDrain();
         this._contentResolver.clearCaches();
-        await this._resolutionOperations.supersedeAndDrain();
+        await Promise.all([
+            consumerDrain,
+            this._contentResolver.whenIdle(),
+            this._collectionRecoveryLookup.whenIdle(),
+        ]);
     }
 
     resumeActiveResolutions(): void {
@@ -270,6 +334,7 @@ export class ChannelManager implements IChannelManager {
         }
 
         this._retryScheduler.cancelAll();
+        this._collectionRecoveryLookup.clear();
         this._contentResolver.clearCaches();
         this._state.channels = nextChannels;
         this._resolutionCache.clear();
@@ -415,7 +480,7 @@ export class ChannelManager implements IChannelManager {
      */
     async resolveChannelContent(
         channelId: string,
-        options?: { signal?: AbortSignal | null }
+        options?: ChannelContentResolutionOptions
     ): Promise<ResolvedChannelContent> {
         this._resolutionOperations.assertGeneralAdmission();
         const channel = this._state.channels.get(channelId);
@@ -424,13 +489,24 @@ export class ChannelManager implements IChannelManager {
         }
 
         const cached = this._resolutionCache.get(channelId);
-        if (cached && !this._resolutionCache.isStale(cached)) {
+        if (
+            options?.cacheMode !== 'revalidate'
+            && cached
+            && !this._resolutionCache.isStale(cached)
+            && isResolutionCacheCompatible(cached.channelSnapshot, channel)
+        ) {
             // Return cloned content so callers cannot mutate internal cache state.
-            return this._resolutionCache.cloneContent(cached, {
+            return this._resolutionCache.cloneContent({
+                ...cached,
+                channelSnapshot: cloneChannelForOwnership(channel),
+            }, {
                 fromCache: true,
                 isStale: false,
                 cacheReason: 'fresh',
             });
+        }
+        if (cached && !isResolutionCacheCompatible(cached.channelSnapshot, channel)) {
+            this._resolutionCache.delete(channelId);
         }
 
         return this._resolveContentInternal(channel, options);
@@ -457,7 +533,7 @@ export class ChannelManager implements IChannelManager {
 
     async resolveChannelItemsForSchedule(
         channelId: string,
-        options?: { signal?: AbortSignal | null }
+        options?: ChannelContentResolutionOptions
     ): Promise<ResolvedContentItem[]> {
         this._resolutionOperations.assertGeneralAdmission();
         const channel = this._state.channels.get(channelId);
@@ -465,12 +541,15 @@ export class ChannelManager implements IChannelManager {
             throw createChannelNotFoundError();
         }
 
-        const cached = this._resolutionCache.get(channelId);
+        const cached = options?.cacheMode === 'revalidate'
+            ? null
+            : this._resolutionCache.get(channelId);
         if (cached && !this._resolutionCache.isStale(cached)) {
             return this._resolutionCache.cloneItems(cached.items);
         }
 
         const items = await this._resolveFilteredItems(channel, options);
+        this._assertChannelStillCurrent(channel, undefined);
         return this._resolutionCache.cloneItems(items);
     }
 
@@ -554,6 +633,7 @@ export class ChannelManager implements IChannelManager {
     dispose(): void {
         this._retryScheduler.cancelAll();
         this._persistence.dispose();
+        this._collectionRecoveryLookup.clear();
         this._contentResolver.clearCaches();
         this._emitter.removeAllListeners();
     }
@@ -608,6 +688,7 @@ export class ChannelManager implements IChannelManager {
 
             this._persistence.supersedePendingSave();
             this._retryScheduler.cancelAll();
+            this._collectionRecoveryLookup.clear();
             this._contentResolver.clearCaches();
             this._resolutionCache.clear();
 
@@ -646,39 +727,73 @@ export class ChannelManager implements IChannelManager {
                 this._resolveFilteredItems(channel, { ...options, operationContext })
             );
         }
-        options.operationContext.assertCurrent();
-        const rawItems = await this._contentResolver.resolveSource(channel.contentSource, {
+        const activeOptions: ActiveChannelResolutionOptions = {
+            ...options,
+            operationContext: options.operationContext,
+        };
+        const requestedSourceIdentity = captureCollectionSourceIdentity(channel);
+        let rawItems: ResolvedContentItem[];
+        try {
+            rawItems = await this._resolveSourceItems(channel, activeOptions);
+        } catch (error) {
+            if (
+                activeOptions.allowCollectionRecovery
+                && requestedSourceIdentity
+                && !isSameCollectionSourceIdentity(channel, requestedSourceIdentity)
+            ) {
+                throw createResolutionAbortError();
+            }
+            if (
+                !activeOptions.allowCollectionRecovery
+                || channel.contentSource.type !== 'collection'
+                || !isConfirmedMissingCollectionError(error)
+            ) {
+                throw error;
+            }
+            return this._recoverMissingCollection(channel, activeOptions, error);
+        }
+
+        return this._applyContentSelection(channel, rawItems, activeOptions.operationContext);
+    }
+
+    private _resolveSourceItems(
+        channel: ChannelConfig,
+        options: ActiveChannelResolutionOptions
+    ): Promise<ResolvedContentItem[]> {
+        return this._contentResolver.resolveSource(channel.contentSource, {
             ...(options.signal !== undefined ? { signal: options.signal } : {}),
             operationContext: options.operationContext,
+            ...(options.cacheMode !== undefined ? { cacheMode: options.cacheMode } : {}),
+            ...(options.onSourceDiagnostic ? { onSourceDiagnostic: options.onSourceDiagnostic } : {}),
         });
-        options.operationContext.assertCurrent();
+    }
 
-        // If source itself returns empty, it's CONTENT_UNAVAILABLE (library/collection deleted)
-        // This is different from filtering removing all items
+    private _applyContentSelection(
+        channel: ChannelConfig,
+        rawItems: ResolvedContentItem[],
+        operation: ChannelResolutionLease
+    ): ResolvedContentItem[] {
+        operation.assertCurrent();
+
         if (rawItems.length === 0) {
             throw new ChannelError(
                 AppErrorCode.CONTENT_UNAVAILABLE,
-                `Content source returned no items - source may have been deleted`,
-                true // recoverable with cache fallback
+                'Content source returned no items - source may have been deleted',
+                true
             );
         }
 
         let items = rawItems;
-
-        // Apply filters
         if (channel.contentFilters && channel.contentFilters.length > 0) {
             items = this._contentResolver.applyFilters(items, channel.contentFilters);
         }
 
-        // Apply sort
         if (channel.sortOrder) {
             items = this._contentResolver.applySort(items, channel.sortOrder);
         }
 
-        // Filter out zero-duration items
         items = items.filter((item) => item.durationMs > 0);
 
-        // Apply duration limits
         if (channel.minEpisodeRunTimeMs || channel.maxEpisodeRunTimeMs) {
             items = items.filter((item) => {
                 if (channel.minEpisodeRunTimeMs && item.durationMs < channel.minEpisodeRunTimeMs) {
@@ -691,7 +806,6 @@ export class ChannelManager implements IChannelManager {
             });
         }
 
-        // If content exists but filters removed all, it's SCHEDULER_EMPTY_CHANNEL
         if (items.length === 0) {
             throw new ChannelError(
                 AppErrorCode.SCHEDULER_EMPTY_CHANNEL,
@@ -700,7 +814,139 @@ export class ChannelManager implements IChannelManager {
             );
         }
 
+        operation.assertCurrent();
         return items;
+    }
+
+    private async _recoverMissingCollection(
+        channel: ChannelConfig,
+        options: ActiveChannelResolutionOptions,
+        missingError: unknown
+    ): Promise<ResolvedContentItem[]> {
+        const source = channel.contentSource;
+        if (
+            source.type !== 'collection'
+            || !channel.sourceLibraryId
+            || channel.sourceLibraryId.trim().length === 0
+            || channel.sourceLibraryId !== channel.sourceLibraryId.trim()
+            || (channel.sourceLibraryName !== undefined
+                && channel.sourceLibraryName.trim() !== channel.sourceLibraryName)
+            || source.collectionName.trim().length === 0
+            || source.collectionName !== source.collectionName.trim()
+            || source.collectionKey.trim().length === 0
+            || source.collectionKey !== source.collectionKey.trim()
+        ) {
+            throw missingError;
+        }
+
+        this._assertCollectionRecoveryCurrent(channel, source, options);
+        const collections = await this._collectionRecoveryLookup.lookup(
+            channel.sourceLibraryId,
+            options.operationContext,
+            options.signal
+        );
+        this._assertCollectionRecoveryCurrent(channel, source, options);
+
+        if (collections.some((collection) => collection.ratingKey === source.collectionKey)) {
+            throw missingError;
+        }
+
+        const candidates = collections.filter((collection) =>
+            collection.title === source.collectionName
+            && typeof collection.ratingKey === 'string'
+            && collection.ratingKey.trim().length > 0
+        );
+        if (candidates.length !== 1) {
+            throw missingError;
+        }
+
+        const candidate = candidates[0] as PlexCollection;
+        const replacementSource = {
+            ...source,
+            collectionKey: candidate.ratingKey,
+        };
+        const replacementChannel: ChannelConfig = {
+            ...channel,
+            contentSource: replacementSource,
+        };
+        const replacementItems = await this._resolveSourceItems(replacementChannel, options);
+        const filteredItems = this._applyContentSelection(
+            replacementChannel,
+            replacementItems,
+            options.operationContext
+        );
+
+        this._commitCollectionRecovery(channel, source, replacementSource, options);
+        return filteredItems;
+    }
+
+    private _commitCollectionRecovery(
+        channel: ChannelConfig,
+        originalSource: Extract<ChannelConfig['contentSource'], { type: 'collection' }>,
+        replacementSource: Extract<ChannelConfig['contentSource'], { type: 'collection' }>,
+        options: ActiveChannelResolutionOptions
+    ): void {
+        this._assertCollectionRecoveryCurrent(channel, originalSource, options);
+        const replacementChannel = cloneChannelForOwnership(channel);
+        replacementChannel.contentSource = cloneChannelForOwnership({
+            ...channel,
+            contentSource: replacementSource,
+        }).contentSource;
+        const channels = Array.from(this._state.channels.values()).map((current) =>
+            current === channel ? replacementChannel : current
+        );
+
+        try {
+            this._persistence.persistStoredChannelData({
+                channels,
+                channelOrder: [...this._state.channelOrder],
+                currentChannelId: this._state.currentChannelId,
+                savedAt: Date.now(),
+            });
+            this._persistence.supersedePendingSave();
+            this._persistence.markSuccess();
+        } catch (error) {
+            this._persistence.reportFailure(
+                `ChannelManager collection recovery failed to persist channel ${channel.id}`,
+                error
+            );
+            throw error;
+        }
+
+        this._assertCollectionRecoveryCurrent(channel, originalSource, options);
+        this._resolutionCache.delete(channel.id);
+        this._contentResolver.invalidateSource(originalSource);
+        channel.contentSource = cloneChannelForOwnership(replacementChannel).contentSource;
+        options.operationContext.assertCurrent();
+        this._emitter.emit('channelUpdated', cloneChannelForOwnership(channel));
+        this._assertChannelStillCurrent(channel, options.operationContext);
+    }
+
+    private _assertCollectionRecoveryCurrent(
+        channel: ChannelConfig,
+        source: Extract<ChannelConfig['contentSource'], { type: 'collection' }>,
+        options: ActiveChannelResolutionOptions
+    ): void {
+        options.operationContext.assertCurrent();
+        if (options.shouldApply && !options.shouldApply()) {
+            throw createResolutionAbortError();
+        }
+        if (
+            this._state.channels.get(channel.id) !== channel
+            || channel.contentSource !== source
+        ) {
+            throw createResolutionAbortError();
+        }
+    }
+
+    private _assertChannelStillCurrent(
+        channel: ChannelConfig,
+        operation: ChannelResolutionLease | undefined
+    ): void {
+        operation?.assertCurrent();
+        if (this._state.channels.get(channel.id) !== channel) {
+            throw createResolutionAbortError();
+        }
     }
 
     private _createResolvedContent(
@@ -717,6 +963,7 @@ export class ChannelManager implements IChannelManager {
         const totalDurationMs = items.reduce((sum, item) => sum + item.durationMs, 0);
         return {
             channelId: channel.id,
+            channelSnapshot: cloneChannelForOwnership(channel),
             resolvedAt: Date.now(),
             items,
             totalDurationMs,
@@ -787,7 +1034,10 @@ export class ChannelManager implements IChannelManager {
                 );
                 operation.assertCurrent();
                 this._retryScheduler.queue(channel.id);
-                return this._resolutionCache.cloneContent(cached, {
+                return this._resolutionCache.cloneContent({
+                    ...cached,
+                    channelSnapshot: cloneChannelForOwnership(channel),
+                }, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'network_error',
@@ -800,7 +1050,10 @@ export class ChannelManager implements IChannelManager {
                     summarizeErrorForLog(error)
                 );
                 operation.assertCurrent();
-                return this._resolutionCache.cloneContent(cached, {
+                return this._resolutionCache.cloneContent({
+                    ...cached,
+                    channelSnapshot: cloneChannelForOwnership(channel),
+                }, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'content_unavailable',
@@ -829,15 +1082,21 @@ export class ChannelManager implements IChannelManager {
         const cached = this._resolutionCache.get(channel.id);
 
         try {
-            const items = await this._resolveFilteredItems(channel, options);
-            operation.assertCurrent();
+            const items = await this._resolveFilteredItems(channel, {
+                ...options,
+                allowCollectionRecovery: true,
+            });
+            this._assertChannelStillCurrent(channel, operation);
             const result = this._createResolvedContent(channel, items);
 
             if (options?.shouldApply && !options.shouldApply()) {
                 return result;
             }
 
+            this._assertChannelStillCurrent(channel, operation);
             this._retryScheduler.cancel(channel.id);
+            this._applyResolvedContentMetadata(channel, result);
+            result.channelSnapshot = cloneChannelForOwnership(channel);
 
             // Cache
             operation.assertCurrent();
@@ -845,8 +1104,7 @@ export class ChannelManager implements IChannelManager {
             operation.assertCurrent();
             this._emitter.emit('contentResolved', result);
 
-            operation.assertCurrent();
-            this._applyResolvedContentMetadata(channel, result);
+            this._assertChannelStillCurrent(channel, operation);
             operation.assertCurrent();
             this._state.channels.set(channel.id, channel);
 
@@ -870,14 +1128,17 @@ export class ChannelManager implements IChannelManager {
 
             if (isNetworkError(error) && cached) {
                 const isStale = this._resolutionCache.isStale(cached);
+                this._assertChannelStillCurrent(channel, operation);
                 this._logger.warn(
                     `Resolution failed for channel ${channel.id} due to network error, using cached content (stale: ${isStale})`,
                     summarizeErrorForLog(error)
                 );
-                operation.assertCurrent();
                 this._retryScheduler.queue(channel.id);
-                operation.assertCurrent();
-                return this._resolutionCache.cloneContent(cached, {
+                this._assertChannelStillCurrent(channel, operation);
+                return this._resolutionCache.cloneContent({
+                    ...cached,
+                    channelSnapshot: cloneChannelForOwnership(channel),
+                }, {
                     fromCache: true,
                     isStale,
                     cacheReason: 'network_error',
@@ -886,12 +1147,15 @@ export class ChannelManager implements IChannelManager {
 
             // Per spec: library/collection deleted should return stale cache.
             if (isGracefulAuthoringResolutionError(error) && cached) {
+                this._assertChannelStillCurrent(channel, operation);
                 this._logger.warn(
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)
                 );
-                operation.assertCurrent();
-                return this._resolutionCache.cloneContent(cached, {
+                return this._resolutionCache.cloneContent({
+                    ...cached,
+                    channelSnapshot: cloneChannelForOwnership(channel),
+                }, {
                     fromCache: true,
                     isStale: true,
                     cacheReason: 'content_unavailable',

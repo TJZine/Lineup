@@ -615,31 +615,148 @@ export class PlexLibrary implements IPlexLibrary {
         libraryId: string,
         options?: { signal?: AbortSignal | null; requestIntent?: PlexLibraryRequestIntent }
     ): Promise<PlexCollection[]> {
+        if (libraryId.trim().length === 0) {
+            throw new PlexLibraryError(
+                AppErrorCode.PARSE_ERROR,
+                'Collection library id must be a non-empty string'
+            );
+        }
         let scope = this._requestScope.capture(options?.signal ?? null);
-        // Use type=18 (COLLECTION) filter on the library 'all' endpoint
-        const params = {
-            type: PLEX_MEDIA_TYPES.COLLECTION,
-            includeGuids: 1, // Standard metadata
-            includeMeta: 1,  // Standard metadata
-        };
-        const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId), params);
-        const request = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawCollection>>(
-            scope,
-            url,
-            { signal: scope.signal },
-            resolveRequestProfileForIntent(options?.requestIntent)
-        );
-        scope = request.scope;
-        const response = request.data;
+        const pageSize = PLEX_LIBRARY_CONSTANTS.DEFAULT_PAGE_SIZE;
+        const collections: PlexCollection[] = [];
+        const seenRatingKeys = new Set<string>();
+        let offset = 0;
+        let totalSize: number | null = null;
 
-        if (!response) {
+        for (let pageCounter = 0; ; pageCounter += 1) {
             this._requestScope.assertCurrent(scope, scope.signal);
-            return [];
+            if (pageCounter >= PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS) {
+                const message =
+                    `[PlexLibrary] Pagination guard tripped in getCollections `
+                    + `(libraryId=${libraryId}, fetched=${collections.length}, pageSize=${pageSize}, `
+                    + `maxIterations=${PLEX_LIBRARY_CONSTANTS.MAX_PAGINATION_ITERATIONS})`;
+                this._logger.error(message);
+                throw new PlexLibraryError(AppErrorCode.PAGINATION_LIMIT_EXCEEDED, message);
+            }
+
+            const url = this._requestScope.buildUrl(
+                scope,
+                PLEX_ENDPOINTS.LIBRARY_SECTION_ALL(libraryId),
+                {
+                    type: PLEX_MEDIA_TYPES.COLLECTION,
+                    includeGuids: 1,
+                    includeMeta: 1,
+                    'X-Plex-Container-Start': offset,
+                    'X-Plex-Container-Size': pageSize,
+                }
+            );
+            const request = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawCollection>>(
+                scope,
+                url,
+                { signal: scope.signal },
+                resolveRequestProfileForIntent(options?.requestIntent),
+                'throw'
+            );
+            scope = request.scope;
+            this._requestScope.assertCurrent(scope, scope.signal);
+            const response = request.data;
+            if (!response) {
+                throw new PlexLibraryError(
+                    AppErrorCode.RESOURCE_NOT_FOUND,
+                    'Plex resource not found',
+                    404
+                );
+            }
+
+            const mediaContainer = extractMediaContainer(
+                response,
+                `collections for library ${libraryId}`
+            );
+            const returnedOffset = mediaContainer.offset;
+            if (
+                returnedOffset !== undefined
+                && (!Number.isSafeInteger(returnedOffset) || returnedOffset < 0 || returnedOffset !== offset)
+            ) {
+                throw new PlexLibraryError(
+                    AppErrorCode.PARSE_ERROR,
+                    `Invalid collection page offset for library ${libraryId}`
+                );
+            }
+
+            const pageTotalSize = mediaContainer.totalSize;
+            if (pageTotalSize !== undefined) {
+                if (!Number.isSafeInteger(pageTotalSize) || pageTotalSize < 0) {
+                    throw new PlexLibraryError(
+                        AppErrorCode.PARSE_ERROR,
+                        `Invalid collection total size for library ${libraryId}`
+                    );
+                }
+                if (totalSize !== null && totalSize !== pageTotalSize) {
+                    throw new PlexLibraryError(
+                        AppErrorCode.PARSE_ERROR,
+                        `Collection total size changed while listing library ${libraryId}`
+                    );
+                }
+                totalSize = pageTotalSize;
+            }
+
+            const metadata = extractMetadataArray(response, `collections for library ${libraryId}`);
+            for (const rawCollection of metadata) {
+                if (
+                    !rawCollection
+                    || typeof rawCollection !== 'object'
+                    || Array.isArray(rawCollection)
+                    || typeof rawCollection.ratingKey !== 'string'
+                    || rawCollection.ratingKey.trim().length === 0
+                    || rawCollection.ratingKey !== rawCollection.ratingKey.trim()
+                    || typeof rawCollection.key !== 'string'
+                    || rawCollection.key.trim().length === 0
+                    || rawCollection.key !== rawCollection.key.trim()
+                    || typeof rawCollection.title !== 'string'
+                    || rawCollection.title.trim().length === 0
+                    || rawCollection.title !== rawCollection.title.trim()
+                ) {
+                    throw new PlexLibraryError(
+                        AppErrorCode.PARSE_ERROR,
+                        `Invalid collection entry while listing library ${libraryId}`
+                    );
+                }
+                if (seenRatingKeys.has(rawCollection.ratingKey)) {
+                    throw new PlexLibraryError(
+                        AppErrorCode.PARSE_ERROR,
+                        `Duplicate collection entry while listing library ${libraryId}`
+                    );
+                }
+                seenRatingKeys.add(rawCollection.ratingKey);
+            }
+
+            const pageCollections = parseCollections(metadata);
+            collections.push(...pageCollections);
+            if (totalSize !== null && collections.length > totalSize) {
+                throw new PlexLibraryError(
+                    AppErrorCode.PARSE_ERROR,
+                    `Collection listing exceeded its reported total for library ${libraryId}`
+                );
+            }
+
+            if (metadata.length === 0) {
+                if (totalSize !== null && collections.length < totalSize) {
+                    throw new PlexLibraryError(
+                        AppErrorCode.PARSE_ERROR,
+                        `Collection listing ended before its reported total for library ${libraryId}`
+                    );
+                }
+                break;
+            }
+
+            offset += metadata.length;
+            if (totalSize !== null && collections.length === totalSize) {
+                break;
+            }
         }
 
-        const metadata = extractMetadataArray(response, `collections for library ${libraryId}`);
         this._requestScope.assertCurrent(scope, scope.signal);
-        return parseCollections(metadata);
+        return collections;
     }
 
     /**
@@ -654,13 +771,23 @@ export class PlexLibrary implements IPlexLibrary {
             includeMeta: 1,
         };
         const url = this._requestScope.buildUrl(scope, PLEX_ENDPOINTS.COLLECTION_CHILDREN(collectionKey), params);
-        const request = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawMediaItem>>(scope, url, { signal: scope.signal });
+        const request = await this._requestClient.fetchWithRetry<PlexMediaContainer<RawMediaItem>>(
+            scope,
+            url,
+            { signal: scope.signal },
+            'default',
+            'throw'
+        );
         scope = request.scope;
         const response = request.data;
 
         if (!response) {
             this._requestScope.assertCurrent(scope, scope.signal);
-            return [];
+            throw new PlexLibraryError(
+                AppErrorCode.RESOURCE_NOT_FOUND,
+                'Plex resource not found',
+                404
+            );
         }
 
         const metadata = extractMetadataArray(response, `collection items for ${collectionKey}`);

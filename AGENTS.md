@@ -18,13 +18,19 @@ Always-on defaults:
   cross-session memory or when explicitly requested.
 - Use the smallest matching skill set: normally one process skill plus only the
   boundary skills required by the change.
+- Read relevant authority sections first; expand to callers, adjacent contracts,
+  or the full document when material questions remain unresolved.
 - Default to one agent. Delegate independent read-heavy work or an approved,
   disjoint write unit only when the benefit exceeds coordination cost.
 - Prefer current source and direct tools over detector output, archived plans, or
   remembered context.
 - Preserve existing owner boundaries; do not add compatibility paths, speculative
   abstractions, or new dependencies without a demonstrated need.
-- Run `npm run verify` for UI, navigation, Orchestrator, Plex, build, or runtime
-  changes. Run `npm run verify:docs` for workflow/control-plane-only changes.
+- Run `npm run verify` for behavior changes in UI, navigation, Orchestrator, Plex,
+  build, or runtime. Use the runbook's narrow exception for demonstrably
+  nonbehavioral edits and `npm run verify:docs` for workflow-only changes.
+- Complete authorized work through verification and repair of failures caused by
+  the change. Resolve routine uncertainty from evidence; preserve collaborative
+  approval of new UI direction and escalate consequential unresolved decisions.
 - Before completion, inspect the diff, preserve unrelated user changes, and report
   only verification actually observed in this workspace.

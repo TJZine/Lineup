@@ -2,17 +2,17 @@
   --runtime-status-layer: 850;
   position: absolute;
   top: 48px;
-  right: 48px;
+  left: 48px;
   z-index: var(--runtime-status-layer);
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
-  transition: opacity 200ms ease, transform 200ms ease;
 }
 
 .channel-badge.visible {
   opacity: 1;
   transform: translateY(0);
+  transition: opacity 200ms ease, transform 200ms ease;
 }
 
 .channel-badge-content {
@@ -52,7 +52,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .channel-badge {
+  .channel-badge,
+  .channel-badge.visible {
     transition: none;
     transform: none;
   }

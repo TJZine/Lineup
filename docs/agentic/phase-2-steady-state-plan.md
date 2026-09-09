@@ -1,5 +1,11 @@
 # Phase 2 Steady-State Plan
 
+> Status: historical. The readiness snapshot and instructions below describe the
+> March 2026 cleanup transition, not current blockers or required work. Current
+> policy lives in [AGENTIC_DEV_WORKFLOW.md](../AGENTIC_DEV_WORKFLOW.md); use the
+> [cleanup checklist](../../ARCHITECTURE_CLEANUP_CHECKLIST.md) for current status.
+> Do not activate a plan, eval cycle, or cleanup queue from this historical record.
+
 > Established 2026-03-05. This document describes the second documentation/skill pass to run after the current architecture cleanup stabilizes.
 
 ## Purpose

@@ -118,8 +118,7 @@ test('accepts only bounded positive integer thread counts', () => {
     }
 });
 
-test('identifies explicit-only launcher names without maintaining an inventory', () => {
-    assert.equal(requiresExplicitInvocation('lineup-feature-plan'), true);
+test('keeps program orchestration explicit without requiring ordinary launchers', () => {
     assert.equal(requiresExplicitInvocation('large-task-orchestration'), true);
     assert.equal(requiresExplicitInvocation('typescript-test-design'), false);
 });
@@ -160,22 +159,83 @@ test('rejects a primary config symlink before parsing it', () => {
     }
 });
 
-test('rejects missing, renamed, and unknown role declarations', () => {
+test('accepts renamed and additional roles with valid declared configurations', () => {
     const mutations = [
-        (content) => content.replace(/\n\[agents\.monitor\][\s\S]*?config_file = "agents\/monitor\.toml"\n/u, '\n'),
         (content) => content.replace('[agents.monitor]', '[agents.observer]'),
-        (content) => `${content}\n[agents.unknown]\ndescription = "Unknown"\nconfig_file = "agents/worker.toml"\n`,
+        (content) => `${content}\n[agents.builder]\ndescription = "Additional builder"\nconfig_file = "agents/worker.toml"\n`,
     ];
-    for (const [index, mutate] of mutations.entries()) {
+    for (const mutate of mutations) {
         const fixtureRoot = createRoleFixture();
         try {
             mutateFile(fixtureRoot, '.codex/config.toml', mutate);
-            const errors = validateCodexRoleConfig(fixtureRoot);
-            assertCategory(errors, index === 0 ? 'role-inventory missing' : 'role-inventory unknown');
-            if (index === 1) assertCategory(errors, 'role-inventory missing');
+            assert.deepEqual(validateCodexRoleConfig(fixtureRoot), []);
         } finally {
             rmSync(fixtureRoot, { recursive: true, force: true });
         }
+    }
+});
+
+test('accepts a reduced role roster and no local skills through the verifier entry point', () => {
+    const fixtureRoot = createVerifierFixture();
+    try {
+        mutateFile(fixtureRoot, '.codex/config.toml', (content) =>
+            content.replace(/\n\[agents\.monitor\][\s\S]*?config_file = "agents\/monitor\.toml"\n/u, '\n')
+        );
+        execFileSync('git', ['rm', '-r', '-f', '--quiet', '.agents'], { cwd: fixtureRoot });
+        execFileSync('git', ['rm', '-f', '--quiet', '.codex/agents/monitor.toml'], { cwd: fixtureRoot });
+        const result = runVerifier(fixtureRoot);
+        assert.equal(result.status, 0, result.stderr);
+    } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('reports a tracked skill deleted from the working tree', () => {
+    const fixtureRoot = createVerifierFixture();
+    try {
+        const relativePath = '.agents/skills/test-skill/SKILL.md';
+        rmSync(path.join(fixtureRoot, relativePath));
+
+        const result = runVerifier(fixtureRoot);
+
+        assert.equal(result.status, 1, result.stdout);
+        assert.match(
+            result.stderr,
+            /\.agents\/skills\/test-skill\/SKILL\.md: cannot read/u
+        );
+    } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('rejects missing and escaping declared role paths', () => {
+    for (const [configFile, category] of [
+        ['agents/missing.toml', 'role-path'],
+        ['../escaped.toml', 'declaration config_file invalid'],
+        ['agents/../escaped.toml', 'declaration config_file invalid'],
+    ]) {
+        const fixtureRoot = createRoleFixture();
+        try {
+            mutateFile(fixtureRoot, '.codex/config.toml', (content) =>
+                content.replace('config_file = "agents/monitor.toml"', `config_file = "${configFile}"`)
+            );
+            assertCategory(validateCodexRoleConfig(fixtureRoot), category);
+        } finally {
+            rmSync(fixtureRoot, { recursive: true, force: true });
+        }
+    }
+});
+
+test('rejects symlinked role files before reading them', () => {
+    const fixtureRoot = createRoleFixture();
+    try {
+        const rolePath = path.join(fixtureRoot, '.codex/agents/monitor.toml');
+        copyFileSync(rolePath, path.join(fixtureRoot, '.codex/escaped.toml'));
+        rmSync(rolePath);
+        symlinkSync('../escaped.toml', rolePath);
+        assertCategory(validateCodexRoleConfig(fixtureRoot), 'role-path');
+    } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
     }
 });
 
@@ -227,7 +287,7 @@ test('rejects an extra tracked retired role file through the verifier entry poin
         assert.equal(result.status, 1, result.stdout);
         assert.match(
             result.stderr,
-            /codex-config: tracked role files unknown: \.codex\/agents\/worker-sol-low\.toml/u
+            /codex-config: tracked role files unreferenced: \.codex\/agents\/worker-sol-low\.toml/u
         );
         assert.match(
             result.stderr,

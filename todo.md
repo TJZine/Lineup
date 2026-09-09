@@ -1,11 +1,138 @@
 # Lineup Backlog (Post-MVP)
 
-Updated: 2026-03-04
+Updated: 2026-09-05
 
 This file tracks active and validated backlog work only.
 Implemented work has been moved to the "Completed / Removed" section to keep priorities clear.
 
 ## Priority 0 (Active)
+
+### Plex Collection Recreation Recovery and Unavailable Initial Channel Recovery
+
+Status: bounded source-reference recovery and result-owned Guide snapshot correction
+passed full verification and exact `7e716692` physical navigation/relaunch QA on
+2026-09-06. Configuration preservation and repaired-reference persistence passed;
+the operator confirmed populated rows, focus, picture/PiP and sound. Investigation
+history remains in the recurrence report for future failures. Performance tuning
+and the broader recovery contracts below remain open.
+Current authority: `docs/plans/2026-09-06-collection-reference-recovery-and-shuffle-continuity.md`.
+The earlier Guide loading/retry/warmup fixes did not implement this recovery.
+General startup fallback UI and legacy/ambiguous replacement UI remain separate.
+The checklist below retains the broader backlog contract; do not mark its deferred
+parts complete when the bounded automatic recovery lands.
+
+Observed evidence (LG C3, 2026-09-05):
+- Startup stops with `Initial channel switch failed for [channel]: content_unavailable`.
+- After TV connectivity was restored, both known connection addresses identified
+  the selected Plex server successfully. The stored collection key returned 404
+  at both addresses and was absent from all 116 collections across six accessible
+  video libraries; all listing pages were complete.
+- The operator reports likely daily Kometa collection recreation. Deletion and
+  recreation has not yet been corroborated with Kometa configuration/run logs;
+  daily membership synchronization alone does not establish key replacement.
+- Current startup policy throws on unavailable initial-channel content. The recent
+  Guide fixes neither repair source references nor provide startup recovery.
+- Installed commit identity remains unverified; do not label this a regression in
+  implementation HEAD `57d7a2a4` based on this observation.
+- Session evidence:
+  `docs/qa/reports/2026-09-05-guide-loading-recovery-validation.md`.
+
+Proposed collection-reference contract:
+- [ ] Keep the Plex collection key as the normal lookup identity; retain the
+  collection name and owning library/server identity as bounded recovery metadata.
+  Existing collection sources store key/name but lack an explicit library field;
+  define validation, import/export, and safe enrichment for existing records.
+  Never invent a library identity or search another server to repair a channel.
+- [ ] On a confirmed missing key, refresh the active profile's collection listing
+  within the original server/library. Do not interpret timeout, offline, 401, 403,
+  or an empty-but-existing collection as evidence that its identity changed.
+- [ ] Auto-rebind only one exact-name candidate in that same library, after
+  validating collection type, access, and usable source resolution under current
+  server/profile authority. Confirm the original source is still unchanged before
+  persisting; do not overwrite a concurrent user edit or newer successful repair.
+- [ ] Preserve channel ID, number, ordering, seeds, playback settings, and filters;
+  persist the reference update through the public ChannelManager owner. Invalidate
+  affected resolution/schedule state and publish/re-prime through existing owners.
+- [ ] If no candidate exists, preserve the channel and offer bounded retry: Kometa
+  may be between deletion and recreation. Do not delete the channel, rebuild the
+  lineup automatically, or introduce unbounded polling/retry storms.
+- [ ] If the name changed, multiple candidates match, or trustworthy library
+  identity is missing, present a user-selected replacement flow. Never fuzzy-match
+  silently or choose the first same-name collection across libraries/profiles.
+- [ ] Coalesce concurrent repair attempts and scope refreshed listings to current
+  authority. Cancel on profile/server changes, supersession, and shutdown; stale
+  results must not persist or publish. Reuse existing queues/cache/request owners.
+
+Proposed startup-recovery contract:
+- [ ] Keep the initialized shell usable when only the selected channel's content
+  is unavailable. Offer retry, Guide/another channel, and source repair/setup;
+  retain the unavailable channel rather than forcing a full rebuild.
+- [ ] Agree on the precise TV landing surface and focus behavior before UI work.
+  Do not claim playback started or open an empty player as successful startup.
+- [ ] Preserve fatal handling for actual initialization/dependency corruption.
+  Coordinate with the deferred global-error-overlay policy review below without
+  requiring a broad rewrite of all global error handling.
+- [ ] Preserve startup currentness, cancellation, shutdown drainage, and the rule
+  that hidden schedule warmup starts only after playing playback is established.
+
+Ownership and proof:
+- [ ] Put Plex lookup/access classification in Plex library owners, reference
+  validation and persistence in channel-source/ChannelManager owners, and startup
+  routing in initialization/navigation owners. Keep AppOrchestrator as wiring and
+  Guide as a consumer, not a collection-repair or persistence owner.
+- [ ] Cover unchanged-key fast path, deleted/recreated same-name collection, a
+  temporary disappearance then return, rename, duplicate names, same name in
+  another library/server, inaccessible profile, offline/auth failures, empty
+  collections, older records lacking recovery metadata, failed persistence,
+  concurrent repair, source edits, supersession, and restart after successful repair.
+- [ ] Verify preserved channel identity/settings and cache invalidation, with no
+  stale schedule publication. Keep same-day schedule-continuity semantics in the
+  independent item below; key repair does not guarantee unchanged membership/order.
+- [ ] Cover unavailable initial channel with another healthy channel, all channels
+  unavailable, D-pad focus and retry, recovery to playback, and genuine fatal
+  startup failure. Run risk-matched automated gates and physical LG C3 proof.
+- [ ] Validate a controlled collection recreation with verified fixture backup and
+  restore. Record counts, match outcome, attempt counts, timings, and persistence
+  success only; exclude names, keys, server/profile IDs, URLs, tokens, and raw errors.
+
+Rationale: support collection recreation by Kometa or other Plex automation as a
+normal source-lifecycle event. A manual lineup rebuild may temporarily recover an
+obsolete reference, but recurring recreation needs durable recovery. No Kometa
+dependency or integration-specific scheduler is required.
+
+### Same-Day Channel Schedule Continuity Across Relaunch
+
+Status: response-order invariance for shuffled schedules is implemented and
+locally verified under the 2026-09-06 collection-recovery/continuity plan. Actual source
+membership/duration drift and daily snapshot policy remain separate, unproven work.
+
+- [ ] Reproduce the observed same-channel program change across a same-day app
+  relaunch with sanitized pre/post channel-config, resolved-content, schedule,
+  and elapsed-position fingerprints.
+- [ ] Determine whether Plex collection ordering, membership, or duration drift
+  changes the input to deterministic shuffle despite stable saved seeds.
+- [ ] Define the continuity contract for source-library changes: preserve the
+  active daily lineup, intentionally regenerate it, or surface that it changed.
+- [ ] Fix the proven owner and add regression coverage for same-input schedule
+  determinism, controlled source drift, relaunch, and current-program position.
+- [ ] Validate on the physical TV without recording media titles, Plex IDs,
+  authenticated URLs, tokens, or server identifiers.
+
+Observed symptom:
+- The same channel showed a different program after an app relaunch on the same
+  day, and the replacement was already substantially in progress. Midnight
+  rollover does not explain the observation.
+
+Current hypothesis, not yet a root-cause claim:
+- The channel is backed by a shuffled Plex collection. Saved seeds are stable,
+  but the resolver preserves Plex response order before seeded shuffle, and the
+  phase offset depends on aggregate duration. A source-order, membership, or
+  duration change could therefore shift the generated schedule.
+
+Rationale:
+- Same-day continuity is a core linear-channel invariant. Treat this as a large,
+  independent correctness defect after the Guide loading/recovery P2; do not
+  conflate it with Guide rendering latency or terminal loading-state behavior.
 
 ### Endpoint Canonicalization Pass (Plex auth + subtitles)
 
@@ -59,6 +186,13 @@ Rationale:
 
 ### EPG Focus + Number Entry Spec Tightening
 
+- [ ] Review number entry while Guide is open: currently it attempts a tune,
+  then moves Guide focus only after a successful switch. On LG C3, entering
+  disposable unavailable channel 391 left playback/focus on the prior channel.
+  Decide collaboratively whether Guide number entry should instead focus the
+  destination without tuning, with OK selecting playback or unavailable-row
+  retry. Cover healthy/unavailable destinations and preserve normal player-mode
+  number tuning. This is a UX review item, not an approved behavior change.
 - [ ] Finalize and document focus rules for guide open/reopen across source changes (`guide`, `remote`, `number`).
 - [ ] Explicitly define number-entry behavior while guide is visible.
 - [ ] Align tests/docs with final behavior contract.

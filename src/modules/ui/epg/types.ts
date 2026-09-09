@@ -130,6 +130,127 @@ export interface VirtualizedGridState {
     recycledElements: Map<string, HTMLElement>;
 }
 
+export type EpgRowLifecycleKind = 'loading' | 'retrying' | 'unavailable';
+
+export interface EpgRowLifecycleState {
+    kind: EpgRowLifecycleKind;
+    rangeKey: string;
+}
+
+/**
+ * Metadata captured when a schedule is materialized into the EPG component.
+ * The channel snapshot is intentionally opaque to the component; runtime
+ * callers use it only to prove that a held schedule belongs to the same
+ * channel/source revision before reusing it.
+ */
+export interface EpgScheduleLoadMetadata {
+    loadedAt: number;
+    channelSnapshot: ChannelConfig;
+}
+
+export interface EpgHeldScheduleSnapshot extends EpgScheduleLoadMetadata {
+    schedule: ScheduleWindow;
+}
+
+type EpgScheduleIdentityValue =
+    | null
+    | boolean
+    | number
+    | string
+    | EpgScheduleIdentityValue[]
+    | { [key: string]: EpgScheduleIdentityValue };
+
+function canonicalizeEpgScheduleIdentityValue(
+    value: unknown,
+    activeObjects: Set<object>
+): EpgScheduleIdentityValue | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+        return value;
+    }
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : String(value);
+    }
+    if (Array.isArray(value)) {
+        if (activeObjects.has(value)) {
+            return undefined;
+        }
+        activeObjects.add(value);
+        const canonical = value
+            .map((item) => canonicalizeEpgScheduleIdentityValue(item, activeObjects) ?? null);
+        activeObjects.delete(value);
+        return canonical;
+    }
+    if (typeof value === 'object') {
+        if (activeObjects.has(value)) {
+            return undefined;
+        }
+        activeObjects.add(value);
+        const canonical: { [key: string]: EpgScheduleIdentityValue } = {};
+        for (const key of Object.keys(value).sort()) {
+            const normalized = canonicalizeEpgScheduleIdentityValue(
+                (value as Record<string, unknown>)[key],
+                activeObjects
+            );
+            if (normalized !== undefined) {
+                canonical[key] = normalized;
+            }
+        }
+        activeObjects.delete(value);
+        return canonical;
+    }
+    return String(value);
+}
+
+/**
+ * Return the compact identity for the inputs that can change a channel's
+ * materialized schedule. Object keys are sorted recursively while array order
+ * is retained, so equivalent source snapshots do not depend on insertion
+ * order and every schedule-affecting field participates in the comparison.
+ */
+export function getEpgScheduleChannelIdentity(channel: ChannelConfig): string {
+    const scheduleInputs = {
+        id: channel.id,
+        number: channel.number,
+        updatedAt: channel.updatedAt,
+        sourceLibraryId: channel.sourceLibraryId,
+        buildStrategy: channel.buildStrategy,
+        lineupReplicaIndex: channel.lineupReplicaIndex,
+        isPlaybackModeVariant: channel.isPlaybackModeVariant,
+        contentSource: channel.contentSource,
+        playbackMode: channel.playbackMode,
+        shuffleSeed: channel.shuffleSeed,
+        blockSize: channel.blockSize,
+        phaseSeed: channel.phaseSeed,
+        startTimeAnchor: channel.startTimeAnchor,
+        contentFilters: channel.contentFilters,
+        sortOrder: channel.sortOrder,
+        skipIntros: channel.skipIntros,
+        skipCredits: channel.skipCredits,
+        maxEpisodeRunTimeMs: channel.maxEpisodeRunTimeMs,
+        minEpisodeRunTimeMs: channel.minEpisodeRunTimeMs,
+    };
+    const canonical = canonicalizeEpgScheduleIdentityValue(scheduleInputs, new Set<object>());
+    return canonical === undefined ? '' : JSON.stringify(canonical);
+}
+
+/**
+ * Compare the channel/source identity carried by a schedule owner snapshot.
+ * Keep this shared by the component and refresh runtime so held-schedule reuse
+ * and in-flight adoption apply the same authority contract.
+ */
+export function isMatchingEpgChannelSnapshot(a: ChannelConfig, b: ChannelConfig): boolean {
+    const aIdentity = getEpgScheduleChannelIdentity(a);
+    const bIdentity = getEpgScheduleChannelIdentity(b);
+    return aIdentity !== '' && aIdentity === bIdentity;
+}
+
+export const EPG_ROW_LOADING_LABEL = 'Loading...' as const;
+export const EPG_ROW_RETRYING_LABEL = 'Retrying...' as const;
+export const EPG_ROW_UNAVAILABLE_LABEL = 'Unavailable — OK to retry' as const;
+
 export interface EPGEventMap {
     open: void;
     close: void;
@@ -137,6 +258,7 @@ export interface EPGEventMap {
     channelSelected: { channel: ChannelConfig; program: ScheduledProgram };
     programSelected: ScheduledProgram;
     libraryFilterChanged: { libraryId: string | null };
+    rowRetryRequested: { channelId: string };
     timeScroll: { direction: 'left' | 'right'; newOffset: number };
     channelScroll: { direction: 'up' | 'down'; newOffset: number };
 }
@@ -151,6 +273,7 @@ export interface EPGInternalState {
     channels: ChannelConfig[];
     schedules: Map<string, ScheduleWindow>;
     scheduleLoadTimes: Map<string, number>;
+    rowLifecycle: Map<string, EpgRowLifecycleState>;
     focusedCell: EPGFocusPosition | null;
     /** Last requested focus time (used when schedules are missing) */
     focusTimeMs: number;
@@ -208,6 +331,7 @@ export type CellRenderData =
             label: string;
             scheduledStartTime: number;
             scheduledEndTime: number;
+            lifecycle: EpgRowLifecycleKind;
         };
         left: number;
         width: number;

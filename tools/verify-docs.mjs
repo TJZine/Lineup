@@ -14,15 +14,6 @@ const requiredFiles = [
     '.codex/config.toml',
 ];
 const requiredReadOnlyRoles = new Set(['explorer', 'reviewer', 'docs_researcher', 'monitor']);
-const roleContracts = new Map([
-    ['explorer', { configFile: 'agents/explorer.toml' }],
-    ['reviewer', { configFile: 'agents/reviewer.toml' }],
-    ['docs_researcher', { configFile: 'agents/docs-researcher.toml' }],
-    ['planner', { configFile: 'agents/planner.toml' }],
-    ['worker', { configFile: 'agents/worker.toml' }],
-    ['worker_luna', { configFile: 'agents/worker-luna.toml' }],
-    ['monitor', { configFile: 'agents/monitor.toml' }],
-]);
 const supportedReasoningEfforts = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const roleDeclarationKeys = new Set(['description', 'config_file']);
 const roleConfigKeys = new Set([
@@ -136,7 +127,6 @@ function checkMarkdownLinks() {
 
 function checkSkills() {
     const skillFiles = workingFiles('.agents/skills/*/SKILL.md');
-    if (skillFiles.length === 0) errors.push('no repo-local skills found');
 
     for (const file of skillFiles) {
         const content = read(file);
@@ -183,7 +173,7 @@ function checkSkills() {
 }
 
 export function requiresExplicitInvocation(skillName) {
-    return skillName.startsWith('lineup-') || skillName === 'large-task-orchestration';
+    return skillName === 'large-task-orchestration';
 }
 
 export function hasExplicitOnlyPolicy(content) {
@@ -314,17 +304,8 @@ export function validateCodexRoleConfig(repoRoot) {
     const declaredRoles = Object.keys(agents).filter(
         (key) => key !== 'max_threads' && key !== 'max_depth'
     );
-    const missingRoles = [...roleContracts.keys()].filter((role) => !declaredRoles.includes(role));
-    const unknownRoles = declaredRoles.filter((role) => !roleContracts.has(role)).sort();
-    if (missingRoles.length > 0) {
-        validationErrors.push(`codex-config: role-inventory missing: ${missingRoles.join(', ')}`);
-    }
-    if (unknownRoles.length > 0) {
-        validationErrors.push(`codex-config: role-inventory unknown: ${unknownRoles.join(', ')}`);
-    }
-
     const expectedRoleFiles = new Set(
-        [...roleContracts.values()].map(({ configFile }) => `.codex/${configFile}`)
+        declaredRoles.map((role) => `.codex/${agents[role]?.config_file}`)
     );
     const unknownTrackedRoleFiles = [...tracked]
         .filter(
@@ -336,17 +317,15 @@ export function validateCodexRoleConfig(repoRoot) {
         .sort();
     if (unknownTrackedRoleFiles.length > 0) {
         validationErrors.push(
-            `codex-config: tracked role files unknown: ${unknownTrackedRoleFiles.join(', ')}`
+            `codex-config: tracked role files unreferenced: ${unknownTrackedRoleFiles.join(', ')}`
         );
     }
 
     const resolvedAgentsRoot = path.join(realpathSync(repoRoot), '.codex', 'agents');
-    for (const [role, contract] of roleContracts) {
+    for (const role of declaredRoles) {
         const declaration = agents[role];
         if (!isTomlTable(declaration)) {
-            if (declaration !== undefined) {
-                validationErrors.push(`codex-config: declaration shape invalid: ${role}`);
-            }
+            validationErrors.push(`codex-config: declaration shape invalid: ${role}`);
             continue;
         }
         const unknownDeclarationKeys = Object.keys(declaration).filter(
@@ -358,12 +337,15 @@ export function validateCodexRoleConfig(repoRoot) {
         if (typeof declaration.description !== 'string' || declaration.description.trim() === '') {
             validationErrors.push(`codex-config: declaration description invalid: ${role}`);
         }
-        if (declaration.config_file !== contract.configFile) {
+        if (
+            typeof declaration.config_file !== 'string' ||
+            !/^agents\/[a-zA-Z0-9_-]+\.toml$/u.test(declaration.config_file)
+        ) {
             validationErrors.push(`codex-config: declaration config_file invalid: ${role}`);
             continue;
         }
 
-        const roleRelativePath = `.codex/${contract.configFile}`;
+        const roleRelativePath = `.codex/${declaration.config_file}`;
         const rolePath = path.join(repoRoot, roleRelativePath);
         if (!inspectRegularFile(rolePath, roleRelativePath, 'codex-config: role-path', validationErrors)) {
             continue;
@@ -410,7 +392,7 @@ export function validateCodexRoleConfig(repoRoot) {
             if (roleConfig.sandbox_mode !== 'read-only') {
                 validationErrors.push(`codex-config: role sandbox unsupported: ${role}`);
             }
-        } else if (Object.hasOwn(roleConfig, 'sandbox_mode')) {
+        } else if (Object.hasOwn(roleConfig, 'sandbox_mode') && roleConfig.sandbox_mode !== 'read-only') {
             validationErrors.push(`codex-config: role sandbox unsupported: ${role}`);
         }
         if (typeof roleConfig.developer_instructions !== 'string') {

@@ -3,6 +3,7 @@ import type { EPGConfig } from '../types';
 import {
     computeEpgScheduleRangeMs,
     computeNormalizedLibraryFilterState,
+    partitionPrefetchChannels,
 } from '../coordinator/EPGCoordinatorPolicies';
 
 const makeChannel = (
@@ -122,5 +123,74 @@ describe('EPGCoordinatorPolicies', () => {
         const pastWindowMinutes = (nowMs - scheduleRange.startTime) / 60_000;
         expect(pastWindowMinutes).toBeGreaterThanOrEqual(0);
         expect(pastWindowMinutes).toBeLessThan(slotMinutes);
+    });
+
+    it('orders live, focused, visible, overscan, then bounded background without duplication', () => {
+        const channels = Array.from({ length: 60 }, (_, index) => makeChannel(`c${index}`, index + 1));
+        const partitioned = partitionPrefetchChannels(
+            channels,
+            { channelStart: 10, channelEndExclusive: 15 },
+            { liveChannelId: 'c2', focusedChannelId: 'c12' },
+            { visibleCount: 5, maxQueuedChannels: 96, aggressive: false }
+        );
+
+        expect(partitioned.immediateChannels.slice(0, 2).map((channel) => channel.id)).toEqual(['c2', 'c12']);
+        const visibleIds = ['c10', 'c11', 'c13', 'c14'];
+        let cursor = 2;
+        for (const id of visibleIds) {
+            const found = partitioned.immediateChannels.findIndex(
+                (channel, index) => index >= cursor && channel.id === id
+            );
+            expect(found).toBeGreaterThanOrEqual(cursor);
+            cursor = found + 1;
+        }
+        const ids = partitioned.immediateChannels.map((channel) => channel.id);
+        expect(new Set(ids).size).toBe(ids.length);
+        for (const channel of partitioned.backgroundChannels) {
+            expect(ids).not.toContain(channel.id);
+        }
+        expect(partitioned.backgroundChannels.length).toBeLessThanOrEqual(96);
+    });
+
+    it('replaces obsolete background priority on a large Guide jump', () => {
+        const channels = Array.from({ length: 100 }, (_, index) => makeChannel(`c${index}`, index + 1));
+        const destination = partitionPrefetchChannels(
+            channels,
+            { channelStart: 80, channelEndExclusive: 85 },
+            { liveChannelId: null, focusedChannelId: 'c82' },
+            { visibleCount: 5, maxQueuedChannels: 96, aggressive: false }
+        );
+
+        expect(destination.immediateChannels[0]?.id).toBe('c82');
+        for (const id of ['c80', 'c81', 'c83', 'c84']) {
+            expect(destination.immediateChannels.map((channel) => channel.id)).toContain(id);
+        }
+        expect(destination.immediateChannels.map((channel) => channel.id)).not.toContain('c10');
+    });
+
+    it('globally distance-orders both overscan directions after the visible set', () => {
+        const channels = Array.from({ length: 200 }, (_, index) => makeChannel(`c${index}`, index + 1));
+        const partitioned = partitionPrefetchChannels(
+            channels,
+            { channelStart: 100, channelEndExclusive: 105 },
+            { liveChannelId: null, focusedChannelId: 'c102' },
+            { visibleCount: 5, maxQueuedChannels: 96, aggressive: false }
+        );
+
+        expect(partitioned.immediateChannels.slice(0, 7).map((channel) => channel.id)).toEqual([
+            'c102',
+            'c100',
+            'c101',
+            'c103',
+            'c104',
+            'c105',
+            'c99',
+        ]);
+        expect(partitioned.immediateChannels.slice(7, 11).map((channel) => channel.id)).toEqual([
+            'c106',
+            'c98',
+            'c107',
+            'c97',
+        ]);
     });
 });

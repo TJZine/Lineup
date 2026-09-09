@@ -4,6 +4,7 @@ export type {
     ChannelCreateOptions,
     ChannelManagerConfig,
     IPlexLibraryMinimal,
+    ChannelContentResolutionOptions,
 } from './contracts/interfaces';
 export type {
     ChannelConfig,
@@ -28,6 +29,10 @@ export type {
     ChannelManagerEventMap,
     ChannelUpdateInput,
 } from './contracts/types';
+export type {
+    ObserveSourceResolution,
+    SourceResolutionDiagnostic,
+} from './contracts/SourceResolutionDiagnostic';
 export {
     STORAGE_KEY,
     CURRENT_CHANNEL_KEY,

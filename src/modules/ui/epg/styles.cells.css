@@ -34,6 +34,16 @@
   color: transparent;
 }
 
+.epg-cell.unavailable {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.epg-cell.unavailable .epg-cell-title,
+.epg-cell.unavailable .epg-cell-time,
+.epg-cell.unavailable .epg-cell-subtitle {
+  color: inherit;
+}
+
 .epg-cell.loading::before,
 .epg-cell.loading::after {
   content: '';
@@ -78,6 +88,16 @@
     background: Canvas;
     outline: 3px solid CanvasText;
     outline-offset: 2px;
+  }
+
+  .epg-cell.unavailable {
+    background: Canvas;
+  }
+
+  .epg-cell.unavailable .epg-cell-title,
+  .epg-cell.unavailable .epg-cell-time,
+  .epg-cell.unavailable .epg-cell-subtitle {
+    color: CanvasText;
   }
 
 }

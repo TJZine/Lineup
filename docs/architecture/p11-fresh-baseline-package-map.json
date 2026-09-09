@@ -1,4 +1,6 @@
 {
+  "status": "historical",
+  "authority_note": "Historical membership and execution snapshot only; current work admission and policy come from ARCHITECTURE_CLEANUP_CHECKLIST.md and docs/AGENTIC_DEV_WORKFLOW.md. This file does not activate a queue or impose workflow gates.",
   "artifact_version": 1,
   "artifact_role": "Tracked companion mapping the active P11 fresh-baseline cleanup queue to exact review-id membership and bounded mechanical scoping seeds for the authoritative 2026-04-23 rerun.",
   "live_backlog_timestamp": "2026-04-23T07:32:05+00:00",

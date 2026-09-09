@@ -105,6 +105,139 @@ describe('SourceResolutionCache', () => {
         expect(cached[0]!.mediaInfo).toEqual({ resolution: '1080p' });
     });
 
+    it('reports only bounded source-resolution scalars for create, join, settle, and cache access', async () => {
+        const cache = new SourceResolutionCache();
+        const source = createManualSource('private-source-key');
+        const deferred = createDeferred<ResolvedContentItem[]>();
+        const resolveUncached: ResolveUncachedMock = jest.fn(
+            (_source: ChannelContentSource, _options: { signal: AbortSignal }) => deferred.promise
+        );
+        const scope = new SourceResolutionScope([{ assertCurrent: jest.fn() }]);
+        const firstOperation = scope.retain('first');
+        const secondOperation = scope.retain('second');
+        const diagnostics: unknown[] = [];
+
+        const first = cache.resolveWithOperation(
+            source, resolveUncached, firstOperation, null, 'default', (event) => diagnostics.push(event)
+        );
+        const second = cache.resolveWithOperation(
+            source, resolveUncached, secondOperation, null, 'default', (event) => diagnostics.push(event)
+        );
+        deferred.resolve([createItem('private-item-key')]);
+        await Promise.all([first, second]);
+        const cachedOperation = scope.retain('cached');
+        await cache.resolveWithOperation(
+            source, resolveUncached, cachedOperation, null, 'default', (event) => diagnostics.push(event)
+        );
+
+        expect(diagnostics).toEqual(expect.arrayContaining([
+            expect.objectContaining({ event: 'access', access: 'create', outcome: 'pending', waiters: 1 }),
+            expect.objectContaining({ event: 'access', access: 'join', outcome: 'pending', waiters: 2 }),
+            expect.objectContaining({ event: 'result', access: 'create', outcome: 'success', itemCount: 1 }),
+            expect.objectContaining({ event: 'access', access: 'cache', producerId: null }),
+        ]));
+        const producerIds = diagnostics
+            .filter((event): event is { access: string; producerId: number | null } => (
+                typeof event === 'object' && event !== null && 'access' in event && 'producerId' in event
+            ))
+            .filter((event) => event.access === 'create' || event.access === 'join')
+            .map((event) => event.producerId);
+        expect(new Set(producerIds).size).toBe(1);
+        const diagnosticJson = JSON.stringify(diagnostics);
+        expect(diagnosticJson).not.toContain('private-source-key');
+        expect(diagnosticJson).not.toContain('private-item-key');
+        expect(diagnosticJson).not.toContain('title');
+        expect(diagnosticJson).not.toContain('message');
+
+        firstOperation.release();
+        secondOperation.release();
+        cachedOperation.release();
+        scope.release();
+    });
+
+    it('keeps observed results provisional when an observer reentrantly invalidates them', async () => {
+        const cache = new SourceResolutionCache();
+        const source: ChannelContentSource = { type: 'manual', items: [] };
+        const scope = new SourceResolutionScope([{ assertCurrent: jest.fn() }]);
+        const successfulOperation = scope.retain('successful');
+
+        await expect(cache.resolveWithOperation(
+            source,
+            jest.fn().mockResolvedValue([createItem('success')]),
+            successfulOperation,
+            null,
+            'default',
+            () => { throw new Error('observer failed'); }
+        )).resolves.toEqual([expect.objectContaining({ ratingKey: 'success' })]);
+
+        cache.clear();
+        const canceledOperation = scope.retain('canceled');
+        const delayed = createDeferred<ResolvedContentItem[]>();
+        const replacementResolver: ResolveUncachedMock = jest.fn()
+            .mockImplementationOnce(() => delayed.promise)
+            .mockResolvedValueOnce([createItem('fresh')]);
+        const observations: Array<{ event: string; outcome: string }> = [];
+        const canceled = cache.resolveWithOperation(
+            source,
+            replacementResolver,
+            canceledOperation,
+            null,
+            'default',
+            (event) => {
+                observations.push({ event: event.event, outcome: event.outcome });
+                if (event.event === 'result') cache.invalidate(source);
+            }
+        );
+
+        delayed.resolve([createItem('late')]);
+        await expect(canceled).rejects.toMatchObject({ name: 'AbortError' });
+        expect(observations).toEqual([
+            { event: 'access', outcome: 'pending' },
+            { event: 'result', outcome: 'success' },
+            { event: 'settled', outcome: 'failure' },
+        ]);
+        await cache.whenIdle();
+        await expect(cache.resolveWithOperation(
+            source, replacementResolver, canceledOperation
+        )).resolves.toEqual([expect.objectContaining({ ratingKey: 'fresh' })]);
+        expect(replacementResolver).toHaveBeenCalledTimes(2);
+
+        const cachedObservations: Array<{ event: string; outcome: string }> = [];
+        await expect(cache.resolveWithOperation(
+            source, replacementResolver, canceledOperation, null, 'default', (event) => {
+                cachedObservations.push({ event: event.event, outcome: event.outcome });
+                if (event.event === 'result') cache.invalidate(source);
+            }
+        )).rejects.toMatchObject({ name: 'AbortError' });
+        expect(cachedObservations).toEqual([
+            { event: 'access', outcome: 'pending' },
+            { event: 'result', outcome: 'success' },
+            { event: 'settled', outcome: 'failure' },
+        ]);
+        expect(replacementResolver).toHaveBeenCalledTimes(2);
+
+        const accessCanceledOperation = scope.retain('access-canceled');
+        const accessCaller = new AbortController();
+        const accessDeferred = createDeferred<ResolvedContentItem[]>();
+        const accessCanceled = cache.resolveWithOperation(
+            createManualSource('second-source'),
+            jest.fn(() => accessDeferred.promise),
+            accessCanceledOperation,
+            accessCaller.signal,
+            'default',
+            (event) => {
+                if (event.event === 'access') accessCaller.abort('caller-abort');
+            }
+        );
+        await expect(accessCanceled).rejects.toBe('caller-abort');
+        accessDeferred.resolve([createItem('second-late')]);
+        await cache.whenIdle();
+        successfulOperation.release();
+        canceledOperation.release();
+        accessCanceledOperation.release();
+        scope.release();
+    });
+
     it('does not start fresh source resolution when the caller is already aborted', async () => {
         const cache = new SourceResolutionCache();
         const source: ChannelContentSource = { type: 'manual', items: [] };
@@ -179,6 +312,57 @@ describe('SourceResolutionCache', () => {
 
         await expect(cache.resolve(source, resolveUncached)).resolves.toEqual([
             expect.objectContaining({ ratingKey: 'fresh' }),
+        ]);
+        expect(resolveUncached).toHaveBeenCalledTimes(2);
+    });
+
+    it('lets an immediate rejoin claim a producer before the canceled waiter cleanup runs', async () => {
+        const cache = new SourceResolutionCache();
+        const source: ChannelContentSource = { type: 'manual', items: [] };
+        const deferred = createDeferred<ResolvedContentItem[]>();
+        const caller = new AbortController();
+        const resolveUncached: ResolveUncachedMock = jest.fn(
+            (_source: ChannelContentSource, _options: { signal: AbortSignal }) => deferred.promise
+        );
+
+        const canceled = cache.resolve(source, resolveUncached, { signal: caller.signal });
+        caller.abort('request-replaced');
+        const rejoined = cache.resolve(source, resolveUncached);
+        deferred.resolve([createItem('shared')]);
+
+        await expect(canceled).rejects.toBe('request-replaced');
+        await expect(rejoined).resolves.toEqual([
+            expect.objectContaining({ ratingKey: 'shared' }),
+        ]);
+        expect(resolveUncached).toHaveBeenCalledTimes(1);
+    });
+
+    it('retires a zero-waiter entry when uncached creation synchronously cancels its caller', async () => {
+        const cache = new SourceResolutionCache();
+        const source: ChannelContentSource = { type: 'manual', items: [] };
+        const obsolete = createDeferred<ResolvedContentItem[]>();
+        const current = createDeferred<ResolvedContentItem[]>();
+        const caller = new AbortController();
+        const resolveUncached: ResolveUncachedMock = jest.fn()
+            .mockImplementationOnce(() => {
+                caller.abort('creation-canceled');
+                return obsolete.promise;
+            })
+            .mockImplementationOnce(() => current.promise);
+
+        const canceled = cache.resolve(source, resolveUncached, { signal: caller.signal });
+        await expect(canceled).rejects.toBe('creation-canceled');
+
+        const replacement = cache.resolve(source, resolveUncached);
+        current.resolve([createItem('current')]);
+        await expect(replacement).resolves.toEqual([
+            expect.objectContaining({ ratingKey: 'current' }),
+        ]);
+
+        obsolete.resolve([createItem('obsolete')]);
+        await cache.whenIdle();
+        await expect(cache.resolve(source, resolveUncached)).resolves.toEqual([
+            expect.objectContaining({ ratingKey: 'current' }),
         ]);
         expect(resolveUncached).toHaveBeenCalledTimes(2);
     });

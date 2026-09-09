@@ -123,6 +123,7 @@ export const mockMediaItemResponse = {
 
 export const mockCollectionsResponse = {
     MediaContainer: {
+        totalSize: 2,
         Metadata: [
             { ratingKey: 'c1', key: '/library/collections/c1', title: 'Marvel', thumb: '/c1/thumb', childCount: 25 },
             { ratingKey: 'c2', key: '/library/collections/c2', title: 'Star Wars', childCount: 12 },

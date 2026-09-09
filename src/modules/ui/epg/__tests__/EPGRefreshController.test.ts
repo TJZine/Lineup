@@ -46,6 +46,18 @@ const makeResolvedItems = (channelId: string): ResolvedChannelContent['items'] =
     },
 ];
 
+const makeResolvedContent = (
+    channel: ChannelConfig,
+    items: ResolvedChannelContent['items'] = makeResolvedItems(channel.id)
+): ResolvedChannelContent => ({
+    channelId: channel.id,
+    channelSnapshot: channel,
+    resolvedAt: Date.now(),
+    items,
+    totalDurationMs: items.reduce((total, item) => total + item.durationMs, 0),
+    orderedItems: [...items],
+});
+
 const makeScheduleWindow = (ratingKey: string): ScheduleWindow => ({
     startTime: 0,
     endTime: 60_000,
@@ -117,19 +129,18 @@ const makeDeps = (
         focusChannel: jest.fn(),
         setGridAnchorTime: jest.fn(),
         loadScheduleForChannel: jest.fn(),
+        getRowLifecycle: jest.fn().mockReturnValue(null),
+        setRowLifecycle: jest.fn(),
+        clearRowLifecycle: jest.fn(),
+        clearAllRowLifecycles: jest.fn(),
         getFocusedProgram: jest.fn().mockReturnValue(null),
         focusNow: jest.fn(),
     } as unknown as IEPGComponent;
     const channelManager: IChannelManager = {
         getAllChannels: jest.fn(() => channels),
+        getChannel: jest.fn((id: string) => channels.find((channel) => channel.id === id) ?? null),
         getCurrentChannel: jest.fn(() => channels[0] ?? null),
-        resolveChannelContent: jest.fn(async (id: string) => ({
-            channelId: id,
-            resolvedAt: Date.now(),
-            items: makeResolvedItems(id),
-            totalDurationMs: 60_000,
-            orderedItems: makeResolvedItems(id),
-        } as ResolvedChannelContent)),
+        resolveChannelContent: jest.fn(async () => makeResolvedContent(channels[0]!)),
         resolveChannelItemsForSchedule: jest.fn(async (id: string) => makeResolvedItems(id)),
     } as unknown as IChannelManager;
     const scheduler: IChannelScheduler = {
@@ -221,7 +232,7 @@ describe('EPGRefreshController', () => {
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith('QA-003b', 'epg.libraryFilterPersistenceFailed', {
             reason: 'unavailable',
-            requestedLibraryId: null,
+            requestedSelection: 'all-libraries',
             source: 'normalize-invalid-library-filter',
         });
     });
@@ -241,9 +252,7 @@ describe('EPGRefreshController', () => {
             expect.objectContaining({
                 reason: 'guide-settings',
                 debounceMs: 0,
-                safeError: expect.objectContaining({
-                    message: expect.stringContaining('refresh failed'),
-                }),
+                errorKind: 'non-abort',
             })
         );
     });
@@ -306,13 +315,8 @@ describe('EPGRefreshController', () => {
 
     it('does not persist a direct live-row overwrite as loaded state for the next non-live range refresh', async () => {
         const liveState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: 'c1' };
-        const resolveChannelContent = jest.fn(async (id: string) => ({
-            channelId: id,
-            resolvedAt: Date.now(),
-            items: makeResolvedItems(id),
-            totalDurationMs: 60_000,
-            orderedItems: makeResolvedItems(id),
-        } as ResolvedChannelContent));
+        const channel = makeChannel('c1', 1);
+        const resolveChannelContent = jest.fn(async () => makeResolvedContent(channel));
         const { deps, epg } = makeDeps({
             channelManager: {
                 resolveChannelContent,
@@ -333,30 +337,22 @@ describe('EPGRefreshController', () => {
         resolveChannelContent.mockClear();
 
         await controller.refreshEpgSchedulesForRangeNow(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
         expect(resolveChannelContent).toHaveBeenCalledTimes(1);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: 'c1',
-                source: 'resolved-immediate',
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ resolutionAttemptCount: 1 })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });
 
     it('cancels range refresh work while the schedule runtime import is still pending', async () => {
-        const resolveChannelContent = jest.fn(async (id: string) => ({
-            channelId: id,
-            resolvedAt: Date.now(),
-            items: makeResolvedItems(id),
-            totalDurationMs: 60_000,
-            orderedItems: makeResolvedItems(id),
-        } as ResolvedChannelContent));
+        const channel = makeChannel('c1', 1);
+        const resolveChannelContent = jest.fn(async () => makeResolvedContent(channel));
         const { deps, epg } = makeDeps({
             channelManager: {
                 resolveChannelContent,
@@ -381,15 +377,47 @@ describe('EPGRefreshController', () => {
         );
     });
 
+    it('records the controller lifecycle reason before canceling an active range batch', async () => {
+        let markStarted: () => void = () => undefined;
+        const resolvePendingContent: Array<() => void> = [];
+        const started = new Promise<void>((resolve) => {
+            markStarted = resolve;
+        });
+        const { deps } = makeDeps({
+            channelManager: {
+                resolveChannelContent: jest.fn((id) => new Promise<ResolvedChannelContent>((resolve) => {
+                    resolvePendingContent.push(() => resolve({
+                        ...makeResolvedContent(makeChannel(id, 1)),
+                    }));
+                    markStarted();
+                })),
+            },
+            scheduler: {
+                getState: jest.fn(() => makeSchedulerState(null, false)),
+            },
+        });
+        const controller = new EPGRefreshController(deps);
+        const refresh = controller.refreshEpgSchedulesForRangeNow(
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+
+        await started;
+        controller.cancelScheduledRefreshWork('close-epg');
+        resolvePendingContent.forEach((resolve) => resolve());
+        await refresh;
+
+        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
+            'QA-003b',
+            'epg.scheduleRow.invalidated',
+            expect.objectContaining({ invalidation: 'guide-closed' })
+        );
+    });
+
     it('does not persist a preseeded live row as loaded state for the next non-live range refresh', async () => {
         const liveState: { isActive: boolean; channelId: string | null } = { isActive: true, channelId: 'c1' };
-        const resolveChannelContent = jest.fn(async (id: string) => ({
-            channelId: id,
-            resolvedAt: Date.now(),
-            items: makeResolvedItems(id),
-            totalDurationMs: 60_000,
-            orderedItems: makeResolvedItems(id),
-        } as ResolvedChannelContent));
+        const channel = makeChannel('c1', 1);
+        const resolveChannelContent = jest.fn(async () => makeResolvedContent(channel));
         const { deps, epg } = makeDeps({
             channelManager: {
                 resolveChannelContent,
@@ -410,18 +438,15 @@ describe('EPGRefreshController', () => {
         resolveChannelContent.mockClear();
 
         await controller.refreshEpgSchedulesForRangeNow(
-            { channelStart: 0, channelEndExclusive: 0, timeStartMs: 0, timeEndMs: 60_000 },
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
             'visible-range'
         );
 
         expect(resolveChannelContent).toHaveBeenCalledTimes(1);
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
             'QA-003b',
-            'epg.scheduleApplied',
-            expect.objectContaining({
-                channelId: 'c1',
-                source: 'resolved-immediate',
-            })
+            'epg.scheduleRefresh.settled',
+            expect.objectContaining({ resolutionAttemptCount: 1 })
         );
         expect(epg.loadScheduleForChannel).toHaveBeenCalledTimes(1);
     });

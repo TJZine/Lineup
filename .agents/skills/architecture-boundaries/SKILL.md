@@ -11,8 +11,9 @@ owns the present requirement without mixing independent responsibilities.
 
 ## Required Context
 
-Read [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md),
-the relevant owner, and the runbook's risk and verification rules. Load the cleanup
+Read relevant sections of [`docs/architecture/CURRENT_STATE.md`](../../../docs/architecture/CURRENT_STATE.md),
+the affected owner/callers, and the runbook's risk and verification rules. Expand
+when lifecycle, invariants, or contracts remain unclear. Load the cleanup
 checklist only for checklist-linked work and load other boundary skills only when
 their surfaces are actually involved.
 
@@ -35,9 +36,31 @@ their surfaces are actually involved.
 Tests should use stable public seams. A private probe is evidence to reassess
 ownership, not automatic justification for another collaborator.
 
+## Apply Design Principles
+
+- Apply DRY to shared business knowledge and invariants. Reuse the owner of a
+  scheduling or persistence rule; similar syntax alone does not justify coupling
+  callers that have different reasons to change.
+- Use small interfaces at real boundaries. SOLID does not require an interface
+  per class, inheritance, or extension points for hypothetical features. Prefer
+  composition and explicit collaborators; substitutes must preserve failure,
+  ordering, cancellation, and cleanup contracts as well as successful results.
+- Apply KISS to readability and total maintenance cost, not minimum lines or
+  files. Follow existing conventions before introducing configurable machinery.
+- Apply YAGNI to speculative capabilities. Scoped refactoring and meaningful
+  regression coverage keep current code safe to change and are not speculative
+  features. Remove obsolete paths replaced by the change; report concrete
+  remaining debt and its consequence without expanding into unrelated cleanup.
+
+Use these as decision criteria within the current task, not an additional review
+pass. They interpret the maintainer's
+[SOLID/DRY/KISS reference](https://scalastic.io/en/solid-dry-kiss/) alongside
+[Fowler's YAGNI clarification](https://martinfowler.com/bliki/Yagni.html) and
+[Google's design/complexity guidance](https://google.github.io/eng-practices/review/reviewer/looking-for.html).
+
 ## Architecture Attention
 
-- A changed production file over 500 lines requires this compact disposition:
+- When a change adds or moves responsibilities, record a compact disposition:
 
   ```text
   Owner:
@@ -47,16 +70,16 @@ ownership, not automatic justification for another collaborator.
   Evidence:
   ```
 
-- A changed production file over 800 lines, a composition root, or a hotspot named
-  in current architecture guidance requires a fresh independent `reviewer`
-  architecture/YAGNI pass over the whole owner, not only changed lines.
-- The 500/800 thresholds trigger attention and review; they never require a split,
-  prohibit cohesive growth, or fail verification by themselves.
+- Large files, composition roots, and named hotspots warrant attention to the
+  affected lifecycle, callers, and invariants; read the whole owner when needed.
+  The 500/800 thresholds do not themselves require a disposition, independent
+  reviewer, or split, prohibit cohesive growth, or fail verification.
+- Use the runbook's Review criteria when a consequential risk needs a second
+  assessment. File size or location alone does not require a reviewer.
 - Re-review only after a material finding or material review-surface change.
 
-Current named hotspots include `AppOrchestrator`, channel management, EPG
-composition, channel setup, Plex stream resolution, and settings composition. Use
-current source and `CURRENT_STATE.md` to resolve their exact owners.
+Use current source and `CURRENT_STATE.md` for the affected ownership surface and
+hotspot status; completed cleanup packages do not define current hotspots.
 
 ## Invariants
 
@@ -73,6 +96,7 @@ current source and `CURRENT_STATE.md` to resolve their exact owners.
 - Preserve the existing ESLint architecture rules and update current ownership docs
   when public ownership actually changes.
 
-Run risk-matched proof from the runbook, inspect the complete owner and diff, and
-confirm that the result neither accumulates a second responsibility nor fragments
+Run risk-matched proof from the runbook, inspect the affected owner surface and diff
+(expanding to the complete owner when needed), and confirm that the result neither
+accumulates a second responsibility nor fragments
 one responsibility across pass-through files.

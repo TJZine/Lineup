@@ -227,6 +227,37 @@ describe('ChannelManager error contracts', () => {
         );
     });
 
+    it('preserves cached content and schedules recovery when revalidation hits a network error', async () => {
+        expectConsoleWarn([
+            expect.stringContaining('due to network error'),
+            expect.any(Object),
+        ]);
+        const channel = await manager.createChannel({
+            contentSource: createMockContentSource(),
+        });
+        const originalContent = await manager.resolveChannelContent(channel.id);
+        await manager.flushSaves();
+        mockLibrary.getLibraryItems.mockClear();
+        mockLibrary.getLibraryItems.mockRejectedValueOnce(
+            Object.assign(new Error('Network timeout'), {
+                code: AppErrorCode.NETWORK_TIMEOUT,
+            })
+        );
+
+        const fallback = await manager.resolveChannelContent(channel.id, {
+            cacheMode: 'revalidate',
+        });
+
+        expect(fallback).toMatchObject({
+            fromCache: true,
+            isStale: false,
+            cacheReason: 'network_error',
+        });
+        expect(fallback.items).toEqual(originalContent.items);
+        expect(mockLibrary.getLibraryItems).toHaveBeenCalledTimes(1);
+        expect(jest.getTimerCount()).toBe(1);
+    });
+
     it('invalidates the source, cancels pending retries, and does not serve stale cache after ACCESS_DENIED', async () => {
         const logger = { warn: jest.fn(), error: jest.fn() };
         const localManager = new ChannelManager({ plexLibrary: mockLibrary, logger });

@@ -26,6 +26,7 @@ export interface EPGBackgroundWarmQueueStartOptions {
     concurrency: number;
     onSettled?: () => void;
     assertCurrent?: () => void;
+    shouldContinue?: () => boolean;
 }
 
 interface BackgroundWarmQueueState extends EPGBackgroundWarmQueueStartOptions {
@@ -121,6 +122,11 @@ export class EPGBackgroundWarmQueue {
             return;
         }
 
+        if (state.shouldContinue && !state.shouldContinue()) {
+            this._cancelInternal('warmup-playback-stopped');
+            return;
+        }
+
         const action = this._resolveWarmQueueAction(state);
         if (this._applyWarmQueueBackpressureOrCancel(action)) {
             return;
@@ -170,6 +176,11 @@ export class EPGBackgroundWarmQueue {
 
     private async _runWarmBatch(state: BackgroundWarmQueueState): Promise<void> {
         if (this._state !== state) {
+            return;
+        }
+
+        if (state.shouldContinue && !state.shouldContinue()) {
+            this._cancelInternal('warmup-playback-stopped');
             return;
         }
 

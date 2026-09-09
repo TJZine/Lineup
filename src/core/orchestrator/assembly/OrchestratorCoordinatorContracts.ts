@@ -199,7 +199,7 @@ export interface OrchestratorEpgCoordinatorBuilderInput {
     config: OrchestratorCoordinatorAssemblyInput['config'];
     moduleStatus: OrchestratorCoordinatorAssemblyInput['moduleStatus'];
     init: OrchestratorCoordinatorAssemblyInput['init'];
-    modules: Pick<CoordinatorModules, 'epg' | 'channelManager' | 'scheduler'>;
+    modules: Pick<CoordinatorModules, 'navigation' | 'epg' | 'channelManager' | 'scheduler'>;
     stores: Pick<CoordinatorStores, 'epgPreferencesStore'>;
     diagnostics: Pick<OrchestratorCoordinatorAssemblyInput['diagnostics'], 'appendIssueDiagnostic'>;
     schedule: Pick<

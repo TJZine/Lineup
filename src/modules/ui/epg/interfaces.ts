@@ -6,6 +6,9 @@ import type {
     EPGConfig,
     EPGState,
     EPGEventMap,
+    EpgRowLifecycleState,
+    EpgHeldScheduleSnapshot,
+    EpgScheduleLoadMetadata,
 } from './types';
 import type { IDisposable } from '../../../utils/interfaces';
 
@@ -32,7 +35,25 @@ export interface IEPGComponent {
 
     setLibraryTabs(libraries: Array<{ id: string; name: string }>, selectedId: string | null): void;
 
-    loadScheduleForChannel(channelId: string, schedule: ScheduleWindow): void;
+    loadScheduleForChannel(
+        channelId: string,
+        schedule: ScheduleWindow,
+        metadata?: EpgScheduleLoadMetadata
+    ): void;
+
+    hasScheduleForChannelRange(channelId: string, startTime: number, endTime: number): boolean;
+
+    getHeldScheduleForChannel(channelId: string): EpgHeldScheduleSnapshot | null;
+
+    clearScheduleForChannel(channelId: string): void;
+
+    getRowLifecycle(channelId: string): EpgRowLifecycleState | null;
+
+    setRowLifecycle(channelId: string, state: EpgRowLifecycleState): void;
+
+    clearRowLifecycle(channelId: string, rangeKey?: string): void;
+
+    clearAllRowLifecycles(): void;
 
     clearSchedules(): void;
 
@@ -76,7 +97,7 @@ export interface IEPGComponent {
 }
 
 export interface IEPGReadinessPort {
-    ensureReady(): Promise<void>;
+    ensureReady(signal?: AbortSignal | null): Promise<void>;
 }
 
 export interface IEPGInfoPanel {

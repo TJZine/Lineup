@@ -5,6 +5,14 @@ import {
     SourceResolutionScope,
     type SourceResolutionOperationContext,
 } from './SourceResolutionEntryAuthority';
+import {
+    describeGuideFailure,
+    guideDiagnosticClock,
+} from '../../../debug/GuideDiagnosticValues';
+import type {
+    ObserveSourceResolution,
+    SourceResolutionDiagnostic,
+} from '../contracts/SourceResolutionDiagnostic';
 
 const SOURCE_CACHE_TTL_MS = 5 * 60_000;
 const SOURCE_CACHE_MAX_ENTRIES = 24;
@@ -18,6 +26,7 @@ type SourceCacheEntry = {
 };
 
 type SourceInFlightEntry = {
+    producerId: number;
     authority: SourceResolutionEntryAuthority;
     promise: Promise<ResolvedContentItem[]>;
     waiters: number;
@@ -37,11 +46,17 @@ type ResolveSourceUncachedLegacy = (
     options: { signal: AbortSignal }
 ) => Promise<ResolvedContentItem[]>;
 
+type SourceResolutionCacheMode = 'default' | 'revalidate';
+
+let nextSourceProducerId = 1;
+let nextSourceConsumerId = 1;
+
 export class SourceResolutionCache {
     private _cacheEpoch = 0;
     private readonly _sourceCacheGenerationByKey = new Map<string, number>();
     private readonly _sourceCache = new Map<string, SourceCacheEntry>();
     private readonly _sourceInFlight = new Map<string, SourceInFlightEntry>();
+    private readonly _activeProducerPromises = new Set<Promise<ResolvedContentItem[]>>();
     private _defaultScope = new SourceResolutionScope([{ assertCurrent: (): void => undefined }]);
     private readonly _parentKeysByChildKey = new Map<string, Set<string>>();
     private readonly _childKeysByParentKey = new Map<string, Set<string>>();
@@ -61,6 +76,12 @@ export class SourceResolutionCache {
 
     invalidate(source: ChannelContentSource): void {
         this._invalidateSource(source, new Set<string>());
+    }
+
+    async whenIdle(): Promise<void> {
+        while (this._activeProducerPromises.size > 0) {
+            await Promise.allSettled([...this._activeProducerPromises]);
+        }
     }
 
     async resolve(
@@ -85,18 +106,51 @@ export class SourceResolutionCache {
         source: ChannelContentSource,
         resolveUncached: ResolveSourceUncached,
         operation: SourceResolutionOperationContext,
-        callerSignal?: AbortSignal | null
+        callerSignal?: AbortSignal | null,
+        cacheMode: SourceResolutionCacheMode = 'default',
+        onDiagnostic?: ObserveSourceResolution
     ): Promise<ResolvedContentItem[]> {
+        const consumerId = nextSourceConsumerId++;
+        const consumerStartedAt = guideDiagnosticClock().monotonicMs;
         operation.assertCurrent();
         throwIfAborted(callerSignal);
         const cacheKey = this.buildKey(source);
         const epoch = this._cacheEpoch;
         const generation = this._getSourceCacheGeneration(cacheKey);
-        const cached = this._getCachedSourceItems(cacheKey, operation);
+        const cached = cacheMode === 'revalidate'
+            ? null
+            : this._getCachedSourceItems(cacheKey, operation);
         if (cached) {
-            operation.assertCurrent();
-            throwIfAborted(callerSignal);
-            return cached;
+            this._emitDiagnostic(onDiagnostic, {
+                event: 'access', consumerId, producerId: null, access: 'cache', cacheMode,
+                outcome: 'pending', itemCount: null, operation, callerSignal,
+                consumerSignal: operation.signal, producerSignal: null, failure: null,
+                startedAtMonotonic: consumerStartedAt, waiters: 0,
+            });
+            try {
+                operation.assertCurrent();
+                throwIfAborted(callerSignal);
+                this._emitDiagnostic(onDiagnostic, {
+                    event: 'result', consumerId, producerId: null, access: 'cache', cacheMode,
+                    outcome: 'success', itemCount: cached.length, operation, callerSignal,
+                    consumerSignal: operation.signal, producerSignal: null, failure: null,
+                    startedAtMonotonic: consumerStartedAt, waiters: 0,
+                });
+                operation.assertCurrent();
+                throwIfAborted(callerSignal);
+                if (epoch !== this._cacheEpoch || generation !== this._getSourceCacheGeneration(cacheKey)) {
+                    throw createAbortError();
+                }
+                return cached;
+            } catch (error) {
+                this._emitDiagnostic(onDiagnostic, {
+                    event: 'settled', consumerId, producerId: null, access: 'cache', cacheMode,
+                    outcome: 'failure', itemCount: null, operation, callerSignal,
+                    consumerSignal: operation.signal, producerSignal: null, failure: error,
+                    startedAtMonotonic: consumerStartedAt, waiters: 0,
+                });
+                throw error;
+            }
         }
 
         const inFlight = this._sourceInFlight.get(cacheKey);
@@ -105,16 +159,21 @@ export class SourceResolutionCache {
                 inFlight.epoch === epoch
                 && inFlight.generation === generation
                 && inFlight.authority.scope.authority === operation.authority
+                && this._isEntryCurrent(inFlight)
             ) {
-                return this._awaitInFlight(cacheKey, inFlight, operation, callerSignal ?? null);
+                return this._awaitInFlight(cacheKey, inFlight, operation, callerSignal ?? null, {
+                    consumerId, access: 'join', cacheMode, consumerStartedAt,
+                    ...(onDiagnostic ? { onDiagnostic } : {}),
+                });
             }
             this._closeEntry(inFlight);
             this._sourceInFlight.delete(cacheKey);
         }
 
-        const entryScope = retainSourceOperation(operation, `source-entry:${cacheKey}`);
+        const entryScope = operation.commonScope.retain(`source-entry:${cacheKey}`);
         const authority = new SourceResolutionEntryAuthority(entryScope);
         const entry: SourceInFlightEntry = {
+            producerId: nextSourceProducerId++,
             authority,
             promise: Promise.resolve([]),
             waiters: 0,
@@ -125,6 +184,7 @@ export class SourceResolutionCache {
         };
         const resolvePromise = resolveUncached(source, {
             authority: operation.authority,
+            commonScope: operation.commonScope,
             signal: authority.signal,
             assertCurrent: (): void => authority.assertCurrent(),
             release: (): void => undefined,
@@ -141,8 +201,24 @@ export class SourceResolutionCache {
             if (entry.waiters === 0) this._releaseEntry(entry);
         });
         entry.promise = resolvePromise;
+        this._activeProducerPromises.add(resolvePromise);
+        void resolvePromise.then(
+            () => this._activeProducerPromises.delete(resolvePromise),
+            () => this._activeProducerPromises.delete(resolvePromise)
+        );
         this._sourceInFlight.set(cacheKey, entry);
-        return this._awaitInFlight(cacheKey, entry, operation, callerSignal ?? null);
+        try {
+            return this._awaitInFlight(cacheKey, entry, operation, callerSignal ?? null, {
+                consumerId, access: 'create', cacheMode, consumerStartedAt,
+                ...(onDiagnostic ? { onDiagnostic } : {}),
+            });
+        } catch (error) {
+            if (entry.waiters === 0 && this._sourceInFlight.get(cacheKey) === entry) {
+                this._sourceInFlight.delete(cacheKey);
+                this._closeEntry(entry);
+            }
+            throw error;
+        }
     }
 
     buildKey(source: ChannelContentSource): string {
@@ -167,25 +243,82 @@ export class SourceResolutionCache {
         key: string,
         entry: SourceInFlightEntry,
         operation: SourceResolutionOperationContext,
-        callerSignal: AbortSignal | null
+        callerSignal: AbortSignal | null,
+        diagnostic: {
+            consumerId: number;
+            access: 'create' | 'join';
+            cacheMode: SourceResolutionCacheMode;
+            onDiagnostic?: ObserveSourceResolution;
+            consumerStartedAt: number;
+        }
     ): Promise<ResolvedContentItem[]> {
-        const waiter = new RetainedOperationContext([
-            operation,
-            {
-                signal: callerSignal,
-                assertCurrent: (): void => throwIfAborted(callerSignal),
-            },
-            entry.authority,
-        ]);
+        let waiter: RetainedOperationContext;
+        try {
+            waiter = new RetainedOperationContext([
+                operation,
+                {
+                    signal: callerSignal,
+                    assertCurrent: (): void => throwIfAborted(callerSignal),
+                },
+                entry.authority,
+            ]);
+        } catch (error) {
+            this._emitDiagnostic(diagnostic.onDiagnostic, {
+                event: 'access', consumerId: diagnostic.consumerId, producerId: entry.producerId,
+                access: diagnostic.access, cacheMode: diagnostic.cacheMode, outcome: 'pending',
+                itemCount: null, operation, callerSignal, consumerSignal: operation.signal,
+                producerSignal: entry.authority.signal, failure: null,
+                startedAtMonotonic: diagnostic.consumerStartedAt, waiters: entry.waiters,
+            });
+            this._emitDiagnostic(diagnostic.onDiagnostic, {
+                event: 'settled', consumerId: diagnostic.consumerId, producerId: entry.producerId,
+                access: diagnostic.access, cacheMode: diagnostic.cacheMode, outcome: 'failure',
+                itemCount: null, operation, callerSignal, consumerSignal: operation.signal,
+                producerSignal: entry.authority.signal, failure: error,
+                startedAtMonotonic: diagnostic.consumerStartedAt, waiters: entry.waiters,
+            });
+            throw error;
+        }
         entry.waiters += 1;
+        let onAbort = (): void => undefined;
         const aborted = new Promise<ResolvedContentItem[]>((_, reject) => {
-            const onAbort = (): void => reject(waiter.signal.reason ?? createAbortError());
+            onAbort = (): void => reject(waiter.signal.reason ?? createAbortError());
             waiter.signal.addEventListener('abort', onAbort, { once: true });
+        });
+        this._emitDiagnostic(diagnostic.onDiagnostic, {
+            event: 'access', consumerId: diagnostic.consumerId, producerId: entry.producerId,
+            access: diagnostic.access, cacheMode: diagnostic.cacheMode, outcome: 'pending',
+            itemCount: null, operation, callerSignal, consumerSignal: waiter.signal,
+            producerSignal: entry.authority.signal, failure: null,
+            startedAtMonotonic: diagnostic.consumerStartedAt, waiters: entry.waiters,
         });
         return Promise.race([entry.promise, aborted]).then((items) => {
             waiter.assertCurrent();
-            return this.cloneItems(items);
+            const cloned = this.cloneItems(items);
+            this._emitDiagnostic(diagnostic.onDiagnostic, {
+                event: 'result', consumerId: diagnostic.consumerId, producerId: entry.producerId,
+                access: diagnostic.access, cacheMode: diagnostic.cacheMode, outcome: 'success',
+                itemCount: cloned.length, operation, callerSignal, consumerSignal: waiter.signal,
+                producerSignal: entry.authority.signal, failure: null,
+                startedAtMonotonic: diagnostic.consumerStartedAt, waiters: entry.waiters,
+            });
+            waiter.assertCurrent();
+            if (
+                entry.epoch !== this._cacheEpoch
+                || entry.generation !== this._getSourceCacheGeneration(key)
+            ) throw createAbortError();
+            return cloned;
+        }).catch((error: unknown) => {
+            this._emitDiagnostic(diagnostic.onDiagnostic, {
+                event: 'settled', consumerId: diagnostic.consumerId, producerId: entry.producerId,
+                access: diagnostic.access, cacheMode: diagnostic.cacheMode, outcome: 'failure',
+                itemCount: null, operation, callerSignal, consumerSignal: waiter.signal,
+                producerSignal: entry.authority.signal, failure: error,
+                startedAtMonotonic: diagnostic.consumerStartedAt, waiters: entry.waiters,
+            });
+            throw error;
         }).finally(() => {
+            waiter.signal.removeEventListener('abort', onAbort);
             waiter.release();
             entry.waiters -= 1;
             if (entry.waiters === 0 && this._sourceInFlight.get(key) === entry) {
@@ -196,8 +329,71 @@ export class SourceResolutionCache {
         });
     }
 
+    private _emitDiagnostic(
+        observer: ObserveSourceResolution | undefined,
+        value: {
+            event: SourceResolutionDiagnostic['event'];
+            consumerId: number;
+            producerId: number | null;
+            access: SourceResolutionDiagnostic['access'];
+            cacheMode: SourceResolutionCacheMode;
+            outcome: SourceResolutionDiagnostic['outcome'];
+            itemCount: number | null;
+            operation: SourceResolutionOperationContext;
+            callerSignal: AbortSignal | null | undefined;
+            consumerSignal: AbortSignal;
+            producerSignal: AbortSignal | null;
+            failure: unknown;
+            startedAtMonotonic: number;
+            waiters: number;
+        }
+    ): void {
+        if (!observer) return;
+        try {
+            const clock = guideDiagnosticClock();
+            const commonSignal = value.operation.commonScope.signal;
+            const failure = value.failure;
+            observer({
+                event: value.event,
+                consumerId: value.consumerId,
+                producerId: value.producerId,
+                access: value.access,
+                cacheMode: value.cacheMode,
+                outcome: value.outcome,
+                timeOrigin: clock.timeOrigin,
+                monotonicMs: clock.monotonicMs,
+                elapsedMs: Math.max(0, clock.monotonicMs - value.startedAtMonotonic),
+                itemCount: value.itemCount,
+                activeProducers: this._activeProducerPromises.size,
+                waiters: value.waiters,
+                callerAborted: value.callerSignal?.aborted === true,
+                consumerAborted: value.consumerSignal.aborted,
+                producerAborted: value.producerSignal?.aborted === true,
+                commonScopeAborted: commonSignal.aborted,
+                matchesConsumerReason: value.outcome === 'failure' && value.consumerSignal.aborted
+                    && failure === value.consumerSignal.reason,
+                matchesProducerReason: value.outcome === 'failure' && value.producerSignal?.aborted === true
+                    && failure === value.producerSignal.reason,
+                matchesCommonScopeReason: value.outcome === 'failure' && commonSignal.aborted
+                    && failure === commonSignal.reason,
+                failure: value.outcome === 'failure' ? describeGuideFailure(failure) : null,
+            });
+        } catch {
+            // Diagnostic observation is best-effort and never affects resolution.
+        }
+    }
+
     private _closeEntry(entry: SourceInFlightEntry): void {
         entry.authority.close();
+    }
+
+    private _isEntryCurrent(entry: SourceInFlightEntry): boolean {
+        try {
+            entry.authority.assertCurrent();
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     private _releaseEntry(entry: SourceInFlightEntry): void {
@@ -313,13 +509,6 @@ export class SourceResolutionCache {
         }
         this._childKeysByParentKey.delete(parentKey);
     }
-}
-
-function retainSourceOperation(
-    operation: SourceResolutionOperationContext,
-    label: string
-): SourceResolutionOperationContext {
-    return operation.retain(label);
 }
 
 function buildDescendantSourceKeys(source: ChannelContentSource): string[] {

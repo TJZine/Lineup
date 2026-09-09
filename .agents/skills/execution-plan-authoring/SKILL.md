@@ -13,14 +13,12 @@ invariants, acceptance criteria, verification, rollback, and stop conditions. Na
 likely files or an allowed write boundary; require exact file lists only when
 parallel writers or a sensitive shared surface need collision protection. Leave
 exact file discovery, helper names, local control flow, focused test organization,
-and routine failure diagnosis to implementation. Stop if product intent, ownership,
-or proof depth remains unresolved.
+and routine failure diagnosis to implementation. Investigate unresolved product,
+ownership, or proof questions; escalate only consequential decisions outside the task.
 
 Describe implementation risk and constraints without permanently binding a durable
-plan to a model. At dispatch, use `worker_luna` for a bounded unit whose outcome,
-owner seam, contracts, acceptance criteria, and proof are clear, even when it needs
-repository comprehension or routine local coding judgment. Use `worker` when the
-same settled unit needs material local design judgment, cross-boundary
-comprehension, complex diagnosis, or proof interpretation. Return to planning when
-product intent, ownership, public contracts, architecture, or proof depth remains
-unresolved.
+plan to a model. The controller uses the runbook's
+[delegation policy](../../../docs/AGENTIC_DEV_WORKFLOW.md#delegation) at dispatch.
+Resolve consequential product, ownership, public-contract, architecture, or proof
+decisions before releasing dependent implementation; routine local choices remain
+with the implementer.

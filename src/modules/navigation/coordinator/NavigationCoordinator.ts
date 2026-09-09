@@ -109,6 +109,15 @@ export class NavigationCoordinator {
             const currentScreen = navigation.getCurrentScreen();
             if (currentScreen === 'player' || currentScreen === 'guide') {
                 navigation.goTo('settings');
+                return;
+            }
+            if (currentScreen === 'settings') {
+                if (navigation.isModalOpen()) {
+                    return;
+                }
+                if (!navigation.goBack()) {
+                    navigation.replaceScreen('player');
+                }
             }
         };
         subscribe('settings', settingsHandler);

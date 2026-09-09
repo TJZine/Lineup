@@ -125,12 +125,17 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
         const epg = this.deps.epg;
         const navigation = this.deps.navigation;
         const modalOpen = navigation.isModalOpen();
+        const currentScreen = navigation.getCurrentScreen();
         const miniGuideVisible = this.deps.miniGuide.isVisible();
         return {
-            currentScreen: navigation.getCurrentScreen(),
+            currentScreen,
             modalOpen,
             miniGuideVisible,
-            shouldRouteToEpg: !modalOpen && !!epg?.isVisible() && !miniGuideVisible,
+            shouldRouteToEpg:
+                !modalOpen &&
+                (currentScreen === 'player' || currentScreen === 'guide') &&
+                !!epg?.isVisible() &&
+                !miniGuideVisible,
         };
     }
 

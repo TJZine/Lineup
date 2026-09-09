@@ -44,6 +44,7 @@ export function buildEpgCoordinatorInput(
         moduleStatus: input.moduleStatus,
         init: input.init,
         modules: {
+            navigation: input.modules.navigation,
             epg: input.modules.epg,
             channelManager: input.modules.channelManager,
             scheduler: input.modules.scheduler,
@@ -95,6 +96,13 @@ export function buildEpgCoordinator(input: OrchestratorEpgCoordinatorBuilderInpu
         getChannelManager: (): IChannelManager | null => input.modules.channelManager,
         getScheduler: (): IChannelScheduler | null => input.modules.scheduler,
         getEpgUiStatus: (): EPGUiStatus => input.moduleStatus.getRuntimeStatus('epg-ui'),
+        canOpenEpg: (): boolean => {
+            const currentScreen = input.modules.navigation.getCurrentScreen();
+            return (
+                (currentScreen === 'player' || currentScreen === 'guide') &&
+                !input.modules.navigation.isModalOpen()
+            );
+        },
         ensureEpgInitialized: (): Promise<void> => input.init.ensureEpgInitialized(),
         getEpgConfig: (): EPGConfig | null => input.config?.epgConfig ?? null,
         getLocalMidnightMs: (timeMs: number): number => input.schedule.getLocalMidnightMs(timeMs),

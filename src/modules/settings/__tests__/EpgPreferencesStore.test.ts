@@ -113,6 +113,27 @@ describe('EpgPreferencesStore', () => {
         expect(localStorage.getItem(`${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`)).toBeNull();
     });
 
+    it('reads a schedule-range snapshot without cleaning or writing storage', () => {
+        store.setLibraryFilterScope({ serverId: 'server-1', userId: 'user-1' });
+        const selectedLibraryKey = `${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`;
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW, 'bad-value');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED, 'unexpected');
+        localStorage.setItem(selectedLibraryKey, '  library-1  ');
+
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem');
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
+        expect(store.readScheduleRangeSnapshot()).toEqual({
+            pastItemsWindowSetting: 'auto',
+            tabsEnabled: true,
+            selectedLibraryId: 'library-1',
+        });
+        expect(setSpy).not.toHaveBeenCalled();
+        expect(removeSpy).not.toHaveBeenCalled();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_PAST_ITEMS_WINDOW)).toBe('bad-value');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_LIBRARY_TABS_ENABLED)).toBe('unexpected');
+        expect(localStorage.getItem(selectedLibraryKey)).toBe('  library-1  ');
+    });
+
     it('round-trips the canonical past-items storage values', () => {
         EPG_PAST_ITEMS_WINDOWS.forEach((windowValue) => {
             expect(store.writePastItemsWindow(windowValue)).toEqual({ ok: true });

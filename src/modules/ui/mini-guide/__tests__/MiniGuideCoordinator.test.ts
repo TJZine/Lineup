@@ -44,6 +44,21 @@ const makeEpisodeItem = (
 
 const makeResolvedContent = (channelId: string): ResolvedChannelContent => ({
     channelId,
+    channelSnapshot: {
+        id: channelId,
+        name: channelId,
+        number: 1,
+        contentSource: { type: 'manual', items: [] },
+        playbackMode: 'sequential',
+        startTimeAnchor: 0,
+        skipIntros: false,
+        skipCredits: false,
+        createdAt: 0,
+        updatedAt: 0,
+        lastContentRefresh: 0,
+        itemCount: 0,
+        totalDurationMs: 0,
+    },
     resolvedAt: 0,
     items: [
         makeItem(`${channelId}-Now`, 60_000, 0),

@@ -134,6 +134,7 @@ describe('EPGGridRuntimeController', () => {
             channels: [{ id: 'ch0', number: 1, name: 'One' }] as EPGInternalState['channels'],
             schedules: new Map([['ch0', schedule]]),
             scheduleLoadTimes: new Map(),
+            rowLifecycle: new Map(),
             focusedCell: {
                 kind: 'program',
                 channelIndex: 0,

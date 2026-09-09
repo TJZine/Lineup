@@ -63,12 +63,14 @@ export class ChannelResolutionOperationContext {
         }
         const lease: ChannelResolutionLease = {
             authority: scopeLease.authority,
+            commonScope: scopeLease.commonScope,
             signal: retained.signal,
             assertCurrent: (): void => retained.assertCurrent(),
             retain: (label): ChannelResolutionLease => {
                 const child = retained.retain(label);
                 return {
                     authority: scopeLease.authority,
+                    commonScope: scopeLease.commonScope,
                     signal: child.signal,
                     assertCurrent: (): void => child.assertCurrent(),
                     retain: (nestedLabel): ChannelResolutionLease => lease.retain(nestedLabel),

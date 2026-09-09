@@ -1,7 +1,5 @@
 import type { ResolvedChannelContent } from '../../../scheduler/channel-manager';
 import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore';
-import { summarizeErrorForLog } from '../../../../utils/errors';
-import type { RefreshPhase, RefreshSession } from './EPGScheduleRefreshRuntimeTypes';
 
 const QA_003B_ISSUE_ID = 'QA-003b';
 
@@ -22,41 +20,10 @@ export function getEpgLocalDayKey(timeMs: number): number {
 
 export function reportEpgBackgroundWarmQueueFailure(
     appendIssueDiagnostic: AppendIssueDiagnostic,
-    error: unknown,
     payload: Record<string, unknown> = {}
 ): void {
-    reportIssue(appendIssueDiagnostic, 'epg.backgroundWarmQueueFailed', error, payload);
-}
-
-export function reportEpgChannelLoadFailure(
-    appendIssueDiagnostic: AppendIssueDiagnostic,
-    session: RefreshSession,
-    channelId: string,
-    phase: RefreshPhase,
-    error: unknown
-): void {
-    const payload = {
-        channelId,
-        phase,
-        refreshId: session.refreshId,
-        rangeKey: session.rangeKey,
-        reason: session.reason,
-    };
-    if (phase === 'background') {
-        reportEpgBackgroundWarmQueueFailure(appendIssueDiagnostic, error, payload);
-        return;
-    }
-    reportIssue(appendIssueDiagnostic, 'epg.scheduleLoadFailed', error, payload);
-}
-
-function reportIssue(
-    appendIssueDiagnostic: AppendIssueDiagnostic,
-    event: string,
-    error: unknown,
-    payload: Record<string, unknown>
-): void {
-    appendIssueDiagnostic(QA_003B_ISSUE_ID, event, {
+    appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.backgroundWarmQueueFailed', {
         ...payload,
-        safeError: summarizeErrorForLog(error),
+        errorKind: 'non-abort',
     });
 }
