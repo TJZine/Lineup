@@ -26,7 +26,7 @@ Bounded read-only discovery may precede this freeze when ownership is unclear. I
 packet still needs a specific objective, read scope, output, effort budget, and stop
 conditions. Explorers gather evidence; they do not decide or implement contracts.
 
-Keep live state in `update_plan`. Use `execution-plan-authoring` and a Sol planner
+Keep live state in `update_plan`. Use `execution-plan-authoring` and a separate planner
 only when unresolved seams, multiple boundaries, or a durable handoff justify the
 extra pass. Do not delegate an unresolved ownership or contract decision.
 
@@ -41,15 +41,11 @@ Route work deliberately:
 
 - use read-only explorers, documentation researchers, test/log analysts, and
   monitors for independent evidence or waits;
-- use `worker_luna` through `bounded-worker-execution` for bounded implementation
-  with clear outcomes, owner seams, contracts, and direct proof, including work
-  that needs repository comprehension and routine local coding judgment;
-- use the normal Sol worker when a settled bounded unit needs material local design
-  judgment, cross-boundary comprehension, complex diagnosis, or proof
-  interpretation; return unresolved product, ownership, public-contract,
-  architecture, or proof decisions to planning;
-- use a fresh read-only reviewer for the final independent review when the work is
-  high risk, novel, broad, or supported by weak verification evidence.
+- use `bounded-worker-execution` for settled implementation units, selecting the
+  current role under the runbook's [delegation policy](../../../docs/AGENTIC_DEV_WORKFLOW.md#delegation);
+  resolve consequential ownership/contract decisions before releasing dependent work;
+- use a fresh read-only reviewer when the runbook's Review criteria justify an
+  independent assessment or the user requested it; state the concrete reason.
 
 Parallel writers must own disjoint files and non-overlapping symbols. Serialize
 changes to shared files, composition roots, public contracts, generated authority,
@@ -81,11 +77,13 @@ clean reviewer for an unchanged surface by habit.
 2. Dispatch only decision-complete write units, respecting dependency order and
    exclusive ownership.
 3. Continue useful, non-overlapping controller work while subagents run.
-4. On each result, inspect the actual diff, rerun the unit's focused proof, record
-   material decisions, and update the plan before releasing dependent work.
-5. Stop and replan if a worker finds an ownership conflict, unplanned
-   public-contract change, invalid invariant, unexpected dependency, or proof it
-   cannot run. A worker may report the evidence but must not choose the new contract.
+4. On each result, inspect the diff and verification output. Reuse still-current
+   results under the runbook; rerun affected proof when integration invalidates it.
+   Record material decisions and update the plan before releasing dependent work.
+5. Resolve worker-reported ownership, contract, invariant, dependency, or proof
+   questions within the user's authorized task. Update affected units before their
+   dependent work proceeds. Ask the user only for consequential decisions still
+   outside that authorization; continue independent work while waiting.
 6. After integration, run the runbook's risk-matched final gate and the independent
    review when required. Adjudicate findings through `review-request`.
 

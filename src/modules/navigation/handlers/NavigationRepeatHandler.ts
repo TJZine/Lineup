@@ -120,6 +120,11 @@ export class NavigationRepeatHandler implements NavigationRepeatRuntime {
             this.stopEpgRepeat('inputBlocked');
             return;
         }
+        const currentScreen = navigation.getCurrentScreen();
+        if (currentScreen !== 'player' && currentScreen !== 'guide') {
+            this.stopEpgRepeat('screenChange');
+            return;
+        }
         if (!this._epgRepeatButton) {
             this.stopEpgRepeat('noButton');
             return;

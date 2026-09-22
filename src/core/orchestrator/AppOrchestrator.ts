@@ -563,6 +563,13 @@ export class AppOrchestrator {
                         return this._buildPlexResourceUrl(pathOrUrl);
                     },
                 },
+                epgWarmup: {
+                    warmCurrentViewportForStartup: (options?: {
+                        signal?: AbortSignal | null;
+                        shouldContinue?: () => boolean;
+                    }): Promise<void> =>
+                        this._epgCoordinator?.warmCurrentViewportForStartup(options) ?? Promise.resolve(),
+                },
             }
         );
 
@@ -833,6 +840,8 @@ export class AppOrchestrator {
             teardown.run('initCoordinator.clearAuthResume', () => initCoordinator.clearAuthResume());
             teardown.run('initCoordinator.clearServerResume', () => initCoordinator.clearServerResume());
             teardown.run('initCoordinator.clearProfileResume', () => initCoordinator.clearProfileResume());
+            await teardown.runAsync('initCoordinator.drainEpgWarmup', () =>
+                initCoordinator.drainEpgWarmupForShutdown());
         }
 
         if (this._scheduleDayRolloverController) {
@@ -850,6 +859,10 @@ export class AppOrchestrator {
         this._eventBinder = null;
 
         const channelManager = this._channelManager;
+        if (channelManager) {
+            await teardown.runAsync('channelManager.supersedeActiveResolutions', () =>
+                channelManager.supersedeActiveResolutions());
+        }
         const flushChannelSaves = channelManager?.flushSaves;
         if (flushChannelSaves) {
             await teardown.runAsync('channelManager.flushSaves', () => flushChannelSaves.call(channelManager));

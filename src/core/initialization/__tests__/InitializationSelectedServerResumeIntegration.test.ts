@@ -119,6 +119,7 @@ describe('selected-server auth resume integration', () => {
                 openServerSelect,
             },
             resources: { buildPlexResourceUrl: jest.fn().mockReturnValue(null) },
+            epgWarmup: { warmCurrentViewportForStartup: jest.fn().mockResolvedValue(undefined) },
         } as unknown as InitializationCallbacks;
         const coordinator = new InitializationCoordinator({
             plexConfig: {} as never, navConfig: {} as never, playerConfig: {} as never,

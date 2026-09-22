@@ -1,4 +1,5 @@
 import { CACHE_TTL_MS } from '../constants';
+import { cloneChannelForOwnership } from '../authoring/ChannelDomainClone';
 import type { ResolvedChannelContent, ResolvedContentItem } from '../contracts/types';
 
 export class ChannelResolutionCache {
@@ -40,6 +41,7 @@ export class ChannelResolutionCache {
     ): ResolvedChannelContent {
         const cloned: ResolvedChannelContent = {
             ...content,
+            channelSnapshot: cloneChannelForOwnership(content.channelSnapshot),
             items: this.cloneItems(content.items),
             orderedItems: this.cloneItems(content.orderedItems),
         };

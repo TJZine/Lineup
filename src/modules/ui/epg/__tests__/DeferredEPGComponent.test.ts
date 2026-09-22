@@ -1,7 +1,16 @@
 import { DeferredEPGComponent } from '../index';
 import { flushPromises } from '../../../../__tests__/helpers';
 import type { IEPGComponent } from '../interfaces';
-import type { EPGConfig, ChannelConfig, ScheduleWindow, ScheduledProgram, EPGState } from '../types';
+import type {
+    EPGConfig,
+    ChannelConfig,
+    ScheduleWindow,
+    ScheduledProgram,
+    EPGState,
+    EpgRowLifecycleState,
+    EpgHeldScheduleSnapshot,
+    EpgScheduleLoadMetadata,
+} from '../types';
 import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
 
 type RuntimeCall =
@@ -128,7 +137,20 @@ const createFakeRuntime = (overrides: FakeRuntimeOverrides = {}): new () => IEPG
         setVisibleHours(): void {}
         setNowWatchingBannerEnabled(): void {}
         setLibraryTabs(): void {}
-        loadScheduleForChannel(): void {}
+        loadScheduleForChannel(_channelId: string, _schedule: ScheduleWindow, _metadata?: EpgScheduleLoadMetadata): void {}
+        hasScheduleForChannelRange(): boolean {
+            return false;
+        }
+        getHeldScheduleForChannel(): EpgHeldScheduleSnapshot | null {
+            return null;
+        }
+        clearScheduleForChannel(): void {}
+        getRowLifecycle(): EpgRowLifecycleState | null {
+            return null;
+        }
+        setRowLifecycle(): void {}
+        clearRowLifecycle(): void {}
+        clearAllRowLifecycles(): void {}
         clearSchedules(): void {}
         refreshCurrentTime(): void {}
         focusChannel(): void {}
@@ -262,6 +284,31 @@ describe('DeferredEPGComponent', () => {
         await component.ensureReady();
 
         expect(loader).toHaveBeenCalledTimes(1);
+    });
+
+    it('settles an aborted readiness wait without replaying initialization and keeps the load reusable', async () => {
+        const initialize = jest.fn();
+        let resolveLoader!: (value: { EPGComponent: new () => IEPGComponent }) => void;
+        const loader = jest.fn(() => new Promise<{ EPGComponent: new () => IEPGComponent }>((resolve) => {
+            resolveLoader = resolve;
+        }));
+        const component = new DeferredEPGComponent(loader as never);
+        const controller = new AbortController();
+        const abortReason = new DOMException('EPG readiness cancelled', 'AbortError');
+        component.initialize(makeConfig());
+
+        const readiness = component.ensureReady(controller.signal);
+        controller.abort(abortReason);
+
+        await expect(readiness).rejects.toBe(abortReason);
+        resolveLoader({ EPGComponent: createFakeRuntime({ initialize }) });
+        await flushPromises(4);
+
+        expect(initialize).not.toHaveBeenCalled();
+        await component.ensureReady();
+        expect(initialize).toHaveBeenCalledTimes(1);
+        expect(loader).toHaveBeenCalledTimes(1);
+        component.destroy();
     });
 
     it('bridges runtime events and removes bridges on destroy', async () => {

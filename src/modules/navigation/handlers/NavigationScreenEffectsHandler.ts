@@ -68,8 +68,9 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
             }
         }
 
-        // Hide EPG when entering settings to prevent overlay bleed.
-        if (to === 'settings') {
+        // Hide EPG on every non-player/non-guide screen to prevent overlay bleed.
+        // The guide exit path above handles guide-originated transitions once.
+        if (from !== 'guide' && to !== 'player' && to !== 'guide') {
             epg?.hide();
         }
 

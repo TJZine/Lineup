@@ -11,7 +11,7 @@ import type {
 } from '../../../scheduler/scheduler';
 import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
-import { isAbortLikeError, summarizeErrorForLog } from '../../../../utils/errors';
+import { isAbortLikeError } from '../../../../utils/errors';
 import {
     computeNormalizedLibraryFilterState,
     selectVisibleChannelsForLibraryFilter,
@@ -42,6 +42,7 @@ export interface EPGCoordinatorDeps {
     getScheduler: () => IChannelScheduler | null;
 
     getEpgUiStatus: () => EpgUiStatus;
+    canOpenEpg: () => boolean;
     ensureEpgInitialized: () => Promise<void>;
 
     getEpgConfig: () => EPGConfig | null;
@@ -107,12 +108,12 @@ export class EPGCoordinator {
 
     private _reportIssue(
         event: string,
-        error: unknown,
+        _error: unknown,
         payload: Record<string, unknown> = {}
     ): void {
         this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, event, {
             ...payload,
-            safeError: summarizeErrorForLog(error),
+            errorKind: 'non-abort',
         });
     }
 
@@ -242,10 +243,19 @@ export class EPGCoordinator {
     }
 
     openEPG(): void {
+        if (!this.deps.canOpenEpg()) return;
         const initialEpg = this.deps.getEpg();
         if (!initialEpg) return;
         const requestId = ++this._openRequestId;
         const status = this.deps.getEpgUiStatus();
+
+        const isCurrentDeferredOpen = (): boolean =>
+            requestId === this._openRequestId &&
+            this.deps.canOpenEpg();
+
+        const canPublishDeferredOpen = (): boolean =>
+            isCurrentDeferredOpen() &&
+            initialEpg.isVisible();
 
         const showAndRefresh = (
             epgInstance: IEPGComponent,
@@ -278,7 +288,7 @@ export class EPGCoordinator {
         }
         void this.deps.ensureEpgInitialized()
             .then(() => {
-                if (requestId !== this._openRequestId) {
+                if (!canPublishDeferredOpen()) {
                     return;
                 }
                 const epgAfterInit = this.deps.getEpg();
@@ -289,7 +299,7 @@ export class EPGCoordinator {
                 showAndRefresh(epgAfterInit, { skipRefocus: true });
             })
             .catch((error: unknown) => {
-                if (requestId !== this._openRequestId) {
+                if (!isCurrentDeferredOpen()) {
                     return;
                 }
                 this._reportIssue('epg.initFailed', error, {
@@ -353,6 +363,20 @@ export class EPGCoordinator {
         return this._refreshController.refreshEpgSchedules(options);
     }
 
+    retryRowSchedule(channelId: string): void {
+        void this._refreshController.retryRowSchedule(channelId).catch((error: unknown) => {
+            if (isAbortLikeError(error)) return;
+            this._reportIssue('epg.retryRowScheduleFailed', error, {});
+        });
+    }
+
+    async warmCurrentViewportForStartup(options?: {
+        signal?: AbortSignal | null;
+        shouldContinue?: () => boolean;
+    }): Promise<void> {
+        await this._refreshController.warmCurrentViewportForStartup(options);
+    }
+
     refreshEpgScheduleForLiveChannel(): void {
         this._refreshController.refreshEpgScheduleForLiveChannel();
     }
@@ -389,8 +413,6 @@ export class EPGCoordinator {
                 return;
             }
             this.deps.appendIssueDiagnostic(QA_003B_ISSUE_ID, 'epg.channelSelected', {
-                channelId: payload.channel.id,
-                ratingKey: payload.program.item.ratingKey,
                 scheduledStartTime,
                 scheduledEndTime,
                 scheduleIndex: payload.program.scheduleIndex,
@@ -400,8 +422,6 @@ export class EPGCoordinator {
             void this._switchToGuideSelectedChannel(payload.channel.id, payload.program, now).catch((error: unknown) => {
                 if (isAbortLikeError(error)) return;
                 this._reportIssue('epg.switchToChannelFailed', error, {
-                    channelId: payload.channel.id,
-                    ratingKey: payload.program.item.ratingKey,
                     selectedAt: now,
                 });
             });
@@ -424,6 +444,10 @@ export class EPGCoordinator {
         };
         epg.on('open', onOpen);
         epg.on('close', onClose);
+        const onRowRetry = (payload: { channelId: string }): void => {
+            this.retryRowSchedule(payload.channelId);
+        };
+        epg.on('rowRetryRequested', onRowRetry);
 
         return [
             (): void => {
@@ -437,6 +461,9 @@ export class EPGCoordinator {
             },
             (): void => {
                 epg.off('close', onClose);
+            },
+            (): void => {
+                epg.off('rowRetryRequested', onRowRetry);
             },
         ];
     }
@@ -513,8 +540,6 @@ export class EPGCoordinator {
                 return;
             }
             this._reportIssue('epg.guideSnapshotBuildFailed', error, {
-                channelId,
-                ratingKey: program.item.ratingKey,
                 selectedAt,
             });
         } finally {
@@ -532,8 +557,6 @@ export class EPGCoordinator {
         );
         if (isChannelSwitchFailed(outcome)) {
             this._reportIssue('epg.switchToChannelFailed', new Error('Guide channel switch failed'), {
-                channelId,
-                ratingKey: program.item.ratingKey,
                 selectedAt,
                 reason: outcome.reason,
             });

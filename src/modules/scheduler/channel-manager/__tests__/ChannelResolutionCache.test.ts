@@ -1,8 +1,16 @@
 import { ChannelResolutionCache } from '../resolution/ChannelResolutionCache';
 import type { ResolvedChannelContent } from '../contracts/types';
+import { createBaseChannel } from './channel-manager-test-helpers';
 
 const createContent = (): ResolvedChannelContent => ({
     channelId: 'channel-1',
+    channelSnapshot: createBaseChannel({
+        id: 'channel-1',
+        contentSource: {
+            type: 'manual',
+            items: [{ ratingKey: 'item-1', title: 'Item 1', durationMs: 6000 }],
+        },
+    }),
     resolvedAt: Date.now(),
     totalDurationMs: 6000,
     items: [
@@ -46,12 +54,19 @@ describe('ChannelResolutionCache', () => {
         content.items[0]!.title = 'Mutated Item';
         content.items[0]!.genres?.push('Mutated Genre');
         content.items[0]!.mediaInfo!.resolution = '240p';
+        if (content.channelSnapshot.contentSource.type === 'manual') {
+            content.channelSnapshot.contentSource.items[0]!.ratingKey = 'mutated-owner';
+        }
 
         const cached = cache.get('channel-1');
 
         expect(cached?.items[0]?.title).toBe('Original Item');
         expect(cached?.items[0]?.genres).toEqual(['Drama']);
         expect(cached?.items[0]?.mediaInfo).toEqual({ resolution: '1080p' });
+        expect(cached?.channelSnapshot.contentSource).toMatchObject({
+            type: 'manual',
+            items: [expect.objectContaining({ ratingKey: 'item-1' })],
+        });
     });
 
     it('returns cloned content so callers cannot mutate cached entries', () => {
@@ -61,11 +76,18 @@ describe('ChannelResolutionCache', () => {
         const first = cache.get('channel-1');
         first!.items[0]!.title = 'Mutated Item';
         first!.orderedItems[0]!.directors?.push('Mutated Director');
+        if (first!.channelSnapshot.contentSource.type === 'manual') {
+            first!.channelSnapshot.contentSource.items[0]!.ratingKey = 'mutated-owner';
+        }
 
         const second = cache.get('channel-1');
 
         expect(second).not.toBe(first);
         expect(second?.items[0]?.title).toBe('Original Item');
         expect(second?.orderedItems[0]?.directors).toEqual(['Director A']);
+        expect(second?.channelSnapshot.contentSource).toMatchObject({
+            type: 'manual',
+            items: [expect.objectContaining({ ratingKey: 'item-1' })],
+        });
     });
 });

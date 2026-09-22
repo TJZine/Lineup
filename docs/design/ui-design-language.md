@@ -48,7 +48,7 @@ Used instead of solid/glass panel backgrounds. Each surface has its own gradient
 |---------|----------|-------------|
 | OSD (bottom) | `transparent → rgba(0,0,0,0.45)` vertical | 45% |
 | NowPlayingInfo (left+bottom) | `rgba(0,0,0,0.30) → rgba(0,0,0,0.50)` 135deg | 50% |
-| Channel Badge (top-right) | `rgba(0,0,0,0.30) → rgba(0,0,0,0.40)` 135deg | 40% |
+| Channel Badge (top-left) | `rgba(0,0,0,0.30) → rgba(0,0,0,0.40)` 135deg | 40% |
 | Mini Guide (top) | `rgba(0,0,0,0.50) → transparent` vertical | 50% |
 
 Glass theme variants use slightly higher opacity (darker) scrims than base surfaces.
@@ -81,17 +81,26 @@ Overlay ordering is a shared contract, not a per-surface guess. The shared overl
 
 `--z-max` remains a boundary token for exceptional cases only. This contract locks relative ordering for later cleanup packages; it does not imply every runtime callsite has already migrated.
 
+### Runtime Overlay Focus
+
+Guide opens only from Player or the Guide navigation screen, with no modal open.
+It must not open or regain focus behind Settings, including when deferred Guide
+initialization finishes after navigation away. Now Playing Info does not open
+while Guide is visible. The yellow Settings shortcut toggles Settings: from
+Settings it follows screen Back navigation, with Player as the root fallback.
+An open Settings modal retains control; yellow does not dismiss its parent.
+
 ### Animations
 
 | Surface | Show | Hide | Duration |
 |---------|------|------|----------|
 | OSD | `translateY(100%) → 0` + fade | reverse | 350ms ease-out |
 | NowPlayingInfo | `translate3d(-100%, 0, 0) → 0` | reverse | 200ms ease |
-| Channel Badge | `translateY(-6px) → 0` + fade | reverse | 200ms ease |
+| Channel Badge | `translateY(-6px) → 0` + fade | immediate | 200ms show |
 | Channel Transition | `translateY(-8px) → 0` + fade | — | 150ms ease-out |
 | Mini Guide | `translateY(-100%) → 0` + fade | reverse | 300ms ease-out |
 
-**Rule:** The animation direction matches where the element is anchored. Bottom-anchored → slides up. Left-anchored → slides from left. Top-right → drops in from above.
+**Rule:** The animation direction matches where the element is anchored. Bottom-anchored → slides up. Left-anchored → slides from left. Top-left → drops in from above.
 
 ### Interactive Elements (Buttons/Actions)
 
@@ -174,7 +183,8 @@ font-variant-numeric: tabular-nums;
 ### Channel Badge
 
 - Shared overlay shown when OSD or NowPlayingInfo is visible
-- Top-right corner, 10px radius, gradient scrim badge
+- Top-left corner at the shared 48px anchor, 10px radius, gradient scrim badge
+- Hidden while channel transition activity is active; fades in over 200ms and hides immediately
 - Displays channel number + name
 - Orchestrator-controlled visibility
 

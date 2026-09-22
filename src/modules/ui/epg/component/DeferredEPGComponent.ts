@@ -1,6 +1,18 @@
 import { EventEmitter } from '../../../../utils/EventEmitter';
+import { readAbortSignalReason } from '../../../../utils/abortSignalReason';
 import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
-import type { ChannelConfig, EPGConfig, EPGEventMap, EPGState, ScheduleWindow, ScheduledProgram } from '../types';
+import {
+    isMatchingEpgChannelSnapshot,
+    type ChannelConfig,
+    type EPGConfig,
+    type EPGEventMap,
+    type EPGState,
+    type EpgHeldScheduleSnapshot,
+    type EpgRowLifecycleState,
+    type EpgScheduleLoadMetadata,
+    type ScheduleWindow,
+    type ScheduledProgram,
+} from '../types';
 import type { IEPGComponent, IEPGReadinessPort } from '../interfaces';
 
 type EPGRuntimeModule = typeof import('./EPGComponent');
@@ -29,7 +41,9 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
     private _gridAnchorTime: number | null = null;
     private _channels: ChannelConfig[] | null = null;
     private _schedules = new Map<string, ScheduleWindow>();
+    private _scheduleMetadata = new Map<string, EpgScheduleLoadMetadata>();
     private _scheduleOrder: string[] = [];
+    private _rowLifecycle = new Map<string, EpgRowLifecycleState>();
     private _layoutMode: EpgLayoutMode | null = null;
     private _visibleHours: number | null = null;
     private _nowWatchingBannerEnabled: boolean | null = null;
@@ -45,7 +59,10 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         this._loader = loader;
     }
 
-    async ensureReady(): Promise<void> {
+    async ensureReady(signal?: AbortSignal | null): Promise<void> {
+        if (signal?.aborted) {
+            throw readAbortSignalReason(signal);
+        }
         if (this._destroyed) {
             return;
         }
@@ -65,13 +82,38 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
             });
         }
 
-        await this._runtimeLoadPromise;
+        await (signal
+            ? this._awaitRuntimeLoadOrAbort(this._runtimeLoadPromise, signal)
+            : this._runtimeLoadPromise);
 
+        if (signal?.aborted) {
+            throw readAbortSignalReason(signal);
+        }
         if (this._destroyed) {
             return;
         }
 
         this._initializeRuntimeIfPossible();
+    }
+
+    private _awaitRuntimeLoadOrAbort(load: Promise<void>, signal: AbortSignal): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            let settled = false;
+            const finish = (settle: () => void): void => {
+                if (settled) return;
+                settled = true;
+                signal.removeEventListener('abort', onAbort);
+                settle();
+            };
+            const onAbort = (): void => finish(() => reject(readAbortSignalReason(signal)));
+
+            signal.addEventListener('abort', onAbort, { once: true });
+            void load.then(
+                () => finish(resolve),
+                (error: unknown) => finish(() => reject(error))
+            );
+            if (signal.aborted) onAbort();
+        });
     }
 
     initialize(config: EPGConfig): void {
@@ -129,6 +171,20 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
 
     loadChannels(channels: ChannelConfig[]): void {
         this._channels = channels;
+        const retainedIds = new Set(channels.map((channel) => channel.id));
+        for (const channelId of this._rowLifecycle.keys()) {
+            if (!retainedIds.has(channelId)) {
+                this._rowLifecycle.delete(channelId);
+            }
+        }
+        const channelsById = new Map(channels.map((channel) => [channel.id, channel]));
+        for (const channelId of this._schedules.keys()) {
+            const metadata = this._scheduleMetadata.get(channelId);
+            const currentChannel = channelsById.get(channelId);
+            if (!metadata || !currentChannel || !isMatchingEpgChannelSnapshot(metadata.channelSnapshot, currentChannel)) {
+                this.clearScheduleForChannel(channelId, false);
+            }
+        }
         if (this._runtimeInitialized && this._runtime) {
             this._runtime.loadChannels(channels);
         }
@@ -162,21 +218,107 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         }
     }
 
-    loadScheduleForChannel(channelId: string, schedule: ScheduleWindow): void {
+    loadScheduleForChannel(
+        channelId: string,
+        schedule: ScheduleWindow,
+        metadata?: EpgScheduleLoadMetadata
+    ): void {
         const isNewSchedule = !this._schedules.has(channelId);
         this._schedules.set(channelId, schedule);
+        const channelSnapshot = metadata?.channelSnapshot ??
+            this._channels?.find((channel) => channel.id === channelId);
+        if (channelSnapshot) {
+            this._scheduleMetadata.set(channelId, {
+                loadedAt: metadata?.loadedAt ?? Date.now(),
+                channelSnapshot,
+            });
+        } else {
+            this._scheduleMetadata.delete(channelId);
+        }
         if (isNewSchedule) {
             this._scheduleOrder.push(channelId);
         }
+        this._rowLifecycle.delete(channelId);
 
         if (this._runtimeInitialized && this._runtime) {
-            this._runtime.loadScheduleForChannel(channelId, schedule);
+            this._runtime.loadScheduleForChannel(channelId, schedule, this._scheduleMetadata.get(channelId));
+        }
+    }
+
+    hasScheduleForChannelRange(channelId: string, startTime: number, endTime: number): boolean {
+        if (this._runtimeInitialized && this._runtime) {
+            return this._runtime.hasScheduleForChannelRange(channelId, startTime, endTime);
+        }
+        const schedule = this._schedules.get(channelId);
+        return schedule?.startTime === startTime && schedule.endTime === endTime;
+    }
+
+    getHeldScheduleForChannel(channelId: string): EpgHeldScheduleSnapshot | null {
+        if (this._runtimeInitialized && this._runtime) {
+            return this._runtime.getHeldScheduleForChannel(channelId);
+        }
+        const schedule = this._schedules.get(channelId);
+        const metadata = this._scheduleMetadata.get(channelId);
+        if (!schedule || !metadata) {
+            return null;
+        }
+        return {
+            schedule,
+            ...metadata,
+        };
+    }
+
+    clearScheduleForChannel(channelId: string, render = true): void {
+        this._schedules.delete(channelId);
+        this._scheduleMetadata.delete(channelId);
+        const scheduleIndex = this._scheduleOrder.indexOf(channelId);
+        if (scheduleIndex >= 0) {
+            this._scheduleOrder.splice(scheduleIndex, 1);
+        }
+        if (this._runtimeInitialized && this._runtime) {
+            this._runtime.clearScheduleForChannel(channelId);
+        }
+        // The deferred shell has no independent render pass. `render` is kept
+        // for parity with the concrete component's internal invalidation path.
+        void render;
+    }
+
+    getRowLifecycle(channelId: string): EpgRowLifecycleState | null {
+        if (this._runtimeInitialized && this._runtime) {
+            return this._runtime.getRowLifecycle(channelId);
+        }
+        return this._rowLifecycle.get(channelId) ?? null;
+    }
+
+    setRowLifecycle(channelId: string, lifecycle: EpgRowLifecycleState): void {
+        this._rowLifecycle.set(channelId, { ...lifecycle });
+        if (this._runtimeInitialized && this._runtime) {
+            this._runtime.setRowLifecycle(channelId, lifecycle);
+        }
+    }
+
+    clearRowLifecycle(channelId: string, rangeKey?: string): void {
+        const current = this._rowLifecycle.get(channelId);
+        if (current && (rangeKey === undefined || current.rangeKey === rangeKey)) {
+            this._rowLifecycle.delete(channelId);
+        }
+        if (this._runtimeInitialized && this._runtime) {
+            this._runtime.clearRowLifecycle(channelId, rangeKey);
+        }
+    }
+
+    clearAllRowLifecycles(): void {
+        this._rowLifecycle.clear();
+        if (this._runtimeInitialized && this._runtime) {
+            this._runtime.clearAllRowLifecycles();
         }
     }
 
     clearSchedules(): void {
         this._schedules.clear();
+        this._scheduleMetadata.clear();
         this._scheduleOrder = [];
+        this._rowLifecycle.clear();
         this._pendingFocusCommand = null;
 
         if (this._runtimeInitialized && this._runtime) {
@@ -291,6 +433,7 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         this._gridAnchorTime = null;
         this._channels = null;
         this._schedules.clear();
+        this._scheduleMetadata.clear();
         this._scheduleOrder = [];
         this._layoutMode = null;
         this._visibleHours = null;
@@ -306,6 +449,7 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         this._runtime = null;
         this._runtimeInitialized = false;
         this._runtimeLoadPromise = null;
+        this._rowLifecycle.clear();
         this.removeAllListeners();
     }
 
@@ -341,6 +485,7 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         bridge('channelSelected');
         bridge('programSelected');
         bridge('libraryFilterChanged');
+        bridge('rowRetryRequested');
         bridge('timeScroll');
         bridge('channelScroll');
     }
@@ -363,7 +508,13 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         for (const channelId of this._scheduleOrder) {
             const schedule = this._schedules.get(channelId);
             if (schedule) {
-                this._runtime.loadScheduleForChannel(channelId, schedule);
+                this._runtime.loadScheduleForChannel(channelId, schedule, this._scheduleMetadata.get(channelId));
+            }
+        }
+
+        for (const [channelId, lifecycle] of this._rowLifecycle) {
+            if (!this._schedules.has(channelId)) {
+                this._runtime.setRowLifecycle(channelId, lifecycle);
             }
         }
 

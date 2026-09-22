@@ -264,6 +264,8 @@ export interface ResolvedContentItem {
 export interface ResolvedChannelContent {
     /** Channel ID this content belongs to */
     channelId: string;
+    /** Exact channel configuration that owned this resolution */
+    channelSnapshot: ChannelConfig;
     /** When content was resolved */
     resolvedAt: number;
     /** All resolved items */

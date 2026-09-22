@@ -60,6 +60,10 @@ export class OverlayRuntimePolicyController {
             return;
         }
 
+        if (this._deps.getEpgVisible()) {
+            return;
+        }
+
         if (!this._deps.hasCurrentProgramForPlayback()) {
             return;
         }

@@ -1,4 +1,6 @@
 {
+  "status": "historical",
+  "authority_note": "Historical membership and execution snapshot only; current work admission and policy come from ARCHITECTURE_CLEANUP_CHECKLIST.md and docs/AGENTIC_DEV_WORKFLOW.md. This file does not activate a queue or impose workflow gates.",
   "artifact_version": 1,
   "artifact_role": "Tracked companion mapping the active cleanup checklist package tokens to exact issue membership for the reconciled 2026-04-16 live backlog.",
   "live_backlog_date": "2026-04-16",

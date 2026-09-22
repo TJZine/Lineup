@@ -8,6 +8,7 @@ export function startRetainedEpgBackgroundRefresh(options: {
     session: RefreshSession;
     metrics: RefreshMetrics;
     refreshChannel: (session: RefreshSession, metrics: RefreshMetrics, channel: ChannelConfig) => Promise<void>;
+    shouldContinue?: () => boolean;
 }): void {
     const { queue, session, metrics } = options;
     const operation = session.operation.retain('background-schedule-refresh');
@@ -24,6 +25,7 @@ export function startRetainedEpgBackgroundRefresh(options: {
                 refreshChannelSchedule: (channel) =>
                     options.refreshChannel(backgroundSession, metrics, channel),
                 concurrency: session.backgroundConcurrency,
+                ...(options.shouldContinue ? { shouldContinue: options.shouldContinue } : {}),
                 assertCurrent: (): void => operation.assertCurrent(),
                 onSettled: (): void => {
                     operation.signal.removeEventListener('abort', onOperationAbort);

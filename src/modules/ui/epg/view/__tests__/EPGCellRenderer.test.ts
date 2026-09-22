@@ -103,6 +103,7 @@ const makePlaceholderCell = (
             label: 'Loading schedule',
             scheduledStartTime: TEST_START_MS,
             scheduledEndTime: TEST_START_MS + 30 * 60_000,
+            lifecycle: 'loading',
         },
         left: 0,
         width,

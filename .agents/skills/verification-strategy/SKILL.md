@@ -5,7 +5,8 @@ description: Use when a Lineup task needs an explicit proof surface or the corre
 
 # Verification Strategy
 
-Read the runbook and choose the smallest proof covering the risk:
+Read the relevant runbook verification section and choose the smallest proof
+covering the risk:
 
 - regression/contract proof for a stable defect or public contract;
 - focused existing tests plus static checks for invariant refactors;
@@ -14,3 +15,5 @@ Read the runbook and choose the smallest proof covering the risk:
 
 Record exact commands, expected outcomes, and unavailable proof. Avoid brittle
 snapshots or tests that restate implementation details.
+Reuse still-current inspected results under the runbook policy; repeat checks only
+when changes or uncertainty justify it.

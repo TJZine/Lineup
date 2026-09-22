@@ -1,6 +1,0 @@
-interface:
-  display_name: "Lineup Workflow Harness Review"
-  short_description: "Launch the workflow-harness review session"
-  default_prompt: "Use $lineup-workflow-harness-review for this task."
-policy:
-  allow_implicit_invocation: false

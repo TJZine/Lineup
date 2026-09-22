@@ -4,6 +4,7 @@ import type { ChannelConfig, LibraryContentSource } from '../contracts/types';
 export function createMockLibrary(): jest.Mocked<IPlexLibraryMinimal> {
     return {
         getLibraryItems: jest.fn(),
+        getCollections: jest.fn(),
         getCollectionItems: jest.fn(),
         getShowEpisodes: jest.fn(),
         getPlaylistItems: jest.fn(),

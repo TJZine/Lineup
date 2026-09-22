@@ -163,6 +163,24 @@ describe('ChannelManager content resolution', () => {
             expect(result.channelId).toBe(channel.id);
         });
 
+        it('returns the current compatible channel owner from cache as a deep clone', async () => {
+            const channel = await manager.createChannel({
+                contentSource: createMockContentSource(),
+            });
+            const renamed = await manager.updateChannel(channel.id, { name: 'Renamed Channel' });
+
+            const first = await manager.resolveChannelContent(channel.id);
+            expect(first.fromCache).toBe(true);
+            expect(first.channelSnapshot).toEqual(renamed);
+            first.channelSnapshot.name = 'Caller Mutation';
+            if (first.channelSnapshot.contentSource.type === 'library') {
+                first.channelSnapshot.contentSource.libraryId = 'caller-library';
+            }
+
+            const second = await manager.resolveChannelContent(channel.id);
+            expect(second.channelSnapshot).toEqual(renamed);
+        });
+
         it('should resolve collection content source', async () => {
             mockLibrary.getCollectionItems.mockResolvedValue([createMockItem()]);
 

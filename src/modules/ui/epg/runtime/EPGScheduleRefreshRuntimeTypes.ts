@@ -18,6 +18,7 @@ export type BackgroundDebugState = {
     cacheHits: number;
     cacheMisses: number;
     firstVisibleScheduleReadyMs: number | null;
+    allVisibleRowsSettledMs: number | null;
 };
 
 export type AppliedScheduleSource =
@@ -37,6 +38,28 @@ export type SelectedRowSnapshotSeed = {
 
 export type RefreshPhase = 'immediate' | 'background';
 export type ScheduleCachePolicy = 'persist' | 'skip';
+export type ScheduleDiagnosticCacheOutcome =
+    | 'not-checked'
+    | 'fresh-hit'
+    | 'stale-hit'
+    | 'miss';
+export type ScheduleDiagnosticFailureStage =
+    | 'live-scheduler'
+    | 'cache'
+    | 'resolution'
+    | 'schedule-generation'
+    | 'publication';
+export type ScheduleDiagnosticInvalidation =
+    | 'caller-abort'
+    | 'operation-superseded'
+    | 'newer-session'
+    | 'request-replaced'
+    | 'guide-closed'
+    | 'settings-changed'
+    | 'library-filter-changed'
+    | 'shutdown'
+    | 'no-visible-channels'
+    | 'runtime-invalidated';
 
 export type RefreshMetrics = {
     cacheHits: number;
@@ -48,14 +71,18 @@ export type RefreshMetrics = {
     immediateFastReadyChannelIds: Set<string>;
     backgroundLoadedChannelIds: Set<string>;
     backgroundFastReadyChannelIds: Set<string>;
+    visibleReadyChannelIds: Set<string>;
+    visibleUnavailableChannelIds: Set<string>;
     immediateLoadedCount: number;
     backgroundLoadedCount: number;
     failedChannelCount: number;
     firstVisibleScheduleReadyMs: number | null;
+    allVisibleRowsSettledMs: number | null;
 };
 
 export type RefreshSession = {
     refreshId: number;
+    generation: number;
     failurePublicationToken: number;
     reason: string;
     refreshStartedAt: number;
@@ -69,6 +96,7 @@ export type RefreshSession = {
     endTime: number;
     rangeKey: string;
     forceRefresh: boolean;
+    manualRetry: boolean;
     debugEnabled: boolean;
     immediateChannels: ChannelConfig[];
     backgroundChannels: ChannelConfig[];
@@ -76,6 +104,7 @@ export type RefreshSession = {
     backgroundConcurrency: number;
     inFlightAborted: number;
     visibleRangeIds: Set<string>;
+    channelOrdinals: Map<string, number>;
     liveChannelId: string | null;
     focusedChannelId: string | null;
     bufferedRange: { start: number; endExclusive: number };

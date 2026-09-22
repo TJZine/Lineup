@@ -9,7 +9,8 @@
 
 - stale workflow duplication is removed or archived
 - current workflow docs still match actual practice
-- cleanup and feature launcher invocation ergonomics are still aligned where the tracked docs intend parity
+- feature and cleanup work still route through the shared runbook; historical
+  launcher references do not reintroduce removed skills or gates
 - broken links are fixed
 - required maintained docs still exist
 

@@ -212,8 +212,10 @@ export const partitionPrefetchChannels = (
     backgroundRange: { start: number; endExclusive: number };
 } => {
     const overscan = getChannelOverscanCount(channels.length, caps.aggressive);
-    const startIndex = Math.max(0, range.channelStart - overscan);
-    const endIndex = Math.min(channels.length, range.channelEndExclusive + overscan);
+    const visibleStart = Math.max(0, Math.min(range.channelStart, channels.length));
+    const visibleEnd = Math.max(visibleStart, Math.min(channels.length, range.channelEndExclusive));
+    const startIndex = Math.max(0, visibleStart - overscan);
+    const endIndex = Math.min(channels.length, visibleEnd + overscan);
 
     const immediateChannels: ChannelConfig[] = [];
     const immediateIds = new Set<string>();
@@ -227,11 +229,15 @@ export const partitionPrefetchChannels = (
     if (ids.liveChannelId) {
         addImmediate(channels.find((channel) => channel.id === ids.liveChannelId));
     }
-    if (ids.focusedChannelId) {
+    if (ids.focusedChannelId && ids.focusedChannelId !== ids.liveChannelId) {
         addImmediate(channels.find((channel) => channel.id === ids.focusedChannelId));
     }
-    for (const channel of channels.slice(startIndex, endIndex)) {
+    for (const channel of channels.slice(visibleStart, visibleEnd)) {
         addImmediate(channel);
+    }
+    for (let distance = 0; distance < overscan; distance += 1) {
+        addImmediate(channels[visibleEnd + distance]);
+        addImmediate(channels[visibleStart - 1 - distance]);
     }
 
     const lookAhead = getBackgroundLookAheadCount(channels.length, caps.visibleCount, caps.aggressive);

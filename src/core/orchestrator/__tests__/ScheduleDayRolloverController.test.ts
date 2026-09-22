@@ -47,6 +47,21 @@ const makeResolvedContent = (
     resolvedAt = DAY_2_START + 5_000
 ): ResolvedChannelContent => ({
     channelId,
+    channelSnapshot: {
+        id: channelId,
+        name: 'Channel 1',
+        number: 1,
+        contentSource: { type: 'manual', items: [] },
+        playbackMode: 'sequential',
+        startTimeAnchor: 0,
+        skipIntros: false,
+        skipCredits: false,
+        createdAt: 0,
+        updatedAt: 0,
+        lastContentRefresh: 0,
+        itemCount: 0,
+        totalDurationMs: 0,
+    },
     items: [],
     orderedItems: [],
     totalDurationMs: 0,
@@ -114,6 +129,7 @@ const makeHarness = (): RolloverHarness => {
         resolveChannelContent: jest.fn(
             async (channelId: string, _options?: { signal?: AbortSignal | null }) => ({
                 channelId,
+                channelSnapshot: channel,
                 items: [],
                 orderedItems: [],
                 totalDurationMs: 0,

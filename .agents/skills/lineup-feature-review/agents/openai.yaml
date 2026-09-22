@@ -1,6 +1,0 @@
-interface:
-  display_name: "Lineup Feature Review"
-  short_description: "Launch the feature/design review session"
-  default_prompt: "Use $lineup-feature-review for this task."
-policy:
-  allow_implicit_invocation: false

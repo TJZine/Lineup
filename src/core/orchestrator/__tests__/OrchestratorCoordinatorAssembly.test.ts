@@ -220,6 +220,7 @@ describe('createOrchestratorCoordinators', () => {
             moduleStatus: deps.moduleStatus,
             init: deps.init,
             modules: {
+                navigation: deps.modules.navigation,
                 epg: deps.modules.epg,
                 channelManager: deps.modules.channelManager,
                 scheduler: deps.modules.scheduler,

@@ -1,0 +1,731 @@
+{
+  "implementationCommit": "bd6368432598e89e86e44c0360eb6b9c31e40338",
+  "device": "LG C3",
+  "installed": true,
+  "packageSha256": "8e7a0ae900af3b7c073ac0d332777f262a92ac26bcec69dfd3828b5cc9a14fc5",
+  "launch": "ares-launch succeeded; Inspector reports Started successfully",
+  "observedEntry": "assets/index-CAtwgibB.js",
+  "runningDigestVerified": true,
+  "operatorPictureSound": "Operator confirms normal moving picture and sound after candidate launch",
+  "diagnostics": "Session captures complete; EPG debug restored absent; passive recorder stopped; retained findings deferred to late MVP",
+  "fixtureMutated": false,
+  "p2Closed": false,
+  "runningEntrySha256": "ac711ed152a077c03be7c575f2118dfae3e62ca7881539229ff8b127d7f547b7",
+  "warmOpening": {
+    "operatorReport": "Loading for less than one second, then rows populated",
+    "timeOrigin": 1788628019926.8,
+    "firstVisibleMonotonicMs": 319746.69999999925,
+    "sampleCount": 500,
+    "lastSampleMonotonicMs": 330307.3999999985,
+    "changes": [
+      {
+        "t": 319746.69999999925,
+        "cells": 7,
+        "loading": 5,
+        "unavailable": 0,
+        "ready": 2
+      },
+      {
+        "t": 320608.3999999985,
+        "cells": 9,
+        "loading": 4,
+        "unavailable": 0,
+        "ready": 5
+      },
+      {
+        "t": 320752.19999999925,
+        "cells": 11,
+        "loading": 2,
+        "unavailable": 0,
+        "ready": 9
+      },
+      {
+        "t": 320943.30000000075,
+        "cells": 13,
+        "loading": 0,
+        "unavailable": 0,
+        "ready": 13
+      }
+    ],
+    "allVisibleReadyFromFirstVisibleMs": 1196.6000000014901,
+    "limitations": [
+      "DOM frame samples, not physical button-to-paint timing",
+      "500-sample cap reached around 10.56 seconds; remaining 20-second window not retained",
+      "Existing lineup long after launch, not controlled ten-second cold-launch case"
+    ],
+    "correctness": "Visible viewport populated; broader proof pending",
+    "performance": "Zero-loading and 1000ms warm opening targets missed in this baseline"
+  },
+  "inputAuthority": "Operator authorized Inspector-driven testing; subsequent inputs are injected keyboard events, not physical remote",
+  "navigation": {
+    "method": "Bounded batches of at most eight paired keydown/keyup events, 100ms initial sample then 100ms poll while loading; stop at unavailable or 10s loading; Inspector screencast enabled",
+    "observedForwardRows": [
+      32,
+      337
+    ],
+    "completedRanges": [
+      [
+        90,
+        110
+      ],
+      [
+        140,
+        170
+      ],
+      [
+        250,
+        280
+      ]
+    ],
+    "maxSuccessfulSampleBeforeSlowRangeMs": 6791.2,
+    "videoElementChecks": "Every sampled step unpaused, readyState4, error null; physical A/V separately confirmed only after launch",
+    "slowRange": {
+      "rows": [
+        332,
+        333,
+        334,
+        335,
+        336,
+        337
+      ],
+      "focus": 336,
+      "loadingCellsAt10123ms": 5,
+      "unavailableCells": 0,
+      "untouchedCheckpoint": {
+        "t": 945912,
+        "cells": 23,
+        "loading": 1
+      },
+      "laterCheckpoint": {
+        "t": 986699,
+        "cells": 26,
+        "loading": 0,
+        "unavailable": 0
+      },
+      "lastRecordedRow": {
+        "rowOrdinal": 332,
+        "refreshId": 66,
+        "resolutionMs": 30757.6,
+        "generationMs": 12.3,
+        "publicationMs": 1.9,
+        "itemCount": 2070,
+        "outcome": "success",
+        "monotonicMs": 952351.6
+      },
+      "retryUsed": false,
+      "verdict": "Range settlement performance target failed; eventually populated without input",
+      "operatorConfirmation": "Operator confirmed populated rows around332\u2013337 and normal physical picture/sound after eventual settlement"
+    },
+    "limitations": [
+      "Screencast image appears stale relative to live DOM; operator confirmation requested",
+      "Source diagnostic arrays empty; active producer/network claims unavailable",
+      "Rows are one-based DOM indices; diagnostic rowOrdinal uses its source convention",
+      "No controlled cold launch or fixture recovery proof yet"
+    ],
+    "finalForwardBatch": {
+      "fromFocus": 336,
+      "focusTargets": [
+        341,
+        346,
+        351
+      ],
+      "observedSettlementMs": [
+        3303.2,
+        974.9,
+        10324
+      ],
+      "finalLoading": 0,
+      "finalUnavailable": 0,
+      "limitMiss": true
+    }
+  },
+  "diagnosticTrace": "General debug logging and EPG source instrumentation have separate flags; source events require lineup_debug_epg. Root verified source forwarding and is checking device flag before enabling through DebugOverridesStore.",
+  "epgDebug": {
+    "before": null,
+    "enabledThrough": "DebugOverridesStore.writeEpgDebugEnabled(true)",
+    "after": "1",
+    "sourceTelemetryObserved": true,
+    "restorationPending": false,
+    "restoredToOriginalAbsent": true
+  },
+  "sourceTelemetryExample": {
+    "rowOrdinal": 362,
+    "outcome": "success",
+    "resolutionMs": 10880.1,
+    "producerId": 218,
+    "consumerId": 555,
+    "access": "create",
+    "activeProducersAtAccess": 8,
+    "waitersAtAccess": 1,
+    "resultElapsedMs": 10746.2,
+    "itemCount": 3095,
+    "callerAborted": false,
+    "consumerAborted": false,
+    "producerAborted": false,
+    "commonScopeAborted": false,
+    "limitations": "One request example; source wall wait is not isolated HTTP latency; visible session concurrency is not hidden startup concurrency"
+  },
+  "reverse": {
+    "fromFocus": 351,
+    "toFocus": 111,
+    "noLoadingThroughFocus": 151,
+    "expiredEntriesReloadedBelow": 141,
+    "retentionPolicyMs": {
+      "fresh": 120000,
+      "stale": 600000
+    },
+    "expiredReloadMaxSampleMs": 9285.4,
+    "immediateFreshLoop": {
+      "targets": [
+        116,
+        121,
+        126,
+        121,
+        116,
+        111
+      ],
+      "sampleElapsedMs": [
+        492.1,
+        593.6,
+        798.3,
+        451,
+        711.7,
+        996.6
+      ],
+      "allFirstSamplesNoLoading": true,
+      "allNoUnavailable": true
+    },
+    "notes": "Long traversal exceeded stale retention; reloads are not classified as fresh-cache regression. No exact HTTP count claim."
+  },
+  "ownerAccess": "Inspector bound-argument inspection of existing __LINEUP__.openEPG located existing LineupApp; temporary temp1.getOrchestrator()._channelManager provides existing public resolver. No new app instance, shipped API, or lineup mutation.",
+  "sharedCancellation": {
+    "channelNumber": 333,
+    "start": 1963852.8999999985,
+    "elapsedMs": 11005.7,
+    "joined": true,
+    "timedOut": false,
+    "aAborted": true,
+    "bAborted": false,
+    "aOutcome": "rejected with its own caller-abort reason",
+    "bOutcome": "success",
+    "bItems": 2070,
+    "producerId": 261,
+    "aConsumerId": 674,
+    "bConsumerId": 675,
+    "activeProducersAtAccess": 1,
+    "waitersAtBJoin": 2,
+    "producerAbortedAtARejection": false,
+    "commonScopeAbortedAtARejection": false,
+    "bSourceWaitMs": 10782.6,
+    "viewportRows": [
+      111,
+      112,
+      113,
+      114,
+      115,
+      116
+    ],
+    "viewportLoading": 0,
+    "viewportUnavailable": 0,
+    "videoPaused": false,
+    "videoReadyState": 4,
+    "videoError": null,
+    "verdict": "Passed direct device shared-producer cancellation ownership check",
+    "limitations": "Public resolver calls, not physical Guide OK retry; no external source restoration; single run not an isolated comparison of concurrency effects"
+  },
+  "firstRange": {
+    "rows": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "initialLoadingCells": 6,
+    "settledMs": 1875.6,
+    "remainingLoading": 0,
+    "unavailable": 0,
+    "loopTargets": [
+      6,
+      11,
+      16,
+      21,
+      16,
+      11,
+      6,
+      1
+    ],
+    "loopMs": [
+      578.3,
+      603.8,
+      980.4,
+      296.7,
+      500.5,
+      498.3,
+      414.8,
+      575.7
+    ],
+    "loopAllFirstSamplesReady": true
+  },
+  "closeReopen": {
+    "closed": true,
+    "reopenedFocus": 36,
+    "firstSampleMs": 1321.2,
+    "firstSampleLoading": 0,
+    "lastSampleMs": 4678.3,
+    "videoElementHealthy": true
+  },
+  "coldRelaunch": {
+    "closeCli": "success",
+    "launchCli": "success",
+    "inspectorStartup": "Started successfully",
+    "entry": "assets/index-CAtwgibB.js",
+    "deferredMeasurement": "pending: new Inspector origin shows paste safety prompt requiring operator action",
+    "immediateColdMeasurement": false,
+    "validPhysicalQa": false,
+    "operatorCorrection": "Lineup did not visibly open; YouTube TV is foreground",
+    "disposition": "Cold/deferred opening and warmup conclusions invalid: CLI launch and connected runtime did not establish TV foreground",
+    "visibilityCorrection": {
+      "visibilityState": "visible",
+      "documentHidden": false,
+      "documentHasFocus": false,
+      "operatorForeground": "YouTube TV",
+      "conclusion": "DOM visibility cannot establish actual TV foreground"
+    }
+  },
+  "invalidColdRuntimeMeasurements": {
+    "timeOrigin": 1788630257506.8,
+    "baselineMs": 222649.9,
+    "openCallMs": 232667.7,
+    "firstSampleMs": 318.5,
+    "firstLoadingCells": 5,
+    "firstReadyMs": 1597.5,
+    "completedBeforeGuideOpen": 0,
+    "retainedCurrentRunEntries": 152,
+    "requestCompletionsByPhase": {
+      "immediate": 36,
+      "background": 96
+    },
+    "use": "Diagnostic runtime values only. Not valid foreground cold-launch, physical playback, or hidden-warmup proof."
+  },
+  "launchInvestigation": {
+    "installedAppId": "com.lineup.app",
+    "installedVersion": "1.0.0",
+    "installedFolder": "/media/developer/apps/usr/palm/applications/com.lineup.app",
+    "runningCli": true,
+    "installedHandlesRelaunch": true,
+    "runtimeReady": true,
+    "fatalOverlay": false,
+    "activationMethods": {
+      "webOSSystem": "function",
+      "PalmSystem": "function"
+    },
+    "sourceFinding": "AppLifecycle relaunch handler resumes but no platform activation call exists; manifest opts into custom foregrounding",
+    "officialReference": "https://webostv.developer.lge.com/develop/guides/app-lifecycle-management",
+    "diagnosticAction": "Called webOSSystem.activate() once through Inspector",
+    "operatorConfirmation": "Activation did not make Lineup visible; Home-screen launches also failed per operator",
+    "proposedScope": "No launch fix selected: direct activation did not confirm the proposed foregrounding mechanism",
+    "verifiedStopAndLaunch": {
+      "closeCliSucceeded": true,
+      "runningListAfterClose": [],
+      "inspectorDisconnectReason": "target_closed",
+      "subsequentLaunchCliSucceeded": true,
+      "runningListAfterLaunch": [
+        "com.lineup.app"
+      ],
+      "physicalConfirmation": "Operator confirmed Lineup is visible",
+      "physicalPlayback": "Operator confirmed moving picture and sound both normal"
+    },
+    "disposition": "Verified full stop followed by launch recovered physical visibility on the same installed build. Exact cause remains unproven; not a launch fix."
+  },
+  "recoveredRuntimeGuideAssessment": {
+    "timeOrigin": 1788631256185,
+    "implementationCommit": "bd6368432598e89e86e44c0360eb6b9c31e40338",
+    "classification": "Delayed first Guide opening after verified cold app launch; not immediate startup opening",
+    "baseline": {
+      "nowMs": 235007.2,
+      "guideVisible": false,
+      "ready": true,
+      "video": {
+        "paused": false,
+        "readyState": 4,
+        "error": null
+      }
+    },
+    "opening": {
+      "openAtMs": 252995.5,
+      "firstSampleMs": 283.1,
+      "firstSampleCells": 13,
+      "firstSampleLoading": 0,
+      "firstSampleUnavailable": 0,
+      "firstReadySampleMs": 283.1,
+      "lastSampleMs": 20008.7,
+      "sampleCount": 193,
+      "loadingSamples": 0,
+      "unavailableSamples": 0,
+      "videoProblemSamples": 0
+    },
+    "navigation": [
+      {
+        "key": "PageDown",
+        "focusOneBased": 39,
+        "firstSampleReadyMs": 250.8,
+        "cells": 13,
+        "loading": 0,
+        "unavailable": 0,
+        "paused": false,
+        "readyState": 4,
+        "error": null
+      },
+      {
+        "key": "PageDown",
+        "focusOneBased": 44,
+        "firstSampleReadyMs": 195.3,
+        "cells": 12,
+        "loading": 0,
+        "unavailable": 0,
+        "paused": false,
+        "readyState": 4,
+        "error": null
+      },
+      {
+        "key": "PageDown",
+        "focusOneBased": 49,
+        "firstSampleReadyMs": 377.3,
+        "cells": 13,
+        "loading": 0,
+        "unavailable": 0,
+        "paused": false,
+        "readyState": 4,
+        "error": null
+      },
+      {
+        "key": "PageUp",
+        "focusOneBased": 44,
+        "firstSampleReadyMs": 205.8,
+        "cells": 13,
+        "loading": 0,
+        "unavailable": 0,
+        "paused": false,
+        "readyState": 4,
+        "error": null
+      },
+      {
+        "key": "PageUp",
+        "focusOneBased": 39,
+        "firstSampleReadyMs": 214.1,
+        "cells": 12,
+        "loading": 0,
+        "unavailable": 0,
+        "paused": false,
+        "readyState": 4,
+        "error": null
+      },
+      {
+        "key": "PageUp",
+        "focusOneBased": 34,
+        "firstSampleReadyMs": 253.1,
+        "cells": 14,
+        "loading": 0,
+        "unavailable": 0,
+        "paused": false,
+        "readyState": 4,
+        "error": null
+      }
+    ],
+    "limits": [
+      "Inspector attached; screencast disabled during measurement",
+      "100 ms nominal sampling; actual delays recorded; transient states before first sample not excluded",
+      "Six navigation inputs only; does not establish whole-lineup performance",
+      "No cache clear, retry, fixture mutation, or new installation",
+      "No startup warmup causality claim from opening result alone"
+    ],
+    "physicalConfirmation": "pending"
+  },
+  "operatorGateDisposition": {
+    "retryRecovery": "Prior operator evidence accepted as tested for now; controlled fixture exercise waived for current session; retain missing proof for recurrence",
+    "launch": "Provisionally transient unless recurrence; precise cause unknown; retain evidence",
+    "remaining": [
+      "immediate cold Guide opening",
+      "foreground priority and resource bounds",
+      "focus",
+      "physical playback/PiP"
+    ],
+    "p2Status": "open"
+  },
+  "immediateColdOpeningBatch": {
+    "implementationCommit": "bd6368432598e89e86e44c0360eb6b9c31e40338",
+    "closeVerifiedBy": [
+      "empty running-app listing",
+      "Inspector target_closed"
+    ],
+    "launchCliSucceeded": true,
+    "operatorReport": "yes and loaded very fast after opening",
+    "interpretation": "Operator confirms launch and immediate Guide opening; qualitative speed only, no exact milliseconds or explicit A/V/PiP confirmation",
+    "epgDebugOriginal": null,
+    "epgDebugTemporarilyEnabled": true,
+    "restoreEpgDebugPending": false,
+    "diagnosticCollection": "Awaiting new Inspector Console paste warning handoff",
+    "remaining": [
+      "resource and priority diagnostics",
+      "focus",
+      "explicit physical picture/sound and PiP"
+    ],
+    "diagnostics": {
+      "timeOrigin": 1788632319087.1,
+      "retainedTotal": 250,
+      "currentRunRequestCompletions": 149,
+      "firstRefreshStartedSinceLaunchMs": 9438,
+      "firstSettledRefreshId": 2,
+      "firstSettledSinceLaunchMs": 10646,
+      "refreshElapsedMs": 865,
+      "allVisibleRowsSettledMs": 241,
+      "visibleReadyChannelCount": 9,
+      "visibleUnavailableChannelCount": 0,
+      "focusKind": "program",
+      "maxBackgroundChannelCount": 96,
+      "sourceEventCount": 298,
+      "maxObservedActiveProducers": 5,
+      "retainedWarmupEvents": 0,
+      "limits": "Ring at capacity; settlement is per refresh, not paint/open latency. No hidden-concurrency verdict from absent events. Initial wrong activeProducerCount field lookup yielding zero was discarded; correct field activeProducers yields five."
+    }
+  },
+  "denseTvColdOpeningPlanned": {
+    "operatorObservation": "TV-show channel pages are denser and often take longer to load than movie-channel pages",
+    "classification": "Operator-reported heavier workload; not yet measured as worst case",
+    "protocol": "Tune to operator-selected TV-show channel, verify full app stop, relaunch same installed implementation, open Guide immediately; report separately from movie-channel run",
+    "targetChannel": 115,
+    "operatorTuned": true,
+    "fullStopVerified": true,
+    "launchCliSucceeded": true,
+    "status": "Resource diagnostics pending Inspector paste-warning handoff",
+    "operatorOpeningReport": "Approximately 3 seconds; operator considers acceptable for heavier case",
+    "physicalPlaybackPiP": "Operator confirmed good",
+    "physicalFocus": "Operator confirmed good"
+  },
+  "lateDenseRowsOperatorObservation": {
+    "range": "past channel 350, TV channels",
+    "action": "PageDown scrolling",
+    "loadingApproxSeconds": 5,
+    "cause": "Unproven: prefetch admission timing versus source latency versus runtime delay",
+    "disposition": "Preserve as separate performance observation; not proof of overscan failure"
+  },
+  "resourceInspectionPending": {
+    "inspectorPort": 62741,
+    "consoleObservation": "Scheduler timer drift detected: 3361ms, performing hard resync",
+    "correlation": "Not time-correlated to operator five-second loading observation; do not infer cause",
+    "epgDebugRestorationPending": false
+  },
+  "denseResourceCapture": {
+    "timeOrigin": 1788632522280.7,
+    "retainedTotal": 250,
+    "currentEntries": 238,
+    "retainedWarmupEvents": 0,
+    "maxBackgroundChannels": 96,
+    "recentRefreshes": [
+      {
+        "id": 77,
+        "elapsedMs": 140,
+        "allVisibleSettledMs": 123,
+        "readyRows": 9,
+        "unavailableRows": 0,
+        "focus": "program"
+      },
+      {
+        "id": 78,
+        "elapsedMs": 5696,
+        "allVisibleSettledMs": 706,
+        "readyRows": 9,
+        "unavailableRows": 0,
+        "focus": "program",
+        "staleCacheHits": 28
+      }
+    ],
+    "lateRowExample": {
+      "zeroBasedRowOrdinal": 363,
+      "abortedResolutionMs": 5484.3,
+      "subsequentSuccessResolutionMs": 294.5,
+      "subsequentGenerationMs": 8.4
+    },
+    "limits": "Full ring; startup and exact operator-delay correlation unavailable. Row example does not prove overscan defect or explain all five-second delay."
+  },
+  "epgDebugRestoredAfterDenseRun": true,
+  "hiddenStartupResourceBatch": {
+    "status": "Captured; hidden warmup not exercised; foreground logging control successful",
+    "inspectorPort": 63210,
+    "epgDebugEnabled": false,
+    "epgDebugOriginal": null,
+    "epgDebugRestorePending": false,
+    "timeOrigin": 1788633442567.9,
+    "observationAtMs": 111321.2,
+    "physicalConfirmation": "Normal playback, Guide closed",
+    "guideVisible": false,
+    "currentRunEpgEntriesBeforeOpen": 0,
+    "generalDebugEnabled": true,
+    "epgDebugEnabledAtCapture": true,
+    "foregroundControl": {
+      "currentRunEntries": 129,
+      "warmupEvents": 0,
+      "backgroundChannelCount": 96,
+      "initialVisibleRangeZeroBased": [
+        195,
+        200
+      ],
+      "firstRequestOrdinals": [
+        195,
+        196,
+        197,
+        198
+      ],
+      "settledVisibleRangeZeroBased": [
+        193,
+        202
+      ],
+      "allVisibleRowsSettledMs": 7428,
+      "refreshElapsedMs": 7442,
+      "readyRows": 9,
+      "unavailableRows": 0,
+      "focus": "program"
+    },
+    "resourceVerdict": "Physical foreground admission and 96 cap observed; hidden one-at-a-time limit supported by source/test but not exercised on this device run",
+    "performanceVerdict": "Delayed opening visible settlement 7.428s misses warm1s target; no recorded hidden warming despite functioning diagnostics; exact skip reason unknown"
+  },
+  "operatorNormalRateForwardPass": {
+    "timeOrigin": 1788633442567.9,
+    "startedMonotonicMs": 299655.7,
+    "observedFocusOneBased": [
+      255,
+      390
+    ],
+    "sampleCount": 475,
+    "firstSampleElapsedMs": 442,
+    "lastSampleElapsedMs": 127510,
+    "retainedDiagnosticEvents": 255,
+    "eventOverflow": false,
+    "unavailableSamples": 0,
+    "videoProblemSamples": 0,
+    "finalVisibleCells": 39,
+    "finalLoading": 0,
+    "loadingSegments": [
+      {
+        "focusOneBased": 335,
+        "firstSampleElapsedMs": 19567,
+        "initialLoadingCells": 4,
+        "firstAllReadyAfterSegmentStartMs": 20759
+      },
+      {
+        "focusOneBased": 370,
+        "initialLoadingCells": 3,
+        "leftBeforeReadyObserved": true
+      },
+      {
+        "focusOneBased": 375,
+        "firstSampleElapsedMs": 78690,
+        "initialLoadingCells": 6,
+        "firstAllReadyAfterSegmentStartMs": 5262
+      }
+    ],
+    "otherObservedFocusTargetsReadyAtFirstSample": [
+      255,
+      260,
+      265,
+      270,
+      275,
+      280,
+      285,
+      290,
+      295,
+      300,
+      305,
+      310,
+      315,
+      320,
+      325,
+      330,
+      340,
+      345,
+      350,
+      355,
+      360,
+      365,
+      380,
+      385,
+      390
+    ],
+    "channel333to335Evidence": [
+      {
+        "channelOneBased": 333,
+        "zeroBasedOrdinal": 332,
+        "producerPhase": "background",
+        "adoptedByVisibleRefreshId": 29,
+        "originRefreshId": 26,
+        "resolutionMs": 23902.5,
+        "generationMs": 23.9,
+        "publicationMs": 0.7,
+        "items": 2070,
+        "outcome": "success"
+      },
+      {
+        "channelOneBased": 334,
+        "zeroBasedOrdinal": 333,
+        "phase": "immediate",
+        "refreshId": 29,
+        "admissionMs": 64,
+        "resolutionMs": 13947.4,
+        "generationMs": 5,
+        "publicationMs": 0.6,
+        "items": 1661,
+        "outcome": "success"
+      },
+      {
+        "channelOneBased": 335,
+        "zeroBasedOrdinal": 334,
+        "phase": "immediate",
+        "refreshId": 29,
+        "admissionMs": 54,
+        "resolutionMs": 9821.2,
+        "generationMs": 3.7,
+        "publicationMs": 15.5,
+        "items": 736,
+        "outcome": "success"
+      }
+    ],
+    "method": "Passive geometry-filtered visible cells every nominal250ms; issue ring copied to bounded in-memory Map every2s; no navigation injected; timers stopped after finalpage",
+    "limits": [
+      "Joined after operator began paging; channels1-254 not observed in this pass",
+      "First-ready duration measured from first sampled focus segment, not remote key timestamp",
+      "Inspector and sampling overhead present",
+      "Resolver durations include more than HTTP latency; source diagnostics disabled",
+      "No HTTP bottleneck or all-row preload conclusion established"
+    ],
+    "disposition": "Channel333 prefetch proven active and adopted; prolonged resolution dominates generation/publication. Performance follow-up remains."
+  },
+  "lateMvpDeferral": {
+    "operatorRequested": true,
+    "timing": "Near end of MVP development; resume earlier on regression",
+    "playback": "Operator reports playback health has never been an issue",
+    "settingsChanged": false,
+    "scope": [
+      "skipped startup warming",
+      "dense-source latency",
+      "CPU/memory and request profiling",
+      "bounded concurrency/overscan/cache comparison"
+    ],
+    "onlineCheck": "No numeric LG tuning recommendation found sufficient to change settings without measurement",
+    "p2": "Evidence and incomplete physical proof retained; not declared fully closed"
+  },
+  "currentDisposition": {
+    "p2Closed": false,
+    "performance": "Deferred to late MVP by operator",
+    "physicalFocusAndPlaybackPiP": "Confirmed good",
+    "physicalHiddenWarmupConcurrency": "Not exercised; retain proof gap",
+    "retryRecovery": "Prior operator observations provisionally accepted",
+    "uiCommit": "929e0667",
+    "uiInstalledOnTv": false,
+    "uiVerification": "Explicitly waived by operator",
+    "epgDebugRestored": true,
+    "passiveRecorderStopped": true,
+    "pushed": false
+  }
+}
