@@ -244,7 +244,7 @@ test('keeps exact model and effort defaults owned by each role TOML', () => {
     try {
         mutateFile(fixtureRoot, '.codex/agents/worker-luna.toml', (content) =>
             content
-                .replace('model = "gpt-5.6-luna"', 'model = "gpt-5.6-sol"')
+                .replace('model = "gpt-6-luna"', 'model = "gpt-6-sol"')
                 .replace('model_reasoning_effort = "max"', 'model_reasoning_effort = "high"')
         );
 
@@ -256,7 +256,7 @@ test('keeps exact model and effort defaults owned by each role TOML', () => {
 
 test('rejects invalid role model, effort, sandbox, and keys', () => {
     const mutations = [
-        ['.codex/agents/worker.toml', (content) => content.replace('gpt-5.6-sol', ' '), 'role model invalid'],
+        ['.codex/agents/worker.toml', (content) => content.replace('gpt-6-sol', ' '), 'role model invalid'],
         ['.codex/agents/worker.toml', (content) => content.replace('model_reasoning_effort = "medium"', 'model_reasoning_effort = "ultra"'), 'role effort unsupported'],
         ['.codex/agents/reviewer.toml', (content) => content.replace('sandbox_mode = "read-only"', 'sandbox_mode = "danger-full-access"'), 'role sandbox unsupported'],
         ['.codex/agents/worker.toml', (content) => `${content}\napproval_policy = "never"\n`, 'role keys unsupported'],
@@ -278,7 +278,7 @@ test('rejects an extra tracked retired role file through the verifier entry poin
         writeFixtureFile(
             fixtureRoot,
             '.codex/agents/worker-sol-low.toml',
-            'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "low"\n'
+            'model = "gpt-6-sol"\nmodel_reasoning_effort = "low"\n'
         );
         execFileSync('git', ['add', '.codex/agents/worker-sol-low.toml'], { cwd: fixtureRoot });
 
