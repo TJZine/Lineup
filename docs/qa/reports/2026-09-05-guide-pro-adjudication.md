@@ -44,6 +44,24 @@ The retained owner seams are the [operation context](../../../src/modules/schedu
 
 ## Acceptance and verification
 
+### 2026-10-13 superseding status
+
+The checklist and closure notes below preserve the original session history.
+The [device-session record](../evidence/2026-09-05-guide-shared-source-repair/device-session.json)
+and [later device report](2026-09-05-guide-shared-source-device-session.md)
+confirm installation, manifest identity, and running-entry digest verification
+only for `bd6368432598e89e86e44c0360eb6b9c31e40338`; those results do not verify
+the current PR head or later UI changes. Selected immediate-opening, foreground
+admission/background-cap, focus, and physical playback/PiP observations were
+recorded. Prior unavailable-row retry/recovery observations are provisionally
+accepted, not controlled exact-candidate recovery proof or completion of every
+physical batch. Hidden-startup warming was not exercised, so its physical
+resource/concurrency proof remains unverified. The
+[September 4 plan's operator update and late-MVP deferral](../../plans/2026-09-04-guide-loading-recovery-and-startup-warmup-plan.md#2026-09-05-operator-acceptance-update)
+supersede the earlier blanket pending status: further performance work is
+deferred to late MVP, correctness and performance remain separate, and **P2
+remains open** (`p2Closed: false`).
+
 The following proof remains pending and must not be represented as complete until observed:
 
 - [x] Add red/green regressions through the real composed ChannelManager/source-cache path for producer/waiter cancellation, arbitrary abort reasons, mixed parent/direct-child ownership, cancelled-entry retirement, producer drain, stale publication, and one-producer coalescing.
