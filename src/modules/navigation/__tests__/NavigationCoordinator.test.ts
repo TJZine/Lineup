@@ -196,6 +196,7 @@ type NavigationCoordinatorTestOverrides = {
     focusEpgOnCurrentChannel: jest.Mock;
     onChannelInputUpdate?: jest.Mock;
     toggleEpg: jest.Mock;
+    closeEpg: jest.Mock;
     shouldRunChannelSetup: jest.Mock;
     hidePlayerOsd: jest.Mock;
     hideChannelTransition: jest.Mock;
@@ -226,7 +227,6 @@ const setup = (
         handleSelect: jest.fn().mockReturnValue(false),
         handleBack: jest.fn().mockReturnValue(false),
         focusNow: jest.fn(),
-        hide: jest.fn(),
     };
     const videoPlayer: NavigationVideoPlayerTestPort = {
         play: jest.fn().mockResolvedValue(undefined),
@@ -277,6 +277,7 @@ const setup = (
         switchToChannelByNumber: jest.fn().mockResolvedValue({ kind: 'switched' }),
         focusEpgOnCurrentChannel: jest.fn(),
         toggleEpg: jest.fn(),
+        closeEpg: jest.fn(),
         shouldRunChannelSetup: jest.fn().mockReturnValue(false),
         hidePlayerOsd: jest.fn(),
         hideChannelTransition: jest.fn(),
@@ -427,6 +428,7 @@ const setup = (
         keyModeRouter: {
             navigation,
             epg,
+            closeEpg: testDoubles.closeEpg,
             playback,
             miniGuide,
             nowPlayingInfo,
@@ -436,6 +438,7 @@ const setup = (
         screenEffects: {
             navigation,
             epg,
+            closeEpg: testDoubles.closeEpg,
             playback,
             miniGuide,
             nowPlayingInfo,
@@ -467,6 +470,7 @@ const setup = (
             {
                 navigation,
                 epg,
+                closeEpg: testDoubles.closeEpg,
                 playback,
                 miniGuide,
                 nowPlayingInfo,
@@ -482,6 +486,7 @@ const setup = (
             {
                 navigation,
                 epg,
+                closeEpg: testDoubles.closeEpg,
                 playback,
                 miniGuide,
                 nowPlayingInfo,
@@ -658,7 +663,7 @@ describe('NavigationCoordinator', () => {
     });
 
     it('long-press back closes EPG, closes modals, and returns to player', () => {
-        const { navigation, epg } = setup();
+        const { navigation, deps } = setup();
         const handleLongPress = navigation.handleLongPress as jest.Mock;
         const callback = handleLongPress.mock.calls[0]?.[1] as () => void;
 
@@ -670,13 +675,13 @@ describe('NavigationCoordinator', () => {
 
         callback();
 
-        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(deps.screenEffects.closeEpg).toHaveBeenCalledTimes(1);
         expect(navigation.closeModal).toHaveBeenCalledTimes(2);
         expect(navigation.replaceScreen).toHaveBeenCalledWith('player');
     });
 
     it('long-press back does nothing when input is blocked', () => {
-        const { navigation, epg } = setup();
+        const { navigation, deps } = setup();
         const handleLongPress = navigation.handleLongPress as jest.Mock;
         const callback = handleLongPress.mock.calls[0]?.[1] as () => void;
 
@@ -684,13 +689,13 @@ describe('NavigationCoordinator', () => {
 
         callback();
 
-        expect(epg.hide).not.toHaveBeenCalled();
+        expect(deps.screenEffects.closeEpg).not.toHaveBeenCalled();
         expect(navigation.closeModal).not.toHaveBeenCalled();
         expect(navigation.replaceScreen).not.toHaveBeenCalled();
     });
 
     it('long-press back is consumed while a protected modal is active', () => {
-        const { navigation, epg } = setup();
+        const { navigation, deps } = setup();
         const callback = (navigation.handleLongPress as jest.Mock).mock.calls[0]?.[1] as () => void;
         (navigation.isInputBlocked as jest.Mock).mockReturnValue(false);
         navigation.getActiveModalPolicy = jest.fn().mockReturnValue({
@@ -700,7 +705,7 @@ describe('NavigationCoordinator', () => {
 
         callback();
 
-        expect(epg.hide).not.toHaveBeenCalled();
+        expect(deps.screenEffects.closeEpg).not.toHaveBeenCalled();
         expect(navigation.closeModal).not.toHaveBeenCalled();
         expect(navigation.replaceScreen).not.toHaveBeenCalled();
     });
@@ -1252,7 +1257,7 @@ describe('NavigationCoordinator', () => {
         expect(deps.events.channelSwitching.toggleEpg).toHaveBeenCalled();
 
         handlers.screenChange?.({ from: 'guide', to: 'player' });
-        expect(epg.hide).toHaveBeenCalled();
+        expect(deps.screenEffects.closeEpg).toHaveBeenCalled();
 
         handlers.screenChange?.({ from: 'player', to: 'settings' });
         expect(videoPlayer.pause).toHaveBeenCalled();
@@ -1452,13 +1457,13 @@ describe('NavigationCoordinator', () => {
     });
 
     it('hides EPG before channel setup redirects a guide-to-player transition', () => {
-        const { handlers, deps, epg, navigation } = setup({
+        const { handlers, deps, navigation } = setup({
             shouldRunChannelSetup: jest.fn().mockReturnValue(true),
         });
 
         handlers.screenChange?.({ from: 'guide', to: 'player' });
 
-        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(deps.screenEffects.closeEpg).toHaveBeenCalledTimes(1);
         expect(navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
         expect(deps.events.miniGuide.requestMiniGuideIntent).not.toHaveBeenCalled();
         expect(deps.events.miniGuide.coordinator?.hide).not.toHaveBeenCalled();
@@ -1596,16 +1601,16 @@ describe('NavigationCoordinator', () => {
         'settings',
         'error',
     ] as Screen[])('hides EPG when entering %s screen', (to) => {
-        const { handlers, epg } = setup();
+        const { handlers, deps } = setup();
 
         handlers.screenChange?.({ from: 'player', to });
 
-        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(deps.screenEffects.closeEpg).toHaveBeenCalledTimes(1);
     });
 
     it('preserves player continuity across settings roundtrip', () => {
         const nowPlayingInfoModalId = 'injected-now-playing-info';
-        const { handlers, deps, epg, videoPlayer, navigation } = setup({
+        const { handlers, deps, videoPlayer, navigation } = setup({
             nowPlayingInfoModalId,
         });
         (navigation.isModalOpen as jest.Mock).mockImplementation(
@@ -1614,7 +1619,7 @@ describe('NavigationCoordinator', () => {
 
         handlers.screenChange?.({ from: 'player', to: 'settings' });
 
-        expect(epg.hide).toHaveBeenCalledTimes(1);
+        expect(deps.screenEffects.closeEpg).toHaveBeenCalledTimes(1);
         expect(navigation.closeModal).toHaveBeenCalledWith(nowPlayingInfoModalId);
         expect(deps.events.miniGuide.requestMiniGuideIntent).toHaveBeenCalledWith({ type: 'hide' });
         expect(deps.keyModeRouter.playback.requestPlayerOsdIntent).toHaveBeenCalledWith({ type: 'hide' });

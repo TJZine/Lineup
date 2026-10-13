@@ -1334,31 +1334,44 @@ describe('EPGCoordinator', () => {
         expect(ensure).toHaveBeenCalled();
     });
 
-    it('openEPG does not reopen the guide after closeEPG runs while initialization is pending', async () => {
-        let resolveEnsure!: () => void;
-        const ensure = jest.fn().mockImplementation(
-            () =>
-                new Promise<void>((resolve) => {
-                    resolveEnsure = resolve;
-                })
-        );
-        const { deps, epg } = makeDeps({
-            getEpgUiStatus: () => 'initializing',
-            ensureEpgInitialized: ensure,
-        });
-        const coordinator = new EPGCoordinator(deps);
+    it.each(['resolve', 'reject'] as const)(
+        'does not publish deferred %s after closeEPG runs while initialization is pending',
+        async (settlement) => {
+            let resolveEnsure!: () => void;
+            let rejectEnsure!: (error: Error) => void;
+            const ensure = jest.fn().mockImplementation(
+                () =>
+                    new Promise<void>((resolve, reject) => {
+                        resolveEnsure = resolve;
+                        rejectEnsure = reject;
+                    })
+            );
+            const { deps, epg } = makeDeps({
+                getEpgUiStatus: () => 'initializing',
+                ensureEpgInitialized: ensure,
+            });
+            const coordinator = new EPGCoordinator(deps);
 
-        coordinator.openEPG();
-        expect(epg.show).toHaveBeenCalledTimes(1);
+            coordinator.openEPG();
+            expect(epg.show).toHaveBeenCalledTimes(1);
 
-        coordinator.closeEPG();
-        resolveEnsure();
-        await flushPromises();
+            coordinator.closeEPG();
+            if (settlement === 'resolve') {
+                resolveEnsure();
+            } else {
+                rejectEnsure(new Error('Closed Guide initialization failed'));
+            }
+            await flushPromises();
 
-        expect(epg.hide).toHaveBeenCalledTimes(1);
-        expect(epg.show).toHaveBeenCalledTimes(1);
-        expect(epg.loadChannels).not.toHaveBeenCalled();
-    });
+            expect(epg.hide).toHaveBeenCalledTimes(1);
+            expect(epg.show).toHaveBeenCalledTimes(1);
+            expect(epg.loadChannels).not.toHaveBeenCalled();
+            expect(deps.reportEpgInitWarning).not.toHaveBeenCalled();
+            expect(deps.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+                'QA-003b', 'epg.initFailed', expect.anything()
+            );
+        }
+    );
 
     it('does not publish deferred initialization after the shown guide is hidden and navigation returns', async () => {
         let status: EPGUiStatus = 'initializing';

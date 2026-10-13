@@ -11,7 +11,6 @@ export interface NavigationEpgPort {
     handleSelect: () => boolean;
     handleBack: () => boolean;
     focusNow: () => void;
-    hide: () => void;
 }
 
 export type NavigationPlayerOsdIntent =

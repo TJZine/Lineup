@@ -5,8 +5,12 @@ import { NowPlayingDisplayStore } from '../../../modules/settings/NowPlayingDisp
 import { ProfileSessionStore } from '../../../modules/settings/ProfileSessionStore';
 import { SubtitlePreferencesStore } from '../../../modules/settings/SubtitlePreferencesStore';
 import { DeveloperSettingsStore } from '../../../modules/settings/DeveloperSettingsStore';
-import type { EPGConfig } from '../../../modules/ui/epg';
+import type { EPGConfig, EPGUiStatus } from '../../../modules/ui/epg';
 import { EPGCoordinator } from '../../../modules/ui/epg';
+import { DeferredEPGComponent } from '../../../modules/ui/epg/component/DeferredEPGComponent';
+import type { NavigationEventMap, Screen } from '../../../modules/navigation/contracts/interfaces';
+import { EventEmitter } from '../../../utils/EventEmitter';
+import { flushPromises } from '../../../__tests__/helpers';
 import type { StreamDecision } from '../../../modules/plex/stream';
 import type { ScheduledProgram } from '../../../modules/scheduler/scheduler';
 import {
@@ -332,4 +336,80 @@ describe('createOrchestratorCoordinators playbackState wiring', () => {
         expect(show).toHaveBeenCalled();
         expect(focusNow).toHaveBeenCalled();
     });
+
+    it.each(['guide exit', 'player overlay exit', 'long-press Back'] as const)(
+        'suppresses a pending real loader failure after %s and return to Player',
+        async (dismissal) => {
+            const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+                getCurrentProgramForPlayback: jest.fn().mockReturnValue(null),
+                setCurrentProgramForPlayback: jest.fn(),
+                getCurrentStreamDescriptor: jest.fn().mockReturnValue(null),
+                setCurrentStreamDescriptor: jest.fn(),
+                getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+                setCurrentStreamDecision: jest.fn(),
+                getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+                setPendingNowPlayingChannelId: jest.fn(),
+                getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
+                setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
+            };
+            const deps = makeDeps(playbackState);
+            const events = new EventEmitter<NavigationEventMap>();
+            let screen: Screen = dismissal === 'guide exit' ? 'guide' : 'player';
+            let longPressBack = (): void => { throw new Error('Back handler not registered'); };
+            const navigate = (to: Screen): void => {
+                const from = screen;
+                screen = to;
+                events.emit('screenChange', { from, to });
+            };
+            Object.assign(deps.modules.navigation, {
+                getCurrentScreen: () => screen,
+                isInputBlocked: () => false,
+                on: events.on.bind(events),
+                handleLongPress: (_button: string, handler: () => void): void => {
+                    longPressBack = handler;
+                },
+                replaceScreen: navigate,
+            });
+            Object.assign(deps.modules.videoPlayer, { play: jest.fn().mockResolvedValue(undefined), pause: jest.fn() });
+            Object.assign(deps.overlays.miniGuide, { hide: jest.fn() });
+            Object.assign(deps.overlays.playerOsd, { hide: jest.fn() });
+            Object.assign(deps.overlays.channelTransitionOverlay, { hide: jest.fn() });
+            let rejectLoad = (_error: Error): void => { throw new Error('Loader not started'); };
+            const deferredEpg = new DeferredEPGComponent(() => new Promise((_, reject) => {
+                rejectLoad = reject;
+            }));
+            deps.modules.epg = deferredEpg;
+            deps.moduleStatus.getRuntimeStatus = (): EPGUiStatus => 'initializing';
+            deps.init.ensureEpgInitialized = (): Promise<void> => deferredEpg.ensureReady();
+            const warning = jest.fn();
+            deps.nowPlaying.handler = (): typeof warning => warning;
+            const coordinators = createOrchestratorCoordinators(deps);
+            jest.spyOn(coordinators.channelSetup, 'shouldRunChannelSetup').mockReturnValue(false);
+            const unsubs = coordinators.navigationCoordinator.wireNavigationEvents();
+            try {
+                coordinators.epgCoordinator.openEPG();
+                expect(deferredEpg.isVisible()).toBe(true);
+                if (dismissal === 'long-press Back') {
+                    longPressBack();
+                } else {
+                    navigate('settings');
+                    navigate('player');
+                }
+                expect(screen).toBe('player');
+                expect(deferredEpg.isVisible()).toBe(false);
+                rejectLoad(new Error('Dismissed Guide load failed'));
+                await flushPromises(8);
+                expect(warning).not.toHaveBeenCalled();
+                expect(deps.diagnostics.appendIssueDiagnostic).not.toHaveBeenCalledWith(
+                    'QA-003b', 'epg.initFailed', expect.anything()
+                );
+                expect(deps.actions.onOverlayVisibilityChange).toHaveBeenNthCalledWith(1, true);
+                expect(deps.actions.onOverlayVisibilityChange).toHaveBeenNthCalledWith(2, false);
+            } finally {
+                unsubs.forEach((unsubscribe) => unsubscribe());
+                coordinators.epgCoordinator.dispose();
+                deferredEpg.destroy();
+            }
+        }
+    );
 });

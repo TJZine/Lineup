@@ -20,6 +20,7 @@ export interface NavigationUiGuardsPort {
 export interface NavigationScreenEffectsPort {
     navigation: INavigationManager;
     epg: NavigationEpgPort | null;
+    closeEpg: () => void;
     playback: NavigationPlaybackPort;
     miniGuide: NavigationMiniGuidePort;
     nowPlayingInfo: NavigationNowPlayingInfoPort;
@@ -43,7 +44,7 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
 
         // Hide EPG when leaving guide.
         if (from === 'guide' && to !== 'guide') {
-            epg?.hide();
+            this.deps.closeEpg();
         }
 
         if (to === 'player' && this.deps.uiGuards.shouldRunChannelSetup()) {
@@ -71,7 +72,7 @@ export class NavigationScreenEffectsHandler implements NavigationScreenEffectsRu
         // Hide EPG on every non-player/non-guide screen to prevent overlay bleed.
         // The guide exit path above handles guide-originated transitions once.
         if (from !== 'guide' && to !== 'player' && to !== 'guide') {
-            epg?.hide();
+            this.deps.closeEpg();
         }
 
         // Pause playback when leaving player for settings/channel-edit.

@@ -21,6 +21,7 @@ import type {
 export interface NavigationKeyModeRouterPort {
     navigation: INavigationManager;
     epg: NavigationEpgPort | null;
+    closeEpg: () => void;
     playback: NavigationPlaybackPort;
     miniGuide: NavigationMiniGuidePort;
     nowPlayingInfo: NavigationNowPlayingInfoPort;
@@ -49,7 +50,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
         if (navigation.isInputBlocked()) return;
         if (navigation.getActiveModalPolicy?.()?.blocksBackgroundCommands === true) return;
 
-        this.deps.epg?.hide();
+        this.deps.closeEpg();
         while (navigation.isModalOpen()) {
             navigation.closeModal();
         }

@@ -28,6 +28,36 @@ are included. No new visual design or overlay framework is needed.
 
 ## Verification
 
+### 2026-10-13 explicit-dismissal correction
+
+Explicit Guide dismissal invalidates the pending coordinator open request,
+including navigation away from Guide or its Player overlay and long-press Back.
+Navigation delegates those close operations to `EPGCoordinator.closeEPG()`, which
+already owns request invalidation and refresh cancellation. Returning to Player
+before the dismissed initialization rejects must not publish `epg.initFailed`
+or a Guide initialization warning. Failure-driven visibility rollback is distinct:
+a genuine loader failure while the request remains current and opening is still
+eligible must retain its diagnostic, warning, and visibility rollback.
+Successful deferred publication additionally requires visibility and must preserve
+focus. The existing coordinator remains the lifecycle owner; navigation requests
+closure without adding cancellation state or feature policy to assembly wiring.
+
+Verification of the correction based on
+`661d9567ec680304e5af3e8fb4348d6d1e51df98`: the three assembled dismissal
+regressions reproduced the stale warning before the fix. Eight focused suites
+then passed 310 tests, including the real loader failure, focus, supersession,
+and Orchestrator warmup/shutdown cases. Independent whole-owner review found no
+material findings. `npm run verify` passed, including 4,753 unit tests (one
+skipped), coverage thresholds, tooling/contracts, docs, lean bundle analysis,
+and the development build. Jest reported a worker-exit warning in the aggregate;
+an affected-suite `--detectOpenHandles` run passed 194 tests without reporting
+open handles. This does not establish the aggregate warning's cause.
+Physical QA remains deferred; older device records do not prove this correction's
+TV behavior or the badge/transition overlap follow-up. That follow-up remains
+with the feature maintainer and TV operator at the next release-candidate LG C3
+acceptance, or earlier if system-popup/adjacent-content overlap recurs. Preserve
+the approved 48px anchor and record the exact installed/running candidate.
+
 Implementation is complete in the existing owners. The worker reported 204
 focused tests plus 10 deferred-component tests passing, along with typecheck and
 exact-file lint. Independent review found one material regression: checking
