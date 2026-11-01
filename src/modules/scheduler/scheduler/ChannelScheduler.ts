@@ -14,7 +14,6 @@ import {
     buildScheduleIndex,
     calculateProgramAtTime,
     calculateNextProgram,
-    calculatePreviousProgram,
     generateScheduleWindow,
 } from './ScheduleCalculator';
 import {
@@ -35,6 +34,13 @@ export class ChannelScheduler implements IChannelScheduler {
     private _currentProgram: ScheduledProgram | null = null;
     private _nextProgram: ScheduledProgram | null = null;
     private _lastSyncTime = 0;
+    private _pendingReplacement: { config: ScheduleConfig; index: ScheduleIndex; boundary: number } | null = null;
+    private _handoff: {
+        boundary: number;
+        firstEnd: number;
+        previousConfig: ScheduleConfig;
+        previousIndex: ScheduleIndex;
+    } | null = null;
 
     private _syncTimerState: SyncTimerState = {
         expectedNextTick: 0,
@@ -55,6 +61,8 @@ export class ChannelScheduler implements IChannelScheduler {
         }
 
         this._stopSyncTimer();
+        this._pendingReplacement = null;
+        this._handoff = null;
 
         // Zero (epoch) and negative timestamps are valid deterministic anchors.
         // Fall back only for non-finite input.
@@ -84,6 +92,8 @@ export class ChannelScheduler implements IChannelScheduler {
 
     public unloadChannel(): void {
         this._stopSyncTimer();
+        this._pendingReplacement = null;
+        this._handoff = null;
         this._config = null;
         this._index = null;
         this._isActive = false;
@@ -108,8 +118,46 @@ export class ChannelScheduler implements IChannelScheduler {
 
     public getProgramAtTime(time: number): ScheduledProgram {
         this._ensureLoaded();
-        return calculateProgramAtTime(time, this._index!, this._config!.anchorTime);
+        const pending = this._pendingReplacement;
+        if (pending && time >= pending.boundary) {
+            return this._clipHandoffProgram(
+                calculateProgramAtTime(time, pending.index, pending.config.anchorTime), pending.boundary
+            );
+        }
+        if (this._handoff && time < this._handoff.boundary) {
+            return calculateProgramAtTime(time, this._handoff.previousIndex, this._handoff.previousConfig.anchorTime);
+        }
+        const program = calculateProgramAtTime(time, this._index!, this._config!.anchorTime);
+        return this._handoff && time >= this._handoff.boundary && time < this._handoff.firstEnd
+            ? { ...program, scheduledStartTime: this._handoff.boundary }
+            : program;
     }
+
+    public stageChannelReplacement(config: ScheduleConfig): void {
+        this._ensureLoaded();
+        if (config.channelId !== this._config!.channelId) {
+            throw new Error('A pending replacement must belong to the loaded channel');
+        }
+        this.syncToCurrentTime();
+        const current = this._currentProgram!;
+        const normalized = { ...config, anchorTime: Number.isFinite(config.anchorTime) ? config.anchorTime : Date.now() };
+        const index = buildScheduleIndex(normalized, this._shuffler);
+        this._pendingReplacement = { config: normalized, index, boundary: current.scheduledEndTime };
+        this._nextProgram = this._clipHandoffProgram(
+            calculateProgramAtTime(current.scheduledEndTime, index, normalized.anchorTime), current.scheduledEndTime
+        );
+        this._emitter.emit('scheduleSync', this.getState());
+    }
+
+    public cancelChannelReplacement(): void {
+        if (!this._pendingReplacement) return;
+        this._pendingReplacement = null;
+        if (this._currentProgram && this._index && this._config) {
+            this._nextProgram = calculateNextProgram(this._currentProgram, this._index, this._config.anchorTime);
+        }
+    }
+
+    public hasPendingChannelReplacement(): boolean { return this._pendingReplacement !== null; }
 
     public getCurrentProgram(): ScheduledProgram {
         this._ensureLoaded();
@@ -119,13 +167,13 @@ export class ChannelScheduler implements IChannelScheduler {
     public getNextProgram(): ScheduledProgram {
         this._ensureLoaded();
         const current = this.getCurrentProgram();
-        return calculateNextProgram(current, this._index!, this._config!.anchorTime);
+        return this.getProgramAtTime(current.scheduledEndTime);
     }
 
     public getPreviousProgram(): ScheduledProgram {
         this._ensureLoaded();
         const current = this.getCurrentProgram();
-        return calculatePreviousProgram(current, this._index!, this._config!.anchorTime);
+        return this.getProgramAtTime(current.scheduledStartTime - 1);
     }
 
 
@@ -141,13 +189,36 @@ export class ChannelScheduler implements IChannelScheduler {
         }
 
         const programsOutput = output ?? [];
-        const programs = generateScheduleWindow(
-            startTime,
-            endTime,
-            this._index!,
-            this._config!.anchorTime,
-            programsOutput
-        );
+        const pending = this._pendingReplacement;
+        const boundary = pending?.boundary ?? this._handoff?.boundary;
+        let programs: ScheduledProgram[];
+        if (boundary !== undefined && startTime < boundary && endTime > boundary) {
+            const oldIndex = pending ? this._index! : this._handoff!.previousIndex;
+            const oldAnchor = pending ? this._config!.anchorTime : this._handoff!.previousConfig.anchorTime;
+            programs = generateScheduleWindow(startTime, boundary, oldIndex, oldAnchor, programsOutput);
+            const firstExcluded = programs.findIndex(program => program.scheduledStartTime >= boundary);
+            if (firstExcluded >= 0) programs.length = firstExcluded;
+            const newIndex = pending?.index ?? this._index!;
+            const newAnchor = pending?.config.anchorTime ?? this._config!.anchorTime;
+            const next = generateScheduleWindow(boundary, endTime, newIndex, newAnchor);
+            if (next[0]) next[0] = this._clipHandoffProgram(next[0], boundary);
+            programs.push(...next);
+        } else if (boundary !== undefined && startTime >= boundary) {
+            const newIndex = pending?.index ?? this._index!;
+            const newAnchor = pending?.config.anchorTime ?? this._config!.anchorTime;
+            programs = generateScheduleWindow(startTime, endTime, newIndex, newAnchor, programsOutput);
+            if (programs[0] && programs[0].scheduledStartTime < boundary) {
+                programs[0] = this._clipHandoffProgram(programs[0], boundary);
+            }
+        } else {
+            const oldIndex = this._handoff?.previousIndex ?? this._index!;
+            const oldAnchor = this._handoff?.previousConfig.anchorTime ?? this._config!.anchorTime;
+            programs = generateScheduleWindow(startTime, endTime, oldIndex, oldAnchor, programsOutput);
+            if (boundary !== undefined) {
+                const firstExcluded = programs.findIndex(program => program.scheduledStartTime >= boundary);
+                if (firstExcluded >= 0) programs.length = firstExcluded;
+            }
+        }
 
         return {
             startTime,
@@ -170,7 +241,7 @@ export class ChannelScheduler implements IChannelScheduler {
         programs.push(current);
 
         for (let i = 1; i < count; i++) {
-            current = calculateNextProgram(current, this._index!, this._config!.anchorTime);
+            current = this.getProgramAtTime(current.scheduledEndTime);
             programs.push(current);
         }
 
@@ -183,6 +254,7 @@ export class ChannelScheduler implements IChannelScheduler {
         }
 
         const now = Date.now();
+        this._activatePendingIfDue(now);
         const newCurrentProgram = this.getProgramAtTime(now);
 
         this._updateCurrentProgram(newCurrentProgram);
@@ -205,6 +277,7 @@ export class ChannelScheduler implements IChannelScheduler {
             return;
         }
 
+        this._activatePendingIfDue(time);
         const newProgram = this.getProgramAtTime(time);
         this._updateCurrentProgram(newProgram);
     }
@@ -216,6 +289,27 @@ export class ChannelScheduler implements IChannelScheduler {
         }
 
         const now = Date.now();
+        this._settleDueReplacement(now);
+        const pending = this._pendingReplacement;
+        const savedFirst = pending && this._clipHandoffProgram(
+            calculateProgramAtTime(pending.boundary, pending.index, pending.config.anchorTime), pending.boundary
+        );
+        if (pending && savedFirst?.item.ratingKey === program.item.ratingKey
+            && savedFirst.scheduleIndex === program.scheduleIndex
+            && savedFirst.scheduledStartTime === program.scheduledStartTime) {
+            this._activatePendingIfDue(pending.boundary);
+        }
+        const prior = this._handoff;
+        const returningToPrior = prior && program.scheduledEndTime <= prior.boundary
+            && calculateProgramAtTime(program.scheduledStartTime, prior.previousIndex, prior.previousConfig.anchorTime)
+                .item.ratingKey === program.item.ratingKey;
+        const replacement = returningToPrior ? { config: this._config!, index: this._index! } : null;
+        if (returningToPrior) {
+            this._config = prior.previousConfig;
+            this._index = prior.previousIndex;
+        }
+        this.cancelChannelReplacement();
+        this._handoff = null;
 
         // Shift the anchor so the selected program remains current across sync ticks.
         const programPositionInLoop = this._index.itemStartOffsets[program.scheduleIndex] ?? 0;
@@ -242,7 +336,13 @@ export class ChannelScheduler implements IChannelScheduler {
         }
 
         this._currentProgram = this.getProgramAtTime(now);
-        this._nextProgram = calculateNextProgram(this._currentProgram, this._index, this._config.anchorTime);
+        if (replacement) {
+            this._pendingReplacement = {
+                ...replacement,
+                boundary: this._currentProgram.scheduledEndTime,
+            };
+        }
+        this._nextProgram = this.getProgramAtTime(this._currentProgram.scheduledEndTime);
         this._lastSyncTime = now;
 
         this._emitter.emit('programStart', this._currentProgram);
@@ -253,6 +353,7 @@ export class ChannelScheduler implements IChannelScheduler {
             return;
         }
 
+        this._settleDueReplacement(Date.now());
         const next = this.getNextProgram();
         this.jumpToProgram(next);
     }
@@ -262,6 +363,7 @@ export class ChannelScheduler implements IChannelScheduler {
             return;
         }
 
+        this._settleDueReplacement(Date.now());
         const previous = this.getPreviousProgram();
         // Skip-back restarts the program instead of resuming at the queried elapsed position.
         const resetProgram = {
@@ -322,17 +424,28 @@ export class ChannelScheduler implements IChannelScheduler {
     private _updateCurrentProgram(newProgram: ScheduledProgram): boolean {
         const programChanged = this._currentProgram && (
             newProgram.scheduledStartTime !== this._currentProgram.scheduledStartTime ||
-            newProgram.scheduledEndTime !== this._currentProgram.scheduledEndTime
+            newProgram.scheduledEndTime !== this._currentProgram.scheduledEndTime ||
+            newProgram.item.ratingKey !== this._currentProgram.item.ratingKey ||
+            newProgram.scheduleIndex !== this._currentProgram.scheduleIndex ||
+            newProgram.loopNumber !== this._currentProgram.loopNumber
         );
 
         if (programChanged) {
             this._emitter.emit('programEnd', this._currentProgram!);
-            this._emitter.emit('programStart', newProgram);
         }
 
         this._currentProgram = newProgram;
-        this._nextProgram = calculateNextProgram(newProgram, this._index!, this._config!.anchorTime);
+        const pending = this._pendingReplacement;
+        this._nextProgram = pending && newProgram.scheduledEndTime >= pending.boundary
+            ? this._clipHandoffProgram(
+                calculateProgramAtTime(pending.boundary, pending.index, pending.config.anchorTime), pending.boundary
+            )
+            : calculateNextProgram(newProgram, this._index!, this._config!.anchorTime);
         this._lastSyncTime = Date.now();
+
+        if (programChanged) {
+            this._emitter.emit('programStart', newProgram);
+        }
 
         return !!programChanged;
     }
@@ -388,6 +501,7 @@ export class ChannelScheduler implements IChannelScheduler {
         const now = Date.now();
         const previousCurrent = this._currentProgram;
 
+        this._activatePendingIfDue(now);
         const currentProgram = this.getProgramAtTime(now);
         this._updateCurrentProgram(currentProgram);
 
@@ -400,5 +514,29 @@ export class ChannelScheduler implements IChannelScheduler {
             detectedDriftMs: now - previousEndTime,
         };
         this._emitter.emit('scheduleSync', state);
+    }
+
+    private _activatePendingIfDue(time: number): void {
+        const pending = this._pendingReplacement;
+        if (!pending || time < pending.boundary) return;
+        const previousConfig = this._config!;
+        const previousIndex = this._index!;
+        this._config = pending.config;
+        this._index = pending.index;
+        this._pendingReplacement = null;
+        const first = calculateProgramAtTime(pending.boundary, pending.index, pending.config.anchorTime);
+        this._handoff = { boundary: pending.boundary, firstEnd: first.scheduledEndTime, previousConfig, previousIndex };
+    }
+
+    private _settleDueReplacement(time: number): void {
+        if (!this._pendingReplacement || time < this._pendingReplacement.boundary) return;
+        this._activatePendingIfDue(time);
+        this._updateCurrentProgram(this.getProgramAtTime(time));
+    }
+
+    private _clipHandoffProgram(program: ScheduledProgram, boundary: number): ScheduledProgram {
+        return program.scheduledStartTime < boundary && program.scheduledEndTime > boundary
+            ? { ...program, scheduledStartTime: boundary }
+            : program;
     }
 }
