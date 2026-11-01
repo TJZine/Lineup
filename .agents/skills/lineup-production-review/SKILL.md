@@ -1,9 +1,9 @@
 ---
-name: repo-production-review
+name: lineup-production-review
 description: Lineup wrapper for the global repo-production-review suite. Use for read-only production code-health reviews of this repo with local workflow, role, verification, and orchestration constraints.
 ---
 
-# repo-production-review
+# lineup-production-review
 
 Thin Lineup wrapper for the global `repo-production-review` skill suite.
 
