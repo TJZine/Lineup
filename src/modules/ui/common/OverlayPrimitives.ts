@@ -26,6 +26,7 @@ export function createOverlayPrimitives(
 ): OverlayPrimitiveElements {
     const panelEl = document.createElement('div');
     panelEl.className = classNames.panel;
+    panelEl.dataset.overlaySurface = 'player';
     applyOverlayPanelConfig(panelEl, props.panel);
 
     const headerEl = createOptionalPanelSection(panelEl, classNames.header);

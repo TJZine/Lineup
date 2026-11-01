@@ -19,7 +19,7 @@ beforeEach(() => {
 
 it('reads current theme from injected runtime callback and writes via injected setter', () => {
     const setTheme = jest.fn(() => ({ ok: true } as const));
-    const getTheme = jest.fn((): 'glass' => 'glass');
+    const getTheme = jest.fn((): 'swiss' => 'swiss');
     const controller = new SettingsScreenStateController({
         settingsStore: new SettingsStore(),
         getTheme,
@@ -34,7 +34,7 @@ it('reads current theme from injected runtime callback and writes via injected s
         throw new Error('Theme item not found');
     }
 
-    expect(themeSelect.value).toBe(THEME_OPTIONS.findIndex((option) => option.theme === 'glass'));
+    expect(themeSelect.value).toBe(THEME_OPTIONS.findIndex((option) => option.theme === 'swiss'));
     expect(getTheme).toHaveBeenCalledTimes(1);
 
     (themeSelect as SettingsSelectConfig).onChange(0);

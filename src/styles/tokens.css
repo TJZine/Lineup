@@ -1,108 +1,139 @@
 /**
- * Design System Tokens
- * Centralized CSS variables for colors, typography, spacing, and effects.
- * 
- * Philosophy: "Obsidian Glass" - deep charcoal surfaces with crisp focus.
+ * Shared visual roles for the 1920×1080 Lineup TV canvas.
  *
- * Platform note: Lineup targets LG webOS 6.0+. Prefer broadly-supported syntax for core tokens,
- * and document intentional uses of newer CSS features when they are relied upon by consumers.
+ * The default values are Ember & Steel. Theme-specific palette values live in
+ * themes.css. Keep legacy RGB companions alongside space-separated RGB values
+ * where UI declarations need CSS Color 3 and Color 4 syntax. Shared color values
+ * use rgba() so older engines can parse custom-property substitutions.
  */
 
+@font-face {
+    font-family: Inter;
+    src: url('../assets/fonts/inter-variable.ttf') format('truetype');
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Instrument Sans';
+    src: url('../assets/fonts/instrument-sans-variable.ttf') format('truetype');
+    font-style: normal;
+    font-weight: 400 700;
+    font-stretch: 75% 100%;
+    font-display: swap;
+}
+
 :root {
-    /* =========================================
-       Color Palette - Dark Theme (Default)
-       ========================================= */
+    /* Ember & Steel is the synchronous safe palette before theme restore. */
+    --color-primary: #cc9f5b;
+    --color-primary-rgb: 204 159 91;
+    --color-primary-rgb-legacy: 204, 159, 91;
+    --color-primary-dark: #9d7743;
+    --color-primary-light: #e5c58f;
+    --color-primary-alpha-08: rgba(var(--color-primary-rgb-legacy), 0.08);
+    --color-primary-alpha-12: rgba(var(--color-primary-rgb-legacy), 0.12);
+    --color-primary-alpha-15: rgba(var(--color-primary-rgb-legacy), 0.15);
+    --color-primary-alpha-16: rgba(var(--color-primary-rgb-legacy), 0.16);
+    --color-primary-alpha-20: rgba(var(--color-primary-rgb-legacy), 0.20);
+    --color-primary-alpha-45: rgba(var(--color-primary-rgb-legacy), 0.45);
+    --color-primary-alpha-60: rgba(var(--color-primary-rgb-legacy), 0.60);
+    --color-primary-alpha-90: rgba(var(--color-primary-rgb-legacy), 0.90);
 
-    /* Primary */
-    --color-primary: #00a8e1;
-    /* Space-separated RGB is intentional: consumed by CSS Color 4 `rgb(var(--...)/alpha)` tokens below. */
-    --color-primary-rgb: 0 168 225;
-    /* Comma-separated legacy companion for CSS Color 3 `rgba(var(--...),
-       alpha)` fallbacks. Keep in sync with --color-primary-rgb. */
-    --color-primary-rgb-legacy: 0, 168, 225;
+    --color-bg-deep: #090806;
+    --color-onboarding-bg-deep: #090806;
+    --color-bg-surface: #12100d;
+    --color-bg-elevated: #1a1712;
+    --color-surface-hover: rgba(243, 232, 210, 0.08);
+    --overlay-surface-rgb: 10 9 7;
+    --overlay-surface-rgb-legacy: 10, 9, 7;
+    --overlay-surface-alpha: 95%;
+    --overlay-surface-alpha-legacy: 0.95;
+    --color-bg-overlay: rgba(10, 9, 7, 0.95);
+    --scrim-tint-rgb: 10 9 7;
+    --scrim-tint-rgb-legacy: 10, 9, 7;
 
-    /* Primary color alpha variants (for use in backgrounds/borders without opacity) */
-    --color-primary-alpha-08: rgb(var(--color-primary-rgb) / 8%);
-    --color-primary-alpha-12: rgb(var(--color-primary-rgb) / 12%);
-    --color-primary-alpha-15: rgb(var(--color-primary-rgb) / 15%);
-    --color-primary-alpha-16: rgb(var(--color-primary-rgb) / 16%);
-    --color-primary-alpha-20: rgb(var(--color-primary-rgb) / 20%);
-    --color-primary-alpha-45: rgb(var(--color-primary-rgb) / 45%);
-    --color-primary-alpha-60: rgb(var(--color-primary-rgb) / 60%);
-    --color-primary-alpha-90: rgb(var(--color-primary-rgb) / 90%);
-    --color-primary-dark: #007da6;
-    --color-primary-light: #4bc4eb;
+    --color-text-primary: #f3e8d2;
+    --color-text-secondary: #c7b99f;
+    --color-text-muted: #978b76;
+    --color-text-disabled: rgba(243, 232, 210, 0.38);
+    --color-text-on-focus: #090806;
 
-    /* Accent - Phosphor */
-    --color-accent-green: #33ff66;
-    --color-accent-amber: #ffcc00;
-    --color-accent: var(--color-accent-green);
+    --color-border-subtle: #2b261e;
+    --color-border-default: #494031;
+    --color-border-focus: #f0d39a;
 
-    /* Background */
-    --color-bg-deep: #06080a;
-    --color-onboarding-bg-deep: #0e1017;
-    --color-bg-surface: rgba(10, 12, 14, 0.92);
-    --color-bg-elevated: rgba(16, 20, 24, 0.94);
-    --color-bg-overlay: rgba(6, 8, 10, 0.86);
-    /* Scrim tint shared by current overlay and shell surfaces. */
-    --scrim-tint-rgb: 6 8 10;
-    /* Comma-separated legacy companion for CSS Color 3 `rgba(var(--...),
-       alpha)` fallbacks. Keep in sync with --scrim-tint-rgb. */
-    --scrim-tint-rgb-legacy: 6, 8, 10;
-    --color-surface-hover: rgba(255, 255, 255, 0.08);
-
-    /* Text */
-    --color-text-primary: #ffffff;
-    --color-text-secondary: rgba(255, 255, 255, 0.7);
-    --color-text-muted: rgba(255, 255, 255, 0.5);
-    --color-text-disabled: rgba(255, 255, 255, 0.35);
-    --color-text-on-focus: #0a0d12;
-
-    /* Borders */
-    --color-border-subtle: rgba(255, 255, 255, 0.08);
-    --color-border-default: rgba(255, 255, 255, 0.10);
-    --color-border-focus: var(--color-primary);
-
-    /* Status */
     --color-success: #4ade80;
     --color-warning: #fbbf24;
-    --color-error: #ef4444;
+    --color-error: #ff7768;
+    --color-error-text: #ffb4aa;
+    --color-live: #ff7768;
+    --color-live-warm: #ff7768;
 
-    /* =========================================
-       Focus States (Critical for TV)
-       ========================================= */
-    --focus-color: #5cc9e6;
-    /* Comma-separated RGB is intentional: consumed by CSS Color 3 `rgba(var(--...),
-       alpha)` callsites (e.g. panel spinners). */
-    --focus-color-rgb: 92, 201, 230;
+    /* Focus fill, selection, and focus ring remain separate states. */
+    --focus-color: #f0d39a;
+    --focus-color-rgb: 240, 211, 154;
+    --focus-border-color: #f0d39a;
+    --focus-border-width: 3px;
     --focus-ring-width: 3px;
     --focus-ring-offset: 2px;
+    --focus-ring-width-large: 5px;
+    --focus-ring-offset-large: 3px;
+    --focus-treatment: fill;
+    --focus-surface: #e9dcc3;
+    --focus-surface-rgb: 233 220 195;
+    --focus-surface-rgb-legacy: 233, 220, 195;
+    --focus-inset-surface: #d7c7a8;
+    --focus-text-primary: #090806;
+    --focus-text-secondary: #3b3226;
+    --focus-text-muted: #5b5141;
+    --focus-glow: none;
+    --selection-surface: #2b2419;
+    --selection-surface-rgb: 43 36 25;
+    --selection-surface-rgb-legacy: 43, 36, 25;
+    --selection-border: rgba(240, 211, 154, 0.24);
+    --tuned-surface: #3b3020;
 
-    /* =========================================
-       Typography
-       ========================================= */
-    --font-family-sans: system-ui, sans-serif;
-    --font-family-mono: ui-monospace, monospace;
-    --font-family-display: var(--font-family-sans);
-
-    /* 10-foot UI Sizes (CSS <length> values; keep units like px/rem) */
-    --text-xs: 14px;
-    --text-sm: 16px;
-    --text-md: 18px;
-    --text-base: 20px;
-    --text-lg: 24px;
-    --text-xl: 30px;
-    --text-2xl: 36px;
-
-    /* Weights */
+    /* Bundled Inter is the shared body/control face; Instrument Sans is for titles. */
+    --font-family-sans: 'Inter', arial, sans-serif;
+    --font-family-display: 'Instrument Sans', 'Inter', arial, sans-serif;
+    --font-family-mono: ui-monospace, sfmono-regular, menlo, monaco, consolas, 'Liberation Mono', monospace;
     --font-weight-normal: 400;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
+    --font-display-width-title: 92%;
+    --font-numeric-variants: tabular-nums;
 
-    /* =========================================
-       Spacing System
-       ========================================= */
+    /* Canvas-pixel type roles at the approved 1920×1080 reference size. */
+    --text-page-title: 44px;
+    --text-section-title: 24px;
+    --text-body: 18px;
+    --text-control: 18px;
+    --text-action: 18px;
+    --text-xs: 14px;
+    --text-sm: 16px;
+    --text-md: 18px;
+    --text-base: 18px;
+    --text-lg: 24px;
+    --text-xl: 32px;
+    --text-2xl: 44px;
+
+    /* Shared title roles mirror the approved LineupDesktop typography. */
+    --type-page-title-family: var(--font-family-display);
+    --type-page-title-size: var(--text-page-title);
+    --type-page-title-weight: var(--font-weight-semibold);
+    --type-page-title-stretch: var(--font-display-width-title);
+    --type-page-title-letter-spacing: -0.01em;
+    --type-page-title-line-height: 1.08;
+    --type-section-title-family: var(--font-family-display);
+    --type-section-title-size: var(--text-section-title);
+    --type-section-title-weight: var(--font-weight-semibold);
+    --type-section-title-stretch: var(--font-display-width-title);
+    --type-section-title-letter-spacing: -0.01em;
+    --type-section-title-line-height: normal;
+
+    /* Shared spacing scale and 10-foot canvas anchors. */
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
@@ -113,10 +144,10 @@
     --space-10: 40px;
     --space-12: 48px;
     --space-16: 64px;
+    --space-screen-inset: 48px;
+    --space-section-gap: 48px;
+    --space-control-inline: 16px;
 
-    /* =========================================
-       Border Radius
-       ========================================= */
     --radius-sm: 4px;
     --radius-md: 8px;
     --radius-compact: 10px;
@@ -124,52 +155,46 @@
     --radius-xl: 16px;
     --radius-full: 9999px;
 
-    /* =========================================
-       Panel Surfaces (No Blur Elevation)
-       ========================================= */
-    --panel-surface: rgba(8, 10, 12, 0.92);
-    --panel-surface-2: rgba(12, 15, 18, 0.94);
+    /* Opaque UI panels and over-video player scrims have distinct roles. */
+    --panel-surface: #12100d;
+    --panel-surface-2: #1a1712;
     --panel-border: 1px solid var(--color-border-default);
-    --panel-radius: 12px;
-    /* Prefer rgba() here to avoid silent invalidation in engines that don't parse Color 4 slash-alpha rgb(). */
-    --panel-inner-glow: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+    --panel-radius: 8px;
+    --panel-inner-glow: none;
     --epg-info-panel-height: clamp(300px, 34vh, 420px);
     --epg-info-poster-width: clamp(230px, 20vw, 340px);
     --epg-info-panel-fade-to: var(--panel-surface-2);
-    --classic-guide-pip-width: 672px;
+    --classic-guide-pip-width: 576px;
 
-    /* =========================================
-       Shadows
-       ========================================= */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
-    --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.6);
+    /* Ember & Steel standard player-overlay surface alpha. */
+    --player-overlay-surface-alpha-more: 62%;
+    --player-overlay-surface-alpha-more-legacy: 0.62;
+    --player-overlay-surface-alpha-standard: 78%;
+    --player-overlay-surface-alpha-standard-legacy: 0.78;
+    --player-overlay-surface-alpha-reduced: 94%;
+    --player-overlay-surface-alpha-reduced-legacy: 0.94;
+    --player-overlay-surface-alpha: var(--player-overlay-surface-alpha-standard);
+    --player-overlay-surface-alpha-legacy: var(--player-overlay-surface-alpha-standard-legacy);
+    --player-overlay-surface: rgba(var(--overlay-surface-rgb-legacy), var(--player-overlay-surface-alpha-legacy));
 
-    /* =========================================
-       Transitions
-       ========================================= */
-    --transition-fast: 100ms ease;
-    --transition-normal: 200ms ease;
-    --transition-slow: 300ms ease;
-
-    /* =========================================
-       Progress Bars
-       ========================================= */
+    /* Progress and loading roles. */
     --progress-height: 8px;
     --progress-height-sm: 6px;
     --progress-height-lg: 10px;
     --progress-radius: 999px;
-    --progress-track: rgba(255, 255, 255, 0.12);
+    --progress-track: rgba(243, 232, 210, 0.12);
     --progress-fill: var(--color-primary);
 
-    /* =========================================
-       Z-Index Scale
-       Shared overlay stack contract:
-       base < dropdown < modal < overlay < toast < max
-       This locks ordering semantics without implying every
-       runtime surface has already migrated.
-       ========================================= */
+    /* Motion aliases stay reducible by app preference and the operating system. */
+    --motion-duration-fast: 100ms;
+    --motion-duration-feedback: 150ms;
+    --motion-duration-standard: 200ms;
+    --motion-duration-slow: 300ms;
+    --motion-distance-scale: 1;
+    --transition-fast: var(--motion-duration-fast) ease;
+    --transition-normal: var(--motion-duration-standard) ease;
+    --transition-slow: var(--motion-duration-slow) ease;
+
     --z-base: 1;
     --z-dropdown: 100;
     --z-modal: 1000;
@@ -177,18 +202,90 @@
     --z-toast: 9000;
     --z-max: 10000;
 
-    /* =========================================
-       OSD / Pills
-       ========================================= */
-    /* Themes may override these for consistent OSD styling across colorways. */
-    --osd-pill-bg: rgba(255, 255, 255, 0.12);
-    --osd-pill-border: rgba(255, 255, 255, 0.16);
-    --osd-pill-bg-strong: rgba(255, 255, 255, 0.15);
-    --osd-pill-border-strong: rgba(255, 255, 255, 0.18);
-    --osd-pill-border-focused: rgba(255, 255, 255, 0.35);
+    --osd-pill-bg: rgba(243, 232, 210, 0.12);
+    --osd-pill-border: rgba(243, 232, 210, 0.16);
+    --osd-pill-bg-strong: rgba(243, 232, 210, 0.15);
+    --osd-pill-border-strong: rgba(243, 232, 210, 0.18);
+    --osd-pill-border-focused: rgba(243, 232, 210, 0.35);
+}
 
-    /* Live / "Now" indicator */
-    --color-live: #ff4444;
-    --color-live-warm: #e85d4a;
-    --color-error-text: #ffb1b1;
+[data-overlay-surface='player'] {
+    --player-overlay-surface: rgba(var(--overlay-surface-rgb-legacy), var(--player-overlay-surface-alpha-legacy));
+}
+
+[data-large-focus='true'] {
+    --focus-ring-width: var(--focus-ring-width-large);
+    --focus-ring-offset: var(--focus-ring-offset-large);
+}
+
+[data-motion='reduced'] {
+    --motion-duration-fast: 0ms;
+    --motion-duration-feedback: 0ms;
+    --motion-duration-standard: 0ms;
+    --motion-duration-slow: 0ms;
+    --motion-distance-scale: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --motion-duration-fast: 0ms;
+        --motion-duration-feedback: 0ms;
+        --motion-duration-standard: 0ms;
+        --motion-duration-slow: 0ms;
+        --motion-distance-scale: 0;
+    }
+}
+
+@media (forced-colors: active) {
+    :root {
+        --focus-color: Highlight;
+        --focus-border-color: Highlight;
+        --focus-surface: Canvas;
+        --focus-inset-surface: Canvas;
+        --focus-text-primary: CanvasText;
+        --focus-text-secondary: CanvasText;
+        --focus-text-muted: CanvasText;
+        --color-text-on-focus: CanvasText;
+        --color-border-focus: Highlight;
+        --selection-surface: Canvas;
+        --selection-border: Highlight;
+        --color-text-primary: CanvasText;
+        --color-text-secondary: CanvasText;
+        --color-text-muted: GrayText;
+        --color-text-disabled: GrayText;
+    }
+}
+
+/* Cover feature-local fixed durations while retaining each view's visual style. */
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0s !important;
+        transition-duration: 0s !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+[data-large-focus='true'] button:focus,
+[data-large-focus='true'] [role='button']:focus,
+[data-large-focus='true'] [tabindex]:focus {
+    outline-width: var(--focus-ring-width-large) !important;
+    outline-offset: var(--focus-ring-offset-large);
+}
+
+/* Keep this enhancement independent so older CSS parsers retain :focus. */
+[data-large-focus='true'] button:focus-visible,
+[data-large-focus='true'] [role='button']:focus-visible,
+[data-large-focus='true'] [tabindex]:focus-visible {
+    outline-width: var(--focus-ring-width-large) !important;
+    outline-offset: var(--focus-ring-offset-large);
 }
