@@ -82,6 +82,155 @@ describe('EpgPreferencesStore', () => {
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBeNull();
     });
 
+    it.each([
+        ['detailed', 2],
+        ['wide', 3],
+    ] as const)('migrates legacy %s density to %i hours without removing it before consumer cutover', (legacy, hours) => {
+        const scopedLibraryKey = `${LINEUP_STORAGE_KEYS.EPG_LIBRARY_FILTER}:server-1:user-1`;
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, legacy);
+        localStorage.setItem(scopedLibraryKey, 'library-1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.CHANNELS_REAL, 'lineup-bytes');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, 'profile-1');
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem');
+
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: true,
+            value: hours,
+            source: 'legacy',
+        });
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: true,
+            value: hours,
+            source: 'stored',
+        });
+        expect(setSpy).toHaveBeenCalledTimes(1);
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe(String(hours));
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe(legacy);
+
+        expect(store.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: true,
+            value: hours,
+            legacyRemoved: true,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+        expect(localStorage.getItem(scopedLibraryKey)).toBe('library-1');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.CHANNELS_REAL)).toBe('lineup-bytes');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('profile-1');
+    });
+
+    it('uses a typed two-hour default without persisting a value when no density exists', () => {
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: true,
+            value: 2,
+            source: 'default',
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBeNull();
+    });
+
+    it('normalizes unsupported current and legacy hours using the current default policy', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS, '5');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'future-wide');
+
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: true,
+            value: 2,
+            source: 'default',
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('future-wide');
+
+        expect(store.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: true,
+            value: 2,
+            legacyRemoved: true,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('2');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+    });
+
+    it('keeps a valid wide selection when replacement write fails and retries on restart', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('quota', 'QuotaExceededError');
+        });
+
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: false,
+            reason: 'quota-exceeded',
+            stage: 'replacement-write',
+            effectiveValue: 3,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('wide');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBeNull();
+
+        setSpy.mockRestore();
+        const restartedStore = new EpgPreferencesStore();
+        expect(restartedStore.readGuideHoursAndMigrate()).toEqual({
+            ok: true,
+            value: 3,
+            source: 'legacy',
+        });
+        expect(restartedStore.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: true,
+            value: 3,
+            legacyRemoved: true,
+        });
+    });
+
+    it('reports and retries legacy cleanup failure only after the replacement value is durable', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+        expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 3, source: 'legacy' });
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+            throw new DOMException('blocked', 'SecurityError');
+        });
+
+        expect(store.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            stage: 'legacy-cleanup',
+            effectiveValue: 3,
+        });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('3');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('wide');
+
+        removeSpy.mockRestore();
+        expect(store.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: true,
+            value: 3,
+            legacyRemoved: true,
+        });
+    });
+
+    it('distinguishes a blocked migration read and leaves both keys untouched', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+        const getSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+            throw new DOMException('blocked', 'SecurityError');
+        });
+        const setSpy = jest.spyOn(Storage.prototype, 'setItem');
+        const removeSpy = jest.spyOn(Storage.prototype, 'removeItem');
+
+        expect(store.readGuideHoursAndMigrate()).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            stage: 'read',
+            effectiveValue: 2,
+        });
+        expect(setSpy).not.toHaveBeenCalled();
+        expect(removeSpy).not.toHaveBeenCalled();
+        getSpy.mockRestore();
+    });
+
+    it('bounds new Guide hours and keeps source-label preference false by default', () => {
+        expect(store.readSourceLabelsEnabledAndClean()).toBe(false);
+        expect(store.writeSourceLabelsEnabled(true)).toEqual({ ok: true });
+        expect(store.readSourceLabelsEnabledAndClean()).toBe(true);
+
+        expect(store.writeGuideHours(4)).toEqual({ ok: true });
+        expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 4, source: 'stored' });
+        expect(store.writeGuideHours(5 as 2 | 3 | 4)).toEqual({ ok: false, reason: 'invalid-value' });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('4');
+    });
+
     it('returns caller fallbacks for missing layout and density values without persisting them', () => {
         expect(store.readGuideDensityAndClean('wide')).toBe('wide');
         expect(store.readLayoutModeAndClean('overlay')).toBe('overlay');
