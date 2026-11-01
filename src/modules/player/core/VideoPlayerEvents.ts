@@ -155,12 +155,35 @@ export class VideoPlayerEvents {
     }
 
     private _handleEnded(): void {
-        // webOS can emit spurious 'ended' events during source teardown/reloads.
-        // Ignore ended when no stream is currently loaded.
+        // webOS can deliver queued 'ended' events while a source is being replaced.
+        // Check the selected native resource as well as the loaded descriptor so
+        // an event from the prior source cannot finish the new stream.
+        const videoElement = this._videoElement;
         const state = this._callbacks?.getState() ?? null;
-        if (!state?.currentDescriptor) {
+        const descriptor = state?.currentDescriptor;
+        const currentSrc = videoElement?.currentSrc;
+        if (
+            !videoElement ||
+            !descriptor?.url.trim() ||
+            !videoElement.ended ||
+            !currentSrc?.trim()
+        ) {
             return;
         }
+
+        let descriptorUrl: string;
+        let currentSourceUrl: string;
+        try {
+            const baseUrl = videoElement.ownerDocument.baseURI;
+            descriptorUrl = new URL(descriptor.url, baseUrl).href;
+            currentSourceUrl = new URL(currentSrc, baseUrl).href;
+        } catch {
+            return;
+        }
+        if (descriptorUrl !== currentSourceUrl) {
+            return;
+        }
+
         this._callbacks?.updateStatus('ended');
         this._emitter?.emit('ended', undefined);
     }

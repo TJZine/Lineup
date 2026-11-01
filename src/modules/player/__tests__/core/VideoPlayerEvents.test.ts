@@ -40,6 +40,14 @@ const createRetryDescriptor = (): StreamDescriptor => ({
     isLive: false,
 });
 
+const setNativeMediaFacts = (
+    video: HTMLVideoElement,
+    facts: { ended: boolean; currentSrc: string }
+): void => {
+    Object.defineProperty(video, 'ended', { configurable: true, value: facts.ended });
+    Object.defineProperty(video, 'currentSrc', { configurable: true, value: facts.currentSrc });
+};
+
 const createFixture = (): {
     events: VideoPlayerEvents;
     video: HTMLVideoElement;
@@ -221,26 +229,88 @@ describe('VideoPlayerEvents', () => {
         expect(callbacks.updateStatus).not.toHaveBeenCalled();
     });
 
-    it('emits ended only when a descriptor is loaded', () => {
+    it('emits ended for the loaded descriptor and its selected native resource', () => {
         const { video, emitter, callbacks, state } = createFixture();
+        const descriptor = createRetryDescriptor();
 
+        setNativeMediaFacts(video, { ended: true, currentSrc: descriptor.url });
         video.dispatchEvent(new Event('ended'));
         expect(emitter.emit).not.toHaveBeenCalledWith('ended', undefined);
 
+        state.currentDescriptor = descriptor;
+
+        video.dispatchEvent(new Event('ended'));
+
+        expect(callbacks.updateStatus).toHaveBeenCalledWith('ended');
+        expect(emitter.emit).toHaveBeenCalledWith('ended', undefined);
+    });
+
+    it('ignores ended when the native media element has not ended', () => {
+        const { video, emitter, callbacks, state } = createFixture();
+        const descriptor = createRetryDescriptor();
+        state.currentDescriptor = descriptor;
+        setNativeMediaFacts(video, { ended: false, currentSrc: descriptor.url });
+
+        video.dispatchEvent(new Event('ended'));
+
+        expect(callbacks.updateStatus).not.toHaveBeenCalledWith('ended');
+        expect(emitter.emit).not.toHaveBeenCalledWith('ended', undefined);
+    });
+
+    it('ignores an ended event while currentSrc still identifies the previous descriptor', () => {
+        const { video, emitter, callbacks, state } = createFixture();
+        const previousDescriptor = createRetryDescriptor();
         state.currentDescriptor = {
-            url: 'https://example/stream.m3u8',
-            protocol: 'hls',
-            mimeType: 'application/x-mpegURL',
-            startPositionMs: 0,
-            mediaMetadata: {
-                title: 'Example',
-                durationMs: 60_000,
-            },
-            subtitleTracks: [],
-            audioTracks: [],
-            durationMs: 60_000,
-            isLive: false,
+            ...previousDescriptor,
+            url: 'https://example/next-stream.m3u8',
         };
+        // The src attribute already names the new request, but the browser has
+        // not selected it yet and still reports the prior resource as currentSrc.
+        video.src = state.currentDescriptor.url;
+        setNativeMediaFacts(video, { ended: true, currentSrc: previousDescriptor.url });
+
+        video.dispatchEvent(new Event('ended'));
+
+        expect(callbacks.updateStatus).not.toHaveBeenCalledWith('ended');
+        expect(emitter.emit).not.toHaveBeenCalledWith('ended', undefined);
+    });
+
+    it('ignores ended when currentSrc is empty even if src names the loaded descriptor', () => {
+        const { video, emitter, callbacks, state } = createFixture();
+        const descriptor = createRetryDescriptor();
+        state.currentDescriptor = descriptor;
+        video.src = descriptor.url;
+        setNativeMediaFacts(video, { ended: true, currentSrc: '' });
+
+        video.dispatchEvent(new Event('ended'));
+
+        expect(callbacks.updateStatus).not.toHaveBeenCalledWith('ended');
+        expect(emitter.emit).not.toHaveBeenCalledWith('ended', undefined);
+    });
+
+    it('ignores a late ended event after the stream has been unloaded', () => {
+        const { video, emitter, callbacks } = createFixture();
+        setNativeMediaFacts(video, {
+            ended: true,
+            currentSrc: 'https://example/stream.m3u8',
+        });
+
+        video.dispatchEvent(new Event('ended'));
+
+        expect(callbacks.updateStatus).not.toHaveBeenCalledWith('ended');
+        expect(emitter.emit).not.toHaveBeenCalledWith('ended', undefined);
+    });
+
+    it('compares relative descriptor URLs using the video document base URI', () => {
+        const { video, emitter, callbacks, state } = createFixture();
+        state.currentDescriptor = {
+            ...createRetryDescriptor(),
+            url: '/media/stream.m3u8',
+        };
+        setNativeMediaFacts(video, {
+            ended: true,
+            currentSrc: new URL('/media/stream.m3u8', video.ownerDocument.baseURI).href,
+        });
 
         video.dispatchEvent(new Event('ended'));
 
