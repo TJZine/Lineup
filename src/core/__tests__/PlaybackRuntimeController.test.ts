@@ -12,10 +12,16 @@ import {
 } from '../orchestrator/priority-one/PlaybackRuntimeController';
 import type { OrchestratorPlaybackStateAccessors } from '../orchestrator/runtime/OrchestratorPlaybackStateAccessors';
 import type { PlaybackStartOutcome } from '../../types/playbackStart';
+import type { ScheduledProgramIdentity } from '../../modules/scheduler/scheduler';
 
 const requiredPlaybackPreparationStubs = {
     resolveStreamForProgram: jest.fn(),
     discardPreparedStream: jest.fn(),
+};
+const currentDescriptor = { url: 'current' };
+const currentIdentity: ScheduledProgramIdentity = {
+    channelId: 'channel-1', itemKey: 'item-1', scheduledStartTime: 0,
+    scheduledEndTime: 60_000, scheduleIndex: 0, loopNumber: 0,
 };
 
 const makePlaybackState = (
@@ -32,8 +38,6 @@ const makePlaybackState = (
     setCurrentStreamDecision: jest.fn(),
     getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
     setPendingNowPlayingChannelId: jest.fn(),
-    getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-    setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
     ...overrides,
 });
 
@@ -41,6 +45,7 @@ const makePlaybackMocks = (
     callOrder: string[],
     playbackState = makePlaybackState()
 ): jest.Mocked<PlaybackRuntimeControllerDeps['playback']> => ({
+    reconcileSleepExpiration: jest.fn().mockReturnValue(false),
     playbackState,
     playbackRecovery: {
         ...requiredPlaybackPreparationStubs,
@@ -102,17 +107,34 @@ const makeSetup = (
         },
         uiRuntime: {
             handleGlobalError: jest.fn(),
-            showInfoBanner: jest.fn(),
         },
         saveLifecycleState: jest.fn<Promise<void>, []>(async () => {
             callOrder.push('save-lifecycle-state');
         }),
+        reconcileSleepExpiration: jest.fn().mockReturnValue(false),
+        stopPlayback: jest.fn(),
+        hasSelectedChannel: jest.fn().mockReturnValue(true),
+        getScheduledChannelId: jest.fn().mockReturnValue('channel-1'),
+        getScheduledProgramIdentity: jest.fn().mockReturnValue(currentIdentity),
+        getCommittedDescriptor: jest.fn().mockReturnValue(currentDescriptor),
+        getPlayerStatus: jest.fn().mockReturnValue('paused'),
+        getCurrentDescriptor: jest.fn().mockReturnValue(currentDescriptor),
+        getDirectoryScopeKey: jest.fn().mockReturnValue('scope-1'),
+        unloadCurrentChannel: jest.fn(),
+        cancelChannelReplacement: jest.fn(),
+        hasPendingChannelReplacement: jest.fn().mockReturnValue(false),
+        requestCurrentProgramStart: jest.fn().mockResolvedValue({ kind: 'started' }),
         reportRecoverableAsyncFailure: jest.fn(),
         ...resolvedOverrides,
     } as jest.Mocked<PlaybackRuntimeControllerDeps>;
 
     return {
-        controller: new PlaybackRuntimeController(deps),
+        controller: ((): PlaybackRuntimeController => {
+            const controller = new PlaybackRuntimeController(deps);
+            controller.beginIntentionalTune();
+            controller.acceptCommittedSession(currentDescriptor);
+            return controller;
+        })(),
         deps,
         callOrder,
     };
@@ -386,84 +408,6 @@ describe('PlaybackRuntimeController', () => {
 
         expect(deps.playerEvents.onPlayerStateChange).toHaveBeenCalledTimes(1);
         expect(deps.playerEvents.onPlayerStateChange).toHaveBeenCalledWith(state);
-        expect(deps.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay).not.toHaveBeenCalled();
-        expect(deps.uiRuntime.showInfoBanner).not.toHaveBeenCalled();
-    });
-
-    it('consumes the auto-show info banner flag only when playback reaches playing', () => {
-        const state: PlaybackState = {
-            status: 'playing',
-            currentTimeMs: 1000,
-            durationMs: 5000,
-            bufferPercent: 75,
-            volume: 1,
-            isMuted: false,
-            playbackRate: 1,
-            activeSubtitleId: null,
-            activeAudioId: 'audio-1',
-            errorInfo: null,
-        };
-        const { controller, deps } = makeSetup((callOrder) => ({
-            playback: {
-                ...makePlaybackMocks(callOrder),
-                playbackState: makePlaybackState({
-                    getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(true),
-                }),
-            },
-        }));
-
-        controller.handlePlayerStateChange(state);
-
-        const onPlayerStateChange = deps.playerEvents.onPlayerStateChange as jest.Mock;
-        const clearAutoShowInfoBanner =
-            deps.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay as jest.Mock;
-        const showInfoBanner = deps.uiRuntime.showInfoBanner as jest.Mock;
-        const stateChangeCall = onPlayerStateChange.mock.invocationCallOrder[0];
-        const clearCall = clearAutoShowInfoBanner.mock.invocationCallOrder[0];
-        const showCall = showInfoBanner.mock.invocationCallOrder[0];
-
-        expect(deps.playerEvents.onPlayerStateChange).toHaveBeenCalledTimes(1);
-        expect(deps.playerEvents.onPlayerStateChange).toHaveBeenCalledWith(state);
-        expect(deps.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay).toHaveBeenCalledWith(false);
-        expect(deps.uiRuntime.showInfoBanner).toHaveBeenCalledTimes(1);
-        expect(stateChangeCall).toBeDefined();
-        expect(clearCall).toBeDefined();
-        expect(showCall).toBeDefined();
-        if (stateChangeCall === undefined || clearCall === undefined || showCall === undefined) {
-            throw new Error('Expected state-change and info-banner callbacks to run');
-        }
-        expect(stateChangeCall).toBeLessThan(clearCall);
-        expect(clearCall).toBeLessThan(showCall);
-    });
-
-    it('does not consume the auto-show info banner flag before playback reaches playing', () => {
-        const state: PlaybackState = {
-            status: 'paused',
-            currentTimeMs: 1000,
-            durationMs: 5000,
-            bufferPercent: 75,
-            volume: 1,
-            isMuted: false,
-            playbackRate: 1,
-            activeSubtitleId: null,
-            activeAudioId: 'audio-1',
-            errorInfo: null,
-        };
-        const { controller, deps } = makeSetup((callOrder) => ({
-            playback: {
-                ...makePlaybackMocks(callOrder),
-                playbackState: makePlaybackState({
-                    getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(true),
-                }),
-            },
-        }));
-
-        controller.handlePlayerStateChange(state);
-
-        expect(deps.playerEvents.onPlayerStateChange).toHaveBeenCalledTimes(1);
-        expect(deps.playerEvents.onPlayerStateChange).toHaveBeenCalledWith(state);
-        expect(deps.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay).not.toHaveBeenCalled();
-        expect(deps.uiRuntime.showInfoBanner).not.toHaveBeenCalled();
     });
 
     it('forwards time updates to the OSD callback without reshaping the payload', () => {
@@ -497,75 +441,137 @@ describe('PlaybackRuntimeController', () => {
         await deferred.promise;
     });
 
-    it('waits for the next tracked program start and returns its settlement', async () => {
-        const { controller } = makeSetup();
-        const start = createDeferred<PlaybackStartOutcome>();
-        let settled = false;
-        const wait = controller.waitForNextProgramStart().then((outcome) => {
-            settled = true;
-            return outcome;
-        });
-
-        await Promise.resolve();
-        expect(settled).toBe(false);
-        controller.trackProgramStart(start.promise);
-        start.resolve({ kind: 'started' });
-
-        await expect(wait).resolves.toEqual({ kind: 'started' });
-    });
-
-    it('sanitizes a rejected tracked start as failed for its waiter', async () => {
-        const { controller } = makeSetup();
-        const start = createDeferred<PlaybackStartOutcome>();
-        const wait = controller.waitForNextProgramStart();
-        controller.trackProgramStart(start.promise);
-
-        start.reject(new Error('private playback failure'));
-
-        await expect(wait).resolves.toEqual({ kind: 'failed' });
-        await expect(start.promise).rejects.toThrow('private playback failure');
-    });
-
-    it('passes through a sanitized failed start settlement', async () => {
-        const { controller } = makeSetup();
-        const wait = controller.waitForNextProgramStart();
-
-        controller.trackProgramStart(Promise.resolve({ kind: 'failed' }));
-
-        await expect(wait).resolves.toEqual({ kind: 'failed' });
-        await Promise.resolve();
-        expect(controller.isOverlayReopenSafe()).toBe(true);
-    });
-
-    it('supersedes the prior waiter when a newer caller waits', async () => {
-        const { controller } = makeSetup();
-        const first = controller.waitForNextProgramStart();
-        const second = controller.waitForNextProgramStart();
-
-        await expect(first).resolves.toEqual({ kind: 'superseded' });
-        controller.trackProgramStart(Promise.resolve({ kind: 'started' }));
-        await expect(second).resolves.toEqual({ kind: 'started' });
-    });
-
-    it('settles a pending program-start waiter as superseded on dispose', async () => {
-        const { controller } = makeSetup();
-        const wait = controller.waitForNextProgramStart();
-
-        controller.dispose();
-
-        await expect(wait).resolves.toEqual({ kind: 'superseded' });
-    });
-
-    it('settles a signaled waiter on dispose and tolerates a later abort', async () => {
+    it('waits through unrelated starts and settles matching start after pending readiness clears', async () => {
         const { controller } = makeSetup();
         const aborter = new AbortController();
-        const wait = controller.waitForNextProgramStart(aborter.signal);
+        const removeAbortListener = jest.spyOn(aborter.signal, 'removeEventListener');
+        const unrelated = createDeferred<PlaybackStartOutcome>();
+        const matching = createDeferred<PlaybackStartOutcome>();
+        const observed = controller.observeProgramStart(currentIdentity, aborter.signal);
+        let settled = false;
+        void observed.then(() => { settled = true; });
 
-        controller.dispose();
+        controller.trackProgramStart(unrelated.promise, {
+            ...currentIdentity, channelId: 'channel-2',
+        });
+        unrelated.resolve({ kind: 'started' });
+        await unrelated.promise;
+        await Promise.resolve();
+        expect(settled).toBe(false);
 
-        await expect(wait).resolves.toEqual({ kind: 'superseded' });
-        expect((): void => aborter.abort()).not.toThrow();
-        expect((): void => controller.dispose()).not.toThrow();
+        controller.trackProgramStart(matching.promise, currentIdentity);
+        matching.resolve({ kind: 'started' });
+        expect(settled).toBe(false);
+        await expect(observed).resolves.toEqual({ kind: 'started' });
+        expect(controller.canActivateRetainedSession()).toBe(true);
+        expect(removeAbortListener).toHaveBeenCalledWith('abort', expect.any(Function));
+    });
+
+    it.each(['failed', 'rejected'] as const)(
+        'reports a matching %s start truthfully', async (settlement) => {
+            const { controller } = makeSetup();
+            const start = createDeferred<PlaybackStartOutcome>();
+            const observed = controller.observeProgramStart(
+                currentIdentity, new AbortController().signal
+            );
+            controller.trackProgramStart(start.promise, currentIdentity);
+            if (settlement === 'failed') start.resolve({ kind: 'failed' });
+            else start.reject(new Error('private failure'));
+
+            await expect(observed).resolves.toEqual({ kind: 'failed' });
+            if (settlement === 'rejected') {
+                await expect(start.promise).rejects.toThrow('private failure');
+            }
+            expect(controller.isOverlayReopenSafe()).toBe(true);
+        }
+    );
+
+    it.each(['before', 'after'] as const)(
+        'retires an observer when its caller aborts %s matching attachment', async (stage) => {
+            const { controller } = makeSetup();
+            const aborter = new AbortController();
+            const start = createDeferred<PlaybackStartOutcome>();
+            const observed = controller.observeProgramStart(currentIdentity, aborter.signal);
+            if (stage === 'after') controller.trackProgramStart(start.promise, currentIdentity);
+            aborter.abort();
+            await expect(observed).resolves.toEqual({ kind: 'superseded' });
+            if (stage === 'after') {
+                start.resolve({ kind: 'started' });
+                await start.promise;
+            }
+        }
+    );
+
+    it('retires observation on scope invalidation and rejects a late old start', async () => {
+        const { controller } = makeSetup();
+        const start = createDeferred<PlaybackStartOutcome>();
+        const observed = controller.observeProgramStart(
+            currentIdentity, new AbortController().signal
+        );
+        controller.trackProgramStart(start.promise, currentIdentity);
+
+        controller.invalidateScope();
+        await expect(observed).resolves.toEqual({ kind: 'superseded' });
+        start.resolve({ kind: 'started' });
+        await start.promise;
+    });
+
+    it('can register before the first intentional tune in a newly invalidated scope', async () => {
+        const { controller } = makeSetup();
+        controller.invalidateScope();
+        const start = createDeferred<PlaybackStartOutcome>();
+        const observed = controller.observeProgramStart(
+            currentIdentity, new AbortController().signal
+        );
+
+        controller.beginIntentionalTune('channel-1');
+        controller.trackProgramStart(start.promise, currentIdentity);
+        controller.finishIntentionalTune('channel-1');
+        start.resolve({ kind: 'started' });
+
+        await expect(observed).resolves.toEqual({ kind: 'started' });
+    });
+
+    it('does not let a late older completion retire a newer observer or start', async () => {
+        const { controller } = makeSetup();
+        const older = createDeferred<PlaybackStartOutcome>();
+        const newer = createDeferred<PlaybackStartOutcome>();
+        const first = controller.observeProgramStart(
+            currentIdentity, new AbortController().signal
+        );
+        controller.trackProgramStart(older.promise, currentIdentity);
+        const second = controller.observeProgramStart(
+            currentIdentity, new AbortController().signal
+        );
+        await expect(first).resolves.toEqual({ kind: 'superseded' });
+        controller.trackProgramStart(newer.promise, currentIdentity);
+
+        older.resolve({ kind: 'started' });
+        await older.promise;
+        let secondSettled = false;
+        void second.then(() => { secondSettled = true; });
+        await Promise.resolve();
+        expect(secondSettled).toBe(false);
+        expect(controller.canActivateRetainedSession()).toBe(false);
+
+        newer.resolve({ kind: 'started' });
+        await expect(second).resolves.toEqual({ kind: 'started' });
+        expect(controller.canActivateRetainedSession()).toBe(true);
+    });
+
+    it('supersedes an observer if another matching start begins before settlement', async () => {
+        const { controller } = makeSetup();
+        const older = createDeferred<PlaybackStartOutcome>();
+        const newer = createDeferred<PlaybackStartOutcome>();
+        const observed = controller.observeProgramStart(
+            currentIdentity, new AbortController().signal
+        );
+        controller.trackProgramStart(older.promise, currentIdentity);
+        controller.trackProgramStart(newer.promise, currentIdentity);
+        await expect(observed).resolves.toEqual({ kind: 'superseded' });
+        older.resolve({ kind: 'started' });
+        newer.resolve({ kind: 'started' });
+        await Promise.all([older.promise, newer.promise]);
     });
 
     it('clears pending overlay readiness and tracked promise when the active program start rejects', async () => {
@@ -590,6 +596,8 @@ describe('PlaybackRuntimeController', () => {
             lastReadyAtMs: null,
         });
 
+        await controller.handleLifecyclePause();
+        callOrder.length = 0;
         await controller.handleLifecycleResume();
 
         expect(deps.schedulerRuntime.resumeSchedulerSync).toHaveBeenCalledTimes(1);
@@ -732,6 +740,7 @@ describe('PlaybackRuntimeController', () => {
 
         controller.trackProgramStart(originalStart.promise);
 
+        await controller.handleLifecyclePause();
         const resumePromise = controller.handleLifecycleResume();
 
         expect(deps.schedulerRuntime.resumeSchedulerSync).toHaveBeenCalledTimes(1);
@@ -750,6 +759,8 @@ describe('PlaybackRuntimeController', () => {
     it('handleLifecycleResume calls play when sync does not install a newer tracked program start', async () => {
         const { controller, deps, callOrder } = makeSetup();
 
+        await controller.handleLifecyclePause();
+        callOrder.length = 0;
         await controller.handleLifecycleResume();
 
         expect(deps.schedulerRuntime.resumeSchedulerSync).toHaveBeenCalledTimes(1);

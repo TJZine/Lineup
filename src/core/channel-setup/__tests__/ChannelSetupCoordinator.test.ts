@@ -33,9 +33,7 @@ const createCoordinator = (overrides?: {
         getActiveUserId: (): string | null => 'user-1',
     });
     const navigationGoTo = jest.fn();
-    const scratchStore = new ChannelSetupBuildScratchStore({
-        storageRemove: (key: string): void => localStorage.removeItem(key),
-    });
+    const scratchStore = new ChannelSetupBuildScratchStore();
     const getSelectedServerId = jest.fn().mockReturnValue(
         overrides && 'selectedServerId' in overrides ? overrides.selectedServerId : 'server-1'
     );

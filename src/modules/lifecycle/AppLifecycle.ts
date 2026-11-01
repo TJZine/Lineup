@@ -145,6 +145,7 @@ export class AppLifecycle implements IAppLifecycle {
         }
         this._shutdownStarted = true;
 
+        await this._pendingTransition;
         await this._transitionPhase('terminating');
 
         this._emitter.emit('beforeTerminate', undefined);
@@ -214,13 +215,11 @@ export class AppLifecycle implements IAppLifecycle {
     }
 
     public setPhase(phase: AppPhase): void {
-        this._trackPendingTransition(this._setPhaseAndTrack(phase));
+        void this._trackPendingTransition(() => this._setPhaseAndTrack(phase));
     }
 
     public async setPhaseAndWait(phase: AppPhase): Promise<boolean> {
-        const transition = this._setPhaseAndTrack(phase);
-        this._trackPendingTransition(transition);
-        return transition;
+        return this._trackPendingTransition(() => this._setPhaseAndTrack(phase));
     }
 
     public waitForPendingTransition(): Promise<void> {
@@ -241,15 +240,13 @@ export class AppLifecycle implements IAppLifecycle {
         return this._transitionPhase(phase);
     }
 
-    private _trackPendingTransition(transition: Promise<unknown>): void {
-        const previousTransition = this._pendingTransition;
-        this._pendingTransition = previousTransition.then(
-            () => transition,
-            () => transition
-        ).then(
+    private _trackPendingTransition<T>(run: () => Promise<T>): Promise<T> {
+        const transition = this._pendingTransition.then(run, run);
+        this._pendingTransition = transition.then(
             () => undefined,
             () => undefined
         );
+        return transition;
     }
 
     private async _transitionPhase(phase: AppPhase): Promise<boolean> {
@@ -284,7 +281,7 @@ export class AppLifecycle implements IAppLifecycle {
         };
 
         if (this._phase !== 'error' && this._phase !== 'terminating') {
-            this._trackPendingTransition(this._transitionPhase('error'));
+            void this._trackPendingTransition(() => this._transitionPhase('error'));
         }
 
         this._emitter.emit('error', lifecycleError);
@@ -307,13 +304,15 @@ export class AppLifecycle implements IAppLifecycle {
 
     private _setupVisibilityListeners(): void {
         this._visibilityHandler = (): void => {
-            const transition = document.hidden ? this._handlePause() : this._handleResume();
-            this._trackPendingTransition(transition);
+            if (this._shutdownStarted) return;
+            const hidden = document.hidden;
+            void this._trackPendingTransition(() => hidden ? this._handlePause() : this._handleResume());
         };
         document.addEventListener('visibilitychange', this._visibilityHandler);
 
         const relaunchHandler = (_event: Event): void => {
-            this._trackPendingTransition(this._handleResume());
+            if (document.hidden || this._shutdownStarted) return;
+            void this._trackPendingTransition(() => this._handleResume());
         };
         this._webOSRelaunchDisposer = this._lifecycleService.bindRelaunch(relaunchHandler);
     }

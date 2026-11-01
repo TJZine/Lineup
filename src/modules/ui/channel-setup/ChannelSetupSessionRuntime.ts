@@ -17,6 +17,11 @@ import type {
 } from './ChannelSetupSessionContracts';
 import type { ChannelSetupSessionState } from './ChannelSetupSessionState';
 import type { ChannelSetupScreenWorkflowPort } from './ChannelSetupScreenPorts';
+import type { ChannelSetupApplyResult } from '../../../core/channel-setup/types';
+
+function assertNeverApplyResult(result: never): never {
+    throw new Error(`Unhandled setup Apply result: ${String((result as { kind?: unknown }).kind)}`);
+}
 
 const REVIEW_ERROR_NAMES = new Set([
     'Error',
@@ -51,6 +56,7 @@ export class ChannelSetupSessionRuntime {
 
     private _buildAbortController: AbortController | null = null;
     private _loadAbortController: AbortController | null = null;
+    private _inventoryAbortController: AbortController | null = null;
     private _previewAbortController: AbortController | null = null;
     private _reviewAbortController: AbortController | null = null;
     private _previewTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -76,10 +82,13 @@ export class ChannelSetupSessionRuntime {
         this._cleanupPlanningAsyncState();
         this._loadAbortController?.abort();
         this._loadAbortController = null;
+        this._inventoryAbortController?.abort();
+        this._inventoryAbortController = null;
         this._buildAbortController?.abort();
         this._buildAbortController = null;
         this._deps.state.isLoading = false;
         this._deps.state.isBuilding = false;
+        this._deps.workflowPort.cancelPreparedReview();
     }
 
     async loadLibraries(): Promise<void> {
@@ -154,11 +163,7 @@ export class ChannelSetupSessionRuntime {
         if (step !== 2) {
             this._cleanupPlanningAsyncState(step === 3);
         }
-        if (step === 3) {
-            state.isBuilding = state.setupContext === 'first-time';
-        } else {
-            state.isBuilding = false;
-        }
+        state.isBuilding = false;
     }
 
     beginConfirmedBuild(): void {
@@ -175,6 +180,10 @@ export class ChannelSetupSessionRuntime {
         state.review = null;
         state.reviewError = null;
         state.replaceConfirm = false;
+        state.replaceConfirmReviewId = null;
+        state.wholeLineupReplacementConfirm = false;
+        state.wholeLineupReplacementConfirmReviewId = null;
+        this._deps.workflowPort.cancelPreparedReview();
         state.step = 2;
     }
 
@@ -194,14 +203,94 @@ export class ChannelSetupSessionRuntime {
         return nextSelected;
     }
 
+    async scanInventory(onStateChange: () => void): Promise<void> {
+        const state = this._deps.state;
+        const serverId = this._deps.getSelectedServerId();
+        if (!serverId) {
+            state.inventoryError = 'No server selected.';
+            onStateChange();
+            return;
+        }
+        this._inventoryAbortController?.abort();
+        const controller = new AbortController();
+        this._inventoryAbortController = controller;
+        const token = state.sessionToken;
+        state.isInventoryLoading = true;
+        state.inventoryError = null;
+        onStateChange();
+        try {
+            const inventory = await this._deps.workflowPort.scanSetupInventory(state.buildConfig(serverId), {
+                signal: controller.signal,
+                onProgress: (progress) => {
+                    if (token !== state.sessionToken || this._inventoryAbortController !== controller) return;
+                    state.inventory = progress;
+                    for (const fact of progress.libraries) {
+                        if (fact.status === 'ready') state.knownReadyLibraryIds.add(fact.libraryId);
+                    }
+                    onStateChange();
+                },
+            });
+            if (token !== state.sessionToken || this._inventoryAbortController !== controller) return;
+            state.inventory = inventory;
+            for (const fact of inventory.libraries) {
+                if (fact.status === 'ready') state.knownReadyLibraryIds.add(fact.libraryId);
+            }
+        } catch (error) {
+            if (token !== state.sessionToken || this._inventoryAbortController !== controller) return;
+            if (!isAbortLikeError(error, controller.signal)) {
+                state.inventoryError = error instanceof Error ? error.message : 'Unable to scan libraries.';
+            }
+        } finally {
+            if (token === state.sessionToken && this._inventoryAbortController === controller) {
+                this._inventoryAbortController = null;
+                state.isInventoryLoading = false;
+                onStateChange();
+            }
+        }
+    }
+
+    cancelInventory(): void {
+        this._inventoryAbortController?.abort();
+        this._deps.state.isInventoryLoading = false;
+    }
+
+    retryInventory(libraryId: string, onStateChange: () => void): Promise<void> {
+        this._deps.workflowPort.retrySetupInventory(libraryId);
+        this._deps.state.acceptedReadyLibraryIds.delete(libraryId);
+        this._deps.state.knownReadyLibraryIds.delete(libraryId);
+        this.clearReviewForEdits();
+        return this.scanInventory(onStateChange);
+    }
+
+    acceptReadySubset(libraryIds: readonly string[]): boolean {
+        const ready = new Set(this._deps.state.inventory?.acceptedReadyLibraryIds ?? []);
+        if (libraryIds.length === 0 || libraryIds.some((id) => !ready.has(id))) return false;
+        this._deps.state.acceptedReadyLibraryIds = new Set(libraryIds);
+        this.clearReviewForEdits();
+        return true;
+    }
+
+    confirmDeselectedLibraries(libraryIds: readonly string[]): void {
+        this._deps.state.confirmedDeselectedLibraryIds = new Set(libraryIds.filter((id) =>
+            !this._deps.state.selectedLibraryIds.has(id)));
+        this.clearReviewForEdits();
+    }
+
     updateStrategyState(mutate: (draft: StrategyStepMutableState) => void): void {
         this._deps.state.updateStrategyState(mutate);
+        this._deps.state.previewStatus = 'idle';
+        this._deps.state.inventory = null;
+        this._deps.state.acceptedReadyLibraryIds.clear();
+        this._deps.state.confirmedDeselectedLibraryIds.clear();
+        this._deps.state.knownReadyLibraryIds.clear();
+        this._inventoryAbortController?.abort();
         this.clearReviewForEdits();
     }
 
     clearReviewForEdits(): void {
         this._retirePlanningRequests();
         this._deps.state.clearReviewForEdits();
+        this._deps.workflowPort.cancelPreparedReview();
     }
 
     schedulePreview(onStateChange: () => void): void {
@@ -231,6 +320,15 @@ export class ChannelSetupSessionRuntime {
         this._previewTimeoutId = setTimeout(() => {
             void this._refreshPreview(onStateChange);
         }, CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS);
+    }
+
+    refreshReview(onStateChange: () => void): Promise<void> {
+        this._reviewAbortController?.abort();
+        this._reviewAbortController = null;
+        this._deps.state.isReviewLoading = false;
+        this._deps.workflowPort.cancelPreparedReview();
+        this._deps.state.clearReviewForEdits();
+        return this.ensureReviewLoaded(onStateChange);
     }
 
     async ensureReviewLoaded(onStateChange: () => void): Promise<void> {
@@ -268,6 +366,10 @@ export class ChannelSetupSessionRuntime {
             if (shouldFetchReview()) {
                 const review = await this._deps.workflowPort.getSetupReview(state.buildConfig(serverId), {
                     signal: reviewAbortController.signal,
+                    ...(state.acceptedReadyLibraryIds.size > 0
+                        ? { acceptedReadyLibraryIds: Array.from(state.acceptedReadyLibraryIds) } : {}),
+                    ...(state.confirmedDeselectedLibraryIds.size > 0
+                        ? { confirmedDeselectedLibraryIds: Array.from(state.confirmedDeselectedLibraryIds) } : {}),
                 });
                 if (token !== state.sessionToken) return;
                 if (this._reviewAbortController !== reviewAbortController) return;
@@ -320,35 +422,49 @@ export class ChannelSetupSessionRuntime {
         const config = state.buildConfig(serverId);
 
         try {
-            const result = await this._deps.workflowPort.createChannelsFromSetup(config, {
+            const reviewId = state.review?.preparedId;
+            const expectedScopeKey = state.review?.inventory?.scopeKey;
+            if (!reviewId) return { kind: 'blocked', message: 'Review expired. Refresh Review.' };
+            if (!expectedScopeKey) return { kind: 'blocked', message: 'Review scope expired. Refresh Review.' };
+            const result = await this._deps.workflowPort.applySetupReview(reviewId, config, {
+                removalConfirmedForReviewId: state.replaceConfirmReviewId,
+                wholeLineupReplacementConfirmedForReviewId: state.wholeLineupReplacementConfirmReviewId,
+            }, {
                 signal: buildAbortController.signal,
                 onProgress: options.onProgress,
             });
 
-            const committed = result.commitState === 'committed';
-            if (!committed && token !== state.sessionToken) return { kind: 'canceled' };
-            if (!committed && result.blockedMessage !== undefined) {
-                return { kind: 'blocked', message: result.blockedMessage };
+            let completedResult: Extract<ChannelSetupApplyResult, { kind: 'committed' | 'no-change' }>;
+            switch (result.kind) {
+                case 'blocked':
+                    return token !== state.sessionToken ? { kind: 'canceled' }
+                        : { kind: 'blocked', message: result.message, reason: result.reason };
+                case 'canceled':
+                    return { kind: 'canceled' };
+                case 'committed':
+                case 'no-change':
+                    completedResult = result;
+                    break;
+                default:
+                    return assertNeverApplyResult(result);
             }
-            if (!committed && result.canceled) return { kind: 'canceled' };
+            if (token !== state.sessionToken) return { kind: 'canceled' };
             let bookkeepingError: string | undefined;
             try {
-                const completionResult = this._deps.workflowPort.markSetupComplete(serverId, config);
+                const completionResult = this._deps.workflowPort.markSetupComplete(serverId, config, expectedScopeKey);
                 bookkeepingError = completionResult.ok ? undefined : completionResult.message;
             } catch (error) {
-                if (!committed && isAbortLikeError(error, buildAbortController.signal)) {
-                    return { kind: 'canceled' };
-                }
                 bookkeepingError = error instanceof Error ? error.message : 'Unable to save setup completion.';
             }
             if (token !== state.sessionToken) {
                 return { kind: 'canceled' };
             }
             return {
-                kind: committed && result.guideRefresh?.kind === 'interrupted' ? 'committed-with-guide-interrupted' : 'success',
+                kind: completedResult.kind === 'committed' && completedResult.summary.guideRefresh?.kind === 'interrupted'
+                    ? 'committed-with-guide-interrupted' : 'success',
                 serverId,
                 config,
-                result,
+                result: completedResult.summary,
                 ...(bookkeepingError !== undefined ? { bookkeepingError } : {}),
             };
         } catch (error) {
@@ -380,7 +496,13 @@ export class ChannelSetupSessionRuntime {
     }
 
     private _handleLibrarySelectionEdit(): void {
-        this._invalidateFacetSnapshotIfAvailable();
+        for (const id of this._deps.state.selectedLibraryIds) {
+            this._deps.state.confirmedDeselectedLibraryIds.delete(id);
+        }
+        this._deps.state.inventory = null;
+        this._deps.state.previewStatus = 'idle';
+        this._deps.state.acceptedReadyLibraryIds.clear();
+        this._inventoryAbortController?.abort();
         this.clearReviewForEdits();
     }
 
@@ -536,10 +658,12 @@ export class ChannelSetupSessionRuntime {
     private _resetState(): void {
         const state = this._deps.state;
         this._loadAbortController?.abort();
+        this._inventoryAbortController?.abort();
         this._buildAbortController?.abort();
         this._previewAbortController?.abort();
         this._reviewAbortController?.abort();
         this._loadAbortController = null;
+        this._inventoryAbortController = null;
         this._buildAbortController = null;
         this._previewAbortController = null;
         this._reviewAbortController = null;
@@ -553,6 +677,7 @@ export class ChannelSetupSessionRuntime {
         }
         this._clearPreviewDeltas();
         state.resetForNewSession();
+        this._deps.workflowPort.cancelPreparedReview();
     }
 
     private _cleanupPlanningAsyncState(preserveReview = false): void {

@@ -50,6 +50,25 @@ const createStore = (
 });
 
 describe('ChannelSetupRecordStore', () => {
+    it('reopens persisted programming choices and preserves old-record defaults', () => {
+        const storage = new Map<string, string>();
+        const store = createStore(storage);
+        const saved = store.markSetupComplete('server-1', createConfig({ seriesOrdering: {
+            basePlaybackMode: 'random', baseBlockSize: 4, lineupSeed: 73,
+            startTimeAnchor: 1_700_000_000_000, includeSpecials: false,
+        } }));
+        expect(saved.ok).toBe(true);
+        expect(store.getRecord('server-1')?.seriesOrdering).toEqual({
+            basePlaybackMode: 'random', baseBlockSize: 4, lineupSeed: 73,
+            startTimeAnchor: 1_700_000_000_000, includeSpecials: false,
+        });
+        storage.set('lineup_channel_setup_v3:server-1:user-1', JSON.stringify({
+            ...createConfig(), createdAt: 1, updatedAt: 2,
+        }));
+        expect(store.getRecord('server-1')?.seriesOrdering).toEqual({
+            basePlaybackMode: 'shuffle', baseBlockSize: 3,
+        });
+    });
     it('returns null for missing records', () => {
         const storage = new Map<string, string>();
         const store = createStore(storage);

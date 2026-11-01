@@ -8,8 +8,7 @@ import type {
 } from '../../../modules/ui/server-select';
 import type { GuideSettingChange, SettingsPersistenceResult } from '../../../modules/ui/settings/types';
 import type { ThemeName } from '../../../modules/ui/theme';
-import type { ChannelSwitchOutcome, ChannelSwitchPresentationOptions } from '../../../types/channelSwitch';
-import type { PlaybackStartOutcome } from '../../../types/playbackStart';
+import type { OverlayTransparency } from '../../../modules/settings/NowPlayingDisplayStore';
 import type { ChannelSetupScreenWorkflowPort } from '../../channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import type { ChannelSetupWorkflowPort } from '../../channel-setup/workflow/ChannelSetupWorkflowPort';
 import type {
@@ -32,25 +31,23 @@ export const createChannelSetupScreenWorkflowPort = (
     invalidateFacetSnapshot: () => workflowPort.invalidateFacetSnapshot(),
     invalidateSessionData: () => workflowPort.invalidateSessionData(),
     getLibrariesForSetup: (signal) => workflowPort.getLibrariesForSetup(signal),
+    scanSetupInventory: (config, options) => workflowPort.scanSetupInventory(config, options),
+    retrySetupInventory: (libraryId) => workflowPort.retrySetupInventory(libraryId),
     getChannelSetupRecord: (serverId) => workflowPort.getChannelSetupRecord(serverId),
     getSetupContextForSelectedServer: () => workflowPort.getSetupContextForSelectedServer(),
     getSetupPreview: (config, options) => workflowPort.getSetupPreview(config, options),
     getSetupReview: (config, options) => workflowPort.getSetupReview(config, options),
-    createChannelsFromSetup: (config, options) => workflowPort.createChannelsFromSetup(config, options),
-    markSetupComplete: (serverId, setupConfig) => workflowPort.markSetupComplete(serverId, setupConfig),
+    applySetupReview: (reviewId, config, consent, options) =>
+        workflowPort.applySetupReview(reviewId, config, consent, options),
+    cancelPreparedReview: () => workflowPort.cancelPreparedReview(),
+    markSetupComplete: (serverId, setupConfig, expectedScopeKey) =>
+        workflowPort.markSetupComplete(serverId, setupConfig, expectedScopeKey),
 });
 
 interface AppShellChannelSetupRuntimeSource {
     getChannelSetupWorkflowPort(): ChannelSetupWorkflowPort;
     getSelectedServerId(): string | null;
     openServerSelect(): void;
-    switchToChannelByNumberWithOutcome(
-        number: number,
-        options?: ChannelSwitchPresentationOptions
-    ): Promise<ChannelSwitchOutcome>;
-    waitForNextPlaybackStart(signal?: AbortSignal): Promise<PlaybackStartOutcome>;
-    openEPG(): void;
-    appendBuilderGuideDiagnostic(event: string, data: unknown): void;
 }
 
 export const createChannelSetupRuntimePort = (
@@ -65,16 +62,13 @@ export const createChannelSetupRuntimePort = (
             createChannelSetupScreenWorkflowPort(runtime.getChannelSetupWorkflowPort()),
         getSelectedServerId: () => runtime.getSelectedServerId(),
         openServerSelect: () => runtime.openServerSelect(),
-        switchToChannelByNumberWithOutcome: (number, options) =>
-            runtime.switchToChannelByNumberWithOutcome(number, options),
-        waitForNextPlaybackStart: (signal) => runtime.waitForNextPlaybackStart(signal),
-        openEPG: () => runtime.openEPG(),
-        appendBuilderGuideDiagnostic: (event, data) =>
-            runtime.appendBuilderGuideDiagnostic(event, data),
     };
 };
 
 export interface AppLazyScreenPortFactoryOptions {
+    openCustomChannelStudio: () => void;
+    openChannelsFromSettings: () => void;
+    goBackFromChannelSetupLibraries: () => void;
     getNavigationRuntime: () => AppShellNavigationRuntimePort | null;
     getAuthRuntime: () => AppShellAuthRuntimePort | null;
     getProfileRuntime: () => AppShellProfileRuntimePort | null;
@@ -95,9 +89,21 @@ export interface AppLazySettingsRuntimePorts {
     getActiveUsername: () => string | null;
     getTheme: () => ThemeName;
     setTheme: (theme: ThemeName) => SettingsPersistenceResult;
+    getThemePersistenceResult: () => SettingsPersistenceResult;
+    retryThemePersistence: () => SettingsPersistenceResult;
+    updateSettingsPlaybackPolicy: (keepRunning: boolean) => void;
+    setOverlayTransparency: (value: OverlayTransparency) => void;
+    setAccessibilityPreference: (name: 'reduceMotion' | 'largeFocus', enabled: boolean) => void;
+    switchProfileFromSettings: () => void;
+    switchServerFromSettings: () => void;
+    manageChannelsFromSettings: () => void;
+    signOutFromSettings: () => Promise<void>;
 }
 
 export class AppLazyScreenPortFactory {
+    private readonly _openCustomChannelStudio: () => void;
+    private readonly _openChannelsFromSettings: () => void;
+    private readonly _goBackFromChannelSetupLibraries: () => void;
     private readonly _getNavigationRuntime: () => AppShellNavigationRuntimePort | null;
     private readonly _getAuthRuntime: () => AppShellAuthRuntimePort | null;
     private readonly _getProfileRuntime: () => AppShellProfileRuntimePort | null;
@@ -106,6 +112,9 @@ export class AppLazyScreenPortFactory {
     private readonly _getSettingsRuntime: () => AppShellSettingsRuntimePort | null;
 
     constructor(options: AppLazyScreenPortFactoryOptions) {
+        this._openCustomChannelStudio = options.openCustomChannelStudio;
+        this._openChannelsFromSettings = options.openChannelsFromSettings;
+        this._goBackFromChannelSetupLibraries = options.goBackFromChannelSetupLibraries;
         this._getNavigationRuntime = options.getNavigationRuntime;
         this._getAuthRuntime = options.getAuthRuntime;
         this._getProfileRuntime = options.getProfileRuntime;
@@ -196,12 +205,8 @@ export class AppLazyScreenPortFactory {
                 getNavigation: () => this.getNavigation(),
                 getSelectedServerId: () => runtime.getSelectedServerId(),
                 openServerSelect: () => runtime.openServerSelect(),
-                switchToChannelByNumberWithOutcome: (number, options) =>
-                    runtime.switchToChannelByNumberWithOutcome(number, options),
-                waitForNextPlaybackStart: (signal) => runtime.waitForNextPlaybackStart(signal),
-                openEPG: () => runtime.openEPG(),
-                appendBuilderGuideDiagnostic: (event, data) =>
-                    runtime.appendBuilderGuideDiagnostic(event, data),
+                goBackFromLibraries: () => this._goBackFromChannelSetupLibraries(),
+                openCustomChannelStudio: () => this._openCustomChannelStudio(),
             },
         };
     }
@@ -219,6 +224,15 @@ export class AppLazyScreenPortFactory {
             getActiveUsername: () => runtime.getActiveUsername(),
             getTheme: () => runtime.getTheme(),
             setTheme: (theme: ThemeName) => runtime.setTheme(theme),
+            getThemePersistenceResult: () => runtime.getThemePersistenceResult(),
+            retryThemePersistence: () => runtime.retryThemePersistence(),
+            updateSettingsPlaybackPolicy: (keepRunning) => runtime.updateSettingsPlaybackPolicy(keepRunning),
+            setOverlayTransparency: (value) => runtime.setOverlayTransparency(value),
+            setAccessibilityPreference: (name, enabled) => runtime.setAccessibilityPreference(name, enabled),
+            switchProfileFromSettings: () => runtime.switchProfileFromSettings(),
+            switchServerFromSettings: () => runtime.switchServerFromSettings(),
+            manageChannelsFromSettings: () => this._openChannelsFromSettings(),
+            signOutFromSettings: () => runtime.signOutFromSettings(),
         };
     }
 }

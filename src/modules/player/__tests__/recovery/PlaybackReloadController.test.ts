@@ -12,6 +12,13 @@ import type { IVideoPlayer } from '../../core/interfaces';
 import type { StreamDescriptor } from '../../core/types';
 import { expectConsoleError, expectConsoleWarn } from '../../../../__tests__/helpers';
 
+const admittedRecovery = {
+    captureRecoveryAdmission: (): number => 1,
+    isRecoveryAdmissionCurrent: (): boolean => true,
+    canPlayForRecovery: (): boolean => true,
+    acceptCommittedSession: jest.fn(),
+};
+
 const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgram =>
     ({
         item: {
@@ -80,6 +87,7 @@ const makeContext = (
     return {
         program,
         programIdentity,
+        admissionGeneration: 1,
         player,
         resolver,
         itemKey: 'item-1',
@@ -159,6 +167,7 @@ describe('PlaybackReloadController', () => {
         } as unknown as IVideoPlayer;
         const resolver: IPlexStreamResolver = {} as IPlexStreamResolver;
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => program,
@@ -192,6 +201,7 @@ describe('PlaybackReloadController', () => {
         const buildStreamDescriptor = jest.fn().mockReturnValue(descriptor);
         const resetPlaybackFailureGuard = jest.fn();
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
@@ -243,6 +253,7 @@ describe('PlaybackReloadController', () => {
         const setCurrentStreamDescriptor = jest.fn();
         const onSuccess = jest.fn();
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
@@ -290,6 +301,7 @@ describe('PlaybackReloadController', () => {
             currentDecision: makeDecision({ sessionId: 'sess-same' }),
         });
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
@@ -345,6 +357,7 @@ describe('PlaybackReloadController', () => {
                 currentDecision: createPriorDecision(),
             });
             const controller = new PlaybackReloadController({
+            ...admittedRecovery,
                 getVideoPlayer: (): IVideoPlayer => context.player,
                 getStreamResolver: (): IPlexStreamResolver => context.resolver,
                 getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
@@ -387,6 +400,7 @@ describe('PlaybackReloadController', () => {
             currentDecision: makeDecision({ sessionId: 'sess-prior' }),
         });
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
@@ -428,6 +442,7 @@ describe('PlaybackReloadController', () => {
             currentDecision: makeDecision({ sessionId: 'sess-prior' }),
         });
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
@@ -472,6 +487,7 @@ describe('PlaybackReloadController', () => {
             currentDecision: makeDecision({ sessionId: 'sess-prior' }),
         });
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
@@ -514,6 +530,7 @@ describe('PlaybackReloadController', () => {
         } as unknown as IVideoPlayer;
         const resolver: IPlexStreamResolver = {} as IPlexStreamResolver;
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => program,
@@ -549,6 +566,7 @@ describe('PlaybackReloadController', () => {
         expectPlaybackRecoveryStart('disableBurnIn.start');
         expectPlaybackRecoveryAborted('disableBurnIn.aborted');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
@@ -594,6 +612,7 @@ describe('PlaybackReloadController', () => {
         expectPlaybackRecoveryStart('disableBurnIn.start');
         expectPlaybackRecoveryAborted('disableBurnIn.aborted');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
@@ -639,6 +658,7 @@ describe('PlaybackReloadController', () => {
         } as unknown as IPlexStreamResolver;
         expectPlaybackRecoveryStart('disableBurnIn.start');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
@@ -683,6 +703,7 @@ describe('PlaybackReloadController', () => {
         expectPlaybackRecoveryStart('disableBurnIn.start');
         expectPlaybackRecoveryAborted('disableBurnIn.aborted');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
@@ -750,16 +771,19 @@ describe('PlaybackReloadController', () => {
             player,
             resolver,
             currentDecision: previousDecision,
+            currentDescriptor: previousDescriptor,
         });
         expectPlaybackRecoveryStart('audioReload.start');
         expectPlaybackRecoveryFailed('audioReload.failed');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
             getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
                 context.programIdentity,
             getCurrentStreamDecision: (): StreamDecision | null => currentDecision,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => currentDescriptor,
             setCurrentStreamDecision: (decision): void => {
                 currentDecision = decision;
             },
@@ -825,16 +849,19 @@ describe('PlaybackReloadController', () => {
             player,
             resolver,
             currentDecision: previousDecision,
+            currentDescriptor: previousDescriptor,
         });
         expectPlaybackRecoveryStart('audioReload.start');
         expectPlaybackRecoveryFailed('audioReload.failed');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
             getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity =>
                 context.programIdentity,
             getCurrentStreamDecision: (): StreamDecision | null => currentDecision,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => currentDescriptor,
             setCurrentStreamDecision: (decision): void => {
                 currentDecision = decision;
             },
@@ -917,6 +944,7 @@ describe('PlaybackReloadController', () => {
         expectPlaybackRecoveryStart('audioReload.start');
         expectPlaybackRecoveryAborted('audioReload.aborted');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
@@ -1006,6 +1034,7 @@ describe('PlaybackReloadController', () => {
         expectPlaybackRecoveryStart('audioReload.start');
         expectPlaybackRecoveryAborted('audioReload.aborted');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
@@ -1091,6 +1120,7 @@ describe('PlaybackReloadController', () => {
         expectPlaybackRecoveryStart('audioReload.start');
         expectPlaybackRecoveryAborted('audioReload.aborted');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
@@ -1149,6 +1179,7 @@ describe('PlaybackReloadController', () => {
         } as unknown as IVideoPlayer;
         const context = makeContext({ program: originalProgram, player });
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
@@ -1188,6 +1219,7 @@ describe('PlaybackReloadController', () => {
         expectPlaybackRecoveryStart('transcodeFallback.start');
         expectPlaybackRecoveryFailed('transcodeFallback.failed');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
@@ -1227,6 +1259,7 @@ describe('PlaybackReloadController', () => {
         expectPlaybackRecoveryFailed('transcodeFallback.failed');
         expectPlaybackRecoveryFailed('transcodeFallback.failed.onFailureFailed');
         const controller = new PlaybackReloadController({
+            ...admittedRecovery,
             getVideoPlayer: (): IVideoPlayer => context.player,
             getStreamResolver: (): IPlexStreamResolver => context.resolver,
             getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
@@ -1256,5 +1289,105 @@ describe('PlaybackReloadController', () => {
         });
 
         expect(result).toEqual({ outcome: 'failed' });
+    });
+
+    it('abandons an owned reload when Stop invalidates admission during load', async () => {
+        const descriptor = { url: 'http://test/attempt.m3u8' } as StreamDescriptor;
+        let activeDescriptor: StreamDescriptor | null = null;
+        let admissionCurrent = true;
+        const player = {
+            loadStream: jest.fn().mockImplementation(async (loaded: StreamDescriptor) => {
+                activeDescriptor = loaded;
+                admissionCurrent = false;
+            }),
+            unloadStream: jest.fn().mockImplementation(() => { activeDescriptor = null; }),
+            getCurrentDescriptor: jest.fn().mockImplementation(() => activeDescriptor),
+            play: jest.fn(),
+            getCurrentTimeMs: jest.fn().mockReturnValue(5000),
+        } as unknown as IVideoPlayer;
+        const context = makeContext({
+            player,
+            currentDecision: makeDecision({ sessionId: 'sess-prior', isTranscoding: false }),
+        });
+        const setDecision = jest.fn();
+        const setDescriptor = jest.fn();
+        const controller = new PlaybackReloadController({
+            ...admittedRecovery,
+            isRecoveryAdmissionCurrent: (): boolean => admissionCurrent,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getStreamResolver: (): IPlexStreamResolver => context.resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity => context.programIdentity,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => context.currentDescriptor,
+            setCurrentStreamDecision: setDecision,
+            setCurrentStreamDescriptor: setDescriptor,
+            buildStreamDescriptor: (): StreamDescriptor => descriptor,
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+        expectPlaybackRecoveryStart('audioReload.start');
+        expectConsoleWarn(['playback_recovery', expect.objectContaining({
+            event: 'audioReload.aborted', outcome: 'admission_changed',
+        })]);
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey }) => ({ itemKey, directPlay: false }),
+            shouldResumeAfterReload: true,
+        });
+
+        expect(result).toEqual({ outcome: 'ignored', reason: 'admission_changed' });
+        expect(player.unloadStream).toHaveBeenCalledTimes(1);
+        expect(player.play).not.toHaveBeenCalled();
+        expect(setDecision).toHaveBeenCalledWith(null);
+        expect(setDescriptor).toHaveBeenCalledWith(null);
+        expect(context.resolver.stopTranscodeSession).toHaveBeenCalledWith('sess-1');
+    });
+
+    it('commits a paused track reload without starting native playback', async () => {
+        let canPlay = true;
+        const descriptor = { url: 'http://test/paused.m3u8' } as StreamDescriptor;
+        const player = {
+            loadStream: jest.fn().mockImplementation(async () => { canPlay = false; }),
+            play: jest.fn(),
+            getCurrentTimeMs: jest.fn().mockReturnValue(5000),
+        } as unknown as IVideoPlayer;
+        const context = makeContext({ player });
+        const setDecision = jest.fn();
+        const setDescriptor = jest.fn();
+        const controller = new PlaybackReloadController({
+            ...admittedRecovery,
+            canPlayForRecovery: (): boolean => canPlay,
+            getVideoPlayer: (): IVideoPlayer => player,
+            getStreamResolver: (): IPlexStreamResolver => context.resolver,
+            getCurrentProgramForPlayback: (): ScheduledProgram => context.program,
+            getCurrentProgramIdentityForPlayback: (): ScheduledProgramIdentity => context.programIdentity,
+            getCurrentStreamDecision: (): StreamDecision | null => context.currentDecision,
+            getCurrentStreamDescriptor: (): StreamDescriptor | null => context.currentDescriptor,
+            setCurrentStreamDecision: setDecision,
+            setCurrentStreamDescriptor: setDescriptor,
+            buildStreamDescriptor: (): StreamDescriptor => descriptor,
+            resetPlaybackFailureGuard: jest.fn(),
+        });
+        expectPlaybackRecoveryStart('audioReload.start');
+
+        const result = await controller.executeReload({
+            context,
+            successOutcome: 'reloaded',
+            startEvent: 'audioReload.start',
+            abortedEvent: 'audioReload.aborted',
+            failedEvent: 'audioReload.failed',
+            buildRequest: ({ itemKey }) => ({ itemKey, directPlay: false }),
+            shouldResumeAfterReload: true,
+        });
+
+        expect(result).toEqual({ outcome: 'reloaded' });
+        expect(player.play).not.toHaveBeenCalled();
+        expect(setDecision).toHaveBeenCalledTimes(1);
+        expect(setDescriptor).toHaveBeenCalledWith(descriptor);
     });
 });

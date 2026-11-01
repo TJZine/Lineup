@@ -1,19 +1,20 @@
 import '../styles.css';
 
 import { EventEmitter } from '../../../../utils/EventEmitter';
+import type { IDisposable } from '../../../../utils/interfaces';
 import { EPG_CLASSES, EPG_ERRORS, DEFAULT_EPG_CONFIG } from '../constants';
 import { EPGChannelList } from '../view/EPGChannelList';
 import { EPGErrorBoundary } from '../view/EPGErrorBoundary';
 import { EPGInfoPanel } from '../view/info-panel/EPGInfoPanel';
 import { EPGInfoPanelCoordinator } from '../view/info-panel/EPGInfoPanelCoordinator';
 import { EPGLibraryTabs } from '../view/EPGLibraryTabs';
+import { EPGGuideToolbar, type GuideToolbarAction } from '../view/EPGGuideToolbar';
 import { EPGShellView } from '../view/shell/EPGShellView';
 import { EPGTimeHeader } from '../view/EPGTimeHeader';
 import { EPGVirtualizer } from '../view/EPGVirtualizer';
 import { appendDebugRuntimeLog, isDebugRuntimeEnabled } from '../debug/debugRuntimeGuards';
 import { EPGFocusNavigator } from '../focus/EPGFocusNavigator';
 import { EPGGridRuntimeController } from '../runtime/EPGGridRuntimeController';
-import type { EpgLayoutMode } from '../../../settings/EpgPreferencesStore';
 import type { EPGShellElements } from '../view/shell/EPGShellView';
 import type { IEPGComponent } from '../interfaces';
 import type {
@@ -65,6 +66,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private channelList: EPGChannelList = new EPGChannelList();
     private errorBoundary: EPGErrorBoundary = new EPGErrorBoundary();
     private shellView: EPGShellView = new EPGShellView();
+    private toolbar = new EPGGuideToolbar();
     private gridRuntime: EPGGridRuntimeController = new EPGGridRuntimeController({
         getConfig: () => this.config,
         getState: () => this.state,
@@ -78,8 +80,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.hasRenderedOnce = hasRenderedOnce;
         },
         updateNowWatchingBanner: () => this.updateNowWatchingBanner(),
-        syncPeekMode: () => this.syncPeekMode(),
-        applyLayoutMode: () => this.applyLayoutMode(),
+        syncPicture: () => this.syncPicture(),
         appendDebugLog: (event, payload) => this._appendDebugLog(event, payload),
         isDebugEnabled: () => this._isDebugEnabled(),
     });
@@ -107,17 +108,21 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     // DOM elements
     private containerElement: HTMLElement | null = null;
     private classicShowcaseInfoElement: HTMLElement | null = null;
-    private overlayShowcaseElement: HTMLElement | null = null;
-    private dashboardBottomElement: HTMLElement | null = null;
     private gridElement: HTMLElement | null = null;
+    private toolbarElement: HTMLElement | null = null;
+    private menuTrigger: HTMLButtonElement | null = null;
+    private menuFocused = false;
+    private menuOverlay: HTMLElement | null = null;
+    private menuIndex = 0;
+    private emptyState: HTMLElement | null = null;
     private programAreaElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
     private channelIds: string[] = [];
     private scheduleSourceSnapshots = new Map<string, ChannelConfig>();
     private _libraryTabs: EPGLibraryTabs | null = null;
     private _isLibraryTabsFocused = false;
-    private _appliedLayoutMode: EpgLayoutMode | null = null;
-    private _appliedPipMode: EpgLayoutMode | null = null;
+    private _pictureOperation: 'guide-pip' | 'fullscreen' = 'fullscreen';
+    private pictureStatusSubscription: IDisposable | null = null;
     initialize(config: EPGConfig): void {
         if (this.state.isInitialized) {
             return;
@@ -136,6 +141,22 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.containerElement.style.setProperty('--epg-row-height', `${this.config.rowHeight}px`);
 
         this.createDOMStructure();
+        if (this.toolbarElement && this.containerElement) {
+            this.toolbar.initialize(this.toolbarElement, this.containerElement, {
+                onAction: (action) => this.handleToolbarAction(action),
+                onPickChannel: (index) => {
+                    this.toolbar.blur();
+                    this.containerElement?.classList.remove('epg-focus-in-toolbar');
+                    this.focusNavigator.scrollToChannel(index);
+                    this.focusNavigator.focusChannel(index);
+                },
+            });
+            this.toolbar.setHours(this.config.visibleHours);
+        }
+        this.menuTrigger?.addEventListener('click', () => this.openMenu());
+        this.createEmptyState();
+        this.pictureStatusSubscription = this.config.subscribePictureStatus?.(() => this.syncPicture()) ?? null;
+        this.config.onPictureOperation?.('fullscreen');
 
         this.initializeViewChildren();
 
@@ -157,6 +178,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     destroy(): void {
+        this.pictureStatusSubscription?.dispose();
+        this.pictureStatusSubscription = null;
         this.infoPanelCoordinator.destroy();
         this.gridRuntime.destroy();
 
@@ -165,6 +188,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.timeHeader.destroy();
         this.channelList.destroy();
         this._libraryTabs?.destroy();
+        this.toolbar.destroy();
+        this.closeMenu();
         this._libraryTabs = null;
         this._isLibraryTabsFocused = false;
 
@@ -172,15 +197,16 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.containerElement.style.removeProperty('--epg-row-height');
             this.containerElement.replaceChildren();
             this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_VISIBLE);
-            this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_PEEK);
-            this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_CLASSIC);
+
         }
 
         this.containerElement = null;
         this.classicShowcaseInfoElement = null;
-        this.overlayShowcaseElement = null;
-        this.dashboardBottomElement = null;
         this.gridElement = null;
+        this.toolbarElement = null;
+        this.menuTrigger = null;
+        this.menuFocused = false;
+        this.emptyState = null;
         this.programAreaElement = null;
 
         this.state = {
@@ -201,11 +227,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.channelIds = [];
         this.hasRenderedOnce = false;
         this.shellView.reset();
-        this._appliedLayoutMode = null;
-        if (this._appliedPipMode === 'classic') {
-            this.config.onLayoutModeChange?.('overlay');
-        }
-        this._appliedPipMode = null;
+        this.config.onPictureOperation?.('fullscreen');
+        this._pictureOperation = 'fullscreen';
 
         this.errorBoundary.destroy();
         this.removeAllListeners();
@@ -256,42 +279,19 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     private initializeInfoPanelHosts(): void {
-        const dashboard = this.dashboardBottomElement;
-        const overlayShowcase = this.overlayShowcaseElement;
-        if (!dashboard) {
-            throw new Error(EPG_ERRORS.DASHBOARD_CONTAINER_NOT_FOUND);
-        }
-        if (!overlayShowcase) {
-            throw new Error(EPG_ERRORS.OVERLAY_SHOWCASE_CONTAINER_NOT_FOUND);
-        }
-
-        this.infoPanel.initialize(overlayShowcase);
-        const infoPanelElement = overlayShowcase.querySelector(`.${EPG_CLASSES.INFO_PANEL}`) as HTMLElement | null;
-
-        if (this.config.resolveThumbUrl) {
-            this.infoPanel.setThumbResolver(this.config.resolveThumbUrl);
-        }
-        if (this.config.fetchItemDetails) {
-            this.infoPanel.setFetchItemDetails(this.config.fetchItemDetails);
-        }
-        this.infoPanelCoordinator.attachHosts({
-            infoPanelElement,
-            overlayShowcaseElement: overlayShowcase,
-            classicShowcaseInfoElement: this.classicShowcaseInfoElement,
-        });
+        const host = this.classicShowcaseInfoElement;
+        if (!host) throw new Error(EPG_ERRORS.SHOWCASE_INFO_HOST_NOT_FOUND);
+        this.infoPanel.initialize(host);
+        if (this.config.resolveThumbUrl) this.infoPanel.setThumbResolver(this.config.resolveThumbUrl);
+        if (this.config.fetchItemDetails) this.infoPanel.setFetchItemDetails(this.config.fetchItemDetails);
     }
 
     private _cacheShellElements(shell: EPGShellElements): void {
         this.gridElement = shell.grid;
+        this.toolbarElement = shell.toolbar;
+        this.menuTrigger = shell.menuTrigger;
         this.programAreaElement = shell.programArea;
         this.classicShowcaseInfoElement = shell.classicShowcaseInfo;
-        this.overlayShowcaseElement = shell.overlayShowcase;
-        this.dashboardBottomElement = shell.dashboardBottom;
-    }
-
-    private syncClassicShellVisibility(): void {
-        const mode: EpgLayoutMode = this.config.layoutMode ?? 'classic';
-        this.shellView.syncClassicShellVisibility(mode, this.state.isVisible);
     }
 
     private calculateGridAnchorTime(currentTime: number): number {
@@ -309,43 +309,18 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
 
-    private syncPeekMode(): void {
+    private syncPicture(): void {
         if (!this.containerElement) return;
-        if (this.config.isVideoPlaying?.() === true) {
-            this.containerElement.classList.add(EPG_CLASSES.CONTAINER_PEEK);
-        } else {
-            this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_PEEK);
+        const status = this.state.isVisible
+            ? this.config.getPictureStatus?.() ?? 'untuned'
+            : 'untuned';
+        const operation = this.state.isVisible && status !== 'untuned' && status !== 'error'
+            ? 'guide-pip' : 'fullscreen';
+        if (operation !== this._pictureOperation) {
+            this._pictureOperation = operation;
+            this.config.onPictureOperation?.(operation);
         }
-        this.syncClassicShellVisibility();
-    }
-
-    private applyLayoutMode(): void {
-        if (!this.containerElement) return;
-        const mode: EpgLayoutMode = this.config.layoutMode ?? 'classic';
-        const didLayoutModeChange = mode !== this._appliedLayoutMode;
-        if (didLayoutModeChange) {
-            this._appliedLayoutMode = mode;
-            if (mode === 'classic') {
-                this.containerElement.classList.add(EPG_CLASSES.CONTAINER_CLASSIC);
-            } else {
-                this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_CLASSIC);
-            }
-        }
-
-        const pipMode: EpgLayoutMode =
-            mode === 'classic' && this.config.isVideoPlaying?.() === true ? 'classic' : 'overlay';
-        if (pipMode !== this._appliedPipMode) {
-            this._appliedPipMode = pipMode;
-            this.config.onLayoutModeChange?.(pipMode);
-        }
-        this.infoPanelCoordinator.setLayoutMode(mode);
-        if (didLayoutModeChange && this.state.isVisible) {
-            const focusedCell = this.state.focusedCell;
-            if (focusedCell?.kind === 'program') {
-                this.infoPanelCoordinator.syncFocusedProgram(focusedCell.program);
-            }
-        }
-        this.syncClassicShellVisibility();
+        this.shellView.updatePictureStatus(status);
     }
 
     /**
@@ -356,11 +331,14 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         this.containerElement.classList.add(EPG_CLASSES.CONTAINER_VISIBLE);
         this.state.isVisible = true;
+        this.closeMenu();
+        this.menuFocused = false;
+        this.toolbar.blur();
+        this.containerElement.classList.remove('epg-focus-in-toolbar');
         this.gridRuntime.resetVisibleRange();
-        this.syncPeekMode();
-        this.applyLayoutMode();
+        this.syncPicture();
         this.updateNowWatchingBanner();
-        this.syncClassicShellVisibility();
+        this.shellView.syncVisibility(this.state.isVisible);
 
         // Start time indicator updates (paused when hidden)
         this.gridRuntime.startTimeUpdateInterval();
@@ -414,25 +392,20 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.virtualizer.clearFocusedTickerState();
         this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_VISIBLE);
         this.state.isVisible = false;
-        this.syncPeekMode();
-        this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_PEEK);
-        const wasClassic = this._appliedPipMode === 'classic';
-        this.containerElement.classList.remove(EPG_CLASSES.CONTAINER_CLASSIC);
-        this._appliedLayoutMode = 'overlay';
-        this._appliedPipMode = 'overlay';
-        if (wasClassic) {
-            this.config.onLayoutModeChange?.('overlay');
-        }
-        this.syncClassicShellVisibility();
+        this.containerElement.classList.remove('epg-focus-in-toolbar');
+        this.syncPicture();
+        this.shellView.syncVisibility(false);
 
         // Stop time updates when hidden (CPU optimization)
         this.gridRuntime.stopTimeUpdateInterval();
         this.gridRuntime.removeVisibilityListener();
 
         this.infoPanelCoordinator.clear();
+        this.closeMenu();
+        this.toolbar.back();
+        this.menuFocused = false;
         this._isLibraryTabsFocused = false;
-        this._libraryTabs?.destroy();
-        this._libraryTabs = null;
+        this._libraryTabs?.closePicker();
         this.emit('close', undefined);
     }
 
@@ -451,6 +424,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     loadChannels(channels: ChannelConfig[]): void {
         this.state.channels = channels;
+        if (this.emptyState) this.emptyState.hidden = channels.length > 0;
+        this.toolbar.setChannels(channels);
         this.channelIds = channels.map((c) => c.id);
         const retainedIds = new Set(this.channelIds);
         for (const channelId of this.state.rowLifecycle.keys()) {
@@ -490,11 +465,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
-    setLayoutMode(mode: EpgLayoutMode): void {
-        this.config.layoutMode = mode;
-        if (this.state.isVisible) {
-            this.applyLayoutMode();
-        }
+    setSourceLabelsEnabled(enabled: boolean): void {
+        this.config.sourceLabelsEnabled = enabled;
+        this.channelList.setSourceLabelsEnabled(enabled);
     }
 
     setVisibleHours(hours: number): void {
@@ -504,6 +477,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
 
         this.config.visibleHours = normalized;
+        this.toolbar.setHours(normalized);
         const maxOffset = Math.max(0, (this.config.totalHours * 60) - (this.config.visibleHours * 60));
         this.state.scrollPosition.timeOffset = Math.max(0, Math.min(this.state.scrollPosition.timeOffset, maxOffset));
         this.gridRuntime.resetVisibleRange();
@@ -526,7 +500,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     setLibraryTabs(libraries: Array<{ id: string; name: string }>, selectedId: string | null): void {
-        if (!this.gridElement) return;
+        if (!this.toolbarElement || !this.containerElement) return;
         if (!this._libraryTabs) {
             if (libraries.length <= 1) {
                 return;
@@ -534,7 +508,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this._libraryTabs = new EPGLibraryTabs({
                 onSelect: (libraryId: string | null): void => this.emit('libraryFilterChanged', { libraryId }),
             });
-            this._libraryTabs.initialize(this.gridElement);
+            this._libraryTabs.initialize(this.toolbarElement, this.containerElement);
         }
         this._libraryTabs.update(libraries, selectedId);
         if (!this._libraryTabs.isVisible()) {
@@ -698,11 +672,9 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     private updateNowWatchingBanner(): void {
-        const mode: EpgLayoutMode = this.config.layoutMode ?? 'classic';
         this.shellView.updateNowWatchingBanner({
             enabled: this.config.showNowWatchingBanner,
             getCurrentChannelInfo: this.config.getCurrentChannelInfo,
-            layoutMode: mode,
         });
     }
 
@@ -722,6 +694,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
      * @param programIndex - Program index within channel
      */
     focusProgram(channelIndex: number, programIndex: number): void {
+        this.containerElement?.classList.remove('epg-focus-in-toolbar');
         this.focusNavigator.focusProgram(channelIndex, programIndex);
     }
 
@@ -751,6 +724,59 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     handleNavigation(direction: 'up' | 'down' | 'left' | 'right'): boolean {
+        if (this.menuOverlay) {
+            if (direction === 'up' || direction === 'down') {
+                const buttons = this.menuOverlay.querySelectorAll('button');
+                const next = Math.max(0, Math.min(buttons.length - 1, this.menuIndex + (direction === 'down' ? 1 : -1)));
+                if (!buttons[next]?.disabled) this.menuIndex = next;
+                this.syncMenuFocus();
+            }
+            return true;
+        }
+        if (this.menuFocused) {
+            if (direction === 'down') {
+                this.setMenuFocused(false);
+                if (this._libraryTabs?.isVisible()) {
+                    this._isLibraryTabsFocused = true;
+                    this._libraryTabs.setFocusedToSelected();
+                } else this.toolbar.focus(0);
+            }
+            this.containerElement?.classList.toggle('epg-focus-in-toolbar', this.menuFocused || this.toolbar.isFocused() || this._isLibraryTabsFocused);
+            return true;
+        }
+        if (this.toolbar.isFocused() || this.toolbar.isSearchOpen()) {
+            const result = this.toolbar.handleNavigation(direction);
+            if (result === 'menu') this.setMenuFocused(true);
+            else if (result === 'library' && this._libraryTabs?.isVisible()) {
+                this._isLibraryTabsFocused = true;
+                this._libraryTabs.setFocusedToSelected();
+            } else if (result === 'grid' && direction === 'down') {
+                this.focusNavigator.focusChannel(this.state.scrollPosition.channelOffset);
+            }
+            this.containerElement?.classList.toggle('epg-focus-in-toolbar', this.menuFocused || this.toolbar.isFocused() || this._isLibraryTabsFocused);
+            return true;
+        }
+        if (this._isLibraryTabsFocused && direction === 'right' && !this._libraryTabs?.isPickerOpen()) {
+            this._isLibraryTabsFocused = false;
+            this._libraryTabs?.setPillFocused(false);
+            this.toolbar.focus(0);
+            this.containerElement?.classList.add('epg-focus-in-toolbar');
+            return true;
+        }
+        if (this._isLibraryTabsFocused && direction === 'up' && !this._libraryTabs?.isPickerOpen()) {
+            this._isLibraryTabsFocused = false;
+            this._libraryTabs?.setPillFocused(false);
+            this.setMenuFocused(true);
+            return true;
+        }
+        if (direction === 'up' && this.state.focusedCell?.channelIndex === 0) {
+            if (this._libraryTabs?.isVisible()) {
+                this._isLibraryTabsFocused = true;
+                this._libraryTabs.setFocusedToSelected();
+            } else this.toolbar.focus(0);
+            this.containerElement?.classList.add('epg-focus-in-toolbar');
+            return true;
+        }
         return this.focusNavigator.handleNavigation(direction);
     }
 
@@ -762,11 +788,126 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     }
 
     handleSelect(): boolean {
+        if (this.menuOverlay) {
+            if (this.menuOverlay.querySelectorAll('button')[this.menuIndex]?.disabled) return true;
+            const route = (['player', 'settings', 'channels', 'channel-setup'] as const)[this.menuIndex];
+            this.closeMenu();
+            if (route) this.emit('menuRouteRequested', route);
+            return true;
+        }
+        if (this.state.channels.length === 0) {
+            this.emit('setupRequested', undefined);
+            return true;
+        }
+        if (this.menuFocused) {
+            this.openMenu();
+            return true;
+        }
+        if (this.toolbar.isFocused() || this.toolbar.isSearchOpen()) {
+            return this.containerElement ? this.toolbar.select(this.containerElement) : false;
+        }
         return this.focusNavigator.handleSelect();
     }
 
     handleBack(): boolean {
+        if (this.menuOverlay) {
+            this.closeMenu();
+            return true;
+        }
+        if (this.toolbar.back()) return true;
+        if (this.menuFocused) {
+            this.setMenuFocused(false);
+            return true;
+        }
         return this.focusNavigator.handleBack();
+    }
+
+    private setMenuFocused(focused: boolean): void {
+        this.menuFocused = focused;
+        this.menuTrigger?.classList.toggle('epg-toolbar-focused', focused);
+        this.containerElement?.classList.toggle('epg-focus-in-toolbar', focused || this.toolbar.isFocused() || this._isLibraryTabsFocused);
+    }
+
+    private createEmptyState(): void {
+        if (!this.containerElement) return;
+        const state = document.createElement('div');
+        state.className = 'epg-empty-state';
+        state.hidden = this.state.channels.length > 0;
+        const heading = document.createElement('h2');
+        heading.textContent = 'No channels yet';
+        const description = document.createElement('p');
+        description.textContent = 'Set up your channels to start watching.';
+        const setup = document.createElement('button');
+        setup.type = 'button';
+        setup.dataset.action = 'setup';
+        setup.textContent = 'Set up channels';
+        setup.addEventListener('click', () => this.emit('setupRequested', undefined));
+        state.append(heading, description, setup);
+        this.containerElement.appendChild(state);
+        this.emptyState = state;
+    }
+
+    private openMenu(): void {
+        if (!this.containerElement || this.menuOverlay) return;
+        const overlay = document.createElement('nav');
+        overlay.className = 'epg-menu-overlay';
+        overlay.setAttribute('aria-label', 'Lineup menu');
+        const entries: Array<['player' | 'settings' | 'channels' | 'channel-setup' | 'server-select', string]> = [
+            ['player', 'Now playing'], ['settings', 'Settings'], ['channels', 'Channels'],
+            ['channel-setup', 'Set up channels'], ['server-select', 'Switch server'],
+        ];
+        for (const [route, label] of entries) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.dataset.action = route;
+            button.textContent = label;
+            if (route === 'player') {
+                const status = this.config.getPictureStatus?.() ?? 'untuned';
+                button.disabled = status === 'untuned' || status === 'error';
+            }
+            button.addEventListener('click', () => {
+                this.closeMenu();
+                this.emit('menuRouteRequested', route);
+            });
+            overlay.appendChild(button);
+        }
+        this.menuOverlay = overlay;
+        this.menuIndex = overlay.firstElementChild?.hasAttribute('disabled') ? 1 : 0;
+        this.containerElement.appendChild(overlay);
+        this.syncMenuFocus();
+    }
+
+    openLineupMenu(): void {
+        if (!this.isVisible()) return;
+        this.setMenuFocused(true);
+        this.openMenu();
+    }
+
+    private syncMenuFocus(): void {
+        this.menuOverlay?.querySelectorAll('button').forEach((button, index) => {
+            button.classList.toggle('epg-toolbar-focused', index === this.menuIndex);
+        });
+    }
+
+    private closeMenu(): void {
+        this.menuOverlay?.remove();
+        this.menuOverlay = null;
+    }
+
+    private handleToolbarAction(action: GuideToolbarAction): void {
+        if (action === 'earlier' || action === 'later') {
+            const delta = action === 'later' ? 30 : -30;
+            this.focusNavigator.scrollToTime(this.getState().viewWindow.startTime + delta * 60_000);
+        } else if (action === 'now') {
+            this.focusNavigator.scrollToTime(Date.now());
+        } else if (action === 'hours') {
+            const next = this.config.visibleHours === 2 ? 3 : this.config.visibleHours === 3 ? 4 : 2;
+            if (this.config.onGuideHoursChange?.(next) === false) this.toolbar.reportSaveFailure();
+            else {
+                this.toolbar.clearStatus();
+                this.setVisibleHours(next);
+            }
+        }
     }
 
 

@@ -91,7 +91,8 @@ export class ChannelSetupFocusCoordinator {
         } = options;
 
         const focusableCategories = categoryButtons.filter((button) => !button.disabled);
-        const focusableDetails = detailButtons.filter((button) => !button.disabled);
+        const focusableDetails = detailButtons.filter((element) =>
+            !(element instanceof HTMLButtonElement || element instanceof HTMLInputElement) || !element.disabled);
         const focusableFooters = footerButtons.filter((button) => !button.disabled);
         const focusableButtons = [...focusableCategories, ...focusableDetails, ...focusableFooters];
         const categoryIdSet = new Set(focusableCategories.map((button) => button.id));
@@ -103,7 +104,7 @@ export class ChannelSetupFocusCoordinator {
         for (const button of focusableButtons) {
             const neighbors: FocusableElement['neighbors'] = {};
             if (categoryIdSet.has(button.id)) {
-                const index = focusableCategories.indexOf(button);
+                const index = focusableCategories.findIndex((entry) => entry.id === button.id);
                 const up = focusableCategories[index - 1] ?? button;
                 const down = focusableCategories[index + 1] ?? backButton ?? button;
                 neighbors.up = up.id;
@@ -123,7 +124,7 @@ export class ChannelSetupFocusCoordinator {
                 neighbors.left = categoryIdSet.has(activeCategoryId) ? activeCategoryId : button.id;
                 neighbors.right = button.id;
             } else if (footerIdSet.has(button.id)) {
-                const index = focusableFooters.indexOf(button);
+                const index = focusableFooters.findIndex((entry) => entry.id === button.id);
                 const previousFooter = focusableFooters[index - 1];
                 const nextFooter = focusableFooters[index + 1];
                 neighbors.left = previousFooter?.id ?? button.id;
@@ -178,9 +179,8 @@ export class ChannelSetupFocusCoordinator {
             return false;
         }
 
-        const focusableButtons = buttons.filter(
-            (button): button is HTMLButtonElement =>
-                button instanceof HTMLButtonElement && !button.disabled
+        const focusableButtons = buttons.filter((element) =>
+            (element instanceof HTMLButtonElement || element instanceof HTMLInputElement) && !element.disabled
         );
         const entries: FocusableElement[] = [];
         for (const [index, button] of focusableButtons.entries()) {
@@ -211,7 +211,7 @@ export class ChannelSetupFocusCoordinator {
 
     private _setPreferredOrFirst(
         nav: { setFocus: (id: string) => void },
-        buttons: HTMLButtonElement[],
+        buttons: HTMLElement[],
         preferredFocusId: string | null
     ): boolean {
         if (preferredFocusId && buttons.some((button) => button.id === preferredFocusId)) {

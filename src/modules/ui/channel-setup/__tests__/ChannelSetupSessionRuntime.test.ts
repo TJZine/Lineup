@@ -2,12 +2,12 @@
  * @jest-environment jsdom
  */
 
-import { DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, createWorkflowPort, makeLibrary } from './channel-setup-test-helpers';
+import { DEFAULT_APPLY_RESULT, DEFAULT_BUILD_RESULT, DEFAULT_PREVIEW, DEFAULT_REVIEW, createWorkflowPort, makeLibrary } from './channel-setup-test-helpers';
 import { ChannelSetupSessionRuntime } from '../ChannelSetupSessionRuntime';
 import { ChannelSetupSessionState } from '../ChannelSetupSessionState';
 import { CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS } from '../constants';
 import { expectConsoleWarn, flushPromises } from '../../../../__tests__/helpers';
-import type { ChannelBuildSummary } from '../../../../core/channel-setup/types';
+import type { ChannelBuildSummary, ChannelSetupApplyResult } from '../../../../core/channel-setup/types';
 
 const createUnavailableError = (): Error => {
     const error = new Error('Channel setup not initialized');
@@ -49,6 +49,10 @@ const createRuntime = (
     return { runtime, state, workflowPort };
 };
 
+const armPreparedReview = (state: ChannelSetupSessionState): void => {
+    state.review = { ...DEFAULT_REVIEW, preparedId: 'prepared-review-1' };
+};
+
 describe('ChannelSetupSessionRuntime', () => {
     beforeEach(() => {
         jest.useFakeTimers();
@@ -86,13 +90,13 @@ describe('ChannelSetupSessionRuntime', () => {
         let loadSignal: AbortSignal | null | undefined;
         let buildSignal: AbortSignal | undefined;
         const loadDeferred = createDeferred<ReturnType<typeof makeLibrary>[]>();
-        const buildDeferred = createDeferred<typeof DEFAULT_BUILD_RESULT>();
+        const buildDeferred = createDeferred<typeof DEFAULT_APPLY_RESULT>();
         const workflowPort = createWorkflowPort({
             getLibrariesForSetup: jest.fn((signal?: AbortSignal | null) => {
                 loadSignal = signal;
                 return loadDeferred.promise;
             }),
-            createChannelsFromSetup: jest.fn((_config, options) => {
+            applySetupReview: jest.fn((_reviewId, _config, _consent, options) => {
                 buildSignal = options?.signal;
                 return buildDeferred.promise;
             }),
@@ -100,6 +104,7 @@ describe('ChannelSetupSessionRuntime', () => {
         const { runtime, state } = createRuntime({ workflowPort });
 
         runtime.beginSession();
+        armPreparedReview(state);
         const loadPromise = runtime.loadLibraries();
         const buildPromise = runtime.beginBuild({
             onProgress: jest.fn(),
@@ -117,7 +122,7 @@ describe('ChannelSetupSessionRuntime', () => {
         expect(state.isBuilding).toBe(false);
 
         loadDeferred.resolve([makeLibrary({ id: 'movies' })]);
-        buildDeferred.resolve(DEFAULT_BUILD_RESULT);
+        buildDeferred.resolve(DEFAULT_APPLY_RESULT);
 
         await expect(loadPromise).resolves.toBeUndefined();
         await expect(buildPromise).resolves.toEqual({ kind: 'canceled' });
@@ -218,6 +223,35 @@ describe('ChannelSetupSessionRuntime', () => {
         expect(state.pendingPreviewKey).toBeNull();
     });
 
+    it('refreshReview replaces an in-flight request and ignores its late result', async () => {
+        const first = createDeferred<typeof DEFAULT_REVIEW>();
+        const second = createDeferred<typeof DEFAULT_REVIEW>();
+        const workflowPort = createWorkflowPort({
+            getSetupReview: jest.fn()
+                .mockImplementationOnce(() => first.promise)
+                .mockImplementationOnce(() => second.promise),
+        });
+        const { runtime, state } = createRuntime({ workflowPort });
+        const onStateChange = jest.fn();
+
+        const initial = runtime.ensureReviewLoaded(onStateChange);
+        expect(state.isReviewLoading).toBe(true);
+
+        const refreshed = runtime.refreshReview(onStateChange);
+        expect(workflowPort.getSetupReview).toHaveBeenCalledTimes(2);
+        expect(state.isReviewLoading).toBe(true);
+
+        first.resolve({ ...DEFAULT_REVIEW, preparedId: 'retired' });
+        await initial;
+        expect(state.review).toBeNull();
+        expect(state.isReviewLoading).toBe(true);
+
+        second.resolve({ ...DEFAULT_REVIEW, preparedId: 'current' });
+        await refreshed;
+        expect(state.review?.preparedId).toBe('current');
+        expect(state.isReviewLoading).toBe(false);
+    });
+
     it('schedulePreview owns the debounce timer and marks slow previews with cleanup when the timeout expires', async () => {
         let previewSignal: AbortSignal | undefined;
         const previewDeferred = createDeferred<typeof DEFAULT_PREVIEW>();
@@ -252,14 +286,15 @@ describe('ChannelSetupSessionRuntime', () => {
 
     it('cancelBuild only aborts when a build is active', async () => {
         let buildSignal: AbortSignal | undefined;
-        const buildDeferred = createDeferred<typeof DEFAULT_BUILD_RESULT>();
+        const buildDeferred = createDeferred<typeof DEFAULT_APPLY_RESULT>();
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup: jest.fn((_config, options) => {
+            applySetupReview: jest.fn((_reviewId, _config, _consent, options) => {
                 buildSignal = options?.signal;
                 return buildDeferred.promise;
             }),
         });
-        const { runtime } = createRuntime({ workflowPort });
+        const { runtime, state } = createRuntime({ workflowPort });
+        armPreparedReview(state);
 
         expect(runtime.cancelBuild()).toBe(false);
 
@@ -288,7 +323,7 @@ describe('ChannelSetupSessionRuntime', () => {
             getLibrariesForSetup: jest.fn().mockRejectedValue('load primitive'),
             getSetupPreview: jest.fn().mockRejectedValue('preview primitive'),
             getSetupReview: jest.fn().mockRejectedValue(reviewFailure),
-            createChannelsFromSetup: jest.fn().mockRejectedValue('build primitive'),
+            applySetupReview: jest.fn().mockRejectedValue('build primitive'),
             markSetupComplete: jest.fn(() => {
                 throw 'bookkeeping primitive';
             }),
@@ -314,6 +349,8 @@ describe('ChannelSetupSessionRuntime', () => {
             ],
         });
 
+        armPreparedReview(state);
+
         await expect(runtime.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -322,7 +359,7 @@ describe('ChannelSetupSessionRuntime', () => {
             message: 'Build failed.',
         });
 
-        workflowPort.createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
+        workflowPort.applySetupReview = jest.fn().mockResolvedValue(DEFAULT_APPLY_RESULT);
         await expect(runtime.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
@@ -337,18 +374,18 @@ describe('ChannelSetupSessionRuntime', () => {
         async (buildMode) => {
             const interruptedResult: ChannelBuildSummary = {
                 ...DEFAULT_BUILD_RESULT,
-                commitState: 'committed',
-                guideRefresh: {
+                    guideRefresh: {
                     kind: 'interrupted',
                     interruption: { kind: 'aborted', stage: 'refresh_schedules' },
                 },
             };
             const workflowPort = createWorkflowPort({
-                createChannelsFromSetup: jest.fn().mockResolvedValue(interruptedResult),
+                applySetupReview: jest.fn().mockResolvedValue({ kind: 'committed', summary: interruptedResult }),
             });
             const { runtime, state } = createRuntime({ workflowPort });
             runtime.beginSession();
             state.buildMode = buildMode;
+            armPreparedReview(state);
 
             const outcome = await runtime.beginBuild({
                 onProgress: jest.fn(),
@@ -361,19 +398,20 @@ describe('ChannelSetupSessionRuntime', () => {
                 config: { buildMode },
             });
 
-            expect(workflowPort.createChannelsFromSetup).toHaveBeenCalledTimes(1);
+            expect(workflowPort.applySetupReview).toHaveBeenCalledTimes(1);
             expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
             expect(outcome).not.toHaveProperty('bookkeepingError');
         }
     );
 
     it('records a committed stale completion once but returns canceled without reviving ended session state', async () => {
-        const buildDeferred = createDeferred<ChannelBuildSummary>();
+        const buildDeferred = createDeferred<ChannelSetupApplyResult>();
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup: jest.fn(() => buildDeferred.promise),
+            applySetupReview: jest.fn(() => buildDeferred.promise),
         });
         const { runtime, state } = createRuntime({ workflowPort });
         runtime.beginSession();
+        armPreparedReview(state);
         const endedToken = state.sessionToken;
         const buildPromise = runtime.beginBuild({
             onProgress: jest.fn(),
@@ -381,79 +419,79 @@ describe('ChannelSetupSessionRuntime', () => {
         });
 
         runtime.endSession();
-        buildDeferred.resolve({
+        buildDeferred.resolve({ kind: 'committed', summary: {
             ...DEFAULT_BUILD_RESULT,
-            commitState: 'committed',
             guideRefresh: {
                 kind: 'interrupted',
                 interruption: { kind: 'aborted', stage: 'refresh_schedules' },
             },
-        });
+        } });
 
         await expect(buildPromise).resolves.toEqual({ kind: 'canceled' });
-        expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
+        expect(workflowPort.markSetupComplete).not.toHaveBeenCalled();
         expect(state.sessionToken).toBe(endedToken + 1);
         expect(state.isBuilding).toBe(false);
     });
 
     it('records stale committed work without clearing or overwriting a newer active build', async () => {
-        const firstBuildDeferred = createDeferred<ChannelBuildSummary>();
-        const secondBuildDeferred = createDeferred<ChannelBuildSummary>();
+        const firstBuildDeferred = createDeferred<ChannelSetupApplyResult>();
+        const secondBuildDeferred = createDeferred<ChannelSetupApplyResult>();
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup: jest.fn()
+            applySetupReview: jest.fn()
                 .mockImplementationOnce(() => firstBuildDeferred.promise)
                 .mockImplementationOnce(() => secondBuildDeferred.promise),
         });
         const { runtime, state } = createRuntime({ workflowPort });
         runtime.beginSession();
+        armPreparedReview(state);
         const firstBuild = runtime.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
         });
 
         runtime.beginSession();
+        armPreparedReview(state);
         const newerSessionToken = state.sessionToken;
         const secondBuild = runtime.beginBuild({
             onProgress: jest.fn(),
             onStateChange: jest.fn(),
         });
-        firstBuildDeferred.resolve({
+        firstBuildDeferred.resolve({ kind: 'committed', summary: {
             ...DEFAULT_BUILD_RESULT,
-            commitState: 'committed',
             guideRefresh: {
                 kind: 'interrupted',
                 interruption: { kind: 'aborted', stage: 'refresh_schedules' },
             },
-        });
+        } });
 
         await expect(firstBuild).resolves.toEqual({ kind: 'canceled' });
-        expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
+        expect(workflowPort.markSetupComplete).not.toHaveBeenCalled();
         expect(state.sessionToken).toBe(newerSessionToken);
         expect(state.isBuilding).toBe(true);
 
         expect(runtime.cancelBuild()).toBe(true);
         secondBuildDeferred.reject(new DOMException('Aborted', 'AbortError'));
         await expect(secondBuild).resolves.toEqual({ kind: 'canceled' });
-        expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
+        expect(workflowPort.markSetupComplete).not.toHaveBeenCalled();
     });
 
     it('keeps a committed interruption outcome when completion bookkeeping throws', async () => {
         const interruptedResult: ChannelBuildSummary = {
             ...DEFAULT_BUILD_RESULT,
-            commitState: 'committed',
             guideRefresh: {
                 kind: 'interrupted',
                 interruption: { kind: 'aborted', stage: 'ensure_initialized' },
             },
         };
         const workflowPort = createWorkflowPort({
-            createChannelsFromSetup: jest.fn().mockResolvedValue(interruptedResult),
+            applySetupReview: jest.fn().mockResolvedValue({ kind: 'committed', summary: interruptedResult }),
             markSetupComplete: jest.fn(() => {
                 throw new DOMException('Storage write interrupted', 'AbortError');
             }),
         });
-        const { runtime } = createRuntime({ workflowPort });
+        const { runtime, state } = createRuntime({ workflowPort });
         runtime.beginSession();
+        armPreparedReview(state);
 
         await expect(runtime.beginBuild({
             onProgress: jest.fn(),
@@ -464,5 +502,21 @@ describe('ChannelSetupSessionRuntime', () => {
             bookkeepingError: 'Storage write interrupted',
         });
         expect(workflowPort.markSetupComplete).toHaveBeenCalledTimes(1);
+    });
+
+    it('records a no-change completion only in the prepared Review scope', async () => {
+        const workflowPort = createWorkflowPort({
+            applySetupReview: jest.fn().mockResolvedValue({ kind: 'no-change', summary: {
+                ...DEFAULT_BUILD_RESULT, created: 0, noChange: true,
+            } }),
+        });
+        const { runtime, state } = createRuntime({ workflowPort });
+        runtime.beginSession();
+        armPreparedReview(state);
+
+        const outcome = await runtime.beginBuild({ onProgress: jest.fn(), onStateChange: jest.fn() });
+        expect(outcome.kind).toBe('success');
+        expect(workflowPort.markSetupComplete).toHaveBeenCalledWith('server-1',
+            expect.any(Object), JSON.stringify(['user-1', 'server-1']));
     });
 });

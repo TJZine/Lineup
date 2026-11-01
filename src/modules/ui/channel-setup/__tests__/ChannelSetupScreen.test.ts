@@ -2,8 +2,8 @@
  * @jest-environment jsdom
  */
 
+import type { ChannelSetupInventory } from '../../../../core/channel-setup/planning/ChannelSetupInventory';
 import { ChannelSetupScreen } from '../ChannelSetupScreen';
-import { ChannelSetupWorkflowPresenter } from '../ChannelSetupWorkflowPresenter';
 import type { PlexLibrarySection } from '../../../plex/library/types';
 import type { INavigationManager } from '../../../navigation/contracts/interfaces';
 import { MAX_CHANNELS } from '../../../scheduler/channel-manager/constants';
@@ -26,10 +26,9 @@ import {
     makeLibrary,
 } from './channel-setup-test-helpers';
 
-const INTERNAL_SETUP_COPY_PATTERN =
-    /\b(?:stop and re-plan|re-plan|planner|execution|cleanup|slice|blocked plan|plan blocked)\b|partial setup plan/i;
-
 const enterStep2 = async (container: HTMLElement): Promise<void> => {
+    clickButton(container, '#setup-scan');
+    await flushPromises();
     const next = container.querySelector('#setup-next');
     if (!(next instanceof HTMLButtonElement)) {
         throw new Error('Next button not found');
@@ -187,7 +186,7 @@ describe('ChannelSetupScreen', () => {
 
         clickButton(container, '#setup-select-all');
         expect(container.querySelectorAll('.setup-toggle.library-toggle.selected')).toHaveLength(2);
-        expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
+        expect((container.querySelector('#setup-scan') as HTMLButtonElement | null)?.disabled).toBe(false);
     });
 
     it('advances after clear-all and selecting a single library', async () => {
@@ -207,14 +206,12 @@ describe('ChannelSetupScreen', () => {
 
         clickButton(container, '#setup-clear-all');
         clickButton(container, '#setup-lib-movies');
-        expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.disabled).toBe(false);
+        expect((container.querySelector('#setup-scan') as HTMLButtonElement | null)?.disabled).toBe(false);
 
-        clickButton(container, '#setup-next');
-        await flushPromises();
-
-        expect(container.textContent ?? '').toContain('Step 2 of 3');
-        expect(container.textContent ?? '').toContain('Choose channel types to build.');
-        expect(container.querySelector('#setup-next')?.textContent).toBe('Review');
+        await enterStep2(container);
+        expect(container.textContent ?? '').toContain('2 Configure');
+        expect(container.textContent ?? '').toContain('Configure your lineup');
+        expect(container.querySelector('#setup-next')?.textContent).toBe('Review channels');
     });
 
     it('updates library toggle in place without replacing the button node', async () => {
@@ -268,11 +265,6 @@ describe('ChannelSetupScreen', () => {
 
     it('cleans up keyPress handlers and focus registrations across show/hide/destroy cycles', async () => {
         const container = createBodyAppendedTestContainer();
-        const cancelDoneTransition = jest.spyOn(
-            ChannelSetupWorkflowPresenter.prototype,
-            'cancelDoneTransition'
-        );
-
         const nav = createNavigationMock();
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getNavigation: jest.fn(() => nav as unknown as INavigationManager),
@@ -287,7 +279,6 @@ describe('ChannelSetupScreen', () => {
         expect(nav.focusables.size).toBeGreaterThan(0);
 
         screen.hide();
-        expect(cancelDoneTransition).toHaveBeenCalledTimes(1);
         expect(nav.off).toHaveBeenCalledTimes(1);
         expect(nav.focusables.size).toBe(0);
         const unregisterCallsAfterHide = nav.unregisterFocusable.mock.calls.length;
@@ -299,11 +290,9 @@ describe('ChannelSetupScreen', () => {
         expect(nav.focusables.size).toBeGreaterThan(0);
 
         screen.destroy();
-        expect(cancelDoneTransition).toHaveBeenCalledTimes(2);
         expect(nav.off).toHaveBeenCalledTimes(2);
         expect(nav.focusables.size).toBe(0);
         expect(nav.unregisterFocusable.mock.calls.length).toBeGreaterThan(unregisterCallsAfterHide);
-        cancelDoneTransition.mockRestore();
     });
 
     it('clears grabbed priority visuals before a reopened session reloads libraries', async () => {
@@ -627,21 +616,18 @@ describe('ChannelSetupScreen', () => {
 
         clickButton(container, '#setup-category-series-ordering');
 
-        clickButton(container, '#setup-series-base-mode');
-        expect(container.querySelector('#setup-dropdown')).not.toBeNull();
-        clickButton(container, '#setup-dropdown-option-2'); // Block
+        clickButton(container, '#setup-playback-block');
 
         clickButton(container, '#setup-series-base-block-size'); // remember this control
+        nav.emitKeyPress('back'); // close the adjustable menu
 
-        clickButton(container, '#setup-series-base-mode');
-        expect(container.querySelector('#setup-dropdown')).not.toBeNull();
-        clickButton(container, '#setup-dropdown-option-0'); // Shuffle
+        clickButton(container, '#setup-playback-shuffle');
 
         nav.setMockFocus('setup-category-series-ordering');
         const transfer = nav.emitKeyPress('right');
         expect(transfer.handled).toBe(true);
         expect(transfer.originalEvent.preventDefault).toHaveBeenCalled();
-        expect(nav.setFocus).toHaveBeenLastCalledWith('setup-series-base-mode');
+        expect(nav.setFocus).not.toHaveBeenLastCalledWith('setup-series-base-block-size');
     });
 
     it('moves left from non-adjustable detail controls back to active category', async () => {
@@ -981,7 +967,7 @@ describe('ChannelSetupScreen', () => {
         });
     });
 
-    it('keeps Step 2 free of estimate UI and preview planning work', async () => {
+    it('shows estimated generated and excluded summary from the preview owner', async () => {
         jest.useFakeTimers();
         const container = createBodyAppendedTestContainer();
 
@@ -1000,7 +986,12 @@ describe('ChannelSetupScreen', () => {
         jest.advanceTimersByTime(CHANNEL_SETUP_PREVIEW_DEBOUNCE_MS + 1);
         await flushPromises();
 
-        expect(getSetupPreview).not.toHaveBeenCalled();
+        expect(getSetupPreview).toHaveBeenCalledTimes(1);
+        const footer = container.querySelector('.setup-configure-footer');
+        expect(footer?.querySelector('.setup-configure-footer-summary')?.textContent).toContain('estimated generated');
+        expect(footer?.querySelector('.setup-configure-footer-actions #setup-next')).not.toBeNull();
+        expect(container.querySelectorAll('.setup-configure-footer-summary')).toHaveLength(1);
+        expect(container.querySelector('.screen-detail')?.textContent ?? '').not.toContain('estimated generated');
         expect(container.querySelector('.setup-preview-strip')).toBeNull();
         expect(container.querySelector('#setup-preview-toggle')).toBeNull();
     });
@@ -1028,360 +1019,109 @@ describe('ChannelSetupScreen', () => {
         expect(container.querySelector('#setup-category-content-sources .setup-category-dot')).toBeNull();
     });
 
-    it('uses Build Channels fast-path for first-time setup without loading review', async () => {
-        const container = createBodyAppendedTestContainer();
+    it.each(['first-time', 'existing', 'unknown'] as const)(
+        'loads authoritative Review before Apply in %s setup', async (setupContext) => {
+            const container = createBodyAppendedTestContainer();
+            const navigation = createNavigationMock();
+            const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
+            const applySetupReview = jest.fn().mockResolvedValue({ kind: 'no-change', summary: {
+                ...DEFAULT_BUILD_RESULT, created: 0, noChange: true,
+            } });
+            const { workflowPort, screenPorts } = createSplitScreenPorts({
+                getNavigation: jest.fn(() => navigation as unknown as INavigationManager),
+                getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+                getSetupContextForSelectedServer: jest.fn(() => setupContext),
+                getSetupReview, applySetupReview,
+            });
+            const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+            screen.show(); await flushPromises(); await enterStep2(container);
+            expect(container.querySelector('#setup-next')?.textContent).toBe('Review channels');
+            clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+            expect(container.textContent).toContain('Review your lineup');
+            expect(getSetupReview).toHaveBeenCalledTimes(1);
+            expect(applySetupReview).not.toHaveBeenCalled();
+            clickButton(container, '#setup-confirm'); await flushPromises();
+            expect(applySetupReview).toHaveBeenCalledTimes(1);
+            expect(container.textContent).toContain('Lineup unchanged');
+            clickButton(container, '#setup-done');
+            expect(navigation.replaceScreen).toHaveBeenCalledTimes(1);
+            expect(navigation.replaceScreen).toHaveBeenCalledWith('guide');
+        }
+    );
 
-        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            createChannelsFromSetup,
-            getSetupReview,
-            getSelectedServerId: jest.fn(() => 'server-1'),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        const nextButton = container.querySelector('#setup-next') as HTMLButtonElement | null;
-        expect(nextButton?.textContent).toBe('Build Channels');
-
-        clickButton(container, '#setup-next');
-        expect(container.textContent ?? '').toContain('Building channels');
-        await flushPromises();
-
-        expect(createChannelsFromSetup).toHaveBeenCalledTimes(1);
-        expect(getSetupReview).not.toHaveBeenCalled();
-    });
-
-    it('uses Review route for existing setup context', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
-            getSetupReview,
-            getSelectedServerId: jest.fn(() => 'server-1'),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        const nextButton = container.querySelector('#setup-next') as HTMLButtonElement | null;
-        expect(nextButton?.textContent).toBe('Review');
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        await flushPromises();
-
-        expect(container.textContent ?? '').toContain('Review changes before building');
-        expect(getSetupReview).toHaveBeenCalledTimes(1);
-    });
-
-    it('sanitizes review failures and allows Back followed by an immediate retry', async () => {
+    it('sanitizes Review failures and supports Refresh Review without losing Configure choices', async () => {
         expectConsoleWarn('Channel setup review failed:');
         const container = createBodyAppendedTestContainer();
-        const getSetupReview = jest
-            .fn()
-            .mockRejectedValueOnce(new Error('o is not a function'))
+        const getSetupReview = jest.fn().mockRejectedValueOnce(new Error('internal o is not a function'))
             .mockResolvedValueOnce(DEFAULT_REVIEW);
         const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
-            getSetupReview,
-            getSelectedServerId: jest.fn(() => 'server-1'),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]), getSetupReview,
         });
-
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        await flushPromises();
-
-        expect(container.textContent).toContain('Unable to prepare your review. Try again.');
-        expect(container.textContent).not.toContain('o is not a function');
-
-        clickButton(container, '#setup-back');
-        const retryButton = container.querySelector('#setup-next') as HTMLButtonElement | null;
-        expect(retryButton?.disabled).toBe(false);
-        expect(container.textContent).not.toContain('Unable to prepare your review');
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        await flushPromises();
-
+        screen.show(); await flushPromises(); await enterStep2(container);
+        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+        expect(container.textContent).toContain('Unable to prepare your review');
+        expect(container.textContent).not.toContain('internal o is not a function');
+        clickButton(container, '#setup-refresh-review'); await flushPromises(); await flushPromises();
         expect(getSetupReview).toHaveBeenCalledTimes(2);
-        expect(container.querySelector('#setup-replace-confirm')).not.toBeNull();
+        expect(container.textContent).toContain('Review your lineup');
     });
 
-    it('starts build progress after confirming review for existing setup context', async () => {
+    it('keeps removal consent bound to the prepared Review before Apply', async () => {
         const container = createBodyAppendedTestContainer();
-
-        let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | undefined;
-        const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
-            resolveBuild = resolve;
-        }));
+        const removal = { action: 'removed' as const, channelId: 'old-1', number: 7, name: 'Old Films',
+            sourceLibraryId: 'movies', sourceLibraryIds: ['movies'], sourceKind: 'library' as const,
+            playbackMode: 'shuffle' as const, shuffleSeed: 1, startTimeAnchor: 1, scheduleAnchorMode: 'daily' as const, blockSize: null,
+            includeSpecials: true, buildStrategy: null, reason: 'Complete library replaced' };
+        const reviewed = { ...DEFAULT_REVIEW, rows: [removal],
+            diff: { ...DEFAULT_REVIEW.diff, summary: { created: 0, removed: 1, unchanged: 0 } } };
+        const applySetupReview = jest.fn().mockResolvedValue({ kind: 'committed', summary: DEFAULT_BUILD_RESULT });
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
-            getSetupReview: jest.fn().mockResolvedValue(DEFAULT_REVIEW),
-            createChannelsFromSetup,
-            getSelectedServerId: jest.fn(() => 'server-1'),
+            getSetupReview: jest.fn().mockResolvedValue(reviewed), applySetupReview,
         });
-
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        await flushPromises();
-
+        screen.show(); await flushPromises(); await enterStep2(container);
+        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+        expect((container.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
+        clickButton(container, '#setup-filter-created');
+        expect(container.querySelectorAll('.setup-review-row')).toHaveLength(0);
         clickButton(container, '#setup-replace-confirm');
-        clickButton(container, '#setup-confirm');
-        await flushPromises();
-
-        expect(container.textContent ?? '').toContain('Building channels');
-        expect(createChannelsFromSetup).toHaveBeenCalledTimes(1);
-
-        if (!resolveBuild) {
-            throw new Error('Expected build resolver to be set');
-        }
-        resolveBuild(DEFAULT_BUILD_RESULT);
-        await flushPromises();
+        clickButton(container, '#setup-confirm'); await flushPromises();
+        expect(applySetupReview).toHaveBeenCalledWith('prepared-review-1', expect.any(Object),
+            expect.objectContaining({ removalConfirmedForReviewId: 'prepared-review-1' }), expect.any(Object));
     });
 
-    it('uses Review route for unknown setup context', async () => {
+    it('keeps blocked Apply unsaved and returns to an out-of-date Review', async () => {
         const container = createBodyAppendedTestContainer();
-
+        const applySetupReview = jest.fn().mockResolvedValue({ kind: 'blocked', reason: 'stale',
+            message: 'Base changed. Refresh Review.' });
         const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]), applySetupReview,
         });
-
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        const nextButton = container.querySelector('#setup-next') as HTMLButtonElement | null;
-        expect(nextButton?.textContent).toBe('Review');
+        screen.show(); await flushPromises(); await enterStep2(container);
+        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+        clickButton(container, '#setup-confirm'); await flushPromises();
+        expect(container.textContent).toContain('Nothing was saved');
+        clickButton(container, '#setup-back');
+        expect(container.textContent).toContain('Review is out of date');
+        expect((container.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
     });
 
-    it('treats abort-like build failures as canceled (not error)', async () => {
+    it('renders blocked and slow Review as disabled Apply with actionable recovery', async () => {
         const container = createBodyAppendedTestContainer();
-
-        const createChannelsFromSetup = jest.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'));
+        const getSetupReview = jest.fn().mockResolvedValue({ ...DEFAULT_REVIEW,
+            preview: { ...DEFAULT_PREVIEW, status: 'blocked', message: 'No free channel numbers. Change mode or limit.' } });
         const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            getSelectedServerId: jest.fn(() => 'server-1'),
-            createChannelsFromSetup,
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]), getSetupReview,
         });
-
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        await flushPromises();
-
-        expect(container.textContent ?? '').toContain('Canceled');
-        expect(container.textContent ?? '').toContain('No changes were applied');
-        expect(container.textContent ?? '').not.toContain('Build failed');
-    });
-
-    it('renders blocked build outcomes as actionable setup errors, not cancellations', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        const createChannelsFromSetup = jest.fn().mockResolvedValue({
-            ...DEFAULT_BUILD_RESULT,
-            canceled: false,
-            blockedMessage: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
-            created: 0,
-        });
-
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            getSelectedServerId: jest.fn(() => 'server-1'),
-            createChannelsFromSetup,
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        await flushPromises();
-
-        expect(container.textContent ?? '').toContain('Setup needs attention.');
-        expect(container.textContent ?? '').toContain('Build paused');
-        expect(container.textContent ?? '').toContain('No changes were applied.');
-        expect(container.textContent ?? '').toContain('Plex does not provide usable genres data for Shows.');
-        expect(container.textContent ?? '').toContain('Try again later, disable that source, or continue with supported channel types.');
-        expect(container.textContent ?? '').not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
-        expect(container.textContent ?? '').not.toContain('Canceled');
-    });
-
-    it('disables Confirm & Replace until replace confirmation is toggled', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
-            getSetupReview,
-            getSelectedServerId: jest.fn(() => 'server-1'),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        await flushPromises();
-
-        const confirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
-        expect(confirm?.disabled).toBe(true);
-
-        clickButton(container, '#setup-replace-confirm');
-        const toggledConfirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
-        expect(toggledConfirm?.disabled).toBe(false);
-    });
-
-    it.each([
-        {
-            status: 'blocked',
-            message: 'Required genres tag directory (type=2) is unsupported for Shows; stop and re-plan.',
-            expectedText: 'Plex does not provide usable genres data for Shows.',
-        },
-        {
-            status: 'slow',
-            message: 'Required directors tag directory (type=4) timed out for Shows; try again after Plex responds.',
-            expectedText: 'Review timed out:',
-        },
-    ] as const)('disables confirm when Step 3 review is %s', async ({ status, message, expectedText }) => {
-        const container = createBodyAppendedTestContainer();
-
-        const getSetupReview = jest.fn().mockResolvedValue({
-            ...DEFAULT_REVIEW,
-            preview: {
-                ...DEFAULT_REVIEW.preview,
-                status,
-                message,
-            },
-        });
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
-            getSetupReview,
-            getSelectedServerId: jest.fn(() => 'server-1'),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        await flushPromises();
-
-        const confirm = container.querySelector('#setup-confirm') as HTMLButtonElement | null;
-        expect(confirm?.disabled).toBe(true);
-        expect(container.textContent ?? '').toContain(expectedText);
-        if (status === 'blocked') {
-            expect(container.textContent ?? '').toContain('Try again later, disable that source, or continue with supported channel types.');
-            expect(container.textContent ?? '').not.toMatch(INTERNAL_SETUP_COPY_PATTERN);
-            expect(container.textContent ?? '').not.toContain(message);
-        } else {
-            expect(container.textContent ?? '').toContain(message);
-        }
-    });
-
-    it('shows review loading state before review payload resolves', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        let resolveReview: ((value: typeof DEFAULT_REVIEW | PromiseLike<typeof DEFAULT_REVIEW>) => void) | undefined;
-        const getSetupReview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_REVIEW>((resolve) => {
-            resolveReview = resolve;
-        }));
-
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
-            getSetupReview,
-            getSelectedServerId: jest.fn(() => 'server-1'),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        expect(container.textContent ?? '').toContain('Preparing your review');
-
-        if (!resolveReview) {
-            throw new Error('Expected review resolver to be set');
-        }
-        resolveReview(DEFAULT_REVIEW);
-        await flushPromises();
-    });
-
-    it('does not re-trigger review loading on simple rerenders while pending', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        let resolveReview: ((value: typeof DEFAULT_REVIEW | PromiseLike<typeof DEFAULT_REVIEW>) => void) | undefined;
-        const getSetupReview = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_REVIEW>((resolve) => {
-            resolveReview = resolve;
-        }));
-
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'existing'),
-            getSetupReview,
-            getSelectedServerId: jest.fn(() => 'server-1'),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-
-        expect(getSetupReview).toHaveBeenCalledTimes(1);
-        expect(container.textContent ?? '').toContain('Preparing your review');
-
-        await flushPromises();
-
-        expect(getSetupReview).toHaveBeenCalledTimes(1);
-
-        if (!resolveReview) {
-            throw new Error('Expected review resolver to be set');
-        }
-        resolveReview(DEFAULT_REVIEW);
-        await flushPromises();
+        screen.show(); await flushPromises(); await enterStep2(container);
+        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+        expect((container.querySelector('#setup-confirm') as HTMLButtonElement).disabled).toBe(true);
+        expect(container.textContent).toContain('No free channel numbers');
+        expect(container.querySelector('#setup-refresh-review')).not.toBeNull();
     });
 
     it('does not start review loading when backing out before deferred kickoff runs', async () => {
@@ -1824,121 +1564,168 @@ describe('ChannelSetupScreen', () => {
         expect(container.textContent ?? '').toContain('Select a server.');
     });
 
-    it('applies Expand Lineup values only after successful build completion', async () => {
+    it('persists Expand Lineup only after Review and committed Apply', async () => {
         const container = createBodyAppendedTestContainer();
-
-        const createChannelsFromSetup = jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT);
-        const markSetupComplete = jest.fn();
+        const applySetupReview = jest.fn().mockResolvedValue({ kind: 'committed', summary: DEFAULT_BUILD_RESULT });
+        const markSetupComplete = jest.fn((_serverId, config) => ({ ok: true as const,
+            record: { ...config, createdAt: 0, updatedAt: 0 } }));
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            getSelectedServerId: jest.fn(() => 'server-1'),
-            createChannelsFromSetup,
+            applySetupReview, markSetupComplete,
+        });
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show(); await flushPromises(); await enterStep2(container);
+        clickButton(container, '#setup-category-limits'); clickButton(container, '#setup-expand-lineup');
+        expect(markSetupComplete).not.toHaveBeenCalled();
+        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+        expect(applySetupReview).not.toHaveBeenCalled();
+        clickButton(container, '#setup-confirm'); await flushPromises();
+        expect(markSetupComplete).toHaveBeenCalledTimes(1);
+        const config = markSetupComplete.mock.calls[0]?.[1] as { maxChannels: number; minItemsPerChannel: number };
+        expect(config.maxChannels).toBe(MAX_CHANNELS);
+        expect(config.minItemsPerChannel).toBe(1);
+    });
+
+    it('requires explicit ready-subset choice when a second library scan fails', async () => {
+        const container = createBodyAppendedTestContainer();
+        const scanSetupInventory = jest.fn().mockResolvedValue({ scopeKey: 'scope', generation: 1,
+            libraries: [
+                { libraryId: 'movies', libraryName: 'Movies', requiredFamilies: ['genres'], status: 'ready', generation: 1 },
+                { libraryId: 'shows', libraryName: 'Shows', requiredFamilies: ['playlists'], status: 'failed', generation: 1,
+                    reason: 'Plex unavailable' },
+            ], acceptedReadyLibraryIds: ['movies'], sharedPlaylistsStatus: 'ready' });
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies', title: 'Movies' }), makeLibrary({ id: 'shows', title: 'Shows', type: 'show' }),
+            ]), scanSetupInventory,
+        });
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show(); await flushPromises();
+        clickButton(container, '#setup-scan'); await flushPromises();
+        expect(container.textContent).toContain('Plex unavailable');
+        expect(container.querySelector('#setup-retry-shows')).not.toBeNull();
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
+        clickButton(container, '#setup-ready-movies');
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+        expect(container.textContent).toContain('Excluded until ready: Shows');
+        clickButton(container, '#setup-next');
+        expect(container.querySelector('#setup-category-content-sources')).not.toBeNull();
+    });
+
+    it('passes explicit complete-library deselection consent to prepared Review', async () => {
+        const container = createBodyAppendedTestContainer();
+        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([
+                makeLibrary({ id: 'movies', title: 'Movies' }), makeLibrary({ id: 'shows', title: 'Shows', type: 'show' }),
+            ]), getSetupReview,
+        });
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show(); await flushPromises();
+        clickButton(container, '#setup-scan'); await flushPromises();
+        clickButton(container, '#setup-lib-shows');
+        expect(container.textContent).toContain('Shows · Keep existing channels');
+        clickButton(container, '#setup-deselected-shows');
+        clickButton(container, '#setup-scan'); await flushPromises();
+        clickButton(container, '#setup-next');
+        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+        expect(getSetupReview).toHaveBeenCalledWith(expect.objectContaining({ selectedLibraryIds: ['movies'] }),
+            expect.objectContaining({ confirmedDeselectedLibraryIds: ['shows'] }));
+    });
+
+    it('cancels an in-flight scan and returns to editable selected libraries', async () => {
+        const container = createBodyAppendedTestContainer();
+        let resolveScan: (value: ChannelSetupInventory) => void = () => undefined;
+        const scanSetupInventory = jest.fn(() => new Promise<ChannelSetupInventory>((resolve) => { resolveScan = resolve; }));
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]), scanSetupInventory,
+        });
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show(); await flushPromises();
+        clickButton(container, '#setup-scan');
+        expect(container.querySelector('#setup-scan')?.textContent).toBe('Cancel scan');
+        clickButton(container, '#setup-scan');
+        expect(container.querySelector('#setup-lib-movies.selected')).not.toBeNull();
+        expect(container.querySelector('#setup-scan')?.textContent).toBe('Scan selected libraries');
+        resolveScan({ scopeKey: 'scope', generation: 1, libraries: [], acceptedReadyLibraryIds: [],
+            sharedPlaylistsStatus: 'unused' });
+        await flushPromises();
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('retries a failed library scan while preserving its selected library', async () => {
+        const container = createBodyAppendedTestContainer();
+        const failed = { scopeKey: 'scope', generation: 1, libraries: [
+            { libraryId: 'movies', libraryName: 'Movies', requiredFamilies: ['genres'], status: 'failed',
+                generation: 1, reason: 'Plex unavailable' } ], acceptedReadyLibraryIds: [], sharedPlaylistsStatus: 'unused' };
+        const ready = { ...failed, generation: 2, libraries: [
+            { libraryId: 'movies', libraryName: 'Movies', requiredFamilies: ['genres'], status: 'ready', generation: 2 }],
+            acceptedReadyLibraryIds: ['movies'] };
+        const scanSetupInventory = jest.fn().mockResolvedValueOnce(failed).mockResolvedValueOnce(ready);
+        const retrySetupInventory = jest.fn();
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies', title: 'Movies' })]),
+            scanSetupInventory, retrySetupInventory,
+        });
+        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
+        screen.show(); await flushPromises();
+        clickButton(container, '#setup-scan'); await flushPromises();
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
+        clickButton(container, '#setup-retry-movies'); await flushPromises();
+        expect(retrySetupInventory).toHaveBeenCalledWith('movies');
+        expect(container.querySelector('#setup-lib-movies.selected')).not.toBeNull();
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('persists Random, lineup seed, start anchor, and specials choices through reviewed Apply', async () => {
+        const container = createBodyAppendedTestContainer();
+        const markSetupComplete = jest.fn((_serverId, config) => ({ ok: true as const,
+            record: { ...config, createdAt: 0, updatedAt: 0 } }));
+        const { workflowPort, screenPorts } = createSplitScreenPorts({
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
+            applySetupReview: jest.fn().mockResolvedValue({ kind: 'committed', summary: DEFAULT_BUILD_RESULT }),
             markSetupComplete,
         });
-
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-category-limits');
-        clickButton(container, '#setup-expand-lineup');
-        expect(markSetupComplete).not.toHaveBeenCalled();
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        await flushPromises();
-
-        expect(createChannelsFromSetup).toHaveBeenCalledTimes(1);
-        expect(markSetupComplete).toHaveBeenCalledTimes(1);
-        const savedConfig = markSetupComplete.mock.calls[0]?.[1] as { maxChannels: number; minItemsPerChannel: number };
-        expect(savedConfig.maxChannels).toBe(MAX_CHANNELS);
-        expect(savedConfig.minItemsPerChannel).toBe(1);
-    });
-
-    it('transitions cancel button to Canceling during in-flight build abort', async () => {
-        const container = createBodyAppendedTestContainer();
-
-        let resolveBuild: ((value: typeof DEFAULT_BUILD_RESULT | PromiseLike<typeof DEFAULT_BUILD_RESULT>) => void) | undefined;
-        const createChannelsFromSetup = jest.fn().mockImplementation(() => new Promise<typeof DEFAULT_BUILD_RESULT>((resolve) => {
-            resolveBuild = resolve;
+        screen.show(); await flushPromises(); await enterStep2(container);
+        clickButton(container, '#setup-category-series-ordering');
+        expect(container.querySelectorAll('.setup-playback-card')).toHaveLength(4);
+        clickButton(container, '#setup-playback-random');
+        clickButton(container, '#setup-include-specials');
+        const seed = container.querySelector<HTMLInputElement>('#setup-lineup-seed');
+        if (!seed) throw new Error('seed input missing');
+        seed.value = '43018'; seed.dispatchEvent(new Event('change', { bubbles: true }));
+        const anchor = container.querySelector<HTMLInputElement>('#setup-start-anchor');
+        if (!anchor) throw new Error('anchor input missing');
+        anchor.value = '2026-10-31T18:00'; anchor.dispatchEvent(new Event('change', { bubbles: true }));
+        const diagnostics = screen.getPlannerDiagnosticsConfig();
+        expect(diagnostics?.seriesOrdering).toEqual(expect.objectContaining({
+            basePlaybackMode: 'random', includeSpecials: false, lineupSeed: 43018,
+            startTimeAnchor: new Date('2026-10-31T18:00').getTime(),
         }));
-
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            createChannelsFromSetup,
-            getSelectedServerId: jest.fn(() => 'server-1'),
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-
-        clickButton(container, '#setup-next');
-        await flushPromises();
-        clickButton(container, '#setup-back');
-        expect((container.querySelector('#setup-back') as HTMLButtonElement | null)?.textContent).toBe('Canceling...');
-
-        if (!resolveBuild) {
-            throw new Error('Expected build resolver to be set');
-        }
-        resolveBuild(DEFAULT_BUILD_RESULT);
-        await flushPromises();
+        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+        clickButton(container, '#setup-confirm'); await flushPromises();
+        expect(markSetupComplete).toHaveBeenCalledTimes(1);
+        expect(markSetupComplete.mock.calls[0]?.[1].seriesOrdering).toEqual(diagnostics?.seriesOrdering);
     });
 
-    it('shows no-server-selected error when entering build without server id', async () => {
+    it('shows canceled Apply without saving and retains the Review', async () => {
         const container = createBodyAppendedTestContainer();
-        const getSelectedServerId = jest.fn()
-            .mockReturnValueOnce('server-1')
-            .mockReturnValue(null);
-
+        const navigation = createNavigationMock();
+        const applySetupReview = jest.fn().mockResolvedValue({ kind: 'canceled' });
         const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            getSelectedServerId,
+            getNavigation: jest.fn(() => navigation as unknown as INavigationManager),
+            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]), applySetupReview,
         });
-
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-        clickButton(container, '#setup-next');
-        await flushPromises();
-
-        expect(container.textContent ?? '').toContain('No server selected.');
-        expect((container.querySelector('#setup-done') as HTMLButtonElement | null)?.disabled).toBe(true);
-    });
-
-    it('returns to Step 2 when backing out of build progress with no server selected', async () => {
-        const container = createBodyAppendedTestContainer();
-        const getSelectedServerId = jest.fn()
-            .mockReturnValueOnce('server-1')
-            .mockReturnValue(null);
-
-        const { workflowPort, screenPorts } = createSplitScreenPorts({
-            getLibrariesForSetup: jest.fn().mockResolvedValue([makeLibrary({ id: 'movies' })]),
-            getSetupContextForSelectedServer: jest.fn(() => 'first-time'),
-            getSelectedServerId,
-        });
-
-        const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
-        screen.show();
-        await flushPromises();
-        await enterStep2(container);
-        clickButton(container, '#setup-next');
-        await flushPromises();
-
-        expect(container.textContent ?? '').toContain('No server selected.');
-
+        screen.show(); await flushPromises(); await enterStep2(container);
+        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+        clickButton(container, '#setup-confirm'); await flushPromises();
+        expect(container.textContent).toContain('Canceled');
+        expect(container.textContent).toContain('Nothing was saved');
         clickButton(container, '#setup-back');
-        await flushPromises();
-
-        expect(container.querySelector('#setup-category-content-sources')).not.toBeNull();
-        expect((container.querySelector('#setup-next') as HTMLButtonElement | null)?.textContent).toBe('Build Channels');
-        expect((container.querySelector('#setup-back') as HTMLButtonElement | null)?.textContent).toBe('Back');
+        expect(container.textContent).toContain('Review your lineup');
+        expect(navigation.replaceScreen).not.toHaveBeenCalled();
     });
 
 });

@@ -95,7 +95,6 @@ describe('selected-server auth resume integration', () => {
                 playerOsd: null, channelNumberOverlay: null, channelBadgeOverlay: null,
                 miniGuide: null, channelTransition: null,
             },
-            startupUiInitializer: { ensureCorePlayerUiInitialized: jest.fn().mockResolvedValue(undefined) },
             epgDebugRuntime: null,
             stores: {
                 epgPreferencesStore: new EpgPreferencesStore(),
@@ -114,7 +113,6 @@ describe('selected-server auth resume integration', () => {
             },
             routing: {
                 shouldRunAudioSetup: jest.fn().mockReturnValue(false),
-                shouldRunChannelSetup: jest.fn().mockReturnValue(false),
                 switchToChannel: jest.fn().mockResolvedValue({ kind: 'switched' }),
                 openServerSelect,
             },
@@ -123,10 +121,9 @@ describe('selected-server auth resume integration', () => {
         } as unknown as InitializationCallbacks;
         const coordinator = new InitializationCoordinator({
             plexConfig: {} as never, navConfig: {} as never, playerConfig: {} as never,
-            epgConfig: {} as never, nowPlayingInfoConfig: {} as never, playerOsdConfig: {} as never,
+            epgConfig: {} as never, playerOsdConfig: {} as never,
             channelNumberOverlayConfig: {} as never, channelBadgeConfig: {} as never,
             miniGuideConfig: {} as never, channelTransitionConfig: {} as never,
-            playbackOptionsConfig: {} as never,
         }, dependencies, callbacks);
         const fetchMock = jest.fn().mockResolvedValue({
             ok: true,

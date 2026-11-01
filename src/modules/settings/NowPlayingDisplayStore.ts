@@ -3,7 +3,7 @@ import {
     readStoredBooleanAndClean,
     safeLocalStorageGet,
     safeLocalStorageRemove,
-    safeLocalStorageSet,
+    safeLocalStorageRemoveWithResult,
     safeLocalStorageSetWithResult,
     type SafeLocalStorageMutationResult,
 } from '../../utils/storage';
@@ -16,13 +16,23 @@ export const COMPACT_CONTROLS_TIMEOUT_SECONDS_OPTIONS = [2, 4, 6, 8, 10, 15] as 
 export type CompactControlsTimeoutSeconds = (typeof COMPACT_CONTROLS_TIMEOUT_SECONDS_OPTIONS)[number];
 export const DEFAULT_COMPACT_CONTROLS_TIMEOUT_SECONDS: CompactControlsTimeoutSeconds = 4;
 
-export class NowPlayingDisplayStore {
-    readCinematicNowPlayingEnabledAndClean(fallback: boolean = false): boolean {
-        return readStoredBooleanAndClean(LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, fallback);
-    }
+const RETIRED_VIEWING_SETTINGS_KEYS = [
+    'lineup_cinematic_now_playing',
+    'lineup_now_playing_info_auto_hide_ms',
+] as const;
 
-    writeCinematicNowPlayingEnabled(enabled: boolean): SafeLocalStorageMutationResult {
-        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.CINEMATIC_NOW_PLAYING, enabled ? '1' : '0');
+type RetiredViewingSettingsKey = (typeof RETIRED_VIEWING_SETTINGS_KEYS)[number];
+export type RetiredViewingSettingsCleanupResult =
+    | { ok: true }
+    | { ok: false; failedKeys: RetiredViewingSettingsKey[] };
+
+export class NowPlayingDisplayStore {
+    cleanupRetiredViewingSettings(): RetiredViewingSettingsCleanupResult {
+        const failedKeys: RetiredViewingSettingsKey[] = [];
+        for (const key of RETIRED_VIEWING_SETTINGS_KEYS) {
+            if (!safeLocalStorageRemoveWithResult(key).ok) failedKeys.push(key);
+        }
+        return failedKeys.length === 0 ? { ok: true } : { ok: false, failedKeys };
     }
 
     readPreferClearLogosEnabledAndClean(fallback: boolean = true): boolean {
@@ -65,43 +75,5 @@ export class NowPlayingDisplayStore {
             return { ok: false, reason: 'invalid-value' };
         }
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.COMPACT_CONTROLS_TIMEOUT_SECONDS, String(value));
-    }
-
-    readClampedAutoHideMsAndClean(validOptions: readonly number[], fallback: number): number {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS);
-        const parsed = ((): number => {
-            if (raw === null) return NaN;
-            const trimmed = raw.trim();
-            if (!/^\d+$/.test(trimmed)) {
-                return NaN;
-            }
-            return Number.parseInt(trimmed, 10);
-        })();
-        const candidate = Number.isFinite(parsed) ? parsed : fallback;
-
-        const normalized = ((): number => {
-            if (validOptions.includes(candidate)) return candidate;
-            if (validOptions.includes(fallback)) return fallback;
-            return validOptions[0] ?? fallback;
-        })();
-
-        if (raw === null) {
-            return normalized;
-        }
-
-        if (Number.isFinite(parsed) && validOptions.includes(parsed)) {
-            return parsed;
-        }
-
-        safeLocalStorageSet(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(normalized));
-        return normalized;
-    }
-
-    writeAutoHideMs(value: number, validOptions: readonly number[]): SafeLocalStorageMutationResult {
-        const normalized = validOptions.includes(value)
-            ? value
-            : (validOptions[0] ?? value);
-
-        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, String(normalized));
     }
 }

@@ -120,6 +120,31 @@ describe('AppScreenVisibilityCoordinator', () => {
         expect(registry.scheduleSettingsPrefetch).toHaveBeenCalledTimes(1);
     });
 
+    it('presents Directory and the exact Studio request, then hides authoring on Guide', () => {
+        isReady = true;
+        const authoring = { showDirectory: jest.fn(), showStudio: jest.fn(), hide: jest.fn() };
+        const request = { kind: 'inspect' as const, channelId: 'channel-1',
+            expectedBase: { generation: 2, revision: 3 } };
+        const coordinator = new AppScreenVisibilityCoordinator({
+            getIsReady: (): boolean => isReady,
+            getCurrentScreen: (): string => currentScreen,
+            getServerSelectParams: (): typeof serverSelectParams => serverSelectParams,
+            getSplashScreen: (): Screen => splashScreen,
+            getLazyScreenRegistry: (): never => registry as never,
+            getAuthoringScreenRegistry: (): never => authoring as never,
+            getStudioRequest: (): typeof request => request,
+            getDirectoryPreferredId: (): string => 'channel-1',
+            onLazyScreenError: lazyScreenErrorHandler,
+        });
+
+        coordinator.apply('channels');
+        expect(authoring.showDirectory).toHaveBeenCalledWith('channel-1');
+        coordinator.apply('channel-studio');
+        expect(authoring.showStudio).toHaveBeenCalledWith(request);
+        coordinator.apply('guide');
+        expect(authoring.hide).toHaveBeenCalled();
+    });
+
     it('shows existing server-select without re-showing splash and preserves allowAutoConnect forwarding', () => {
         currentScreen = 'server-select';
         serverSelectParams = { allowAutoConnect: true };

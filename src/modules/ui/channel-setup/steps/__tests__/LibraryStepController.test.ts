@@ -23,6 +23,8 @@ const createContext = (): StepRenderContext => ({
 const createDeps = (overrides: Partial<LibraryStepDeps> = {}): LibraryStepDeps => ({
     libraries: [],
     selectedLibraryIds: new Set(),
+    inventory: null, isInventoryLoading: false, inventoryError: null,
+    acceptedReadyLibraryIds: new Set(), knownReadyLibraryIds: new Set(), confirmedDeselectedLibraryIds: new Set(),
     formatCount: (value: number) => value.toLocaleString(),
     movieSvg: '<svg></svg>',
     showSvg: '<svg></svg>',
@@ -31,7 +33,8 @@ const createDeps = (overrides: Partial<LibraryStepDeps> = {}): LibraryStepDeps =
     onSelectAll: jest.fn(),
     onClearAll: jest.fn(),
     onBack: jest.fn(),
-    onNext: jest.fn(),
+    onNext: jest.fn(), onScan: jest.fn(), onCancelScan: jest.fn(),
+    onRetry: jest.fn(), onToggleReady: jest.fn(), onToggleDeselectedConsent: jest.fn(),
     registerStepFocusables: jest.fn(),
     ...overrides,
 });
@@ -70,7 +73,7 @@ describe('LibraryStepController', () => {
 
         expect(deps.onSelectAll).toHaveBeenCalledWith('setup-lib-movies');
         expect(deps.onClearAll).toHaveBeenCalledWith('setup-lib-movies');
-        expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+        expect((ctx.contentEl.querySelector('#setup-scan') as HTMLButtonElement).disabled).toBe(false);
     });
 
     it('mounts movie and show glyphs in each library icon slot', () => {
@@ -101,6 +104,8 @@ describe('LibraryStepController', () => {
         const deps = createDeps({
             libraries: [makeLibrary({ id: 'movies' })],
             selectedLibraryIds: new Set(),
+    inventory: null, isInventoryLoading: false, inventoryError: null,
+    acceptedReadyLibraryIds: new Set(), knownReadyLibraryIds: new Set(), confirmedDeselectedLibraryIds: new Set(),
         });
         const controller = new LibraryStepController();
         controller.render(ctx, deps);
@@ -124,6 +129,8 @@ describe('LibraryStepController', () => {
         const deps = createDeps({
             libraries: [makeLibrary({ id: 'Movies & More' })],
             selectedLibraryIds: new Set(),
+    inventory: null, isInventoryLoading: false, inventoryError: null,
+    acceptedReadyLibraryIds: new Set(), knownReadyLibraryIds: new Set(), confirmedDeselectedLibraryIds: new Set(),
         });
         const controller = new LibraryStepController();
 

@@ -148,6 +148,12 @@ describe('EPG model adapters', () => {
         expect(epgProgram.item).not.toBe(program.item);
     });
 
+    it('carries explicit fixed scheduling into the Guide projection', () => {
+        const channel = makeChannel({ scheduleAnchorMode: 'fixed', startTimeAnchor: 1234 });
+        expect(toEpgChannel(channel).scheduleAnchorMode).toBe('fixed');
+        expect(toEpgChannel(channel).startTimeAnchor).toBe(1234);
+    });
+
     it('omits polluted scheduler channel color fields at the EPG adapter boundary', () => {
         const channel = {
             ...makeChannel({ buildStrategy: 'genres' }),

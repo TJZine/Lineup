@@ -1,5 +1,4 @@
 import { AppErrorCode } from '../../../types/app-errors';
-import type { ChannelSwitchOutcome } from '../../../types/channelSwitch';
 import type { IAppLifecycle } from '../../../modules/lifecycle';
 import type { INavigationManager } from '../../../modules/navigation';
 import type {
@@ -11,6 +10,7 @@ import type {
     PlexStoredCredentialsValidationResult,
 } from '../../../modules/plex/auth';
 import { PlexAuth } from '../../../modules/plex/auth/PlexAuth';
+import { NavigationManager } from '../../../modules/navigation/manager/NavigationManager';
 import { PLEX_AUTH_CONSTANTS } from '../../../modules/plex/auth/constants';
 import {
     PlexDiscoverySelectionSupersededError,
@@ -32,9 +32,10 @@ type PlexAuthGateMock = Pick<
     getHomeUsers: jest.MockedFunction<IPlexAuth['getHomeUsers']>;
 };
 
-type NavigationGateMock = Pick<INavigationManager, 'getCurrentScreen' | 'goTo'> & {
+type NavigationGateMock = Pick<INavigationManager, 'getCurrentScreen' | 'goTo' | 'resetToAuth'> & {
     getCurrentScreen: jest.MockedFunction<INavigationManager['getCurrentScreen']>;
     goTo: jest.MockedFunction<INavigationManager['goTo']>;
+    resetToAuth: jest.MockedFunction<INavigationManager['resetToAuth']>;
 };
 
 type LifecycleGateMock = Pick<IAppLifecycle, 'setPhase'> & {
@@ -73,79 +74,61 @@ const createToken = (
 describe('applyPostReadyRoutingPolicy', () => {
     type PostReadyRoutingPolicyTestInputs = Parameters<typeof applyPostReadyRoutingPolicy>[0];
 
-    const createInputs = (
-        switchOutcome: ChannelSwitchOutcome = { kind: 'switched' }
-    ): PostReadyRoutingPolicyTestInputs => ({
+    const createInputs = (): PostReadyRoutingPolicyTestInputs => ({
         navigation: {
             replaceScreen: jest.fn(),
         },
         channelManager: {
-            getCurrentChannel: jest.fn().mockReturnValue({ id: 'current-channel-id' }),
-            getAllChannels: jest.fn().mockReturnValue([]),
+            getLastLoadOutcome: jest.fn().mockReturnValue({
+                kind: 'readable', generation: 1, revision: 1, channelCount: 2,
+            }),
         },
         shouldRunAudioSetup: jest.fn().mockReturnValue(false),
-        shouldRunChannelSetup: jest.fn().mockReturnValue(false),
-        switchToChannel: jest.fn().mockResolvedValue(switchOutcome),
         openServerSelect: jest.fn(),
     });
 
-    it('routes to player and completes when the startup tune switches', async () => {
-        const inputs = createInputs({ kind: 'switched' });
+    it('opens untuned Guide for a readable saved lineup', async () => {
+        const inputs = createInputs();
 
         await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
 
-        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('player');
-        expect(inputs.switchToChannel).toHaveBeenCalledWith('current-channel-id');
+        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('guide');
         expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
-    it('routes to channel setup when the startup tune cannot find the channel', async () => {
-        const inputs = createInputs({ kind: 'failed', reason: 'missing_channel' });
+    it.each(['absent', 'valid-empty'] as const)('routes %s to first-use setup', async (kind) => {
+        const inputs = createInputs();
+        (inputs.channelManager?.getLastLoadOutcome as jest.Mock).mockReturnValue({
+            kind, generation: 1, revision: 1, ...(kind === 'valid-empty' ? { channelCount: 0 } : {}),
+        });
 
         await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
 
         expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('channel-setup');
-        expect(inputs.openServerSelect).not.toHaveBeenCalled();
     });
 
-    it.each([
-        'missing_dependencies',
-        'content_unavailable',
-        'playback_start_failed',
-    ] as const)('rejects %s startup tune failures into global recoverable handling', async (reason) => {
-        const inputs = createInputs({ kind: 'failed', reason });
+    it.each(['read-failed', 'unreadable', 'unsupported'] as const)(
+        'blocks %s without guessing that the lineup is empty', async (kind) => {
+            const inputs = createInputs();
+            (inputs.channelManager?.getLastLoadOutcome as jest.Mock).mockReturnValue({
+                kind, generation: 1, revision: 1,
+                ...(kind === 'read-failed' ? {} : { replacementHandle: 'protected' }),
+            });
 
-        await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toThrow(
-            `Initial channel switch failed for current-channel-id: ${reason}.`
-        );
+            await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toMatchObject({
+                name: 'StartupRestoreBlockedError', outcome: { kind },
+            });
+            expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
+        }
+    );
 
-        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
-        expect(inputs.openServerSelect).not.toHaveBeenCalled();
-    });
-
-    it('rejects without opening server select when the startup tune aborts', async () => {
-        const inputs = createInputs({ kind: 'aborted' });
-
-        await expect(applyPostReadyRoutingPolicy(inputs)).rejects.toThrow(
-            'Initial channel switch aborted for current-channel-id.'
-        );
-
-        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
-        expect(inputs.openServerSelect).not.toHaveBeenCalled();
-    });
-
-    it('opens server select without routing to player when no channels exist', async () => {
-        const inputs = createInputs({ kind: 'switched' });
-        inputs.channelManager = {
-            getCurrentChannel: jest.fn().mockReturnValue(null),
-            getAllChannels: jest.fn().mockReturnValue([]),
-        };
-
-        await expect(applyPostReadyRoutingPolicy(inputs)).resolves.toBeUndefined();
-
-        expect(inputs.navigation.replaceScreen).not.toHaveBeenCalled();
-        expect(inputs.switchToChannel).not.toHaveBeenCalled();
-        expect(inputs.openServerSelect).toHaveBeenCalledTimes(1);
+    it('keeps a readable but degraded lineup in Guide', async () => {
+        const inputs = createInputs();
+        (inputs.channelManager?.getLastLoadOutcome as jest.Mock).mockReturnValue({
+            kind: 'readable-degraded', generation: 1, revision: 1, channelCount: 2,
+        });
+        await applyPostReadyRoutingPolicy(inputs);
+        expect(inputs.navigation.replaceScreen).toHaveBeenCalledWith('guide');
     });
 });
 
@@ -362,6 +345,7 @@ function createPlexAuthMock(overrides: AuthValidationPlexAuthOverrides = {}): Pl
 function createNavigationMock(): NavigationGateMock {
     return {
         goTo: jest.fn(),
+        resetToAuth: jest.fn(),
         getCurrentScreen: jest.fn().mockReturnValue('player'),
     };
 }
@@ -436,7 +420,7 @@ describe('applyAuthValidationPolicy', () => {
 
         expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
         expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
-        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+        expect(inputs.navigation.resetToAuth).toHaveBeenCalledTimes(1);
     });
 
     it('rethrows non-auth validation failures instead of forcing auth resume', async () => {
@@ -448,7 +432,7 @@ describe('applyAuthValidationPolicy', () => {
         await expect(applyPolicy(inputs)).rejects.toEqual(error);
 
         expect(inputs.handlers.registerAuthResume).not.toHaveBeenCalled();
-        expect(inputs.navigation.goTo).not.toHaveBeenCalledWith('auth');
+        expect(inputs.navigation.resetToAuth).not.toHaveBeenCalled();
     });
 
     it('routes corrupted stored credentials to auth with STORAGE_CORRUPTED status', async () => {
@@ -463,7 +447,7 @@ describe('applyAuthValidationPolicy', () => {
             recoverable: true,
         });
         expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
-        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+        expect(inputs.navigation.resetToAuth).toHaveBeenCalledTimes(1);
     });
 
     it('treats missing stored credentials as normal pending-auth startup', async () => {
@@ -474,7 +458,24 @@ describe('applyAuthValidationPolicy', () => {
 
         expect(inputs.updateModuleStatus).toHaveBeenCalledWith('plex-auth', 'pending');
         expect(inputs.handlers.registerAuthResume).toHaveBeenCalledTimes(1);
-        expect(inputs.navigation.goTo).toHaveBeenCalledWith('auth');
+        expect(inputs.navigation.resetToAuth).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears protected Settings history when sign-out leaves auth pending', async () => {
+        const navigation = new NavigationManager();
+        navigation.goTo('guide');
+        navigation.goTo('settings');
+        const inputs = createInputs({
+            validateStoredCredentials: jest.fn().mockResolvedValue(createValidationResult('missing')),
+        });
+
+        await expect(applyAuthValidationPolicy({ ...inputs, navigation })).resolves.toEqual({ kind: 'stop' });
+
+        expect(navigation.getCurrentScreen()).toBe('auth');
+        expect(navigation.getState().screenStack).toEqual([]);
+        expect(navigation.goBack()).toBe(false);
+        expect(navigation.getCurrentScreen()).toBe('auth');
+        navigation.destroy();
     });
 
     it('preserves pending-auth side-effect order when stored credentials are missing', async () => {
@@ -485,7 +486,7 @@ describe('applyAuthValidationPolicy', () => {
 
         const updateOrder = inputs.updateModuleStatus.mock.invocationCallOrder[0] ?? 0;
         const resumeOrder = inputs.handlers.registerAuthResume.mock.invocationCallOrder[0] ?? 0;
-        const navigationOrder = inputs.navigation.goTo.mock.invocationCallOrder[0] ?? 0;
+        const navigationOrder = inputs.navigation.resetToAuth.mock.invocationCallOrder[0] ?? 0;
 
         expect(updateOrder).toBeGreaterThan(0);
         expect(updateOrder).toBeLessThan(resumeOrder);

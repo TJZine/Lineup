@@ -16,7 +16,6 @@ import {
 } from '../../modules/lifecycle';
 import { AppErrorCode } from '../../types/app-errors';
 import type { ChannelSwitchOutcome } from '../../types/channelSwitch';
-import type { ChannelInitialTuneLineage, ChannelInitialTunePermit } from '../channel-tuning/ChannelInitialTuneAuthority';
 import {
     type INavigationManager,
     type Screen,
@@ -51,8 +50,11 @@ import {
     type ResolvedChannelContent,
 } from '../../modules/scheduler/channel-manager';
 import {
+    buildScheduledProgramIdentityFromState,
+    scheduledProgramIdentitiesMatch,
     type IChannelScheduler,
     type ScheduledProgram,
+    type ScheduledProgramIdentity,
     type ScheduleConfig,
 } from '../../modules/scheduler/scheduler';
 import {
@@ -67,11 +69,6 @@ import {
     type IEPGComponent,
 } from '../../modules/ui/epg';
 import {
-    type INowPlayingInfoOverlay,
-    NowPlayingInfoCoordinator,
-    NOW_PLAYING_INFO_MODAL_ID,
-} from '../../modules/ui/now-playing-info';
-import {
     PlayerOsdCoordinator,
     PlayerOsdOverlay,
 } from '../../modules/ui/player-osd';
@@ -84,21 +81,16 @@ import {
     ChannelTransitionCoordinator,
     ChannelTransitionOverlay,
 } from '../../modules/ui/channel-transition';
-import {
-    type IPlaybackOptionsModal,
-} from '../../modules/ui/playback-options';
-import {
-    ExitConfirmCoordinator,
-    ExitConfirmModal,
-    EXIT_CONFIRM_MODAL_ID,
-} from '../../modules/ui/exit-confirm';
 import { InitializationCoordinator, STARTUP_PHASE } from '../initialization/InitializationCoordinator';
+import type { InitializationRestoreProjection } from '../initialization/InitializationRestoreProjection';
 import { ChannelTuningCoordinator } from '../channel-tuning';
 import { OrchestratorStorageContext } from './storage/OrchestratorStorageContext';
 import { OrchestratorEventBinder } from './events/OrchestratorEventBinder';
 import { OverlayRuntimePolicyController } from './controllers/OverlayRuntimePolicyController';
 import { ProfileSwitchCleanupController } from './controllers/ProfileSwitchCleanupController';
 import { PlaybackRuntimeController } from './priority-one/PlaybackRuntimeController';
+import type { ActiveMediaIdentity, SavedChannelEffect } from '../channel-authoring-runtime/ChannelAuthoringRuntimeContracts';
+import { ChannelAuthoringRuntimeEffects } from '../channel-authoring-runtime/ChannelAuthoringRuntimeEffects';
 import type {
     OrchestratorServerSelectionResult,
 } from '../server-selection/ServerSelectionTypes';
@@ -143,6 +135,7 @@ import { SubtitlePreferencesStore } from '../../modules/settings/SubtitlePrefere
 import { AudioSettingsStore } from '../../modules/settings/AudioSettingsStore';
 import { DeveloperSettingsStore } from '../../modules/settings/DeveloperSettingsStore';
 import type { IDisposable } from '../../utils/interfaces';
+import { SupportReportStore } from '../../modules/support/SupportReportStore';
 import { getRecoveryActions as getRecoveryActionsHelper } from '../error-recovery/RecoveryActions';
 import { toLifecycleAppError as toLifecycleAppErrorHelper } from '../error-recovery/LifecycleErrorAdapter';
 import type { ErrorRecoveryAction } from '../error-recovery/types';
@@ -154,7 +147,6 @@ import { summarizeErrorForLog } from '../../utils/errors';
 import { ScheduleDayRolloverController } from './controllers/ScheduleDayRolloverController';
 import { SubtitleTrackRecoveryController } from './controllers/SubtitleTrackRecoveryController';
 import { OrchestratorSchedulePolicy } from './policy/OrchestratorSchedulePolicy';
-import { AppStartupUiInitializer } from '../app-shell/chrome/AppStartupUiInitializer';
 import {
     createDefaultRecoverableRuntimeIssueReporter,
     type RecoverableRuntimeIssueReporter,
@@ -201,8 +193,6 @@ export class AppOrchestrator {
     private _videoPlayer: IVideoPlayer | null = null;
     private _epg: IEPGComponent | null = null;
     private _epgCoordinator: EPGCoordinator | null = null;
-    private _nowPlayingInfo: INowPlayingInfoOverlay | null = null;
-    private _nowPlayingInfoCoordinator: NowPlayingInfoCoordinator | null = null;
     private _playerOsd: PlayerOsdOverlay | null = null;
     private _channelNumberOverlay: ChannelNumberOverlayInitPort | null = null;
     private _channelBadgeOverlay: ChannelBadgeOverlayInitPort | null = null;
@@ -211,10 +201,7 @@ export class AppOrchestrator {
     private _miniGuide: IMiniGuideOverlay | null = null;
     private _miniGuideCoordinator: MiniGuideCoordinator | null = null;
     private _channelTransitionCoordinator: ChannelTransitionCoordinator | null = null;
-    private _playbackOptionsModal: IPlaybackOptionsModal | null = null;
     private _playbackOptionsCoordinator: PlaybackOptionsCoordinator | null = null;
-    private _exitConfirmModal: ExitConfirmModal | null = null;
-    private _exitConfirmCoordinator: ExitConfirmCoordinator | null = null;
     private _sleepTimer: SleepTimerManager | null = null;
     private readonly _audioSettingsStore = new AudioSettingsStore();
     private readonly _developerSettingsStore = new DeveloperSettingsStore();
@@ -228,7 +215,6 @@ export class AppOrchestrator {
     private _navigationCoordinator: NavigationCoordinator | null = null;
     private _nowPlayingHandler: ((toast: ToastInput) => void) | null = null;
     private _pendingNowPlayingChannelId: string | null = null;
-    private _shouldAutoShowInfoBannerOnNextPlay = false;
     private _lastChannelChangeSource: 'remote' | 'number' | 'guide' | null = null;
     private _scheduleDayRolloverController: ScheduleDayRolloverController | null = null;
     private _subtitleTrackRecoveryController: SubtitleTrackRecoveryController | null = null;
@@ -242,6 +228,8 @@ export class AppOrchestrator {
     private _channelSetup: ChannelSetupCoordinator | null = null;
     private _channelSetupPortOwners: ChannelSetupWorkflowPortOwners | null = null;
     private _playbackRuntimeController: PlaybackRuntimeController | null = null;
+    private _guideSelectionObservationAbort: AbortController | null = null;
+    private _guideSelectionRequestId = 0;
     private _overlayRuntimePolicyController: OverlayRuntimePolicyController | null = null;
     private _profileSwitchCleanupController: ProfileSwitchCleanupController | null = null;
     private _priorityOneControllersInitializing = false;
@@ -261,6 +249,22 @@ export class AppOrchestrator {
     private readonly _plexAuthRuntime: OrchestratorPlexAuthRuntime;
     private readonly _serverSelectionRuntime: OrchestratorServerSelectionRuntimeProjection;
     private readonly _schedulePolicy = new OrchestratorSchedulePolicy();
+    private readonly _supportReport = new SupportReportStore();
+    private readonly _channelAuthoringRuntimeEffects = new ChannelAuthoringRuntimeEffects({
+        getManager: (): IChannelManager | null => this._channelManager,
+        getScheduler: (): IChannelScheduler | null => this._scheduler,
+        getPlaybackRuntime: (): PlaybackRuntimeController | null => this._playbackRuntimeController,
+        buildDailyScheduleConfig: (channel, items, now): ScheduleConfig =>
+            this._schedulePolicy.buildDailyScheduleConfig(channel, items, now),
+        refreshGuide: async (): Promise<void> => {
+            this._epgCoordinator?.clearSelectedChannelScheduleSnapshot();
+            await this._epgCoordinator?.refreshEpgSchedules();
+        },
+        showPlaybackStoppedReason: (message): void => {
+            this._nowPlayingHandler?.({ message, type: 'warning' });
+        },
+        now: (): number => Date.now(),
+    });
     private _shutdownStarted = false;
     private _shutdownPromise: Promise<void> | null = null;
     private _throwModuleInitPreconditionError(
@@ -344,10 +348,6 @@ export class AppOrchestrator {
             getEpgCoordinator: (): EPGCoordinator | null => this._epgCoordinator,
             suspendAndDrainForScopeTransition: (): Promise<void> => this._channelSwitchRuntime.suspendAndDrainForScopeTransition(),
             resumeAfterScopeTransition: (): void => this._channelSwitchRuntime.resumeAfterScopeTransition(),
-            beginInitialTuneLineage: (validators): ChannelInitialTuneLineage => this._channelSwitchRuntime.beginInitialTuneLineage(validators),
-            mintInitialTunePermit: (lineage): ChannelInitialTunePermit => this._channelSwitchRuntime.mintInitialTunePermit(lineage),
-            completeInitialTuneLineage: (lineage): void => this._channelSwitchRuntime.completeInitialTuneLineage(lineage),
-            switchToInitialChannel: (channelId, permit): Promise<ChannelSwitchOutcome> => this._channelSwitchRuntime.switchToInitialChannel(channelId, permit),
             clearIdentityScopedRuntime: (): void => this._clearIdentityScopedRuntimeState({ stopPlayback: true }),
             prepareQuarantineRuntime: (): Promise<void> => prepareSelectedServerQuarantine({
                 navigation: this._navigation, lifecycle: this._lifecycle, channelManager: this._channelManager,
@@ -413,11 +413,6 @@ export class AppOrchestrator {
             setPendingNowPlayingChannelId: (channelId: string | null): void => {
                 this._pendingNowPlayingChannelId = channelId;
             },
-            getShouldAutoShowInfoBannerOnNextPlay: (): boolean =>
-                this._shouldAutoShowInfoBannerOnNextPlay,
-            setShouldAutoShowInfoBannerOnNextPlay: (value: boolean): void => {
-                this._shouldAutoShowInfoBannerOnNextPlay = value;
-            },
         };
         this._channelSetupWorkflowPort = createChannelSetupWorkflowPort({
             getOwners: (): ChannelSetupWorkflowPortOwners | null => this._channelSetupPortOwners,
@@ -428,6 +423,10 @@ export class AppOrchestrator {
             throwModuleInitPreconditionError: this._throwModuleInitPreconditionError.bind(this),
         });
         this._channelSwitchRuntime = new OrchestratorChannelSwitchRuntime({
+            beginIntentionalTune: (channelId): void => {
+                this._playbackRuntimeController?.beginIntentionalTune(channelId);
+            },
+            invalidatePlaybackScope: (): void => { this._playbackRuntimeController?.invalidateScope(); },
             assertNotShutdown: this._assertNotShutdown.bind(this),
             getChannelTuning: (): ChannelTuningCoordinator | null => this._channelTuning,
             getChannelManager: (): IChannelManager | null => this._channelManager,
@@ -447,7 +446,15 @@ export class AppOrchestrator {
     }
     async initialize(config: OrchestratorConfig): Promise<void> {
         this._assertNotShutdown('initialize');
-        const orchestratorConfig = this._prepareConfig(config);
+        const retiredSettingsCleanup = this._nowPlayingDisplayStore.cleanupRetiredViewingSettings();
+        if (!retiredSettingsCleanup.ok) {
+            this._warnRecoverableRuntimeIssue(
+                'orchestrator.retiredViewingSettings.cleanupFailed',
+                'Could not remove retired viewing settings; initialization will retry on the next attempt.',
+                { failedKeys: retiredSettingsCleanup.failedKeys }
+            );
+        }
+        const orchestratorConfig = config;
         this._config = orchestratorConfig;
         const modules = createOrchestratorModules({
             config: orchestratorConfig,
@@ -457,6 +464,10 @@ export class AppOrchestrator {
             onSleepTimerTick: (): void => {
                 // Sleep timer countdown is independent of playback time updates; only refresh OSD if visible.
                 this._playerOsdCoordinator?.refreshIfVisible();
+            },
+            onSleepTimerExpired: (): void => {
+                if (this._playbackRuntimeController) this._playbackRuntimeController.expireSleep();
+                else this._stopPlayback();
             },
         });
         this._lifecycle = modules.lifecycle;
@@ -469,32 +480,15 @@ export class AppOrchestrator {
         this._scheduler = modules.scheduler;
         this._videoPlayer = modules.videoPlayer;
         this._epg = modules.epg;
-        this._nowPlayingInfo = modules.nowPlayingInfo;
         this._playerOsd = modules.playerOsd;
         this._channelNumberOverlay = modules.channelNumberOverlay;
         this._channelBadgeOverlay = modules.channelBadgeOverlay;
         this._miniGuide = modules.miniGuide;
         this._channelTransitionOverlay = modules.channelTransitionOverlay;
-        this._playbackOptionsModal = modules.playbackOptionsModal;
-        this._exitConfirmModal = modules.exitConfirmModal;
         this._sleepTimer = modules.sleepTimer;
         this._epgDebugRuntime?.destroy();
         this._epgDebugRuntime = new EPGDebugRuntime();
         this._configureDiscoveryStorageKeysForActiveUser();
-        const startupUiInitializer = new AppStartupUiInitializer(
-            orchestratorConfig,
-            {
-                nowPlayingInfo: this._nowPlayingInfo,
-                playbackOptions: this._playbackOptionsModal,
-                exitConfirm: this._exitConfirmModal,
-            },
-            {
-                updateModuleStatus: this._updateModuleStatus.bind(this),
-                getModuleStatus: (id: string): ModuleStatus['status'] | undefined =>
-                    this._moduleStatuses.getRuntimeStatus(id),
-            }
-        );
-
         this._initCoordinator = new InitializationCoordinator(
             orchestratorConfig,
             {
@@ -520,7 +514,6 @@ export class AppOrchestrator {
                     miniGuide: this._miniGuide,
                     channelTransition: this._channelTransitionOverlay,
                 },
-                startupUiInitializer,
                 epgDebugRuntime: this._epgDebugRuntime,
                 stores: {
                     epgPreferencesStore: this._epgPreferencesStore,
@@ -554,9 +547,11 @@ export class AppOrchestrator {
                 },
                 routing: {
                     shouldRunAudioSetup: this._shouldRunAudioSetup.bind(this),
-                    shouldRunChannelSetup: (): boolean => this._channelSetup?.shouldRunChannelSetup() ?? false,
-                    switchToChannel: this._switchToChannelWithOutcome.bind(this),
                     openServerSelect: this.openServerSelect.bind(this),
+                },
+                picture: {
+                    hasUsableRetainedSession: (): boolean =>
+                        this._playbackRuntimeController?.canActivateRetainedSession() ?? false,
                 },
                 resources: {
                     buildPlexResourceUrl: (pathOrUrl: string | null): string | null => {
@@ -590,24 +585,6 @@ export class AppOrchestrator {
         });
 
         this._updateModuleStatus('event-emitter', 'ready');
-    }
-
-    private _prepareConfig(config: OrchestratorConfig): OrchestratorConfig {
-        const nowPlayingInfoConfig = { ...config.nowPlayingInfoConfig };
-        const previousOnAutoHide = nowPlayingInfoConfig.onAutoHide ?? null;
-
-        nowPlayingInfoConfig.onAutoHide = (): void => {
-            previousOnAutoHide?.();
-
-            if (this._navigation?.isModalOpen(NOW_PLAYING_INFO_MODAL_ID)) {
-                this._navigation.closeModal(NOW_PLAYING_INFO_MODAL_ID);
-            }
-        };
-
-        return {
-            ...config,
-            nowPlayingInfoConfig,
-        };
     }
 
     private _createCoordinators(): void {
@@ -695,13 +672,10 @@ export class AppOrchestrator {
                 epg: this._epg,
             },
             overlays: {
-                nowPlayingInfo: this._nowPlayingInfo,
                 playerOsd: this._playerOsd,
                 channelNumberOverlay: this._channelNumberOverlay,
                 miniGuide: this._miniGuide,
                 channelTransitionOverlay: this._channelTransitionOverlay,
-                playbackOptionsModal: this._playbackOptionsModal,
-                exitConfirmModal: this._exitConfirmModal,
                 sleepTimer: this._sleepTimer,
             },
             requiredSurfaces: {
@@ -725,6 +699,36 @@ export class AppOrchestrator {
                 refreshPlaybackInfoSnapshot: (): Promise<PlaybackInfoSnapshot> =>
                     this.refreshPlaybackInfoSnapshot(),
                 stopPlayback: (): void => this._stopPlayback(),
+                setPlaybackIntent: (intent): boolean =>
+                    this._playbackRuntimeController?.setIntent(intent) ?? false,
+                setPlaybackRouteBlocking: (blocked): void =>
+                    this._playbackRuntimeController?.setRouteBlocking(blocked),
+                capturePlaybackAdmission: (): number | null =>
+                    this._playbackRuntimeController?.captureTuneAdmission() ?? null,
+                isPlaybackAdmissionCurrent: (generation): boolean =>
+                    this._playbackRuntimeController?.isTuneAdmissionCurrent(generation) ?? false,
+                finishIntentionalTune: (channelId): void =>
+                    this._playbackRuntimeController?.finishIntentionalTune(channelId),
+                captureRecoveryAdmission: (): number | null =>
+                    this._playbackRuntimeController?.captureRecoveryAdmission() ?? null,
+                isRecoveryAdmissionCurrent: (generation): boolean =>
+                    this._playbackRuntimeController?.isRecoveryAdmissionCurrent(generation) ?? false,
+                canPlayForRecovery: (generation): boolean =>
+                    this._playbackRuntimeController?.canPlayForRecovery(generation) ?? false,
+                acceptCommittedSession: (descriptor): void =>
+                    this._playbackRuntimeController?.acceptCommittedSession(descriptor),
+                canActivateRetainedSession: (): boolean =>
+                    this._playbackRuntimeController?.canActivateRetainedSession() ?? false,
+                getWatchingChannelId: (): string | null => {
+                    const runtime = this._playbackRuntimeController;
+                    const identity = runtime?.getActiveMediaIdentity();
+                    const status = this._videoPlayer?.getState().status;
+                    if (!runtime || !identity || !runtime.isCurrentMediaIdentity(identity)
+                        || runtime.getIntent() === 'stopped'
+                        || (status !== 'playing' && status !== 'paused'
+                            && status !== 'buffering' && status !== 'seeking')) return null;
+                    return identity.channelId;
+                },
                 stopActiveTranscodeSession: (): void =>
                     this._requirePlaybackRuntimeController().stopActiveTranscodeSession(),
                 getMimeType: (decision: StreamDecision): string => this._getMimeType(decision),
@@ -756,7 +760,7 @@ export class AppOrchestrator {
                 switchToChannelWithOutcome: (
                     channelId: string,
                     options?: { guideSelectionSnapshot?: import('../channel-tuning').GuideSelectionSnapshot }
-                ): Promise<ChannelSwitchOutcome> => this._switchToChannelWithOutcome(channelId, options),
+                ): Promise<ChannelSwitchOutcome> => this.switchToChannelWithOutcome(channelId, options),
                 switchToNextChannel: (): void => this._channelSwitchRuntime.switchToNextChannel(),
                 switchToPreviousChannel: (): void => this._channelSwitchRuntime.switchToPreviousChannel(),
                 switchToChannelByNumberWithOutcome: (n: number): Promise<ChannelSwitchOutcome> =>
@@ -767,9 +771,6 @@ export class AppOrchestrator {
                 },
                 onChannelTransitionActivityChange: (_active: boolean): void => {
                     this._requireOverlayRuntimePolicyController().syncChannelBadgeOverlay();
-                },
-                toggleNowPlayingInfoOverlay: (): void => {
-                    this._requireOverlayRuntimePolicyController().toggleNowPlayingInfoOverlay();
                 },
             },
             errors: {
@@ -787,18 +788,16 @@ export class AppOrchestrator {
         this._channelSetup = coordinators.channelSetup;
         this._channelSetupPortOwners = coordinators.channelSetupPortOwners;
         this._nowPlayingDebugManager = coordinators.nowPlayingDebugManager;
-        this._nowPlayingInfoCoordinator = coordinators.nowPlayingInfoCoordinator;
         this._playerOsdCoordinator = coordinators.playerOsdCoordinator;
         this._miniGuideCoordinator = coordinators.miniGuideCoordinator;
         this._channelTransitionCoordinator = coordinators.channelTransitionCoordinator;
         this._playbackOptionsCoordinator = coordinators.playbackOptionsCoordinator;
-        this._exitConfirmCoordinator = coordinators.exitConfirmCoordinator;
         this._playbackRecovery = coordinators.playbackRecovery;
         this._channelTuning = coordinators.channelTuning;
         this._navigationCoordinator = coordinators.navigationCoordinator;
     }
 
-    async start(): Promise<void> {
+    async start(options?: { signal?: AbortSignal }): Promise<void> {
         this._assertNotShutdown('start');
         if (!this._initCoordinator) {
             this._throwModuleInitPreconditionError('Orchestrator must be initialized before starting', {
@@ -808,7 +807,19 @@ export class AppOrchestrator {
         }
 
         this._playbackRecovery?.resetPlaybackFailureGuard();
-        await this._initCoordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
+        await this._initCoordinator.runStartup(STARTUP_PHASE.FULL_STARTUP, options);
+    }
+
+    getStartupRestoreProjection(): InitializationRestoreProjection | null {
+        return this._initCoordinator?.getRestoreProjection() ?? null;
+    }
+
+    subscribeToStartupRestoreProjection(
+        listener: (projection: InitializationRestoreProjection) => void
+    ): IDisposable {
+        const coordinator = this._initCoordinator;
+        if (!coordinator) throw new Error('Startup restore is unavailable before initialization.');
+        return coordinator.subscribeToRestoreProjection(listener);
     }
 
     /**
@@ -824,6 +835,7 @@ export class AppOrchestrator {
             return;
         }
         this._shutdownStarted = true;
+        this._cancelGuideSelectionObservation();
         this._shutdownPromise = this._runShutdownTeardown();
 
         try {
@@ -905,12 +917,6 @@ export class AppOrchestrator {
             teardown.run('nowPlayingDebugManager.dispose', () => this._nowPlayingDebugManager?.dispose());
             this._nowPlayingDebugManager = null;
         }
-        teardown.run('nowPlayingInfoCoordinator.dispose', () => this._nowPlayingInfoCoordinator?.dispose());
-        this._nowPlayingInfoCoordinator = null;
-        if (this._nowPlayingInfo) {
-            teardown.run('nowPlayingInfo.destroy', () => this._nowPlayingInfo?.destroy());
-            this._nowPlayingInfo = null;
-        }
         teardown.run('playerOsdCoordinator.hide', () => this._playerOsdCoordinator?.hide());
         this._playerOsdCoordinator = null;
         if (this._playerOsd) {
@@ -939,25 +945,6 @@ export class AppOrchestrator {
         }
         teardown.run('playbackOptionsCoordinator.dispose', () => this._playbackOptionsCoordinator?.dispose());
         this._playbackOptionsCoordinator = null;
-        if (this._playbackOptionsModal) {
-            teardown.run('playbackOptionsModal.destroy', () => this._playbackOptionsModal?.destroy());
-            this._playbackOptionsModal = null;
-        }
-        if (this._exitConfirmModal && this._navigation?.isModalOpen(EXIT_CONFIRM_MODAL_ID)) {
-            teardown.run('navigation.closeModal(exit-confirm)', () =>
-                this._navigation?.closeModal(EXIT_CONFIRM_MODAL_ID)
-            );
-        }
-        if (this._exitConfirmCoordinator) {
-            teardown.run('exitConfirmCoordinator.handleModalClose', () =>
-                this._exitConfirmCoordinator?.handleModalClose(EXIT_CONFIRM_MODAL_ID)
-            );
-            this._exitConfirmCoordinator = null;
-        }
-        if (this._exitConfirmModal) {
-            teardown.run('exitConfirmModal.destroy', () => this._exitConfirmModal?.destroy());
-            this._exitConfirmModal = null;
-        }
         if (this._videoPlayer) {
             teardown.run('videoPlayer.destroy', () => this._videoPlayer?.destroy());
             this._videoPlayer = null;
@@ -1006,7 +993,6 @@ export class AppOrchestrator {
         this._currentStreamDecision = null;
         this._nowPlayingHandler = null;
         this._pendingNowPlayingChannelId = null;
-        this._shouldAutoShowInfoBannerOnNextPlay = false;
         this._lastChannelChangeSource = null;
         this._ready = false;
     }
@@ -1021,6 +1007,12 @@ export class AppOrchestrator {
 
     getSelectedServerId(): string | null {
         return this._serverSelectionRuntime.getSelectedServerId();
+    }
+
+    /** Apply the persisted Settings toggle only while its route is active. */
+    updateSettingsPlaybackPolicy(keepRunning: boolean): void {
+        if (this._navigation?.getCurrentScreen() !== 'settings') return;
+        this._playbackRuntimeController?.setRouteBlocking(!keepRunning);
     }
 
     getSelectedServerScreenState(): SelectedServerScreenState {
@@ -1204,16 +1196,18 @@ export class AppOrchestrator {
         }
         await this._plexAuth.clearCredentials();
         try {
-            this._plexDiscovery?.clearSelection();
-        } catch (error) {
-            if (!isPlexDiscoverySelectionSupersededError(error)) throw error;
+            try {
+                this._plexDiscovery?.clearSelection();
+            } catch (error) {
+                if (!isPlexDiscoverySelectionSupersededError(error)) throw error;
+            }
+        } finally {
+            this._clearIdentityScopedRuntimeState({ stopPlayback: true });
+            this._navigation?.resetToAuth();
         }
-        this._clearIdentityScopedRuntimeState({ stopPlayback: true });
         await this._configureChannelManagerStorageForSelectedServer();
         if (this._initCoordinator) {
             await this._initCoordinator.runStartup(STARTUP_PHASE.RESUME_AFTER_AUTH_CHANGE);
-        } else {
-            this._navigation?.goTo('auth');
         }
     }
 
@@ -1237,7 +1231,17 @@ export class AppOrchestrator {
     async selectServer(serverId: string, options?: {
         signal?: AbortSignal | null;
     }): Promise<OrchestratorServerSelectionResult> {
-        return this._serverSelectionRuntime.selectServer(serverId, options);
+        this._supportReport.record({ code: 'server-switch', at: Date.now(), outcome: 'started' });
+        try {
+            const result = await this._serverSelectionRuntime.selectServer(serverId, options);
+            this._supportReport.record({ code: 'server-switch', at: Date.now(),
+                outcome: result.kind === 'selected' ? 'succeeded' : 'failed' });
+            return result;
+        } catch (error) {
+            this._supportReport.record({ code: 'server-switch', at: Date.now(),
+                outcome: options?.signal?.aborted ? 'cancelled' : 'failed' });
+            throw error;
+        }
     }
 
     async clearSelectedServer(): Promise<void> {
@@ -1273,25 +1277,109 @@ export class AppOrchestrator {
         options?: {
             signal?: AbortSignal;
             guideSelectionSnapshot?: import('../channel-tuning').GuideSelectionSnapshot;
+            fromGuideSelection?: boolean;
+            selectedProgram?: ScheduledProgramIdentity;
         }
     ): Promise<void> {
+        this._cancelGuideSelectionObservation();
         await this._channelSwitchRuntime.switchToChannel(channelId, options);
     }
 
-    private async _switchToChannelWithOutcome(
+    canActivateCurrentChannelSession(channelId: string): boolean {
+        return this._channelTuning?.canActivateCurrentSession(channelId) ?? false;
+    }
+
+    public async switchToChannelWithOutcome(
         channelId: string,
         options?: {
             signal?: AbortSignal;
             guideSelectionSnapshot?: import('../channel-tuning').GuideSelectionSnapshot;
+            fromGuideSelection?: boolean;
+            selectedProgram?: ScheduledProgramIdentity;
         }
     ): Promise<ChannelSwitchOutcome> {
-        return this._channelSwitchRuntime.switchToChannelWithOutcome(channelId, options);
+        this._cancelGuideSelectionObservation();
+        const requestId = ++this._guideSelectionRequestId;
+        const isGuideSelection = options?.fromGuideSelection === true
+            && this._navigation?.getCurrentScreen() === 'guide';
+        const selected = options?.selectedProgram;
+        if (isGuideSelection && (!selected || selected.channelId !== channelId)) {
+            return { kind: 'failed', reason: 'playback_start_failed' };
+        }
+        if (options?.fromGuideSelection && this._navigation?.getCurrentScreen() === 'guide'
+            && !options.signal?.aborted && this._matchesGuideSelectedProgram(selected)
+            && this.canActivateCurrentChannelSession(channelId)) {
+            this._navigation.replaceScreen('player');
+            return { kind: 'switched' };
+        }
+        if (!isGuideSelection || !selected || options?.signal?.aborted) {
+            return this._channelSwitchRuntime.switchToChannelWithOutcome(channelId, options);
+        }
+
+        const runtime = this._requirePlaybackRuntimeController();
+        const observationAbort = new AbortController();
+        this._guideSelectionObservationAbort = observationAbort;
+        const cancelFromCaller = (): void => observationAbort.abort();
+        options.signal?.addEventListener('abort', cancelFromCaller, { once: true });
+        if (options.signal?.aborted) observationAbort.abort();
+        const start = runtime.observeProgramStart(
+            selected, observationAbort.signal
+        );
+        try {
+            const outcome = await this._channelSwitchRuntime.switchToChannelWithOutcome(channelId, options);
+            if (outcome.kind !== 'switched') return outcome;
+            if (!this._matchesGuideSelectedProgram(selected)) {
+                return { kind: 'failed', reason: 'playback_start_failed' };
+            }
+            const admission = runtime.captureTuneAdmission();
+            if (admission === null || observationAbort.signal.aborted
+                || requestId !== this._guideSelectionRequestId
+                || this._navigation?.getCurrentScreen() !== 'guide') {
+                return { kind: 'aborted' };
+            }
+            const startOutcome = await start;
+            if (startOutcome.kind === 'failed') return { kind: 'failed', reason: 'playback_start_failed' };
+            if (startOutcome.kind === 'superseded') return { kind: 'aborted' };
+            if (observationAbort.signal.aborted || options?.signal?.aborted
+                || requestId !== this._guideSelectionRequestId
+                || this._navigation?.getCurrentScreen() !== 'guide'
+                || !runtime.isTuneAdmissionCurrent(admission)
+                || !this._matchesGuideSelectedProgram(selected)
+                || !this.canActivateCurrentChannelSession(channelId)) {
+                return { kind: 'aborted' };
+            }
+            this._navigation.replaceScreen('player');
+            return outcome;
+        } finally {
+            observationAbort.abort();
+            options.signal?.removeEventListener('abort', cancelFromCaller);
+            if (this._guideSelectionObservationAbort === observationAbort) {
+                this._guideSelectionObservationAbort = null;
+            }
+        }
+    }
+
+    private _cancelGuideSelectionObservation(): void {
+        this._guideSelectionObservationAbort?.abort();
+        this._guideSelectionObservationAbort = null;
+        ++this._guideSelectionRequestId;
+    }
+
+    private _matchesGuideSelectedProgram(
+        selected: ScheduledProgramIdentity | undefined
+    ): boolean {
+        if (!selected) return false;
+        const now = Date.now();
+        return scheduledProgramIdentitiesMatch(
+            buildScheduledProgramIdentityFromState(this._scheduler?.getState()), selected
+        ) && now >= selected.scheduledStartTime && now < selected.scheduledEndTime;
     }
 
     async switchToChannelByNumber(
         number: number,
         options?: import('../channel-tuning').ChannelSwitchOptions
     ): Promise<void> {
+        this._cancelGuideSelectionObservation();
         await this._channelSwitchRuntime.switchToChannelByNumber(number, options);
     }
 
@@ -1299,18 +1387,8 @@ export class AppOrchestrator {
         number: number,
         options?: import('../channel-tuning').ChannelSwitchOptions
     ): Promise<ChannelSwitchOutcome> {
+        this._cancelGuideSelectionObservation();
         return this._channelSwitchRuntime.switchToChannelByNumberWithOutcome(number, options);
-    }
-
-    appendBuilderGuideDiagnostic(event: string, data: unknown): void {
-        this._issueDiagnosticsStore.append('channel-builder-guide-transition', event, data);
-    }
-
-    waitForNextPlaybackStart(
-        signal?: AbortSignal
-    ): Promise<import('../../types/playbackStart').PlaybackStartOutcome> {
-        this._assertNotShutdown('waitForNextPlaybackStart');
-        return this._requirePlaybackRuntimeController().waitForNextProgramStart(signal);
     }
 
     openEPG(): void {
@@ -1350,12 +1428,12 @@ export class AppOrchestrator {
         }
     }
 
-    /**
-     * Toggle EPG visibility.
-     */
+    /** Open the Guide destination without changing its current browsing state. */
     toggleEPG(): void {
         this._assertNotShutdown('toggleEPG');
-        this._epgCoordinator?.toggleEPG();
+        const screen = this._navigation?.getCurrentScreen();
+        if (screen === 'guide') this._epgCoordinator?.openEPG();
+        else if (screen === 'player') this._navigation?.goTo('guide');
     }
 
     onGuideSettingChange(change: GuideSettingChange): void {
@@ -1432,7 +1510,7 @@ export class AppOrchestrator {
             },
             goToChannelEdit: (): void => {
                 if (this._navigation) {
-                    this._navigation.goTo('channel-edit');
+                    this._navigation.goTo('channels');
                 }
             },
             goToSettings: (): void => {
@@ -1441,25 +1519,14 @@ export class AppOrchestrator {
                 }
             },
             retryStart: (): Promise<void> => this.start(),
-            retryPlayback: (): void => {
+            retryPlayback: async (): Promise<void> => {
                 try {
-                    const scheduler = this._scheduler;
-                    const schedulerState = scheduler?.getState();
-                    const currentProgram = this._getAuthoritativeCurrentProgramForPlayback();
-                    if (!scheduler || !schedulerState?.isActive || !currentProgram) {
-                        throw new Error(`Cannot retry playback without ${scheduler ? 'an active program' : 'an active scheduler'}`);
-                    }
                     this._playbackRecovery?.resetPlaybackFailureGuard();
                     this._playbackRecovery?.resetDirectFallbackAndBurnInAttempts();
-                    scheduler.jumpToProgram(currentProgram);
+                    await this._requirePlaybackRuntimeController().retryCurrentProgram();
                 } catch (error: unknown) {
                     this._warnRecoverableRuntimeError('orchestrator.recovery.retryPlayback', 'Retry playback failed', error);
-                    this.handleGlobalError({
-                        code: AppErrorCode.PLAYBACK_FAILED,
-                        message: 'Playback retry failed',
-                        recoverable: true,
-                        context: { safeError: summarizeErrorForLog(error) },
-                    }, 'playback');
+                    throw error;
                 }
             },
             exitApp: (): Promise<void> => this.shutdown(),
@@ -1658,7 +1725,6 @@ export class AppOrchestrator {
                     runtimeSurfaces: {
                         channelBadgeOverlay: this._channelBadgeOverlay,
                         playerOsd: this._playerOsd,
-                        nowPlayingInfo: this._nowPlayingInfo,
                         epg: this._epg,
                         channelManager: this._channelManager,
                         navigation: this._navigation,
@@ -1668,14 +1734,14 @@ export class AppOrchestrator {
                     playback: {
                         playbackState: this._playbackStateAccessors,
                         playbackRecovery: this._playbackRecovery,
+                        reconcileSleepExpiration: (): boolean =>
+                            this._sleepTimer?.reconcileExpiration() ?? false,
                     },
                     runtimeControllers: {
                         channelTransition: this._channelTransitionCoordinator,
                         playerOsd: this._playerOsdCoordinator,
-                        nowPlayingInfo: this._nowPlayingInfoCoordinator,
                         epg: this._epgCoordinator,
                         navigation: this._navigationCoordinator,
-                        playbackOptions: this._playbackOptionsCoordinator,
                         scheduleDayRollover: this._scheduleDayRolloverController,
                         subtitleTrackRecovery: this._subtitleTrackRecoveryController,
                         nowPlayingDebug: this._nowPlayingDebugManager,
@@ -1746,6 +1812,9 @@ export class AppOrchestrator {
     }
 
     private _stopPlayback(): void {
+        const hadMedia = this.getActiveMediaIdentity() !== null;
+        if (hadMedia) this._supportReport.record({ code: 'playback-stop', at: Date.now(), outcome: 'started' });
+        this._playbackRuntimeController?.noteNativeStop();
         const stopTranscodeResult = captureRecoverableRuntimeResult(
             () => this._playbackRuntimeController?.stopActiveTranscodeSession()
         );
@@ -1757,9 +1826,50 @@ export class AppOrchestrator {
             );
         }
         this._videoPlayer?.stop();
+        if (hadMedia) this._supportReport.record({ code: 'playback-stop', at: Date.now(), outcome: 'succeeded' });
+    }
+
+    /** Runtime media identity is independent of the manager's selected-channel pointer. */
+    public getActiveMediaIdentity(): ActiveMediaIdentity | null {
+        return this._channelAuthoringRuntimeEffects.getActiveMediaIdentity();
+    }
+
+    public getDirectoryScopeKey(): string {
+        return this._channelAuthoringRuntimeEffects.getDirectoryScopeKey();
+    }
+
+    public async stopDeletedMediaIfCurrent(identity: ActiveMediaIdentity): Promise<'stopped' | 'superseded'> {
+        return this._channelAuthoringRuntimeEffects.stopDeletedMediaIfCurrent(identity);
+    }
+
+    /** A durable Studio Save may update the active schedule only after the in-flight boundary. */
+    public async refreshAfterSave(effect: SavedChannelEffect): Promise<void> {
+        await this._channelAuthoringRuntimeEffects.refreshAfterSave(effect);
+    }
+
+    public getChannelAuthoringManager(): IChannelManager | null {
+        return this._channelManager;
+    }
+
+    public getChannelAuthoringLibrary(): IPlexLibrary | null {
+        return this._plexLibrary;
+    }
+
+    public getChannelAuthoringImageUrl(path: string, width: number, height: number): string | null {
+        return this._plexLibrary?.getImageUrl(path, width, height) ?? null;
+    }
+
+    public async refreshChannelDirectoryAfterCommit(): Promise<void> {
+        const manager = this._channelManager;
+        const scope = this.getDirectoryScopeKey();
+        if (!manager || !this._epgCoordinator) return;
+        this._epgCoordinator.clearSelectedChannelScheduleSnapshot();
+        if (this._channelManager !== manager || this.getDirectoryScopeKey() !== scope) return;
+        await this._epgCoordinator.refreshEpgSchedules();
     }
 
     private _clearIdentityScopedRuntimeState(options: { stopPlayback: boolean }): void {
+        this._playbackRuntimeController?.invalidateScope();
         clearIdentityScopedRuntimeState({
             cancelPendingDayRollover: (): void => this._scheduleDayRolloverController?.cancelPendingDayRollover(),
             stopPlayback: (): void => this._stopPlayback(),
@@ -1780,7 +1890,6 @@ export class AppOrchestrator {
         this._currentStreamDescriptor = null;
         this._currentStreamDecision = null;
         this._pendingNowPlayingChannelId = null;
-        this._shouldAutoShowInfoBannerOnNextPlay = false;
         this._lastChannelChangeSource = null;
     }
 

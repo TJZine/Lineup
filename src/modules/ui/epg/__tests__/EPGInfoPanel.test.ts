@@ -158,14 +158,6 @@ describe('EPGInfoPanel', () => {
         }
     });
 
-    it('tracks presentation mode explicitly', () => {
-        panel.setPresentationMode('classic');
-        expect(panel.getPresentationMode()).toBe('classic');
-
-        panel.setPresentationMode('overlay');
-        expect(panel.getPresentationMode()).toBe('overlay');
-    });
-
     it('preallocates hidden quality badge slots during initialization', () => {
         const badges = Array.from(container.querySelectorAll('.epg-info-quality-badge')) as HTMLElement[];
 
@@ -222,10 +214,10 @@ describe('EPGInfoPanel', () => {
 
         panel.updateFull(latest);
 
-        expect(resolver).toHaveBeenCalledWith('/latest-thumb.jpg', 320, 480);
+        expect(resolver).not.toHaveBeenCalledWith('/latest-thumb.jpg', 320, 480);
         expect(resolver).toHaveBeenCalledWith('/latest-art.jpg', 960, 540);
         expect(resolver).toHaveBeenCalledWith('/latest-logo.png', 520, 84);
-        expect(poster.getAttribute('src')).toContain('/latest-thumb.jpg');
+        expect(poster.getAttribute('src')).toBeNull();
         expect(backdrop.getAttribute('src')).toContain('/latest-art.jpg');
         expect(clearLogo.getAttribute('src')).toContain('/latest-logo.png');
         markImageLoaded(clearLogo);
@@ -280,10 +272,10 @@ describe('EPGInfoPanel', () => {
 
         panel.updateFull(program);
         expect(sourceAssignments).not.toHaveBeenCalled();
-        expect(poster.style.display).toBe('block');
+        expect(poster.style.display).toBe('none');
         expect(backdrop.style.display).toBe('block');
         expect(clearLogo.style.display).toBe('block');
-        expect(poster.alt).toBe('Same');
+        expect(poster.alt).toBe('');
         expect(clearLogo.alt).toBe('Same Program');
     });
 
@@ -344,109 +336,6 @@ describe('EPGInfoPanel', () => {
     });
 
     describe('thumb resolver', () => {
-        it('should call resolver callback for relative Plex paths', () => {
-            const resolver = jest.fn().mockReturnValue('https://server/library/thumb?token=xxx');
-            panel.setThumbResolver(resolver);
-
-            const program = createMockProgram('/library/metadata/123/thumb');
-            panel.show(program);
-
-            expect(resolver).toHaveBeenCalledWith('/library/metadata/123/thumb', 320, 480);
-            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.src).toBe('https://server/library/thumb?token=xxx');
-            expect(poster.style.display).toBe('block');
-        });
-
-        it('should hide poster when resolver returns null', () => {
-            const resolver = jest.fn().mockReturnValue(null);
-            panel.setThumbResolver(resolver);
-
-            const program = createMockProgram('/library/metadata/123/thumb');
-            panel.show(program);
-
-            expect(resolver).toHaveBeenCalled();
-            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.style.display).toBe('none');
-        });
-
-        it('should hide poster when thumb is null', () => {
-            const resolver = jest.fn();
-            panel.setThumbResolver(resolver);
-
-            const program = createMockProgram(null);
-            panel.show(program);
-
-            expect(resolver).toHaveBeenCalledWith(null, 320, 480);
-            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.style.display).toBe('none');
-        });
-
-        it('should hide poster for episodes when show thumb is empty', () => {
-            const resolver = jest.fn((path: string | null) => {
-                if (!path) return null;
-                return 'https://server/library/thumb?token=xxx';
-            });
-            panel.setThumbResolver(resolver);
-
-            const program = createMockProgram('/library/metadata/123/thumb', {
-                type: 'episode',
-                showThumb: '',
-                showTitle: '',
-                title: 'Episode Title',
-            });
-            panel.show(program);
-
-            expect(resolver).toHaveBeenCalledWith(null, 320, 480);
-            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.style.display).toBe('none');
-        });
-
-        it('shows poster for episodes when showThumb is empty but details provide grandparentThumb', async () => {
-            jest.useFakeTimers();
-            const resolver = jest.fn((path: string | null) => (path ? 'https://server/library/thumb?token=xxx' : null));
-            panel.setThumbResolver(resolver);
-
-            const fetchItemDetails = jest.fn().mockResolvedValue({
-                ratingKey: 'test-1',
-                key: '/library/metadata/1',
-                type: 'episode',
-                title: 'Episode Title',
-                sortTitle: 'Episode Title',
-                summary: '',
-                year: 2024,
-                durationMs: 7200000,
-                addedAt: new Date(),
-                updatedAt: new Date(),
-                thumb: null,
-                art: null,
-                grandparentThumb: '/library/metadata/999/thumb',
-                media: [],
-            });
-            panel.setFetchItemDetails(fetchItemDetails);
-
-            const program = createMockProgram('/library/metadata/123/thumb', {
-                type: 'episode',
-                showThumb: '',
-                showTitle: '',
-                title: 'Episode Title',
-                fullTitle: 'Some Show - S01E01 - Episode Title',
-            });
-            panel.show(program);
-
-            expect(fetchItemDetails).not.toHaveBeenCalled();
-            expect(resolver).toHaveBeenCalledWith(null, 320, 480);
-
-            jest.advanceTimersByTime(220);
-            await settlePanel(panel);
-
-            expect(fetchItemDetails).toHaveBeenCalledWith('test-1', { signal: expect.any(AbortSignal) });
-            expect(resolver).toHaveBeenCalledWith('/library/metadata/999/thumb', 320, 480);
-            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.style.display).toBe('block');
-
-            jest.useRealTimers();
-        });
-
         it('settles idle when episode poster details throw synchronously', async () => {
             jest.useFakeTimers();
             const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -474,7 +363,7 @@ describe('EPGInfoPanel', () => {
                 expect(warnSpy).toHaveBeenCalledWith(
                     'EPG info panel details fetch failed',
                     expect.objectContaining({
-                        kind: 'poster',
+                        kind: 'hdr',
                         error: expect.objectContaining({
                             message: 'details failed X-Plex-Token=REDACTED',
                         }),
@@ -484,61 +373,6 @@ describe('EPGInfoPanel', () => {
                 warnSpy.mockRestore();
                 jest.useRealTimers();
             }
-        });
-
-        it('should hide poster when resolver returns empty string', () => {
-            const resolver = jest.fn().mockReturnValue('');
-            panel.setThumbResolver(resolver);
-
-            const program = createMockProgram('/library/metadata/123/thumb');
-            panel.show(program);
-
-            expect(resolver).toHaveBeenCalled();
-            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.style.display).toBe('none');
-        });
-
-        it('clears poster when resolver returns null after prior image', () => {
-            const resolver = jest.fn((path: string | null) => {
-                if (!path) return null;
-                return 'https://server/library/thumb?token=xxx';
-            });
-            panel.setThumbResolver(resolver);
-
-            const programWithThumb = createMockProgram('/library/metadata/123/thumb');
-            panel.show(programWithThumb);
-
-            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.src).toBe('https://server/library/thumb?token=xxx');
-            expect(poster.style.display).toBe('block');
-
-            const programWithoutThumb = createMockProgram(null);
-            panel.show(programWithoutThumb);
-
-            expect(poster.getAttribute('src')).toBeNull();
-            expect(poster.style.display).toBe('none');
-        });
-
-        it('should hide poster when no resolver is set', () => {
-            // No resolver set - should hide poster rather than assign raw path
-            const program = createMockProgram('/library/metadata/123/thumb');
-            panel.show(program);
-
-            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.style.display).toBe('none');
-        });
-
-        it('should pass through absolute URLs via resolver', () => {
-            const resolver = jest.fn().mockImplementation((url: string | null) => url);
-            panel.setThumbResolver(resolver);
-
-            const program = createMockProgram('https://plex.tv/photo/abc123');
-            panel.show(program);
-
-            expect(resolver).toHaveBeenCalledWith('https://plex.tv/photo/abc123', 320, 480);
-            const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.src).toBe('https://plex.tv/photo/abc123');
-            expect(poster.style.display).toBe('block');
         });
 
         it('renders backdrop when art path is provided', () => {
@@ -592,7 +426,6 @@ describe('EPGInfoPanel', () => {
 
         it('does not render a visible poster in classic artwork bleed mode', () => {
             localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
-            panel.setPresentationMode('classic');
 
             const resolver = jest.fn((path: string | null, width?: number, height?: number) => {
                 if (!path) return null;
@@ -609,7 +442,6 @@ describe('EPGInfoPanel', () => {
 
         it('does not resolve a visible poster asset in classic artwork bleed mode', () => {
             localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
-            panel.setPresentationMode('classic');
 
             const resolver = jest.fn((path: string | null, width?: number, height?: number) => {
                 if (!path) return null;
@@ -627,7 +459,6 @@ describe('EPGInfoPanel', () => {
 
         it('does not display backdrop art in artwork bleed mode', () => {
             localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
-            panel.setPresentationMode('overlay');
             panel.show(createMockProgram('/library/metadata/123/thumb', { art: '/library/metadata/123/art' }));
 
             const backdrop = container.querySelector('.epg-info-backdrop-img') as HTMLImageElement | null;
@@ -639,7 +470,6 @@ describe('EPGInfoPanel', () => {
 
             try {
                 localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
-                panel.setPresentationMode('overlay');
 
                 const resolver = jest.fn((path: string | null, width?: number, height?: number) => {
                     if (!path) return null;
@@ -686,8 +516,8 @@ describe('EPGInfoPanel', () => {
                 expect(backdrop?.style.display).toBe('none');
                 expect(resolver).not.toHaveBeenCalledWith(null, 960, 540);
                 expect(resolver).not.toHaveBeenCalledWith('/library/metadata/789/art', 960, 540);
-                expect(resolver.mock.calls.length).toBe(callsBefore + 1);
-                expect(resolver).toHaveBeenLastCalledWith('/library/metadata/789/thumb', 320, 480);
+                expect(resolver.mock.calls.length).toBe(callsBefore);
+                expect(resolver).not.toHaveBeenCalledWith('/library/metadata/789/thumb', 320, 480);
             } finally {
                 localStorage.removeItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE);
             }
@@ -710,7 +540,6 @@ describe('EPGInfoPanel', () => {
     describe('lifecycle', () => {
         it('marks the panel as borderless in artwork bleed mode', () => {
             localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
-            panel.setPresentationMode('classic');
 
             panel.show(createMockProgram('/library/metadata/123/thumb'));
 
@@ -1027,7 +856,6 @@ describe('EPGInfoPanel', () => {
             try {
                 (extractDominantColor as jest.Mock).mockReturnValue('rgba(100, 50, 50, 0.32)');
                 localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '0');
-                panel.setPresentationMode('classic');
 
                 const resolver = jest.fn((path: string | null) => (path ? 'https://img.example/thumb.jpg' : null));
                 panel.setThumbResolver(resolver);
@@ -1214,8 +1042,8 @@ describe('EPGInfoPanel', () => {
             expect(showTitle.style.display).toBe('block');
 
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.style.display).toBe('block');
-            expect(poster.alt).toBe('Great Show');
+            expect(poster.style.display).toBe('none');
+            expect(poster.alt).toBe('');
         });
 
         it('derives series title from fullTitle without a season code', () => {
@@ -1236,8 +1064,8 @@ describe('EPGInfoPanel', () => {
             expect(showTitle.style.display).toBe('block');
 
             const poster = container.querySelector('.epg-info-poster') as HTMLImageElement;
-            expect(poster.style.display).toBe('block');
-            expect(poster.alt).toBe('Scavengers Reign');
+            expect(poster.style.display).toBe('none');
+            expect(poster.alt).toBe('');
         });
 
         it('renders clear logo in place of title only after it loads and is usable', () => {

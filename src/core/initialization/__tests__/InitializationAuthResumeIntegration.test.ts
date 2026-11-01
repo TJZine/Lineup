@@ -48,6 +48,7 @@ function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationC
         getCurrentScreen: jest.fn().mockReturnValue('player'),
         goTo: jest.fn(),
         replaceScreen: jest.fn(),
+        resetToAuth: jest.fn(),
     };
     const dependencies = {
         modules: {
@@ -80,7 +81,6 @@ function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationC
             miniGuide: null,
             channelTransition: null,
         },
-        startupUiInitializer: { ensureCorePlayerUiInitialized: jest.fn().mockResolvedValue(undefined) },
         epgDebugRuntime: null,
         stores: {
             epgPreferencesStore: new EpgPreferencesStore(),
@@ -99,7 +99,6 @@ function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationC
         },
         routing: {
             shouldRunAudioSetup: jest.fn().mockReturnValue(false),
-            shouldRunChannelSetup: jest.fn().mockReturnValue(false),
             switchToChannel: jest.fn().mockResolvedValue({ kind: 'switched' }),
             openServerSelect: jest.fn(),
         },
@@ -111,13 +110,11 @@ function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationC
         navConfig: {} as never,
         playerConfig: {} as never,
         epgConfig: {} as never,
-        nowPlayingInfoConfig: {} as never,
         playerOsdConfig: {} as never,
         channelNumberOverlayConfig: {} as never,
         channelBadgeConfig: {} as never,
         miniGuideConfig: {} as never,
         channelTransitionConfig: {} as never,
-        playbackOptionsConfig: {} as never,
     }, dependencies, callbacks);
 }
 
@@ -180,7 +177,7 @@ describe('PIN auth resume integration', () => {
                 events.push('poll-resolved');
                 return result;
             },
-            cancelPin: async (): Promise<void> => undefined,
+            cancelPin: async (): Promise<{ kind: 'canceled' }> => ({ kind: 'canceled' }),
             getNavigation: (): null => null,
         });
 
@@ -264,7 +261,7 @@ describe('PIN auth resume integration', () => {
                 events.push('poll-resolved');
                 return result;
             },
-            cancelPin: async (): Promise<void> => undefined,
+            cancelPin: async (): Promise<{ kind: 'canceled' }> => ({ kind: 'canceled' }),
             getNavigation: (): null => null,
         });
         const signIn = getRecoveryActions(AppErrorCode.AUTH_EXPIRED, {

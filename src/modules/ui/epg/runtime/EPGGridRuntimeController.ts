@@ -18,8 +18,7 @@ export type EPGGridRuntimeControllerContext = {
     getFocusKey: (focusedCell: EPGFocusPosition | null) => string | null;
     setHasRenderedOnce: (hasRenderedOnce: boolean) => void;
     updateNowWatchingBanner: () => void;
-    syncPeekMode: () => void;
-    applyLayoutMode: () => void;
+    syncPicture: () => void;
     appendDebugLog: (event: string, payload: Record<string, unknown>) => void;
     isDebugEnabled: () => boolean;
 };
@@ -35,7 +34,7 @@ export class EPGGridRuntimeController {
         const state = this.context.getState();
         if (!state.isVisible) return;
         if (document.visibilityState === 'visible') {
-            this.context.syncPeekMode();
+            this.context.syncPicture();
             this.refreshCurrentTime();
             this.renderGrid();
         }
@@ -95,8 +94,7 @@ export class EPGGridRuntimeController {
         this.timeUpdateInterval = setInterval(() => {
             this.refreshCurrentTime();
             this.context.updateNowWatchingBanner();
-            this.context.syncPeekMode();
-            this.context.applyLayoutMode();
+            this.context.syncPicture();
         }, EPG_CONSTANTS.TIME_INDICATOR_UPDATE_MS);
     }
 

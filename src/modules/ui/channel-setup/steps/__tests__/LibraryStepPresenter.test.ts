@@ -31,6 +31,8 @@ const createSnapshot = (selectedLibraryIds = new Set(['movies'])): ChannelSetupS
         makeLibrary({ id: 'shows', title: 'Shows', type: 'show', contentCount: 50, episodeCount: 400 }),
     ],
     selectedLibraryIds,
+    inventory: null, isInventoryLoading: false, inventoryError: null,
+    acceptedReadyLibraryIds: new Set(), confirmedDeselectedLibraryIds: new Set(), knownReadyLibraryIds: new Set(),
     loadError: null,
     strategies: {} as ChannelSetupSessionSnapshot['strategies'],
     strategyOrder: [],
@@ -44,7 +46,8 @@ const createSnapshot = (selectedLibraryIds = new Set(['movies'])): ChannelSetupS
     isBuilding: false,
     isPreviewLoading: false,
     isReviewLoading: false,
-    replaceConfirm: false,
+    replaceConfirm: false, replaceConfirmReviewId: null,
+    wholeLineupReplacementConfirm: false, wholeLineupReplacementConfirmReviewId: null,
     preview: null,
     previewError: null,
     previewStatus: 'idle',
@@ -73,6 +76,8 @@ const createPresenter = (
         selectAllLibraries: jest.Mock;
         setStep: jest.Mock;
         toggleLibrary: jest.Mock;
+        scanInventory: jest.Mock; retryInventory: jest.Mock;
+        acceptReadySubset: jest.Mock; confirmDeselectedLibraries: jest.Mock; cancelInventory: jest.Mock;
     };
     renderStep: jest.Mock;
     setPreferredFocusId: jest.Mock;
@@ -87,6 +92,8 @@ const createPresenter = (
         selectAllLibraries: jest.fn(),
         setStep: jest.fn(),
         toggleLibrary: jest.fn((_libraryId: string) => false),
+        scanInventory: jest.fn().mockResolvedValue(undefined), retryInventory: jest.fn().mockResolvedValue(undefined),
+        acceptReadySubset: jest.fn(() => true), confirmDeselectedLibraries: jest.fn(), cancelInventory: jest.fn(),
     };
     const focus = new ChannelSetupFocusCoordinator({
         getNavigation: (): INavigationManager => nav as unknown as INavigationManager,
@@ -101,11 +108,9 @@ const createPresenter = (
             screenPorts: {
                 getNavigation: () => nav as unknown as INavigationManager,
                 openServerSelect: jest.fn(),
+                goBackFromLibraries: jest.fn(),
+                openCustomChannelStudio: jest.fn(),
                 getSelectedServerId: jest.fn(() => 'server-1'),
-                switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
-                waitForNextPlaybackStart: jest.fn().mockResolvedValue({ kind: 'started' }),
-                openEPG: jest.fn(),
-                appendBuilderGuideDiagnostic: jest.fn(),
             },
             contentEl: ctx.contentEl,
             getPreferredFocusId: jest.fn(() => null),
@@ -133,7 +138,7 @@ describe('LibraryStepPresenter', () => {
         presenter.render(ctx);
 
         expect(ctx.stepEl.textContent).toBe('Step 1 of 3');
-        expect(ctx.detailEl.textContent).toBe('Selected 1 of 2.');
+        expect(ctx.detailEl.textContent).toBe('Selected 1 of 2. 0 ready for Configure.');
         expect(ctx.contentEl.querySelector('#setup-select-all')).not.toBeNull();
         expect(ctx.contentEl.querySelector('#setup-clear-all')).not.toBeNull();
         expect(ctx.contentEl.querySelector('#setup-lib-movies .setup-toggle-icon svg')).not.toBeNull();
@@ -170,7 +175,7 @@ describe('LibraryStepPresenter', () => {
         document.body.appendChild(ctx.contentEl);
         const getSnapshot = jest.fn()
             .mockReturnValueOnce(createSnapshot(new Set(['movies'])))
-            .mockReturnValueOnce(createSnapshot(new Set()));
+            .mockReturnValue(createSnapshot(new Set()));
         const { presenter, session, renderStep, setPreferredFocusId } = createPresenter(ctx, {
             getSnapshot,
         });
@@ -183,7 +188,7 @@ describe('LibraryStepPresenter', () => {
         expect(after).toBe(before);
         expect(session.toggleLibrary).toHaveBeenCalledWith('movies');
         expect(after.getAttribute('aria-pressed')).toBe('false');
-        expect(ctx.detailEl.textContent).toBe('Selected 0 of 2.');
+        expect(ctx.detailEl.textContent).toBe('Selected 0 of 2. 0 ready for Configure.');
         expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
         expect(setPreferredFocusId).toHaveBeenNthCalledWith(1, 'setup-lib-movies');
         expect(setPreferredFocusId).toHaveBeenNthCalledWith(2, null);

@@ -74,14 +74,17 @@ const createWorkflowPort = (
         warnings: [],
         reachedMaxChannels: false,
     }),
-    createChannelsFromSetup: jest.fn().mockResolvedValue({
+    scanSetupInventory: jest.fn().mockResolvedValue({ scopeKey: '', generation: 0, libraries: [], acceptedReadyLibraryIds: [] }),
+    retrySetupInventory: jest.fn(),
+    applySetupReview: jest.fn().mockResolvedValue({ kind: 'no-change', summary: {
         created: 0,
         skipped: 0,
         reachedMaxChannels: false,
         errorCount: 0,
         canceled: false,
         lastTask: 'done',
-    }),
+    } }),
+    cancelPreparedReview: jest.fn(),
     markSetupComplete: jest.fn(),
     ...overrides,
 });

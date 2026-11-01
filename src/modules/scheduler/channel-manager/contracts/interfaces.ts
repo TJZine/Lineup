@@ -10,8 +10,6 @@ import type {
 import type { PlexCollection, PlexMediaFile } from '../../../plex/library';
 import type { PlexMediaType } from '../../../plex/shared/types';
 import type { IDisposable } from '../../../../utils/interfaces';
-import type { OperationContextUpstream } from '../../../../utils/RetainedOperationContext';
-import type { ChannelInitialResolutionAuthorization } from './ChannelResolutionAuthority';
 import type { ObserveSourceResolution } from './SourceResolutionDiagnostic';
 import type { ChannelLoadOutcome, ChannelMutationOutcome, ChannelStructuralBase } from './ChannelDurability';
 
@@ -68,27 +66,6 @@ export interface IChannelManager {
      * channel and resolver state. Resolution admission remains suspended.
      */
     clearRuntimeStateForScopeTransition(): Promise<void>;
-
-    /**
-     * Creates a single-use initial-tune authorization while general resolution
-     * admission is suspended.
-     * @throws AbortError when admission is active or the validator is not current.
-     */
-    createInitialTuneResolutionAuthorization(
-        channelId: string,
-        validator: OperationContextUpstream
-    ): ChannelInitialResolutionAuthorization;
-
-    /**
-     * Resolves the same channel authorized by createInitialTuneResolutionAuthorization.
-     * The authorization must be consumed exactly once before resume or supersession.
-     * @throws ChannelError when the channel does not exist.
-     * @throws AbortError for a mismatched, consumed, or superseded authorization.
-     */
-    resolveChannelContentForInitialTune(
-        channelId: string,
-        authorization: ChannelInitialResolutionAuthorization
-    ): Promise<ResolvedChannelContent>;
 
     getChannelByNumber(number: number): ChannelConfig | null;
 

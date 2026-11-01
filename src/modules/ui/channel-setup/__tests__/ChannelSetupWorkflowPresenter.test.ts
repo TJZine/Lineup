@@ -16,6 +16,12 @@ const createSnapshot = (
 ): ChannelSetupSessionSnapshot => ({
     step: 2,
     libraries: [],
+    inventory: null,
+    isInventoryLoading: false,
+    inventoryError: null,
+    acceptedReadyLibraryIds: new Set(),
+    confirmedDeselectedLibraryIds: new Set(),
+    knownReadyLibraryIds: new Set(),
     selectedLibraryIds: new Set(),
     loadError: null,
     strategies: createDefaultStrategyState(),
@@ -39,6 +45,9 @@ const createSnapshot = (
     isPreviewLoading: false,
     isReviewLoading: false,
     replaceConfirm: false,
+    replaceConfirmReviewId: null,
+    wholeLineupReplacementConfirm: false,
+    wholeLineupReplacementConfirmReviewId: null,
     preview: null,
     previewError: null,
     previewStatus: 'idle',
@@ -94,8 +103,6 @@ describe('ChannelSetupWorkflowPresenter', () => {
             renderStep: jest.fn(),
             resetStep2Scroll: jest.fn(),
             toDomId: (raw): string => raw,
-            revealPlayerProvisionally: jest.fn(),
-            restoreSetupAfterProvisionalReveal: jest.fn(),
         });
         const nav = {
             getFocusedElement: jest.fn(() => ({ id: STEP2_CONTROL_IDS.maxChannels })),
@@ -124,6 +131,7 @@ describe('ChannelSetupWorkflowPresenter', () => {
         let snapshot = createSnapshot({
             setupContext: 'existing',
             reviewError: 'review failed',
+            inventory: { scopeKey: 'scope', generation: 1, libraries: [], acceptedReadyLibraryIds: ['movies'], sharedPlaylistsStatus: 'unused' },
         });
         const session = {
             getSnapshot: jest.fn(() => snapshot),
@@ -155,8 +163,6 @@ describe('ChannelSetupWorkflowPresenter', () => {
             renderStep,
             resetStep2Scroll: jest.fn(),
             toDomId: (raw): string => raw,
-            revealPlayerProvisionally: jest.fn(),
-            restoreSetupAfterProvisionalReveal: jest.fn(),
         });
 
         presenter.renderStrategyStep(ctx);

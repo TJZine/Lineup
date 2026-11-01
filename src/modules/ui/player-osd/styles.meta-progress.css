@@ -19,6 +19,11 @@
   gap: var(--player-osd-meta-space-18);
 }
 
+.no-flex-gap .player-osd-meta-strip > * + *,
+.no-flex-gap .player-osd-meta-left > * + * {
+  margin-left: var(--player-osd-meta-space-18);
+}
+
 .player-osd-meta-right {
   display: flex;
   align-items: center;

@@ -24,7 +24,7 @@ const makeProgram = (overrides: Partial<ScheduledProgram> = {}): ScheduledProgra
         ...overrides,
     } as ScheduledProgram);
 
-type TestVideoPlayer = Pick<IVideoPlayer, 'loadStream' | 'play'>;
+type TestVideoPlayer = Pick<IVideoPlayer, 'loadStream' | 'play' | 'getCurrentDescriptor' | 'stop'>;
 
 const makePrepared = makePreparedPlaybackStream;
 
@@ -38,10 +38,14 @@ const makeSetup = (
     const videoPlayer: TestVideoPlayer = {
         loadStream: jest.fn().mockResolvedValue(undefined),
         play: jest.fn().mockResolvedValue(undefined),
+        getCurrentDescriptor: jest.fn().mockReturnValue(null),
+        stop: jest.fn(),
     };
 
     const deps = {
         getVideoPlayer: jest.fn(() => videoPlayer),
+        captureAdmission: jest.fn().mockReturnValue(1),
+        isAdmissionCurrent: jest.fn().mockReturnValue(true),
         resolveStreamForProgram: jest.fn().mockResolvedValue(
             makePrepared('https://example.invalid/stream.m3u8')
         ),
@@ -55,14 +59,12 @@ const makeSetup = (
         markProgramStarting: jest.fn((program: ScheduledProgram) => ({
             programAtStart: program,
             programIdentityAtStart: null,
-            shouldResetAutoShowInfoBannerOnAbort: false,
         })),
         isProgramStillCurrent: jest.fn().mockReturnValue(true),
         handleProgramStartUiSideEffects: jest.fn(),
         commitPreparedStream: jest.fn(),
         handleStreamResolved: jest.fn(),
         reportRecoverableActivationFailure: jest.fn(),
-        clearAutoShowInfoBannerAfterAbortedStart: jest.fn(),
         ...overrides,
     } as unknown as jest.Mocked<PlaybackStartControllerDeps>;
 
@@ -157,6 +159,7 @@ describe('PlaybackStartController', () => {
                 })
                 .mockResolvedValueOnce(undefined),
             play: jest.fn().mockResolvedValue(undefined),
+            stop: jest.fn(),
         };
         const { controller, deps } = makeSetup({
             getVideoPlayer: jest.fn(() => videoPlayer),
@@ -194,7 +197,6 @@ describe('PlaybackStartController', () => {
             markProgramStarting: jest.fn((program: ScheduledProgram) => ({
                 programAtStart: program,
                 programIdentityAtStart: null,
-                shouldResetAutoShowInfoBannerOnAbort: true,
             })),
         });
 
@@ -211,7 +213,6 @@ describe('PlaybackStartController', () => {
                 descriptor: expect.objectContaining({ url: 'https://example.invalid/a.m3u8' }),
             })
         );
-        expect(deps.clearAutoShowInfoBannerAfterAbortedStart).toHaveBeenCalledTimes(1);
     });
 
     it('discards a start superseded while play is pending', async () => {
@@ -226,6 +227,7 @@ describe('PlaybackStartController', () => {
             play: jest.fn()
                 .mockReturnValueOnce(firstPlay)
                 .mockResolvedValueOnce(undefined),
+            stop: jest.fn(),
         };
         const { controller, deps } = makeSetup({
             getVideoPlayer: jest.fn(() => videoPlayer),
@@ -277,6 +279,7 @@ describe('PlaybackStartController', () => {
                 })
                 .mockResolvedValueOnce(undefined),
             play: jest.fn().mockResolvedValue(undefined),
+            stop: jest.fn(),
         };
         const { controller, deps } = makeSetup({
             getVideoPlayer: jest.fn(() => videoPlayer),

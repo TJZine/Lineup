@@ -1,15 +1,13 @@
 import {
     NowPlayingDebugManager,
     type NowPlayingDebugManagerDeps,
-    type NowPlayingDebugOverlayPort,
+    type PlayerOsdDebugPort,
 } from '../NowPlayingDebugManager';
 import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { DebugOverridesStore } from '../DebugOverridesStore';
 import type { INavigationManager } from '../../navigation';
 import type { IPlexStreamResolver, StreamDecision } from '../../plex/stream';
 import type { ScheduledProgram } from '../../scheduler/scheduler';
-
-const modalId = 'now-playing';
 
 const makeNavigation = (overrides: Partial<INavigationManager> = {}): INavigationManager => {
     const base: INavigationManager = {
@@ -73,30 +71,30 @@ const setup = (overrides: Partial<NowPlayingDebugManagerDeps> = {}): {
     decision: StreamDecision;
     program: ScheduledProgram;
     resolver: IPlexStreamResolver;
+    playerOsd: PlayerOsdDebugPort;
 } => {
     const navigation = makeNavigation();
     const decision = makeDecision();
     const program = makeProgram();
-    const nowPlayingInfo: NowPlayingDebugOverlayPort = {
-        isVisible: jest.fn(() => false),
+    const playerOsd: PlayerOsdDebugPort = {
+        expand: jest.fn(),
+        refreshIfVisible: jest.fn(),
     };
     const resolver: IPlexStreamResolver = {
         fetchUniversalTranscodeDecision: jest.fn().mockResolvedValue({ videoDecision: 'copy' }),
     } as unknown as IPlexStreamResolver;
 
     const deps: NowPlayingDebugManagerDeps = {
-        nowPlayingModalId: modalId,
         getNavigation: () => navigation,
         getStreamResolver: () => resolver,
-        getNowPlayingInfo: () => nowPlayingInfo,
+        getPlayerOsd: () => playerOsd,
         getCurrentProgram: () => program,
         getCurrentStreamDecision: () => decision,
         debugOverridesStore: new DebugOverridesStore(),
-        requestNowPlayingOverlayRefresh: jest.fn(),
         ...overrides,
     };
     const manager = new NowPlayingDebugManager(deps);
-    return { manager, deps, navigation, decision, program, resolver };
+    return { manager, deps, navigation, decision, program, resolver, playerOsd };
 };
 
 describe('NowPlayingDebugManager', () => {
@@ -132,23 +130,22 @@ describe('NowPlayingDebugManager', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW, '1');
     };
 
-    it('auto-show opens modal only when debug + auto-show + player screen + no modals', () => {
+    it('auto-show expands Player only when debug + auto-show + player screen + no modals', () => {
         enableDebug();
         enableAutoShow();
-        const { manager, navigation } = setup();
+        const { manager, playerOsd } = setup();
 
         manager.maybeAutoShowNowPlayingStreamDebugHud();
 
-        expect(navigation.openModal).toHaveBeenCalledWith(modalId);
+        expect(playerOsd.expand).toHaveBeenCalledTimes(1);
     });
 
-    it('auto-show does nothing when now playing overlay is unavailable', () => {
+    it('auto-show does nothing when Player controls are unavailable', () => {
         enableDebug();
         enableAutoShow();
-        const { manager, navigation } = setup({ getNowPlayingInfo: () => null });
+        const { manager, navigation } = setup({ getPlayerOsd: () => null });
 
         manager.maybeAutoShowNowPlayingStreamDebugHud();
-
         expect(navigation.openModal).not.toHaveBeenCalled();
     });
 
@@ -159,21 +156,21 @@ describe('NowPlayingDebugManager', () => {
             getCurrentScreen: () => 'guide',
             openModal: jest.fn(),
         } as Partial<INavigationManager> as INavigationManager);
-        const { manager } = setup({ getNavigation: () => navigation });
+        const { manager, playerOsd } = setup({ getNavigation: () => navigation });
 
         manager.maybeAutoShowNowPlayingStreamDebugHud();
-        expect(navigation.openModal).not.toHaveBeenCalled();
-
+        expect(playerOsd.expand).not.toHaveBeenCalled();
         const navigationWithModal = makeNavigation({
             isModalOpen: jest.fn().mockReturnValue(true),
             openModal: jest.fn(),
         } as Partial<INavigationManager> as INavigationManager);
+        const modalSetup = setup();
         const manager2 = new NowPlayingDebugManager({
-            ...setup().deps,
+            ...modalSetup.deps,
             getNavigation: (): INavigationManager => navigationWithModal,
         });
         manager2.maybeAutoShowNowPlayingStreamDebugHud();
-        expect(navigationWithModal.openModal).not.toHaveBeenCalled();
+        expect(modalSetup.playerOsd.expand).not.toHaveBeenCalled();
     });
 
     it('debug text is null when debug disabled or no decision', () => {
@@ -265,39 +262,11 @@ describe('NowPlayingDebugManager', () => {
         expect(decision.subtitleBurnIn.confirmed).toBe(true);
     });
 
-    it('debug fetch calls refresh only when modal open', async () => {
+    it('refreshes the visible Player projection after a debug decision arrives', async () => {
         enableDebug();
-        const closed = setup();
-        const refreshSpy = closed.deps.requestNowPlayingOverlayRefresh as jest.Mock;
-        (closed.resolver.fetchUniversalTranscodeDecision as jest.Mock).mockResolvedValue({
-            videoDecision: 'copy',
-        });
-
-        // Modal closed
-        await closed.manager.maybeFetchNowPlayingStreamDecisionForDebugHud();
-        expect(refreshSpy).not.toHaveBeenCalled();
-
-        // Modal open on fresh manager (no cached decision)
-        const navigationOpen = makeNavigation({
-            isModalOpen: jest.fn().mockReturnValue(true),
-        } as Partial<INavigationManager> as INavigationManager);
-        const openDecision = makeDecision();
-        const openResolver: IPlexStreamResolver = {
-            fetchUniversalTranscodeDecision: jest.fn().mockResolvedValue({ videoDecision: 'copy' }),
-        } as unknown as IPlexStreamResolver;
-        const openDeps: NowPlayingDebugManagerDeps = {
-            nowPlayingModalId: modalId,
-            getNavigation: () => navigationOpen,
-            getStreamResolver: () => openResolver,
-            getNowPlayingInfo: () => ({ isVisible: jest.fn(() => false) }),
-            getCurrentProgram: () => makeProgram(),
-            getCurrentStreamDecision: () => openDecision,
-            debugOverridesStore: new DebugOverridesStore(),
-            requestNowPlayingOverlayRefresh: jest.fn(),
-        };
-        const managerOpen = new NowPlayingDebugManager(openDeps);
-        await managerOpen.maybeFetchNowPlayingStreamDecisionForDebugHud();
-        expect(openDeps.requestNowPlayingOverlayRefresh).toHaveBeenCalled();
+        const { manager, playerOsd } = setup();
+        await manager.maybeFetchNowPlayingStreamDecisionForDebugHud();
+        expect(playerOsd.refreshIfVisible).toHaveBeenCalledTimes(1);
     });
 
     it('shares in-flight server decision fetch between snapshot and debug fetch', async () => {
@@ -317,15 +286,14 @@ describe('NowPlayingDebugManager', () => {
             isModalOpen: jest.fn().mockReturnValue(true),
         } as Partial<INavigationManager> as INavigationManager);
         const decision = makeDecision();
+        const playerOsd = { expand: jest.fn(), refreshIfVisible: jest.fn() };
         const deps: NowPlayingDebugManagerDeps = {
-            nowPlayingModalId: modalId,
             getNavigation: () => navigationOpen,
             getStreamResolver: () => resolver,
-            getNowPlayingInfo: () => ({ isVisible: jest.fn(() => false) }),
+            getPlayerOsd: () => playerOsd,
             getCurrentProgram: () => makeProgram(),
             getCurrentStreamDecision: () => decision,
             debugOverridesStore: new DebugOverridesStore(),
-            requestNowPlayingOverlayRefresh: jest.fn(),
         };
         const manager = new NowPlayingDebugManager(deps);
 
@@ -336,7 +304,7 @@ describe('NowPlayingDebugManager', () => {
         await Promise.all([snapshotPromise, debugPromise]);
 
         expect(resolver.fetchUniversalTranscodeDecision).toHaveBeenCalledTimes(1);
-        expect(deps.requestNowPlayingOverlayRefresh).toHaveBeenCalled();
+        expect(deps.getPlayerOsd()?.refreshIfVisible).toHaveBeenCalled();
     });
 
     it('logs joined in-flight server decision fetch failures for snapshot callers that request errors', async () => {
@@ -360,15 +328,13 @@ describe('NowPlayingDebugManager', () => {
 
         const decision = makeDecision();
         const deps: NowPlayingDebugManagerDeps = {
-            nowPlayingModalId: modalId,
-            getNavigation: () => navigationOpen,
+                getNavigation: () => navigationOpen,
             getStreamResolver: () => resolver,
-            getNowPlayingInfo: () => ({ isVisible: jest.fn(() => false) }),
+            getPlayerOsd: () => ({ expand: jest.fn(), refreshIfVisible: jest.fn() }),
             getCurrentProgram: () => makeProgram(),
             getCurrentStreamDecision: () => decision,
             debugOverridesStore: new DebugOverridesStore(),
-            requestNowPlayingOverlayRefresh: jest.fn(),
-        };
+            };
         const manager = new NowPlayingDebugManager(deps);
 
         const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -414,15 +380,13 @@ describe('NowPlayingDebugManager', () => {
 
         const decision = makeDecision();
         const deps: NowPlayingDebugManagerDeps = {
-            nowPlayingModalId: modalId,
-            getNavigation: () => makeNavigation(),
+                getNavigation: () => makeNavigation(),
             getStreamResolver: () => resolver,
-            getNowPlayingInfo: () => ({ isVisible: jest.fn(() => false) }),
+            getPlayerOsd: () => ({ expand: jest.fn(), refreshIfVisible: jest.fn() }),
             getCurrentProgram: () => makeProgram(),
             getCurrentStreamDecision: () => decision,
             debugOverridesStore: new DebugOverridesStore(),
-            requestNowPlayingOverlayRefresh: jest.fn(),
-        };
+            };
         const manager = new NowPlayingDebugManager(deps);
         const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 

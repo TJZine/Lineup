@@ -19,7 +19,6 @@ export class ProfileSwitchCleanupController {
     public finalizeProfileSwitch(): void {
         this._deps.playback.unloadCurrentChannel();
         this._deps.playback.playbackState.setPendingNowPlayingChannelId(null);
-        this._deps.playback.playbackState.setShouldAutoShowInfoBannerOnNextPlay(false);
         this._deps.playback.playbackState.setCurrentProgramForPlayback(null);
         this._deps.playback.playbackState.setCurrentStreamDescriptor(null);
         this._deps.playback.playbackState.setCurrentStreamDecision(null);

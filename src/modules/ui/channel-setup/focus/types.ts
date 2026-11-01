@@ -16,7 +16,7 @@ export interface RegisterLibraryStepFocusOptions {
 
 export interface RegisterStep2FocusOptions {
     categoryButtons: HTMLButtonElement[];
-    detailButtons: HTMLButtonElement[];
+    detailButtons: HTMLElement[];
     footerButtons: HTMLButtonElement[];
     activeCategoryId: string;
     detailFocusTarget: string | null;

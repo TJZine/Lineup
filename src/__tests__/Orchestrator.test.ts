@@ -8,12 +8,15 @@
 
 import { AppOrchestrator } from '../Orchestrator';
 import { PlaybackRuntimeController } from '../core/orchestrator/priority-one/PlaybackRuntimeController';
+import { PlaybackStartController } from '../core/orchestrator/priority-one/PlaybackStartController';
+import { PlaybackRecoveryManager } from '../modules/player';
+import type { PreparedPlaybackStream, StreamDescriptor } from '../modules/player';
+import type { PlaybackStartOutcome } from '../types/playbackStart';
 import { AppErrorCode } from '../types/app-errors';
 import type { OrchestratorConfig } from '../core/orchestrator/contracts/OrchestratorTypes';
 import { EPGCoordinator } from '../modules/ui/epg';
 import type { EPGEventMap } from '../modules/ui/epg/types';
 import type { EpgScheduleRefreshResult } from '../modules/ui/epg/coordinator/EPGCoordinatorContracts';
-import type { ChannelSwitchOutcome } from '../types/channelSwitch';
 import type {
     PlexAuthDataV2,
     PlexStoredCredentialsReadResult,
@@ -21,7 +24,6 @@ import type {
 } from '../modules/plex/auth';
 import { PlexDiscoverySelectionContext } from '../modules/plex/discovery/PlexDiscoverySelectionContext';
 import type { ScheduledProgram } from '../modules/scheduler/scheduler';
-import type { NowPlayingInfoConfig } from '../modules/ui/now-playing-info';
 import { CHANNEL_BADGE_CONTAINER_ID } from '../modules/ui/channel-badge';
 import { LINEUP_STORAGE_KEYS } from '../config/storageKeys';
 import { InitializationCoordinator, STARTUP_PHASE } from '../core/initialization/InitializationCoordinator';
@@ -37,7 +39,8 @@ import { ScheduleDayRolloverController } from '../core/orchestrator/controllers/
 import { OverlayRuntimePolicyController } from '../core/orchestrator/controllers/OverlayRuntimePolicyController';
 import { OrchestratorServerSelectionRuntimeProjection } from '../core/orchestrator/runtime/OrchestratorServerSelectionRuntimeProjection';
 import { NowPlayingDebugManager } from '../modules/debug/NowPlayingDebugManager';
-import { expectConsoleWarn } from './helpers';
+import { createDeferred, expectConsoleWarn, flushPromises } from './helpers';
+import { makePreparedPlaybackStream } from './fixtures/preparedPlaybackStream';
 import { EventEmitter } from '../utils/EventEmitter';
 import {
     installMockLocalStorage,
@@ -102,17 +105,6 @@ const mockEpgConfig = {
     autoScrollToNow: true,
 };
 
-const mockNowPlayingInfoConfig = {
-    containerId: 'now-playing-info-container',
-    autoHideMs: 0,
-    posterWidth: 111,
-    posterHeight: 222,
-};
-
-const mockPlaybackOptionsConfig = {
-    containerId: 'playback-options-container',
-};
-
 const mockPlayerOsdConfig = {
     containerId: 'player-osd-container',
 };
@@ -156,13 +148,11 @@ const mockConfig: OrchestratorConfig = {
     navConfig: mockNavConfig,
     playerConfig: mockPlayerConfig,
     epgConfig: mockEpgConfig,
-    nowPlayingInfoConfig: mockNowPlayingInfoConfig,
     playerOsdConfig: mockPlayerOsdConfig,
     channelNumberOverlayConfig: mockChannelNumberOverlayConfig,
     channelBadgeConfig: mockChannelBadgeConfig,
     miniGuideConfig: mockMiniGuideConfig,
     channelTransitionConfig: mockChannelTransitionConfig,
-    playbackOptionsConfig: mockPlaybackOptionsConfig,
 };
 
 // ============================================
@@ -199,6 +189,7 @@ const mockNavigation = {
     initialize: jest.fn().mockResolvedValue(undefined),
     goTo: jest.fn(),
     replaceScreen: jest.fn(),
+    resetToAuth: jest.fn(),
     getCurrentScreen: jest.fn().mockReturnValue('player'),
     isModalOpen: jest.fn().mockReturnValue(false),
     isInputBlocked: jest.fn().mockReturnValue(false),
@@ -217,24 +208,6 @@ const mockNavigation = {
 jest.mock('../modules/navigation', () => ({
     NavigationManager: jest.fn(() => mockNavigation),
 }));
-
-jest.mock('../modules/ui/now-playing-info', () => {
-    const actual = jest.requireActual('../modules/ui/now-playing-info');
-    return {
-        ...actual,
-        NowPlayingInfoOverlay: jest.fn(() => ({
-            initialize: jest.fn(),
-            show: jest.fn(),
-            update: jest.fn(),
-            hide: jest.fn(),
-            isVisible: jest.fn(() => false),
-            destroy: jest.fn(),
-            setAutoHideMs: jest.fn(),
-            resetAutoHideTimer: jest.fn(),
-            setOnAutoHide: jest.fn(),
-        })),
-    };
-});
 
 jest.mock('../modules/ui/player-osd', () => {
     const actual = jest.requireActual('../modules/ui/player-osd');
@@ -486,7 +459,8 @@ const mockChannel = {
 } satisfies EPGEventMap['channelSelected']['channel'];
 
 const mockChannelManager = {
-    loadChannels: jest.fn().mockResolvedValue(undefined),
+    loadChannels: jest.fn().mockResolvedValue({ kind: 'readable', generation: 1, revision: 1, channelCount: 1 }),
+    getLastLoadOutcome: jest.fn().mockReturnValue({ kind: 'readable', generation: 1, revision: 1, channelCount: 1 }),
     setStorageKeys: jest.fn(),
     flushSaves: jest.fn().mockResolvedValue(undefined),
     dispose: jest.fn(),
@@ -496,8 +470,8 @@ const mockChannelManager = {
     supersedeActiveResolutions: jest.fn().mockResolvedValue(undefined),
     resumeActiveResolutions: jest.fn(),
     clearRuntimeStateForScopeTransition: jest.fn().mockResolvedValue(undefined),
-    createInitialTuneResolutionAuthorization: jest.fn().mockReturnValue({}),
     getCurrentChannel: jest.fn().mockReturnValue(mockChannel),
+    getStructuralBase: jest.fn().mockReturnValue({ generation: 1, revision: 1 }),
     getChannel: jest.fn().mockReturnValue(mockChannel),
     getChannelByNumber: jest.fn().mockReturnValue(mockChannel),
     getNextChannel: jest.fn().mockReturnValue(mockChannel),
@@ -505,13 +479,6 @@ const mockChannelManager = {
     setCurrentChannel: jest.fn(),
     deleteChannel: jest.fn().mockResolvedValue(undefined),
     resolveChannelContent: jest.fn().mockResolvedValue({
-        channelId: 'ch1',
-        items: [],
-        orderedItems: [],
-        totalDurationMs: 0,
-        resolvedAt: Date.now(),
-    }),
-    resolveChannelContentForInitialTune: jest.fn().mockResolvedValue({
         channelId: 'ch1',
         items: [],
         orderedItems: [],
@@ -528,6 +495,9 @@ jest.mock('../modules/scheduler/channel-manager', () => ({
 // Mock ChannelScheduler
 const mockScheduler = {
     loadChannel: jest.fn(),
+    stageChannelReplacement: jest.fn(),
+    cancelChannelReplacement: jest.fn(),
+    hasPendingChannelReplacement: jest.fn().mockReturnValue(false),
     unloadChannel: jest.fn(),
     syncToCurrentTime: jest.fn(),
     getCurrentProgram: jest.fn().mockReturnValue(null),
@@ -566,6 +536,7 @@ const mockVideoPlayer = {
     requestMediaSession: jest.fn(),
     releaseMediaSession: jest.fn(),
     getCurrentTimeMs: jest.fn().mockReturnValue(5000),
+    getCurrentDescriptor: jest.fn().mockReturnValue(null),
     getState: jest.fn().mockReturnValue({ activeAudioId: null }),
     getAvailableAudio: jest.fn().mockReturnValue([]),
     getAvailableSubtitles: jest.fn().mockReturnValue([]),
@@ -595,7 +566,7 @@ const mockEpg = {
     handleSelect: jest.fn().mockReturnValue(false),
     handleBack: jest.fn().mockReturnValue(true),
     loadChannels: jest.fn(),
-    setLayoutMode: jest.fn(),
+    setSourceLabelsEnabled: jest.fn(),
     setVisibleHours: jest.fn(),
     setNowWatchingBannerEnabled: jest.fn(),
     setLibraryTabs: jest.fn(),
@@ -929,6 +900,43 @@ describe('AppOrchestrator', () => {
     });
 
     describe('initialize', () => {
+        it('cleans retired viewing settings on initialization and retries a failed removal', async () => {
+            const storedValues = new Map([
+                ['lineup_cinematic_now_playing', '1'],
+                ['lineup_now_playing_info_auto_hide_ms', '15000'],
+                [LINEUP_STORAGE_KEYS.COMPACT_CONTROLS_TIMEOUT_SECONDS, '6'],
+            ]);
+            mockLocalStorage.getItem.mockImplementation((key) => storedValues.get(key) ?? null);
+            const removeItem = mockLocalStorage.removeItem.getMockImplementation()!;
+            mockLocalStorage.removeItem.mockImplementation((key) => {
+                if (key === 'lineup_cinematic_now_playing') throw new DOMException('Blocked', 'SecurityError');
+                removeItem(key);
+                storedValues.delete(key);
+            });
+
+            expectConsoleWarn(/Could not remove retired viewing settings/);
+            await orchestrator.initialize(mockConfig);
+            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('lineup_cinematic_now_playing');
+            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('lineup_now_playing_info_auto_hide_ms');
+            expect(storedValues.get('lineup_cinematic_now_playing')).toBe('1');
+            expect(storedValues.has('lineup_now_playing_info_auto_hide_ms')).toBe(false);
+            expect(storedValues.get(LINEUP_STORAGE_KEYS.COMPACT_CONTROLS_TIMEOUT_SECONDS)).toBe('6');
+            expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(
+                LINEUP_STORAGE_KEYS.COMPACT_CONTROLS_TIMEOUT_SECONDS,
+                expect.anything()
+            );
+
+            mockLocalStorage.removeItem.mockImplementation((key) => {
+                removeItem(key);
+                storedValues.delete(key);
+            });
+            await orchestrator.initialize(mockConfig);
+            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('lineup_cinematic_now_playing');
+            expect(mockLocalStorage.removeItem).toHaveBeenCalledTimes(4);
+            expect(storedValues.has('lineup_cinematic_now_playing')).toBe(false);
+            expect(storedValues.get(LINEUP_STORAGE_KEYS.COMPACT_CONTROLS_TIMEOUT_SECONDS)).toBe('6');
+        });
+
         it('should create all module instances', async () => {
             await orchestrator.initialize(mockConfig);
 
@@ -944,48 +952,6 @@ describe('AppOrchestrator', () => {
             expect(require('../modules/player').VideoPlayer).toHaveBeenCalled();
             expect(require('../modules/ui/epg/component/DeferredEPGComponent').DeferredEPGComponent).toHaveBeenCalled();
         });
-
-
-
-
-            it('wraps nowPlayingInfoConfig.onAutoHide without mutating caller config', async () => {
-                const previousOnAutoHide = jest.fn();
-                const configWithHandler: OrchestratorConfig = {
-                    ...mockConfig,
-                    nowPlayingInfoConfig: {
-                        ...mockConfig.nowPlayingInfoConfig,
-                        onAutoHide: previousOnAutoHide,
-                    },
-                };
-                const originalNowPlayingInfoConfig = configWithHandler.nowPlayingInfoConfig;
-                const originalOnAutoHide = configWithHandler.nowPlayingInfoConfig.onAutoHide;
-
-                mockNavigation.isModalOpen.mockReturnValue(true);
-
-                await orchestrator.initialize(configWithHandler);
-
-                expect(configWithHandler.nowPlayingInfoConfig).toBe(originalNowPlayingInfoConfig);
-                expect(configWithHandler.nowPlayingInfoConfig.onAutoHide).toBe(originalOnAutoHide);
-
-                mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                    createStoredValidationResult('active_valid')
-                );
-                mockPlexDiscovery.isConnected.mockReturnValue(true);
-
-                await orchestrator.start();
-
-                const nowPlayingModule = require('../modules/ui/now-playing-info');
-                const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
-                const initializedConfig = (instance.initialize as jest.Mock).mock.calls[0]?.[0] as NowPlayingInfoConfig;
-
-                expect(initializedConfig).not.toBe(configWithHandler.nowPlayingInfoConfig);
-                expect(initializedConfig.onAutoHide).not.toBe(originalOnAutoHide);
-
-                initializedConfig.onAutoHide?.();
-
-                expect(previousOnAutoHide).toHaveBeenCalledTimes(1);
-                expect(mockNavigation.closeModal).toHaveBeenCalledWith('now-playing-info');
-            });
 
 
 
@@ -1239,9 +1205,6 @@ describe('AppOrchestrator', () => {
                     profileSwitchSequence.push('switchHomeUser');
                 });
 
-                mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(
-                    makeDecision({ isTranscoding: true, sessionId: 'profile-switch-session' })
-                );
                 const nowPlayingProgram = {
                     item: {
                         ratingKey: 'item-1',
@@ -1274,7 +1237,6 @@ describe('AppOrchestrator', () => {
                 expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
                 expect(mockVideoPlayer.stop).toHaveBeenCalled();
                 expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
-                expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('profile-switch-session');
                 expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
                 expect(clearSelectedSnapshotSpy).toHaveBeenCalledTimes(1);
                 expect(clearScheduleCachesSpy).toHaveBeenCalledTimes(1);
@@ -1358,9 +1320,6 @@ describe('AppOrchestrator', () => {
                         profileSwitchSequence.push('logoutActiveUser');
                     });
 
-                    mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(
-                        makeDecision({ isTranscoding: true, sessionId: 'main-profile-session' })
-                    );
                     const nowPlayingProgram = {
                         item: {
                             ratingKey: 'item-2',
@@ -1390,7 +1349,6 @@ describe('AppOrchestrator', () => {
                     expect(resumeStartupAfterProfileSwitchSpy).toHaveBeenCalledTimes(1);
                     expect(mockVideoPlayer.stop).toHaveBeenCalled();
                     expect(mockScheduler.unloadChannel).toHaveBeenCalledTimes(1);
-                    expect(mockPlexStreamResolver.stopTranscodeSession).toHaveBeenCalledWith('main-profile-session');
                     expect(profileSwitchSequence).toEqual([
                         'prepareForProfileSwitchAttempt',
                         'logoutActiveUser',
@@ -1507,7 +1465,7 @@ describe('AppOrchestrator', () => {
 
             await orchestrator.start();
 
-            expect(mockNavigation.goTo).toHaveBeenCalledWith('auth');
+            expect(mockNavigation.resetToAuth).toHaveBeenCalledTimes(1);
         });
 
         it('should be ready after successful start', async () => {
@@ -1585,6 +1543,10 @@ describe('AppOrchestrator', () => {
             mockPlexDiscovery.isConnected.mockReturnValue(true);
             mockPlexDiscovery.getSelectedServer.mockReturnValue({ id: 'server-2' });
             mockChannelManager.getAllChannels.mockReturnValue([mockChannel]);
+            mockChannelManager.loadChannels.mockResolvedValueOnce({ kind: 'absent', generation: 2, revision: 2 });
+            mockChannelManager.getLastLoadOutcome
+                .mockReturnValueOnce({ kind: 'absent', generation: 2, revision: 2 })
+                .mockReturnValueOnce({ kind: 'absent', generation: 2, revision: 2 });
             mockLocalStorage.getItem.mockImplementation((key: string) => {
                 if (key === 'lineup_audio_setup_complete') return '1';
                 if (key === 'lineup_channels_server_v1:server-1:user-1') return 'server-1';
@@ -1627,18 +1589,12 @@ describe('AppOrchestrator', () => {
             schedulerHandlers.programStart?.(program);
             await new Promise((resolve) => setImmediate(resolve));
 
-            expect(mockPlexStreamResolver.resolveStream).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    itemKey: 'item-1',
-                    startOffsetMs: 5000,
-                    directPlay: true,
-                })
-            );
-            expect(mockVideoPlayer.loadStream).toHaveBeenCalled();
-            expect(mockVideoPlayer.play).toHaveBeenCalled();
+            expect(mockPlexStreamResolver.resolveStream).not.toHaveBeenCalled();
+            expect(mockVideoPlayer.loadStream).not.toHaveBeenCalled();
+            expect(mockVideoPlayer.play).not.toHaveBeenCalled();
 
             playerHandlers.ended?.();
-            expect(mockScheduler.skipToNext).toHaveBeenCalledTimes(1);
+            expect(mockScheduler.skipToNext).not.toHaveBeenCalled();
 
             await pauseHandler?.();
             expect(mockVideoPlayer.pause).toHaveBeenCalled();
@@ -1647,8 +1603,8 @@ describe('AppOrchestrator', () => {
 
             await resumeHandler?.();
             expect(mockScheduler.resumeSyncTimer).toHaveBeenCalled();
-            expect(mockScheduler.syncToCurrentTime).toHaveBeenCalled();
-            expect(mockVideoPlayer.play).toHaveBeenCalled();
+            expect(mockScheduler.syncToCurrentTime).not.toHaveBeenCalled();
+            expect(mockVideoPlayer.play).not.toHaveBeenCalled();
         });
 
 
@@ -1716,6 +1672,54 @@ describe('AppOrchestrator', () => {
             await orchestrator.initialize(mockConfig);
         });
 
+        const prepareDeferredGuideStart = async (): Promise<{
+            input: OrchestratorCoordinatorAssemblyInput;
+            selectedProgram: {
+                channelId: string; itemKey: string; scheduledStartTime: number;
+                scheduledEndTime: number; scheduleIndex: number; loopNumber: number;
+            };
+            start: ReturnType<typeof createDeferred<PlaybackStartOutcome>>;
+            restore: () => void;
+        }> => {
+            const { orchestrator: guideOrchestrator, input } = await captureCoordinatorAssembly();
+            mockPlexAuth.validateStoredCredentials.mockResolvedValue(createStoredValidationResult('active_valid'));
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            mockLocalStorage.getItem.mockImplementation((key: string) =>
+                key === LINEUP_STORAGE_KEYS.AUDIO_SETUP_COMPLETE ? '1' : null);
+            await guideOrchestrator.start();
+            if (!schedulerHandlers.programStart) throw new Error('Expected bound program-start handler');
+
+            const scheduledStartTime = Date.now() - 1000;
+            const scheduledEndTime = Date.now() + 60_000;
+            const selectedProgram = {
+                channelId: mockChannel.id, itemKey: 'item-1', scheduledStartTime,
+                scheduledEndTime, scheduleIndex: 0, loopNumber: 0,
+            };
+            const program = {
+                item: { ratingKey: selectedProgram.itemKey },
+                scheduledStartTime, scheduledEndTime, scheduleIndex: 0, loopNumber: 0,
+                elapsedMs: 1000, remainingMs: 60_000, isCurrent: true,
+            } as ScheduledProgram;
+            mockNavigation.getCurrentScreen.mockReturnValue('guide');
+            mockNavigation.replaceScreen.mockClear();
+            mockScheduler.getState.mockReturnValue({ isActive: false, channelId: null, currentProgram: null });
+            mockScheduler.loadChannel.mockImplementation(() => {
+                mockScheduler.getState.mockReturnValue({
+                    isActive: true, channelId: mockChannel.id, currentProgram: program,
+                });
+                schedulerHandlers.programStart?.(program);
+            });
+            const start = createDeferred<PlaybackStartOutcome>();
+            const handleStart = jest.spyOn(PlaybackStartController.prototype, 'handleProgramStart')
+                .mockReturnValue(start.promise);
+            const canActivate = jest.spyOn(ChannelTuningCoordinator.prototype, 'canActivateCurrentSession')
+                .mockReturnValue(true);
+            return {
+                input, selectedProgram, start,
+                restore: (): void => { handleStart.mockRestore(); canActivate.mockRestore(); },
+            };
+        };
+
         it('should stop current playback', async () => {
             await orchestrator.switchToChannel('ch1');
 
@@ -1757,70 +1761,184 @@ describe('AppOrchestrator', () => {
             }
         });
 
-        it('carries ID-based switch outcomes through the public startup contract', async () => {
-            const cases: Array<{
-                outcome: ChannelSwitchOutcome;
-                expectedError: RegExp | null;
-                expectedScreen: 'channel-setup' | 'player' | null;
-            }> = [
-                {
-                    outcome: { kind: 'failed', reason: 'missing_channel' },
-                    expectedError: null,
-                    expectedScreen: 'channel-setup',
-                },
-                {
-                    outcome: { kind: 'failed', reason: 'content_unavailable' },
-                    expectedError: /Initial channel switch failed for ch1: content_unavailable/,
-                    expectedScreen: null,
-                },
-                {
-                    outcome: { kind: 'aborted' },
-                    expectedError: /Initial channel switch aborted for ch1/,
-                    expectedScreen: null,
-                },
-                { outcome: { kind: 'switched' }, expectedError: null, expectedScreen: 'player' },
-            ];
+        it('keeps cold readable restore in Guide without consuming tune outcomes', async () => {
+            mockPlexAuth.validateStoredCredentials.mockResolvedValue(createStoredValidationResult('active_valid'));
+            mockPlexDiscovery.isConnected.mockReturnValue(true);
+            mockLocalStorage.getItem.mockImplementation((key: string) =>
+                key === 'lineup_audio_setup_complete' ? '1' : null);
+            const tune = jest.spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel');
+            try {
+                await orchestrator.start();
+                expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('guide');
+                expect(tune).not.toHaveBeenCalled();
+            } finally {
+                tune.mockRestore();
+            }
+        });
 
-            for (const { outcome, expectedError, expectedScreen } of cases) {
-                const localOrchestrator = createOrchestrator();
-                await localOrchestrator.initialize(mockConfig);
-                mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                    createStoredValidationResult('active_valid')
-                );
-                mockPlexDiscovery.isConnected.mockReturnValue(true);
-                mockPlexDiscovery.getSelectedServer.mockReturnValue(null);
-                mockLocalStorage.getItem.mockImplementation((key: string) => {
-                    if (key === 'lineup_audio_setup_complete') return '1';
-                    return null;
+        it('routes a valid Guide selection through accepted session reuse without tuning', async () => {
+            const { input: assemblyInput } = await captureCoordinatorAssembly();
+            const startTime = Date.now() - 1000;
+            const endTime = Date.now() + 60_000;
+            const selectedProgram = {
+                channelId: mockChannel.id, itemKey: 'item-1',
+                scheduledStartTime: startTime, scheduledEndTime: endTime,
+                scheduleIndex: 0, loopNumber: 0,
+            };
+            mockNavigation.getCurrentScreen.mockReturnValue('guide');
+            mockScheduler.getState.mockReturnValue({
+                isActive: true, channelId: mockChannel.id,
+                currentProgram: { item: { ratingKey: 'item-1' }, scheduledStartTime: startTime,
+                    scheduledEndTime: endTime, scheduleIndex: 0, loopNumber: 0 },
+            });
+            const reuse = jest.spyOn(ChannelTuningCoordinator.prototype, 'canActivateCurrentSession').mockReturnValue(true);
+            const tune = jest.spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel');
+            try {
+                const outcome = await assemblyInput.actions.switchToChannelWithOutcome(mockChannel.id, {
+                    fromGuideSelection: true, selectedProgram,
                 });
+                expect(outcome).toEqual({ kind: 'switched' });
+                expect(tune).not.toHaveBeenCalled();
+                expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
+            } finally {
+                reuse.mockRestore();
+                tune.mockRestore();
+            }
+        });
 
-                const switchSpy = jest
-                    .spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel')
-                    .mockResolvedValueOnce(outcome);
-                mockNavigation.replaceScreen.mockClear();
+        it('keeps Guide when an explicit tune cannot match the selected program', async () => {
+            const { input: assemblyInput } = await captureCoordinatorAssembly();
+            mockNavigation.getCurrentScreen.mockReturnValue('guide');
+            mockScheduler.getState.mockReturnValue({ isActive: false, channelId: null });
+            const observe = jest.spyOn(PlaybackRuntimeController.prototype, 'observeProgramStart');
+            const reuse = jest.spyOn(ChannelTuningCoordinator.prototype, 'canActivateCurrentSession')
+                .mockReturnValue(true);
+            const tune = jest.spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel')
+                .mockResolvedValue({ kind: 'switched' });
+            try {
+                const selection = { fromGuideSelection: true, selectedProgram: {
+                    channelId: mockChannel.id, itemKey: 'item-1',
+                    scheduledStartTime: Date.now() - 1000, scheduledEndTime: Date.now() + 60_000,
+                    scheduleIndex: 0, loopNumber: 0,
+                } };
+                await expect(assemblyInput.actions.switchToChannelWithOutcome(mockChannel.id, selection))
+                    .resolves.toEqual({ kind: 'failed', reason: 'playback_start_failed' });
+                expect(tune).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
+                expect(observe.mock.calls[0]?.[1].aborted).toBe(true);
+            } finally {
+                observe.mockRestore();
+                reuse.mockRestore();
+                tune.mockRestore();
+            }
+        });
 
-                try {
-                    if (expectedError) {
-                        expectConsoleWarn([
-                            'Global error in start',
-                            expect.objectContaining({
-                                safeError: expect.objectContaining({
-                                    message: expect.stringMatching(expectedError),
-                                }),
-                            }),
-                        ]);
-                        await expect(localOrchestrator.start()).rejects.toThrow(expectedError);
-                    } else {
-                        await expect(localOrchestrator.start()).resolves.toBeUndefined();
-                        if (expectedScreen) {
-                            expect(mockNavigation.replaceScreen).toHaveBeenCalledWith(expectedScreen);
-                        } else {
-                            expect(mockNavigation.replaceScreen).not.toHaveBeenCalled();
-                        }
-                    }
-                } finally {
-                    switchSpy.mockRestore();
-                }
+        it('rejects a Guide tune without a selected program identity', async () => {
+            const { input: assemblyInput } = await captureCoordinatorAssembly();
+            mockNavigation.getCurrentScreen.mockReturnValue('guide');
+            const tune = jest.spyOn(ChannelTuningCoordinator.prototype, 'switchToChannel');
+            const observe = jest.spyOn(PlaybackRuntimeController.prototype, 'observeProgramStart');
+            try {
+                await expect(assemblyInput.actions.switchToChannelWithOutcome(mockChannel.id, {
+                    fromGuideSelection: true,
+                })).resolves.toEqual({ kind: 'failed', reason: 'playback_start_failed' });
+                expect(tune).not.toHaveBeenCalled();
+                expect(observe).not.toHaveBeenCalled();
+                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
+            } finally {
+                observe.mockRestore();
+                tune.mockRestore();
+            }
+        });
+
+        it('waits for the matching accepted program start before routing Guide to Player', async () => {
+            const harness = await prepareDeferredGuideStart();
+            try {
+                const switching = harness.input.actions.switchToChannelWithOutcome(mockChannel.id, {
+                    fromGuideSelection: true, selectedProgram: harness.selectedProgram,
+                });
+                await flushPromises(12);
+                expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
+
+                harness.start.resolve({ kind: 'started' });
+                await expect(switching).resolves.toEqual({ kind: 'switched' });
+                expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
+            } finally {
+                harness.restore();
+            }
+        });
+
+        it('routes only after a real deferred stream start creates an accepted current session', async () => {
+            const harness = await prepareDeferredGuideStart();
+            harness.restore();
+            const prepared = makePreparedPlaybackStream();
+            const stream = createDeferred<PreparedPlaybackStream>();
+            let currentDescriptor: StreamDescriptor | null = null;
+            const resolveStream = jest.spyOn(PlaybackRecoveryManager.prototype, 'resolveStreamForProgram')
+                .mockReturnValue(stream.promise);
+            mockVideoPlayer.loadStream.mockImplementation(async (descriptor: StreamDescriptor) => {
+                currentDescriptor = descriptor;
+            });
+            mockVideoPlayer.getCurrentDescriptor.mockImplementation(() => currentDescriptor);
+            mockVideoPlayer.getState.mockReturnValue({ status: 'playing', activeAudioId: null });
+            try {
+                const switching = harness.input.actions.switchToChannelWithOutcome(mockChannel.id, {
+                    fromGuideSelection: true, selectedProgram: harness.selectedProgram,
+                });
+                await flushPromises(12);
+                expect(resolveStream).toHaveBeenCalledTimes(1);
+                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
+
+                stream.resolve(prepared);
+                await expect(switching).resolves.toEqual({ kind: 'switched' });
+                expect(mockVideoPlayer.play).toHaveBeenCalled();
+                expect(mockNavigation.replaceScreen).toHaveBeenCalledWith('player');
+            } finally {
+                resolveStream.mockRestore();
+                mockVideoPlayer.loadStream.mockResolvedValue(undefined);
+                mockVideoPlayer.getCurrentDescriptor.mockReturnValue(null);
+                mockVideoPlayer.getState.mockReturnValue({ activeAudioId: null });
+            }
+        });
+
+        it.each([
+            ['failed', { kind: 'failed', reason: 'playback_start_failed' }],
+            ['superseded', { kind: 'aborted' }],
+        ] as const)('keeps Guide after a %s program start', async (kind, expectedOutcome) => {
+            const harness = await prepareDeferredGuideStart();
+            try {
+                const switching = harness.input.actions.switchToChannelWithOutcome(mockChannel.id, {
+                    fromGuideSelection: true, selectedProgram: harness.selectedProgram,
+                });
+                await flushPromises(12);
+                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
+
+                harness.start.resolve({ kind });
+                await expect(switching).resolves.toEqual(expectedOutcome);
+                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
+            } finally {
+                harness.restore();
+            }
+        });
+
+        it('retires an attached Guide start when the selection is aborted', async () => {
+            const harness = await prepareDeferredGuideStart();
+            const caller = new AbortController();
+            try {
+                const switching = harness.input.actions.switchToChannelWithOutcome(mockChannel.id, {
+                    fromGuideSelection: true, selectedProgram: harness.selectedProgram,
+                    signal: caller.signal,
+                });
+                await flushPromises(12);
+                expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(1);
+                caller.abort();
+
+                await expect(switching).resolves.toEqual({ kind: 'aborted' });
+                expect(mockNavigation.replaceScreen).not.toHaveBeenCalledWith('player');
+            } finally {
+                harness.start.resolve({ kind: 'started' });
+                harness.restore();
             }
         });
 
@@ -1869,7 +1987,7 @@ describe('AppOrchestrator', () => {
         // ORCH-002: Concurrent Channel Switch Guard
         // ========================================
 
-        it('should queue latest concurrent channel switch attempts and resolve each request when applied', async () => {
+        it('should queue the latest channel switch and supersede the unresolved older admission', async () => {
             // Make first resolveChannelContent call take some time.
             let resolveFirst: () => void = (): void => { };
             mockChannelManager.resolveChannelContent.mockImplementation(
@@ -1895,14 +2013,14 @@ describe('AppOrchestrator', () => {
             expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledTimes(1);
             expect(mockScheduler.loadChannel).not.toHaveBeenCalled();
 
-            // Complete first and then queued second switch.
+            // Complete first resolution; only the latest intentional tune may load.
             resolveFirst();
             await switch2;
             await switch1;
             expect(mockChannelManager.resolveChannelContent).toHaveBeenCalledTimes(2);
-            expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(2);
-            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(1, 'ch1');
-            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch2');
+            expect(mockScheduler.loadChannel).toHaveBeenCalledTimes(1);
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenCalledTimes(1);
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenCalledWith('ch2');
         });
 
         it('propagates abort rejections for public channel switches superseded while queued', async () => {
@@ -1935,8 +2053,8 @@ describe('AppOrchestrator', () => {
             await switch1;
             await switch3;
 
-            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(1, 'ch1');
-            expect(mockChannelManager.setCurrentChannel).toHaveBeenNthCalledWith(2, 'ch3');
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenCalledTimes(1);
+            expect(mockChannelManager.setCurrentChannel).toHaveBeenCalledWith('ch3');
         });
     });
 
@@ -2143,7 +2261,7 @@ describe('AppOrchestrator', () => {
 
             it('delegates guide-setting policy entrypoints to EPGCoordinator', () => {
                 const delegateSpy = jest.spyOn(EPGCoordinator.prototype, 'handleGuideSettingChange');
-                const change = { key: 'guideDensity', density: 'wide' } as const;
+                const change = { key: 'guideHours', hours: 3 } as const;
 
                 try {
                     orchestrator.onGuideSettingChange(change);
@@ -2166,7 +2284,7 @@ describe('AppOrchestrator', () => {
                 expect(primeSpy).not.toHaveBeenCalled();
                 expect(refreshSpy).not.toHaveBeenCalled();
                 expect(mockEpg.clearSchedules).not.toHaveBeenCalled();
-                expect(mockEpg.setLayoutMode).not.toHaveBeenCalled();
+                expect(mockEpg.setSourceLabelsEnabled).not.toHaveBeenCalled();
                 expect(mockEpg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
             } finally {
                 clearSpy.mockRestore();
@@ -2188,78 +2306,6 @@ describe('AppOrchestrator', () => {
                 allowAutoConnect: false,
             });
             expect(mockEpg.hide).toHaveBeenCalled();
-        });
-    });
-
-    describe('Now Playing Info overlay', () => {
-        beforeEach(async () => {
-            await orchestrator.initialize(mockConfig);
-            mockPlexAuth.validateStoredCredentials.mockResolvedValue(
-                createStoredValidationResult('active_valid')
-            );
-            mockPlexDiscovery.isConnected.mockReturnValue(true);
-            await orchestrator.start();
-        });
-
-        it('should live-update progress while open', async () => {
-            jest.useFakeTimers();
-
-            const baseProgram = {
-                item: {
-                    ratingKey: 'rk1',
-                    title: 'Test Movie',
-                    durationMs: 120_000,
-                    type: 'movie',
-                },
-                scheduledStartTime: Date.now(),
-                scheduledEndTime: Date.now() + 120_000,
-                elapsedMs: 0,
-                remainingMs: 120_000,
-                scheduleIndex: 0,
-                loopNumber: 0,
-                isCurrent: true,
-            };
-
-            // Program start sets _currentProgramForPlayback so the modal can render.
-            await (schedulerHandlers.programStart as (p: unknown) => Promise<void>)(baseProgram);
-
-            // While open, orchestrator should pull fresh elapsed values from scheduler.getCurrentProgram().
-            // Use a monotonic mock since other orchestrator flows may also query getCurrentProgram().
-            let elapsedMs = 0;
-            mockScheduler.getCurrentProgram.mockImplementation(() => {
-                elapsedMs += 1000;
-                return { ...baseProgram, elapsedMs, remainingMs: Math.max(0, 120_000 - elapsedMs) };
-            });
-
-            mockNavigation.isModalOpen.mockImplementation((modalId?: string) => modalId === 'now-playing-info');
-
-            const modalOpen = navHandlers.modalOpen as (payload: unknown) => void;
-            expect(modalOpen).toBeDefined();
-            modalOpen({ modalId: 'now-playing-info' });
-
-            jest.advanceTimersByTime(1100);
-            jest.advanceTimersByTime(1100);
-
-            const nowPlayingModule = require('../modules/ui/now-playing-info');
-            const instance = (nowPlayingModule.NowPlayingInfoOverlay as jest.Mock).mock.results[0]?.value;
-            expect((instance.update as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
-
-            const elapsedValues = (instance.update as jest.Mock).mock.calls
-                .map((call: [{ elapsedMs?: number }]) => call[0]?.elapsedMs)
-                .filter((value: number | undefined): value is number => typeof value === 'number');
-            expect(elapsedValues.length).toBeGreaterThanOrEqual(2);
-            const firstElapsed = elapsedValues[0] ?? 0;
-            const lastElapsed = elapsedValues[elapsedValues.length - 1] ?? 0;
-            expect(lastElapsed).toBeGreaterThan(firstElapsed);
-
-            // Closing should stop the timer (no further updates).
-            const callCount = (instance.update as jest.Mock).mock.calls.length;
-            const modalClose = navHandlers.modalClose as (payload: unknown) => void;
-            modalClose({ modalId: 'now-playing-info' });
-            jest.advanceTimersByTime(3000);
-            expect((instance.update as jest.Mock).mock.calls.length).toBe(callCount);
-
-            jest.useRealTimers();
         });
     });
 
@@ -2437,7 +2483,7 @@ describe('AppOrchestrator', () => {
             );
         });
 
-        it('should surface playback failure again when Retry cannot start playback', () => {
+        it('keeps Retry rejected when no scheduled program can start', async () => {
             mockScheduler.getState.mockReturnValue({
                 isActive: false,
                 channelId: 'ch1',
@@ -2445,29 +2491,15 @@ describe('AppOrchestrator', () => {
             });
             const actions = orchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
 
-            actions[0]?.action();
+            await expect(actions[0]?.action()).rejects.toThrow('unavailable');
 
             expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
-            expect(mockLifecycle.reportError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    code: AppErrorCode.PLAYBACK_FAILED,
-                    message: 'Playback retry failed',
-                    recoverable: true,
-                })
-            );
+            expect(mockLifecycle.reportError).not.toHaveBeenCalled();
             expectConsoleWarn([
                 'Retry playback failed',
                 expect.objectContaining({
                     safeError: expect.objectContaining({
-                        message: 'Cannot retry playback without an active program',
-                    }),
-                }),
-            ]);
-            expectConsoleWarn([
-                'Global error in playback',
-                expect.objectContaining({
-                    safeError: expect.objectContaining({
-                        code: AppErrorCode.PLAYBACK_FAILED,
+                        message: 'Playback retry is unavailable in the current scope',
                     }),
                 }),
             ]);
@@ -2532,7 +2564,7 @@ describe('AppOrchestrator', () => {
 
 
 
-            it('prefers the scheduler current program when retrying playback', async () => {
+            it('retries the scheduler current program through admitted playback start', async () => {
                 const { orchestrator: assemblyOrchestrator, input } =
                     await captureCoordinatorAssembly();
                 input.playback.state.setCurrentProgramForPlayback({
@@ -2566,13 +2598,22 @@ describe('AppOrchestrator', () => {
                     channelId: 'ch1',
                     currentProgram,
                 });
+                mockScheduler.getCurrentProgram.mockReturnValue(currentProgram);
                 const actions = assemblyOrchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
 
                 expect(actions[0]).toEqual(expect.objectContaining({ label: 'Retry', isPrimary: true }));
                 expect(actions[1]).toEqual(expect.objectContaining({ label: 'Skip', isPrimary: false }));
 
-                actions[0]?.action();
-                expect(mockScheduler.jumpToProgram).toHaveBeenCalledWith(currentProgram);
+                const start = jest.spyOn(PlaybackStartController.prototype, 'handleProgramStart')
+                    .mockResolvedValue({ kind: 'started' });
+                try {
+                    await expect(actions[0]?.action()).resolves.toBeUndefined();
+                    expect(start).toHaveBeenCalledWith(currentProgram);
+                    expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
+                } finally {
+                    start.mockRestore();
+                    mockScheduler.getCurrentProgram.mockReturnValue(null);
+                }
             });
 
 
@@ -2600,30 +2641,15 @@ describe('AppOrchestrator', () => {
                 });
 
                 const actions = assemblyOrchestrator.getRecoveryActions(AppErrorCode.PLAYBACK_DECODE_ERROR);
-                actions[0]?.action();
+                await expect(actions[0]?.action()).rejects.toThrow('unavailable');
 
                 expect(mockScheduler.jumpToProgram).not.toHaveBeenCalled();
-                expect(mockLifecycle.reportError).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        code: AppErrorCode.PLAYBACK_FAILED,
-                        message: 'Playback retry failed',
-                        recoverable: true,
-                    })
-                );
+                expect(mockLifecycle.reportError).not.toHaveBeenCalled();
                 expectConsoleWarn([
                     'Retry playback failed',
                     expect.objectContaining({
                         safeError: expect.objectContaining({
-                            message: 'Cannot retry playback without an active program',
-                        }),
-                    }),
-                ]);
-                expectConsoleWarn([
-                    'Global error in playback',
-                    expect.objectContaining({
-                        safeError: expect.objectContaining({
-                            code: AppErrorCode.PLAYBACK_FAILED,
-                            message: 'Playback retry failed',
+                            message: 'Playback retry is unavailable in the current scope',
                         }),
                     }),
                 ]);
@@ -2700,6 +2726,7 @@ describe('AppOrchestrator', () => {
             await orchestrator.start();
             mockChannelManager.getCurrentChannel.mockReturnValue(mockChannel);
             mockScheduler.getState.mockReturnValue({ isActive: false, channelId: null });
+            await orchestrator.switchToChannel('ch1');
             mockPlexStreamResolver.resolveStream.mockResolvedValueOnce(makeDecision());
             mockVideoPlayer.play.mockImplementationOnce(async () => {
                 resolvePlaybackStarted();
@@ -2913,7 +2940,7 @@ describe('AppOrchestrator', () => {
 
             mockEpg.show.mockClear();
             mockEpg.hide.mockClear();
-            mockEpg.setLayoutMode.mockClear();
+            mockEpg.setSourceLabelsEnabled.mockClear();
             mockEpg.setNowWatchingBannerEnabled.mockClear();
 
             expect(() => orchestrator.openEPG()).toThrow(
@@ -2925,7 +2952,7 @@ describe('AppOrchestrator', () => {
             expect(() => orchestrator.toggleEPG()).toThrow(
                 'AppOrchestrator cannot be used after shutdown; create a new instance.'
             );
-            expect(() => orchestrator.onGuideSettingChange({ key: 'layoutMode', mode: 'classic' })).toThrow(
+            expect(() => orchestrator.onGuideSettingChange({ key: 'guideHours', hours: 4 })).toThrow(
                 'AppOrchestrator cannot be used after shutdown; create a new instance.'
             );
             expect(() => orchestrator.onGuideSettingChange({ key: 'nowWatchingBanner', enabled: false })).toThrow(
@@ -2934,7 +2961,7 @@ describe('AppOrchestrator', () => {
 
             expect(mockEpg.show).not.toHaveBeenCalled();
             expect(mockEpg.hide).not.toHaveBeenCalled();
-            expect(mockEpg.setLayoutMode).not.toHaveBeenCalled();
+            expect(mockEpg.setSourceLabelsEnabled).not.toHaveBeenCalled();
             expect(mockEpg.setNowWatchingBannerEnabled).not.toHaveBeenCalled();
 
             await expect(orchestrator.start()).rejects.toMatchObject({
@@ -3351,6 +3378,12 @@ describe('AppOrchestrator', () => {
                         await orchestrator.signOutPlex();
 
                         expect(scopeSpy).toHaveBeenLastCalledWith(null);
+                        expect(mockNavigation.resetToAuth).toHaveBeenCalledTimes(1);
+                        const credentialsClearedAt = mockPlexAuth.clearCredentials.mock.invocationCallOrder[0];
+                        const historyClearedAt = mockNavigation.resetToAuth.mock.invocationCallOrder[0];
+                        expect(credentialsClearedAt).toBeDefined();
+                        expect(historyClearedAt).toBeDefined();
+                        expect(credentialsClearedAt!).toBeLessThan(historyClearedAt!);
                         expect(cancelRolloverSpy).toHaveBeenCalledTimes(1);
                         const cancelCallOrder = cancelRolloverSpy.mock.invocationCallOrder[0];
                         const epgClearCallOrder = clearSelectedSnapshotSpy.mock.invocationCallOrder[0];
@@ -3389,6 +3422,8 @@ describe('AppOrchestrator', () => {
                     });
 
                     await expect(orchestrator.signOutPlex()).rejects.toBe(cleanupError);
+                    expect(mockNavigation.resetToAuth).toHaveBeenCalledTimes(1);
+                    expect(mockChannelManager.clearRuntimeState).toHaveBeenCalledTimes(1);
                 });
     });
 

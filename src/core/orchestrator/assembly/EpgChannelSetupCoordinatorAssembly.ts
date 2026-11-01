@@ -14,7 +14,6 @@ import { createLazyChannelSetupWorkflowPortOwners } from '../../channel-setup/wo
 import type { GuideSelectionSnapshot } from '../../channel-tuning';
 import {
     safeLocalStorageGet,
-    safeLocalStorageRemove,
     safeLocalStorageRemoveWithResult,
     safeLocalStorageSetWithResult,
 } from '../../../utils/storage';
@@ -124,6 +123,15 @@ export function buildEpgCoordinator(input: OrchestratorEpgCoordinatorBuilderInpu
         onVisibilityChange: (visible: boolean): void => {
             input.actions.onOverlayVisibilityChange(visible);
         },
+        navigateFromGuide: (route): void => {
+            if (input.modules.navigation.getCurrentScreen() === 'guide' && !input.modules.navigation.isModalOpen()) {
+                if (route === 'server-select') {
+                    input.modules.navigation.goTo('server-select', { allowAutoConnect: false });
+                } else {
+                    input.modules.navigation.goTo(route);
+                }
+            }
+        },
         reportEpgInitWarning: (): void => reportCoordinatorEpgInitWarning(input),
         epgPreferencesStore: input.stores.epgPreferencesStore,
         appendIssueDiagnostic: input.diagnostics.appendIssueDiagnostic,
@@ -168,9 +176,7 @@ export function buildChannelSetupOwners(
             );
         },
     });
-    const buildScratchStore = new ChannelSetupBuildScratchStore({
-        storageRemove: safeLocalStorageRemove,
-    });
+    const buildScratchStore = new ChannelSetupBuildScratchStore();
     const getSelectedServerId = (): string | null => input.schedule.getSelectedServerId();
     const getExistingChannelCount = (): number => input.modules.channelManager.getAllChannels().length;
     const coordinator = new ChannelSetupCoordinator({

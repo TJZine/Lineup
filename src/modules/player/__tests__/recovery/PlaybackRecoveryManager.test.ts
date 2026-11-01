@@ -190,6 +190,10 @@ const setup = (overrides: Partial<PlaybackRecoveryDeps> = {}): {
         getCurrentTimeMs: jest.fn().mockReturnValue(5000),
     } as unknown as IVideoPlayer;
     const deps: PlaybackRecoveryDeps = {
+        captureRecoveryAdmission: () => 1,
+        isRecoveryAdmissionCurrent: () => true,
+        canPlayForRecovery: () => true,
+        acceptCommittedSession: jest.fn(),
         getVideoPlayer: () => player,
         getStreamResolver: () => resolver,
         getScheduler: () => scheduler,
@@ -653,6 +657,8 @@ describe('PlaybackRecoveryManager', () => {
                 (player.play as jest.Mock).mockRejectedValueOnce(startError);
             }
             const controller = new PlaybackStartController({
+                captureAdmission: (): number => 1,
+                isAdmissionCurrent: (): boolean => true,
                 getVideoPlayer: (): IVideoPlayer => player,
                 resolveStreamForProgram: (currentProgram): Promise<PreparedPlaybackStream> =>
                     manager.resolveStreamForProgram(currentProgram),
@@ -669,11 +675,9 @@ describe('PlaybackRecoveryManager', () => {
                 markProgramStarting: (startingProgram): {
                     programAtStart: ScheduledProgram;
                     programIdentityAtStart: ScheduledProgramIdentity;
-                    shouldResetAutoShowInfoBannerOnAbort: boolean;
                 } => ({
                     programAtStart: startingProgram,
                     programIdentityAtStart: makeProgramIdentity(startingProgram),
-                    shouldResetAutoShowInfoBannerOnAbort: false,
                 }),
                 isProgramStillCurrent: (): boolean => true,
                 handleProgramStartUiSideEffects: jest.fn(),
@@ -683,7 +687,6 @@ describe('PlaybackRecoveryManager', () => {
                 },
                 handleStreamResolved: jest.fn(),
                 reportRecoverableActivationFailure: jest.fn(),
-                clearAutoShowInfoBannerAfterAbortedStart: jest.fn(),
             });
 
             await controller.handleProgramStart(program);
@@ -740,6 +743,9 @@ describe('PlaybackRecoveryManager', () => {
         expect(setDecision).toHaveBeenCalledTimes(1);
         expect(setDecision).toHaveBeenCalledWith(nextDecision);
         expect(deps.setCurrentStreamDescriptor).toHaveBeenCalled();
+        expect(deps.acceptCommittedSession).toHaveBeenCalledWith(
+            (deps.setCurrentStreamDescriptor as jest.Mock).mock.calls[0]?.[0]
+        );
         expect(player.loadStream).toHaveBeenCalled();
         expect(player.play).toHaveBeenCalled();
     });
@@ -1619,12 +1625,12 @@ describe('PlaybackRecoveryManager', () => {
             reason: 'user_selected_text_burn_in',
             itemKey: 'item-1',
         });
-        expectPlaybackRecoveryError({
-            event: 'burnInReload.failed',
+        expectPlaybackRecoveryWarn({
+            event: 'burnInReload.aborted',
             trackId: 'sub-keyless',
             reason: 'user_selected_text_burn_in',
             itemKey: 'item-1',
-            safeError: expect.any(Object),
+            outcome: 'program_changed',
         });
         const priorDecision = makeDecision({
             playbackUrl: 'http://test/prior.m3u8',
@@ -1682,18 +1688,12 @@ describe('PlaybackRecoveryManager', () => {
             'user_selected_text_burn_in'
         );
 
-        expect(result).toEqual({ outcome: 'failed' });
+        expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(player.loadStream).toHaveBeenCalledTimes(1);
         expect(player.play).not.toHaveBeenCalled();
         expect(scheduler.pauseSyncTimer).not.toHaveBeenCalled();
         expect(deps.handleGlobalError).not.toHaveBeenCalled();
-        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
-            'QA-003b',
-            'playbackRecovery.burnInReloadFailed',
-            expect.objectContaining({
-                restoreOutcome: { outcome: 'unavailable', reason: 'program_changed' },
-            })
-        );
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalled();
     });
 
     it('does not restore a prior stream when scheduler ownership changes but the item key and start time stay the same', async () => {
@@ -1703,12 +1703,12 @@ describe('PlaybackRecoveryManager', () => {
             reason: 'user_selected_text_burn_in',
             itemKey: 'item-1',
         });
-        expectPlaybackRecoveryError({
-            event: 'burnInReload.failed',
+        expectPlaybackRecoveryWarn({
+            event: 'burnInReload.aborted',
             trackId: 'sub-keyless',
             reason: 'user_selected_text_burn_in',
             itemKey: 'item-1',
-            safeError: expect.any(Object),
+            outcome: 'program_changed',
         });
         const priorDecision = makeDecision({
             playbackUrl: 'http://test/prior.m3u8',
@@ -1762,18 +1762,12 @@ describe('PlaybackRecoveryManager', () => {
             'user_selected_text_burn_in'
         );
 
-        expect(result).toEqual({ outcome: 'failed' });
+        expect(result).toEqual({ outcome: 'ignored', reason: 'program_changed' });
         expect(player.loadStream).toHaveBeenCalledTimes(1);
         expect(player.play).not.toHaveBeenCalled();
         expect(scheduler.pauseSyncTimer).not.toHaveBeenCalled();
         expect(deps.handleGlobalError).not.toHaveBeenCalled();
-        expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(
-            'QA-003b',
-            'playbackRecovery.burnInReloadFailed',
-            expect.objectContaining({
-                restoreOutcome: { outcome: 'unavailable', reason: 'program_changed' },
-            })
-        );
+        expect(deps.appendIssueDiagnostic).not.toHaveBeenCalled();
     });
 
     it('falls back to the program elapsed offset when the live position is not finite', async () => {

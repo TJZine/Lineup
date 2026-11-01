@@ -1,7 +1,5 @@
 import type {
     EpgGuideHours,
-    EpgGuideDensity,
-    EpgLayoutMode,
     EpgPastItemsWindow,
 } from '../../settings/EpgPreferencesStore';
 import type {
@@ -145,8 +143,6 @@ export type SettingsCategoryId = 'appearance' | 'guide' | 'playback' | 'audio_su
 
 export type GuideSettingChange =
     | { key: 'libraryTabs' | 'nowWatchingBanner' | 'aggressivePreload'; enabled: boolean }
-    | { key: 'layoutMode'; mode: EpgLayoutMode }
-    | { key: 'guideDensity'; density: EpgGuideDensity }
     | { key: 'guideHours'; hours: EpgGuideHours }
     | { key: 'sourceLabels'; enabled: boolean }
     | { key: 'pastItemsWindow'; value: EpgPastItemsWindow }

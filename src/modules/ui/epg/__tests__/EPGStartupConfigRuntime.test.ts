@@ -1,6 +1,4 @@
-/**
- * @jest-environment jsdom
- */
+/** @jest-environment jsdom */
 
 import { APP_SHELL_CONTAINER_IDS } from '../../common/appShellContainerIds';
 import {
@@ -9,45 +7,35 @@ import {
     type EPGStartupConfigRuntimeDependencies,
 } from '../startup/EPGStartupConfigRuntime';
 
-const createDependencies = (): EPGStartupConfigRuntimeDependencies => ({
-    plexLibrary: null,
-    videoPlayer: null,
-    channelManager: null,
-    scheduler: null,
-    buildPlexResourceUrl: jest.fn((path: string | null) => path ? `https://fallback.test${path}` : null),
-    previousOnLayoutModeChange: null,
+const dependencies = (): EPGStartupConfigRuntimeDependencies => ({
+    plexLibrary: null, videoPlayer: null, channelManager: null, scheduler: null,
+    buildPlexResourceUrl: (path) => path,
+    hasUsableRetainedSession: () => false,
+    previousOnPictureOperation: null,
 });
 
 describe('EPGStartupConfigRuntime', () => {
-    afterEach(() => {
-        document.body.innerHTML = '';
-        jest.clearAllMocks();
-    });
+    afterEach(() => { document.body.innerHTML = ''; });
 
-    it('keeps direct runtime seams safe for null dependencies', async () => {
-        const runtime = new EPGStartupConfigRuntime(createDependencies());
-
-        await expect(runtime.fetchItemDetails('rk-1')).resolves.toBeNull();
+    it('keeps null runtime seams safe', async () => {
+        const runtime = new EPGStartupConfigRuntime(dependencies());
+        await expect(runtime.fetchItemDetails('rk')).resolves.toBeNull();
         expect(runtime.resolveThumbUrl(null)).toBeNull();
         expect(runtime.getCurrentChannelInfo()).toBeNull();
-        expect(runtime.isVideoPlaying()).toBe(false);
+        expect(runtime.getPictureStatus()).toBe('untuned');
     });
 
-    it('chains layout-mode changes through the DOM seam', () => {
-        const previousOnLayoutModeChange = jest.fn();
-        const runtime = new EPGStartupConfigRuntime({
-            ...createDependencies(),
-            previousOnLayoutModeChange,
-        });
-        const videoContainer = document.createElement('div');
-        videoContainer.id = APP_SHELL_CONTAINER_IDS.VIDEO;
-        document.body.appendChild(videoContainer);
-
-        runtime.onLayoutModeChange('classic');
-        runtime.onLayoutModeChange('overlay');
-
-        expect(previousOnLayoutModeChange).toHaveBeenNthCalledWith(1, 'classic');
-        expect(previousOnLayoutModeChange).toHaveBeenNthCalledWith(2, 'overlay');
-        expect(videoContainer.classList.contains(CLASSIC_EPG_PIP_CLASS)).toBe(false);
+    it('applies explicit Guide PiP and fullscreen operations with cleanup', () => {
+        const previousOnPictureOperation = jest.fn();
+        const runtime = new EPGStartupConfigRuntime({ ...dependencies(), previousOnPictureOperation });
+        const video = document.createElement('div');
+        video.id = APP_SHELL_CONTAINER_IDS.VIDEO;
+        document.body.appendChild(video);
+        runtime.onPictureOperation('guide-pip');
+        expect(video.classList.contains(CLASSIC_EPG_PIP_CLASS)).toBe(true);
+        runtime.onPictureOperation('fullscreen');
+        expect(video.classList.contains(CLASSIC_EPG_PIP_CLASS)).toBe(false);
+        expect(video.dataset.guidePictureStatus).toBeUndefined();
+        expect(previousOnPictureOperation.mock.calls).toEqual([['guide-pip'], ['fullscreen']]);
     });
 });

@@ -14,6 +14,7 @@ export type NavigationMock = {
     registerFocusable: jest.Mock;
     unregisterFocusable: jest.Mock;
     setFocus: jest.Mock;
+    replaceScreen: jest.Mock;
     getFocusedElement: jest.Mock;
     on: jest.Mock;
     off: jest.Mock;
@@ -59,6 +60,9 @@ export const DEFAULT_PREVIEW = {
 };
 
 export const DEFAULT_REVIEW = {
+    preparedId: 'prepared-review-1',
+    inventory: { scopeKey: JSON.stringify(['user-1', 'server-1']), generation: 0,
+        libraries: [], acceptedReadyLibraryIds: [], sharedPlaylistsStatus: 'unused' as const },
     preview: DEFAULT_PREVIEW,
     diff: {
         summary: {
@@ -80,9 +84,10 @@ export const DEFAULT_BUILD_RESULT: ChannelBuildSummary = {
     reachedMaxChannels: false,
     errorCount: 0,
     canceled: false,
-    initialChannelNumber: 1,
     lastTask: 'done',
 };
+
+export const DEFAULT_APPLY_RESULT = { kind: 'committed' as const, summary: DEFAULT_BUILD_RESULT };
 
 export const createNavigationMock = (): NavigationMock => {
     const focusables = new Map<string, Focusable>();
@@ -120,6 +125,7 @@ export const createNavigationMock = (): NavigationMock => {
         setFocus: jest.fn((id: string) => {
             focusedId = id;
         }),
+        replaceScreen: jest.fn(),
         getFocusedElement: jest.fn(() => (focusedId ? ({ id: focusedId } as HTMLElement) : null)),
         on: jest.fn((event: string, handler: (payload: KeyEvent) => void) => {
             if (event === 'keyPress') {
@@ -167,7 +173,16 @@ export const createWorkflowPort = (
     getSetupContextForSelectedServer: jest.fn(() => 'unknown'),
     invalidateFacetSnapshot: jest.fn(),
     invalidateSessionData: jest.fn(),
-    createChannelsFromSetup: jest.fn().mockResolvedValue(DEFAULT_BUILD_RESULT),
+    scanSetupInventory: jest.fn(async (config) => ({
+        scopeKey: JSON.stringify(['user-1', config.serverId]), generation: 1,
+        libraries: config.selectedLibraryIds.map((libraryId: string) => ({
+            libraryId, libraryName: libraryId, requiredFamilies: [], status: 'ready' as const, generation: 1,
+        })),
+        acceptedReadyLibraryIds: [...config.selectedLibraryIds], sharedPlaylistsStatus: 'unused' as const,
+    })),
+    retrySetupInventory: jest.fn(),
+    applySetupReview: jest.fn().mockResolvedValue(DEFAULT_APPLY_RESULT),
+    cancelPreparedReview: jest.fn(),
     markSetupComplete: jest.fn((_serverId, setupConfig) => ({
         ok: true,
         record: {
@@ -187,10 +202,8 @@ export const createScreenPorts = (
     getNavigation: jest.fn(() => null),
     getSelectedServerId: jest.fn(() => 'server-1'),
     openServerSelect: jest.fn(),
-    switchToChannelByNumberWithOutcome: jest.fn().mockResolvedValue({ kind: 'switched' }),
-    waitForNextPlaybackStart: jest.fn().mockResolvedValue({ kind: 'started' }),
-    openEPG: jest.fn(),
-    appendBuilderGuideDiagnostic: jest.fn(),
+    goBackFromLibraries: jest.fn(),
+    openCustomChannelStudio: jest.fn(),
     ...overrides,
 });
 

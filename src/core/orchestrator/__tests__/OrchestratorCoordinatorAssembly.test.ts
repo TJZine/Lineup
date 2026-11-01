@@ -2,19 +2,17 @@ import type {
     OrchestratorCoordinatorAssemblyInput,
     OrchestratorCoordinatorAssemblyInputDraft,
 } from '../assembly/OrchestratorCoordinatorContracts';
-import type { PlaybackOptionsSectionId } from '../../../modules/ui/playback-options';
+import type { PlaybackOptionsSection } from '../../../modules/ui/playback-options/types';
 
 const buildEpgCoordinator = jest.fn();
 const bindEpgVisibleRangeChange = jest.fn();
 const buildChannelSetupOwners = jest.fn();
 const buildNowPlayingDebugManager = jest.fn();
-const buildNowPlayingInfoCoordinator = jest.fn();
 const buildPlayerOsdCoordinator = jest.fn();
 const buildMiniGuideCoordinator = jest.fn();
 const buildChannelTransitionCoordinator = jest.fn();
 const buildPlaybackRecovery = jest.fn();
 const buildPlaybackOptionsCoordinator = jest.fn();
-const buildExitConfirmCoordinator = jest.fn();
 const buildChannelTuningCoordinator = jest.fn();
 const buildNavigationCoordinator = jest.fn();
 
@@ -29,11 +27,8 @@ jest.mock('../assembly/EpgChannelSetupCoordinatorAssembly', () => ({
 }));
 jest.mock('../assembly/NowPlayingDebugCoordinatorAssembly', () => ({
     buildNowPlayingDebugManager: (...args: unknown[]): unknown => buildNowPlayingDebugManager(...args),
-    buildNowPlayingInfoCoordinator: (...args: unknown[]): unknown => buildNowPlayingInfoCoordinator(...args),
     buildNowPlayingDebugManagerInput: jest.requireActual('../assembly/NowPlayingDebugCoordinatorAssembly')
         .buildNowPlayingDebugManagerInput,
-    buildNowPlayingInfoCoordinatorInput: jest.requireActual('../assembly/NowPlayingDebugCoordinatorAssembly')
-        .buildNowPlayingInfoCoordinatorInput,
 }));
 jest.mock('../assembly/PlaybackOsdCoordinatorAssembly', () => ({
     buildPlayerOsdCoordinator: (...args: unknown[]): unknown => buildPlayerOsdCoordinator(...args),
@@ -54,12 +49,9 @@ jest.mock('../assembly/PlaybackOsdCoordinatorAssembly', () => ({
 }));
 jest.mock('../assembly/NavigationModalCoordinatorAssembly', () => ({
     buildMiniGuideCoordinator: (...args: unknown[]): unknown => buildMiniGuideCoordinator(...args),
-    buildExitConfirmCoordinator: (...args: unknown[]): unknown => buildExitConfirmCoordinator(...args),
     buildNavigationCoordinator: (...args: unknown[]): unknown => buildNavigationCoordinator(...args),
     buildMiniGuideCoordinatorInput: jest.requireActual('../assembly/NavigationModalCoordinatorAssembly')
         .buildMiniGuideCoordinatorInput,
-    buildExitConfirmCoordinatorInput: jest.requireActual('../assembly/NavigationModalCoordinatorAssembly')
-        .buildExitConfirmCoordinatorInput,
     buildNavigationCoordinatorInput: jest.requireActual('../assembly/NavigationModalCoordinatorAssembly')
         .buildNavigationCoordinatorInput,
 }));
@@ -68,15 +60,6 @@ import {
     createOrchestratorCoordinatorAssemblyInput,
     createOrchestratorCoordinators,
 } from '../assembly/OrchestratorCoordinatorAssembly';
-
-type PlaybackOptionsPreparationResult = {
-    focusableIds: string[];
-    preferredFocusId: string | null;
-};
-
-type PreparePlaybackOptionsModal = (
-    preferredSection?: PlaybackOptionsSectionId
-) => PlaybackOptionsPreparationResult;
 
 const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput => ({
     epgDebugRuntime: null,
@@ -98,13 +81,10 @@ const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput 
         epg: {} as OrchestratorCoordinatorAssemblyInput['modules']['epg'],
     },
     overlays: {
-        nowPlayingInfo: {} as OrchestratorCoordinatorAssemblyInput['overlays']['nowPlayingInfo'],
         playerOsd: {} as OrchestratorCoordinatorAssemblyInput['overlays']['playerOsd'],
         channelNumberOverlay: {} as OrchestratorCoordinatorAssemblyInput['overlays']['channelNumberOverlay'],
         miniGuide: {} as OrchestratorCoordinatorAssemblyInput['overlays']['miniGuide'],
         channelTransitionOverlay: {} as OrchestratorCoordinatorAssemblyInput['overlays']['channelTransitionOverlay'],
-        playbackOptionsModal: {} as OrchestratorCoordinatorAssemblyInput['overlays']['playbackOptionsModal'],
-        exitConfirmModal: {} as OrchestratorCoordinatorAssemblyInput['overlays']['exitConfirmModal'],
         sleepTimer: {} as OrchestratorCoordinatorAssemblyInput['overlays']['sleepTimer'],
     },
     stores: {
@@ -120,12 +100,23 @@ const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput 
         reportRecoverableAsyncFailure: jest.fn(),
     },
     playback: {
+        getWatchingChannelId: jest.fn(() => null),
         state: {} as OrchestratorCoordinatorAssemblyInput['playback']['state'],
         getPlaybackInfoSnapshot: () => null,
         refreshPlaybackInfoSnapshot: async (): Promise<never> => {
             throw new Error('refreshPlaybackInfoSnapshot should not be called in this test');
         },
         stopPlayback: jest.fn(),
+        setPlaybackIntent: jest.fn(() => true),
+        setPlaybackRouteBlocking: jest.fn(),
+        capturePlaybackAdmission: jest.fn(() => 1),
+        isPlaybackAdmissionCurrent: jest.fn(() => true),
+        canActivateRetainedSession: jest.fn(() => true),
+        finishIntentionalTune: jest.fn(),
+        captureRecoveryAdmission: jest.fn(() => 1),
+        isRecoveryAdmissionCurrent: jest.fn(() => true),
+        canPlayForRecovery: jest.fn(() => true),
+        acceptCommittedSession: jest.fn(),
         stopActiveTranscodeSession: jest.fn(),
         getMimeType: () => 'application/x-test',
         buildPlexResourceUrl: () => null,
@@ -153,7 +144,6 @@ const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput 
         toggleEPG: jest.fn(),
         onOverlayVisibilityChange: jest.fn(),
         onChannelTransitionActivityChange: jest.fn(),
-        toggleNowPlayingInfoOverlay: jest.fn(),
     },
     errors: {
         handleGlobalError: jest.fn(),
@@ -185,13 +175,11 @@ describe('createOrchestratorCoordinators', () => {
         const channelSetup = { kind: 'channel-setup' };
         const channelSetupPortOwners = { kind: 'channel-setup-port-owners' };
         const nowPlayingDebugManager = { kind: 'debug-manager' };
-        const nowPlayingInfoCoordinator = { kind: 'now-playing-info' };
         const playerOsdCoordinator = { kind: 'player-osd' };
         const miniGuideCoordinator = { kind: 'mini-guide' };
         const channelTransitionCoordinator = { kind: 'transition' };
         const playbackRecovery = { kind: 'playback-recovery' };
         const playbackOptionsCoordinator = { kind: 'playback-options' };
-        const exitConfirmCoordinator = { kind: 'exit-confirm' };
         const channelTuning = { kind: 'channel-tuning' };
         const navigationCoordinator = { kind: 'navigation' };
 
@@ -201,13 +189,11 @@ describe('createOrchestratorCoordinators', () => {
             portOwners: channelSetupPortOwners,
         });
         buildNowPlayingDebugManager.mockReturnValue(nowPlayingDebugManager);
-        buildNowPlayingInfoCoordinator.mockReturnValue(nowPlayingInfoCoordinator);
         buildPlayerOsdCoordinator.mockReturnValue(playerOsdCoordinator);
         buildMiniGuideCoordinator.mockReturnValue(miniGuideCoordinator);
         buildChannelTransitionCoordinator.mockReturnValue(channelTransitionCoordinator);
         buildPlaybackRecovery.mockReturnValue(playbackRecovery);
         buildPlaybackOptionsCoordinator.mockReturnValue(playbackOptionsCoordinator);
-        buildExitConfirmCoordinator.mockReturnValue(exitConfirmCoordinator);
         buildChannelTuningCoordinator.mockReturnValue(channelTuning);
         buildNavigationCoordinator.mockReturnValue(navigationCoordinator);
 
@@ -272,9 +258,6 @@ describe('createOrchestratorCoordinators', () => {
                 plexStreamResolver: deps.modules.plexStreamResolver,
                 scheduler: deps.modules.scheduler,
             },
-            overlays: {
-                nowPlayingInfo: deps.overlays.nowPlayingInfo,
-            },
             stores: {
                 debugOverridesStore: deps.stores.debugOverridesStore,
             },
@@ -282,32 +265,6 @@ describe('createOrchestratorCoordinators', () => {
                 state: deps.playback.state,
             },
         });
-        expect(buildNowPlayingInfoCoordinator).toHaveBeenCalledWith(
-            {
-                config: deps.config,
-                modules: {
-                    navigation: deps.modules.navigation,
-                    scheduler: deps.modules.scheduler,
-                    plexLibrary: deps.modules.plexLibrary,
-                },
-                overlays: {
-                    nowPlayingInfo: deps.overlays.nowPlayingInfo,
-                },
-                stores: {
-                    nowPlayingDisplayStore: deps.stores.nowPlayingDisplayStore,
-                },
-                playback: {
-                    state: deps.playback.state,
-                    buildPlexResourceUrl: deps.playback.buildPlexResourceUrl,
-                    getPlaybackInfoSnapshot: deps.playback.getPlaybackInfoSnapshot,
-                    refreshPlaybackInfoSnapshot: deps.playback.refreshPlaybackInfoSnapshot,
-                },
-                actions: {
-                    onOverlayVisibilityChange: deps.actions.onOverlayVisibilityChange,
-                },
-            },
-            nowPlayingDebugManager
-        );
         expect(buildPlayerOsdCoordinator.mock.calls[0]?.[0]).toEqual({
             config: deps.config,
             modules: {
@@ -315,6 +272,7 @@ describe('createOrchestratorCoordinators', () => {
                 scheduler: deps.modules.scheduler,
                 channelManager: deps.modules.channelManager,
                 videoPlayer: deps.modules.videoPlayer,
+                plexLibrary: deps.modules.plexLibrary,
             },
             overlays: {
                 playerOsd: deps.overlays.playerOsd,
@@ -326,9 +284,17 @@ describe('createOrchestratorCoordinators', () => {
             playback: {
                 state: deps.playback.state,
                 buildPlexResourceUrl: deps.playback.buildPlexResourceUrl,
+                setPlaybackIntent: deps.playback.setPlaybackIntent,
+                getPlaybackInfoSnapshot: deps.playback.getPlaybackInfoSnapshot,
+            },
+            schedule: {
+                getActiveUserId: deps.schedule.getActiveUserId,
+                getSelectedServerId: deps.schedule.getSelectedServerId,
             },
             actions: {
                 onOverlayVisibilityChange: deps.actions.onOverlayVisibilityChange,
+                toggleEPG: deps.actions.toggleEPG,
+                switchToChannel: expect.any(Function),
             },
         });
         expect(buildMiniGuideCoordinator).toHaveBeenCalledWith({
@@ -337,6 +303,7 @@ describe('createOrchestratorCoordinators', () => {
                 channelManager: deps.modules.channelManager,
                 scheduler: deps.modules.scheduler,
             },
+            playback: { getWatchingChannelId: deps.playback.getWatchingChannelId },
             overlays: {
                 miniGuide: deps.overlays.miniGuide,
             },
@@ -345,6 +312,7 @@ describe('createOrchestratorCoordinators', () => {
             },
             actions: {
                 switchToChannel: deps.actions.switchToChannel,
+                toggleEPG: deps.actions.toggleEPG,
             },
             nowPlaying: deps.nowPlaying,
         });
@@ -364,27 +332,23 @@ describe('createOrchestratorCoordinators', () => {
         expect(buildPlaybackOptionsCoordinator).toHaveBeenCalledWith(
             {
                 modules: {
-                    navigation: deps.modules.navigation,
                     videoPlayer: deps.modules.videoPlayer,
-                },
-                overlays: {
-                    playbackOptionsModal: deps.overlays.playbackOptionsModal,
+                    scheduler: deps.modules.scheduler,
+                    channelManager: deps.modules.channelManager,
                 },
                 stores: {
                     subtitlePreferencesStore: deps.stores.subtitlePreferencesStore,
                 },
+                playback: { state: deps.playback.state },
+                schedule: {
+                    getActiveUserId: deps.schedule.getActiveUserId,
+                    getSelectedServerId: deps.schedule.getSelectedServerId,
+                },
                 nowPlaying: deps.nowPlaying,
             },
-            playbackRecovery
+            playbackRecovery,
+            expect.any(Function)
         );
-        expect(buildExitConfirmCoordinator).toHaveBeenCalledWith({
-            modules: {
-                navigation: deps.modules.navigation,
-            },
-            overlays: {
-                exitConfirmModal: deps.overlays.exitConfirmModal,
-            },
-        });
         expect(buildChannelTuningCoordinator.mock.calls[0]?.[0]).not.toHaveProperty('overlays');
         expect(buildNavigationCoordinator).toHaveBeenCalledWith(
             {
@@ -398,7 +362,6 @@ describe('createOrchestratorCoordinators', () => {
                 overlays: {
                     playerOsd: deps.overlays.playerOsd,
                     miniGuide: deps.overlays.miniGuide,
-                    nowPlayingInfo: deps.overlays.nowPlayingInfo,
                     channelNumberOverlay: deps.overlays.channelNumberOverlay,
                 },
                 stores: {
@@ -411,6 +374,8 @@ describe('createOrchestratorCoordinators', () => {
                 },
                 playback: {
                     stopPlayback: deps.playback.stopPlayback,
+                    setPlaybackIntent: deps.playback.setPlaybackIntent,
+                    setPlaybackRouteBlocking: deps.playback.setPlaybackRouteBlocking,
                 },
                 schedule: {
                     setLastChannelChangeSource: deps.schedule.setLastChannelChangeSource,
@@ -420,19 +385,15 @@ describe('createOrchestratorCoordinators', () => {
                     switchToPreviousChannel: deps.actions.switchToPreviousChannel,
                     switchToChannelByNumberWithOutcome: deps.actions.switchToChannelByNumberWithOutcome,
                     toggleEPG: deps.actions.toggleEPG,
-                    toggleNowPlayingInfoOverlay: deps.actions.toggleNowPlayingInfoOverlay,
                 },
                 nowPlaying: deps.nowPlaying,
             },
             expect.objectContaining({
                 epgCoordinator,
                 channelSetup,
-                nowPlayingInfoCoordinator,
                 playerOsdCoordinator,
                 miniGuideCoordinator,
                 channelTransitionCoordinator,
-                playbackOptionsCoordinator,
-                exitConfirmCoordinator,
             })
         );
         expect(coordinators).toEqual({
@@ -440,12 +401,10 @@ describe('createOrchestratorCoordinators', () => {
             channelSetup,
             channelSetupPortOwners,
             nowPlayingDebugManager,
-            nowPlayingInfoCoordinator,
             playerOsdCoordinator,
             miniGuideCoordinator,
             channelTransitionCoordinator,
             playbackOptionsCoordinator,
-            exitConfirmCoordinator,
             playbackRecovery,
             channelTuning,
             navigationCoordinator,
@@ -459,7 +418,7 @@ describe('createOrchestratorCoordinators', () => {
 
         expect(input.modules.navigation).toBe(draft.modules.navigation);
         expect(input.modules.plexStreamResolver).toBe(draft.modules.plexStreamResolver);
-        expect(input.overlays.nowPlayingInfo).toBe(draft.overlays.nowPlayingInfo);
+        expect(input.overlays.playerOsd).toBe(draft.overlays.playerOsd);
         expect(input.overlays.sleepTimer).toBe(draft.overlays.sleepTimer);
         expect(input).not.toHaveProperty('requiredSurfaces');
     });
@@ -476,10 +435,10 @@ describe('createOrchestratorCoordinators', () => {
 
     it('fails before coordinator creation when a required overlay is missing', () => {
         const draft = createCoordinatorAssemblyInputDraft();
-        draft.overlays.nowPlayingInfo = null;
+        draft.overlays.playerOsd = null;
 
         expect(() => createOrchestratorCoordinatorAssemblyInput(draft)).toThrow(
-            'Orchestrator coordinator initialization requires module instances: overlays.nowPlayingInfo'
+            'Orchestrator coordinator initialization requires module instances: overlays.playerOsd'
         );
         expect(buildEpgCoordinator).not.toHaveBeenCalled();
     });
@@ -494,14 +453,11 @@ describe('createOrchestratorCoordinators', () => {
         expect(buildEpgCoordinator).not.toHaveBeenCalled();
     });
 
-    it('keeps the deferred playback-options preparation seam wired through the assembled callback', () => {
+    it('reads the initialized playback-options policy for Player track drawers', () => {
         const deps = createCoordinatorAssemblyInput();
-        const prepareModal = jest.fn().mockReturnValue({
-            focusableIds: ['audio-track'],
-            preferredFocusId: 'audio-track',
-        });
-        let preparePlaybackOptionsModal: PreparePlaybackOptionsModal | null = null;
-        let fallbackPreparation: PlaybackOptionsPreparationResult | null = null;
+        const audio: PlaybackOptionsSection = { title: 'Audio', options: [] };
+        const subtitles: PlaybackOptionsSection = { title: 'Subtitles', options: [] };
+        let getTrackDrawer: ((section: 'audio' | 'subtitles') => PlaybackOptionsSection) | null = null;
 
         buildEpgCoordinator.mockReturnValue({ kind: 'epg' });
         buildChannelSetupOwners.mockReturnValue({
@@ -509,35 +465,26 @@ describe('createOrchestratorCoordinators', () => {
             portOwners: { kind: 'channel-setup-port-owners' },
         });
         buildNowPlayingDebugManager.mockReturnValue({ kind: 'debug-manager' });
-        buildNowPlayingInfoCoordinator.mockReturnValue({ kind: 'now-playing-info' });
         buildPlayerOsdCoordinator.mockImplementation((_deps, callback) => {
-            preparePlaybackOptionsModal = callback;
-            fallbackPreparation = callback('audio');
+            getTrackDrawer = callback;
             return { kind: 'player-osd' };
         });
         buildMiniGuideCoordinator.mockReturnValue({ kind: 'mini-guide' });
         buildChannelTransitionCoordinator.mockReturnValue({ kind: 'transition' });
         buildPlaybackRecovery.mockReturnValue({ kind: 'recovery' });
-        buildPlaybackOptionsCoordinator.mockReturnValue({ prepareModal });
-        buildExitConfirmCoordinator.mockReturnValue({ kind: 'exit-confirm' });
+        const getViewModel = jest.fn().mockReturnValue({ audio, subtitles });
+        buildPlaybackOptionsCoordinator.mockReturnValue({ getViewModel });
         buildChannelTuningCoordinator.mockReturnValue({ kind: 'channel-tuning' });
         buildNavigationCoordinator.mockReturnValue({ kind: 'navigation' });
 
         createOrchestratorCoordinators(deps);
 
-        expect(fallbackPreparation).toEqual({
-            focusableIds: [],
-            preferredFocusId: null,
-        });
-        expect(preparePlaybackOptionsModal).not.toBeNull();
-        if (preparePlaybackOptionsModal === null) {
-            throw new Error('Expected playback-options preparation seam to be wired');
-        }
-        const preparePlaybackOptions: PreparePlaybackOptionsModal = preparePlaybackOptionsModal;
-        expect(preparePlaybackOptions('audio')).toEqual({
-            focusableIds: ['audio-track'],
-            preferredFocusId: 'audio-track',
-        });
-        expect(prepareModal).toHaveBeenCalledWith('audio');
+        expect(getTrackDrawer).not.toBeNull();
+        if (!getTrackDrawer) throw new Error('Player track drawer policy was not wired');
+        const readTrackDrawer: (section: 'audio' | 'subtitles') => PlaybackOptionsSection = getTrackDrawer;
+        expect(readTrackDrawer('audio')).toBe(audio);
+        expect(readTrackDrawer('subtitles')).toBe(subtitles);
+        expect(getViewModel).toHaveBeenCalledTimes(2);
     });
+
 });

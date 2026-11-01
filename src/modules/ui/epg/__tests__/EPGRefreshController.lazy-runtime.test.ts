@@ -26,7 +26,7 @@ const mockRuntimeConstructor = jest.fn(() => {
         clearScheduleCaches: jest.fn(),
         clearSelectedChannelScheduleSnapshot: jest.fn(),
         dispose: jest.fn(),
-        refreshForRange: jest.fn().mockResolvedValue(undefined),
+        refreshForRange: jest.fn().mockResolvedValue({ readiness: 'skipped' }),
         retryChannelSchedule: jest.fn().mockResolvedValue(undefined),
         warmHiddenChannels: jest.fn().mockResolvedValue(undefined),
     };

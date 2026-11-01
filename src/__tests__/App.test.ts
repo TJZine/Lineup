@@ -8,6 +8,7 @@ import { createAppOrchestratorConfig } from '../core/app-shell/config/AppOrchest
 import { CHANNEL_SETUP_PREFETCH_DELAY_MS, SETTINGS_PREFETCH_DELAY_MS } from '../core/app-shell/config/constants';
 import type { AppRuntimeEngineLoader } from '../core/app-shell/runtime/AppRuntimeEngineLoader';
 import type { AppShellOrchestratorRuntime } from '../core/app-shell/runtime/AppShellRuntimeContracts';
+import type { InitializationRestoreProjection } from '../core/initialization/InitializationRestoreProjection';
 import { AppThemeController } from '../core/app-shell/runtime/AppThemeController';
 import type { ChannelSetupCompletionResult, ChannelSetupConfig } from '../core/channel-setup/types';
 import type { ChannelSetupWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupWorkflowPort';
@@ -30,6 +31,9 @@ const splashScreenHide = jest.fn();
 
 jest.mock('../modules/ui/splash', () => ({
     SplashScreen: class SplashScreen {
+        updateRestoreProjection(): void {
+            return;
+        }
         updateStatus(): void {
             return;
         }
@@ -258,6 +262,8 @@ describe('App bootstrap smoke', () => {
     };
 
     const installLifecycleWiringSpies = (): void => {
+        jest.spyOn(AppOrchestrator.prototype, 'subscribeToStartupRestoreProjection')
+            .mockReturnValue({ dispose: jest.fn() });
         jest.spyOn(AppOrchestrator.prototype, 'registerErrorHandler').mockImplementation((moduleId, handler) => {
             if (moduleId === 'app-shell') {
                 appShellErrorHandler = handler as never;
@@ -341,15 +347,18 @@ describe('App bootstrap smoke', () => {
             },
         })),
         getSetupPlanDiagnostics: jest.fn(),
-        createChannelsFromSetup: jest.fn((_config, _options) => Promise.resolve({
+        scanSetupInventory: jest.fn().mockResolvedValue({ scopeKey: '', generation: 0, libraries: [], acceptedReadyLibraryIds: [] }),
+        retrySetupInventory: jest.fn(),
+        applySetupReview: jest.fn((_reviewId, _config, _consent, _options) => Promise.resolve({ kind: 'no-change', summary: {
             created: 0,
             skipped: 0,
             reachedMaxChannels: false,
             errorCount: 0,
             canceled: false,
             lastTask: 'done',
-        })),
-        markSetupComplete: jest.fn((_serverId, _setupConfig) => ({
+        } })),
+        cancelPreparedReview: jest.fn(),
+        markSetupComplete: jest.fn((_serverId, _setupConfig, _expectedScopeKey) => ({
             ok: true,
             record: { serverId: _serverId },
         } as ChannelSetupCompletionResult)),
@@ -790,6 +799,51 @@ describe('App bootstrap smoke', () => {
 
         expect(overlay?.classList.contains('hidden')).toBe(false);
         expect(dismiss?.textContent).toBe('Dismiss');
+    });
+
+    it.each([
+        ['unreadable', true],
+        ['unsupported', true],
+        ['read-failed', false],
+        ['restore-failed', false],
+    ] as const)('offers safe restore recovery for %s', async (outcome, canRerunSetup) => {
+        const rerun = jest.fn().mockReturnValue({ ok: true, serverId: 'server-1' });
+        const startedApp = await bootstrapApp(() => {
+            jest.spyOn(AppOrchestrator.prototype, 'getStartupRestoreProjection').mockReturnValue({
+                generation: 1,
+                phase: 'complete',
+                outcome,
+                channelCount: null,
+                requiredComplete: false,
+                optionalComplete: null,
+                reason: 'Saved lineup cannot be loaded safely.',
+                actions: canRerunSetup
+                    ? ['retry', 'switch-server', 'switch-profile', 'rerun-setup']
+                    : ['retry', 'switch-server', 'switch-profile'],
+            } satisfies InitializationRestoreProjection);
+            jest.spyOn(AppOrchestrator.prototype, 'getSelectedServerId').mockReturnValue('server-1');
+            jest.spyOn(AppOrchestrator.prototype, 'requestChannelSetupRerun').mockImplementation(rerun);
+        });
+
+        startedApp.showErrorOverlay({
+            code: outcome === 'restore-failed' ? 'INITIALIZATION_FAILED' : 'STORAGE_CORRUPTED',
+            message: 'Restore blocked',
+            userMessage: 'Restore blocked',
+            recoverable: true,
+            phase: 'error',
+            timestamp: Date.now(),
+            actions: [],
+        } as never);
+
+        const overlay = document.getElementById('error-overlay') as HTMLElement;
+        expect(overlay.querySelector('[data-action="retry"]')?.textContent).toBe('Retry');
+        expect(overlay.querySelector('[data-action="switch-server"]')?.textContent).toBe('Switch server');
+        expect(overlay.querySelector('[data-action="switch-profile"]')?.textContent).toBe('Switch profile');
+        const setup = overlay.querySelector<HTMLButtonElement>('[data-action="rerun-setup"]');
+        expect(Boolean(setup)).toBe(canRerunSetup);
+        setup?.click();
+        await flushPromises();
+        expect(rerun).toHaveBeenCalledTimes(canRerunSetup ? 1 : 0);
     });
 
     it('routes blocking overlay presentation through navigation modal APIs', async () => {
@@ -1317,6 +1371,37 @@ describe('App bootstrap smoke', () => {
         screenChangeHandler?.('channel-setup', 'channel-setup');
         await flushPromises();
         expect(channelSetupScreenConstructed).toHaveBeenCalledTimes(1);
+    });
+
+    it('applies saved visual preferences and forwards Settings changes through app-shell ports', async () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.OVERLAY_TRANSPARENCY, 'reduced');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.ACCESSIBILITY_REDUCE_MOTION, '1');
+        localStorage.setItem(LINEUP_STORAGE_KEYS.ACCESSIBILITY_LARGE_FOCUS, '1');
+        const policy = jest.spyOn(AppOrchestrator.prototype, 'updateSettingsPlaybackPolicy').mockImplementation(() => undefined);
+        let currentScreen: string | null = 'settings';
+        (AppOrchestrator.prototype.getCurrentScreen as unknown as jest.Mock).mockImplementation(() => currentScreen);
+        await bootstrapApp();
+        expect(document.body.getAttribute('data-player-overlay-transparency')).toBe('reduced');
+        expect(document.body.getAttribute('data-motion')).toBe('reduced');
+        expect(document.body.getAttribute('data-large-focus')).toBe('true');
+
+        screenChangeHandler?.('player', 'settings');
+        await flushPromises();
+        const deps = settingsScreenConstructed.mock.calls[0]?.[0]?.[0] as {
+            onKeepPlayingInSettingsChange: (enabled: boolean) => void;
+            onOverlayTransparencyChange: (value: 'standard') => void;
+            onAccessibilityChange: (name: 'reduceMotion' | 'largeFocus', enabled: boolean) => void;
+        };
+        expect(deps).toBeDefined();
+        deps.onKeepPlayingInSettingsChange(true);
+        deps.onOverlayTransparencyChange('standard');
+        deps.onAccessibilityChange('reduceMotion', false);
+        deps.onAccessibilityChange('largeFocus', false);
+        expect(policy).toHaveBeenCalledWith(true);
+        expect(document.body.getAttribute('data-player-overlay-transparency')).toBe('standard');
+        expect(document.body.hasAttribute('data-motion')).toBe(false);
+        expect(document.body.hasAttribute('data-large-focus')).toBe(false);
+        currentScreen = null;
     });
 
     it('projects the full channel setup workflow into a screen-only port', async () => {

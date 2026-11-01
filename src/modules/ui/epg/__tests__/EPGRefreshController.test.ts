@@ -1,4 +1,7 @@
+/** @jest-environment jsdom */
 import { EPGRefreshController, type EPGRefreshControllerDeps } from '../coordinator/EPGRefreshController';
+import { SupportReportPreferencesStore } from '../../../settings/SupportReportPreferencesStore';
+import { SupportReportStore } from '../../../support/SupportReportStore';
 import type { IEPGComponent } from '../interfaces';
 import type { ChannelConfig, IChannelManager, PlaybackMode, ResolvedChannelContent } from '../../../scheduler/channel-manager';
 import type { IChannelScheduler, ScheduleConfig, ScheduleWindow, SchedulerState } from '../../../scheduler/scheduler';
@@ -189,15 +192,37 @@ const makeDeps = (
 };
 
 describe('EPGRefreshController', () => {
+    it('records accepted Guide load outcome in the opted-in Support report', async () => {
+        localStorage.clear();
+        new SupportReportPreferencesStore().writeCollectionEnabled(true);
+        const { deps } = makeDeps();
+        const result = await new EPGRefreshController(deps).refreshEpgSchedulesForRangeNow(
+            { channelStart: 0, channelEndExclusive: 1, timeStartMs: 0, timeEndMs: 60_000 },
+            'visible-range'
+        );
+        const report = new SupportReportStore().read();
+        expect(report.ok).toBe(true);
+        if (!report.ok) throw new Error('Support report unavailable');
+        const events = JSON.parse(report.report).events;
+        expect(events).toEqual(expect.arrayContaining([
+            expect.objectContaining({ code: 'guide-load', outcome: 'started' }),
+            expect.objectContaining({
+                code: 'guide-load',
+                outcome: result.readiness === 'ready' || result.readiness === 'partial' ? 'succeeded' : 'cancelled',
+            }),
+        ]));
+        expect(report.report).not.toContain('live-program');
+        localStorage.clear();
+    });
     it('runs guide-setting refresh follow-through without owning guide-selection invalidation', async () => {
         const { deps, epg } = makeDeps();
         const controller = new EPGRefreshController(deps);
         const refreshSpy = jest.spyOn(controller, 'refreshEpgSchedules').mockResolvedValue(SKIPPED_REFRESH_RESULT);
 
-        controller.handleGuideSettingRefreshChange({ key: 'guideDensity', density: 'wide' });
+        controller.handleGuideSettingRefreshChange({ key: 'guideHours', hours: 4 });
         await flushPromises();
 
-        expect(epg.clearSchedules).toHaveBeenCalledTimes(1);
+        expect(epg.clearSchedules).not.toHaveBeenCalled();
         expect(deps.primeEpgChannels).toHaveBeenCalledTimes(1);
         expect(refreshSpy).toHaveBeenCalledWith({ reason: 'guide-settings', debounceMs: 0 });
     });
@@ -243,7 +268,7 @@ describe('EPGRefreshController', () => {
         const error = new Error('refresh failed');
         jest.spyOn(controller, 'refreshEpgSchedules').mockRejectedValue(error);
 
-        controller.handleGuideSettingRefreshChange({ key: 'guideDensity', density: 'wide' });
+        controller.handleGuideSettingRefreshChange({ key: 'guideHours', hours: 4 });
         await flushPromises();
 
         expect(deps.appendIssueDiagnostic).toHaveBeenCalledWith(

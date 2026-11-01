@@ -1,4 +1,3 @@
-import type { EpgGuideDensity } from '../../../settings/EpgPreferencesStore';
 import type { IEPGComponent } from '../interfaces';
 import type { ChannelConfig as EpgChannel, EPGConfig, EpgVisibleRange, ScheduledProgram as EpgScheduledProgram } from '../types';
 import type { GuideSettingChange } from '../../settings/types';
@@ -9,6 +8,8 @@ import type {
     IChannelScheduler,
     ScheduleConfig,
 } from '../../../scheduler/scheduler';
+import { buildScheduledProgramIdentity } from '../../../scheduler/scheduler';
+import type { ScheduledProgram as SchedulerScheduledProgram } from '../../../scheduler/scheduler';
 import type { AppendIssueDiagnostic } from '../../../debug/IssueDiagnosticsStore';
 import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import { isAbortLikeError } from '../../../../utils/errors';
@@ -17,7 +18,6 @@ import {
     selectVisibleChannelsForLibraryFilter,
 } from './EPGCoordinatorPolicies';
 import { reportLibraryFilterPersistenceResult } from './EPGLibraryFilterPersistenceDiagnostics';
-import { countLibraryTypeVotes } from './EPGLibraryUtils';
 import { EPGRefreshController } from './EPGRefreshController';
 import type { IEPGDebugRuntime } from '../debug/EPGDebugRuntime';
 import type {
@@ -63,14 +63,12 @@ export interface EPGCoordinatorDeps {
         options?: EpgChannelSwitchOptions
     ) => Promise<ChannelSwitchOutcome>;
     onVisibilityChange?: (visible: boolean) => void;
+    navigateFromGuide: (route: 'player' | 'settings' | 'channels' | 'channel-setup' | 'server-select') => void;
     reportEpgInitWarning: (error: unknown) => void;
     epgPreferencesStore: EpgPreferencesStore;
     appendIssueDiagnostic: AppendIssueDiagnostic;
 }
 
-const DEFAULT_GUIDE_DENSITY: EpgGuideDensity = 'detailed';
-const DETAILED_VISIBLE_HOURS = 2;
-const WIDE_VISIBLE_HOURS = 3;
 const QA_003B_ISSUE_ID = 'QA-003b';
 
 export class EPGCoordinator {
@@ -173,7 +171,7 @@ export class EPGCoordinator {
         const epg = this.deps.getEpg();
         const shouldInvalidateSchedules =
             change.key === 'libraryTabs' ||
-            change.key === 'guideDensity' ||
+            change.key === 'guideHours' ||
             change.key === 'aggressivePreload' ||
             change.key === 'pastItemsWindow';
         if (shouldInvalidateSchedules) {
@@ -185,8 +183,8 @@ export class EPGCoordinator {
 
         if (!epg.isVisible()) return;
 
-        if (change.key === 'layoutMode') {
-            epg.setLayoutMode(change.mode);
+        if (change.key === 'sourceLabels') {
+            epg.setSourceLabelsEnabled(change.enabled);
             return;
         }
 
@@ -200,52 +198,16 @@ export class EPGCoordinator {
         }
     }
 
-    private _readGuideDensity(): EpgGuideDensity {
-        return this._epgPreferencesStore.readGuideDensityAndClean(DEFAULT_GUIDE_DENSITY);
-    }
-
     private _getBaseVisibleHours(): number {
-        return this._readGuideDensity() === 'wide' ? WIDE_VISIBLE_HOURS : DETAILED_VISIBLE_HOURS;
-    }
-
-    private _inferLibraryType(
-        channels: SchedulerChannelConfig[],
-        selectedId: string
-    ): 'movie' | 'show' | null {
-        const { movieVotes, showVotes } = countLibraryTypeVotes(channels, selectedId);
-
-        if (movieVotes === 0 && showVotes === 0) {
-            return null;
-        }
-        if (movieVotes === showVotes) {
-            return null;
-        }
-        return movieVotes > showVotes ? 'movie' : 'show';
-    }
-
-    private _getVisibleHoursForCurrentFilter(
-        channels: SchedulerChannelConfig[],
-        selectedId: string | null,
-        shouldFilter: boolean
-    ): number {
-        if (!shouldFilter || !selectedId) {
-            return this._getBaseVisibleHours();
-        }
-
-        const libraryType = this._inferLibraryType(channels, selectedId);
-        if (libraryType === 'movie') {
-            return WIDE_VISIBLE_HOURS;
-        }
-        if (libraryType === 'show') {
-            return DETAILED_VISIBLE_HOURS;
-        }
-        return this._getBaseVisibleHours();
+        const result = this._epgPreferencesStore.readGuideHoursAndMigrate();
+        return result.ok ? result.value : result.effectiveValue;
     }
 
     openEPG(): void {
         if (!this.deps.canOpenEpg()) return;
         const initialEpg = this.deps.getEpg();
         if (!initialEpg) return;
+        if (initialEpg.isVisible()) return;
         const requestId = ++this._openRequestId;
         const status = this.deps.getEpgUiStatus();
 
@@ -328,13 +290,7 @@ export class EPGCoordinator {
     }
 
     toggleEPG(): void {
-        const epg = this.deps.getEpg();
-        if (!epg) return;
-        if (epg.isVisible()) {
-            this.closeEPG();
-        } else {
-            this.openEPG();
-        }
+        this.openEPG();
     }
 
     primeEpgChannels(operationContext?: EpgRetainedOperationContext): void {
@@ -350,8 +306,7 @@ export class EPGCoordinator {
                 channelManager,
                 preferencesStore: this._epgPreferencesStore,
                 appendIssueDiagnostic: this.deps.appendIssueDiagnostic,
-                getVisibleHours: (channels, selectedId, shouldFilter): number =>
-                    this._getVisibleHoursForCurrentFilter(channels, selectedId, shouldFilter),
+                getVisibleHours: (): number => this._getBaseVisibleHours(),
             });
             this._primePublisher.publish(publication, operation);
         } finally {
@@ -448,6 +403,12 @@ export class EPGCoordinator {
             this.retryRowSchedule(payload.channelId);
         };
         epg.on('rowRetryRequested', onRowRetry);
+        const onMenuRoute = (route: 'player' | 'settings' | 'channels' | 'channel-setup' | 'server-select'): void => {
+            this.deps.navigateFromGuide(route);
+        };
+        const onSetup = (): void => this.deps.navigateFromGuide('channel-setup');
+        epg.on('menuRouteRequested', onMenuRoute);
+        epg.on('setupRequested', onSetup);
 
         return [
             (): void => {
@@ -465,6 +426,10 @@ export class EPGCoordinator {
             (): void => {
                 epg.off('rowRetryRequested', onRowRetry);
             },
+            (): void => {
+                epg.off('menuRouteRequested', onMenuRoute);
+                epg.off('setupRequested', onSetup);
+            },
         ];
     }
 
@@ -481,6 +446,10 @@ export class EPGCoordinator {
 
     focusEpgOnCurrentChannel(): void {
         this._focusEpgOnCurrentChannel();
+    }
+
+    openLineupMenu(): void {
+        this.deps.getEpg()?.openLineupMenu();
     }
 
     private _focusEpgOnCurrentChannel(epgOverride?: IEPGComponent): void {
@@ -542,19 +511,32 @@ export class EPGCoordinator {
             this._reportIssue('epg.guideSnapshotBuildFailed', error, {
                 selectedAt,
             });
-        } finally {
-            if (this._guideSelectionController === controller) {
-                this._guideSelectionController = null;
-            }
         }
         if (controller.signal.aborted || requestId !== this._guideSelectionRequestId) {
+            if (this._guideSelectionController === controller) this._guideSelectionController = null;
             return;
         }
-        this._closeEpg(false);
-        const outcome = await this.deps.switchToChannel(
-            channelId,
-            snapshot ? { guideSelectionSnapshot: snapshot } : undefined
-        );
+        // EPG widens media item.type for display; the scheduler identity reads only the stable schedule fields.
+        const selectedProgram = buildScheduledProgramIdentity(channelId, program as SchedulerScheduledProgram);
+        if (!selectedProgram) {
+            this._reportIssue('epg.guideSelectionInvalid', new Error('Selected Guide program has no identity'), {
+                selectedAt,
+            });
+            if (this._guideSelectionController === controller) this._guideSelectionController = null;
+            return;
+        }
+        let outcome: ChannelSwitchOutcome;
+        try {
+            outcome = await this.deps.switchToChannel(channelId, {
+                fromGuideSelection: true,
+                signal: controller.signal,
+                selectedProgram,
+                ...(snapshot ? { guideSelectionSnapshot: snapshot } : {}),
+            });
+        } finally {
+            if (this._guideSelectionController === controller) this._guideSelectionController = null;
+        }
+        if (controller.signal.aborted || requestId !== this._guideSelectionRequestId) return;
         if (isChannelSwitchFailed(outcome)) {
             this._reportIssue('epg.switchToChannelFailed', new Error('Guide channel switch failed'), {
                 selectedAt,

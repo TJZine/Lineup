@@ -11,10 +11,8 @@ import { ChannelResolutionCache } from './resolution/ChannelResolutionCache';
 import { ChannelRetryScheduler } from './resolution/ChannelRetryScheduler';
 import {
     ChannelResolutionOperationContext,
-    type ChannelInitialResolutionAuthorization,
     type ChannelResolutionLease,
 } from './resolution/ChannelResolutionOperationContext';
-import type { OperationContextUpstream } from '../../../utils/RetainedOperationContext';
 import {
     getContentSourceLogIdentity,
     getHttpStatusForLog,
@@ -388,26 +386,6 @@ export class ChannelManager implements IChannelManager {
         const live = this._state.currentChannelId;
         if (live && channels.has(live)) return live;
         return requested && channels.has(requested) ? requested : null;
-    }
-
-    createInitialTuneResolutionAuthorization(
-        channelId: string,
-        validator: OperationContextUpstream
-    ): ChannelInitialResolutionAuthorization {
-        return this._resolutionOperations.createInitialTuneAuthorization(channelId, validator);
-    }
-
-    async resolveChannelContentForInitialTune(
-        channelId: string,
-        authorization: ChannelInitialResolutionAuthorization
-    ): Promise<ResolvedChannelContent> {
-        const channel = this._state.channels.get(channelId);
-        if (!channel) throw createChannelNotFoundError();
-        return this._resolutionOperations.runInitialTune(
-            channelId,
-            authorization,
-            (operationContext) => this._resolveContentInternal(channel, { operationContext })
-        );
     }
 
     /**

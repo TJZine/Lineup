@@ -17,6 +17,7 @@ export class EPGChannelList {
     private bottomSpacerElement: HTMLElement | null = null;
     private config: EPGConfig | null = null;
     private channels: ChannelConfig[] = [];
+    private sourceLabelsEnabled = false;
     private rowElements: HTMLElement[] = [];
     private rowContentCache: WeakMap<
         HTMLElement,
@@ -40,6 +41,7 @@ export class EPGChannelList {
 
     initialize(parentElement: HTMLElement, config: EPGConfig): void {
         this.config = config;
+        this.sourceLabelsEnabled = config.sourceLabelsEnabled === true;
 
         this.containerElement = document.createElement('div');
         this.containerElement.className = EPG_CLASSES.CHANNEL_LIST;
@@ -109,6 +111,12 @@ export class EPGChannelList {
 
     updateChannels(channels: ChannelConfig[]): void {
         this.channels = channels;
+        this.renderChannels();
+    }
+
+    setSourceLabelsEnabled(enabled: boolean): void {
+        if (this.sourceLabelsEnabled === enabled) return;
+        this.sourceLabelsEnabled = enabled;
         this.renderChannels();
     }
 
@@ -285,7 +293,7 @@ export class EPGChannelList {
         if (cached.primaryName.textContent !== displayIdentity.primaryName) {
             cached.primaryName.textContent = displayIdentity.primaryName;
         }
-        if (displayIdentity.sourceText) {
+        if (this.sourceLabelsEnabled && displayIdentity.sourceText) {
             if (cached.source.textContent !== displayIdentity.sourceText) {
                 cached.source.textContent = displayIdentity.sourceText;
             }
@@ -307,15 +315,15 @@ export class EPGChannelList {
             }
             cached.category.hidden = true;
         }
-        const shouldShowSeparator = !!(displayIdentity.categoryText && displayIdentity.sourceText);
+        const shouldShowSeparator = !!(displayIdentity.categoryText && this.sourceLabelsEnabled && displayIdentity.sourceText);
         cached.separator.textContent = shouldShowSeparator ? '·' : '';
         cached.separator.hidden = !shouldShowSeparator;
-        if (displayIdentity.sourceText || displayIdentity.categoryText) {
+        if ((this.sourceLabelsEnabled && displayIdentity.sourceText) || displayIdentity.categoryText) {
             cached.provenance.hidden = false;
             cached.name.setAttribute('aria-label', [
                 displayIdentity.primaryName,
                 displayIdentity.categoryText,
-                displayIdentity.sourceText,
+                this.sourceLabelsEnabled ? displayIdentity.sourceText : null,
             ].filter((part): part is string => part !== null).join(', '));
         } else {
             cached.provenance.hidden = true;

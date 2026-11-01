@@ -168,13 +168,13 @@ describe('SettingsStore', () => {
         );
     });
 
-    it('exposes typed Guide hours and defers legacy density removal until consumer cutover', () => {
+    it('exposes typed Guide hours and cleans legacy density after durable migration', () => {
         localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
 
         expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 3, source: 'legacy' });
         expect(store.writeGuideHours(4)).toEqual({ ok: true, value: 4 });
         expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 4, source: 'stored' });
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('wide');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
         expect(store.writeGuideHours(5 as 2 | 3 | 4)).toEqual({
             ok: false,
             reason: 'invalid-value',
@@ -194,7 +194,7 @@ describe('SettingsStore', () => {
         expect(store.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
             ok: true,
             value: 4,
-            legacyRemoved: true,
+            legacyRemoved: false,
         });
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('4');
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();

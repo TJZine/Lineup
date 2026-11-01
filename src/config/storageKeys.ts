@@ -33,9 +33,7 @@ export const LINEUP_STORAGE_KEYS = {
 
     // Display
     THEME: 'lineup_theme',
-    CINEMATIC_NOW_PLAYING: 'lineup_cinematic_now_playing',
     PREFER_CLEAR_LOGOS: 'lineup_prefer_clear_logos',
-    NOW_PLAYING_INFO_AUTO_HIDE_MS: 'lineup_now_playing_info_auto_hide_ms',
     NOW_PLAYING_STREAM_DEBUG: 'lineup_now_playing_stream_debug',
     NOW_PLAYING_STREAM_DEBUG_AUTO_SHOW: 'lineup_now_playing_stream_debug_auto_show',
     /**
@@ -69,8 +67,8 @@ export const LINEUP_STORAGE_KEYS = {
     SUBTITLE_DEBUG_LOGGING: 'lineup_subtitle_debug_logging',
     ACCESSIBILITY_REDUCE_MOTION: 'lineup_accessibility_reduce_motion',
     ACCESSIBILITY_LARGE_FOCUS: 'lineup_accessibility_large_focus',
-    SUPPORT_REPORT: 'lineup_support_report_v1',
     SUPPORT_REPORT_OPT_IN: 'lineup_support_report_opt_in',
+    SUPPORT_REPORT: 'lineup_support_report_v1',
     SHOW_FPS: 'lineup_show_fps',
 
     // Dev menu overrides (transcode)

@@ -44,7 +44,7 @@ export class LibraryStepController {
         if (deps.libraries.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'setup-empty';
-            empty.textContent = 'No movie or show libraries found. Select "Back" to choose a different server.';
+            empty.textContent = 'No movie or show libraries found on this server. Switch server to try another.';
             list.appendChild(empty);
         }
 
@@ -127,6 +127,69 @@ export class LibraryStepController {
         });
 
         scroll.appendChild(list);
+        const deselectedReady = deps.libraries.filter((library) =>
+            !deps.selectedLibraryIds.has(library.id) && deps.knownReadyLibraryIds.has(library.id));
+        if (deselectedReady.length > 0) {
+            const heading = document.createElement('p');
+            heading.textContent = 'Complete libraries you removed from selection keep their existing channels unless you confirm removal below.';
+            scroll.appendChild(heading);
+            for (const library of deselectedReady) {
+                const consent = document.createElement('button');
+                consent.id = `setup-deselected-${deps.toDomId(library.id)}`;
+                consent.type = 'button';
+                consent.className = `setup-toggle${deps.confirmedDeselectedLibraryIds.has(library.id) ? ' selected' : ''}`;
+                consent.setAttribute('aria-pressed', String(deps.confirmedDeselectedLibraryIds.has(library.id)));
+                consent.textContent = `${library.title} · ${deps.confirmedDeselectedLibraryIds.has(library.id)
+                    ? 'Removal allowed for this selection' : 'Keep existing channels'}`;
+                consent.addEventListener('click', () => deps.onToggleDeselectedConsent(library.id, consent.id));
+                scroll.appendChild(consent);
+            }
+        }
+        if (deps.inventoryError) {
+            const error = document.createElement('p');
+            error.className = 'setup-preview-error';
+            error.textContent = deps.inventoryError;
+            scroll.appendChild(error);
+        }
+        const scanFacts = deps.inventory?.libraries ?? [];
+        if (scanFacts.length > 0) {
+            const scanList = document.createElement('div');
+            scanList.className = 'setup-inventory-list';
+            for (const fact of scanFacts) {
+                const line = document.createElement('div');
+                line.className = 'setup-inventory-line';
+                const ready = fact.status === 'ready';
+                const partial = scanFacts.some((item) => item.status !== 'ready');
+                const accepted = ready && (deps.acceptedReadyLibraryIds.size === 0
+                    ? !partial && Boolean(deps.inventory?.acceptedReadyLibraryIds.includes(fact.libraryId))
+                    : deps.acceptedReadyLibraryIds.has(fact.libraryId));
+                const label = document.createElement(ready ? 'button' : 'div');
+                if (ready) {
+                    const button = label as HTMLButtonElement;
+                    button.id = `setup-ready-${deps.toDomId(fact.libraryId)}`;
+                    button.type = 'button';
+                    button.className = `setup-toggle${accepted ? ' selected' : ''}`;
+                    button.setAttribute('aria-pressed', String(accepted));
+                    button.disabled = accepted && deps.acceptedReadyLibraryIds.size === 1;
+                    button.addEventListener('click', () => deps.onToggleReady(fact.libraryId, button.id));
+                }
+                label.textContent = `${fact.libraryName} · ${fact.status}${fact.requiredFamilies.length > 0
+                    ? ` · ${fact.requiredFamilies.join(', ')}` : ''}${fact.reason ? ` · ${fact.reason}` : ''}
+                    ${fact.progress ? ` · ${fact.progress.label} ${fact.progress.current}${fact.progress.total === null ? '' : `/${fact.progress.total}`}` : ''}`;
+                line.appendChild(label);
+                if (['failed', 'unsupported', 'canceled', 'empty'].includes(fact.status)) {
+                    const retry = document.createElement('button');
+                    retry.id = `setup-retry-${deps.toDomId(fact.libraryId)}`;
+                    retry.className = 'screen-button secondary';
+                    retry.textContent = 'Retry';
+                    retry.disabled = deps.isInventoryLoading;
+                    retry.addEventListener('click', () => deps.onRetry(fact.libraryId, retry.id));
+                    line.appendChild(retry);
+                }
+                scanList.appendChild(line);
+            }
+            scroll.appendChild(scanList);
+        }
         ctx.contentEl.appendChild(scroll);
 
         const actions = document.createElement('div');
@@ -135,17 +198,31 @@ export class LibraryStepController {
         const backButton = document.createElement('button');
         backButton.id = 'setup-back';
         backButton.className = 'screen-button secondary';
-        backButton.textContent = 'Back';
+        backButton.textContent = deps.libraries.length === 0 ? 'Switch server' : 'Back';
         backButton.addEventListener('click', () => {
             deps.onBack();
         });
         actions.appendChild(backButton);
 
+        const scanButton = document.createElement('button');
+        scanButton.id = 'setup-scan';
+        scanButton.className = 'screen-button secondary';
+        scanButton.textContent = deps.isInventoryLoading ? 'Cancel scan' : 'Scan selected libraries';
+        scanButton.disabled = deps.selectedLibraryIds.size === 0;
+        scanButton.addEventListener('click', () => {
+            if (deps.isInventoryLoading) deps.onCancelScan();
+            else deps.onScan();
+        });
+        actions.appendChild(scanButton);
+
         const nextButton = document.createElement('button');
         nextButton.id = 'setup-next';
         nextButton.className = 'screen-button';
-        nextButton.textContent = 'Next';
-        nextButton.disabled = deps.libraries.length === 0 || deps.selectedLibraryIds.size === 0;
+        nextButton.textContent = 'Continue to Configure';
+        const partial = scanFacts.some((fact) => fact.status !== 'ready');
+        const accepted = deps.acceptedReadyLibraryIds.size > 0 ? [...deps.acceptedReadyLibraryIds]
+            : partial ? [] : deps.inventory?.acceptedReadyLibraryIds ?? [];
+        nextButton.disabled = deps.isInventoryLoading || accepted.length === 0;
         nextButton.addEventListener('click', () => {
             if (nextButton.disabled) {
                 return;
@@ -157,9 +234,11 @@ export class LibraryStepController {
         ctx.contentEl.appendChild(actions);
 
         const listButtons = Array.from(list.querySelectorAll<HTMLButtonElement>('button'));
-        deps.registerStepFocusables(selectAllButton, clearAllButton, listButtons, [backButton, nextButton]);
+        deps.registerStepFocusables(selectAllButton, clearAllButton, [...listButtons, ...Array.from(scroll.querySelectorAll<HTMLButtonElement>('.setup-inventory-line button, [id^=setup-deselected-]'))], [backButton, scanButton, nextButton]);
 
-        ctx.detailEl.textContent = `Selected ${deps.selectedLibraryIds.size} of ${deps.libraries.length}.`;
+        const acceptedCount = accepted.length;
+        const excluded = scanFacts.filter((fact) => fact.status !== 'ready').map((fact) => fact.libraryName);
+        ctx.detailEl.textContent = `Selected ${deps.selectedLibraryIds.size} of ${deps.libraries.length}. ${acceptedCount} ready for Configure.${excluded.length ? ` Excluded until ready: ${excluded.join(', ')}.` : ''}`;
     }
 
     /**

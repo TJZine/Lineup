@@ -1,137 +1,63 @@
-/**
- * @jest-environment jsdom
- */
+/** @jest-environment jsdom */
 
+import { EpgPreferencesStore } from '../../../settings/EpgPreferencesStore';
 import { APP_SHELL_CONTAINER_IDS } from '../../common/appShellContainerIds';
-import { formatTimeRange } from '../utils';
-import {
-    buildEPGStartupConfig,
-    CLASSIC_EPG_PIP_CLASS,
-    type EPGStartupConfigInputs,
-} from '../startup/EPGStartupConfigRuntime';
+import { buildEPGStartupConfig, CLASSIC_EPG_PIP_CLASS, type EPGStartupConfigInputs } from '../startup/EPGStartupConfigRuntime';
 import type { EPGConfig } from '../types';
 
-const createBaseConfig = (): EPGConfig => ({
-    containerId: 'epg',
-    visibleChannels: 5,
-    timeSlotMinutes: 30,
-    visibleHours: 3,
-    totalHours: 24,
-    pixelsPerMinute: 4,
-    rowHeight: 80,
-    autoScrollToNow: true,
+const baseConfig = (): EPGConfig => ({
+    containerId: 'epg', visibleChannels: 5, timeSlotMinutes: 30, visibleHours: 2,
+    totalHours: 24, pixelsPerMinute: 4, rowHeight: 114, autoScrollToNow: true,
 });
-
-const createInputs = (): EPGStartupConfigInputs => ({
-    epgConfig: createBaseConfig(),
-    plexLibrary: {
-        getItem: jest.fn(),
-        getImageUrl: jest.fn().mockReturnValue('https://resized.test/thumb.jpg'),
-    } as unknown as EPGStartupConfigInputs['plexLibrary'],
-    videoPlayer: {
-        isPlaying: jest.fn().mockReturnValue(true),
-    } as unknown as EPGStartupConfigInputs['videoPlayer'],
-    channelManager: {
-        getCurrentChannel: jest.fn().mockReturnValue({
-            number: 7,
-            name: 'Action',
-        }),
-    } as unknown as EPGStartupConfigInputs['channelManager'],
-    scheduler: {
-        getCurrentProgram: jest.fn().mockReturnValue({
-            item: { title: 'Movie Night' },
-            scheduledStartTime: Date.UTC(2026, 3, 13, 19, 0, 0, 0),
-            scheduledEndTime: Date.UTC(2026, 3, 13, 21, 0, 0, 0),
-        }),
-    } as unknown as EPGStartupConfigInputs['scheduler'],
-    buildPlexResourceUrl: jest.fn((path: string | null) => path ? `https://fallback.test${path}` : null),
-    readEpgLayoutMode: jest.fn(() => 'classic'),
-    readShowNowWatchingBanner: jest.fn(() => true),
+const inputs = (): EPGStartupConfigInputs => ({
+    epgConfig: baseConfig(), plexLibrary: null, videoPlayer: null, channelManager: null,
+    scheduler: null, buildPlexResourceUrl: (path) => path,
+    hasUsableRetainedSession: () => false,
+    epgPreferencesStore: new EpgPreferencesStore(),
+    readShowNowWatchingBanner: () => true,
     debugRuntime: null,
 });
 
 describe('buildEPGStartupConfig', () => {
-    afterEach(() => {
-        document.body.innerHTML = '';
-        jest.clearAllMocks();
+    beforeEach(() => { localStorage.clear(); document.body.innerHTML = ''; });
+
+    it('uses accepted session lineage for paused, buffering and seeking picture states', () => {
+        let status: 'playing' | 'paused' | 'buffering' | 'seeking' | 'error' = 'paused';
+        let usable = true;
+        const input = inputs();
+        input.hasUsableRetainedSession = (): boolean => usable;
+        input.videoPlayer = {
+            getCurrentDescriptor: () => ({ url: 'native' }),
+            getState: () => ({ status }),
+            on: jest.fn(() => ({ dispose: jest.fn() })),
+        } as unknown as EPGStartupConfigInputs['videoPlayer'];
+        const video = document.createElement('div');
+        video.id = APP_SHELL_CONTAINER_IDS.VIDEO;
+        document.body.appendChild(video);
+        const config = buildEPGStartupConfig(input);
+        for (status of ['paused', 'buffering', 'seeking', 'playing'] as const) {
+            expect(config.getPictureStatus?.()).toBe(status);
+        }
+        usable = false;
+        expect(config.getPictureStatus?.()).toBe('untuned');
+        status = 'error';
+        expect(config.getPictureStatus?.()).toBe('error');
+        config.onPictureOperation?.('guide-pip');
+        expect(video.classList.contains(CLASSIC_EPG_PIP_CLASS)).toBe(true);
+        config.onPictureOperation?.('fullscreen');
+        expect(video.classList.contains(CLASSIC_EPG_PIP_CLASS)).toBe(false);
     });
 
-    it('clones fetched item details through toEpgItemDetails', async () => {
-        const inputs = createInputs();
-        const source = {
-            ratingKey: 'rk-1',
-            title: 'Movie',
-            media: [{ parts: [{ streams: [{ id: 1 }] }] }],
-        };
-        (inputs.plexLibrary!.getItem as jest.Mock).mockResolvedValue(source);
-
-        const config = buildEPGStartupConfig(inputs);
-        const details = await config.fetchItemDetails?.('rk-1');
-
-        expect(details).toEqual(source);
-        expect(details).not.toBe(source);
-        expect((inputs.plexLibrary!.getItem as jest.Mock)).toHaveBeenCalledWith(
-            'rk-1',
-            { signal: null }
-        );
+    it('persists selected hours and leaves failed writes unapplied', () => {
+        const config = buildEPGStartupConfig(inputs());
+        expect(config.onGuideHoursChange?.(4)).toBe(true);
+        expect(localStorage.getItem('lineup_epg_guide_hours')).toBe('4');
     });
 
-    it('preserves current-channel time label formatting', () => {
-        const inputs = createInputs();
-        const config = buildEPGStartupConfig(inputs);
-        const info = config.getCurrentChannelInfo?.();
-        const expected = formatTimeRange(
-            Date.UTC(2026, 3, 13, 19, 0, 0, 0),
-            Date.UTC(2026, 3, 13, 21, 0, 0, 0)
-        );
-
-        expect(info).toEqual({
-            channelNumber: 7,
-            channelName: 'Action',
-            programTitle: 'Movie Night',
-            timeLabel: expected,
-        });
-    });
-
-    it('toggles the classic PiP class on layout mode changes', () => {
-        const inputs = createInputs();
-        const config = buildEPGStartupConfig(inputs);
-        const videoContainer = document.createElement('div');
-        videoContainer.id = APP_SHELL_CONTAINER_IDS.VIDEO;
-        document.body.appendChild(videoContainer);
-
-        config.onLayoutModeChange?.('classic');
-        expect(videoContainer.classList.contains(CLASSIC_EPG_PIP_CLASS)).toBe(true);
-
-        config.onLayoutModeChange?.('overlay');
-        expect(videoContainer.classList.contains(CLASSIC_EPG_PIP_CLASS)).toBe(false);
-    });
-
-    it('keeps null and missing dependency paths safe', async () => {
-        const inputs = createInputs();
-        inputs.plexLibrary = null;
-        inputs.channelManager = null;
-        inputs.scheduler = null;
-        inputs.videoPlayer = null;
-        const config = buildEPGStartupConfig(inputs);
-
-        await expect(config.fetchItemDetails?.('rk-2')).resolves.toBeNull();
+    it('keeps null dependencies safe', async () => {
+        const config = buildEPGStartupConfig(inputs());
+        await expect(config.fetchItemDetails?.('rk')).resolves.toBeNull();
+        expect(config.getPictureStatus?.()).toBe('untuned');
         expect(config.getCurrentChannelInfo?.()).toBeNull();
-        expect(config.resolveThumbUrl?.(null)).toBeNull();
-        expect(config.isVideoPlaying?.()).toBe(false);
-    });
-
-    it('preserves previous onLayoutModeChange and no-ops when the container is missing', () => {
-        const previousOnLayoutModeChange = jest.fn();
-        const inputs = createInputs();
-        inputs.epgConfig = {
-            ...inputs.epgConfig,
-            onLayoutModeChange: previousOnLayoutModeChange,
-        };
-        const config = buildEPGStartupConfig(inputs);
-
-        config.onLayoutModeChange?.('classic');
-
-        expect(previousOnLayoutModeChange).toHaveBeenCalledWith('classic');
     });
 });

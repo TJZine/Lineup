@@ -71,7 +71,7 @@ it('writes Guide hours and keeps a valid migrated wide choice', () => {
     expect(container.querySelector('#settings-guide-hours .setup-toggle-value')?.textContent).toBe('3 hours');
     choose(container, 'settings-guide-hours', 2);
     expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('4');
-    expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('wide');
+    expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
 });
 
 it('writes source labels and the retained Guide toggles without moving scoped library state', () => {

@@ -34,10 +34,6 @@ const makeCleanupHarness = (
         setPendingNowPlayingChannelId: jest.fn<void, [string | null]>((channelId) => {
             callOrder.push(`setPendingNowPlayingChannelId:${channelId === null ? 'null' : channelId}`);
         }),
-        getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-        setShouldAutoShowInfoBannerOnNextPlay: jest.fn<void, [boolean]>((value) => {
-            callOrder.push(`setAutoShow:${String(value)}`);
-        }),
     };
     const deps = {
         schedulerRuntime: {
@@ -76,7 +72,6 @@ describe('ProfileSwitchCleanupController', () => {
             'stopPlayback',
             'unloadChannel',
             'setPendingNowPlayingChannelId:null',
-            'setAutoShow:false',
             'setProgram:null',
             'setDescriptor:null',
             'setDecision:null',

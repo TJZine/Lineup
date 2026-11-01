@@ -4,7 +4,6 @@ import type { IPlexAuth, PlexAuthData, PlexAuthToken } from '../../../modules/pl
 import type { IPlexServerDiscovery } from '../../../modules/plex/discovery';
 import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
 import type { EPGCoordinator, IEPGComponent } from '../../../modules/ui/epg';
-import { ChannelInitialTuneAuthority } from '../../channel-tuning/ChannelInitialTuneAuthority';
 import {
     OrchestratorServerSelectionRuntime,
     type OrchestratorServerSelectionRuntimeDeps,
@@ -98,7 +97,6 @@ function createHarness(): RuntimeHarness {
     const plexAuth = createPlexAuth();
     const selectionContext = new PlexDiscoverySelectionContext();
     const discovery = createDiscovery(selectionContext);
-    const tuning = new ChannelInitialTuneAuthority();
     const epg = { clearSchedules: jest.fn() } as unknown as IEPGComponent;
     const epgCoordinator = {
         clearSelectedChannelScheduleSnapshot: jest.fn(),
@@ -120,7 +118,6 @@ function createHarness(): RuntimeHarness {
                 assertCurrent: request.assertCurrent,
             });
             expect(raw).toBe(READY_EPG_REFRESH);
-            await request.initialTune('channel-1', request.lineage);
             return { kind: 'completed' as const, payload: { epgRefresh: epgOutcome } };
         }),
     } as unknown as jest.Mocked<InitializationCoordinator>;
@@ -133,10 +130,6 @@ function createHarness(): RuntimeHarness {
         getEpgCoordinator: jest.fn(() => epgCoordinator),
         suspendAndDrainForScopeTransition: jest.fn().mockResolvedValue(undefined),
         resumeAfterScopeTransition: jest.fn(),
-        beginInitialTuneLineage: jest.fn((validators) => tuning.beginLineage(validators)),
-        mintInitialTunePermit: jest.fn((lineage) => tuning.mintPermit(lineage)),
-        completeInitialTuneLineage: jest.fn((lineage) => tuning.completeLineage(lineage)),
-        switchToInitialChannel: jest.fn().mockResolvedValue({ kind: 'switched' }),
         clearIdentityScopedRuntime: jest.fn(),
         prepareQuarantineRuntime: jest.fn().mockResolvedValue(undefined),
         releaseQuarantineRuntimeGate: jest.fn(),
@@ -172,7 +165,7 @@ describe('OrchestratorServerSelectionRuntime', () => {
         expect(runtime.getSelectedServerId()).toBeNull();
     });
 
-    it('wires strict selection, initialization-owned EPG mapping, and initial tune authority', async () => {
+    it('wires strict selection, initialization-owned EPG mapping, without startup tuning', async () => {
         const harness = createHarness();
         const runtime = new OrchestratorServerSelectionRuntime(harness.deps);
 
@@ -191,8 +184,6 @@ describe('OrchestratorServerSelectionRuntime', () => {
             reason: 'server-swap',
             operationContext: expect.any(Object),
         }));
-        expect(harness.deps.mintInitialTunePermit).toHaveBeenCalledTimes(1);
-        expect(harness.deps.switchToInitialChannel).toHaveBeenCalledWith('channel-1', expect.any(Object));
     });
 
     it('clears persisted selection before discovery selection', async () => {

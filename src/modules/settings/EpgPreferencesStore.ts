@@ -13,8 +13,6 @@ import {
     writeTrimmedStringOrRemoveWithResult,
 } from '../../utils/storage';
 
-export type EpgLayoutMode = 'overlay' | 'classic';
-export type EpgGuideDensity = 'detailed' | 'wide';
 export const EPG_GUIDE_HOURS_OPTIONS = [2, 3, 4] as const;
 export type EpgGuideHours = (typeof EPG_GUIDE_HOURS_OPTIONS)[number];
 export const DEFAULT_EPG_GUIDE_HOURS: EpgGuideHours = 2;
@@ -24,7 +22,7 @@ export type EpgGuideHoursReadResult =
     | {
         ok: false;
         reason: 'quota-exceeded' | 'unavailable';
-        stage: 'read' | 'replacement-write' | 'invalid-value-cleanup';
+        stage: 'read' | 'replacement-write' | 'invalid-value-cleanup' | 'legacy-cleanup';
         effectiveValue: EpgGuideHours;
     };
 
@@ -88,25 +86,10 @@ export class EpgPreferencesStore {
         return writeTrimmedStringOrRemoveWithResult(key, libraryId);
     }
 
-    readGuideDensityAndClean(fallback: EpgGuideDensity = 'detailed'): EpgGuideDensity {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
-        if (raw === 'wide' || raw === 'detailed') {
-            return raw;
-        }
-        if (raw !== null) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY);
-        }
-        return fallback;
-    }
-
-    writeGuideDensity(density: EpgGuideDensity): SafeLocalStorageMutationResult {
-        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, density);
-    }
-
     /**
      * Read the current 2/3/4-hour preference, translating the legacy
-     * detailed/wide value once into the new owned key. The old key is retained
-     * until all Settings and viewing callers have moved to GuideHours.
+     * detailed/wide value into the new key. Retire the old key only after the
+     * replacement is durable; a failed cleanup remains visible and retryable.
      */
     readGuideHoursAndMigrate(): EpgGuideHoursReadResult {
         const current = safeLocalStorageGetWithResult(LINEUP_STORAGE_KEYS.EPG_GUIDE_HOURS);
@@ -121,6 +104,9 @@ export class EpgPreferencesStore {
 
         const storedHours = this._parseGuideHours(current.value);
         if (storedHours !== null) {
+            const cleanup = this.completeGuideHoursMigrationAfterConsumerCutover();
+            if (!cleanup.ok) return cleanup;
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
             return { ok: true, value: storedHours, source: 'stored' };
         }
 
@@ -150,6 +136,9 @@ export class EpgPreferencesStore {
             };
         }
         if (legacy.value === null) {
+            const cleanup = this.completeGuideHoursMigrationAfterConsumerCutover();
+            if (!cleanup.ok) return cleanup;
+            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
             return { ok: true, value: DEFAULT_EPG_GUIDE_HOURS, source: 'default' };
         }
 
@@ -166,6 +155,9 @@ export class EpgPreferencesStore {
             };
         }
 
+        const cleanup = this.completeGuideHoursMigrationAfterConsumerCutover();
+        if (!cleanup.ok) return cleanup;
+        safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
         return { ok: true, value: legacy.value, source: 'legacy' };
     }
 
@@ -246,21 +238,6 @@ export class EpgPreferencesStore {
 
     writeSourceLabelsEnabled(enabled: boolean): SafeLocalStorageMutationResult {
         return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_SOURCE_LABELS_ENABLED, enabled ? '1' : '0');
-    }
-
-    readLayoutModeAndClean(fallback: EpgLayoutMode = 'classic'): EpgLayoutMode {
-        const raw = safeLocalStorageGet(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        if (raw === 'overlay' || raw === 'classic') {
-            return raw;
-        }
-        if (raw !== null) {
-            safeLocalStorageRemove(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE);
-        }
-        return fallback;
-    }
-
-    writeLayoutMode(mode: EpgLayoutMode): SafeLocalStorageMutationResult {
-        return safeLocalStorageSetWithResult(LINEUP_STORAGE_KEYS.EPG_LAYOUT_MODE, mode);
     }
 
     readNowWatchingEnabledAndClean(fallback: boolean = true): boolean {

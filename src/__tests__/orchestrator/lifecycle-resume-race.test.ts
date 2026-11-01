@@ -27,6 +27,7 @@ const wireLifecycleResumeHarness = (overrides: {
         off: (event: string, handler: unknown) => void;
         loadStream: (stream: StreamDescriptor) => Promise<void>;
         play: () => Promise<void>;
+        stop: () => void;
     };
     lifecycle: Pick<IAppLifecycle, 'onPause' | 'onResume'>;
     playbackRecovery: {
@@ -35,7 +36,7 @@ const wireLifecycleResumeHarness = (overrides: {
         tryHandleStreamResolverAuthError: (error: unknown) => boolean;
         handlePlaybackFailure: (context: string, error: unknown) => void;
     };
-}): void => {
+}): PlaybackRuntimeController => {
     let currentProgram: ScheduledProgram | null = null;
     const playbackState: OrchestratorPlaybackStateAccessors = {
         getCurrentProgramForPlayback: (): ScheduledProgram | null => currentProgram,
@@ -48,12 +49,12 @@ const wireLifecycleResumeHarness = (overrides: {
         setCurrentStreamDecision: (): void => undefined,
         getPendingNowPlayingChannelId: (): null => null,
         setPendingNowPlayingChannelId: (): void => undefined,
-        getShouldAutoShowInfoBannerOnNextPlay: (): boolean => false,
-        setShouldAutoShowInfoBannerOnNextPlay: (): void => undefined,
     };
 
     const playbackStartController = new PlaybackStartController({
         getVideoPlayer: (): typeof overrides.videoPlayer => overrides.videoPlayer,
+        captureAdmission: (): number | null => playbackRuntimeController.captureAdmission(),
+        isAdmissionCurrent: (generation): boolean => playbackRuntimeController.isAdmissionCurrent(generation),
         resolveStreamForProgram: (program): Promise<PreparedPlaybackStream> =>
             overrides.playbackRecovery.resolveStreamForProgram(program),
         discardPreparedStream: (): Promise<void> => Promise.resolve(),
@@ -68,13 +69,11 @@ const wireLifecycleResumeHarness = (overrides: {
         markProgramStarting: (program): {
             programAtStart: ScheduledProgram;
             programIdentityAtStart: null;
-            shouldResetAutoShowInfoBannerOnAbort: boolean;
         } => {
             playbackState.setCurrentProgramForPlayback(program);
             return {
                 programAtStart: program,
                 programIdentityAtStart: null,
-                shouldResetAutoShowInfoBannerOnAbort: false,
             };
         },
         isProgramStillCurrent: (program): boolean =>
@@ -83,11 +82,11 @@ const wireLifecycleResumeHarness = (overrides: {
         commitPreparedStream: (): void => undefined,
         handleStreamResolved: (): void => undefined,
         reportRecoverableActivationFailure: (): void => undefined,
-        clearAutoShowInfoBannerAfterAbortedStart: (): void => undefined,
     });
 
     const playbackRuntimeController = new PlaybackRuntimeController({
         playback: {
+            reconcileSleepExpiration: (): boolean => false,
             playbackState,
             playbackRecovery: {
                 resolveStreamForProgram: (program): Promise<PreparedPlaybackStream> =>
@@ -116,11 +115,24 @@ const wireLifecycleResumeHarness = (overrides: {
         },
         uiRuntime: {
             handleGlobalError: (): void => undefined,
-            showInfoBanner: (): void => undefined,
         },
         saveLifecycleState: async (): Promise<void> => undefined,
+        reconcileSleepExpiration: (): boolean => false,
+        stopPlayback: (): void => undefined,
+        hasSelectedChannel: (): boolean => true,
+        getScheduledChannelId: (): string => 'channel-1',
+        getScheduledProgramIdentity: (): null => null,
+        getCommittedDescriptor: (): null => null,
+        getPlayerStatus: (): 'idle' => 'idle',
+        getCurrentDescriptor: (): null => null,
+        getDirectoryScopeKey: (): string => 'test-scope',
+        unloadCurrentChannel: (): void => undefined,
+        cancelChannelReplacement: (): void => undefined,
+        hasPendingChannelReplacement: (): boolean => false,
+        requestCurrentProgramStart: (): null => null,
         reportRecoverableAsyncFailure: (): void => undefined,
     });
+    playbackRuntimeController.beginIntentionalTune();
 
     const binder = new OrchestratorEventBinder({
         cleanupReporter: (): void => undefined,
@@ -154,6 +166,7 @@ const wireLifecycleResumeHarness = (overrides: {
     });
 
     binder.bind();
+    return playbackRuntimeController;
 };
 
 describe('AppOrchestrator lifecycle resume', () => {
@@ -200,6 +213,7 @@ describe('AppOrchestrator lifecycle resume', () => {
             off: jest.fn(),
             loadStream: jest.fn(() => loadDeferred.promise),
             play: jest.fn().mockResolvedValue(undefined),
+            stop: jest.fn(),
         };
 
         let registeredResume = false;
@@ -222,7 +236,8 @@ describe('AppOrchestrator lifecycle resume', () => {
             handlePlaybackFailure: jest.fn(),
         };
 
-        wireLifecycleResumeHarness({ scheduler, videoPlayer, lifecycle, playbackRecovery });
+        const runtime = wireLifecycleResumeHarness({ scheduler, videoPlayer, lifecycle, playbackRecovery });
+        await runtime.handleLifecyclePause();
 
         expect(registeredProgramStart).toBe(true);
         expect(registeredResume).toBe(true);
@@ -291,6 +306,7 @@ describe('AppOrchestrator lifecycle resume', () => {
                 .mockImplementationOnce((): Promise<void> => loadA.promise)
                 .mockResolvedValueOnce(undefined),
             play: jest.fn().mockResolvedValue(undefined),
+            stop: jest.fn(),
         };
 
         const lifecycle = {

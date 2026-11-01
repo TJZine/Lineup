@@ -1,9 +1,11 @@
-import type { PreparedPlaybackStream } from '../../../modules/player';
+import type { PreparedPlaybackStream, PlayerStatus, StreamDescriptor } from '../../../modules/player';
 import { makePreparedPlaybackStream } from '../../../__tests__/fixtures/preparedPlaybackStream';
+import { createDeferred } from '../../../__tests__/helpers';
 import type {
     ScheduledProgram,
     SchedulerState,
 } from '../../../modules/scheduler/scheduler';
+import { buildScheduledProgramIdentity } from '../../../modules/scheduler/scheduler';
 import {
     createEventBinder,
     createOverlayRuntimePolicyController,
@@ -97,9 +99,6 @@ const makeInput = (
             playerOsd: {
                 isVisible: jest.fn().mockReturnValue(true),
             },
-            nowPlayingInfo: {
-                isVisible: jest.fn().mockReturnValue(false),
-            },
             epg: {
                 isVisible: jest.fn().mockReturnValue(false),
             },
@@ -108,6 +107,7 @@ const makeInput = (
             },
             channelManager: {
                 getCurrentChannel: jest.fn().mockReturnValue({ number: 7, name: 'Movies' }),
+                getStructuralBase: jest.fn().mockReturnValue({ generation: 1, revision: 1 }),
                 on: jest.fn(),
                 off: jest.fn(),
             } as unknown as PriorityOneAssemblyInput['surfaces']['channelManager'],
@@ -117,6 +117,7 @@ const makeInput = (
         },
         playback: {
             playbackState,
+            reconcileSleepExpiration: jest.fn().mockReturnValue(false),
             playbackRecovery: {
                 resolveStreamForProgram: jest.fn().mockResolvedValue(makePrepared()),
                 discardPreparedStream: jest.fn().mockResolvedValue(undefined),
@@ -147,7 +148,6 @@ const makeInput = (
         },
         uiRuntime: {
             handleGlobalError: jest.fn(),
-            showInfoBanner: jest.fn(),
             onProgramStartUiSideEffects: jest.fn(),
             onStreamResolved: jest.fn(),
             onPlaybackStartFailure: jest.fn(),
@@ -164,11 +164,80 @@ const makeInput = (
             cleanupReporter: jest.fn(),
             reportRecoverableAsyncFailure: jest.fn(),
         },
-        nowPlayingModalId: 'now-playing-modal',
     };
 };
 
 describe('PriorityOneControllerCollaborators', () => {
+    it.each(['paused', 'held'] as const)(
+        'rejects a retained %s session after the scheduler crosses a program boundary',
+        async (boundary) => {
+            const firstProgram = makeProgram();
+            let scheduledProgram = firstProgram;
+            let committedDescriptor: StreamDescriptor | null = null;
+            let nativeDescriptor: StreamDescriptor | null = null;
+            let nativeStatus: PlayerStatus = 'paused';
+            const playbackState = {
+                getCurrentProgramForPlayback: jest.fn(() => scheduledProgram),
+                setCurrentProgramForPlayback: jest.fn(),
+                getCurrentStreamDescriptor: jest.fn(() => committedDescriptor),
+                setCurrentStreamDescriptor: jest.fn((descriptor: StreamDescriptor | null) => {
+                    committedDescriptor = descriptor;
+                }),
+                getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+                setCurrentStreamDecision: jest.fn(),
+                getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+                setPendingNowPlayingChannelId: jest.fn(),
+            } as unknown as jest.Mocked<OrchestratorPlaybackStateAccessors>;
+            const input = makeInput(playbackState);
+            (input.modules.scheduler.getState as jest.Mock).mockImplementation(() =>
+                makeSchedulerState(scheduledProgram, { isActive: true })
+            );
+            (input.modules.videoPlayer.loadStream as jest.Mock).mockImplementation(
+                async (descriptor: StreamDescriptor) => { nativeDescriptor = descriptor; }
+            );
+            (input.modules.videoPlayer.play as jest.Mock).mockImplementation(async () => {
+                nativeStatus = 'playing';
+            });
+            input.modules.videoPlayer.getCurrentDescriptor = jest.fn(() => nativeDescriptor);
+            input.modules.videoPlayer.getState = jest.fn(() => ({ status: nativeStatus } as ReturnType<typeof input.modules.videoPlayer.getState>));
+            const requestStart = jest.fn().mockResolvedValue({ kind: 'started' });
+            const runtime = createPlaybackRuntimeController(input, requestStart);
+            runtime.beginIntentionalTune('channel-7');
+            const start = createPlaybackStartController(input, runtime);
+            expect(await start.handleProgramStart(firstProgram)).toEqual({ kind: 'started' });
+            runtime.finishIntentionalTune('channel-7');
+            nativeStatus = 'paused';
+            expect(runtime.canActivateRetainedSession()).toBe(true);
+            const acceptedDescriptor = committedDescriptor;
+            const metadataDescriptor = { url: 'metadata-only' } as StreamDescriptor;
+            committedDescriptor = metadataDescriptor;
+            nativeDescriptor = metadataDescriptor;
+            expect(runtime.canActivateRetainedSession()).toBe(false);
+            committedDescriptor = acceptedDescriptor;
+            nativeDescriptor = acceptedDescriptor;
+            expect(runtime.canActivateRetainedSession()).toBe(true);
+            for (const unusable of ['idle', 'ended', 'error'] as const) {
+                nativeStatus = unusable;
+                expect(runtime.canActivateRetainedSession()).toBe(false);
+            }
+            nativeStatus = 'paused';
+
+            if (boundary === 'paused') runtime.setIntent('paused');
+            else runtime.acquireHold('route');
+            scheduledProgram = makeProgram({
+                item: { ...firstProgram.item, ratingKey: 'item-2' } as ScheduledProgram['item'],
+                scheduledStartTime: 60_000,
+                scheduledEndTime: 120_000,
+                scheduleIndex: 1,
+            });
+            expect(runtime.canActivateRetainedSession()).toBe(false);
+            if (boundary === 'paused') runtime.setIntent('playing');
+            else runtime.setRouteBlocking(false);
+
+            expect(requestStart).toHaveBeenCalledTimes(1);
+            expect(input.playback.playPlayer).not.toHaveBeenCalled();
+        }
+    );
     it('creates an overlay runtime controller that delegates badge policy through the assembly input', () => {
         const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
             getCurrentProgramForPlayback: jest.fn().mockReturnValue(makeProgram()),
@@ -179,8 +248,6 @@ describe('PriorityOneControllerCollaborators', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const input = makeInput(playbackState);
 
@@ -202,8 +269,6 @@ describe('PriorityOneControllerCollaborators', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const input = makeInput(playbackState);
         (
@@ -231,13 +296,13 @@ describe('PriorityOneControllerCollaborators', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue('channel-42'),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(true),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const input = makeInput(playbackState);
 
-        await createPlaybackStartController(input).handleProgramStart(program);
-        createPlaybackRuntimeController(input).handlePlayerStateChange({
+        const runtime = createPlaybackRuntimeController(input, () => null);
+        runtime.beginIntentionalTune();
+        await createPlaybackStartController(input, runtime).handleProgramStart(program);
+        runtime.handlePlayerStateChange({
             status: 'playing',
         } as never);
 
@@ -248,7 +313,6 @@ describe('PriorityOneControllerCollaborators', () => {
         expect(playbackState.setCurrentStreamDescriptor).toHaveBeenCalled();
         expect(input.uiRuntime.onProgramStartUiSideEffects).toHaveBeenCalledWith(program);
         expect(input.playerEvents.onPlayerStateChange).toHaveBeenCalled();
-        expect(input.uiRuntime.showInfoBanner).toHaveBeenCalled();
         expect(
             playbackState.setCurrentStreamDecision.mock.invocationCallOrder[0]
         ).toBeLessThan(playbackState.setCurrentStreamDescriptor.mock.invocationCallOrder[0] ?? 0);
@@ -276,8 +340,6 @@ describe('PriorityOneControllerCollaborators', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const input = makeInput(playbackState);
         const debugError = new Error('debug callback failed');
@@ -285,7 +347,9 @@ describe('PriorityOneControllerCollaborators', () => {
             throw debugError;
         });
 
-        await createPlaybackStartController(input).handleProgramStart(program);
+        const runtime = createPlaybackRuntimeController(input, () => null);
+        runtime.beginIntentionalTune();
+        await createPlaybackStartController(input, runtime).handleProgramStart(program);
 
         expect(playbackState.setCurrentStreamDecision).toHaveBeenCalledTimes(1);
         expect(playbackState.setCurrentStreamDescriptor).toHaveBeenCalledTimes(1);
@@ -329,8 +393,6 @@ describe('PriorityOneControllerCollaborators', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const input = makeInput(playbackState);
         let schedulerState = makeSchedulerState(program, {
@@ -350,7 +412,9 @@ describe('PriorityOneControllerCollaborators', () => {
             return makePrepared();
         });
 
-        await createPlaybackStartController(input).handleProgramStart(program);
+        const runtime = createPlaybackRuntimeController(input, () => null);
+        runtime.beginIntentionalTune();
+        await createPlaybackStartController(input, runtime).handleProgramStart(program);
 
         expect(input.uiRuntime.onStreamResolved).toHaveBeenCalled();
         expect(input.modules.videoPlayer.loadStream).toHaveBeenCalled();
@@ -377,8 +441,6 @@ describe('PriorityOneControllerCollaborators', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const input = makeInput(playbackState);
         let schedulerState = makeSchedulerState(program, {
@@ -398,7 +460,9 @@ describe('PriorityOneControllerCollaborators', () => {
             return makePrepared();
         });
 
-        await createPlaybackStartController(input).handleProgramStart(program);
+        const runtime = createPlaybackRuntimeController(input, () => null);
+        runtime.beginIntentionalTune();
+        await createPlaybackStartController(input, runtime).handleProgramStart(program);
 
         expect(input.uiRuntime.onStreamResolved).not.toHaveBeenCalled();
         expect(input.modules.videoPlayer.loadStream).not.toHaveBeenCalled();
@@ -415,8 +479,6 @@ describe('PriorityOneControllerCollaborators', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const input = makeInput(playbackState);
 
@@ -440,12 +502,11 @@ describe('PriorityOneControllerCollaborators', () => {
             setCurrentStreamDecision: jest.fn(),
             getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
             setPendingNowPlayingChannelId: jest.fn(),
-            getShouldAutoShowInfoBannerOnNextPlay: jest.fn().mockReturnValue(false),
-            setShouldAutoShowInfoBannerOnNextPlay: jest.fn(),
         };
         const input = makeInput(playbackState);
-        const playbackStartController = createPlaybackStartController(input);
-        const playbackRuntimeController = createPlaybackRuntimeController(input);
+        const playbackRuntimeController = createPlaybackRuntimeController(input, () => null);
+        playbackRuntimeController.beginIntentionalTune();
+        const playbackStartController = createPlaybackStartController(input, playbackRuntimeController);
         const binder = createEventBinder(
             input,
             playbackStartController,
@@ -458,6 +519,73 @@ describe('PriorityOneControllerCollaborators', () => {
 
         expect(input.events.handleScheduleDayRollover).not.toHaveBeenCalled();
         expect(input.uiRuntime.onProgramStartUiSideEffects).toHaveBeenCalled();
+        binder.dispose();
+    });
+
+    it('observes only the exact scheduler occurrence through the real start producer', async () => {
+        const selected = makeProgram();
+        const other = makeProgram({
+            item: { ...selected.item, ratingKey: 'other-item' } as ScheduledProgram['item'],
+        });
+        let currentProgram = selected;
+        let committedDescriptor: StreamDescriptor | null = null;
+        let nativeDescriptor: StreamDescriptor | null = null;
+        let nativeStatus: PlayerStatus = 'idle';
+        const playbackState: jest.Mocked<OrchestratorPlaybackStateAccessors> = {
+            getCurrentProgramForPlayback: jest.fn(() => currentProgram),
+            setCurrentProgramForPlayback: jest.fn((program) => { currentProgram = program ?? selected; }),
+            getCurrentStreamDescriptor: jest.fn(() => committedDescriptor),
+            setCurrentStreamDescriptor: jest.fn((descriptor) => { committedDescriptor = descriptor; }),
+            getCurrentStreamDecision: jest.fn().mockReturnValue(null),
+            setCurrentStreamDecision: jest.fn(),
+            getPendingNowPlayingChannelId: jest.fn().mockReturnValue(null),
+            setPendingNowPlayingChannelId: jest.fn(),
+        };
+        const input = makeInput(playbackState);
+        (input.modules.scheduler.getState as jest.Mock).mockImplementation(() =>
+            makeSchedulerState(currentProgram, { isActive: true })
+        );
+        const prepared = createDeferred<PreparedPlaybackStream>();
+        (input.playback.playbackRecovery.resolveStreamForProgram as jest.Mock)
+            .mockImplementation((program: ScheduledProgram) =>
+                program.item.ratingKey === selected.item.ratingKey
+                    ? prepared.promise
+                    : Promise.resolve(makePrepared('other'))
+            );
+        (input.modules.videoPlayer.loadStream as jest.Mock).mockImplementation(
+            async (descriptor: StreamDescriptor) => { nativeDescriptor = descriptor; }
+        );
+        (input.modules.videoPlayer.play as jest.Mock).mockImplementation(async () => {
+            nativeStatus = 'playing';
+        });
+        input.modules.videoPlayer.getCurrentDescriptor = jest.fn(() => nativeDescriptor);
+        input.modules.videoPlayer.getState = jest.fn(() => ({ status: nativeStatus } as ReturnType<typeof input.modules.videoPlayer.getState>));
+
+        const runtime = createPlaybackRuntimeController(input, () => null);
+        runtime.beginIntentionalTune('channel-7');
+        const binder = createEventBinder(input, createPlaybackStartController(input, runtime), runtime);
+        const identity = buildScheduledProgramIdentity('channel-7', selected);
+        expect(identity).not.toBeNull();
+        if (!identity) throw new Error('Selected program has no schedule identity');
+        const observed = runtime.observeProgramStart(identity, new AbortController().signal);
+        let settled = false;
+        void observed.then(() => { settled = true; });
+        binder.bind();
+
+        const programStartHandler = (input.modules.scheduler.on as jest.Mock).mock.calls
+            .find(([name]) => name === 'programStart')?.[1] as ((program: ScheduledProgram) => void) | undefined;
+        expect(programStartHandler).toBeDefined();
+        programStartHandler?.(other);
+        await Promise.resolve();
+        expect(settled).toBe(false);
+
+        programStartHandler?.(selected);
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        runtime.finishIntentionalTune('channel-7');
+        prepared.resolve(makePrepared('selected'));
+        await expect(observed).resolves.toEqual({ kind: 'started' });
+        expect(runtime.canActivateRetainedSession()).toBe(true);
         binder.dispose();
     });
 });

@@ -6,6 +6,13 @@
   color: var(--color-text-primary);
 }
 
+.player-osd-error-text {
+  max-width: 720px;
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--color-text-primary);
+}
+
 .player-osd-status-icon {
   width: 28px;
   height: 28px;
@@ -50,6 +57,10 @@
   margin-top: var(--space-1);
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.no-flex-gap .player-osd-info > * + * {
+  margin-left: var(--space-2);
 }
 
 .osd-pill,

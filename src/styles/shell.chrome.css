@@ -126,10 +126,20 @@
 }
 
 .error-button.focused::after,
-.error-button:focus-visible::after {
+.error-button:focus::after {
   box-shadow: 0 0 0 var(--focus-ring-width, 3px) var(--focus-color) inset;
 }
 
 .error-button.primary {
   background: var(--color-primary);
+}
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .error-actions {
+  margin-right: calc(-1 * var(--space-3));
+  margin-bottom: calc(-1 * var(--space-3));
+}
+.no-flex-gap .error-actions > :not([hidden]) {
+  margin-right: var(--space-3);
+  margin-bottom: var(--space-3);
 }

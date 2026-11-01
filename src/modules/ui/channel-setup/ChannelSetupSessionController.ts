@@ -72,6 +72,24 @@ export class ChannelSetupSessionController {
         return this._runtime.toggleLibrary(libraryId);
     }
 
+    scanInventory(onStateChange: () => void): Promise<void> {
+        return this._runtime.scanInventory(onStateChange);
+    }
+
+    cancelInventory(): void { this._runtime.cancelInventory(); }
+
+    retryInventory(libraryId: string, onStateChange: () => void): Promise<void> {
+        return this._runtime.retryInventory(libraryId, onStateChange);
+    }
+
+    acceptReadySubset(libraryIds: readonly string[]): boolean {
+        return this._runtime.acceptReadySubset(libraryIds);
+    }
+
+    confirmDeselectedLibraries(libraryIds: readonly string[]): void {
+        this._runtime.confirmDeselectedLibraries(libraryIds);
+    }
+
     updateStrategyState(mutate: (draft: StrategyStepMutableState) => void): void {
         this._runtime.updateStrategyState(mutate);
     }
@@ -86,6 +104,14 @@ export class ChannelSetupSessionController {
 
     toggleReplaceConfirm(): void {
         this._state.replaceConfirm = !this._state.replaceConfirm;
+        this._state.replaceConfirmReviewId = this._state.replaceConfirm
+            ? this._state.review?.preparedId ?? null : null;
+    }
+
+    toggleWholeLineupReplacementConfirm(): void {
+        this._state.wholeLineupReplacementConfirm = !this._state.wholeLineupReplacementConfirm;
+        this._state.wholeLineupReplacementConfirmReviewId = this._state.wholeLineupReplacementConfirm
+            ? this._state.review?.preparedId ?? null : null;
     }
 
     buildConfig(serverId: string): ChannelSetupConfig {
@@ -98,6 +124,10 @@ export class ChannelSetupSessionController {
 
     schedulePreview(onStateChange: () => void): void {
         this._runtime.schedulePreview(onStateChange);
+    }
+
+    refreshReview(onStateChange: () => void): Promise<void> {
+        return this._runtime.refreshReview(onStateChange);
     }
 
     async ensureReviewLoaded(onStateChange: () => void): Promise<void> {

@@ -22,6 +22,7 @@ export interface NavigationCoordinatorHandlers {
 
 export interface NavigationGuideMiniGuideEvents {
     hideForGuideToggle(): void;
+    isGuideVisible(): boolean;
 }
 
 /**
@@ -66,9 +67,14 @@ export class NavigationCoordinator {
             unsubs.push(() => disposable.dispose());
         };
 
-        navigation.handleLongPress('back', () => this._keyModeRouter.handleLongPressBack());
-
         const keyHandler = (event: KeyEvent): void => {
+            if (event.isRepeat && (
+                event.button === 'guide' || event.button === 'green' || event.button === 'yellow'
+            )) {
+                event.handled = true;
+                event.originalEvent.preventDefault();
+                return;
+            }
             this._keyModeRouter.handleKeyPress(event);
         };
         subscribe('keyPress', keyHandler);
@@ -97,11 +103,17 @@ export class NavigationCoordinator {
         subscribe('channelInputUpdate', inputUpdateHandler);
 
         const guideHandler = (): void => {
-            // EPG is an overlay, not a navigation screen; toggle based on EPG visibility.
+            // The screen is the route authority; repeated Guide commands keep browsing context.
             this._repeats.stopEpgRepeat('guide');
             this._repeats.stopMiniGuideRepeat('guide');
             this.deps.guideMiniGuide.hideForGuideToggle();
-            this.deps.events.channelSwitching.toggleEpg();
+            if (navigation.getCurrentScreen() === 'guide') {
+                if (!this.deps.guideMiniGuide.isGuideVisible()) {
+                    this.deps.events.channelSwitching.toggleEpg();
+                }
+                return;
+            }
+            navigation.goTo('guide');
         };
         subscribe('guide', guideHandler);
 
