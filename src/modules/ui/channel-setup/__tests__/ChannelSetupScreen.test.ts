@@ -1586,8 +1586,9 @@ describe('ChannelSetupScreen', () => {
         expect(config.minItemsPerChannel).toBe(1);
     });
 
-    it('requires explicit ready-subset choice when a second library scan fails', async () => {
+    it('passes an explicit ready-subset choice to prepared Review when a second library scan fails', async () => {
         const container = createBodyAppendedTestContainer();
+        const getSetupReview = jest.fn().mockResolvedValue(DEFAULT_REVIEW);
         const scanSetupInventory = jest.fn().mockResolvedValue({ scopeKey: 'scope', generation: 1,
             libraries: [
                 { libraryId: 'movies', libraryName: 'Movies', requiredFamilies: ['genres'], status: 'ready', generation: 1 },
@@ -1597,19 +1598,29 @@ describe('ChannelSetupScreen', () => {
         const { workflowPort, screenPorts } = createSplitScreenPorts({
             getLibrariesForSetup: jest.fn().mockResolvedValue([
                 makeLibrary({ id: 'movies', title: 'Movies' }), makeLibrary({ id: 'shows', title: 'Shows', type: 'show' }),
-            ]), scanSetupInventory,
+            ]), scanSetupInventory, getSetupReview,
         });
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show(); await flushPromises();
         clickButton(container, '#setup-scan'); await flushPromises();
         expect(container.textContent).toContain('Plex unavailable');
         expect(container.querySelector('#setup-retry-shows')).not.toBeNull();
-        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
-        clickButton(container, '#setup-ready-movies');
         expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+        expect(container.querySelector('#setup-ready-movies')?.getAttribute('aria-pressed')).toBe('false');
+        clickButton(container, '#setup-ready-movies');
+        expect(container.querySelector('#setup-ready-movies')?.getAttribute('aria-pressed')).toBe('true');
         expect(container.textContent).toContain('Excluded until ready: Shows');
         clickButton(container, '#setup-next');
         expect(container.querySelector('#setup-category-content-sources')).not.toBeNull();
+        expect(getSetupReview).not.toHaveBeenCalled();
+        clickButton(container, '#setup-next'); await flushPromises(); await flushPromises();
+        expect(getSetupReview).toHaveBeenCalledTimes(1);
+        expect(getSetupReview).toHaveBeenCalledWith(
+            expect.objectContaining({ selectedLibraryIds: ['movies', 'shows'] }),
+            expect.objectContaining({ acceptedReadyLibraryIds: ['movies'] })
+        );
+        expect(workflowPort.applySetupReview).not.toHaveBeenCalled();
+        screen.hide();
     });
 
     it('passes explicit complete-library deselection consent to prepared Review', async () => {
@@ -1633,7 +1644,7 @@ describe('ChannelSetupScreen', () => {
             expect.objectContaining({ confirmedDeselectedLibraryIds: ['shows'] }));
     });
 
-    it('cancels an in-flight scan and returns to editable selected libraries', async () => {
+    it('blocks Configure during a scan and permits it after cancellation', async () => {
         const container = createBodyAppendedTestContainer();
         let resolveScan: (value: ChannelSetupInventory) => void = () => undefined;
         const scanSetupInventory = jest.fn(() => new Promise<ChannelSetupInventory>((resolve) => { resolveScan = resolve; }));
@@ -1644,16 +1655,22 @@ describe('ChannelSetupScreen', () => {
         screen.show(); await flushPromises();
         clickButton(container, '#setup-scan');
         expect(container.querySelector('#setup-scan')?.textContent).toBe('Cancel scan');
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
         clickButton(container, '#setup-scan');
         expect(container.querySelector('#setup-lib-movies.selected')).not.toBeNull();
         expect(container.querySelector('#setup-scan')?.textContent).toBe('Scan selected libraries');
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+        clickButton(container, '#setup-next');
+        expect(container.querySelector('#setup-category-content-sources')).not.toBeNull();
         resolveScan({ scopeKey: 'scope', generation: 1, libraries: [], acceptedReadyLibraryIds: [],
             sharedPlaylistsStatus: 'unused' });
         await flushPromises();
-        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
+        expect(container.querySelector('#setup-category-content-sources')).not.toBeNull();
+        expect(workflowPort.getSetupReview).not.toHaveBeenCalled();
+        screen.hide();
     });
 
-    it('retries a failed library scan while preserving its selected library', async () => {
+    it('permits Configure after a failed scan and retains the selected library when retrying', async () => {
         const container = createBodyAppendedTestContainer();
         const failed = { scopeKey: 'scope', generation: 1, libraries: [
             { libraryId: 'movies', libraryName: 'Movies', requiredFamilies: ['genres'], status: 'failed',
@@ -1670,11 +1687,18 @@ describe('ChannelSetupScreen', () => {
         const screen = new ChannelSetupScreen(container, createScreenDeps({ workflowPort, screenPorts }));
         screen.show(); await flushPromises();
         clickButton(container, '#setup-scan'); await flushPromises();
-        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+        clickButton(container, '#setup-next');
+        expect(container.querySelector('#setup-category-content-sources')).not.toBeNull();
+        clickButton(container, '#setup-back');
+        expect(container.querySelector('#setup-lib-movies.selected')).not.toBeNull();
         clickButton(container, '#setup-retry-movies'); await flushPromises();
         expect(retrySetupInventory).toHaveBeenCalledWith('movies');
         expect(container.querySelector('#setup-lib-movies.selected')).not.toBeNull();
         expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+        expect(container.textContent).toContain('1 ready for Review');
+        expect(workflowPort.getSetupReview).not.toHaveBeenCalled();
+        screen.hide();
     });
 
     it('persists Random, lineup seed, start anchor, and specials choices through reviewed Apply', async () => {

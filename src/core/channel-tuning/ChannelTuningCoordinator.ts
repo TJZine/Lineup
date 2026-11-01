@@ -51,7 +51,6 @@ export interface ChannelTuningCoordinatorDeps {
     capturePlaybackAdmission?: (() => number | null) | undefined;
     isPlaybackAdmissionCurrent?: ((generation: number) => boolean) | undefined;
     canActivateRetainedSession?: (() => boolean) | undefined;
-    finishIntentionalTune?: ((channelId: string) => void) | undefined;
     armChannelTransitionForSwitch: (channelPrefix: string) => void;
     appendIssueDiagnostic: AppendIssueDiagnostic;
 
@@ -560,7 +559,6 @@ export class ChannelTuningCoordinator {
                 );
             }
             operation.assertCurrent();
-            this.deps.finishIntentionalTune?.(channelId);
             return CHANNEL_SWITCH_OUTCOME.switched;
         } catch (error: unknown) {
             if (isAbortLikeError(error, signal)) return CHANNEL_SWITCH_OUTCOME.aborted;

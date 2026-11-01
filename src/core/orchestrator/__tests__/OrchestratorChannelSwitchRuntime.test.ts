@@ -16,6 +16,28 @@ const createDeps = (
 } as jest.Mocked<OrchestratorChannelSwitchRuntimeDeps>);
 
 describe('OrchestratorChannelSwitchRuntime', () => {
+    it.each(['switched', 'failed', 'aborted', 'rejected'] as const)(
+        'settles the tune receipt after a %s command', async (kind) => {
+            const channelTuning = {
+                isSuspended: (): boolean => false,
+                switchToChannel: kind === 'rejected'
+                    ? jest.fn().mockRejectedValue(new Error('failure'))
+                    : jest.fn().mockResolvedValue(kind === 'failed'
+                        ? { kind, reason: 'content_unavailable' } : { kind }),
+            };
+            const deps = createDeps({
+                getChannelTuning: jest.fn(() => channelTuning as never),
+                beginIntentionalTune: jest.fn(() => 7),
+                finishIntentionalTune: jest.fn(),
+            });
+            const runtime = new OrchestratorChannelSwitchRuntime(deps);
+            await runtime.switchToChannelWithOutcome('channel-1');
+            expect(deps.beginIntentionalTune).toHaveBeenCalledWith('channel-1');
+            expect(deps.finishIntentionalTune).toHaveBeenCalledTimes(1);
+            expect(deps.finishIntentionalTune).toHaveBeenCalledWith(7);
+        }
+    );
+
     it('delegates suspension and gates next/previous channel adapters while suspended', async () => {
         const channelTuning = {
             suspendAndDrainForScopeTransition: jest.fn().mockResolvedValue(undefined),

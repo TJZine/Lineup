@@ -303,7 +303,9 @@ export class ChannelScheduler implements IChannelScheduler {
         const returningToPrior = prior && program.scheduledEndTime <= prior.boundary
             && calculateProgramAtTime(program.scheduledStartTime, prior.previousIndex, prior.previousConfig.anchorTime)
                 .item.ratingKey === program.item.ratingKey;
-        const replacement = returningToPrior ? { config: this._config!, index: this._index! } : null;
+        const replacement = returningToPrior
+            ? { config: this._config!, index: this._index! }
+            : this._pendingReplacement;
         if (returningToPrior) {
             this._config = prior.previousConfig;
             this._index = prior.previousIndex;

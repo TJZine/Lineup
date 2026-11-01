@@ -186,6 +186,7 @@ export class ChannelSetupBuildStepPresenter {
                     return;
                 }
                 this._saved = false;
+                this._canCancel = true;
                 ui.barFill.style.width = '0%';
                 ui.barFill.classList.remove('indeterminate');
                 ui.doneButton.disabled = true;

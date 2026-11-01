@@ -7,6 +7,7 @@
  */
 
 import { EPGComponent } from '../component/EPGComponent';
+import { DeferredEPGComponent } from '../component/DeferredEPGComponent';
 import { RemoteHandler } from '../../../navigation/input/RemoteHandler';
 import { EPGDebugRuntime } from '../debug/EPGDebugRuntime';
 import { EPG_CLASSES } from '../constants';
@@ -259,6 +260,48 @@ describe('EPGComponent', () => {
         expect(container.querySelector('.epg-toolbar-button.epg-toolbar-focused')).toBeNull();
     });
 
+    it('scrolls remote search selection into view while preserving typing focus', () => {
+        const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        const scrollIntoView = jest.fn();
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+            configurable: true,
+            value: scrollIntoView,
+        });
+
+        try {
+            epg.loadChannels(Array.from({ length: 20 }, (_, index) => createMockChannel(index)));
+            epg.show();
+            container.querySelector<HTMLButtonElement>('[data-action="search"]')?.click();
+            const input = expectPresent(container.querySelector<HTMLInputElement>('.epg-search-input'));
+
+            for (let step = 0; step < 14; step++) {
+                input.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'ArrowDown', bubbles: true, cancelable: true,
+                }));
+            }
+
+            const selected = container.querySelector('.epg-search-result.epg-toolbar-focused');
+            expect(selected?.textContent).toContain('Channel 15');
+            expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest' });
+            expect(scrollIntoView.mock.contexts[scrollIntoView.mock.contexts.length - 1]).toBe(selected);
+            expect(document.activeElement).toBe(input);
+
+            input.value = 'Channel 20';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+
+            const filtered = container.querySelector('.epg-search-result.epg-toolbar-focused');
+            expect(filtered?.textContent).toContain('Channel 20');
+            expect(scrollIntoView.mock.contexts[scrollIntoView.mock.contexts.length - 1]).toBe(filtered);
+            expect(document.activeElement).toBe(input);
+        } finally {
+            if (originalScrollIntoView) {
+                Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView);
+            } else {
+                Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+            }
+        }
+    });
+
     it('closes Search on physical Back before the real remote handler sees it', () => {
         const remote = new RemoteHandler();
         const onRemoteKeyDown = jest.fn();
@@ -330,6 +373,87 @@ describe('EPGComponent', () => {
 
         expect(onRoute).toHaveBeenCalledWith('server-select');
         expect(container.querySelector('.epg-menu-overlay')).toBeNull();
+    });
+
+    it('routes every remote menu action and empty-state setup through the production deferred facade', async () => {
+        const deferredContainer = document.createElement('div');
+        deferredContainer.id = 'epg-deferred-actions';
+        document.body.appendChild(deferredContainer);
+        const deferred = new DeferredEPGComponent(async () => ({ EPGComponent }));
+        deferred.initialize({
+            containerId: deferredContainer.id,
+            visibleChannels: 5,
+            timeSlotMinutes: 30,
+            visibleHours: 2,
+            totalHours: 24,
+            pixelsPerMinute: 4,
+            rowHeight: 80,
+            autoScrollToNow: false,
+            getPictureStatus: () => 'playing',
+        });
+        deferred.loadChannels([createMockChannel(0)]);
+        const onRoute = jest.fn();
+        const onSetup = jest.fn();
+        deferred.on('menuRouteRequested', onRoute);
+        deferred.on('setupRequested', onSetup);
+
+        try {
+            await deferred.ensureReady();
+            deferred.show();
+            const routes = ['player', 'settings', 'channels', 'channel-setup', 'server-select'] as const;
+            routes.forEach((route, index) => {
+                deferred.openLineupMenu();
+                for (let step = 0; step < index; step++) deferred.handleNavigation('down');
+                deferred.handleSelect();
+                expect(onRoute).toHaveBeenLastCalledWith(route);
+                expect(onRoute).toHaveBeenCalledTimes(index + 1);
+                expect(deferredContainer.querySelector('.epg-menu-overlay')).toBeNull();
+            });
+
+            deferred.openLineupMenu();
+            deferredContainer.querySelector<HTMLButtonElement>('[data-action="settings"]')?.click();
+            expect(onRoute).toHaveBeenLastCalledWith('settings');
+            expect(onRoute).toHaveBeenCalledTimes(routes.length + 1);
+
+            deferred.loadChannels([]);
+            deferredContainer.querySelector<HTMLButtonElement>('.epg-empty-state button')?.click();
+            deferred.handleSelect();
+            expect(onSetup).toHaveBeenCalledTimes(2);
+        } finally {
+            deferred.destroy();
+            deferredContainer.remove();
+        }
+    });
+
+    it('restores grid focus presentation after Back leaves the toolbar', () => {
+        epg.loadChannels([createMockChannel(0)]);
+        epg.show();
+        epg.focusChannel(0);
+        epg.handleNavigation('up');
+        expect(container.classList.contains('epg-focus-in-toolbar')).toBe(true);
+
+        expect(epg.handleBack()).toBe(true);
+
+        expect(container.querySelector('.epg-toolbar-focused')).toBeNull();
+        expect(container.classList.contains('epg-focus-in-toolbar')).toBe(false);
+        expect(epg.getState().focusedCell?.channelIndex).toBe(0);
+        expect(epg.handleBack()).toBe(false);
+    });
+
+    it('clears the menu focus treatment when Guide is hidden and reopened', () => {
+        epg.loadChannels([createMockChannel(0)]);
+        epg.show();
+        epg.focusChannel(0);
+        epg.openLineupMenu();
+        expect(container.querySelector('.epg-classic-header-brand.epg-toolbar-focused')).not.toBeNull();
+
+        epg.hide();
+        epg.show({ preserveFocus: true });
+
+        expect(container.querySelector('.epg-menu-overlay')).toBeNull();
+        expect(container.querySelector('.epg-toolbar-focused')).toBeNull();
+        expect(container.classList.contains('epg-focus-in-toolbar')).toBe(false);
+        expect(epg.getState().focusedCell?.channelIndex).toBe(0);
     });
 
     it('sets --epg-row-height on the container from config.rowHeight', () => {
@@ -1402,6 +1526,7 @@ describe('EPGComponent', () => {
             expect(handled).toBe(true);
             const focusedPill = container.querySelector('.epg-library-pill.focused');
             expect(focusedPill).toBeNull();
+            expect(container.classList.contains('epg-focus-in-toolbar')).toBe(false);
             const focused = epg.getState().focusedCell;
             expect(focused?.channelIndex).toBe(0);
         });
@@ -1450,6 +1575,24 @@ describe('EPGComponent', () => {
             epg.handleNavigation('up');
             focusedItem = container.querySelector('.epg-library-picker-item.focused') as HTMLElement | null;
             expect(focusedItem?.textContent).toBe('Movies');
+
+            epg.handleNavigation('up');
+            focusedItem = container.querySelector('.epg-library-picker-item.focused') as HTMLElement | null;
+            expect(focusedItem?.textContent).toBe('All');
+        });
+
+        it('clears retained library focus when Guide is hidden and reopened', () => {
+            setupWithPicker();
+            epg.handleNavigation('up');
+            epg.handleSelect();
+
+            epg.hide();
+            epg.show({ preserveFocus: true });
+
+            expect(container.querySelector('.epg-library-picker-overlay')).toBeNull();
+            expect(container.querySelector('.epg-library-pill.focused')).toBeNull();
+            expect(container.classList.contains('epg-focus-in-toolbar')).toBe(false);
+            expect(epg.getState().focusedCell?.channelIndex).toBe(0);
         });
 
         it('LEFT/RIGHT are no-op but handled while picker open', () => {

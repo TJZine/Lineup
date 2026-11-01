@@ -112,7 +112,6 @@ export function buildChannelTuningInput(
             capturePlaybackAdmission: input.playback.capturePlaybackAdmission,
             isPlaybackAdmissionCurrent: input.playback.isPlaybackAdmissionCurrent,
             canActivateRetainedSession: input.playback.canActivateRetainedSession,
-            finishIntentionalTune: input.playback.finishIntentionalTune,
         },
         schedule: {
             buildDailyScheduleConfig: input.schedule.buildDailyScheduleConfig,
@@ -137,6 +136,7 @@ export function buildPlayerOsdCoordinatorInput(
         },
         overlays: {
             playerOsd: input.overlays.playerOsd,
+            miniGuide: input.overlays.miniGuide,
             sleepTimer: input.overlays.sleepTimer,
         },
         stores: {
@@ -228,6 +228,7 @@ export function buildPlayerOsdCoordinator(
         getAutoHideMs: (): number =>
             input.stores.nowPlayingDisplayStore.readCompactControlsTimeoutSecondsAndClean() * 1000,
         getNavigation: (): import('../../../modules/navigation').INavigationManager | null => input.modules.navigation,
+        isMiniGuideVisible: (): boolean => input.overlays.miniGuide.isVisible(),
         onGuide: (): void => input.actions.toggleEPG(),
         onRetry: (): Promise<void> => {
             const channel = input.modules.channelManager.getCurrentChannel();
@@ -372,7 +373,6 @@ export function buildChannelTuningCoordinator(
         capturePlaybackAdmission: input.playback.capturePlaybackAdmission,
         isPlaybackAdmissionCurrent: input.playback.isPlaybackAdmissionCurrent,
         canActivateRetainedSession: input.playback.canActivateRetainedSession,
-        finishIntentionalTune: input.playback.finishIntentionalTune,
         armChannelTransitionForSwitch: (prefix: string): void => {
             armChannelTransitionForSwitch(channelTransitionCoordinator, prefix);
         },

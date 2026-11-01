@@ -423,9 +423,10 @@ export class AppOrchestrator {
             throwModuleInitPreconditionError: this._throwModuleInitPreconditionError.bind(this),
         });
         this._channelSwitchRuntime = new OrchestratorChannelSwitchRuntime({
-            beginIntentionalTune: (channelId): void => {
-                this._playbackRuntimeController?.beginIntentionalTune(channelId);
-            },
+            beginIntentionalTune: (channelId): number | null =>
+                this._playbackRuntimeController?.beginIntentionalTune(channelId) ?? null,
+            finishIntentionalTune: (generation): void =>
+                this._playbackRuntimeController?.finishIntentionalTune(generation),
             invalidatePlaybackScope: (): void => { this._playbackRuntimeController?.invalidateScope(); },
             assertNotShutdown: this._assertNotShutdown.bind(this),
             getChannelTuning: (): ChannelTuningCoordinator | null => this._channelTuning,
@@ -707,8 +708,6 @@ export class AppOrchestrator {
                     this._playbackRuntimeController?.captureTuneAdmission() ?? null,
                 isPlaybackAdmissionCurrent: (generation): boolean =>
                     this._playbackRuntimeController?.isTuneAdmissionCurrent(generation) ?? false,
-                finishIntentionalTune: (channelId): void =>
-                    this._playbackRuntimeController?.finishIntentionalTune(channelId),
                 captureRecoveryAdmission: (): number | null =>
                     this._playbackRuntimeController?.captureRecoveryAdmission() ?? null,
                 isRecoveryAdmissionCurrent: (generation): boolean =>

@@ -94,6 +94,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         getIsLibraryTabsFocused: () => this._isLibraryTabsFocused,
         setIsLibraryTabsFocused: (focused): void => {
             this._isLibraryTabsFocused = focused;
+            this.syncControlFocus();
         },
         renderGrid: () => this.renderGrid(),
         renderGridInternal: () => this.renderGridInternal(),
@@ -145,8 +146,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.toolbar.initialize(this.toolbarElement, this.containerElement, {
                 onAction: (action) => this.handleToolbarAction(action),
                 onPickChannel: (index) => {
-                    this.toolbar.blur();
-                    this.containerElement?.classList.remove('epg-focus-in-toolbar');
+                    this.clearControlFocus();
                     this.focusNavigator.scrollToChannel(index);
                     this.focusNavigator.focusChannel(index);
                 },
@@ -332,9 +332,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.containerElement.classList.add(EPG_CLASSES.CONTAINER_VISIBLE);
         this.state.isVisible = true;
         this.closeMenu();
-        this.menuFocused = false;
-        this.toolbar.blur();
-        this.containerElement.classList.remove('epg-focus-in-toolbar');
+        this.clearControlFocus();
         this.gridRuntime.resetVisibleRange();
         this.syncPicture();
         this.updateNowWatchingBanner();
@@ -403,8 +401,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         this.infoPanelCoordinator.clear();
         this.closeMenu();
         this.toolbar.back();
-        this.menuFocused = false;
-        this._isLibraryTabsFocused = false;
+        this.clearControlFocus();
         this._libraryTabs?.closePicker();
         this.emit('close', undefined);
     }
@@ -741,7 +738,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
                     this._libraryTabs.setFocusedToSelected();
                 } else this.toolbar.focus(0);
             }
-            this.containerElement?.classList.toggle('epg-focus-in-toolbar', this.menuFocused || this.toolbar.isFocused() || this._isLibraryTabsFocused);
+            this.syncControlFocus();
             return true;
         }
         if (this.toolbar.isFocused() || this.toolbar.isSearchOpen()) {
@@ -753,7 +750,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             } else if (result === 'grid' && direction === 'down') {
                 this.focusNavigator.focusChannel(this.state.scrollPosition.channelOffset);
             }
-            this.containerElement?.classList.toggle('epg-focus-in-toolbar', this.menuFocused || this.toolbar.isFocused() || this._isLibraryTabsFocused);
+            this.syncControlFocus();
             return true;
         }
         if (this._isLibraryTabsFocused && direction === 'right' && !this._libraryTabs?.isPickerOpen()) {
@@ -769,7 +766,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.setMenuFocused(true);
             return true;
         }
-        if (direction === 'up' && this.state.focusedCell?.channelIndex === 0) {
+        if (!this._isLibraryTabsFocused && direction === 'up' && this.state.focusedCell?.channelIndex === 0) {
             if (this._libraryTabs?.isVisible()) {
                 this._isLibraryTabsFocused = true;
                 this._libraryTabs.setFocusedToSelected();
@@ -789,10 +786,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     handleSelect(): boolean {
         if (this.menuOverlay) {
-            if (this.menuOverlay.querySelectorAll('button')[this.menuIndex]?.disabled) return true;
-            const route = (['player', 'settings', 'channels', 'channel-setup'] as const)[this.menuIndex];
-            this.closeMenu();
-            if (route) this.emit('menuRouteRequested', route);
+            this.menuOverlay.querySelectorAll('button')[this.menuIndex]?.click();
             return true;
         }
         if (this.state.channels.length === 0) {
@@ -814,7 +808,10 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             this.closeMenu();
             return true;
         }
-        if (this.toolbar.back()) return true;
+        if (this.toolbar.back()) {
+            this.syncControlFocus();
+            return true;
+        }
         if (this.menuFocused) {
             this.setMenuFocused(false);
             return true;
@@ -824,8 +821,21 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
     private setMenuFocused(focused: boolean): void {
         this.menuFocused = focused;
-        this.menuTrigger?.classList.toggle('epg-toolbar-focused', focused);
-        this.containerElement?.classList.toggle('epg-focus-in-toolbar', focused || this.toolbar.isFocused() || this._isLibraryTabsFocused);
+        this.syncControlFocus();
+    }
+
+    private clearControlFocus(): void {
+        this.menuFocused = false;
+        this._isLibraryTabsFocused = false;
+        this.toolbar.blur();
+        this.syncControlFocus();
+    }
+
+    private syncControlFocus(): void {
+        this.menuTrigger?.classList.toggle('epg-toolbar-focused', this.menuFocused);
+        this._libraryTabs?.setPillFocused(this._isLibraryTabsFocused);
+        this.containerElement?.classList.toggle('epg-focus-in-toolbar',
+            this.menuFocused || this.toolbar.isFocused() || this._isLibraryTabsFocused);
     }
 
     private createEmptyState(): void {

@@ -222,7 +222,7 @@ export class LibraryStepController {
         const partial = scanFacts.some((fact) => fact.status !== 'ready');
         const accepted = deps.acceptedReadyLibraryIds.size > 0 ? [...deps.acceptedReadyLibraryIds]
             : partial ? [] : deps.inventory?.acceptedReadyLibraryIds ?? [];
-        nextButton.disabled = deps.isInventoryLoading || accepted.length === 0;
+        nextButton.disabled = deps.isInventoryLoading || deps.selectedLibraryIds.size === 0;
         nextButton.addEventListener('click', () => {
             if (nextButton.disabled) {
                 return;
@@ -238,7 +238,7 @@ export class LibraryStepController {
 
         const acceptedCount = accepted.length;
         const excluded = scanFacts.filter((fact) => fact.status !== 'ready').map((fact) => fact.libraryName);
-        ctx.detailEl.textContent = `Selected ${deps.selectedLibraryIds.size} of ${deps.libraries.length}. ${acceptedCount} ready for Configure.${excluded.length ? ` Excluded until ready: ${excluded.join(', ')}.` : ''}`;
+        ctx.detailEl.textContent = `Selected ${deps.selectedLibraryIds.size} of ${deps.libraries.length}. ${acceptedCount} ready for Review.${excluded.length ? ` Excluded until ready: ${excluded.join(', ')}.` : ''}`;
     }
 
     /**

@@ -1,11 +1,14 @@
 import { PlaybackRuntimeController, type PlaybackRuntimeControllerDeps } from '../priority-one/PlaybackRuntimeController';
 import { NavigationScreenEffectsHandler } from '../../../modules/navigation/handlers/NavigationScreenEffectsHandler';
 import type { Screen } from '../../../modules/navigation/contracts/interfaces';
-import type { PlaybackError } from '../../../modules/player';
+import type { IVideoPlayer, PlaybackError } from '../../../modules/player';
+import type { IChannelManager } from '../../../modules/scheduler/channel-manager';
 import { AppErrorCode } from '../../../types/app-errors';
 import { SleepTimerManager } from '../../../modules/ui/sleep-timer/SleepTimerManager';
 import { createDeferred } from '../../../__tests__/helpers';
-import { ChannelScheduler, buildScheduledProgramIdentityFromState, type ScheduledProgramIdentity } from '../../../modules/scheduler/scheduler';
+import { ChannelScheduler, buildScheduledProgramIdentityFromState, type IChannelScheduler, type ScheduledProgramIdentity } from '../../../modules/scheduler/scheduler';
+import { ChannelTuningCoordinator } from '../../channel-tuning/ChannelTuningCoordinator';
+import { OrchestratorChannelSwitchRuntime } from '../runtime/OrchestratorChannelSwitchRuntime';
 
 const currentIdentity: ScheduledProgramIdentity = {
     channelId: 'channel-1', itemKey: 'item-1', scheduledStartTime: 0,
@@ -95,6 +98,133 @@ const makeRouteHandler = (runtime: PlaybackRuntimeController): NavigationScreenE
     } as unknown as ConstructorParameters<typeof NavigationScreenEffectsHandler>[1], jest.fn());
 
 describe('PlaybackRuntimeController', () => {
+    it.each(['missing', 'failed', 'canceled'] as const)(
+        'keeps the retained channel usable after a %s tune through the real command boundary', async (failure) => {
+            const deps = makeDeps();
+            const playback = new PlaybackRuntimeController(deps);
+            playback.acceptCommittedSession(currentDescriptor);
+            playback.setIntent('playing');
+            const priorMedia = playback.getActiveMediaIdentity()!;
+            const controller = new AbortController();
+            const manager = {
+                getChannel: jest.fn(() => failure === 'missing' ? null : { id: 'channel-2', name: 'Second' }),
+                resolveChannelContent: jest.fn(async () => {
+                    if (failure === 'canceled') controller.abort();
+                    throw new Error('Content unavailable');
+                }),
+            };
+            const player = { stop: jest.fn() };
+            const scheduler = {};
+            const tuning = new ChannelTuningCoordinator({
+                getChannelManager: () => manager,
+                getScheduler: () => scheduler,
+                getVideoPlayer: () => player,
+                getLocalDayKey: () => 0,
+                resetPlaybackGuardsForNewChannel: jest.fn(),
+                getPendingNowPlayingChannelId: () => null,
+                capturePlaybackAdmission: () => playback.captureTuneAdmission(),
+                isPlaybackAdmissionCurrent: (generation: number) => playback.isTuneAdmissionCurrent(generation),
+                appendIssueDiagnostic: jest.fn(),
+                handleGlobalError: jest.fn(),
+            } as unknown as ConstructorParameters<typeof ChannelTuningCoordinator>[0]);
+            const switching = new OrchestratorChannelSwitchRuntime({
+                beginIntentionalTune: (channelId): number => playback.beginIntentionalTune(channelId),
+                finishIntentionalTune: (generation): void => playback.finishIntentionalTune(generation),
+                assertNotShutdown: jest.fn(),
+                getChannelTuning: (): ChannelTuningCoordinator => tuning,
+                getChannelManager: (): IChannelManager => manager as never,
+                getScheduler: (): IChannelScheduler => scheduler as never,
+                getVideoPlayer: (): IVideoPlayer => player as never,
+                reportIssue: jest.fn(), reportError: jest.fn(),
+            });
+
+            const outcome = await switching.switchToChannelWithOutcome('channel-2', { signal: controller.signal });
+
+            expect(outcome.kind).toBe(failure === 'canceled' ? 'aborted' : 'failed');
+            expect(player.stop).not.toHaveBeenCalled();
+            expect(playback.canActivateRetainedSession()).toBe(true);
+            expect(playback.isCurrentMediaIdentity(priorMedia)).toBe(true);
+            expect(deps.playback.playPlayer).toHaveBeenCalledTimes(1);
+            playback.handlePlayerEnded();
+            expect(deps.playback.skipToNextProgram).toHaveBeenCalledTimes(1);
+            expect(deps.requestCurrentProgramStart).not.toHaveBeenCalled();
+        }
+    );
+
+    it.each(['channel-1', 'channel-2'])(
+        'preserves the newest tune back to channel-1 after an older %s request settles', (priorTarget) => {
+            const deps = makeDeps();
+            const runtime = new PlaybackRuntimeController(deps);
+            runtime.acceptCommittedSession(currentDescriptor);
+            const first = runtime.beginIntentionalTune(priorTarget);
+            const second = runtime.beginIntentionalTune('channel-1');
+            runtime.finishIntentionalTune(first);
+            expect(runtime.canActivateRetainedSession()).toBe(false);
+
+            const replacement = { url: 'new' };
+            (deps.getCurrentDescriptor as jest.Mock).mockReturnValue(replacement);
+            (deps.getCommittedDescriptor as jest.Mock).mockReturnValue(replacement);
+            runtime.acceptCommittedSession(replacement);
+            const newMedia = runtime.getActiveMediaIdentity()!;
+            runtime.finishIntentionalTune(second);
+            runtime.finishIntentionalTune(first);
+            expect(runtime.canActivateRetainedSession()).toBe(true);
+            expect(runtime.isCurrentMediaIdentity(newMedia)).toBe(true);
+        }
+    );
+
+    it.each(['stop', 'sleep', 'scope', 'pause'] as const)(
+        'does not revive a tune after a newer %s decision', (decision) => {
+            const deps = makeDeps();
+            const runtime = new PlaybackRuntimeController(deps);
+            runtime.acceptCommittedSession(currentDescriptor);
+            const tune = runtime.beginIntentionalTune('channel-2');
+            if (decision === 'stop') runtime.noteNativeStop();
+            else if (decision === 'sleep') runtime.expireSleep();
+            else if (decision === 'scope') runtime.invalidateScope();
+            else runtime.setIntent('paused');
+
+            runtime.finishIntentionalTune(tune);
+            expect(runtime.getIntent()).toBe(decision === 'pause' ? 'paused' : 'stopped');
+            expect(runtime.captureAdmission()).toBeNull();
+            expect(deps.playback.playPlayer).not.toHaveBeenCalled();
+            expect(deps.requestCurrentProgramStart).not.toHaveBeenCalled();
+        }
+    );
+
+    it('does not accept a replaced descriptor merely because an unsuccessful tune settled', () => {
+        const deps = makeDeps();
+        const runtime = new PlaybackRuntimeController(deps);
+        runtime.acceptCommittedSession(currentDescriptor);
+        const tune = runtime.beginIntentionalTune('channel-2');
+        (deps.getCurrentDescriptor as jest.Mock).mockReturnValue({ url: 'other' });
+        runtime.finishIntentionalTune(tune);
+        expect(runtime.canActivateRetainedSession()).toBe(false);
+        expect(runtime.getActiveMediaIdentity()).toBeNull();
+        expect(deps.playback.playPlayer).not.toHaveBeenCalled();
+    });
+
+    it.each(['playing', 'paused', 'hold', 'stopped'] as const)(
+        'respects latest %s authority when an older Play completes for the same source', async (latest) => {
+            const oldPlay = createDeferred<void>();
+            const newPlay = createDeferred<void>();
+            const deps = makeDeps();
+            (deps.playback.playPlayer as jest.Mock)
+                .mockReturnValueOnce(oldPlay.promise).mockReturnValueOnce(newPlay.promise);
+            const runtime = new PlaybackRuntimeController(deps);
+            runtime.acceptCommittedSession(currentDescriptor);
+            runtime.setIntent('playing');
+            if (latest === 'hold') runtime.acquireHold('route');
+            else runtime.setIntent(latest);
+            (deps.playback.pausePlayer as jest.Mock).mockClear();
+            newPlay.resolve();
+            await flushPromises();
+            oldPlay.resolve();
+            await flushPromises();
+            expect(deps.playback.pausePlayer).toHaveBeenCalledTimes(latest === 'playing' ? 0 : 1);
+        }
+    );
+
     it.each([
         ['guide', 'channels', 'channel-setup', 'guide'],
         ['player', 'settings', 'profile-select', 'player'],
@@ -151,9 +281,9 @@ describe('PlaybackRuntimeController', () => {
             stopPlayback: jest.fn(() => { runtime.noteNativeStop(); descriptor = null; }),
         });
         runtime = new PlaybackRuntimeController(deps);
-        runtime.beginIntentionalTune('channel-1');
+        const tune = runtime.beginIntentionalTune('channel-1');
         runtime.acceptCommittedSession(currentDescriptor);
-        runtime.finishIntentionalTune('channel-1');
+        runtime.finishIntentionalTune(tune);
         if (kind === 'stop') runtime.setIntent('stopped');
         else runtime.expireSleep();
         expect(runtime.getActiveMediaIdentity()).toBeNull();
@@ -191,9 +321,9 @@ describe('PlaybackRuntimeController', () => {
                 skipToNextProgram: jest.fn(() => scheduler.skipToNext()) },
         });
         const runtime = new PlaybackRuntimeController(deps);
-        runtime.beginIntentionalTune('channel-1');
+        const tune = runtime.beginIntentionalTune('channel-1');
         runtime.acceptCommittedSession(currentDescriptor);
-        runtime.finishIntentionalTune('channel-1');
+        runtime.finishIntentionalTune(tune);
         const starts = jest.fn(), ends = jest.fn();
         scheduler.on('programStart', starts);
         scheduler.on('programEnd', ends);
@@ -231,9 +361,9 @@ describe('PlaybackRuntimeController', () => {
                 syncSchedulerToCurrentTime: () => scheduler.syncToCurrentTime() },
         });
         const runtime = new PlaybackRuntimeController(deps);
-        runtime.beginIntentionalTune('channel-1');
+        const tune = runtime.beginIntentionalTune('channel-1');
         runtime.acceptCommittedSession(currentDescriptor);
-        runtime.finishIntentionalTune('channel-1');
+        runtime.finishIntentionalTune(tune);
         const starts = jest.fn(), ends = jest.fn();
         scheduler.on('programStart', starts);
         scheduler.on('programEnd', ends);
@@ -268,9 +398,9 @@ describe('PlaybackRuntimeController', () => {
         const runtime = new PlaybackRuntimeController(deps);
         runtime.acceptCommittedSession(currentDescriptor);
         const old = runtime.getActiveMediaIdentity()!;
-        runtime.beginIntentionalTune('channel-2');
+        const tune = runtime.beginIntentionalTune('channel-2');
         expect(runtime.stopDeletedMediaIfCurrent(old)).toBe('superseded');
-        runtime.finishIntentionalTune('channel-2');
+        runtime.finishIntentionalTune(tune);
         (deps.getCurrentDescriptor as jest.Mock).mockReturnValue({ url: 'new' });
         expect(runtime.stopDeletedMediaIfCurrent(old)).toBe('superseded');
         expect(deps.stopPlayback).not.toHaveBeenCalled();
@@ -348,9 +478,9 @@ describe('PlaybackRuntimeController', () => {
             },
         });
         const runtime = new PlaybackRuntimeController(deps);
-        runtime.beginIntentionalTune('channel-1');
+        const tune = runtime.beginIntentionalTune('channel-1');
         runtime.acceptCommittedSession(currentDescriptor);
-        runtime.finishIntentionalTune('channel-1');
+        runtime.finishIntentionalTune(tune);
         await runtime.handleLifecyclePause();
         (deps.playback.pausePlayer as jest.Mock).mockClear();
         await runtime.handleLifecycleResume();

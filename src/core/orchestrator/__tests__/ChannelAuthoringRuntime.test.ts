@@ -134,9 +134,9 @@ describe('authored channel runtime effects', () => {
         const runtime = new PlaybackRuntimeController(deps);
         Object.assign(orchestrator, { _scheduler: scheduler, _playbackRuntimeController: runtime,
             _videoPlayer: { stop: stopNative } });
-        runtime.beginIntentionalTune(saved.id);
+        const tune = runtime.beginIntentionalTune(saved.id);
         runtime.acceptCommittedSession(descriptor!);
-        runtime.finishIntentionalTune(saved.id);
+        runtime.finishIntentionalTune(tune);
         if (kind === 'stop') runtime.setIntent('stopped');
         else runtime.expireSleep();
         expect(stopNative).toHaveBeenCalledTimes(1);

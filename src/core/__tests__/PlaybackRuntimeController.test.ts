@@ -524,9 +524,9 @@ describe('PlaybackRuntimeController', () => {
             currentIdentity, new AbortController().signal
         );
 
-        controller.beginIntentionalTune('channel-1');
+        const tune = controller.beginIntentionalTune('channel-1');
         controller.trackProgramStart(start.promise, currentIdentity);
-        controller.finishIntentionalTune('channel-1');
+        controller.finishIntentionalTune(tune);
         start.resolve({ kind: 'started' });
 
         await expect(observed).resolves.toEqual({ kind: 'started' });

@@ -96,6 +96,30 @@ describe('ChannelScheduler', () => {
         jest.useRealTimers();
     });
 
+    it.each(['previous', 'current'] as const)(
+        'preserves pending saved programming when jumping to the %s program before its boundary',
+        (target) => {
+            jest.setSystemTime(1_000_000);
+            const config: ScheduleConfig = { channelId: 'c1', anchorTime: 1_000_000,
+                content, playbackMode: 'sequential', shuffleSeed: 1 };
+            scheduler.loadChannel(config);
+            scheduler.stageChannelReplacement({ ...config,
+                content: [{ ...content[1]!, ratingKey: 'saved' }] });
+
+            if (target === 'previous') scheduler.skipToPrevious();
+            else scheduler.jumpToProgram(scheduler.getCurrentProgram());
+
+            expect(scheduler.getCurrentProgram().item.ratingKey).toBe(target === 'previous' ? 'b' : 'a');
+            expect(scheduler.hasPendingChannelReplacement()).toBe(true);
+            expect(scheduler.getNextProgram().item.ratingKey).toBe('saved');
+
+            jest.setSystemTime(scheduler.getCurrentProgram().scheduledEndTime);
+            scheduler.syncToCurrentTime();
+            expect(scheduler.getState().currentProgram?.item.ratingKey).toBe('saved');
+            expect(scheduler.hasPendingChannelReplacement()).toBe(false);
+        }
+    );
+
     it('settles a due handoff before unsynced Next selects the saved timeline', () => {
         jest.useFakeTimers();
         jest.setSystemTime(1_000_000);

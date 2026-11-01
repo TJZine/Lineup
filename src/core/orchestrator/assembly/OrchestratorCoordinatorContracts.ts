@@ -121,7 +121,6 @@ export interface OrchestratorCoordinatorAssemblyInput {
         isPlaybackAdmissionCurrent: (generation: number) => boolean;
         canActivateRetainedSession: () => boolean;
         getWatchingChannelId: () => string | null;
-        finishIntentionalTune: (channelId: string) => void;
         captureRecoveryAdmission: () => number | null;
         isRecoveryAdmissionCurrent: (generation: number) => boolean;
         canPlayForRecovery: (generation: number) => boolean;
@@ -248,7 +247,7 @@ export interface OrchestratorPlaybackRecoveryBuilderInput {
 export interface OrchestratorChannelTuningBuilderInput {
     modules: Pick<CoordinatorModules, 'channelManager' | 'scheduler' | 'videoPlayer' | 'lifecycle'>;
     diagnostics: Pick<OrchestratorCoordinatorAssemblyInput['diagnostics'], 'appendIssueDiagnostic'>;
-    playback: Pick<CoordinatorPlayback, 'state' | 'stopActiveTranscodeSession' | 'capturePlaybackAdmission' | 'isPlaybackAdmissionCurrent' | 'canActivateRetainedSession' | 'finishIntentionalTune'>;
+    playback: Pick<CoordinatorPlayback, 'state' | 'stopActiveTranscodeSession' | 'capturePlaybackAdmission' | 'isPlaybackAdmissionCurrent' | 'canActivateRetainedSession'>;
     schedule: Pick<
         CoordinatorSchedule,
         'buildDailyScheduleConfig' | 'getLocalDayKey' | 'setActiveScheduleDayKey'
@@ -295,7 +294,7 @@ export interface OrchestratorNowPlayingDebugManagerBuilderInput {
 export interface OrchestratorPlayerOsdCoordinatorBuilderInput {
     config: OrchestratorCoordinatorAssemblyInput['config'];
     modules: Pick<CoordinatorModules, 'navigation' | 'scheduler' | 'channelManager' | 'videoPlayer' | 'plexLibrary'>;
-    overlays: Pick<CoordinatorOverlays, 'playerOsd' | 'sleepTimer'>;
+    overlays: Pick<CoordinatorOverlays, 'playerOsd' | 'miniGuide' | 'sleepTimer'>;
     stores: Pick<CoordinatorStores, 'nowPlayingDisplayStore'>;
     playback: Pick<CoordinatorPlayback, 'state' | 'buildPlexResourceUrl' | 'setPlaybackIntent' | 'getPlaybackInfoSnapshot'>;
     schedule: Pick<CoordinatorSchedule, 'getActiveUserId' | 'getSelectedServerId'>;

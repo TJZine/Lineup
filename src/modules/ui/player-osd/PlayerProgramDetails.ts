@@ -48,6 +48,7 @@ export class PlayerProgramDetails {
     }
 
     ensure(program: ScheduledProgram | null, force = false): void {
+        if (!this.deps.isPresentationVisible()) return;
         const identity = this.getIdentity(program);
         if (!program || !identity) return;
         const descriptor = this.deps.getCurrentStreamDescriptor();

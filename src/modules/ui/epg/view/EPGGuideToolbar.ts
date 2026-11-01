@@ -208,8 +208,12 @@ export class EPGGuideToolbar {
 
     private syncSearchSelection(): void {
         this.searchOverlay?.querySelectorAll('.epg-search-result').forEach((element, index) => {
-            element.classList.toggle('epg-toolbar-focused', index === this.searchIndex);
-            element.setAttribute('aria-selected', index === this.searchIndex ? 'true' : 'false');
+            const selected = index === this.searchIndex;
+            element.classList.toggle('epg-toolbar-focused', selected);
+            element.setAttribute('aria-selected', selected ? 'true' : 'false');
+            if (selected && typeof element.scrollIntoView === 'function') {
+                element.scrollIntoView({ block: 'nearest' });
+            }
         });
     }
 

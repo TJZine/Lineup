@@ -10,7 +10,8 @@ import type {
 } from '../../channel-tuning';
 
 export interface OrchestratorChannelSwitchRuntimeDeps {
-    beginIntentionalTune?: (channelId: string) => void;
+    beginIntentionalTune?: (channelId: string) => number | null;
+    finishIntentionalTune?: (generation: number) => void;
     invalidatePlaybackScope?: () => void;
     assertNotShutdown(method: string): void;
     getChannelTuning(): ChannelTuningCoordinator | null;
@@ -43,10 +44,8 @@ export class OrchestratorChannelSwitchRuntime {
             return;
         }
 
-        if (this._deps.beginIntentionalTune && !options?.signal?.aborted && !channelTuning.isSuspended()) {
-            this._deps.beginIntentionalTune?.(channelId);
-        }
-        await channelTuning.switchToChannel(channelId, options);
+        await this._runIntentionalTune(channelId, channelTuning, options,
+            () => channelTuning.switchToChannel(channelId, options));
     }
 
     async switchToChannelWithOutcome(
@@ -61,10 +60,8 @@ export class OrchestratorChannelSwitchRuntime {
         }
 
         try {
-            if (this._deps.beginIntentionalTune && !options?.signal?.aborted && !channelTuning.isSuspended()) {
-                this._deps.beginIntentionalTune?.(channelId);
-            }
-            return await channelTuning.switchToChannel(channelId, options);
+            return await this._runIntentionalTune(channelId, channelTuning, options,
+                () => channelTuning.switchToChannel(channelId, options));
         } catch (error: unknown) {
             if (isAbortLikeError(error, options?.signal)) {
                 return CHANNEL_SWITCH_OUTCOME.aborted;
@@ -90,10 +87,8 @@ export class OrchestratorChannelSwitchRuntime {
         }
 
         const channel = this._deps.getChannelManager()?.getChannelByNumber(number);
-        if (channel && this._deps.beginIntentionalTune && !options?.signal?.aborted && !channelTuning.isSuspended()) {
-            this._deps.beginIntentionalTune?.(channel.id);
-        }
-        await channelTuning.switchToChannelByNumber(number, options);
+        await this._runIntentionalTune(channel?.id ?? null, channelTuning, options,
+            () => channelTuning.switchToChannelByNumber(number, options));
     }
 
     async switchToChannelByNumberWithOutcome(
@@ -109,10 +104,8 @@ export class OrchestratorChannelSwitchRuntime {
 
         try {
             const channel = this._deps.getChannelManager()?.getChannelByNumber(number);
-            if (channel && this._deps.beginIntentionalTune && !options?.signal?.aborted && !channelTuning.isSuspended()) {
-                this._deps.beginIntentionalTune?.(channel.id);
-            }
-            return await channelTuning.switchToChannelByNumber(number, options);
+            return await this._runIntentionalTune(channel?.id ?? null, channelTuning, options,
+                () => channelTuning.switchToChannelByNumber(number, options));
         } catch (error: unknown) {
             if (isAbortLikeError(error, options?.signal)) {
                 return CHANNEL_SWITCH_OUTCOME.aborted;
@@ -123,6 +116,22 @@ export class OrchestratorChannelSwitchRuntime {
                 error
             );
             return CHANNEL_SWITCH_OUTCOME.failed('content_unavailable');
+        }
+    }
+
+    private async _runIntentionalTune(
+        channelId: string | null,
+        channelTuning: ChannelTuningCoordinator,
+        options: ChannelSwitchOptions | undefined,
+        switchChannel: () => Promise<ChannelSwitchOutcome>
+    ): Promise<ChannelSwitchOutcome> {
+        const generation = channelId !== null && this._deps.beginIntentionalTune
+            && !options?.signal?.aborted && !channelTuning.isSuspended()
+            ? this._deps.beginIntentionalTune(channelId) : null;
+        try {
+            return await switchChannel();
+        } finally {
+            if (generation !== null) this._deps.finishIntentionalTune?.(generation);
         }
     }
 

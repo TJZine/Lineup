@@ -12,6 +12,7 @@ import type { ChannelConfig } from '../../../scheduler/channel-manager';
 import type { ScheduledProgram } from '../../../scheduler/scheduler';
 import type { NowPlayingDisplayStore } from '../../../settings/NowPlayingDisplayStore';
 import type { PlaybackOptionsSection } from '../../playback-options/types';
+import { MiniGuideOverlay } from '../../mini-guide';
 
 const AUTO_HIDE_MS = 3000;
 
@@ -82,6 +83,7 @@ function makeCoordinatorOptions(
         unregisterFocusable: jest.fn(),
         setFocus: jest.fn(),
         getFocusedElement: jest.fn().mockReturnValue(null),
+        getCurrentScreen: jest.fn().mockReturnValue('player'),
         isModalOpen: jest.fn().mockReturnValue(false),
         openModal: jest.fn(),
     } as unknown as INavigationManager;
@@ -99,6 +101,7 @@ function makeCoordinatorOptions(
         getVideoPlayer: (): IVideoPlayer => videoPlayer,
         getAutoHideMs: (): number => AUTO_HIDE_MS,
         getNavigation: (): INavigationManager => navigation,
+        isMiniGuideVisible: (): boolean => false,
         buildPlexResourceUrl: jest.fn().mockReturnValue(null),
         nowPlayingDisplayStore: {
             readPreferClearLogosEnabledAndClean: jest.fn().mockReturnValue(true),
@@ -794,6 +797,113 @@ describe('PlayerOsdCoordinator', () => {
         expect(navigation.unregisterFocusable).toHaveBeenCalledWith('player-osd-sleep-close');
     });
 
+    it.each([
+        ['guide', 'ended'], ['guide', 'error'], ['settings', 'error'], ['auth', 'error'],
+    ] as const)('keeps %s focus and presentation when playback becomes %s', (screen, status) => {
+        const container = document.createElement('div');
+        container.id = PLAYER_OSD_CONTAINER_ID;
+        const control = document.createElement('button');
+        control.id = 'screen-control';
+        document.body.append(control, container);
+        const overlay = new PlayerOsdOverlay();
+        overlay.initialize({ containerId: PLAYER_OSD_CONTAINER_ID });
+        const navigation = new NavigationManager();
+        navigation.goTo(screen);
+        navigation.registerFocusable({ id: control.id, element: control, neighbors: {} });
+        navigation.setFocus(control.id);
+        const coordinator = new PlayerOsdCoordinator(makeCoordinatorOptions({
+            getOverlay: () => overlay, getNavigation: () => navigation,
+        }));
+
+        coordinator.onPlayerStateChange(makeState(status));
+
+        expect(overlay.isVisible()).toBe(false);
+        expect(coordinator.getPresentationState()).toBe('hidden');
+        expect(navigation.getFocusedElement()?.id).toBe(control.id);
+        coordinator.hide(); navigation.destroy(); overlay.destroy();
+    });
+
+    it('does not publish failure controls over a protected Player modal', () => {
+        const { coordinator, overlay, navigation } = setup();
+        coordinator.poke('status');
+        coordinator.expand();
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(true);
+        (navigation.setFocus as jest.Mock).mockClear();
+
+        coordinator.onPlayerStateChange(makeState('error'));
+
+        expect(overlay.isVisible()).toBe(false);
+        expect(coordinator.getPresentationState()).toBe('hidden');
+        expect(navigation.setFocus).not.toHaveBeenCalled();
+    });
+
+    it.each(['error', 'ended'] as const)(
+        'preserves Mini Guide browsing on native %s and restores Player Retry after close', (status) => {
+            const container = document.createElement('div');
+            container.id = PLAYER_OSD_CONTAINER_ID;
+            const miniGuideContainer = document.createElement('div');
+            miniGuideContainer.id = 'mini-guide';
+            document.body.append(container, miniGuideContainer);
+            const overlay = new PlayerOsdOverlay();
+            overlay.initialize({ containerId: PLAYER_OSD_CONTAINER_ID });
+            const miniGuide = new MiniGuideOverlay();
+            miniGuide.initialize({ containerId: miniGuideContainer.id });
+            const selectChannel = jest.fn();
+            miniGuide.setActions({ select: selectChannel, fullGuide: jest.fn(), close: jest.fn() });
+            miniGuide.setViewModel({ channels: [{
+                channelId: 'ch1', channelNumber: 1, channelName: 'Channel 1',
+                nowTitle: 'Program Title', nextTitle: null, nowProgress: 0,
+            }] });
+            miniGuide.setFocusedIndex(0);
+            miniGuide.show();
+            const miniGuideControl = miniGuideContainer.querySelector<HTMLButtonElement>('.mini-guide-full-guide')!;
+            miniGuideControl.focus();
+            const navigation = new NavigationManager();
+            navigation.goTo('player');
+            const onRetry = jest.fn().mockResolvedValue(undefined);
+            const options = {
+                ...makeCoordinatorOptions({
+                    getOverlay: (): IPlayerOsdOverlay => overlay,
+                    getNavigation: (): INavigationManager => navigation,
+                    onRetry,
+                }),
+                isMiniGuideVisible: (): boolean => miniGuide.isVisible(),
+            };
+            const coordinator = new PlayerOsdCoordinator(options);
+
+            coordinator.onPlayerStateChange(makeState(status));
+
+            expect(navigation.getCurrentScreen()).toBe('player');
+            expect(navigation.isModalOpen()).toBe(false);
+            expect(miniGuide.isVisible()).toBe(true);
+            expect(overlay.isVisible()).toBe(false);
+            expect(coordinator.getPresentationState()).toBe('hidden');
+            expect(document.activeElement).toBe(miniGuideControl);
+            (miniGuideContainer.querySelector('#mini-guide-row-0') as HTMLElement).click();
+            expect(selectChannel).toHaveBeenCalledWith(0);
+
+            miniGuide.hide();
+            coordinator.revealCompact();
+            expect(overlay.isVisible()).toBe(true);
+            (container.querySelector('#player-osd-action-retry') as HTMLButtonElement).click();
+            expect(onRetry).toHaveBeenCalledTimes(1);
+
+            coordinator.hide(); navigation.destroy(); overlay.destroy(); miniGuide.destroy();
+        }
+    );
+
+    it('does not start hidden detail work when an expansion loses Player ownership', () => {
+        const fetchProgramDetails = jest.fn().mockResolvedValue(null);
+        const { coordinator, navigation } = setup({ fetchProgramDetails });
+        coordinator.poke('status');
+        (navigation.getCurrentScreen as jest.Mock).mockReturnValue('guide');
+
+        coordinator.expand();
+
+        expect(coordinator.getPresentationState()).toBe('hidden');
+        expect(fetchProgramDetails).not.toHaveBeenCalled();
+    });
+
     it('uses one navigation activation for a pointer Sleep click and restores compact', () => {
         const container = document.createElement('div');
         container.id = PLAYER_OSD_CONTAINER_ID;
@@ -801,6 +911,7 @@ describe('PlayerOsdCoordinator', () => {
         const overlay = new PlayerOsdOverlay();
         overlay.initialize({ containerId: PLAYER_OSD_CONTAINER_ID });
         const navigation = new NavigationManager();
+        navigation.goTo('player');
         const options = makeCoordinatorOptions({
             getOverlay: (): IPlayerOsdOverlay => overlay,
             getNavigation: (): INavigationManager => navigation,
@@ -824,6 +935,7 @@ describe('PlayerOsdCoordinator', () => {
         const overlay = new PlayerOsdOverlay();
         overlay.initialize({ containerId: PLAYER_OSD_CONTAINER_ID });
         const navigation = new NavigationManager();
+        navigation.goTo('player');
         const trackSelect = jest.fn();
         const onGuide = jest.fn();
         const onTransport = jest.fn();
@@ -869,6 +981,7 @@ describe('PlayerOsdCoordinator', () => {
         close.id = 'player-osd-reader-close';
         document.body.appendChild(close);
         const navigation = new NavigationManager();
+        navigation.goTo('player');
         navigation.initialize({
             enablePointerMode: false,
             keyRepeatDelayMs: 500,
@@ -898,6 +1011,7 @@ describe('PlayerOsdCoordinator', () => {
         const overlay = new PlayerOsdOverlay();
         overlay.initialize({ containerId: PLAYER_OSD_CONTAINER_ID });
         const navigation = new NavigationManager();
+        navigation.goTo('player');
         const drawer: PlaybackOptionsSection = {
             title: 'Audio',
             options: Array.from({ length: 20 }, (_, index) => ({

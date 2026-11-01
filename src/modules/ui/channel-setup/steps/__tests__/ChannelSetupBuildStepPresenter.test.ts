@@ -6,7 +6,7 @@ import type { StepRenderContext } from '../../stepContracts';
 import type { ChannelSetupSessionController } from '../../ChannelSetupSessionController';
 import type { ChannelSetupFocusCoordinator } from '../../focus/ChannelSetupFocusCoordinator';
 import type { ChannelSetupScreenPorts } from '../../ChannelSetupScreenPorts';
-import type { ChannelSetupBuildOutcome } from '../../ChannelSetupSessionContracts';
+import type { ChannelSetupBuildHandlers, ChannelSetupBuildOutcome } from '../../ChannelSetupSessionContracts';
 import { DEFAULT_BUILD_RESULT, DEFAULT_REVIEW } from '../../__tests__/channel-setup-test-helpers';
 
 const savedConfig = new ChannelSetupSessionState().buildConfig('server-1');
@@ -15,12 +15,18 @@ const context = (): StepRenderContext => ({ contentEl: document.createElement('d
     stepEl: document.createElement('div'), statusEl: document.createElement('div'),
     detailEl: document.createElement('div'), errorEl: document.createElement('div') });
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function harness(outcome: ChannelSetupBuildOutcome, building = true) {
+function harness(outcome: ChannelSetupBuildOutcome, building = true,
+    beforeOutcome?: (handlers: ChannelSetupBuildHandlers) => Promise<void>) {
     const state = new ChannelSetupSessionState();
     state.step = 3; state.isBuilding = building; state.recordApplied = true;
     state.review = DEFAULT_REVIEW;
     const session = {
-        getSnapshot: jest.fn(() => state.getSnapshot()), beginBuild: jest.fn().mockResolvedValue(outcome),
+        getSnapshot: jest.fn(() => state.getSnapshot()),
+        beginBuild: jest.fn(async (handlers: ChannelSetupBuildHandlers): Promise<ChannelSetupBuildOutcome> => {
+            await beforeOutcome?.(handlers);
+            state.isBuilding = false;
+            return outcome;
+        }),
         cancelBuild: jest.fn(() => false), setStep: jest.fn((step: 1 | 2 | 3) => { state.step = step; state.isBuilding = false; }),
         beginConfirmedBuild: jest.fn(), clearReviewAndReturnToStep2: jest.fn(),
         refreshReview: jest.fn(), ensureReviewLoaded: jest.fn(), toggleReplaceConfirm: jest.fn(),
@@ -111,6 +117,31 @@ describe('ChannelSetupBuildStepPresenter', () => {
         expect(h.ctx.detailEl.textContent).toContain('Review choices are retained');
         expect(h.navigation.replaceScreen).not.toHaveBeenCalled();
     });
+    it.each(['storage-failure', 'conflict'] as const)(
+        'restores Back to Review after the save stage returns %s', async (reason) => {
+            let finishSave!: () => void;
+            const saving = new Promise<void>((resolve) => { finishSave = resolve; });
+            const h = harness({ kind: 'blocked', message: 'The reviewed lineup was not saved.', reason }, true,
+                async ({ onProgress }) => {
+                    onProgress({ task: 'apply_channels', label: 'Saving...', detail: 'Saving reviewed lineup',
+                        current: 0, total: null });
+                    await saving;
+                });
+            const back = h.ctx.contentEl.querySelector<HTMLButtonElement>('#setup-back');
+            expect(back?.disabled).toBe(true);
+            back?.click();
+            expect(h.session.cancelBuild).not.toHaveBeenCalled();
+
+            finishSave();
+            await flushPromises();
+            expect(back?.disabled).toBe(false);
+            expect(back?.textContent).toBe('Back to Review');
+            back?.click();
+            expect(h.session.setStep).toHaveBeenCalledWith(3);
+            expect(h.deps.renderStep).toHaveBeenCalledTimes(1);
+            expect(h.state.review).toEqual(DEFAULT_REVIEW);
+        }
+    );
     it('starts first-time and existing setup in authoritative Review', () => {
         for (const setupContext of ['first-time', 'existing'] as const) {
             const h = harness({ kind: 'canceled' }, false);

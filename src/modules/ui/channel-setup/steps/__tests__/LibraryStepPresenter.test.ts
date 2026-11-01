@@ -9,12 +9,17 @@ jest.mock('../../../../../utils/inlineSvg', () => ({
 }));
 
 import type { INavigationManager } from '../../../../navigation/contracts/interfaces';
-import type { ChannelSetupSessionController } from '../../ChannelSetupSessionController';
+import { ChannelSetupSessionController } from '../../ChannelSetupSessionController';
 import type { ChannelSetupSessionSnapshot } from '../../ChannelSetupSessionContracts';
 import { ChannelSetupFocusCoordinator } from '../../focus/ChannelSetupFocusCoordinator';
-import { createNavigationMock, makeLibrary } from '../../__tests__/channel-setup-test-helpers';
+import { createNavigationMock, createScreenPorts, createWorkflowPort, makeLibrary } from '../../__tests__/channel-setup-test-helpers';
 import { LibraryStepPresenter } from '../LibraryStepPresenter';
 import type { StepRenderContext } from '../../stepContracts';
+import { ChannelSetupPlanningService } from '../../../../../core/channel-setup/planning/ChannelSetupPlanningService';
+import { ChannelSetupBuildExecutor } from '../../../../../core/channel-setup/build/ChannelSetupBuildExecutor';
+import type { ChannelSetupBuildCommitter } from '../../../../../core/channel-setup/build/ChannelSetupBuildCommitter';
+import { createMockPlexLibrary, createFacetPlanningTag } from '../../../../../core/channel-setup/__tests__/ChannelSetupFacetPlanningTestHelpers';
+import type { IChannelManager } from '../../../../scheduler/channel-manager';
 
 const createContext = (): StepRenderContext => ({
     contentEl: document.createElement('div'),
@@ -138,7 +143,7 @@ describe('LibraryStepPresenter', () => {
         presenter.render(ctx);
 
         expect(ctx.stepEl.textContent).toBe('Step 1 of 3');
-        expect(ctx.detailEl.textContent).toBe('Selected 1 of 2. 0 ready for Configure.');
+        expect(ctx.detailEl.textContent).toBe('Selected 1 of 2. 0 ready for Review.');
         expect(ctx.contentEl.querySelector('#setup-select-all')).not.toBeNull();
         expect(ctx.contentEl.querySelector('#setup-clear-all')).not.toBeNull();
         expect(ctx.contentEl.querySelector('#setup-lib-movies .setup-toggle-icon svg')).not.toBeNull();
@@ -188,10 +193,94 @@ describe('LibraryStepPresenter', () => {
         expect(after).toBe(before);
         expect(session.toggleLibrary).toHaveBeenCalledWith('movies');
         expect(after.getAttribute('aria-pressed')).toBe('false');
-        expect(ctx.detailEl.textContent).toBe('Selected 0 of 2. 0 ready for Configure.');
+        expect(ctx.detailEl.textContent).toBe('Selected 0 of 2. 0 ready for Review.');
         expect((ctx.contentEl.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
         expect(setPreferredFocusId).toHaveBeenNthCalledWith(1, 'setup-lib-movies');
         expect(setPreferredFocusId).toHaveBeenNthCalledWith(2, null);
         expect(renderStep).not.toHaveBeenCalled();
+    });
+
+    it('enables Configure when the first library is selected without a scan', () => {
+        const ctx = createContext();
+        const snapshot = createSnapshot(new Set());
+        const { presenter, session, renderStep } = createPresenter(ctx, { snapshot });
+        session.toggleLibrary.mockImplementation(libraryId => {
+            snapshot.selectedLibraryIds.add(libraryId);
+            return true;
+        });
+        presenter.render(ctx);
+        expect(ctx.contentEl.querySelector<HTMLButtonElement>('#setup-next')?.disabled).toBe(true);
+
+        ctx.contentEl.querySelector<HTMLButtonElement>('#setup-lib-movies')?.click();
+
+        expect(ctx.contentEl.querySelector<HTMLButtonElement>('#setup-next')?.disabled).toBe(false);
+        expect(renderStep).not.toHaveBeenCalled();
+    });
+
+    it('recovers from an optional facet failure through Configure while incomplete Review remains blocked', async () => {
+        const libraries = [makeLibrary({ id: 'movies', title: 'Movies', contentCount: 10 })];
+        const tags = [createFacetPlanningTag({ count: 10 })];
+        const plexLibrary = createMockPlexLibrary({
+            getLibraries: jest.fn().mockResolvedValue(libraries),
+            getPlaylists: jest.fn().mockResolvedValue([]),
+            getCollections: jest.fn().mockResolvedValue([]),
+            getGenres: jest.fn().mockResolvedValue(tags),
+            getDirectors: jest.fn().mockResolvedValue(tags),
+            getYears: jest.fn().mockResolvedValue([createFacetPlanningTag({ key: '2020', title: '2020', count: 10 })]),
+            getStudios: jest.fn().mockResolvedValue(tags),
+            getActors: jest.fn(async (_libraryId, options) => {
+                options?.onUnsupported?.('empty');
+                return [];
+            }),
+        });
+        const manager = { getAllChannels: jest.fn(() => []),
+            getStructuralBase: jest.fn(() => ({ generation: 1, revision: 0 })),
+            getLastLoadOutcome: jest.fn(() => ({ kind: 'valid-empty', generation: 1, revision: 0, channelCount: 0 })),
+        } as unknown as IChannelManager;
+        const planning = new ChannelSetupPlanningService({ plexLibrary, channelManager: manager });
+        const commitPreparedCandidate = jest.fn();
+        const executor = new ChannelSetupBuildExecutor({ channelManager: manager, planningService: planning,
+            buildCommitter: { commitPreparedCandidate } as unknown as ChannelSetupBuildCommitter });
+        const workflowPort = createWorkflowPort({
+            getLibrariesForSetup: () => planning.getLibrariesForSetup(),
+            scanSetupInventory: (config, options) => planning.scanSetupInventory(config, options),
+            getSetupReview: (config, options) => executor.prepareSetupReview(config, options),
+            cancelPreparedReview: () => executor.cancelPreparedReview(),
+            invalidateSessionData: () => planning.invalidateSessionData(),
+        });
+        const session = new ChannelSetupSessionController({ workflowPort, getSelectedServerId: (): string => 'server-1' });
+        const ctx = createContext();
+        const presenter = new LibraryStepPresenter({ session,
+            focus: new ChannelSetupFocusCoordinator({ getNavigation: (): INavigationManager | null => null }),
+            screenPorts: createScreenPorts(), contentEl: ctx.contentEl,
+            getPreferredFocusId: (): string | null => null, setPreferredFocusId: jest.fn(), renderStep: jest.fn(),
+        });
+        session.beginSession();
+        try {
+            await session.loadLibraries();
+            await session.scanInventory(jest.fn());
+            expect(session.getSnapshot().inventory?.libraries[0]?.status).toBe('failed');
+            presenter.render(ctx);
+            ctx.contentEl.querySelector<HTMLButtonElement>('#setup-next')?.click();
+            expect(session.getSnapshot().step).toBe(2);
+
+            session.setStep(3);
+            await session.ensureReviewLoaded(jest.fn());
+            expect(session.getSnapshot().review?.preview.status).toBe('blocked');
+            expect(session.getSnapshot().review?.preparedId).toBeUndefined();
+            expect(commitPreparedCandidate).not.toHaveBeenCalled();
+
+            session.clearReviewAndReturnToStep2();
+            session.updateStrategyState(draft => { draft.strategies.actors.enabled = false; });
+            expect(session.getSnapshot().inventory).toBeNull();
+            await session.scanInventory(jest.fn());
+            expect(session.getSnapshot().inventory?.acceptedReadyLibraryIds).toEqual(['movies']);
+            session.setStep(3);
+            await session.ensureReviewLoaded(jest.fn());
+            expect(session.getSnapshot().review?.preview.status).toBe('ready');
+            expect(session.getSnapshot().review?.preparedId).toBeDefined();
+        } finally {
+            session.endSession();
+        }
     });
 });

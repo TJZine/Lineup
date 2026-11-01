@@ -46,6 +46,7 @@ interface PlayerOsdCoordinatorDeps {
     getVideoPlayer: () => IVideoPlayer | null;
     getAutoHideMs: () => number;
     getNavigation: () => INavigationManager | null;
+    isMiniGuideVisible: () => boolean;
     onTransport?: () => void;
     onGuide?: () => void;
     onRetry?: () => Promise<void>;
@@ -99,7 +100,8 @@ export class PlayerOsdCoordinator {
                 deps.getScopeIdentity?.() ?? { userId: null, serverId: null },
             getCurrentStreamDescriptor: (): StreamDescriptor | null => deps.getCurrentStreamDescriptor?.() ?? null,
             fetchProgramDetails: deps.fetchProgramDetails,
-            isPresentationVisible: (): boolean => this._presentation !== 'hidden' && this._presentation !== 'compact',
+            isPresentationVisible: (): boolean => this._canPresent()
+                && this._presentation !== 'hidden' && this._presentation !== 'compact',
             onChange: (): void => this._publishDetailResult(),
         }) : null;
     }
@@ -393,6 +395,10 @@ export class PlayerOsdCoordinator {
     }
 
     private _renderAndShow(reason: PlayerOsdReason): void {
+        if (!this._canPresent()) {
+            this.hide();
+            return;
+        }
         const overlay = this.deps.getOverlay();
         if (!overlay) return;
         this._clearThrottledRenderTimer();
@@ -418,6 +424,10 @@ export class PlayerOsdCoordinator {
     }
 
     private _requestThrottledRender(): void {
+        if (!this._canPresent()) {
+            this.hide();
+            return;
+        }
         const overlay = this.deps.getOverlay();
         if (!overlay || !overlay.isVisible()) {
             return;
@@ -435,10 +445,20 @@ export class PlayerOsdCoordinator {
 
         this._throttledRenderTimer = globalThis.setTimeout(() => {
             this._throttledRenderTimer = null;
+            if (!this._canPresent()) {
+                this.hide();
+                return;
+            }
             const nextNow = Date.now();
             this._setOverlayViewModel(overlay, this._lastReason);
             this._lastThrottledRenderAt = nextNow;
         }, OSD_THROTTLE_MS - elapsed) as unknown as number;
+    }
+
+    private _canPresent(): boolean {
+        const navigation = this.deps.getNavigation();
+        return navigation?.getCurrentScreen() === 'player'
+            && !navigation.isModalOpen() && !this.deps.isMiniGuideVisible();
     }
 
     private _setOverlayViewModel(overlay: IPlayerOsdOverlay, reason: PlayerOsdReason): void {

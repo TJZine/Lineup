@@ -202,10 +202,10 @@ describe('PriorityOneControllerCollaborators', () => {
             input.modules.videoPlayer.getState = jest.fn(() => ({ status: nativeStatus } as ReturnType<typeof input.modules.videoPlayer.getState>));
             const requestStart = jest.fn().mockResolvedValue({ kind: 'started' });
             const runtime = createPlaybackRuntimeController(input, requestStart);
-            runtime.beginIntentionalTune('channel-7');
+            const tune = runtime.beginIntentionalTune('channel-7');
             const start = createPlaybackStartController(input, runtime);
             expect(await start.handleProgramStart(firstProgram)).toEqual({ kind: 'started' });
-            runtime.finishIntentionalTune('channel-7');
+            runtime.finishIntentionalTune(tune);
             nativeStatus = 'paused';
             expect(runtime.canActivateRetainedSession()).toBe(true);
             const acceptedDescriptor = committedDescriptor;
@@ -562,7 +562,7 @@ describe('PriorityOneControllerCollaborators', () => {
         input.modules.videoPlayer.getState = jest.fn(() => ({ status: nativeStatus } as ReturnType<typeof input.modules.videoPlayer.getState>));
 
         const runtime = createPlaybackRuntimeController(input, () => null);
-        runtime.beginIntentionalTune('channel-7');
+        const tune = runtime.beginIntentionalTune('channel-7');
         const binder = createEventBinder(input, createPlaybackStartController(input, runtime), runtime);
         const identity = buildScheduledProgramIdentity('channel-7', selected);
         expect(identity).not.toBeNull();
@@ -582,7 +582,7 @@ describe('PriorityOneControllerCollaborators', () => {
         programStartHandler?.(selected);
         await Promise.resolve();
         expect(settled).toBe(false);
-        runtime.finishIntentionalTune('channel-7');
+        runtime.finishIntentionalTune(tune);
         prepared.resolve(makePrepared('selected'));
         await expect(observed).resolves.toEqual({ kind: 'started' });
         expect(runtime.canActivateRetainedSession()).toBe(true);

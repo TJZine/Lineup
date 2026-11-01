@@ -499,6 +499,8 @@ export class DeferredEPGComponent extends EventEmitter<EPGEventMap> implements I
         bridge('programSelected');
         bridge('libraryFilterChanged');
         bridge('rowRetryRequested');
+        bridge('menuRouteRequested');
+        bridge('setupRequested');
         bridge('timeScroll');
         bridge('channelScroll');
     }

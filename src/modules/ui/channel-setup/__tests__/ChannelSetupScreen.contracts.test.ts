@@ -147,7 +147,11 @@ describe('ChannelSetupScreen contracts', () => {
 
         expect(container.querySelector('#setup-select-all')).not.toBeNull();
         expect(container.querySelector('#setup-clear-all')).not.toBeNull();
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
+        clickButton(container, '#setup-clear-all');
         expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(true);
+        clickButton(container, '#setup-select-all');
+        expect((container.querySelector('#setup-next') as HTMLButtonElement).disabled).toBe(false);
         expect(container.querySelector('#setup-back')).not.toBeNull();
         expect(container.querySelector('#setup-lib-movies')).not.toBeNull();
         await enterConfigure(container);

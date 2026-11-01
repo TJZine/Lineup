@@ -167,7 +167,6 @@ const makeDeps = (
             capturePlaybackAdmission: jest.fn().mockReturnValue(1),
             isPlaybackAdmissionCurrent: jest.fn().mockReturnValue(true),
             canActivateRetainedSession: jest.fn().mockReturnValue(true),
-            finishIntentionalTune: jest.fn(),
             captureRecoveryAdmission: jest.fn().mockReturnValue(1),
             isRecoveryAdmissionCurrent: jest.fn().mockReturnValue(true),
             canPlayForRecovery: jest.fn().mockReturnValue(true),

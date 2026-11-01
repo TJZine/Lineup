@@ -112,7 +112,6 @@ const createCoordinatorAssemblyInput = (): OrchestratorCoordinatorAssemblyInput 
         capturePlaybackAdmission: jest.fn(() => 1),
         isPlaybackAdmissionCurrent: jest.fn(() => true),
         canActivateRetainedSession: jest.fn(() => true),
-        finishIntentionalTune: jest.fn(),
         captureRecoveryAdmission: jest.fn(() => 1),
         isRecoveryAdmissionCurrent: jest.fn(() => true),
         canPlayForRecovery: jest.fn(() => true),
@@ -276,6 +275,7 @@ describe('createOrchestratorCoordinators', () => {
             },
             overlays: {
                 playerOsd: deps.overlays.playerOsd,
+                miniGuide: deps.overlays.miniGuide,
                 sleepTimer: deps.overlays.sleepTimer,
             },
             stores: {

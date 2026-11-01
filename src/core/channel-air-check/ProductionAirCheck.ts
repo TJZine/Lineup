@@ -3,9 +3,9 @@ import type { ChannelStructuralBase } from '../../modules/scheduler/channel-mana
 import type { IPlexLibraryMinimal } from '../../modules/scheduler/channel-manager/contracts/interfaces';
 import { ContentResolver } from '../../modules/scheduler/channel-manager/resolution/ContentResolver';
 import { OrchestratorSchedulePolicy } from '../orchestrator/policy/OrchestratorSchedulePolicy';
-import { buildScheduleIndex, generateScheduleWindow } from '../../modules/scheduler/scheduler/ScheduleCalculator';
+import { buildScheduleIndex, generateScheduleWindow, MAX_WINDOW_PROGRAMS } from '../../modules/scheduler/scheduler/ScheduleCalculator';
 import { ShuffleGenerator } from '../../modules/scheduler/scheduler/ShuffleGenerator';
-import type { ScheduledProgram } from '../../modules/scheduler/scheduler/types';
+import type { ResolvedContentItem, ScheduledProgram } from '../../modules/scheduler/scheduler/types';
 import { isAbortLikeError } from '../../utils/errors';
 import { AppErrorCode, getAppErrorCode } from '../../types/app-errors';
 
@@ -85,12 +85,10 @@ export class ProductionAirCheck implements Pick<StudioAirCheckPort, 'verify'> {
             }
             const items = resolver.selectChannelItems(request.candidate, raw);
             if (items.length === 0) return { kind: 'offair', reason: 'No items match the current playback and filter choices.', checkedAt: this.deps.now() };
-            const config = this.policy.buildDailyScheduleConfig(request.candidate, items, request.asOf);
-            const index = buildScheduleIndex(config, new ShuffleGenerator());
             const end = request.asOf + request.horizonMs;
-            const programs = generateScheduleWindow(request.asOf, end, index, config.anchorTime);
+            const { programs, loopDurationMs } = this.projectSchedule(request, items);
             const coverageEnd = programs[programs.length - 1]?.scheduledEndTime ?? request.asOf;
-            if (coverageEnd < end) {
+            if (!Number.isFinite(coverageEnd) || coverageEnd < end) {
                 return { kind: 'partial', reason: 'The schedule preview reached its safe program limit. Shorten the horizon or edit the source.', checkedAt: this.deps.now() };
             }
             if (signal.aborted) return { kind: 'canceled' };
@@ -98,8 +96,7 @@ export class ProductionAirCheck implements Pick<StudioAirCheckPort, 'verify'> {
                 return { kind: 'stale', reason: 'The lineup changed. Run Air Check again.', checkedAt: this.deps.now() };
             }
             const result: AirCheckVerified = { kind: 'verified', request, checkedAt: this.deps.now(), items,
-                programs, coverageEnd,
-                loopDurationMs: index.totalLoopDurationMs };
+                programs, coverageEnd, loopDurationMs };
             return result;
         } catch (error) {
             if (signal.aborted || isAbortLikeError(error, signal)) return { kind: 'canceled' };
@@ -112,5 +109,36 @@ export class ProductionAirCheck implements Pick<StudioAirCheckPort, 'verify'> {
         } finally {
             resolver.clearCaches();
         }
+    }
+
+    private projectSchedule(request: StudioAirCheckRequest, items: ResolvedContentItem[]): {
+        programs: ScheduledProgram[];
+        loopDurationMs: number;
+    } {
+        const programs: ScheduledProgram[] = [];
+        const end = request.asOf + request.horizonMs;
+        let cursor = request.asOf;
+        let loopDurationMs = 0;
+        while (cursor < end && programs.length < MAX_WINDOW_PROGRAMS) {
+            const config = this.policy.buildDailyScheduleConfig(request.candidate, items, cursor);
+            const index = buildScheduleIndex(config, new ShuffleGenerator());
+            loopDurationMs = index.totalLoopDurationMs;
+            const nextMidnight = new Date(cursor);
+            nextMidnight.setHours(24, 0, 0, 0);
+            const segmentEnd = Math.min(end, nextMidnight.getTime());
+            const segment = generateScheduleWindow(cursor, segmentEnd, index, config.anchorTime);
+            segment.length = Math.min(segment.length, MAX_WINDOW_PROGRAMS - programs.length);
+            if (programs.length > 0 && segment[0] && segment[0].scheduledStartTime < cursor) {
+                segment[0] = { ...segment[0], scheduledStartTime: cursor };
+            }
+            programs.push(...segment);
+
+            // Live day rollover lets the overnight program finish before adopting
+            // the new day's policy. Project that boundary without timer/network delay.
+            const coverageEnd = programs[programs.length - 1]?.scheduledEndTime ?? cursor;
+            if (!(coverageEnd > cursor) || coverageEnd < segmentEnd) break;
+            cursor = coverageEnd;
+        }
+        return { programs, loopDurationMs };
     }
 }

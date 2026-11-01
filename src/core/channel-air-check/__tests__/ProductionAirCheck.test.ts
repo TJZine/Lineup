@@ -1,7 +1,7 @@
 import { ProductionAirCheck } from '../ProductionAirCheck';
 import { ContentResolver } from '../../../modules/scheduler/channel-manager/resolution/ContentResolver';
 import { OrchestratorSchedulePolicy } from '../../orchestrator/policy/OrchestratorSchedulePolicy';
-import { buildScheduleIndex, generateScheduleWindow } from '../../../modules/scheduler/scheduler/ScheduleCalculator';
+import { buildScheduleIndex, calculateProgramAtTime, generateScheduleWindow } from '../../../modules/scheduler/scheduler/ScheduleCalculator';
 import { ShuffleGenerator } from '../../../modules/scheduler/scheduler/ShuffleGenerator';
 import { createBaseChannel, createMockItem, createMockLibrary } from '../../../modules/scheduler/channel-manager/__tests__/channel-manager-test-helpers';
 import type { ChannelContentSource } from '../../../modules/scheduler/channel-manager/contracts/types';
@@ -9,7 +9,8 @@ import type { StudioAirCheckRequest } from '../../channel-studio/ChannelStudioCo
 import { PlexLibraryError } from '../../../modules/plex/library/PlexLibraryError';
 import { AppErrorCode } from '../../../types/app-errors';
 
-const at = new Date('2026-10-31T18:00:00-04:00').getTime();
+// Resolver and ordering cases stay within one local day; rollover has separate coverage.
+const at = new Date(2026, 9, 31, 12).getTime();
 const base = { generation: 2, revision: 7 };
 
 function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
@@ -112,6 +113,104 @@ describe('ProductionAirCheck', () => {
         const liveIndex = buildScheduleIndex(liveConfig, new ShuffleGenerator());
         expect(result.programs[0]?.scheduledStartTime)
             .toBe(generateScheduleWindow(at, at + input.horizonMs, liveIndex, liveConfig.anchorTime)[0]?.scheduledStartTime);
+    });
+
+    it.each(['daily', 'fixed'] as const)('uses the next day shuffle seed across midnight with a %s anchor', async anchorMode => {
+        const source: ChannelContentSource = { type: 'manual', items: ['a', 'b', 'c', 'd'].map(ratingKey => ({
+            ratingKey, title: ratingKey, durationMs: 30 * 60_000,
+        })) };
+        const input = { ...request(source, 'shuffle'), asOf: new Date(2026, 10, 1, 23).getTime() };
+        input.candidate.scheduleAnchorMode = anchorMode;
+        input.candidate.startTimeAnchor = new Date(2026, 10, 1).getTime();
+        input.candidate.phaseSeed = 0;
+        const midnight = new Date(2026, 10, 2).getTime();
+        const result = await new ProductionAirCheck({ library: createMockLibrary(),
+            getStructuralBase: (): typeof base => base, now: (): number => input.asOf })
+            .verify(input, new AbortController().signal);
+        expect(result.kind).toBe('verified');
+        if (result.kind !== 'verified') return;
+
+        const policy = new OrchestratorSchedulePolicy();
+        const nextConfig = policy.buildDailyScheduleConfig(input.candidate, [...result.items], midnight);
+        const nextIndex = buildScheduleIndex(nextConfig, new ShuffleGenerator());
+        const expected = generateScheduleWindow(midnight, input.asOf + input.horizonMs, nextIndex, nextConfig.anchorTime);
+        expect(result.programs.filter(program => program.scheduledStartTime >= midnight)
+            .map(program => [program.item.ratingKey, program.scheduledStartTime, program.scheduledEndTime]))
+            .toEqual(expected.map(program => [program.item.ratingKey, program.scheduledStartTime, program.scheduledEndTime]));
+        expect(result.programs.find(program => program.scheduledStartTime >= midnight)?.scheduledStartTime).toBe(midnight);
+    });
+
+    it('finishes a program spanning midnight before projecting the new day without overlapping intervals', async () => {
+        const source: ChannelContentSource = { type: 'manual', items: ['a', 'b', 'c'].map(ratingKey => ({
+            ratingKey, title: ratingKey, durationMs: 35 * 60_000,
+        })) };
+        const input = { ...request(source), asOf: new Date(2026, 10, 1, 23).getTime() };
+        input.candidate.scheduleAnchorMode = 'daily';
+        input.candidate.phaseSeed = 0;
+        const midnight = new Date(2026, 10, 2).getTime();
+        const result = await new ProductionAirCheck({ library: createMockLibrary(),
+            getStructuralBase: (): typeof base => base, now: (): number => input.asOf })
+            .verify(input, new AbortController().signal);
+        expect(result.kind).toBe('verified');
+        if (result.kind !== 'verified') return;
+
+        const policy = new OrchestratorSchedulePolicy();
+        const oldConfig = policy.buildDailyScheduleConfig(input.candidate, [...result.items], input.asOf);
+        const oldIndex = buildScheduleIndex(oldConfig, new ShuffleGenerator());
+        const overnight = calculateProgramAtTime(midnight - 1, oldIndex, oldConfig.anchorTime);
+        expect(overnight.scheduledEndTime).toBeGreaterThan(midnight);
+        const oldPosition = result.programs.findIndex(program => program.scheduledStartTime === overnight.scheduledStartTime);
+        expect(oldPosition).toBeGreaterThanOrEqual(0);
+        expect(result.programs[oldPosition]).toMatchObject({ item: { ratingKey: overnight.item.ratingKey },
+            scheduledStartTime: overnight.scheduledStartTime, scheduledEndTime: overnight.scheduledEndTime });
+        const handoff = overnight.scheduledEndTime;
+        const nextConfig = policy.buildDailyScheduleConfig(input.candidate, [...result.items], handoff);
+        const nextIndex = buildScheduleIndex(nextConfig, new ShuffleGenerator());
+        const nextProgram = calculateProgramAtTime(handoff, nextIndex, nextConfig.anchorTime);
+        expect(result.programs[oldPosition + 1]).toMatchObject({
+            item: { ratingKey: nextProgram.item.ratingKey }, scheduledStartTime: handoff,
+            scheduledEndTime: nextProgram.scheduledEndTime, elapsedMs: nextProgram.elapsedMs,
+            remainingMs: nextProgram.remainingMs,
+        });
+        for (let position = 1; position < result.programs.length; position++) {
+            expect(result.programs[position]?.scheduledStartTime).toBe(result.programs[position - 1]?.scheduledEndTime);
+        }
+    });
+
+    it.each([
+        ['spring-forward', new Date(2026, 2, 8).getTime()],
+        ['fall-back', new Date(2026, 10, 1, 0, 30).getTime()],
+    ] as const)('follows local calendar dates over the %s day', async (_label, asOf) => {
+        const source: ChannelContentSource = { type: 'manual', items: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(ratingKey => ({
+            ratingKey, title: ratingKey, durationMs: 15 * 60_000,
+        })) };
+        const input = { ...request(source, 'shuffle'), asOf, horizonMs: 24 * 60 * 60_000 };
+        input.candidate.scheduleAnchorMode = 'daily';
+        input.candidate.phaseSeed = 0;
+        const result = await new ProductionAirCheck({ library: createMockLibrary(),
+            getStructuralBase: (): typeof base => base, now: (): number => asOf })
+            .verify(input, new AbortController().signal);
+        expect(result.kind).toBe('verified');
+        if (result.kind !== 'verified') return;
+
+        const policy = new OrchestratorSchedulePolicy();
+        for (const program of result.programs) {
+            const config = policy.buildDailyScheduleConfig(input.candidate, [...result.items], program.scheduledStartTime);
+            const index = buildScheduleIndex(config, new ShuffleGenerator());
+            const expected = calculateProgramAtTime(program.scheduledStartTime, index, config.anchorTime);
+            expect([program.item.ratingKey, program.scheduledStartTime, program.scheduledEndTime])
+                .toEqual([expected.item.ratingKey, expected.scheduledStartTime, expected.scheduledEndTime]);
+        }
+        expect(result.coverageEnd).toBeGreaterThanOrEqual(asOf + input.horizonMs);
+    });
+
+    it('applies one safe program budget across calendar-day segments', async () => {
+        const source: ChannelContentSource = { type: 'manual', items: [{ ratingKey: 'short', title: 'Short', durationMs: 60_000 }] };
+        const input = { ...request(source), asOf: new Date(2026, 10, 3, 12).getTime(), horizonMs: 24 * 60 * 60_000 };
+        const result = await new ProductionAirCheck({ library: createMockLibrary(),
+            getStructuralBase: (): typeof base => base, now: (): number => input.asOf })
+            .verify(input, new AbortController().signal);
+        expect(result.kind).toBe('partial');
     });
 
     it('keeps an unavailable mixed collection incomplete and a top-level empty source off air', async () => {

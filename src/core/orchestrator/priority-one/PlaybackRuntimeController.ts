@@ -74,6 +74,7 @@ export class PlaybackRuntimeController {
     private readonly _holds = new Map<PlaybackHoldOwner, PlaybackHold>();
     private _resumeGeneration = 0;
     private _pendingTuneChannelId: string | null = null;
+    private _pendingTuneGeneration: number | null = null;
     private _scopeActive = true;
     private _scopeGeneration = 0;
     private _acceptedSession: {
@@ -180,6 +181,7 @@ export class PlaybackRuntimeController {
         const hold = { owner, token: Symbol(owner) };
         this._holds.set(owner, hold);
         ++this._admissionGeneration;
+        this._settlePendingTune();
         this._deps.playback.pausePlayer();
         return hold;
     }
@@ -201,6 +203,7 @@ export class PlaybackRuntimeController {
         const expired = this._deps.reconcileSleepExpiration();
         if (expired && intent === 'paused') return false;
         if (intent === 'playing' && (!this._scopeActive || !this._deps.hasSelectedChannel())) return false;
+        this._settlePendingTune();
         this._intent = intent;
         this._pendingTuneChannelId = null;
         ++this._admissionGeneration;
@@ -218,10 +221,10 @@ export class PlaybackRuntimeController {
         this._deps.reconcileSleepExpiration();
         this._scopeActive = true;
         this._intent = 'playing';
-        this._acceptedSession = null;
-        ++this._tuneGeneration;
+        this._pendingTuneGeneration = ++this._tuneGeneration;
         this._pendingTuneChannelId = channelId ?? null;
-        return ++this._admissionGeneration;
+        ++this._admissionGeneration;
+        return this._pendingTuneGeneration;
     }
 
     public captureTuneAdmission(): number | null {
@@ -257,14 +260,38 @@ export class PlaybackRuntimeController {
             && generation === this._admissionGeneration;
     }
 
-    public finishIntentionalTune(channelId: string): void {
-        if (this._pendingTuneChannelId === channelId) this._pendingTuneChannelId = null;
+    public finishIntentionalTune(generation: number): void {
+        if (this._pendingTuneGeneration !== generation) return;
+        this._pendingTuneGeneration = null;
+        this._pendingTuneChannelId = null;
+
+        // A failed or canceled preparation can leave the prior native source intact.
+        // Re-admit only that verified source; settling a command never starts playback.
+        const physical = this._physicalSession;
+        if (this._intent !== 'stopped' && this._hasRetainedCurrentSession()
+            && physical && physical.descriptor === this._acceptedSession?.descriptor
+            && physical.identity.scopeKey === this._deps.getDirectoryScopeKey()
+            && scheduledProgramIdentitiesMatch(
+                this._deps.getScheduledProgramIdentity(), physical.programIdentity
+            )) {
+            physical.tuneGeneration = this._tuneGeneration;
+        } else {
+            this._acceptedSession = null;
+            this._physicalSession = null;
+        }
+    }
+
+    private _settlePendingTune(): void {
+        if (this._pendingTuneGeneration !== null) {
+            this.finishIntentionalTune(this._pendingTuneGeneration);
+        }
     }
 
     public expireSleep(): void {
         this._intent = 'stopped';
         this._acceptedSession = null;
         this._pendingTuneChannelId = null;
+        this._pendingTuneGeneration = null;
         ++this._admissionGeneration;
         this._deps.stopPlayback();
     }
@@ -275,6 +302,7 @@ export class PlaybackRuntimeController {
         this._acceptedSession = null;
         this._physicalSession = null;
         this._pendingTuneChannelId = null;
+        this._pendingTuneGeneration = null;
         ++this._admissionGeneration;
         this._deps.cancelChannelReplacement();
         this._settleObservedProgramStart({ kind: 'superseded' });
@@ -288,6 +316,7 @@ export class PlaybackRuntimeController {
         this._acceptedSession = null;
         this._physicalSession = null;
         this._pendingTuneChannelId = null;
+        this._pendingTuneGeneration = null;
         ++this._admissionGeneration;
         this._settleObservedProgramStart({ kind: 'superseded' });
     }
@@ -313,6 +342,7 @@ export class PlaybackRuntimeController {
             throw new Error('Playback retry is unavailable in the current scope');
         }
         this._intent = 'playing';
+        this._settlePendingTune();
         this._pendingTuneChannelId = null;
         this._acceptedSession = null;
         const admission = ++this._admissionGeneration;
@@ -345,7 +375,9 @@ export class PlaybackRuntimeController {
         if (this.isAdmissionCurrent(admission)) {
             const descriptor = this._deps.getCurrentDescriptor();
             void this._deps.playback.playPlayer().then(() => {
-                if (!this.isAdmissionCurrent(admission) && this._deps.getCurrentDescriptor() === descriptor) {
+                if (!this.isAdmissionCurrent(admission)
+                    && this._deps.getCurrentDescriptor() === descriptor
+                    && (this.captureAdmission() === null || !this._hasRetainedCurrentSession())) {
                     this._deps.playback.pausePlayer();
                 }
             }, (error: unknown) => {

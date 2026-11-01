@@ -130,9 +130,11 @@ export class LibraryStepPresenter {
             (raw) => this._toDomId(raw));
         if (!button) { this._deps.renderStep(); return; }
         const latest = this._deps.session.getSnapshot();
-        ctx.detailEl.textContent = `Selected ${latest.selectedLibraryIds.size} of ${latest.libraries.length}. 0 ready for Configure.`;
+        ctx.detailEl.textContent = `Selected ${latest.selectedLibraryIds.size} of ${latest.libraries.length}. 0 ready for Review.`;
         const scan = this._deps.contentEl.querySelector<HTMLButtonElement>('#setup-scan');
         if (scan) scan.disabled = latest.selectedLibraryIds.size === 0;
+        const next = this._deps.contentEl.querySelector<HTMLButtonElement>('#setup-next');
+        if (next) next.disabled = latest.isInventoryLoading || latest.selectedLibraryIds.size === 0;
         this._deps.setPreferredFocusId(null);
     }
 
