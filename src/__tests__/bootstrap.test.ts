@@ -95,6 +95,7 @@ const importBootstrapModule = async (options?: {
     start?: jest.Mock;
     shutdown?: jest.Mock;
     getOrchestrator?: jest.Mock;
+    onAppConstruct?: () => void;
     autoDispatchDomReady?: boolean;
     expectLifecycleSuccess?: boolean;
 }): Promise<{
@@ -112,11 +113,14 @@ const importBootstrapModule = async (options?: {
     const getOrchestrator = options?.getOrchestrator ?? jest.fn(() => null);
 
     jest.doMock('../App', () => ({
-        App: jest.fn().mockImplementation(() => ({
-            start,
-            shutdown,
-            getOrchestrator,
-        })),
+        App: jest.fn().mockImplementation(() => {
+            options?.onAppConstruct?.();
+            return {
+                start,
+                shutdown,
+                getOrchestrator,
+            };
+        }),
     }));
 
     const module = await import('../bootstrap');
@@ -200,6 +204,17 @@ describe('bootstrap seam', () => {
 
         await module.cleanup();
         expect(shutdown).toHaveBeenCalledTimes(1);
+    });
+
+    it('installs the measured flex gap class before constructing App', async () => {
+        let classAtConstruction = false;
+        await importBootstrapModule({
+            onAppConstruct: () => {
+                classAtConstruction = document.documentElement.classList.contains('no-flex-gap');
+            },
+        });
+
+        expect(classAtConstruction).toBe(true);
     });
 
     it('reuses an in-flight bootstrap call instead of creating duplicate Apps', async () => {
@@ -663,5 +678,56 @@ describe('bootstrap seam', () => {
         document.dispatchEvent(new Event('DOMContentLoaded'));
         await flushPromises();
         expect(start).toHaveBeenCalledTimes(1);
+    });
+
+    it('installs required web APIs before constructing the application', async () => {
+        setDocumentReadyState('loading');
+        const replaceChildrenDescriptor = Object.getOwnPropertyDescriptor(
+            Element.prototype,
+            'replaceChildren'
+        );
+        const throwIfAbortedDescriptor = Object.getOwnPropertyDescriptor(
+            AbortSignal.prototype,
+            'throwIfAborted'
+        );
+        Reflect.deleteProperty(Element.prototype, 'replaceChildren');
+        Reflect.deleteProperty(AbortSignal.prototype, 'throwIfAborted');
+
+        const onAppConstruct = jest.fn(() => {
+            const container = document.createElement('div');
+            container.replaceChildren('ready');
+            expect(container.textContent).toBe('ready');
+
+            const signal = new AbortController().signal;
+            expect(() => signal.throwIfAborted()).not.toThrow();
+        });
+
+        try {
+            expectBootstrapStartLogs();
+            expectBootstrapStartedLogs();
+            expectBootstrapShutdownLogs();
+            expectBootstrapShutdownCompleteLogs();
+            const { start } = await importBootstrapModule({
+                autoDispatchDomReady: false,
+                onAppConstruct,
+                expectLifecycleSuccess: false,
+            });
+            expect(start).not.toHaveBeenCalled();
+
+            document.dispatchEvent(new Event('DOMContentLoaded'));
+            await flushPromises();
+
+            expect(onAppConstruct).toHaveBeenCalledTimes(1);
+            expect(start).toHaveBeenCalledTimes(1);
+        } finally {
+            Reflect.deleteProperty(Element.prototype, 'replaceChildren');
+            Reflect.deleteProperty(AbortSignal.prototype, 'throwIfAborted');
+            if (replaceChildrenDescriptor) {
+                Object.defineProperty(Element.prototype, 'replaceChildren', replaceChildrenDescriptor);
+            }
+            if (throwIfAbortedDescriptor) {
+                Object.defineProperty(AbortSignal.prototype, 'throwIfAborted', throwIfAbortedDescriptor);
+            }
+        }
     });
 });

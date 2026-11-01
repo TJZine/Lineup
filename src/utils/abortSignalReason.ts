@@ -5,6 +5,10 @@ export function readAbortSignalReason(signal: AbortSignal): unknown {
         return signal.reason;
     }
 
+    return readFallbackAbortSignalReason(signal);
+}
+
+export function readFallbackAbortSignalReason(signal: AbortSignal): unknown {
     let fallback = fallbackAbortReasons.get(signal);
     if (!fallback) {
         fallback = createAbortError();
