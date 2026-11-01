@@ -2,6 +2,10 @@
 
 Short entrypoint for agent-driven work in Lineup.
 
+Use shared `develop-code` for implementation, or `design-code`, `review-code`, and
+`verify-code` when the task is limited to those responsibilities. Use
+`maintain-workflow` only for explicitly requested workflow maintenance.
+
 Use the relevant section of [docs/AGENTIC_DEV_WORKFLOW.md](docs/AGENTIC_DEV_WORKFLOW.md)
 for risk, verification, planning, or handoff decisions. Load deeper context only when
 the task needs it:
