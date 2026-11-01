@@ -1,0 +1,371 @@
+.channel-directory {
+    background: var(--color-bg-deep);
+    color: var(--color-text-primary, #e9dcc3);
+    overflow: hidden;
+}
+
+.channel-directory-content {
+    box-sizing: border-box;
+    height: 100%;
+    padding: 32px 48px 48px;
+    overflow-y: auto;
+    font-family: var(--font-family-body, Inter, sans-serif);
+    font-size: var(--text-body, 18px);
+}
+
+.channel-directory-header, .channel-directory-toolbar, .channel-directory-mode-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.channel-directory-header {
+    margin-bottom: 24px;
+}
+
+.channel-directory h1 {
+    margin: 0;
+    font-family: var(--type-page-title-family, 'Instrument Sans', sans-serif);
+    font-size: var(--type-page-title-size, 44px);
+    font-weight: 600;
+    line-height: 1.08;
+}
+
+.channel-directory-count {
+    color: var(--color-text-secondary, #c9bda7);
+    font-size: 28px;
+    font-weight: 400;
+}
+
+.channel-directory h2 {
+    font-size: 32px;
+    margin: 0 0 16px;
+}
+
+.channel-directory p {
+    margin: 8px 0;
+    color: var(--color-text-secondary, #c9bda7);
+}
+
+.channel-directory button, .channel-directory input, .channel-directory select {
+    min-height: 48px;
+    border: 1px solid transparent;
+    border-radius: var(--panel-radius, 8px);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    padding: 10px 16px;
+    cursor: pointer;
+}
+
+.channel-directory button:focus, .channel-directory input:focus, .channel-directory select:focus {
+    outline: 3px solid var(--focus-border-color, #e9dcc3);
+    outline-offset: 2px;
+    background: var(--focus-surface, #e9dcc3);
+    color: var(--focus-text-primary, #090806);
+}
+
+.channel-directory [data-large-focus='true'] button:focus, [data-large-focus='true'] .channel-directory button:focus {
+    outline-width: 5px;
+}
+
+.channel-directory-heading-actions, .channel-directory-moves, .channel-directory-dialog-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.channel-directory .channel-directory-primary {
+    background: var(--color-primary, #cc9f5b);
+    color: var(--color-text-on-focus);
+    font-weight: 600;
+}
+
+.channel-directory .channel-directory-outline {
+    border-color: var(--panel-border, #584b37);
+    color: var(--color-primary, #cc9f5b);
+    font-weight: 600;
+}
+
+.channel-directory .channel-directory-destructive {
+    border-color: var(--color-error, #ff7668);
+    color: var(--color-error-text, #ff7668);
+}
+
+.channel-directory .channel-directory-destructive:focus {
+    background: var(--color-error, #ff7668);
+    color: #090806;
+}
+
+.channel-directory-toolbar {
+    margin: 0 0 16px;
+}
+
+.channel-directory-search {
+    flex: 1;
+    min-width: 200px;
+    border-color: var(--panel-border, #584b37) !important;
+    text-align: left;
+}
+
+.channel-directory-search-trigger {
+    color: var(--color-text-secondary, #c9bda7);
+}
+
+.channel-directory-toolbar button.selected {
+    background: var(--selection-surface, #2d261a);
+    border-color: var(--selection-border, #8f7550);
+}
+
+.channel-directory-notice {
+    min-height: 24px;
+    margin-bottom: 8px;
+}
+
+.channel-directory-notice.error {
+    color: var(--color-error-text, #ff7668);
+}
+
+.channel-directory-notice.saved-warning {
+    color: var(--color-primary, #cc9f5b);
+}
+
+.channel-directory-mode-actions {
+    justify-content: flex-end;
+    min-height: 56px;
+    margin-bottom: 12px;
+}
+
+.channel-directory-mode-actions span {
+    margin-right: auto;
+}
+
+.channel-directory-table {
+    min-width: 900px;
+}
+
+.channel-directory-columns, .channel-directory-row {
+    display: grid;
+    grid-template-columns: 80px minmax(250px, 2fr) minmax(180px, 1fr) minmax(150px, 1fr) 120px 64px;
+    align-items: center;
+    column-gap: 16px;
+    border-bottom: 1px solid var(--panel-border, #393126);
+}
+
+.channel-directory-table.reorder .channel-directory-columns, .channel-directory-table.reorder .channel-directory-row {
+    grid-template-columns: 120px minmax(250px, 2fr) minmax(180px, 1fr) minmax(150px, 1fr) 230px;
+}
+
+.channel-directory-columns {
+    min-height: 48px;
+    color: var(--color-text-secondary, #c9bda7);
+}
+
+.channel-directory-row {
+    min-height: 80px;
+}
+
+.channel-directory-row.selected {
+    background: var(--selection-surface, #2d261a);
+}
+
+.channel-directory-row.playing {
+    box-shadow: inset 4px 0 var(--tuned-surface, #cc9f5b);
+}
+
+.channel-directory-row > span, .channel-directory-name {
+    min-width: 0;
+    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+
+.channel-directory-number {
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-secondary, #c9bda7);
+}
+
+.channel-directory-name button {
+    width: 100%;
+    text-align: left;
+    font-size: 20px;
+    font-weight: 600;
+    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+
+.channel-directory-select-marker {
+    display: inline-block;
+    margin-left: 12px;
+    color: var(--color-primary, #cc9f5b);
+    font-size: 24px;
+}
+
+.channel-directory-health {
+    display: block;
+    color: var(--color-text-secondary, #c9bda7);
+    font-size: 14px;
+    padding: 0 16px 8px;
+}
+
+.channel-directory-health.failed, .channel-directory-health.offair {
+    color: var(--color-error-text, #ff7668);
+}
+
+.channel-directory-health.stale {
+    color: var(--color-primary, #cc9f5b);
+}
+
+.channel-directory-row-actions {
+    position: relative;
+}
+
+.channel-directory .channel-directory-icon {
+    padding: 6px;
+    min-width: 48px;
+    font-size: 24px;
+}
+
+.channel-directory-menu {
+    position: absolute;
+    z-index: var(--z-dropdown, 100);
+    right: 0;
+    top: 100%;
+    display: flex;
+    flex-direction: column;
+    min-width: 240px;
+    padding: 8px;
+    background: var(--panel-surface, #16120e);
+    border: 1px solid var(--panel-border, #584b37);
+}
+
+.channel-directory-menu button {
+    text-align: left;
+}
+
+.channel-directory-empty {
+    padding: 80px 16px;
+    text-align: center;
+}
+
+.channel-directory-empty button {
+    margin: 16px 8px 0;
+}
+
+.channel-directory-dialog-overlay {
+    position: fixed;
+    z-index: var(--z-modal, 1000);
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, .8);
+}
+
+.channel-directory-dialog {
+    box-sizing: border-box;
+    width: min(680px, calc(100vw - 48px));
+    max-height: calc(100vh - 48px);
+    overflow: hidden;
+    padding: 32px;
+    border: 1px solid var(--panel-border, #584b37);
+    border-radius: var(--panel-radius, 8px);
+    background: var(--panel-surface, #16120e);
+}
+
+.channel-directory-dialog p {
+    font-size: 18px;
+    line-height: 1.5;
+}
+
+.channel-directory-dialog .channel-directory-dialog-error {
+    color: var(--color-error-text, #ff7668);
+}
+
+.channel-directory-delete-roster {
+    max-height: 35vh;
+    overflow-y: auto;
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+
+.channel-directory-delete-roster li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--panel-border, #584b37);
+    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+
+.channel-directory-dialog-actions {
+    justify-content: flex-end;
+}
+
+@media (max-width: 1100px) {
+    .channel-directory-content {
+        padding: 24px;
+    }
+    .channel-directory-header, .channel-directory-toolbar {
+        flex-wrap: wrap;
+    }
+    .channel-directory-table {
+        overflow-x: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .channel-directory * {
+        transition-duration: 0s;
+        animation-duration: 0s;
+    }
+}
+
+@media (forced-colors: active) {
+    .channel-directory-row.selected, .channel-directory-row.playing {
+        border-left: 4px solid Highlight;
+    }
+    .channel-directory button:focus, .channel-directory input:focus, .channel-directory select:focus {
+        outline-color: Highlight;
+    }
+}
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .channel-directory-header > :not([hidden]) ~ :not([hidden]),
+.no-flex-gap .channel-directory-toolbar > :not([hidden]) ~ :not([hidden]),
+.no-flex-gap .channel-directory-mode-actions > :not([hidden]) ~ :not([hidden]) {
+  margin-left: 16px;
+}
+
+.no-flex-gap .channel-directory-heading-actions > :not([hidden]) ~ :not([hidden]),
+.no-flex-gap .channel-directory-moves > :not([hidden]) ~ :not([hidden]),
+.no-flex-gap .channel-directory-dialog-actions > :not([hidden]) ~ :not([hidden]) {
+  margin-left: 8px;
+}
+
+@media (max-width: 1100px) {
+  .no-flex-gap .channel-directory-header,
+  .no-flex-gap .channel-directory-toolbar {
+    margin-right: -16px;
+  }
+
+  .no-flex-gap .channel-directory-header {
+    margin-bottom: 8px;
+  }
+
+  .no-flex-gap .channel-directory-toolbar {
+    margin-bottom: 0;
+  }
+
+  .no-flex-gap .channel-directory-header > :not([hidden]),
+  .no-flex-gap .channel-directory-toolbar > :not([hidden]) {
+    margin-right: 16px;
+    margin-bottom: 16px;
+  }
+
+  .no-flex-gap .channel-directory-header > :not([hidden]) ~ :not([hidden]),
+  .no-flex-gap .channel-directory-toolbar > :not([hidden]) ~ :not([hidden]) {
+    margin-left: 0;
+  }
+}

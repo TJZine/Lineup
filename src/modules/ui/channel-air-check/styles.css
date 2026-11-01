@@ -1,0 +1,168 @@
+.air-check {
+    min-width: 0;
+    padding: 20px;
+    color: var(--color-text-primary);
+    background: var(--panel-surface);
+    border: var(--panel-border);
+    border-radius: var(--panel-radius, 8px);
+    font-size: var(--text-body);
+}
+
+.air-check-header,
+.air-check-footer {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.air-check h2,
+.air-check h3,
+.air-check p { margin: 0; }
+.air-check h2 { font-size: var(--text-section-title); }
+.air-check h3 {
+    font-size: var(--text-lg);
+    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+.air-check-muted,
+.air-check-eyebrow,
+.air-check-facts { color: var(--color-text-secondary); }
+.air-check-facts { margin-top: 12px !important; }
+.air-check-verified {
+    color: var(--color-success);
+    margin: 6px 0 12px !important;
+}
+.air-check-extension-error { color: var(--color-error-text); }
+.air-check-state { margin: 18px 0 10px !important; }
+.air-check-state-error,
+.air-check-state-partial,
+.air-check-state-stale,
+.air-check-state-offair { color: var(--color-error-text); }
+
+.air-check-selection {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 0;
+    border-top: 1px solid var(--color-border-subtle);
+}
+.air-check-art {
+    width: 144px;
+    height: 108px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex: none;
+}
+.air-check-details {
+    min-width: 0;
+    display: grid;
+    gap: 5px;
+    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+.air-check-eyebrow { font-size: var(--text-sm); }
+.air-check-synopsis {
+    line-height: 1.4;
+    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+.air-check-clamped {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+}
+.air-check-action {
+    width: fit-content;
+    min-height: 42px;
+    padding: 6px 8px;
+    color: var(--color-primary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font: inherit;
+    cursor: pointer;
+}
+.air-check-action.focused,
+.air-check-action:focus {
+    color: var(--focus-text-primary);
+    background: var(--focus-surface);
+    outline: var(--focus-ring-width) solid var(--focus-border-color);
+    outline-offset: var(--focus-ring-offset);
+}
+.air-check-schedule {
+    max-height: min(30vh, 680px);
+    min-height: 160px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.air-check-program {
+    display: grid;
+    grid-template-columns: minmax(76px, 94px) minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    width: 100%;
+    min-height: 60px;
+    padding: 12px;
+    border-radius: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+    text-align: left;
+}
+.air-check-program.is-selected {
+    background: var(--selection-surface);
+    border-left: 3px solid var(--focus-border-color);
+}
+.air-check-program-title {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+.air-check-live { color: var(--color-error-text); }
+.air-check-footer { padding-top: 12px; }
+
+@media (max-width: 900px), (min-resolution: 2dppx) and (max-width: 1200px) {
+    .air-check { padding: 14px; }
+    .air-check-art {
+        width: 96px;
+        height: 72px;
+    }
+    .air-check-program { grid-template-columns: 76px minmax(0, 1fr); }
+    .air-check-program > :last-child { grid-column: 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .air-check *, .air-check *::before, .air-check *::after {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+@media (forced-colors: active) {
+    .air-check-action.focused,
+    .air-check-action:focus {
+        outline-color: Highlight;
+    }
+
+    .air-check-program.is-selected {
+        border-left-color: Highlight;
+    }
+}
+
+/* Flex gap fallback for engines that support grid gap but not flex gap. */
+.no-flex-gap .air-check-header,
+.no-flex-gap .air-check-footer {
+  margin-right: calc(-1 * 12px);
+  margin-bottom: calc(-1 * 12px);
+}
+.no-flex-gap .air-check-header > :not([hidden]),
+.no-flex-gap .air-check-footer > :not([hidden]) {
+  margin-right: 12px;
+  margin-bottom: 12px;
+}
+
+.no-flex-gap .air-check-selection > :not([hidden]) ~ :not([hidden]) {
+  margin-left: 12px;
+}

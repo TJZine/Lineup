@@ -107,6 +107,8 @@ export type Screen =
     | 'player'
     | 'guide'
     | 'channel-edit'
+    | 'channels'
+    | 'channel-studio'
     | 'settings'
     | 'error';
 
