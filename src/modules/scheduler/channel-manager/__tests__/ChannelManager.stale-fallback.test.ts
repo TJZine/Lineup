@@ -2,7 +2,7 @@ import { ChannelManager } from '../ChannelManager';
 import type { IPlexLibraryMinimal } from '../contracts/interfaces';
 import { CACHE_TTL_MS } from '../constants';
 import { AppErrorCode } from '../../../../types/app-errors';
-import { expectConsoleWarn } from '../../../../__tests__/helpers';
+import { createDeferred, expectConsoleWarn } from '../../../../__tests__/helpers';
 import {
     createMockContentSource,
     createMockLibrary,
@@ -99,5 +99,25 @@ describe('ChannelManager stale content fallback', () => {
         expect(staleResult.items.map((item) => item.ratingKey)).toEqual(
             originalContent.items.map((item) => item.ratingKey)
         );
+    });
+
+    it('rejects an async stale fallback after the channel owner is edited', async () => {
+        const baseNow = Date.now();
+        const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(baseNow);
+        const channel = await manager.createChannel({
+            contentSource: createMockContentSource(),
+        });
+        await manager.resolveChannelContent(channel.id);
+        const failedResolution = createDeferred<never>();
+        nowSpy.mockReturnValue(baseNow + CACHE_TTL_MS + 1);
+        mockLibrary.getLibraryItems.mockReturnValue(failedResolution.promise);
+
+        const staleResolution = manager.resolveChannelContent(channel.id);
+        await Promise.resolve();
+        await manager.updateChannel(channel.id, { name: 'Edited while resolving' });
+        failedResolution.reject(new Error('404'));
+
+        await expect(staleResolution).rejects.toMatchObject({ name: 'AbortError' });
+        expect(manager.getChannel(channel.id)?.name).toBe('Edited while resolving');
     });
 });

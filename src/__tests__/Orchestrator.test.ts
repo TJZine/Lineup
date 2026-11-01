@@ -1546,6 +1546,38 @@ describe('AppOrchestrator', () => {
             }
         });
 
+        it('forwards startup warmup options to the assembled current EPG coordinator', async () => {
+            jest.useFakeTimers();
+            const warmupSpy = jest
+                .spyOn(EPGCoordinator.prototype, 'warmCurrentViewportForStartup')
+                .mockResolvedValue(undefined);
+            try {
+                mockPlexAuth.validateStoredCredentials.mockResolvedValue(
+                    createStoredValidationResult('active_valid')
+                );
+                mockPlexDiscovery.isConnected.mockReturnValue(true);
+                mockVideoPlayer.isPlaying.mockReturnValue(true);
+
+                await orchestrator.start();
+                await jest.advanceTimersByTimeAsync(1500);
+
+                expect(warmupSpy).toHaveBeenCalledTimes(1);
+                expect(warmupSpy.mock.instances[0]).toBe(
+                    Reflect.get(orchestrator as object, '_epgCoordinator')
+                );
+                const options = warmupSpy.mock.calls[0]?.[0] as {
+                    signal?: AbortSignal | null;
+                    shouldContinue?: () => boolean;
+                } | undefined;
+                expect(options?.signal).toBeInstanceOf(AbortSignal);
+                expect(options?.shouldContinue?.()).toBe(true);
+            } finally {
+                warmupSpy.mockRestore();
+                mockVideoPlayer.isPlaying.mockReturnValue(false);
+                jest.useRealTimers();
+            }
+        });
+
         it('should rerun setup when switching to a new server without setup record', async () => {
             mockPlexAuth.validateStoredCredentials.mockResolvedValue(
                 createStoredValidationResult('active_valid')
@@ -2717,6 +2749,30 @@ describe('AppOrchestrator', () => {
             expect(mockChannelManager.flushSaves).toHaveBeenCalledTimes(1);
         });
 
+        it('drains shared source producers before flushing saves and disposing dependencies', async () => {
+            let releaseDrain!: () => void;
+            const drain = new Promise<void>((resolve) => { releaseDrain = resolve; });
+            let markStarted!: () => void;
+            const started = new Promise<void>((resolve) => { markStarted = resolve; });
+            mockChannelManager.supersedeActiveResolutions.mockImplementationOnce(() => {
+                markStarted();
+                return drain;
+            });
+            const shutdown = orchestrator.shutdown();
+            try {
+                await started;
+                expect(mockChannelManager.supersedeActiveResolutions).toHaveBeenCalledTimes(1);
+                expect(mockChannelManager.flushSaves).not.toHaveBeenCalled();
+                expect(mockChannelManager.dispose).not.toHaveBeenCalled();
+                expect(mockVideoPlayer.destroy).not.toHaveBeenCalled();
+            } finally {
+                releaseDrain();
+                await shutdown;
+            }
+            expect(mockChannelManager.flushSaves).toHaveBeenCalledTimes(1);
+            expect(mockChannelManager.dispose).toHaveBeenCalledTimes(1);
+        });
+
         it('disposes channel manager on shutdown', async () => {
             await orchestrator.shutdown();
 
@@ -2765,6 +2821,81 @@ describe('AppOrchestrator', () => {
             expect(secondShutdownResolved).toBe(true);
             expect(mockLifecycle.shutdown).toHaveBeenCalledTimes(1);
             expect(mockNavigation.destroy).toHaveBeenCalledTimes(1);
+        });
+
+        it('drains assembled EPG warmup before channel and player teardown', async () => {
+            jest.useFakeTimers();
+            const order: string[] = [];
+            let resolveWarmup: (() => void) | null = null;
+            const releaseWarmupIfStarted = (): void => {
+                const release = resolveWarmup as (() => void) | null;
+                if (release) release();
+            };
+            const warmupStarted = new Promise<void>((resolve) => {
+                jest.spyOn(EPGCoordinator.prototype, 'warmCurrentViewportForStartup')
+                    .mockImplementation(() => new Promise<void>((release) => {
+                        order.push('epgWarmup.start');
+                        resolveWarmup = release;
+                        resolve();
+                    }));
+            });
+            const originalDrain = InitializationCoordinator.prototype.drainEpgWarmupForShutdown;
+            const drainSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'drainEpgWarmupForShutdown')
+                .mockImplementation(async function (this: InitializationCoordinator): Promise<void> {
+                    order.push('epgWarmup.drain.start');
+                    await originalDrain.call(this);
+                    order.push('epgWarmup.drain.end');
+                });
+
+            try {
+                mockPlexAuth.validateStoredCredentials.mockResolvedValue(
+                    createStoredValidationResult('active_valid')
+                );
+                mockPlexDiscovery.isConnected.mockReturnValue(true);
+                mockVideoPlayer.isPlaying.mockReturnValue(true);
+                (mockChannelManager.flushSaves as jest.Mock).mockImplementationOnce(async () => {
+                    order.push('channelManager.flushSaves');
+                });
+                (mockChannelManager.dispose as jest.Mock).mockImplementationOnce(() => {
+                    order.push('channelManager.dispose');
+                });
+                (mockVideoPlayer.destroy as jest.Mock).mockImplementationOnce(() => {
+                    order.push('videoPlayer.destroy');
+                });
+
+                await orchestrator.start();
+                await jest.advanceTimersByTimeAsync(1500);
+                await warmupStarted;
+
+                const shutdown = orchestrator.shutdown();
+                await Promise.resolve();
+
+                expect(drainSpy).toHaveBeenCalledTimes(1);
+                expect(mockChannelManager.flushSaves).not.toHaveBeenCalled();
+                expect(mockChannelManager.dispose).not.toHaveBeenCalled();
+                expect(mockVideoPlayer.destroy).not.toHaveBeenCalled();
+
+                releaseWarmupIfStarted();
+                await shutdown;
+
+                expect(order.indexOf('epgWarmup.drain.start')).toBeGreaterThanOrEqual(0);
+                expect(order.indexOf('epgWarmup.drain.end')).toBeLessThan(
+                    order.indexOf('channelManager.flushSaves')
+                );
+                expect(order.indexOf('channelManager.flushSaves')).toBeLessThan(
+                    order.indexOf('channelManager.dispose')
+                );
+                expect(order.indexOf('channelManager.dispose')).toBeLessThan(
+                    order.indexOf('videoPlayer.destroy')
+                );
+            } finally {
+                releaseWarmupIfStarted();
+                drainSpy.mockRestore();
+                jest.restoreAllMocks();
+                mockVideoPlayer.isPlaying.mockReturnValue(false);
+                jest.useRealTimers();
+            }
         });
 
         it('should destroy modules on shutdown', async () => {

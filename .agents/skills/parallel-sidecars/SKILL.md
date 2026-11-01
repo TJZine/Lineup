@@ -1,6 +1,6 @@
 ---
 name: parallel-sidecars
-description: Use when Lineup may benefit from delegated read-heavy work, a wait, or an approved disjoint write unit.
+description: Assess and route an independent Lineup sidecar or delegated write unit when delegation would help; use bounded-worker-execution for the write-unit contract.
 ---
 
 # Delegation Routing
@@ -11,8 +11,8 @@ analysis, and waits should return concise evidence. Write work requires an appro
 owner/write boundary, invariants, verification, stop conditions, and no overlap;
 require exact files only for concurrent writers or sensitive shared surfaces. The
 controller owns integration and final proof. Route bounded implementation through
-`bounded-worker-execution`; use `worker_luna` by default when outcome, ownership,
-contracts, and proof are clear. Keep delegation depth shallow.
+`bounded-worker-execution`. Select roles and depth under the runbook's
+[delegation policy](../../../docs/AGENTIC_DEV_WORKFLOW.md#delegation).
 
 For a genuinely large program with multiple work units, dependency ordering, and
 repeated integration checkpoints, explicitly use `large-task-orchestration`. This

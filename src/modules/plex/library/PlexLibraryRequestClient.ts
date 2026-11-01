@@ -23,6 +23,7 @@ const INTERACTIVE_REQUEST_POLICY = {
 } as const;
 
 export type PlexLibraryRequestProfile = 'default' | 'interactive';
+type PlexLibraryNotFoundBehavior = 'return-null' | 'throw';
 
 type PlexLibraryLogger = NonNullable<PlexLibraryConfig['logger']>;
 
@@ -111,7 +112,8 @@ export class PlexLibraryRequestClient {
         scope: PlexLibraryRequestScopeSnapshot,
         url: string,
         options: RequestInit = {},
-        requestProfile: PlexLibraryRequestProfile = 'default'
+        requestProfile: PlexLibraryRequestProfile = 'default',
+        notFoundBehavior: PlexLibraryNotFoundBehavior = 'return-null'
     ): Promise<PlexLibraryRequestResult<T>> {
         const requestPolicy = resolveRequestPolicy(requestProfile);
         let activeScope = scope;
@@ -220,6 +222,13 @@ export class PlexLibraryRequestClient {
                         continue;
                     case 'notFound':
                         this._logger.warn(`[PlexLibrary] 404 Not Found: ${redactUrlForLog(url)}`);
+                        if (notFoundBehavior === 'throw') {
+                            throw new PlexLibraryError(
+                                AppErrorCode.RESOURCE_NOT_FOUND,
+                                'Plex resource not found',
+                                404
+                            );
+                        }
                         return { data: null, scope: activeScope };
                     case 'serverError':
                         if (!serverErrorRetried) {

@@ -1201,6 +1201,40 @@ describe('ContentResolver', () => {
             expect(showCalls).toHaveLength(1);
         });
 
+        it('revalidates the show-decoration cache with the source payload', async () => {
+            const episodes = [createMockEpisode(1, 1, {
+                ratingKey: 'ep1',
+                grandparentRatingKey: 'show1',
+            })];
+            let showCallCount = 0;
+            mockLibrary.getLibraryItems.mockImplementation((_, options) => {
+                if (options?.filter?.type === PLEX_MEDIA_TYPES.EPISODE) {
+                    return Promise.resolve(episodes);
+                }
+                showCallCount += 1;
+                return Promise.resolve([
+                    createMockItem({
+                        ratingKey: 'show1',
+                        type: 'show',
+                        genres: [showCallCount === 1 ? 'Drama' : 'Comedy'],
+                    }),
+                ]);
+            });
+            const source: LibraryContentSource = {
+                type: 'library',
+                libraryId: 'show-lib',
+                libraryType: 'show',
+                includeWatched: true,
+            };
+
+            const initial = await resolver.resolveSource(source);
+            const revalidated = await resolver.resolveSource(source, { cacheMode: 'revalidate' });
+
+            expect(initial[0]?.genres).toEqual(['Drama']);
+            expect(revalidated[0]?.genres).toEqual(['Comedy']);
+            expect(showCallCount).toBe(2);
+        });
+
         it('should use cached show list when show fetch fails', async () => {
             const episodes = [createMockEpisode(1, 1, { ratingKey: 'ep1', grandparentRatingKey: 'show1' })];
             const shows = [createMockItem({ ratingKey: 'show1', type: 'show', genres: ['Drama'] })];

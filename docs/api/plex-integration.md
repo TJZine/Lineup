@@ -186,6 +186,13 @@ interface IPlexLibrary {
 
 `getLibrary()` returns `null` only when the id is not present in a valid fetched section list. Unavailable or malformed section-list fetches throw `PlexLibraryError`.
 Across the rest of the library surface, `null` and empty arrays are reserved for real Plex not-found or empty-success outcomes such as `404` item lookups, empty metadata lists, or unsupported tag directories. Malformed payloads, empty `200` response bodies, timeout failures, and server errors reject with `PlexLibraryError` instead of collapsing into semantic empties.
+Collection-child HTTP 404 specifically rejects with `RESOURCE_NOT_FOUND` and
+`httpStatus: 404`; a successful empty collection still returns `[]`. This preserves
+the evidence needed for guarded saved-reference recovery. `getCollections()`
+returns only a complete bounded listing: it validates page offsets, consistent
+totals and unique valid identities, and rejects failed or inconsistent later
+pages. Without a reported total it continues through short pages until an empty
+page. A partial listing must never establish that a replacement name is unique.
 Each network/cache operation captures one immutable active-server URI and auth-header snapshot. If the active server/account identity changes before that operation settles, the operation rejects with `PlexLibraryScopeSupersededError`; stale results do not update library caches or emit library transport/refresh/tag callbacks. Callers that intentionally provide partial-result fallbacks must use `isPlexLibraryScopeSupersededError()` to rethrow that exact error before ordinary fallback conversion.
 PMS library `401` responses are handled inside the Plex boundary before recovery is
 emitted. The request client refreshes plex.tv resources once under the active cloud

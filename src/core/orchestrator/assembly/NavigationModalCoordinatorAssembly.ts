@@ -381,6 +381,7 @@ export function buildNavigationCoordinator(
     const modals = buildNavigationModalsConfig(deps);
     const channelSwitching = buildNavigationChannelSwitchingConfig(input, deps);
     const uiGuards = buildNavigationUiGuardsConfig(deps);
+    const closeEpg = (): void => deps.epgCoordinator.closeEPG();
     const events = {
         navigation: input.modules.navigation,
         miniGuide,
@@ -407,6 +408,7 @@ export function buildNavigationCoordinator(
             {
                 navigation: input.modules.navigation,
                 epg: input.modules.epg,
+                closeEpg,
                 playback,
                 miniGuide,
                 nowPlayingInfo,
@@ -422,6 +424,7 @@ export function buildNavigationCoordinator(
             {
                 navigation: input.modules.navigation,
                 epg: input.modules.epg,
+                closeEpg,
                 playback,
                 miniGuide,
                 nowPlayingInfo,

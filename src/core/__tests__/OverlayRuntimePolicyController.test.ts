@@ -185,6 +185,19 @@ describe('OverlayRuntimePolicyController', () => {
         expect(deps.closeModal).not.toHaveBeenCalled();
     });
 
+    it('does nothing when the EPG is visible on the player screen', () => {
+        const { controller, deps } = makeOverlayHarness({
+            getEpgVisible: jest.fn().mockReturnValue(true),
+        });
+
+        controller.toggleNowPlayingInfoOverlay();
+
+        expect(deps.getEpgVisible).toHaveBeenCalledTimes(1);
+        expect(deps.hasCurrentProgramForPlayback).not.toHaveBeenCalled();
+        expect(deps.openModal).not.toHaveBeenCalled();
+        expect(deps.closeModal).not.toHaveBeenCalled();
+    });
+
     it('does nothing when there is no current program for playback', () => {
         const { controller, deps } = makeOverlayHarness({
             hasCurrentProgramForPlayback: jest.fn().mockReturnValue(false),

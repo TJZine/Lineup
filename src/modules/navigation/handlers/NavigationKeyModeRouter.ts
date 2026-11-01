@@ -21,6 +21,7 @@ import type {
 export interface NavigationKeyModeRouterPort {
     navigation: INavigationManager;
     epg: NavigationEpgPort | null;
+    closeEpg: () => void;
     playback: NavigationPlaybackPort;
     miniGuide: NavigationMiniGuidePort;
     nowPlayingInfo: NavigationNowPlayingInfoPort;
@@ -49,7 +50,7 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
         if (navigation.isInputBlocked()) return;
         if (navigation.getActiveModalPolicy?.()?.blocksBackgroundCommands === true) return;
 
-        this.deps.epg?.hide();
+        this.deps.closeEpg();
         while (navigation.isModalOpen()) {
             navigation.closeModal();
         }
@@ -125,12 +126,17 @@ export class NavigationKeyModeRouter implements NavigationKeyModeRouterRuntime {
         const epg = this.deps.epg;
         const navigation = this.deps.navigation;
         const modalOpen = navigation.isModalOpen();
+        const currentScreen = navigation.getCurrentScreen();
         const miniGuideVisible = this.deps.miniGuide.isVisible();
         return {
-            currentScreen: navigation.getCurrentScreen(),
+            currentScreen,
             modalOpen,
             miniGuideVisible,
-            shouldRouteToEpg: !modalOpen && !!epg?.isVisible() && !miniGuideVisible,
+            shouldRouteToEpg:
+                !modalOpen &&
+                (currentScreen === 'player' || currentScreen === 'guide') &&
+                !!epg?.isVisible() &&
+                !miniGuideVisible,
         };
     }
 

@@ -15,6 +15,7 @@ import { LINEUP_STORAGE_KEYS } from '../../../config/storageKeys';
 import { APP_SHELL_CONTAINER_IDS } from '../../../modules/ui/common/appShellContainerIds';
 import { PlexDiscoverySelectionContext } from '../../../modules/plex/discovery/PlexDiscoverySelectionContext';
 import type { PlexSavedServerRestoreResult } from '../../../modules/plex/discovery';
+import { advanceTimersUntil } from '../../../__tests__/helpers';
 
 const SKIPPED_SAVED_SERVER_RESTORE = { kind: 'skipped_no_saved_server' } as const;
 const createSelectedSavedServerRestore = (): Extract<
@@ -226,6 +227,9 @@ describe('InitializationCoordinator (Plex Home)', () => {
             },
             resources: {
                 buildPlexResourceUrl: jest.fn(),
+            },
+            epgWarmup: {
+                warmCurrentViewportForStartup: jest.fn().mockResolvedValue(undefined),
             },
         };
 
@@ -1523,14 +1527,18 @@ describe('InitializationCoordinator (Plex Home)', () => {
         }
     });
 
-    it('drains an EPG warmup that fired before quarantine preparation', async () => {
+    it('cancels EPG readiness while draining warmup for quarantine preparation', async () => {
         jest.useFakeTimers();
-        let releaseWarmup!: () => void;
+        let readinessSignal: AbortSignal | null = null;
         const epgReadiness = {
-            ensureReady: jest.fn(() => new Promise<void>((resolve) => { releaseWarmup = resolve; })),
+            ensureReady: jest.fn((signal?: AbortSignal | null) => new Promise<void>((_resolve, reject) => {
+                readinessSignal = signal ?? null;
+                signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+            })),
         } as NonNullable<InitializationDependencies['readiness']['epg']>;
         const {
             coordinator,
+            callbacks,
             mocks: { plexDiscovery },
         } = makeCoordinator({ modules: { epg: { initialize: jest.fn() } as unknown as InitializationDependencies['modules']['epg'] }, readiness: { epg: epgReadiness } });
         try {
@@ -1543,12 +1551,177 @@ describe('InitializationCoordinator (Plex Home)', () => {
             const preparation = coordinator.prepareForSelectedServerQuarantine();
             let prepared = false;
             void preparation.then(() => { prepared = true; });
-            await Promise.resolve();
-            expect(prepared).toBe(false);
-
-            releaseWarmup();
+            await advanceTimersUntil(() => expect(prepared).toBe(true), { stepMs: 1, timeoutMs: 10 });
             await preparation;
+
+            expect((readinessSignal as AbortSignal | null)?.aborted).toBe(true);
             expect(prepared).toBe(true);
+            expect(callbacks.epgWarmup.warmCurrentViewportForStartup).not.toHaveBeenCalled();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('warms the current viewport after deferred EPG init while playback is playing', async () => {
+        jest.useFakeTimers();
+        let playing = true;
+        const epgReadiness = {
+            ensureReady: jest.fn(async () => undefined),
+        } as NonNullable<InitializationDependencies['readiness']['epg']>;
+        const {
+            coordinator,
+            callbacks,
+            mocks: { plexDiscovery },
+        } = makeCoordinator({
+            modules: {
+                epg: { initialize: jest.fn() } as unknown as InitializationDependencies['modules']['epg'],
+                videoPlayer: {
+                    initialize: jest.fn(async () => undefined),
+                    requestMediaSession: jest.fn(),
+                    isPlaying: jest.fn(() => playing),
+                } as unknown as InitializationDependencies['modules']['videoPlayer'],
+            },
+            readiness: { epg: epgReadiness },
+        });
+        try {
+            plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
+            plexDiscovery.isConnected.mockReturnValue(true);
+            await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
+            await jest.advanceTimersByTimeAsync(1500);
+
+            expect(epgReadiness.ensureReady).toHaveBeenCalledTimes(1);
+            const warm = callbacks.epgWarmup.warmCurrentViewportForStartup as jest.Mock;
+            expect(warm).toHaveBeenCalledTimes(1);
+            const options = warm.mock.calls[0]?.[0] as {
+                signal?: AbortSignal | null;
+                shouldContinue?: () => boolean;
+            };
+            expect(options.signal).toBeInstanceOf(AbortSignal);
+            expect(options.shouldContinue?.()).toBe(true);
+            playing = false;
+            expect(options.shouldContinue?.()).toBe(false);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('initializes EPG but skips schedule warming when playback is not playing', async () => {
+        jest.useFakeTimers();
+        const epgReadiness = {
+            ensureReady: jest.fn(async () => undefined),
+        } as NonNullable<InitializationDependencies['readiness']['epg']>;
+        const {
+            coordinator,
+            callbacks,
+            mocks: { plexDiscovery },
+        } = makeCoordinator({
+            modules: {
+                epg: { initialize: jest.fn() } as unknown as InitializationDependencies['modules']['epg'],
+                videoPlayer: {
+                    initialize: jest.fn(async () => undefined),
+                    requestMediaSession: jest.fn(),
+                    isPlaying: jest.fn(() => false),
+                } as unknown as InitializationDependencies['modules']['videoPlayer'],
+            },
+            readiness: { epg: epgReadiness },
+        });
+        try {
+            plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
+            plexDiscovery.isConnected.mockReturnValue(true);
+            await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
+            await jest.advanceTimersByTimeAsync(1500);
+            await jest.advanceTimersByTimeAsync(10_000);
+
+            expect(epgReadiness.ensureReady).toHaveBeenCalledTimes(1);
+            expect(callbacks.epgWarmup.warmCurrentViewportForStartup).not.toHaveBeenCalled();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('aborts active viewport warming and drains it for shutdown', async () => {
+        jest.useFakeTimers();
+        let observedSignal: AbortSignal | null = null;
+        const epgReadiness = {
+            ensureReady: jest.fn(async () => undefined),
+        } as NonNullable<InitializationDependencies['readiness']['epg']>;
+        const {
+            coordinator,
+            callbacks,
+            mocks: { plexDiscovery },
+        } = makeCoordinator({
+            modules: {
+                epg: { initialize: jest.fn() } as unknown as InitializationDependencies['modules']['epg'],
+                videoPlayer: {
+                    initialize: jest.fn(async () => undefined),
+                    requestMediaSession: jest.fn(),
+                    isPlaying: jest.fn(() => true),
+                } as unknown as InitializationDependencies['modules']['videoPlayer'],
+            },
+            readiness: { epg: epgReadiness },
+        });
+        (callbacks.epgWarmup.warmCurrentViewportForStartup as jest.Mock).mockImplementation(
+            (options?: { signal?: AbortSignal | null }) =>
+                new Promise<void>((_resolve, reject) => {
+                    observedSignal = options?.signal ?? null;
+                    observedSignal?.addEventListener('abort', () => {
+                        reject(observedSignal?.reason ?? new DOMException('aborted', 'AbortError'));
+                    });
+                })
+        );
+        try {
+            plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
+            plexDiscovery.isConnected.mockReturnValue(true);
+            await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
+            await jest.advanceTimersByTimeAsync(1500);
+            expect(callbacks.epgWarmup.warmCurrentViewportForStartup).toHaveBeenCalledTimes(1);
+
+            await coordinator.drainEpgWarmupForShutdown();
+
+            const wasAborted = (observedSignal as AbortSignal | null)?.aborted === true;
+            expect(wasAborted).toBe(true);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('cancels pending EPG readiness and drains it for shutdown', async () => {
+        jest.useFakeTimers();
+        let readinessSignal: AbortSignal | null = null;
+        const epgReadiness = {
+            ensureReady: jest.fn((signal?: AbortSignal | null) => new Promise<void>((_resolve, reject) => {
+                readinessSignal = signal ?? null;
+                signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+            })),
+        } as NonNullable<InitializationDependencies['readiness']['epg']>;
+        const {
+            coordinator,
+            callbacks,
+            mocks: { plexDiscovery },
+        } = makeCoordinator({
+            modules: {
+                epg: { initialize: jest.fn() } as unknown as InitializationDependencies['modules']['epg'],
+            },
+            readiness: { epg: epgReadiness },
+        });
+        try {
+            plexDiscovery.initialize.mockResolvedValue(createSelectedSavedServerRestore());
+            plexDiscovery.isConnected.mockReturnValue(true);
+            await coordinator.runStartup(STARTUP_PHASE.FULL_STARTUP);
+            await jest.advanceTimersByTimeAsync(1500);
+            expect(epgReadiness.ensureReady).toHaveBeenCalledTimes(1);
+
+            const drainage = coordinator.drainEpgWarmupForShutdown();
+            let drained = false;
+            void drainage.then(() => { drained = true; });
+            await advanceTimersUntil(() => expect(drained).toBe(true), { stepMs: 1, timeoutMs: 10 });
+            await drainage;
+
+            expect((readinessSignal as AbortSignal | null)?.aborted).toBe(true);
+            expect(callbacks.epgWarmup.warmCurrentViewportForStartup).not.toHaveBeenCalled();
+            expect(callbacks.status.updateModuleStatus.mock.calls.some(
+                ([id, status]) => id === 'epg-ui' && (status === 'ready' || status === 'error')
+            )).toBe(false);
         } finally {
             jest.useRealTimers();
         }

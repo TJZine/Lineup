@@ -104,6 +104,7 @@ function createCoordinator(auth: PlexAuth, setReady: jest.Mock): InitializationC
             openServerSelect: jest.fn(),
         },
         resources: { buildPlexResourceUrl: jest.fn().mockReturnValue(null) },
+        epgWarmup: { warmCurrentViewportForStartup: jest.fn().mockResolvedValue(undefined) },
     } as unknown as InitializationCallbacks;
     return new InitializationCoordinator({
         plexConfig: {} as never,

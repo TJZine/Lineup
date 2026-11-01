@@ -7,6 +7,8 @@ load only when selected.
 ## Rules
 
 - Keep each skill focused on one task or one production boundary.
+- Describe the responsibility it changes, with exclusions only for likely
+  misrouting. Data displayed by a UI is not automatically a change to its source domain.
 - Prefer one process skill plus only the boundary skills required by the change.
 - Put global workflow policy in `docs/AGENTIC_DEV_WORKFLOW.md`; skills should not
   restate tiering, commands, generic quality principles, or the full role catalog.
@@ -23,13 +25,15 @@ load only when selected.
 ## Inventory Shape
 
 Process skills cover planning, debugging, verification, review lifecycle,
-delegation, closeout, and explicit feature/cleanup launchers. Boundary skills cover
+delegation, closeout, and explicit large-task orchestration. Feature and cleanup
+tasks use the same runbook without separate launchers. Boundary skills cover
 architecture, TypeScript production quality, test design, persistence, Plex, and UI
 composition. The global production-review suite has one thin Lineup wrapper.
 
-`.codex/config.toml` owns the role catalog. The compact `model-selection` skill owns
-task-specific cost/capability routing; retain a distinct role only while that routing
-boundary is explicit and useful.
+`.codex/config.toml` owns the role catalog and points to exact role settings.
+The runbook owns delegation/dispatch policy; `model-selection` helps inspect or
+reassess defaults without duplicating the catalog. Retain a distinct role only
+while its boundary is explicit and useful.
 
 ## Maintenance
 
@@ -37,3 +41,9 @@ During harness review, inspect descriptions for overlap, measure selected-skill
 context, and remove duplicated instructions. Test representative prompts for both
 under-triggering and over-triggering. Do not preserve stale skill topology through
 verifier assertions.
+
+The September 2026 guidance check used [OpenAI's skill practices](https://learn.chatgpt.com/guides/best-practices#turn-repeatable-work-into-skills)
+and [Anthropic's authoring guidance](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices):
+keep discovery precise, disclose detail when needed, and reserve fixed procedures
+for fragile contracts. These inform maintenance; they do not add gates or replace
+Lineup's established UI authority and user-approved workflow.

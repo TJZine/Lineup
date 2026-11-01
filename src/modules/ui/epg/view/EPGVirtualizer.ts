@@ -7,7 +7,14 @@ import type { EPGRenderedCellData } from './cells/EPGCellRenderer';
 import type {
     ScheduleWindow,
     EPGConfig,
+    EpgRowLifecycleKind,
+    EpgRowLifecycleState,
     VirtualizedGridState,
+} from '../types';
+import {
+    EPG_ROW_LOADING_LABEL,
+    EPG_ROW_RETRYING_LABEL,
+    EPG_ROW_UNAVAILABLE_LABEL,
 } from '../types';
 import { collectScheduledRowCells } from './EPGScheduledRowCollector';
 
@@ -303,6 +310,7 @@ export class EPGVirtualizer {
         startMinutes: number,
         endMinutes: number,
         label: string,
+        lifecycle: EpgRowLifecycleKind,
         focusedCellKey: string | undefined,
         stageCell: (
             cellData: VirtualizedCellRenderData,
@@ -338,6 +346,7 @@ export class EPGVirtualizer {
                 label,
                 scheduledStartTime,
                 scheduledEndTime,
+                lifecycle,
             },
             left,
             width,
@@ -361,12 +370,13 @@ export class EPGVirtualizer {
         schedules: Map<string, ScheduleWindow>,
         range: VirtualizedGridState,
         focusedCellKey?: string,
-        nowMs: number = Date.now()
+        nowMs: number = Date.now(),
+        rowLifecycle?: Map<string, EpgRowLifecycleState> | null
     ): void {
         if (!this.contentElement || !this.config) return;
 
         const context = this.createRenderPassContext(range);
-        this.collectVisibleCells(channelIds, schedules, range, context, focusedCellKey, nowMs);
+        this.collectVisibleCells(channelIds, schedules, range, context, focusedCellKey, nowMs, rowLifecycle ?? null);
         context.finalizeAllRows();
         this.pruneToDomBudget(context.newVisibleCells, context.maxDomElements, focusedCellKey);
         this.reconcileVisibleCells(context.newVisibleCells, context.channelOffsetChanged, nowMs);
@@ -390,7 +400,8 @@ export class EPGVirtualizer {
         range: VirtualizedGridState,
         context: RenderPassContext,
         focusedCellKey: string | undefined,
-        nowMs: number
+        nowMs: number,
+        rowLifecycle: Map<string, EpgRowLifecycleState> | null
     ): void {
         for (const rowIndex of range.visibleRows) {
             if (rowIndex >= channelIds.length) continue;
@@ -398,12 +409,18 @@ export class EPGVirtualizer {
             if (channelId === undefined) continue;
             const schedule = schedules.get(channelId);
             if (!schedule) {
+                const lifecycle = rowLifecycle?.get(channelId)?.kind ?? 'loading';
                 this.addPlaceholderCell(
                     channelId,
                     rowIndex,
                     Math.max(0, context.visibleWindowStartMinutes),
                     Math.max(0, context.visibleWindowEndMinutes),
-                    'Loading...',
+                    lifecycle === 'unavailable'
+                        ? EPG_ROW_UNAVAILABLE_LABEL
+                        : lifecycle === 'retrying'
+                            ? EPG_ROW_RETRYING_LABEL
+                            : EPG_ROW_LOADING_LABEL,
+                    lifecycle,
                     focusedCellKey,
                     context.stageCell
                 );
@@ -454,6 +471,7 @@ export class EPGVirtualizer {
                 startMinutes,
                 endMinutes,
                 label,
+                'loading',
                 focusedCellKey,
                 stageCell
             ),
@@ -597,6 +615,7 @@ export class EPGVirtualizer {
 
         if (next.kind === 'placeholder' && previous.kind === 'placeholder') {
             return previous.placeholder.label !== next.placeholder.label ||
+                previous.placeholder.lifecycle !== next.placeholder.lifecycle ||
                 previous.placeholder.scheduledStartTime !== next.placeholder.scheduledStartTime ||
                 previous.placeholder.scheduledEndTime !== next.placeholder.scheduledEndTime;
         }
@@ -627,7 +646,8 @@ export class EPGVirtualizer {
             EPG_CLASSES.CELL_FOCUSED,
             EPG_CLASSES.CELL_CURRENT,
             EPG_CLASSES.CELL_PAST,
-            EPG_CLASSES.CELL_LOADING
+            EPG_CLASSES.CELL_LOADING,
+            EPG_CLASSES.CELL_UNAVAILABLE
         );
 
         const poolKey = `pool-${Date.now()}-${this.poolSequence++}`;

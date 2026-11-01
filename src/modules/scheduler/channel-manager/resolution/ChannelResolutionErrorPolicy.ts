@@ -1,4 +1,5 @@
 import { AppErrorCode, getAppErrorCode } from '../../../../types/app-errors';
+import { PlexLibraryError } from '../../../plex/library';
 import type { ChannelContentSource } from '../contracts/types';
 
 const NETWORK_ERROR_CODES = new Set<AppErrorCode>([
@@ -28,6 +29,12 @@ export function isNetworkResolutionError(error: unknown): boolean {
 
 export function isAccessDeniedResolutionError(error: unknown): boolean {
     return getErrorCode(error) === AppErrorCode.ACCESS_DENIED;
+}
+
+export function isConfirmedMissingCollectionError(error: unknown): error is PlexLibraryError {
+    return error instanceof PlexLibraryError
+        && error.code === AppErrorCode.RESOURCE_NOT_FOUND
+        && error.httpStatus === 404;
 }
 
 export function isGracefulAuthoringResolutionError(error: unknown): boolean {

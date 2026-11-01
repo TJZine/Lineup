@@ -1,19 +1,23 @@
 # Architecture Docs
 
-This folder has a stable split between current truth, active reference, and backlog direction.
+This folder contains current ownership references and historical cleanup evidence.
 
 > [!NOTE]
 > If you only need the current architecture truth, start with [`CURRENT_STATE.md`](./CURRENT_STATE.md). The rest of this folder provides supporting reference and cleanup context.
 
-## Read In This Order
+## Read For The Task
 
-| Order | Document | Purpose |
+| Task | Document | Purpose |
 | --- | --- | --- |
-| 1 | [`CURRENT_STATE.md`](./CURRENT_STATE.md) | Canonical and current architecture truth |
-| 2 | [`modules.md`](./modules.md) | Current module inventory and ownership reference |
-| 3 | [`file-shape-guardrails.md`](./file-shape-guardrails.md) | Production file-size attention and review triggers |
-| 4 | [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md) | Active backlog, priority queue, and cleanup direction |
-| 5 | [`p13-post-p12-subjective-backlog-package-map.json`](./p13-post-p12-subjective-backlog-package-map.json) | Exact package-membership companion for the active cleanup checklist |
+| Ownership or runtime flow | [`CURRENT_STATE.md`](./CURRENT_STATE.md) | Canonical current architecture; read affected sections |
+| Supporting module detail | [`modules.md`](./modules.md) | Module inventory and ownership reference |
+| File-size evidence | [`file-shape-guardrails.md`](./file-shape-guardrails.md) | Advisory diagnostics; workflow owns review policy |
+| Explicit checklist-linked work | [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md) | Current admission/status; no cleanup package is active |
+
+The `*package-map.json` files are historical membership/provenance snapshots,
+including the file named `active-cleanup-package-map.json`. They do not authorize
+work, require package plans/reviews, or describe a current queue. Read them only
+when a current question needs that history.
 
 ## Notes
 

@@ -354,19 +354,16 @@ The primary structural hotspots still treated as current by
 `src/modules/ui/epg/component/EPGComponent.ts`,
 `src/modules/plex/stream/resolver/PlexStreamResolver.ts`, and
 `src/modules/scheduler/channel-manager/ChannelManager.ts` remain important
-backlog or ownership surfaces where listed below, but current source
+ownership surfaces, but current source
 size/delegation evidence no longer supports listing them as primary active
 hotspots. `ChannelSetupScreen.ts` is no longer listed as a current primary
 hotspot after FCP-11 because focused package-local owners now carry dropdown,
 build presentation, session/runtime, focus, strategy interaction, and step
 rendering behavior.
 
-## Cleanup Backlog Direction
+## Cleanup History
 
-- `src/Orchestrator.ts` → `P1` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-- `src/App.ts` → `P2` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-- `src/modules/ui/epg/component/EPGComponent.ts`, `src/modules/ui/settings/SettingsScreen.ts`, `src/modules/ui/channel-setup/ChannelSetupScreen.ts` → `P4` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-- `src/modules/plex/stream/resolver/PlexStreamResolver.ts` → `P5` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-- `src/modules/scheduler/channel-manager/ChannelManager.ts` → `P6` in [`ARCHITECTURE_CLEANUP_CHECKLIST.md`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md)
-
-The backlog-direction entries above are planned outcomes and are not current completed fact.
+Earlier priority mappings are completed baseline evidence, not planned owner moves.
+Use current source and the ownership sections above for new work. The
+[`cleanup checklist`](../../ARCHITECTURE_CLEANUP_CHECKLIST.md) owns admission/status;
+historical package maps do not create an active queue or additional workflow gates.

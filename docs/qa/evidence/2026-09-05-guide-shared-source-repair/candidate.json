@@ -1,0 +1,12 @@
+{
+  "implementationCommit": "bd6368432598e89e86e44c0360eb6b9c31e40338",
+  "profile": "dev",
+  "packageSha256": "8e7a0ae900af3b7c073ac0d332777f262a92ac26bcec69dfd3828b5cc9a14fc5",
+  "verifiedPackagedFiles": 68,
+  "entry": "assets/index-CAtwgibB.js",
+  "entrySha256": "ac711ed152a077c03be7c575f2118dfae3e62ca7881539229ff8b127d7f547b7",
+  "installed": false,
+  "physicalQa": "deferred by operator",
+  "p2Closed": false,
+  "releaseDeployed": false
+}

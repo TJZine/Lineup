@@ -12,11 +12,53 @@ export function createRefreshMetrics(): RefreshMetrics {
         immediateFastReadyChannelIds: new Set<string>(),
         backgroundLoadedChannelIds: new Set<string>(),
         backgroundFastReadyChannelIds: new Set<string>(),
+        visibleReadyChannelIds: new Set<string>(),
+        visibleUnavailableChannelIds: new Set<string>(),
         immediateLoadedCount: 0,
         backgroundLoadedCount: 0,
         failedChannelCount: 0,
         firstVisibleScheduleReadyMs: null,
+        allVisibleRowsSettledMs: null,
     };
+}
+
+function markAllVisibleRowsSettled(session: RefreshSession, metrics: RefreshMetrics): void {
+    if (metrics.allVisibleRowsSettledMs !== null || session.visibleRangeIds.size === 0) {
+        return;
+    }
+    for (const channelId of session.visibleRangeIds) {
+        if (!metrics.visibleReadyChannelIds.has(channelId) && !metrics.visibleUnavailableChannelIds.has(channelId)) {
+            return;
+        }
+    }
+    metrics.allVisibleRowsSettledMs = Date.now() - session.refreshStartedAt;
+}
+
+export function markVisibleReadyChannel(
+    session: RefreshSession,
+    metrics: RefreshMetrics,
+    channelId: string
+): void {
+    if (!session.visibleRangeIds.has(channelId)) {
+        return;
+    }
+    metrics.visibleReadyChannelIds.add(channelId);
+    if (metrics.firstVisibleScheduleReadyMs === null) {
+        metrics.firstVisibleScheduleReadyMs = Date.now() - session.refreshStartedAt;
+    }
+    markAllVisibleRowsSettled(session, metrics);
+}
+
+export function markVisibleUnavailableChannel(
+    session: RefreshSession,
+    metrics: RefreshMetrics,
+    channelId: string
+): void {
+    if (!session.visibleRangeIds.has(channelId)) {
+        return;
+    }
+    metrics.visibleUnavailableChannelIds.add(channelId);
+    markAllVisibleRowsSettled(session, metrics);
 }
 
 export function markFastReadyChannel(
@@ -31,9 +73,7 @@ export function markFastReadyChannel(
     }
 
     metrics.immediateFastReadyChannelIds.add(channelId);
-    if (metrics.firstVisibleScheduleReadyMs === null && session.visibleRangeIds.has(channelId)) {
-        metrics.firstVisibleScheduleReadyMs = Date.now() - session.refreshStartedAt;
-    }
+    markVisibleReadyChannel(session, metrics, channelId);
 }
 
 export function buildRefreshResult(session: RefreshSession, metrics: RefreshMetrics): EpgScheduleRefreshResult {

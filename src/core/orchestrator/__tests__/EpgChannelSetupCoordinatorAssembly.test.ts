@@ -21,12 +21,17 @@ describe('EpgChannelSetupCoordinatorAssembly', () => {
         const getRuntimeStatus = jest.fn(
             (id: string) => id === 'epg-ui' ? 'ready' as const : undefined
         );
+        const navigation = {
+            getCurrentScreen: jest.fn().mockReturnValue('player'),
+            isModalOpen: jest.fn().mockReturnValue(false),
+        };
         const input = {
             epgDebugRuntime: null,
             config: { epgConfig: { containerId: 'epg' } },
             moduleStatus: { getRuntimeStatus },
             init: { ensureEpgInitialized: jest.fn().mockResolvedValue(undefined) },
             modules: {
+                navigation,
                 epg: { kind: 'epg' },
                 channelManager: { kind: 'channel-manager' },
                 scheduler: { kind: 'scheduler' },
@@ -54,6 +59,14 @@ describe('EpgChannelSetupCoordinatorAssembly', () => {
         expect(capturedDeps.getEpg()).toBe(input.modules.epg);
         expect(capturedDeps.getChannelManager()).toBe(input.modules.channelManager);
         expect(capturedDeps.getScheduler()).toBe(input.modules.scheduler);
+        expect(capturedDeps.canOpenEpg()).toBe(true);
+        navigation.getCurrentScreen.mockReturnValue('guide');
+        expect(capturedDeps.canOpenEpg()).toBe(true);
+        navigation.getCurrentScreen.mockReturnValue('settings');
+        expect(capturedDeps.canOpenEpg()).toBe(false);
+        navigation.getCurrentScreen.mockReturnValue('player');
+        navigation.isModalOpen.mockReturnValue(true);
+        expect(capturedDeps.canOpenEpg()).toBe(false);
         expect(capturedDeps.getEpgUiStatus()).toBe('ready');
         expect(getRuntimeStatus).toHaveBeenCalledWith('epg-ui');
         await expect(capturedDeps.ensureEpgInitialized()).resolves.toBeUndefined();

@@ -1,6 +1,0 @@
-interface:
-  display_name: "Lineup Cleanup Implement"
-  short_description: "Launch the approved cleanup implementer session"
-  default_prompt: "Use $lineup-cleanup-implement for this task."
-policy:
-  allow_implicit_invocation: false

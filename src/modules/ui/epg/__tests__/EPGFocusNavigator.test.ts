@@ -28,11 +28,12 @@ describe('EPGFocusNavigator', () => {
         isCurrent: false,
     });
 
-    const createHarness = (): {
+    const createHarness = (debugEnabled = false): {
         navigator: EPGFocusNavigator;
         config: EPGConfig;
         state: EPGInternalState;
         events: Array<[keyof EPGEventMap, unknown]>;
+        appendDebugLog: jest.Mock;
         renderGrid: jest.Mock;
         timeHeader: {
             updateScrollPosition: jest.Mock;
@@ -70,6 +71,7 @@ describe('EPGFocusNavigator', () => {
                 ['ch2', schedule],
             ]),
             scheduleLoadTimes: new Map(),
+            rowLifecycle: new Map(),
             focusedCell: null,
             focusTimeMs: anchor,
             scrollPosition: { channelOffset: 0, timeOffset: 0 },
@@ -88,6 +90,7 @@ describe('EPGFocusNavigator', () => {
             autoScrollToNow: false,
         };
         const events: Array<[keyof EPGEventMap, unknown]> = [];
+        const appendDebugLog = jest.fn();
         const renderGrid = jest.fn();
         const timeHeader = { updateScrollPosition: jest.fn() };
         let libraryTabsFocused = false;
@@ -130,8 +133,8 @@ describe('EPGFocusNavigator', () => {
             emit: (event, payload): void => {
                 events.push([event, payload]);
             },
-            appendDebugLog: jest.fn(),
-            isDebugEnabled: (): boolean => false,
+            appendDebugLog,
+            isDebugEnabled: (): boolean => debugEnabled,
         });
 
         return {
@@ -139,6 +142,7 @@ describe('EPGFocusNavigator', () => {
             config,
             state,
             events,
+            appendDebugLog,
             renderGrid,
             timeHeader,
             libraryTabs,
@@ -198,6 +202,29 @@ describe('EPGFocusNavigator', () => {
         expect(events.some(([event]) => event === 'programSelected')).toBe(true);
     });
 
+    it('records selection diagnostics without channel, focus, or rating identifiers', () => {
+        const { navigator, appendDebugLog } = createHarness(true);
+
+        navigator.focusProgram(1, 1);
+        expect(navigator.handleSelect()).toBe(true);
+
+        expect(appendDebugLog).toHaveBeenCalledWith(
+            'EPG.handleSelect',
+            expect.objectContaining({
+                rowOrdinal: 1,
+                scheduleIndex: 1,
+                focusedKind: 'program',
+                scheduleLoaded: true,
+            })
+        );
+        const payload = appendDebugLog.mock.calls[0]?.[1];
+        expect(payload).not.toHaveProperty('channelId');
+        expect(payload).not.toHaveProperty('focusKey');
+        expect(payload).not.toHaveProperty('ratingKey');
+        expect(JSON.stringify(payload)).not.toContain('ch1');
+        expect(JSON.stringify(payload)).not.toContain('program-1');
+    });
+
     it('dedupes same-tick program selection events', () => {
         jest.useFakeTimers();
         try {
@@ -228,6 +255,50 @@ describe('EPGFocusNavigator', () => {
         expect(state.focusedCell?.kind).toBe('placeholder');
         expect(state.focusedCell?.channelIndex).toBe(1);
         expect(navigator.handleSelect()).toBe(false);
+    });
+
+    it('emits a retry intent and consumes OK on an unavailable row', () => {
+        const { navigator, state, events } = createHarness();
+        state.schedules.delete('ch1');
+        state.rowLifecycle.set('ch1', { kind: 'unavailable', rangeKey: 'day' });
+
+        navigator.focusChannel(1);
+
+        expect(state.focusedCell?.kind).toBe('placeholder');
+        expect(navigator.handleSelect()).toBe(true);
+        expect(events.filter(([event]) => event === 'rowRetryRequested')).toEqual([
+            ['rowRetryRequested', { channelId: 'ch1' }],
+        ]);
+    });
+
+    it('performs no duplicate work for OK on loading or retrying rows', () => {
+        const loading = createHarness();
+        loading.state.schedules.delete('ch1');
+        loading.navigator.focusChannel(1);
+        expect(loading.navigator.handleSelect()).toBe(false);
+        expect(loading.events.filter(([event]) => event === 'rowRetryRequested')).toEqual([]);
+
+        const retrying = createHarness();
+        retrying.state.schedules.delete('ch1');
+        retrying.state.rowLifecycle.set('ch1', { kind: 'retrying', rangeKey: 'day' });
+        retrying.navigator.focusChannel(1);
+        expect(retrying.navigator.handleSelect()).toBe(false);
+        expect(retrying.events.filter(([event]) => event === 'rowRetryRequested')).toEqual([]);
+    });
+
+    it('labels focused placeholders from the row lifecycle without moving focus time', () => {
+        const { navigator, state } = createHarness();
+        state.schedules.delete('ch1');
+        state.rowLifecycle.set('ch1', { kind: 'unavailable', rangeKey: 'day' });
+        const targetTime = anchor + 90 * 60 * 1000;
+
+        navigator.focusProgramAtTime(1, targetTime);
+
+        expect(state.focusedCell?.kind).toBe('placeholder');
+        if (state.focusedCell?.kind === 'placeholder') {
+            expect(state.focusedCell.placeholder.label).toBe('Unavailable — OK to retry');
+        }
+        expect(state.focusTimeMs).toBe(targetTime);
     });
 
     it('pages by visible channel count while preserving the focused time', () => {

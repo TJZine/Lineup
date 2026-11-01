@@ -18,13 +18,17 @@ Protect stable behavior through the nearest public seam:
 - await async work explicitly, control promises deterministically, and fail on stale
   completion or unhandled rejection paths;
 - restore fake timers, spies, DOM, listeners, globals, and storage after every test;
-- verify timer/listener cancellation and hidden/destroyed UI behavior when lifecycle
-  ownership changes;
+- verify visibility-scoped cancellation, instance cleanup, reopen behavior, and
+  focus restoration when UI lifecycle ownership changes; retained DOM handlers and
+  navigation-owned focus memory need not be discarded on hide;
 - prefer focused semantic assertions over giant snapshots, exact internal call
   sequences, or tests that only restate branches;
 - keep tests deterministic under `--runInBand` and normal parallel Jest execution.
 
-Run the focused suite first, then `npm run typecheck` and the runbook-required gate.
-Use full `npm run verify` for UI, navigation, Orchestrator, Plex, runtime, or build
-behavior. Stop when the only testable seam is private; that usually signals a missing
-production owner or contract rather than a need for test-only access.
+Use the runbook's [suite selection and verification](../../../docs/AGENTIC_DEV_WORKFLOW.md#verification)
+without repeating still-current checks. Confirm the selected Jest config actually
+includes the test: unit, contract/policy/types, and tooling suites have different
+discovery rules. If the apparent test seam is private, investigate the nearest
+observable behavior and existing tests. Choose meaningful proof within the current owner;
+do not add a production abstraction solely for test access. Escalate only a
+consequential unresolved contract or scope decision.

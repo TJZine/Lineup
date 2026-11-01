@@ -22,10 +22,14 @@ import type {
     EPGEventMap,
     EPGInternalState,
     EPGFocusPosition,
+    EpgRowLifecycleState,
+    EpgHeldScheduleSnapshot,
+    EpgScheduleLoadMetadata,
     ScheduledProgram,
     ScheduleWindow,
     ChannelConfig,
 } from '../types';
+import { isMatchingEpgChannelSnapshot } from '../types';
 
 /**
  * Render/focus/event surface for the Electronic Program Guide grid.
@@ -40,6 +44,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         channels: [],
         schedules: new Map(),
         scheduleLoadTimes: new Map(),
+        rowLifecycle: new Map(),
         focusedCell: null,
         focusTimeMs: Date.now(),
         scrollPosition: { channelOffset: 0, timeOffset: 0 },
@@ -108,6 +113,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     private programAreaElement: HTMLElement | null = null;
     private hasRenderedOnce: boolean = false;
     private channelIds: string[] = [];
+    private scheduleSourceSnapshots = new Map<string, ChannelConfig>();
     private _libraryTabs: EPGLibraryTabs | null = null;
     private _isLibraryTabsFocused = false;
     private _appliedLayoutMode: EpgLayoutMode | null = null;
@@ -183,6 +189,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             channels: [],
             schedules: new Map(),
             scheduleLoadTimes: new Map(),
+            rowLifecycle: new Map(),
             focusedCell: null,
             focusTimeMs: Date.now(),
             scrollPosition: { channelOffset: 0, timeOffset: 0 },
@@ -190,6 +197,7 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
             gridAnchorTime: 0,
             lastRenderTime: 0,
         };
+        this.scheduleSourceSnapshots.clear();
         this.channelIds = [];
         this.hasRenderedOnce = false;
         this.shellView.reset();
@@ -444,6 +452,20 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     loadChannels(channels: ChannelConfig[]): void {
         this.state.channels = channels;
         this.channelIds = channels.map((c) => c.id);
+        const retainedIds = new Set(this.channelIds);
+        for (const channelId of this.state.rowLifecycle.keys()) {
+            if (!retainedIds.has(channelId)) {
+                this.state.rowLifecycle.delete(channelId);
+            }
+        }
+        const channelsById = new Map(channels.map((channel) => [channel.id, channel]));
+        for (const channelId of this.state.schedules.keys()) {
+            const heldSnapshot = this.scheduleSourceSnapshots.get(channelId);
+            const currentChannel = channelsById.get(channelId);
+            if (!heldSnapshot || !currentChannel || !isMatchingEpgChannelSnapshot(heldSnapshot, currentChannel)) {
+                this.clearScheduleForChannel(channelId, false);
+            }
+        }
         this.virtualizer.setChannelCount(channels.length);
         this.channelList.updateChannels(channels);
         this.focusNavigator.clearPlaceholderAutoFocusKeys();
@@ -521,13 +543,59 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
         }
     }
 
-    loadScheduleForChannel(channelId: string, schedule: ScheduleWindow): void {
+    getRowLifecycle(channelId: string): EpgRowLifecycleState | null {
+        return this.state.rowLifecycle.get(channelId) ?? null;
+    }
+
+    setRowLifecycle(channelId: string, lifecycle: EpgRowLifecycleState): void {
+        this.state.rowLifecycle.set(channelId, { ...lifecycle });
+        if (this.state.isVisible) {
+            this.renderGrid();
+        }
+    }
+
+    clearRowLifecycle(channelId: string, rangeKey?: string): void {
+        const current = this.state.rowLifecycle.get(channelId);
+        if (!current) {
+            return;
+        }
+        if (rangeKey !== undefined && current.rangeKey !== rangeKey) {
+            return;
+        }
+        this.state.rowLifecycle.delete(channelId);
+        if (this.state.isVisible) {
+            this.renderGrid();
+        }
+    }
+
+    clearAllRowLifecycles(): void {
+        if (this.state.rowLifecycle.size === 0) {
+            return;
+        }
+        this.state.rowLifecycle.clear();
+        if (this.state.isVisible) {
+            this.renderGrid();
+        }
+    }
+
+    loadScheduleForChannel(
+        channelId: string,
+        schedule: ScheduleWindow,
+        metadata?: EpgScheduleLoadMetadata
+    ): void {
         this.state.schedules.set(channelId, schedule);
-        this.state.scheduleLoadTimes.set(channelId, Date.now());
+        this.state.scheduleLoadTimes.set(channelId, metadata?.loadedAt ?? Date.now());
+        const channelSnapshot = metadata?.channelSnapshot ??
+            this.state.channels.find((channel) => channel.id === channelId);
+        if (channelSnapshot) {
+            this.scheduleSourceSnapshots.set(channelId, channelSnapshot);
+        } else {
+            this.scheduleSourceSnapshots.delete(channelId);
+        }
+        this.state.rowLifecycle.delete(channelId);
 
         const focused = this.state.focusedCell;
         const isFocusedChannel = focused && this.state.channels[focused.channelIndex]?.id === channelId;
-        const focusKeyBefore = this._getFocusKey(focused);
         let didAutoFocus = false;
 
         if (isFocusedChannel && focused && !this.focusNavigator.isSelectInProgress()) {
@@ -555,16 +623,44 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
 
         if (this._isDebugEnabled()) {
             const payload = {
-                channelId,
+                rowOrdinal: this.state.channels.findIndex((channel) => channel.id === channelId),
                 programCount: schedule.programs.length,
                 startTime: schedule.startTime,
                 endTime: schedule.endTime,
                 focusedChannel: isFocusedChannel,
-                focusKeyBefore,
-                focusKeyAfter: this._getFocusKey(this.state.focusedCell),
+                focusKindBefore: focused?.kind ?? 'absent',
+                focusKindAfter: this.state.focusedCell?.kind ?? 'absent',
                 didAutoFocus,
             };
             this._appendDebugLog('EPG.loadScheduleForChannel', payload);
+        }
+    }
+
+    hasScheduleForChannelRange(channelId: string, startTime: number, endTime: number): boolean {
+        const schedule = this.state.schedules.get(channelId);
+        return schedule?.startTime === startTime && schedule.endTime === endTime;
+    }
+
+    getHeldScheduleForChannel(channelId: string): EpgHeldScheduleSnapshot | null {
+        const schedule = this.state.schedules.get(channelId);
+        const loadedAt = this.state.scheduleLoadTimes.get(channelId);
+        const channelSnapshot = this.scheduleSourceSnapshots.get(channelId);
+        if (!schedule || loadedAt === undefined || !channelSnapshot) {
+            return null;
+        }
+        return {
+            schedule,
+            loadedAt,
+            channelSnapshot,
+        };
+    }
+
+    clearScheduleForChannel(channelId: string, render = true): void {
+        const hadSchedule = this.state.schedules.delete(channelId);
+        this.state.scheduleLoadTimes.delete(channelId);
+        this.scheduleSourceSnapshots.delete(channelId);
+        if (render && hadSchedule && this.state.isVisible) {
+            this.renderGrid();
         }
     }
 
@@ -574,6 +670,8 @@ export class EPGComponent extends EventEmitter<EPGEventMap> implements IEPGCompo
     clearSchedules(): void {
         this.state.schedules.clear();
         this.state.scheduleLoadTimes.clear();
+        this.scheduleSourceSnapshots.clear();
+        this.state.rowLifecycle.clear();
         this.focusNavigator.clearPlaceholderAutoFocusKeys();
 
         this.state.focusedCell = null;
