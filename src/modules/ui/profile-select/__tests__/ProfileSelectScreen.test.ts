@@ -8,7 +8,7 @@ import { AppErrorCode } from '../../../../types/app-errors';
 import { ProfileSessionStore } from '../../../settings/ProfileSessionStore';
 import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import { createDeferred } from '../../../../__tests__/helpers';
-import { NavigationManager } from '../../../navigation';
+import { NavigationManager, type FocusableElement } from '../../../navigation';
 
 type NavigationStub = {
     registerFocusable: jest.Mock;
@@ -18,6 +18,7 @@ type NavigationStub = {
     closeModal: jest.Mock;
     restoreFocusForCurrentScreen: jest.Mock;
     getCurrentScreen: jest.Mock;
+    getState: jest.Mock;
     on: jest.Mock;
     off: jest.Mock;
     goTo: jest.Mock;
@@ -25,24 +26,30 @@ type NavigationStub = {
     __handlers: Record<string, ((event: unknown) => void) | undefined>;
 };
 
-const createNavigationStub = (): NavigationStub => ({
-    registerFocusable: jest.fn(),
-    unregisterFocusable: jest.fn(),
-    setFocus: jest.fn(),
-    openModal: jest.fn(),
-    closeModal: jest.fn(),
-    restoreFocusForCurrentScreen: jest.fn().mockReturnValue(false),
-    getCurrentScreen: jest.fn().mockReturnValue('profile-select'),
-    __handlers: {},
-    on: jest.fn(function (this: NavigationStub, event: string, handler: (payload: unknown) => void) {
-        this.__handlers[event] = handler;
-    }),
-    off: jest.fn(function (this: NavigationStub, event: string, _handler: (payload: unknown) => void) {
-        delete this.__handlers[event];
-    }),
-    goTo: jest.fn(),
-    replaceScreen: jest.fn(),
-});
+const createNavigationStub = (): NavigationStub => {
+    const state = { focusedElementId: null as string | null };
+    return {
+        registerFocusable: jest.fn(),
+        unregisterFocusable: jest.fn(),
+        setFocus: jest.fn((id: string) => {
+            state.focusedElementId = id;
+        }),
+        openModal: jest.fn(),
+        closeModal: jest.fn(),
+        restoreFocusForCurrentScreen: jest.fn().mockReturnValue(false),
+        getCurrentScreen: jest.fn().mockReturnValue('profile-select'),
+        getState: jest.fn(() => state),
+        __handlers: {},
+        on: jest.fn(function (this: NavigationStub, event: string, handler: (payload: unknown) => void) {
+            this.__handlers[event] = handler;
+        }),
+        off: jest.fn(function (this: NavigationStub, event: string, _handler: (payload: unknown) => void) {
+            delete this.__handlers[event];
+        }),
+        goTo: jest.fn(),
+        replaceScreen: jest.fn(),
+    };
+};
 
 type OrchestratorStub = {
     getNavigation: () => NavigationStub;
@@ -116,9 +123,31 @@ const getRegisteredFocusables = (nav: NavigationStub): Map<string, {
     })
 );
 
+const setSimulatedProfileGridMetrics = (
+    container: HTMLElement,
+    metrics: { outerWidth: number; minimumColumnWidth: number; gap?: number; horizontalPadding?: number }
+): void => {
+    const list = container.querySelector('.profile-list') as HTMLElement;
+    const probe = container.querySelector('.profile-grid-size-probe') as HTMLElement;
+    const gap = metrics.gap ?? 16;
+    const padding = metrics.horizontalPadding ?? 4;
+    Object.defineProperty(list, 'clientWidth', {
+        configurable: true,
+        get: () => metrics.outerWidth,
+    });
+    Object.defineProperty(probe, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({ width: metrics.minimumColumnWidth } as unknown as DOMRect),
+    });
+    list.style.columnGap = `${gap}px`;
+    list.style.paddingLeft = `${padding}px`;
+    list.style.paddingRight = `${padding}px`;
+};
+
 describe('ProfileSelectScreen', () => {
     let profileSessionStore: ProfileSessionStore;
     const expectedPinFocusableIds = [
+        'btn-profile-pin-back',
         'btn-profile-pin-1',
         'btn-profile-pin-2',
         'btn-profile-pin-3',
@@ -128,8 +157,8 @@ describe('ProfileSelectScreen', () => {
         'btn-profile-pin-7',
         'btn-profile-pin-8',
         'btn-profile-pin-9',
-        'btn-profile-pin-backspace',
         'btn-profile-pin-0',
+        'btn-profile-pin-backspace',
         'btn-profile-pin-cancel',
     ];
 
@@ -145,7 +174,7 @@ describe('ProfileSelectScreen', () => {
         jest.clearAllMocks();
     });
 
-    it('renders the branded hero glyph above the title', () => {
+    it('uses the shared onboarding brand and stage without a profile hero glyph', () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
         ];
@@ -159,14 +188,12 @@ describe('ProfileSelectScreen', () => {
             profileSessionStore
         );
 
-        const hero = container.querySelector('.profile-select-glyph');
-        const panel = container.querySelector('.screen-panel') as HTMLElement;
-        const orderedClassNames = Array.from(panel.children).map((child) => child.className);
+        const topbar = container.querySelector('.screen-shell-topbar');
+        const stage = container.querySelector('.screen-shell-stage');
 
-        expect(hero).not.toBeNull();
-        expect(hero?.querySelector('svg')).not.toBeNull();
-        expect(orderedClassNames[0]).toBe('screen-hero');
-        expect(orderedClassNames[1]).toBe('screen-title');
+        expect(topbar?.querySelector('.screen-shell-brand-glyph svg')).not.toBeNull();
+        expect(stage?.querySelector('.screen-title')?.textContent).toBe("Who's watching?");
+        expect(container.querySelector('.profile-select-glyph')).toBeNull();
     });
 
     it('relies on shared screen bootstrap while show and hide still own display lifecycle', async () => {
@@ -273,6 +300,200 @@ describe('ProfileSelectScreen', () => {
             }
         }
     );
+
+    it('reflows the viewport-sized profile grid and its D-pad neighbors without moving focus', async () => {
+        const resizeObserverDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver');
+        Object.defineProperty(globalThis, 'ResizeObserver', {
+            configurable: true,
+            value: undefined,
+        });
+
+        const users = createProfileUsers(8);
+        const navigation = new NavigationManager();
+        navigation.initialize({
+            enablePointerMode: false,
+            keyRepeatDelayMs: 500,
+            keyRepeatIntervalMs: 100,
+            focusMemoryEnabled: true,
+            debugMode: false,
+        });
+        navigation.replaceScreen('profile-select');
+        const orchestrator = {
+            getNavigation: () => navigation,
+            getHomeUsers: jest.fn().mockResolvedValue(users),
+            switchHomeUser: jest.fn().mockResolvedValue(undefined),
+            useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
+            signOutPlex: jest.fn().mockResolvedValue(undefined),
+        } as unknown as ProfileSelectScreenPorts;
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const registrationSpy = jest.spyOn(navigation, 'registerFocusable');
+        const setFocusSpy = jest.spyOn(navigation, 'setFocus');
+        const screen = new ProfileSelectScreen(container, orchestrator, profileSessionStore);
+
+        const lastRegistrationFor = (id: string): FocusableElement | undefined => registrationSpy.mock.calls
+            .map(([focusable]) => focusable)
+            .reverse()
+            .find((focusable) => focusable.id === id);
+
+        try {
+            screen.show();
+            await settleScreen(screen);
+
+            const metrics = { outerWidth: 1080, minimumColumnWidth: 144, gap: 16, horizontalPadding: 4 };
+            setSimulatedProfileGridMetrics(container, metrics);
+            navigation.setFocus('btn-profile-5');
+            const focusCallCount = setFocusSpy.mock.calls.length;
+            window.dispatchEvent(new Event('resize'));
+
+            const list = container.querySelector('.profile-list') as HTMLElement;
+            expect(list.style.getPropertyValue('--profile-grid-columns')).toBe('5');
+            expect(lastRegistrationFor('btn-profile-1')?.neighbors.down).toBe('btn-profile-6');
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-5');
+            expect(setFocusSpy).toHaveBeenCalledTimes(focusCallCount);
+
+            metrics.outerWidth = 608;
+            window.dispatchEvent(new Event('resize'));
+            expect(list.style.getPropertyValue('--profile-grid-columns')).toBe('3');
+            expect(lastRegistrationFor('btn-profile-1')?.neighbors.down).toBe('btn-profile-4');
+            expect(lastRegistrationFor('btn-profile-5')?.neighbors.down).toBe('btn-profile-8');
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-5');
+            expect(setFocusSpy).toHaveBeenCalledTimes(focusCallCount);
+
+            metrics.outerWidth = 320;
+            (container.querySelector('.screen-shell-stage') as HTMLElement).style.width = '320px';
+            await Promise.resolve();
+            expect(list.style.getPropertyValue('--profile-grid-columns')).toBe('2');
+            expect(lastRegistrationFor('btn-profile-1')?.neighbors.down).toBe('btn-profile-3');
+            expect(lastRegistrationFor('btn-profile-5')?.neighbors.down).toBe('btn-profile-7');
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-5');
+            expect(setFocusSpy).toHaveBeenCalledTimes(focusCallCount);
+            expect(navigation.moveFocus('down')).toBe(true);
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-7');
+
+            screen.hide();
+            const registrationCountAfterHide = registrationSpy.mock.calls.length;
+            metrics.outerWidth = 180;
+            window.dispatchEvent(new Event('resize'));
+            expect(registrationSpy).toHaveBeenCalledTimes(registrationCountAfterHide);
+        } finally {
+            screen.destroy();
+            navigation.destroy();
+            if (resizeObserverDescriptor) {
+                Object.defineProperty(globalThis, 'ResizeObserver', resizeObserverDescriptor);
+            } else {
+                Reflect.deleteProperty(globalThis, 'ResizeObserver');
+            }
+        }
+    });
+
+    it('adapts to a larger text-safe width while preserving an open profile PIN and selection', async () => {
+        const resizeObserverDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver');
+        let notifyResize: (() => void) | null = null;
+        const disconnectSpy = jest.fn();
+        class TestResizeObserver {
+            readonly observe = jest.fn();
+            readonly unobserve = jest.fn();
+            readonly disconnect = disconnectSpy;
+
+            constructor(callback: ResizeObserverCallback) {
+                notifyResize = (): void => callback([], this as unknown as ResizeObserver);
+            }
+        }
+        Object.defineProperty(globalThis, 'ResizeObserver', {
+            configurable: true,
+            writable: true,
+            value: TestResizeObserver,
+        });
+
+        const users = createProfileUsers(8).map((user, index) => ({
+            ...user,
+            protected: index === 1,
+        }));
+        profileSessionStore.writeLastProfileId('3');
+        const navigation = new NavigationManager();
+        navigation.initialize({
+            enablePointerMode: false,
+            keyRepeatDelayMs: 500,
+            keyRepeatIntervalMs: 100,
+            focusMemoryEnabled: true,
+            debugMode: false,
+        });
+        navigation.replaceScreen('profile-select');
+        const orchestrator = {
+            getNavigation: () => navigation,
+            getHomeUsers: jest.fn().mockResolvedValue(users),
+            switchHomeUser: jest.fn().mockResolvedValue(undefined),
+            useMainAccountProfile: jest.fn().mockResolvedValue(undefined),
+            signOutPlex: jest.fn().mockResolvedValue(undefined),
+        } as unknown as ProfileSelectScreenPorts;
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const registrationSpy = jest.spyOn(navigation, 'registerFocusable');
+        const setFocusSpy = jest.spyOn(navigation, 'setFocus');
+        const screen = new ProfileSelectScreen(container, orchestrator, profileSessionStore);
+
+        const triggerResize = (): void => {
+            if (!notifyResize) throw new Error('Profile grid ResizeObserver was not created');
+            notifyResize();
+        };
+        const lastRegistrationFor = (id: string): FocusableElement | undefined => registrationSpy.mock.calls
+            .map(([focusable]) => focusable)
+            .reverse()
+            .find((focusable) => focusable.id === id);
+
+        try {
+            screen.show();
+            await settleScreen(screen);
+
+            const metrics = { outerWidth: 500, minimumColumnWidth: 144, gap: 16, horizontalPadding: 4 };
+            setSimulatedProfileGridMetrics(container, metrics);
+            triggerResize();
+            const list = container.querySelector('.profile-list') as HTMLElement;
+            expect(list.style.getPropertyValue('--profile-grid-columns')).toBe('3');
+            expect(lastRegistrationFor('btn-profile-1')?.neighbors.down).toBe('btn-profile-4');
+            expect(lastRegistrationFor('btn-profile-2')?.neighbors.down).toBe('btn-profile-5');
+
+            (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-pin-1');
+            (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
+            expect(container.querySelectorAll('.profile-pin-slot.filled')).toHaveLength(1);
+            expect(container.querySelector('.profile-pin-user')?.textContent).toContain('Profile 2');
+            const focusCallCount = setFocusSpy.mock.calls.length;
+
+            // Simulate the probe growing when the user increases text scale.
+            metrics.minimumColumnWidth = 192;
+            triggerResize();
+            expect(list.style.getPropertyValue('--profile-grid-columns')).toBe('2');
+            expect(lastRegistrationFor('btn-profile-1')?.neighbors.down).toBe('btn-profile-3');
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-pin-1');
+            expect(setFocusSpy).toHaveBeenCalledTimes(focusCallCount);
+            expect(container.querySelector('.profile-pin-modal')?.classList.contains('visible')).toBe(true);
+            expect(container.querySelectorAll('.profile-pin-slot.filled')).toHaveLength(1);
+            expect(container.querySelector('#btn-profile-3')?.classList.contains('active')).toBe(true);
+
+            // The same observer also reports a narrower containing stage.
+            metrics.outerWidth = 300;
+            triggerResize();
+            expect(list.style.getPropertyValue('--profile-grid-columns')).toBe('1');
+            expect(lastRegistrationFor('btn-profile-1')?.neighbors.down).toBe('btn-profile-2');
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-pin-1');
+
+            screen.hide();
+            expect(disconnectSpy).toHaveBeenCalledTimes(1);
+            const registrationCountAfterHide = registrationSpy.mock.calls.length;
+            triggerResize();
+            expect(registrationSpy).toHaveBeenCalledTimes(registrationCountAfterHide);
+        } finally {
+            screen.destroy();
+            navigation.destroy();
+            if (resizeObserverDescriptor) {
+                Object.defineProperty(globalThis, 'ResizeObserver', resizeObserverDescriptor);
+            } else {
+                Reflect.deleteProperty(globalThis, 'ResizeObserver');
+            }
+        }
+    });
 
     it('round-trips Up and Down within complete columns and clamps an incomplete final row', async () => {
         const users = createProfileUsers(8);
@@ -775,7 +996,7 @@ describe('ProfileSelectScreen', () => {
         expect(container.querySelector('#btn-profile-2')?.getAttribute('aria-current')).toBe('true');
     });
 
-    it('persists a successful profile switch that completes after the screen hides', async () => {
+    it('does not persist a profile switch that completes after the screen hides', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
@@ -804,9 +1025,37 @@ describe('ProfileSelectScreen', () => {
         await switchDeferred.promise;
         await Promise.resolve();
 
-        expect(writeLastProfileIdSpy).toHaveBeenCalledTimes(1);
-        expect(writeLastProfileIdSpy).toHaveBeenCalledWith('2');
-        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('2');
+        expect(writeLastProfileIdSpy).not.toHaveBeenCalled();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBeNull();
+    });
+
+    it('does not clear the last-profile hint when main-account selection completes after hide', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+        ];
+        localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, 'previous-profile');
+        const orchestrator = createOrchestratorStub(users);
+        const useMainDeferred = createDeferred<void>();
+        const writeLastProfileIdSpy = jest.spyOn(profileSessionStore, 'writeLastProfileId');
+        orchestrator.useMainAccountProfile.mockReturnValueOnce(useMainDeferred.promise);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+
+        (container.querySelector('#btn-profile-main') as HTMLButtonElement).click();
+        screen.hide();
+        useMainDeferred.resolve();
+        await useMainDeferred.promise;
+        await Promise.resolve();
+
+        expect(writeLastProfileIdSpy).not.toHaveBeenCalled();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('previous-profile');
     });
 
     it('opens PIN modal for protected users', async () => {
@@ -1082,7 +1331,7 @@ describe('ProfileSelectScreen', () => {
         expect(nav.openModal).toHaveBeenCalledWith('profile-pin', expectedPinFocusableIds);
     });
 
-    it('wires PIN modal neighbors so row-4 controls are reachable', async () => {
+    it('wires PIN modal focus through Back, the numpad, Backspace, and Cancel', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
@@ -1105,12 +1354,14 @@ describe('ProfileSelectScreen', () => {
             .filter((call) => expectedPinFocusableIds.includes(call.id));
         const neighborsById = new Map(pinCalls.map((call) => [call.id, call.neighbors ?? {}]));
 
-        expect(neighborsById.get('btn-profile-pin-7')?.down).toBe('btn-profile-pin-backspace');
+        expect(neighborsById.get('btn-profile-pin-back')?.down).toBe('btn-profile-pin-1');
+        expect(neighborsById.get('btn-profile-pin-1')?.up).toBe('btn-profile-pin-back');
+        expect(neighborsById.get('btn-profile-pin-7')?.down).toBe('btn-profile-pin-0');
         expect(neighborsById.get('btn-profile-pin-8')?.down).toBe('btn-profile-pin-0');
-        expect(neighborsById.get('btn-profile-pin-9')?.down).toBe('btn-profile-pin-cancel');
-        expect(neighborsById.get('btn-profile-pin-backspace')?.up).toBe('btn-profile-pin-7');
+        expect(neighborsById.get('btn-profile-pin-9')?.down).toBe('btn-profile-pin-backspace');
+        expect(neighborsById.get('btn-profile-pin-backspace')?.up).toBe('btn-profile-pin-9');
         expect(neighborsById.get('btn-profile-pin-0')?.up).toBe('btn-profile-pin-8');
-        expect(neighborsById.get('btn-profile-pin-cancel')?.up).toBe('btn-profile-pin-9');
+        expect(neighborsById.get('btn-profile-pin-cancel')?.up).toBe('btn-profile-pin-0');
     });
 
     it('does not render an unused PIN OK button', async () => {
@@ -1133,7 +1384,7 @@ describe('ProfileSelectScreen', () => {
         expect(container.querySelector('#btn-profile-pin-ok')).toBeNull();
     });
 
-    it('sets initial focus to 5 on PIN modal open', async () => {
+    it('sets initial focus to the first PIN digit on modal open', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
             { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
@@ -1151,7 +1402,80 @@ describe('ProfileSelectScreen', () => {
         const protectedButton = container.querySelector('#btn-profile-2') as HTMLButtonElement;
         protectedButton.click();
 
-        expect(nav.setFocus).toHaveBeenCalledWith('btn-profile-pin-5');
+        expect(nav.setFocus).toHaveBeenCalledWith('btn-profile-pin-1');
+    });
+
+    it('keeps Backspace disabled until a digit is entered and disables it again when emptied', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+
+        const backspace = container.querySelector('#btn-profile-pin-backspace') as HTMLButtonElement;
+        expect(backspace.disabled).toBe(true);
+        (container.querySelector('#btn-profile-pin-1') as HTMLButtonElement).click();
+        expect(backspace.disabled).toBe(false);
+        expect(container.querySelectorAll('.profile-pin-slot.filled')).toHaveLength(1);
+
+        backspace.click();
+        expect(backspace.disabled).toBe(true);
+        expect(container.querySelectorAll('.profile-pin-slot.filled')).toHaveLength(0);
+    });
+
+    it('disables PIN entry while checking and ignores a late result after modal cancellation', async () => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: true },
+        ];
+        const orchestrator = createOrchestratorStub(users);
+        const switchDeferred = createDeferred<void>();
+        orchestrator.switchHomeUser.mockReturnValue(switchDeferred.promise);
+        const writeLastProfileIdSpy = jest.spyOn(profileSessionStore, 'writeLastProfileId');
+        const nav = orchestrator.getNavigation();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        screen.show();
+        await settleScreen(screen);
+        (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
+        ['1', '2', '3', '4'].forEach((digit) => {
+            (container.querySelector(`#btn-profile-pin-${digit}`) as HTMLButtonElement).click();
+        });
+
+        const digits = Array.from(
+            container.querySelectorAll<HTMLButtonElement>('.profile-numpad-button:not(.numpad-action)')
+        );
+        expect(digits.every((button) => button.disabled)).toBe(true);
+        expect((container.querySelector('#btn-profile-pin-backspace') as HTMLButtonElement).disabled).toBe(true);
+        expect(container.querySelector('#profile-pin-desc')?.textContent).toBe('Checking PIN…');
+        expect(nav.setFocus).toHaveBeenCalledWith('btn-profile-pin-cancel');
+
+        (container.querySelector('#btn-profile-pin-cancel') as HTMLButtonElement).click();
+        const signal = (orchestrator.switchHomeUser.mock.calls[0]?.[1] as { signal: AbortSignal }).signal;
+        expect(signal.aborted).toBe(true);
+        switchDeferred.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        await jest.runAllTimersAsync();
+        await screen.whenIdle();
+
+        expect(writeLastProfileIdSpy).not.toHaveBeenCalledWith('2');
+        expect((container.querySelector('.profile-pin-modal') as HTMLElement).style.display).toBe('none');
     });
 
     it('retains PIN modal focus after a protected profile click', async () => {
@@ -1186,10 +1510,10 @@ describe('ProfileSelectScreen', () => {
             (container.querySelector('#btn-profile-2') as HTMLButtonElement).click();
 
             expect(navigation.getState().modalStack).toEqual(['profile-pin']);
-            expect(navigation.getState().focusedElementId).toBe('btn-profile-pin-5');
-            expect(container.querySelector('#btn-profile-pin-5')?.classList.contains('focused')).toBe(true);
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-pin-1');
+            expect(container.querySelector('#btn-profile-pin-1')?.classList.contains('focused')).toBe(true);
             expect(navigation.moveFocus('right')).toBe(true);
-            expect(navigation.getState().focusedElementId).toBe('btn-profile-pin-6');
+            expect(navigation.getState().focusedElementId).toBe('btn-profile-pin-2');
         } finally {
             screen.destroy();
             navigation.destroy();

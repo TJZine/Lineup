@@ -1,5 +1,6 @@
 import type {
     IPlexAuth,
+    PlexPinCancellationResult,
     PlexPinRequest,
 } from '../../../modules/plex/auth';
 
@@ -23,8 +24,8 @@ export class OrchestratorPlexAuthRuntime {
         return this._withPlexAuth('pollForPin').pollForPin(pinId, options);
     }
 
-    async cancelPin(pinId: number): Promise<void> {
-        await this._withPlexAuth('cancelPin').cancelPin(pinId);
+    async cancelPin(pinId: number): Promise<PlexPinCancellationResult> {
+        return this._withPlexAuth('cancelPin').cancelPin(pinId);
     }
 
     private _withPlexAuth(method: 'requestAuthPin' | 'pollForPin' | 'cancelPin'): IPlexAuth {

@@ -5,7 +5,6 @@ import { AppErrorCode } from '../../../types/app-errors';
 import { buildDeterministicButtonIds } from '../../../utils/domIds';
 import { sanitizeDiagnosticText } from '../../../utils/redact';
 import { createScreenShell } from '../common/ScreenShell';
-import { createLineupBrandGlyph } from '../common/brandGlyph';
 import type { ScreenStatus, ScreenTone } from '../types/screen-shell';
 import type { ProfileSessionStore } from '../../settings/ProfileSessionStore';
 import {
@@ -16,7 +15,7 @@ import {
 import { renderProfilePinUserHeader } from './ProfilePinUserHeader';
 
 const PIN_LENGTH = 4;
-const PROFILE_GRID_COLUMNS = 5;
+const MAX_PROFILE_GRID_COLUMNS = 5;
 const PIN_MODAL_ID = 'profile-pin';
 const PROFILE_TIP_DEFAULT = 'Tip: Set a PIN on the admin profile to prevent unwanted access.';
 const PROFILE_TIP_WITH_RESTRICTED = `${PROFILE_TIP_DEFAULT} "Restricted" labels are informational only.`;
@@ -31,6 +30,7 @@ export interface ProfileSelectScreenPorts {
 
 export class ProfileSelectScreen {
     private static readonly PIN_MODAL_FOCUSABLE_IDS = [
+        'btn-profile-pin-back',
         'btn-profile-pin-1',
         'btn-profile-pin-2',
         'btn-profile-pin-3',
@@ -40,8 +40,8 @@ export class ProfileSelectScreen {
         'btn-profile-pin-7',
         'btn-profile-pin-8',
         'btn-profile-pin-9',
-        'btn-profile-pin-backspace',
         'btn-profile-pin-0',
+        'btn-profile-pin-backspace',
         'btn-profile-pin-cancel',
     ] as const;
 
@@ -57,6 +57,11 @@ export class ProfileSelectScreen {
     private _signOutButton: HTMLButtonElement;
     private _focusableIds: string[] = [];
     private _userButtonIds: string[] = [];
+    private _profileGridColumns = MAX_PROFILE_GRID_COLUMNS;
+    private _profileGridMeasureEl: HTMLElement;
+    private _profileGridResizeObserver: ResizeObserver | null = null;
+    private _profileGridResizeHandler: (() => void) | null = null;
+    private _profileGridMutationObserver: MutationObserver | null = null;
     private _showMain = false;
     private _navKeyHandler: ((event: KeyEvent) => void) | null = null;
     private _isLoading: boolean = false;
@@ -89,17 +94,12 @@ export class ProfileSelectScreen {
     ) {
         this._container = container;
         this._ports = ports;
-        this._container.classList.add('screen', 'profile-select');
-
-        const heroGlyph = createLineupBrandGlyph({
-            variant: 'color',
-            className: 'profile-select-glyph',
-        });
+        this._container.classList.add('screen', 'onboarding-screen', 'profile-select');
 
         const shell = createScreenShell(this._container, {
+            variant: 'onboarding',
             title: "Who's watching?",
             subtitle: 'Choose a Plex Home profile to continue.',
-            heroSlot: heroGlyph,
             status: {
                 title: 'Loading profiles...',
                 tone: 'loading',
@@ -126,8 +126,6 @@ export class ProfileSelectScreen {
         });
         this._destroyScreenShell = shell.destroy;
         this._shellSetStatus = shell.setStatus;
-        shell.panelEl.classList.add('profile-panel');
-
         this._statusEl = shell.statusEl;
         this._errorEl = shell.errorEl;
         this._errorEl.setAttribute('role', 'alert');
@@ -135,9 +133,15 @@ export class ProfileSelectScreen {
 
         const list = document.createElement('div');
         list.className = 'profile-list';
-        list.style.setProperty('--profile-grid-columns', String(PROFILE_GRID_COLUMNS));
+        list.style.setProperty('--profile-grid-columns', String(MAX_PROFILE_GRID_COLUMNS));
         shell.contentEl.appendChild(list);
         this._listEl = list;
+
+        const gridMeasure = document.createElement('div');
+        gridMeasure.className = 'profile-grid-size-probe';
+        gridMeasure.setAttribute('aria-hidden', 'true');
+        shell.panelEl.appendChild(gridMeasure);
+        this._profileGridMeasureEl = gridMeasure;
 
         const tip = document.createElement('div');
         tip.className = 'profile-tip';
@@ -160,12 +164,20 @@ export class ProfileSelectScreen {
         modal.className = 'profile-pin-modal';
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-labelledby', 'profile-pin-title');
+        modal.setAttribute('aria-labelledby', 'profile-pin-title profile-pin-user-name');
         modal.setAttribute('aria-describedby', 'profile-pin-desc');
         modal.style.display = 'none';
 
         const modalCard = document.createElement('div');
         modalCard.className = 'profile-pin-card';
+
+        const backButton = document.createElement('button');
+        backButton.id = 'btn-profile-pin-back';
+        backButton.type = 'button';
+        backButton.className = 'profile-pin-back';
+        backButton.textContent = '‹ Back to Profiles';
+        backButton.addEventListener('click', () => this._closePinModal());
+        modalCard.appendChild(backButton);
 
         const userHeader = document.createElement('div');
         userHeader.className = 'profile-pin-user';
@@ -173,7 +185,7 @@ export class ProfileSelectScreen {
         this._pinUserEl = userHeader;
 
         const prompt = document.createElement('div');
-        prompt.className = 'profile-pin-title';
+        prompt.className = 'profile-pin-title sr-only';
         prompt.id = 'profile-pin-title';
         prompt.textContent = 'Enter PIN';
         modalCard.appendChild(prompt);
@@ -191,6 +203,15 @@ export class ProfileSelectScreen {
         }
         modalCard.appendChild(slots);
 
+        const pinError = document.createElement('div');
+        pinError.className = 'profile-pin-error profile-pin-status';
+        pinError.id = 'profile-pin-desc';
+        pinError.textContent = '';
+        pinError.setAttribute('role', 'status');
+        pinError.setAttribute('aria-live', 'polite');
+        modalCard.appendChild(pinError);
+        this._pinErrorEl = pinError;
+
         const numpad = document.createElement('div');
         numpad.className = 'profile-numpad';
         numpad.setAttribute('role', 'group');
@@ -200,20 +221,16 @@ export class ProfileSelectScreen {
             numpad.appendChild(createProfilePinDigitButton(digit, (value) => this._handlePinInput(value)));
         }
 
-        numpad.appendChild(createProfilePinBackspaceButton(() => this._handlePinBackspace()));
-
+        const emptyCell = document.createElement('span');
+        emptyCell.className = 'profile-numpad-spacer';
+        emptyCell.setAttribute('aria-hidden', 'true');
+        numpad.appendChild(emptyCell);
         numpad.appendChild(createProfilePinDigitButton(0, (value) => this._handlePinInput(value)));
+        const backspaceButton = createProfilePinBackspaceButton(() => this._handlePinBackspace());
+        backspaceButton.disabled = true;
+        numpad.appendChild(backspaceButton);
 
         modalCard.appendChild(numpad);
-
-        const pinError = document.createElement('div');
-        pinError.className = 'profile-pin-error';
-        pinError.id = 'profile-pin-desc';
-        pinError.textContent = '';
-        pinError.setAttribute('role', 'alert');
-        pinError.setAttribute('aria-live', 'assertive');
-        modalCard.appendChild(pinError);
-        this._pinErrorEl = pinError;
 
         const cancelButton = createProfilePinCancelButton(() => this._closePinModal());
         modalCard.appendChild(cancelButton);
@@ -237,6 +254,7 @@ export class ProfileSelectScreen {
         const generation = this._visibilityGeneration;
         this._container.style.display = 'flex';
         this._container.classList.add('visible');
+        this._startProfileGridResizeTracking();
         this._setStatus('Loading profiles...', { tone: 'loading' });
         this._clearError();
         this._registerKeyHandler();
@@ -258,7 +276,12 @@ export class ProfileSelectScreen {
     hide(): void {
         this._isVisible = false;
         this._visibilityGeneration += 1;
-        this._profileSwitchController?.abort();
+        this._stopProfileGridResizeTracking();
+        const pendingProfileSwitch = this._profileSwitchController;
+        this._profileSwitchController = null;
+        this._activeSwitchGeneration = null;
+        this._isSwitching = false;
+        pendingProfileSwitch?.abort();
         this._unregisterFocusables();
         this._unregisterKeyHandler();
         this._closePinModal();
@@ -372,7 +395,7 @@ export class ProfileSelectScreen {
             if (user.protected) {
                 const lock = document.createElement('span');
                 lock.className = 'profile-lock';
-                lock.textContent = 'PIN';
+                lock.textContent = 'PIN required';
                 lock.setAttribute('aria-label', 'PIN required');
                 badges.appendChild(lock);
             }
@@ -437,6 +460,9 @@ export class ProfileSelectScreen {
         this._activeSwitchGeneration = generation;
         try {
             await this._ports.useMainAccountProfile();
+            if (!this._canUpdateUi(generation) || this._activeSwitchGeneration !== generation) {
+                return;
+            }
             // Clear last-used hint — main account bypasses profile cards.
             this.profileSessionStore.writeLastProfileId(null);
         } catch (error) {
@@ -486,6 +512,7 @@ export class ProfileSelectScreen {
         this._ensureIdlePromise();
         this._isSwitching = true;
         this._activeSwitchGeneration = generation;
+        this._syncPinInputState();
         const controller = new AbortController();
         this._profileSwitchController = controller;
         try {
@@ -493,7 +520,12 @@ export class ProfileSelectScreen {
                 pin: pin ?? null,
                 signal: controller.signal,
             });
-            if (this._profileSwitchController !== controller || this._isDestroyed) {
+            if (
+                this._profileSwitchController !== controller
+                || controller.signal.aborted
+                || !this._canUpdateUi(generation)
+                || this._activeSwitchGeneration !== generation
+            ) {
                 return false;
             }
             this.profileSessionStore.writeLastProfileId(userId);
@@ -524,6 +556,13 @@ export class ProfileSelectScreen {
                     return false;
                 }
             }
+            if (pin && this._isPinOpen) {
+                this._pinErrorEl.textContent = 'Unable to switch profiles. Try again.';
+                this._pinErrorEl.setAttribute('role', 'alert');
+                this._pinErrorEl.setAttribute('aria-live', 'assertive');
+                this._pinErrorEl.classList.remove('pending');
+                this._pinModal.classList.remove('checking');
+            }
             this._handleError(error, 'Unable to switch profile.');
             return false;
         } finally {
@@ -532,6 +571,7 @@ export class ProfileSelectScreen {
                 if (this._activeSwitchGeneration === generation) {
                     this._isSwitching = false;
                     this._activeSwitchGeneration = null;
+                    this._syncPinInputState();
                 }
             }
             this._resolveIdleIfSettled();
@@ -547,21 +587,35 @@ export class ProfileSelectScreen {
         this._pinDigits = '';
         this._renderPinSlots();
         this._pinErrorEl.textContent = '';
-        this._pinPromptEl.textContent = `Enter PIN for ${user.title}`;
+        this._pinErrorEl.setAttribute('role', 'status');
+        this._pinErrorEl.setAttribute('aria-live', 'polite');
+        this._pinErrorEl.classList.remove('pending');
+        this._pinModal.classList.remove('checking');
+        this._pinPromptEl.textContent = 'Enter PIN';
         renderProfilePinUserHeader(this._pinUserEl, user);
 
         this._pinModal.style.display = 'flex';
         this._pinModal.classList.add('visible');
         this._isPinOpen = true;
+        this._syncPinInputState();
 
         const focusableIds = this._registerPinModalFocusables(nav);
         nav.openModal(PIN_MODAL_ID, focusableIds);
-        nav.setFocus('btn-profile-pin-5');
+        nav.setFocus('btn-profile-pin-1');
     }
 
     private _closePinModal(): void {
         if (!this._isPinOpen) return;
         const nav = this._ports.getNavigation();
+        const pendingController = this._profileSwitchController;
+        if (pendingController && this._isSwitching && this._pinTargetUser) {
+            this._profileSwitchController = null;
+            pendingController.abort();
+            this._isSwitching = false;
+            this._activeSwitchGeneration = null;
+            this._syncPinInputState();
+            this._resolveIdleIfSettled();
+        }
         if (nav) {
             nav.closeModal(PIN_MODAL_ID);
             this._unregisterPinModalFocusables(nav);
@@ -572,6 +626,10 @@ export class ProfileSelectScreen {
         this._pinTargetUser = null;
         this._isPinOpen = false;
         this._pinErrorEl.textContent = '';
+        this._pinErrorEl.setAttribute('role', 'status');
+        this._pinErrorEl.setAttribute('aria-live', 'polite');
+        this._pinErrorEl.classList.remove('pending');
+        this._pinModal.classList.remove('checking');
         this._pinSlotsWrapEl.classList.remove('error');
         this._pinUserEl.replaceChildren();
         this._renderPinSlots();
@@ -590,8 +648,17 @@ export class ProfileSelectScreen {
     private _handlePinInput(digit: string): void {
         if (!this._isPinOpen || this._isSwitching) return;
         if (this._pinDigits.length >= PIN_LENGTH) return;
+        if (this._pinErrorEl.textContent) {
+            this._pinErrorEl.textContent = '';
+            this._pinErrorEl.setAttribute('role', 'status');
+            this._pinErrorEl.setAttribute('aria-live', 'polite');
+            this._pinSlotsWrapEl.classList.remove('error');
+        }
+        this._pinErrorEl.classList.remove('pending');
+        this._pinModal.classList.remove('checking');
         this._pinDigits += digit;
         this._renderPinSlots();
+        this._syncPinInputState();
         const filledIndex = this._pinDigits.length - 1;
         const slot = this._pinSlots[filledIndex];
         if (slot) {
@@ -617,6 +684,7 @@ export class ProfileSelectScreen {
         if (this._pinDigits.length === 0) return;
         this._pinDigits = this._pinDigits.slice(0, -1);
         this._renderPinSlots();
+        this._syncPinInputState();
     }
 
     private async _submitPin(): Promise<void> {
@@ -625,18 +693,31 @@ export class ProfileSelectScreen {
         const pinToSubmit = this._pinDigits;
         this._pinDigits = '';
         this._renderPinSlots();
-        this._pinErrorEl.textContent = '';
+        this._pinErrorEl.textContent = 'Checking PIN…';
+        this._pinErrorEl.setAttribute('role', 'status');
+        this._pinErrorEl.setAttribute('aria-live', 'polite');
+        this._pinErrorEl.classList.add('pending');
+        this._pinModal.classList.add('checking');
         const ok = await this._switchUser(this._pinTargetUser.id, pinToSubmit, generation);
         if (ok && this._canUpdateUi(generation)) {
             this._closePinModal();
+            return;
+        }
+        if (this._isPinOpen && this._canUpdateUi(generation)) {
+            this._ports.getNavigation()?.setFocus('btn-profile-pin-1');
         }
     }
 
     private _handlePinError(message: string): void {
         if (!this._canUpdateUi()) return;
         this._pinErrorEl.textContent = message;
+        this._pinErrorEl.setAttribute('role', 'alert');
+        this._pinErrorEl.setAttribute('aria-live', 'assertive');
+        this._pinErrorEl.classList.remove('pending');
+        this._pinModal.classList.remove('checking');
         this._pinDigits = '';
         this._renderPinSlots();
+        this._syncPinInputState();
         this._pinSlotsWrapEl.classList.add('error');
         if (this._pinErrorTimeoutId !== null) {
             clearTimeout(this._pinErrorTimeoutId);
@@ -647,8 +728,32 @@ export class ProfileSelectScreen {
             this._pinErrorTimeoutId = null;
             this._resolveIdleIfSettled();
         }, 350);
+    }
+
+    private _syncPinInputState(): void {
+        if (!this._pinModal) return;
+
+        const switching = this._isSwitching;
+        this._pinModal.querySelectorAll<HTMLButtonElement>('.profile-numpad-button:not(.numpad-action)')
+            .forEach((button) => {
+                button.disabled = switching;
+            });
+
+        const backspace = this._pinModal.querySelector<HTMLButtonElement>('#btn-profile-pin-backspace');
+        if (backspace) {
+            backspace.disabled = switching || this._pinDigits.length === 0;
+        }
+
         const nav = this._ports.getNavigation();
-        nav?.setFocus('btn-profile-pin-5');
+        const focusedId = nav?.getState().focusedElementId ?? null;
+        const focusOnNumpad = focusedId?.startsWith('btn-profile-pin-')
+            && focusedId !== 'btn-profile-pin-cancel'
+            && focusedId !== 'btn-profile-pin-back';
+        if (switching && focusOnNumpad) {
+            nav?.setFocus('btn-profile-pin-cancel');
+        } else if (focusedId === 'btn-profile-pin-backspace' && backspace?.disabled) {
+            nav?.setFocus(switching ? 'btn-profile-pin-cancel' : 'btn-profile-pin-0');
+        }
     }
 
     private _hasPendingUiWork(): boolean {
@@ -694,13 +799,23 @@ export class ProfileSelectScreen {
         const focusableIds = ProfileSelectScreen.PIN_MODAL_FOCUSABLE_IDS.slice();
 
         const neighbors: Record<string, FocusableElement['neighbors']> = {
-            'btn-profile-pin-1': { right: 'btn-profile-pin-2', down: 'btn-profile-pin-4' },
+            'btn-profile-pin-back': { down: 'btn-profile-pin-1' },
+            'btn-profile-pin-1': {
+                up: 'btn-profile-pin-back',
+                right: 'btn-profile-pin-2',
+                down: 'btn-profile-pin-4',
+            },
             'btn-profile-pin-2': {
+                up: 'btn-profile-pin-back',
                 left: 'btn-profile-pin-1',
                 right: 'btn-profile-pin-3',
                 down: 'btn-profile-pin-5',
             },
-            'btn-profile-pin-3': { left: 'btn-profile-pin-2', down: 'btn-profile-pin-6' },
+            'btn-profile-pin-3': {
+                up: 'btn-profile-pin-back',
+                left: 'btn-profile-pin-2',
+                down: 'btn-profile-pin-6',
+            },
             'btn-profile-pin-4': {
                 up: 'btn-profile-pin-1',
                 right: 'btn-profile-pin-5',
@@ -716,7 +831,7 @@ export class ProfileSelectScreen {
             'btn-profile-pin-7': {
                 up: 'btn-profile-pin-4',
                 right: 'btn-profile-pin-8',
-                down: 'btn-profile-pin-backspace',
+                down: 'btn-profile-pin-0',
             },
             'btn-profile-pin-8': {
                 up: 'btn-profile-pin-5',
@@ -727,20 +842,22 @@ export class ProfileSelectScreen {
             'btn-profile-pin-9': {
                 up: 'btn-profile-pin-6',
                 left: 'btn-profile-pin-8',
-                down: 'btn-profile-pin-cancel',
+                down: 'btn-profile-pin-backspace',
             },
             'btn-profile-pin-backspace': {
-                up: 'btn-profile-pin-7',
-                right: 'btn-profile-pin-0',
+                up: 'btn-profile-pin-9',
+                left: 'btn-profile-pin-0',
+                down: 'btn-profile-pin-cancel',
             },
             'btn-profile-pin-0': {
                 up: 'btn-profile-pin-8',
-                left: 'btn-profile-pin-backspace',
-                right: 'btn-profile-pin-cancel',
+                left: 'btn-profile-pin-7',
+                right: 'btn-profile-pin-backspace',
+                down: 'btn-profile-pin-cancel',
             },
             'btn-profile-pin-cancel': {
-                up: 'btn-profile-pin-9',
-                left: 'btn-profile-pin-0',
+                up: 'btn-profile-pin-0',
+                left: 'btn-profile-pin-backspace',
             },
         };
 
@@ -765,7 +882,8 @@ export class ProfileSelectScreen {
         });
     }
 
-    private _registerFocusables(): void {
+    private _registerFocusables(options: { restoreFocus?: boolean } = {}): void {
+        this._updateProfileGridColumnCount();
         const nav = this._ports.getNavigation();
         if (!nav) return;
 
@@ -791,14 +909,14 @@ export class ProfileSelectScreen {
             const neighbors: FocusableElement['neighbors'] = {};
 
             if (isUserCard) {
-                const rowStart = Math.floor(index / PROFILE_GRID_COLUMNS) * PROFILE_GRID_COLUMNS;
+                const rowStart = Math.floor(index / this._profileGridColumns) * this._profileGridColumns;
                 const column = index - rowStart;
-                const previousRowStart = rowStart - PROFILE_GRID_COLUMNS;
-                const nextRowStart = rowStart + PROFILE_GRID_COLUMNS;
+                const previousRowStart = rowStart - this._profileGridColumns;
+                const nextRowStart = rowStart + this._profileGridColumns;
 
                 // Keep horizontal edges in their visual row instead of invoking spatial fallback.
                 neighbors.left = column > 0 ? this._userButtonIds[index - 1] ?? id : id;
-                neighbors.right = column < PROFILE_GRID_COLUMNS - 1 && index + 1 < userCount
+                neighbors.right = column < this._profileGridColumns - 1 && index + 1 < userCount
                     ? this._userButtonIds[index + 1] ?? id
                     : id;
 
@@ -806,7 +924,7 @@ export class ProfileSelectScreen {
                     neighbors.up = id;
                 } else {
                     const previousRowEnd = Math.min(
-                        previousRowStart + PROFILE_GRID_COLUMNS - 1,
+                        previousRowStart + this._profileGridColumns - 1,
                         userCount - 1
                     );
                     const previousRowIndex = Math.min(previousRowStart + column, previousRowEnd);
@@ -816,7 +934,7 @@ export class ProfileSelectScreen {
                 if (nextRowStart >= userCount) {
                     neighbors.down = firstActionId;
                 } else {
-                    const nextRowEnd = Math.min(nextRowStart + PROFILE_GRID_COLUMNS - 1, userCount - 1);
+                    const nextRowEnd = Math.min(nextRowStart + this._profileGridColumns - 1, userCount - 1);
                     const nextRowIndex = Math.min(nextRowStart + column, nextRowEnd);
                     neighbors.down = this._userButtonIds[nextRowIndex] ?? firstActionId;
                 }
@@ -847,6 +965,8 @@ export class ProfileSelectScreen {
             nav.registerFocusable(focusable);
         });
 
+        if (options.restoreFocus === false) return;
+
         const preferredId = this._userButtonIds[0] ?? (showMain ? this._mainButton.id : this._signOutButton.id);
         if (nav.restoreFocusForCurrentScreen()) {
             return;
@@ -854,6 +974,74 @@ export class ProfileSelectScreen {
         if (preferredId) {
             nav.setFocus(preferredId, { persist: false });
         }
+    }
+
+    private _updateProfileGridColumnCount(): boolean {
+        const listStyle = window.getComputedStyle(this._listEl);
+        const minimumColumnWidth = this._profileGridMeasureEl.getBoundingClientRect().width;
+        const outerWidth = this._listEl.clientWidth;
+        if (!Number.isFinite(minimumColumnWidth) || minimumColumnWidth <= 0 || outerWidth <= 0) {
+            return false;
+        }
+
+        const parseStyleLength = (value: string): number => {
+            const parsed = Number.parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+        };
+        const gap = parseStyleLength(listStyle.columnGap);
+        const padding = parseStyleLength(listStyle.paddingLeft) + parseStyleLength(listStyle.paddingRight);
+        const availableWidth = Math.max(0, outerWidth - padding);
+        const fittedColumns = Math.floor((availableWidth + gap) / (minimumColumnWidth + gap));
+        const nextColumns = Math.max(1, Math.min(MAX_PROFILE_GRID_COLUMNS, fittedColumns));
+        if (nextColumns === this._profileGridColumns) return false;
+
+        this._profileGridColumns = nextColumns;
+        this._listEl.style.setProperty('--profile-grid-columns', String(nextColumns));
+        return true;
+    }
+
+    private _handleProfileGridResize(): void {
+        if (!this._canUpdateUi() || !this._updateProfileGridColumnCount()) return;
+        this._registerFocusables({ restoreFocus: false });
+    }
+
+    private _startProfileGridResizeTracking(): void {
+        this._stopProfileGridResizeTracking();
+        if (typeof ResizeObserver !== 'undefined') {
+            this._profileGridResizeObserver = new ResizeObserver(() => {
+                this._handleProfileGridResize();
+            });
+            this._profileGridResizeObserver.observe(this._listEl);
+            this._profileGridResizeObserver.observe(this._profileGridMeasureEl);
+            return;
+        }
+
+        const handleResize = (): void => this._handleProfileGridResize();
+        window.addEventListener('resize', handleResize);
+        this._profileGridResizeHandler = handleResize;
+        if (typeof MutationObserver === 'undefined') return;
+
+        this._profileGridMutationObserver = new MutationObserver(handleResize);
+        let layoutAncestor = this._listEl.parentElement;
+        while (layoutAncestor) {
+            this._profileGridMutationObserver.observe(layoutAncestor, {
+                attributes: true,
+                attributeFilter: ['class', 'style'],
+            });
+            if (layoutAncestor === document.documentElement) break;
+            layoutAncestor = layoutAncestor.parentElement;
+        }
+    }
+
+    private _stopProfileGridResizeTracking(): void {
+        this._profileGridResizeObserver?.disconnect();
+        this._profileGridResizeObserver = null;
+        if (this._profileGridResizeHandler) {
+            window.removeEventListener('resize', this._profileGridResizeHandler);
+            this._profileGridResizeHandler = null;
+        }
+        this._profileGridMutationObserver?.disconnect();
+        this._profileGridMutationObserver = null;
     }
 
     private _unregisterFocusables(): void {

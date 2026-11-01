@@ -26,6 +26,7 @@ import { NavigationCoordinator } from '../../modules/navigation/coordinator/Navi
 import {
     type IPlexAuth,
     type PlexPinRequest,
+    type PlexPinCancellationResult,
     type PlexHomeUser,
 } from '../../modules/plex/auth';
 import {
@@ -1112,8 +1113,8 @@ export class AppOrchestrator {
         return this._plexAuthRuntime.pollForPin(pinId, options);
     }
 
-    async cancelPin(pinId: number): Promise<void> {
-        await this._plexAuthRuntime.cancelPin(pinId);
+    async cancelPin(pinId: number): Promise<PlexPinCancellationResult> {
+        return this._plexAuthRuntime.cancelPin(pinId);
     }
 
     async getHomeUsers(options?: { signal?: AbortSignal | null }): Promise<PlexHomeUser[]> {

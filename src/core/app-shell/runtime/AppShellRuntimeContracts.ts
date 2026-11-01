@@ -1,6 +1,6 @@
 import type { INavigationManager, Screen } from '../../../modules/navigation';
 import type { AppError, LifecycleAppError, LifecycleEventMap } from '../../../modules/lifecycle/types';
-import type { PlexHomeUser, PlexPinRequest } from '../../../modules/plex/auth';
+import type { PlexHomeUser, PlexPinCancellationResult, PlexPinRequest } from '../../../modules/plex/auth';
 import type {
     PlexServer,
     PlexServerSelectionFailureReason,
@@ -33,7 +33,7 @@ export interface AppShellNavigationRuntimePort {
 export interface AppShellAuthRuntimePort {
     requestAuthPin(options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
     pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
-    cancelPin(pinId: number): Promise<void>;
+    cancelPin(pinId: number): Promise<PlexPinCancellationResult>;
 }
 
 export interface AppShellProfileRuntimePort {
