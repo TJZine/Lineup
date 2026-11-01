@@ -5,14 +5,9 @@
 import { SettingsStore } from '../SettingsStore';
 import type { SettingsStoreOptions } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS, DEFAULT_SETTINGS } from '../constants';
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 import type { DeveloperSettingsStore } from '../../../settings/DeveloperSettingsStore';
 import { EPG_PAST_ITEMS_WINDOWS } from '../../../settings/EpgPreferencesStore';
-
-const SUBTITLE_OPTIONS = [
-    { code: null },
-    { code: 'en' },
-    { code: 'es' },
-] as const;
 
 const TRANSCODE_OPTIONS = [
     { storageValue: '' },
@@ -117,7 +112,7 @@ describe('SettingsStore', () => {
         expect(delegatedStore.readHdr10FallbackModeValueAndClean()).toBe(2);
         delegatedStore.writeHdr10FallbackModeValue(1);
 
-        expect(playbackSettingsStore.readHdr10FallbackModeValueAndClean).toHaveBeenCalledTimes(1);
+        expect(playbackSettingsStore.readHdr10FallbackModeValueAndClean).toHaveBeenCalled();
         expect(playbackSettingsStore.writeHdr10FallbackModeValue).toHaveBeenCalledWith(1);
         expect(playbackSettingsStore.readSmartHdr10FallbackEnabledAndClean).not.toHaveBeenCalled();
         expect(playbackSettingsStore.readForceHdr10FallbackEnabledAndClean).not.toHaveBeenCalled();
@@ -173,34 +168,142 @@ describe('SettingsStore', () => {
         );
     });
 
-    it('reads EPG guide density and removes invalid persisted values', () => {
-        expect(store.readEpgGuideDensityValueAndClean()).toBe(0);
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+    it('exposes typed Guide hours and defers legacy density removal until consumer cutover', () => {
+        localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
 
-        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
-        expect(store.readEpgGuideDensityValueAndClean()).toBe(1);
+        expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 3, source: 'legacy' });
+        expect(store.writeGuideHours(4)).toEqual({ ok: true, value: 4 });
+        expect(store.readGuideHoursAndMigrate()).toEqual({ ok: true, value: 4, source: 'stored' });
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBe('wide');
+        expect(store.writeGuideHours(5 as 2 | 3 | 4)).toEqual({
+            ok: false,
+            reason: 'invalid-value',
+            effectiveValue: 4,
+        });
+        expect(store.writeOverlayTransparency('opaque' as 'standard')).toEqual({
+            ok: false,
+            reason: 'invalid-value',
+            effectiveValue: 'standard',
+        });
+        expect(store.writeCompactControlsTimeoutSeconds(7 as 2 | 4 | 6 | 8 | 10 | 15)).toEqual({
+            ok: false,
+            reason: 'invalid-value',
+            effectiveValue: 4,
+        });
 
-        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'detailed');
-        expect(store.readEpgGuideDensityValueAndClean()).toBe(0);
+        expect(store.completeGuideHoursMigrationAfterConsumerCutover()).toEqual({
+            ok: true,
+            value: 4,
+            legacyRemoved: true,
+        });
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('4');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+    });
 
-        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'bogus');
-        expect(store.readEpgGuideDensityValueAndClean()).toBe(0);
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+    it('keeps new defaults and opt-in values independent from existing debug and artwork settings', () => {
+        expect(DEFAULT_SETTINGS.display.overlayTransparency).toBe('standard');
+        expect(DEFAULT_SETTINGS.guide.guideHours).toBe(2);
+        expect(DEFAULT_SETTINGS.guide.sourceLabelsEnabled).toBe(false);
+        expect(DEFAULT_SETTINGS.playback.compactControlsTimeoutSeconds).toBe(4);
+        expect(DEFAULT_SETTINGS.accessibility).toEqual({ reduceMotion: false, largeFocus: false });
+        expect(DEFAULT_SETTINGS.support.reportCollectionOptIn).toBe(false);
+
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE, '2');
+        expect(store.readOverlayTransparencyAndClean()).toBe('standard');
+        expect(store.writeOverlayTransparency('reduced')).toEqual({ ok: true, value: 'reduced' });
+        expect(store.writeCompactControlsTimeoutSeconds(15)).toEqual({ ok: true, value: 15 });
+        expect(store.writeToggleSetting('epgSourceLabelsEnabled', true)).toEqual({ ok: true, value: true });
+        expect(store.writeToggleSetting('reduceMotion', true)).toEqual({ ok: true, value: true });
+        expect(store.writeToggleSetting('largeFocus', true)).toEqual({ ok: true, value: true });
+        expect(store.writeToggleSetting('supportReportOptIn', true)).toEqual({ ok: true, value: true });
+
+        expect(store.readOverlayTransparencyAndClean()).toBe('reduced');
+        expect(store.readCompactControlsTimeoutSecondsAndClean()).toBe(15);
+        expect(store.readToggleSettingAndClean('epgSourceLabelsEnabled')).toBe(true);
+        expect(store.readToggleSettingAndClean('reduceMotion')).toBe(true);
+        expect(store.readToggleSettingAndClean('largeFocus')).toBe(true);
+        expect(store.readToggleSettingAndClean('supportReportOptIn')).toBe(true);
+        expect(store.readToggleSettingAndClean('debugLogging')).toBe(false);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_INFO_BACKGROUND_MODE)).toBe('2');
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SUPPORT_REPORT_OPT_IN)).toBe('1');
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.DEBUG_LOGGING)).toBeNull();
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.ISSUE_DIAGNOSTICS_LOG)).toBeNull();
+    });
+
+    it('returns the prior effective value when a single-setting write fails', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.DIRECT_PLAY_AUDIO_FALLBACK, '0');
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('blocked', 'SecurityError');
+        });
+
+        expect(store.writeToggleSetting('directPlayAudioFallback', true)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            effectiveValue: false,
+        });
+    });
+
+    it('reports HDR partial-write state after compensation through SettingsStore', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.SMART_HDR10_FALLBACK, '0');
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK, '1');
+        const originalSetItem = Storage.prototype.setItem;
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value): void {
+            if (key === SETTINGS_STORAGE_KEYS.FORCE_HDR10_FALLBACK && value === '0') {
+                throw new DOMException('blocked', 'SecurityError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+
+        expect(store.writeHdr10FallbackModeValue(1)).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            effectiveValue: 2,
+        });
+        expect(store.readHdr10FallbackModeValueAndClean()).toBe(2);
     });
 
     it('normalizes subtitle language aliases and preserves values outside the UI option list', () => {
         localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, ' EN ');
-        expect(store.readSubtitleLanguageValueAndClean(SUBTITLE_OPTIONS)).toBe(1);
+        expect(store.readSubtitleLanguageAndClean()).toBe('en');
 
         localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, ' eng ');
-        expect(store.readSubtitleLanguageValueAndClean(SUBTITLE_OPTIONS)).toBe(1);
+        expect(store.readSubtitleLanguageAndClean()).toBe('en');
 
         localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, 'Spanish');
-        expect(store.readSubtitleLanguageValueAndClean(SUBTITLE_OPTIONS)).toBe(2);
+        expect(store.readSubtitleLanguageAndClean()).toBe('es');
 
         localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, 'zz');
-        expect(store.readSubtitleLanguageValueAndClean(SUBTITLE_OPTIONS)).toBe(0);
+        expect(store.readSubtitleLanguageAndClean()).toBe('zz');
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBe('zz');
+
+        expect(store.writeSubtitleLanguage(null)).toEqual({ ok: true, value: null });
+        expect(store.readSubtitleLanguageAndClean()).toBeNull();
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBeNull();
+    });
+
+    it('reports the retained unlisted subtitle language when a write fails and normalizes successful writes', () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, 'zz');
+        const originalSetItem = Storage.prototype.setItem;
+        const setItemSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value): void {
+            if (key === SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE) {
+                throw new DOMException('blocked', 'SecurityError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+
+        expect(store.writeSubtitleLanguage('es')).toEqual({
+            ok: false,
+            reason: 'unavailable',
+            effectiveValue: 'zz',
+        });
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBe('zz');
+
+        setItemSpy.mockRestore();
+        const reopenedStore = new SettingsStore();
+        expect(reopenedStore.readSubtitleLanguageAndClean()).toBe('zz');
+
+        expect(reopenedStore.writeSubtitleLanguage(' ENG ')).toEqual({ ok: true, value: 'en' });
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE)).toBe('en');
     });
 
     it('normalizes transcode quality and removes unknown persisted values', () => {
@@ -220,33 +323,6 @@ describe('SettingsStore', () => {
         expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.TRANSCODE_QUALITY)).toBeNull();
     });
 
-    it('clamps now-playing auto-hide values and rewrites fallback when persisted value is invalid', () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, '1234');
-
-        const value = store.readClampedNowPlayingAutoHideValueAndClean([0, 5000, 10000], 0);
-
-        expect(value).toBe(0);
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('0');
-    });
-
-    it('uses fallback when persisted now-playing auto-hide value is non-numeric and validates fallback against options', () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, 'bogus');
-
-        const value = store.readClampedNowPlayingAutoHideValueAndClean([0, 5000], 5000);
-
-        expect(value).toBe(5000);
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('5000');
-    });
-
-    it('chooses a safe default when fallback is not in validOptions', () => {
-        localStorage.setItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS, 'bogus');
-
-        const value = store.readClampedNowPlayingAutoHideValueAndClean([5000], 1234);
-
-        expect(value).toBe(5000);
-        expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.NOW_PLAYING_INFO_AUTO_HIDE_MS)).toBe('5000');
-    });
-
     it('semantic toggle methods remain non-fatal when storage is blocked', () => {
         const getSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
             throw new DOMException('Blocked', 'SecurityError');
@@ -260,6 +336,7 @@ describe('SettingsStore', () => {
         expect(store.writeToggleSetting('debugLogging', true)).toEqual({
             ok: false,
             reason: 'unavailable',
+            effectiveValue: DEFAULT_SETTINGS.developer.debugLogging,
         });
 
         getSpy.mockRestore();

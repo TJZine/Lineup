@@ -1,291 +1,155 @@
-/**
- * @jest-environment jsdom
- */
+/** @jest-environment jsdom */
+
+import { LINEUP_STORAGE_KEYS } from '../../../../config/storageKeys';
 
 import { SettingsScreenStateController } from '../SettingsScreenStateController';
 import { SettingsStore } from '../SettingsStore';
 import { SETTINGS_STORAGE_KEYS } from '../constants';
 import type { SettingsSelectConfig, SettingsToggleConfig } from '../types';
-import * as ConfigEvents from '../../../../config/events';
-import { SubtitlePreferencesStore } from '../../../settings/SubtitlePreferencesStore';
-import { EPG_PAST_ITEMS_WINDOWS } from '../../../settings/EpgPreferencesStore';
-import { THEME_OPTIONS } from '../../theme/themeDefinitions';
 import { SUPPORTED_SUBTITLE_LANGUAGES } from '../../../../shared/subtitle-language';
 
-beforeEach(() => {
-    localStorage.clear();
-    jest.restoreAllMocks();
-});
+const controller = (options: ConstructorParameters<typeof SettingsScreenStateController>[0] = {}): SettingsScreenStateController =>
+    new SettingsScreenStateController({ settingsStore: new SettingsStore(), ...options });
 
-it('reads current theme from injected runtime callback and writes via injected setter', () => {
-    const setTheme = jest.fn(() => ({ ok: true } as const));
-    const getTheme = jest.fn((): 'swiss' => 'swiss');
-    const controller = new SettingsScreenStateController({
-        settingsStore: new SettingsStore(),
-        getTheme,
-        setTheme,
-    });
+const select = (state: SettingsScreenStateController, categoryId: string, id: string): SettingsSelectConfig => {
+    const item = state.getCategories().find((category) => category.id === categoryId)?.items.find((entry) => entry.id === id);
+    if (!item || !('options' in item)) throw new Error(`Missing select ${id}`);
+    return item;
+};
 
-    const categories = controller.getCategories();
-    const appearanceCategory = categories.find((category) => category.id === 'appearance');
-    const themeSelect = appearanceCategory?.items.find((item) => item.id === 'settings-theme');
+const toggle = (state: SettingsScreenStateController, categoryId: string, id: string): SettingsToggleConfig => {
+    const item = state.getCategories().find((category) => category.id === categoryId)?.items.find((entry) => entry.id === id);
+    if (!item || !('onChange' in item) || 'options' in item) throw new Error(`Missing toggle ${id}`);
+    return item;
+};
 
-    if (!themeSelect || !('options' in themeSelect)) {
-        throw new Error('Theme item not found');
-    }
+beforeEach(() => { localStorage.clear(); jest.restoreAllMocks(); });
 
-    expect(themeSelect.value).toBe(THEME_OPTIONS.findIndex((option) => option.theme === 'swiss'));
-    expect(getTheme).toHaveBeenCalledTimes(1);
-
-    (themeSelect as SettingsSelectConfig).onChange(0);
-    expect(setTheme).toHaveBeenCalledWith('ember-steel');
-});
-
-it('builds the current settings categories from persisted state', () => {
-    localStorage.setItem(SETTINGS_STORAGE_KEYS.EPG_LAYOUT_MODE, 'overlay');
-    localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_MODE, 'off');
-    localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, 'es');
-    localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_PREFER_FORCED, '1');
-
-    const controller = new SettingsScreenStateController({ settingsStore: new SettingsStore() });
-    const categories = controller.getCategories();
-
+it('composes seven categories and retires obsolete rows', () => {
+    const categories = controller().getCategories();
     expect(categories.map((category) => category.id)).toEqual([
-        'audio_subtitles',
-        'playback_hdr',
-        'appearance',
-        'account',
-        'developer',
+        'appearance', 'guide', 'playback', 'audio_subtitles', 'accessibility', 'account', 'support',
     ]);
-
-    const audioCategory = categories.find((category) => category.id === 'audio_subtitles');
-    const subtitleMode = audioCategory?.items.find((item) => item.id === 'settings-subtitle-mode');
-    const subtitleLanguage = audioCategory?.items.find((item) => item.id === 'settings-subtitle-language');
-    const preferForced = audioCategory?.items.find((item) => item.id === 'settings-subtitles-prefer-forced');
-
-    expect(subtitleMode?.value).toBe(0);
-    expect(subtitleLanguage?.value).toBe(2);
-    expect(subtitleLanguage?.disabled).toBe(true);
-    expect(preferForced?.disabled).toBe(true);
+    const ids = categories.flatMap((category) => category.items.map((item) => item.id));
+    expect(ids).toContain('settings-guide-hours');
+    expect(ids).toContain('settings-overlay-transparency');
+    expect(ids).toContain('settings-compact-controls-timeout');
+    expect(ids).not.toContain('settings-epg-layout-mode');
+    expect(ids).not.toContain('settings-cinematic-now-playing');
+    expect(ids).not.toContain('settings-now-playing-timeout');
+    expect(ids).not.toContain('settings-epg-density');
 });
 
-it('derives subtitle language options from the shared language contract while preserving Auto first', () => {
-    const controller = new SettingsScreenStateController({ settingsStore: new SettingsStore() });
-    const audioCategory = controller.getCategories().find((category) => category.id === 'audio_subtitles');
-    const subtitleLanguage = audioCategory?.items.find((item) => item.id === 'settings-subtitle-language');
-
-    if (!subtitleLanguage || !('options' in subtitleLanguage)) {
-        throw new Error('Subtitle language item not found');
-    }
-
-    expect((subtitleLanguage as SettingsSelectConfig).options).toEqual([
-        { label: 'Auto (Plex)', value: 0 },
-        ...SUPPORTED_SUBTITLE_LANGUAGES.map((language, index) => ({
-            label: language.label,
-            value: index + 1,
-        })),
-    ]);
+it('offers Manage channels in Guide when the app supplies the route action', () => {
+    const onManageChannels = jest.fn();
+    const guide = controller({ onManageChannels }).getCategories().find(category => category.id === 'guide');
+    const action = guide?.items.find(item => item.id === 'settings-manage-channels');
+    if (!action || !('action' in action)) throw new Error('Missing Manage channels action');
+    action.action();
+    expect(onManageChannels).toHaveBeenCalledTimes(1);
 });
 
-it('labels HDR fallback preferred mode as direct-play-first and force mode as HLS/transcode-oriented', () => {
-    const controller = new SettingsScreenStateController({ settingsStore: new SettingsStore() });
-    const playbackCategory = controller.getCategories().find((category) => category.id === 'playback_hdr');
-    const hdrFallback = playbackCategory?.items.find((item) => item.id === 'settings-hdr10-fallback-mode');
-
-    if (!hdrFallback || !('options' in hdrFallback)) {
-        throw new Error('HDR fallback item not found');
-    }
-
-    expect(hdrFallback.description).toContain('Prefer HDR10 hides DV for direct-play');
-    expect(hdrFallback.description).toContain('Force requests HLS/transcode');
-    expect((hdrFallback as SettingsSelectConfig).options).toEqual([
-        { label: 'Off', value: 0 },
-        { label: 'Prefer HDR10 (Direct Play)', value: 1 },
-        { label: 'Force HLS/Transcode', value: 2 },
-    ]);
+it('preserves semantic subtitle language and disables only dependent rows when mode is Off', () => {
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_MODE, 'off');
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, 'zz');
+    const state = controller();
+    const language = select(state, 'audio_subtitles', 'settings-subtitle-language');
+    expect(language.value).toBe(SUPPORTED_SUBTITLE_LANGUAGES.length + 1);
+    expect(language.options.at(-1)?.label).toBe('Saved preference (zz)');
+    expect(language.disabled).toBe(true);
+    expect(toggle(state, 'audio_subtitles', 'settings-subtitles-prefer-forced').disabled).toBe(true);
+    expect(toggle(state, 'audio_subtitles', 'settings-dts-passthrough').disabled).toBeUndefined();
+    expect(toggle(state, 'audio_subtitles', 'settings-direct-play-audio-fallback').disabled).toBeUndefined();
 });
 
-it('writes subtitle mode, emits subtitle callback, and invalidates state', () => {
-    const onSubtitleModeChange = jest.fn();
-    const onStateInvalidated = jest.fn();
+it('keeps an unlisted saved subtitle language after a failed save and reopen', () => {
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_MODE, 'full');
+    localStorage.setItem(SETTINGS_STORAGE_KEYS.SUBTITLE_LANGUAGE, 'zz');
+    const state = controller();
+    const storageWrite = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    const result = select(state, 'audio_subtitles', 'settings-subtitle-language').onChange(2);
+    expect(result).toMatchObject({ ok: false, effectiveValue: SUPPORTED_SUBTITLE_LANGUAGES.length + 1 });
+    storageWrite.mockRestore();
+    expect(select(controller(), 'audio_subtitles', 'settings-subtitle-language').value).toBe(SUPPORTED_SUBTITLE_LANGUAGES.length + 1);
+});
 
-    const controller = new SettingsScreenStateController({
-        settingsStore: new SettingsStore(),
-        onSubtitleModeChange,
-        onStateInvalidated,
+it('applies keep-running policy only after a successful saved write', () => {
+    const apply = jest.fn();
+    const state = controller({ onKeepPlayingInSettingsChange: apply });
+    expect(toggle(state, 'playback', 'settings-keep-playing').onChange(true)).toEqual({ ok: true });
+    expect(apply).toHaveBeenCalledWith(true);
+    const storageWrite = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    expect(toggle(state, 'playback', 'settings-keep-playing').onChange(false).ok).toBe(false);
+    expect(apply).toHaveBeenCalledTimes(1);
+    storageWrite.mockRestore();
+});
+
+it('returns the effective theme on failure and offers a retry action', () => {
+    const retry = jest.fn(() => ({ ok: true as const, effectiveValue: 'ember-steel' as const, migration: null }));
+    const state = controller({
+        getTheme: () => 'ember-steel',
+        getThemePersistenceResult: () => ({ ok: false, effectiveValue: 'ember-steel', migration: 'glass-to-ember-steel', reason: 'unavailable', retryable: true }),
+        setTheme: () => ({ ok: false, effectiveValue: 'ember-steel', migration: 'glass-to-ember-steel', reason: 'unavailable', retryable: true }),
+        retryThemePersistence: retry,
     });
-
-    const categories = controller.getCategories();
-    const audioCategory = categories.find((category) => category.id === 'audio_subtitles');
-    const subtitleMode = audioCategory?.items.find((item) => item.id === 'settings-subtitle-mode');
-
-    if (!subtitleMode || !('options' in subtitleMode)) {
-        throw new Error('Subtitle mode item not found');
-    }
-
-    (subtitleMode as SettingsSelectConfig).onChange(0);
-
-    expect(new SubtitlePreferencesStore().readSubtitleModeAndClean()).toBe('off');
-    expect(onSubtitleModeChange).toHaveBeenCalledWith('off');
-    expect(onStateInvalidated).toHaveBeenCalledTimes(1);
+    const result = select(state, 'appearance', 'settings-theme').onChange(1);
+    expect(result).toMatchObject({ ok: false, effectiveValue: 0 });
+    const retryRow = state.getCategories()[0]?.items.find((item) => item.id === 'settings-theme-retry');
+    if (!retryRow || !('action' in retryRow)) throw new Error('Missing retry action');
+    retryRow.action();
+    expect(retry).toHaveBeenCalledTimes(1);
 });
 
-it('does not apply subtitle runtime effects when persistence fails', () => {
-    const settingsStore = new SettingsStore();
-    jest.spyOn(settingsStore, 'writeSubtitleMode').mockReturnValue({ ok: false, reason: 'unavailable' });
-    const onSubtitleModeChange = jest.fn();
-    const onStateInvalidated = jest.fn();
-    const controller = new SettingsScreenStateController({
-        settingsStore,
-        onSubtitleModeChange,
-        onStateInvalidated,
-    });
-    const subtitleMode = controller.getCategories()
-        .find((category) => category.id === 'audio_subtitles')
-        ?.items.find((item) => item.id === 'settings-subtitle-mode') as SettingsSelectConfig;
-
-    expect(subtitleMode.onChange(0)).toEqual({
-        ok: false,
-        message: 'Could not save this setting. Check device storage and try again.',
-    });
-    expect(onSubtitleModeChange).not.toHaveBeenCalled();
-    expect(onStateInvalidated).not.toHaveBeenCalled();
+it('keeps runtime overlay and accessibility attributes at saved values after failures', () => {
+    const overlay = jest.fn();
+    const accessibility = jest.fn();
+    const state = controller({ onOverlayTransparencyChange: overlay, onAccessibilityChange: accessibility });
+    const storageWrite = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    expect(select(state, 'appearance', 'settings-overlay-transparency').onChange(0).ok).toBe(false);
+    expect(toggle(state, 'accessibility', 'settings-large-focus').onChange(true).ok).toBe(false);
+    expect(overlay).not.toHaveBeenCalled();
+    expect(accessibility).not.toHaveBeenCalled();
+    storageWrite.mockRestore();
+    expect(select(state, 'appearance', 'settings-overlay-transparency').onChange(0)).toEqual({ ok: true });
+    expect(toggle(state, 'accessibility', 'settings-large-focus').onChange(true)).toEqual({ ok: true });
+    expect(overlay).toHaveBeenCalledWith('more-transparent');
+    expect(accessibility).toHaveBeenCalledWith('largeFocus', true);
 });
 
-it('writes layout mode and emits the guide layout change', () => {
-    const settingsStore = new SettingsStore();
-    const writeSpy = jest.spyOn(settingsStore, 'writeEpgLayoutModeValue');
+it('shows guide migration failure without claiming four-hour behavior on old density', () => {
+    localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+    expect(select(controller(), 'guide', 'settings-guide-hours').value).toBe(1);
+});
+
+it('offers retry for a failed Guide Hours migration when the effective value is already selected', () => {
+    localStorage.setItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY, 'wide');
+    const storageWrite = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('blocked', 'SecurityError'); });
+    const state = controller();
+    const retryRow = state.getCategories().find((category) => category.id === 'guide')?.items.find((item) => item.id === 'settings-guide-hours-retry');
+    if (!retryRow || !('action' in retryRow)) throw new Error('Missing migration retry');
+    expect(select(state, 'guide', 'settings-guide-hours').value).toBe(1);
+    storageWrite.mockRestore();
+    retryRow.action();
+    expect(localStorage.getItem(SETTINGS_STORAGE_KEYS.EPG_GUIDE_HOURS)).toBe('3');
+    expect(localStorage.getItem(LINEUP_STORAGE_KEYS.EPG_GUIDE_DENSITY)).toBeNull();
+});
+
+it('publishes Guide hours and source labels only after successful persistence', () => {
     const onGuideSettingChange = jest.fn();
+    const state = controller({ onGuideSettingChange });
+    const hours = select(state, 'guide', 'settings-guide-hours');
+    const labels = toggle(state, 'guide', 'settings-epg-source-labels');
 
-    const controller = new SettingsScreenStateController({
-        settingsStore,
-        onGuideSettingChange,
+    const blockedWrite = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('blocked', 'SecurityError');
     });
-
-    const categories = controller.getCategories();
-    const appearanceCategory = categories.find((category) => category.id === 'appearance');
-    const layoutMode = appearanceCategory?.items.find((item) => item.id === 'settings-epg-layout-mode');
-
-    if (!layoutMode || !('options' in layoutMode)) {
-        throw new Error('Guide layout item not found');
-    }
-
-    (layoutMode as SettingsSelectConfig).onChange(0);
-
-    expect(writeSpy).toHaveBeenCalledWith(0);
-    expect(onGuideSettingChange).toHaveBeenCalledWith({ key: 'layoutMode', mode: 'overlay' });
-});
-
-it('writes past-items window values using the shared EPG preference contract', () => {
-    const onGuideSettingChange = jest.fn();
-
-    const controller = new SettingsScreenStateController({
-        settingsStore: new SettingsStore(),
-        onGuideSettingChange,
-    });
-
-    const categories = controller.getCategories();
-    const appearanceCategory = categories.find((category) => category.id === 'appearance');
-    const pastItems = appearanceCategory?.items.find((item) => item.id === 'settings-epg-past-items');
-
-    if (!pastItems || !('options' in pastItems)) {
-        throw new Error('Past items item not found');
-    }
-
-    expect(pastItems.description).toBe(
-        'Auto keeps the current slot for shows and at least 15 min for movies'
-    );
-    expect((pastItems as SettingsSelectConfig).options.map((option) => option.label)).toEqual([
-        'Auto (Recommended)',
-        'Current slot',
-        'At least 15 min',
-        'At least 30 min',
-    ]);
-
-    (pastItems as SettingsSelectConfig).onChange(2);
-
-    expect(onGuideSettingChange).toHaveBeenCalledWith({
-        key: 'pastItemsWindow',
-        value: EPG_PAST_ITEMS_WINDOWS[2],
-    });
-});
-
-it('writes debug logging and dispatches the shared debug event', () => {
-    const settingsStore = new SettingsStore();
-    const writeSpy = jest.spyOn(settingsStore, 'writeToggleSetting');
-    const dispatchSpy = jest.spyOn(ConfigEvents, 'dispatchDebugLoggingChanged');
-
-    const controller = new SettingsScreenStateController({ settingsStore });
-    const categories = controller.getCategories();
-    const developerCategory = categories.find((category) => category.id === 'developer');
-    const debugLogging = developerCategory?.items.find((item) => item.id === 'settings-debug-logging');
-
-    if (!debugLogging || 'options' in debugLogging) {
-        throw new Error('Debug logging item not found');
-    }
-
-    (debugLogging as SettingsToggleConfig).onChange(true);
-
-    expect(writeSpy).toHaveBeenCalledWith('debugLogging', true);
-    expect(dispatchSpy).toHaveBeenCalledWith(true);
-});
-
-it('gates every guide runtime callback on successful persistence', () => {
-    const settingsStore = new SettingsStore();
-    jest.spyOn(settingsStore, 'writeToggleSetting').mockReturnValue({ ok: false, reason: 'quota-exceeded' });
-    jest.spyOn(settingsStore, 'writeEpgGuideDensityValue').mockReturnValue({ ok: false, reason: 'unavailable' });
-    jest.spyOn(settingsStore, 'writeEpgLayoutModeValue').mockReturnValue({ ok: false, reason: 'unavailable' });
-    jest.spyOn(settingsStore, 'writeEpgPastItemsWindowValue').mockReturnValue({ ok: false, reason: 'unavailable' });
-    jest.spyOn(settingsStore, 'writeEpgInfoBackgroundModeValue').mockReturnValue({ ok: false, reason: 'unavailable' });
-    const onGuideSettingChange = jest.fn();
-    const controller = new SettingsScreenStateController({ settingsStore, onGuideSettingChange });
-    const appearance = controller.getCategories().find((category) => category.id === 'appearance');
-    const ids = [
-        'settings-guide-library-tabs',
-        'settings-epg-now-watching',
-        'settings-epg-aggressive-preload',
-        'settings-epg-density',
-        'settings-epg-layout-mode',
-        'settings-epg-past-items',
-        'settings-epg-info-background-mode',
-    ];
-
-    for (const id of ids) {
-        const item = appearance?.items.find((candidate) => candidate.id === id);
-        if (!item) throw new Error(`Missing guide item ${id}`);
-        if ('options' in item) {
-            item.onChange(item.options[1]?.value ?? item.value);
-        } else {
-            item.onChange(!item.value);
-        }
-    }
-
+    expect(hours.onChange(2).ok).toBe(false);
+    expect(labels.onChange(true).ok).toBe(false);
     expect(onGuideSettingChange).not.toHaveBeenCalled();
-});
 
-it('translates theme persistence failure into the shared UI failure', () => {
-    const controller = new SettingsScreenStateController({
-        settingsStore: new SettingsStore(),
-        setTheme: (): { ok: false } => ({ ok: false }),
-    });
-    const theme = controller.getCategories()
-        .find((category) => category.id === 'appearance')
-        ?.items.find((item) => item.id === 'settings-theme') as SettingsSelectConfig;
-
-    expect(theme.onChange(1)).toEqual({
-        ok: false,
-        message: 'Could not save this setting. Check device storage and try again.',
-    });
-});
-
-it('fails closed when no theme persistence port is supplied', () => {
-    const controller = new SettingsScreenStateController({ settingsStore: new SettingsStore() });
-    const theme = controller.getCategories()
-        .find((category) => category.id === 'appearance')
-        ?.items.find((item) => item.id === 'settings-theme') as SettingsSelectConfig;
-
-    expect(theme.onChange(1)).toEqual({
-        ok: false,
-        message: 'Could not save this setting. Check device storage and try again.',
-    });
+    blockedWrite.mockRestore();
+    expect(hours.onChange(2)).toEqual({ ok: true });
+    expect(labels.onChange(true)).toEqual({ ok: true });
+    expect(onGuideSettingChange).toHaveBeenNthCalledWith(1, { key: 'guideHours', hours: 4 });
+    expect(onGuideSettingChange).toHaveBeenNthCalledWith(2, { key: 'sourceLabels', enabled: true });
 });
