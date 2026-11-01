@@ -110,4 +110,29 @@ describe('ChannelDirectoryScreen', () => {
         expect(container.textContent).toContain('Delete confirmation could not open');
         expect(ports.manager.tryReplaceAllChannels).not.toHaveBeenCalled();
     });
+
+    test('reordering creates only one on-demand position list at the full lineup limit', () => {
+        channels = Array.from({ length: 500 }, (_, index) => ({ ...channel(`channel-${index}`), number: index + 1 }));
+        screen.show();
+        container.querySelector<HTMLButtonElement>('#directory-reorder')?.click();
+        expect(container.querySelectorAll('option')).toHaveLength(0);
+        expect(container.querySelectorAll('.channel-directory-position-list')).toHaveLength(0);
+        container.querySelector<HTMLButtonElement>('#directory-target-channel-0')?.click();
+        expect(container.querySelectorAll('.channel-directory-position-list')).toHaveLength(1);
+        expect(container.querySelectorAll('.channel-directory-position-list button')).toHaveLength(500);
+        expect(container.querySelectorAll('button').length).toBeLessThan(3000);
+        expect(ports.manager.tryReplaceAllChannels).not.toHaveBeenCalled();
+    }, 15_000);
+
+    test('position picker closes without changing order when navigation refuses modal protection', () => {
+        (ports.navigation.openModal as jest.Mock).mockImplementation(() => undefined);
+        container.querySelector<HTMLButtonElement>('#directory-reorder')?.click();
+        container.querySelector<HTMLButtonElement>('#directory-target-a')?.click();
+        expect(container.querySelector('[role="dialog"]')).toBeNull();
+        expect(container.textContent).toContain('Position picker could not open');
+        expect(screen.model.mode).toBe('reorder');
+        expect(screen.model.proposedNumber('a')).toBe(10);
+        expect(ports.navigation.setFocus).toHaveBeenLastCalledWith('directory-target-a');
+        expect(ports.manager.tryReplaceAllChannels).not.toHaveBeenCalled();
+    });
 });

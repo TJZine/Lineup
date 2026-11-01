@@ -303,6 +303,18 @@
     justify-content: flex-end;
 }
 
+.channel-directory-position-list {
+    max-height: 45vh;
+    overflow-y: auto;
+    margin: 16px 0;
+}
+
+.channel-directory-position-list button {
+    display: block;
+    width: 100%;
+    text-align: left;
+}
+
 @media (max-width: 1100px) {
     .channel-directory-content {
         padding: 24px;

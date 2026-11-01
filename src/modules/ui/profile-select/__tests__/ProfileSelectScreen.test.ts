@@ -952,7 +952,9 @@ describe('ProfileSelectScreen', () => {
                 }, { once: true });
                 return firstSwitchDeferred.promise;
             })
-            .mockResolvedValueOnce(undefined);
+            .mockImplementationOnce(async () => {
+                profileSessionStore.writeLastProfileId('2');
+            });
         const container = document.createElement('div');
         document.body.appendChild(container);
         const screen = new ProfileSelectScreen(
@@ -1029,7 +1031,7 @@ describe('ProfileSelectScreen', () => {
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBeNull();
     });
 
-    it('does not clear the last-profile hint when main-account selection completes after hide', async () => {
+    it('does not write the profile hint from a hidden main-account completion', async () => {
         const users = [
             { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
         ];
@@ -1056,6 +1058,59 @@ describe('ProfileSelectScreen', () => {
 
         expect(writeLastProfileIdSpy).not.toHaveBeenCalled();
         expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('previous-profile');
+    });
+
+    it.each([
+        { selection: 'home profile', buttonId: 'btn-profile-2', expectedHint: '2' },
+        { selection: 'main account', buttonId: 'btn-profile-main', expectedHint: null },
+    ])('renders the runtime-committed $selection hint after navigation hides the picker before completion', async ({
+        selection,
+        buttonId,
+        expectedHint,
+    }) => {
+        const users = [
+            { id: '1', title: 'Admin', thumb: null, admin: true, protected: false },
+            { id: '2', title: 'Kid', thumb: null, admin: false, protected: false },
+        ];
+        localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, '1');
+        const orchestrator = createOrchestratorStub(users);
+        const startupDeferred = createDeferred<void>();
+        const runtimeProfileSessionStore = new ProfileSessionStore();
+        const writeLastProfileIdSpy = jest.spyOn(profileSessionStore, 'writeLastProfileId');
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const screen = new ProfileSelectScreen(
+            container,
+            orchestrator as unknown as ProfileSelectScreenPorts,
+            profileSessionStore
+        );
+        const selectProfile = selection === 'home profile'
+            ? orchestrator.switchHomeUser
+            : orchestrator.useMainAccountProfile;
+        selectProfile.mockImplementationOnce(() => {
+            runtimeProfileSessionStore.writeLastProfileId(expectedHint);
+            screen.hide();
+            return startupDeferred.promise;
+        });
+        screen.show();
+        await settleScreen(screen);
+
+        (container.querySelector(`#${buttonId}`) as HTMLButtonElement).click();
+
+        expect(container.style.display).toBe('none');
+        expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe(expectedHint);
+        startupDeferred.resolve();
+        await startupDeferred.promise;
+        await Promise.resolve();
+        expect(writeLastProfileIdSpy).not.toHaveBeenCalled();
+
+        screen.show();
+        await settleScreen(screen);
+
+        expect(container.querySelector('#btn-profile-1')?.getAttribute('aria-current')).toBeNull();
+        expect(container.querySelector('#btn-profile-2')?.getAttribute('aria-current')).toBe(
+            expectedHint === '2' ? 'true' : null
+        );
     });
 
     it('opens PIN modal for protected users', async () => {
@@ -1550,11 +1605,11 @@ describe('ProfileSelectScreen', () => {
             pin: '1234',
             signal: expect.any(AbortSignal),
         });
-        expect(writeLastProfileIdSpy).toHaveBeenCalledWith('2');
+        expect(writeLastProfileIdSpy).not.toHaveBeenCalled();
         expect(nav.goTo).not.toHaveBeenCalledWith('server-select', { allowAutoConnect: true });
     });
 
-    it('clears last profile id when switching to the main account', async () => {
+    it('delegates main-account selection without writing the last-profile hint', async () => {
         const users = [{ id: '1', title: 'Admin', thumb: null, admin: true, protected: false }];
         const orchestrator = createOrchestratorStub(users);
         const nav = orchestrator.getNavigation();
@@ -1571,7 +1626,7 @@ describe('ProfileSelectScreen', () => {
         await settleScreen(screen);
 
         expect(orchestrator.useMainAccountProfile).toHaveBeenCalledTimes(1);
-        expect(writeLastProfileIdSpy).toHaveBeenCalledWith(null);
+        expect(writeLastProfileIdSpy).not.toHaveBeenCalled();
         expect(nav.goTo).not.toHaveBeenCalledWith('server-select', { allowAutoConnect: true });
     });
 

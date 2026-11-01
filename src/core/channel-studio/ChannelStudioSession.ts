@@ -155,12 +155,15 @@ export class ChannelStudioSession {
                 ? { kind: 'canceled' }
                 : { kind: 'error', reason: 'Air Check failed. Retry.', checkedAt: this.ports.now() };
         }
-        if (generation !== this.generation || !this.draft || this.draft.revision !== request.draftRevision
-            || this.draft.sourceIdentity !== request.sourceIdentity
-            || !sameBase(request.expectedBase, this.ports.manager.getStructuralBase())) {
+        if (generation !== this.generation || this.previewController !== controller) {
             return { kind: 'stale', reason: 'The draft or lineup changed. Run Air Check again.', checkedAt: this.ports.now() };
         }
         this.previewController = null;
+        if (!this.draft || this.draft.revision !== request.draftRevision
+            || this.draft.sourceIdentity !== request.sourceIdentity
+            || !sameBase(request.expectedBase, this.ports.manager.getStructuralBase())) {
+            result = { kind: 'stale', reason: 'The draft or lineup changed. Run Air Check again.', checkedAt: this.ports.now() };
+        }
         this.verification = result;
         this.verifiedRequest = result.kind === 'verified' && result.request === request ? request : null;
         return this.verification;
@@ -180,10 +183,13 @@ export class ChannelStudioSession {
         try { result = await this.ports.airCheck.verify(request, controller.signal); }
         catch { result = controller.signal.aborted ? { kind: 'canceled' }
             : { kind: 'error', reason: 'Could not extend Air Check.', checkedAt: this.ports.now() }; }
-        if (controller.signal.aborted || generation !== this.generation || this.draft !== draft
-            || draft.revision !== request.draftRevision || draft.sourceIdentity !== request.sourceIdentity
-            || !sameBase(request.expectedBase, this.ports.manager.getStructuralBase())) {
+        if (controller.signal.aborted || this.extensionController !== controller
+            || generation !== this.generation || this.draft !== draft) {
             return { kind: 'stale', reason: 'The draft changed.', checkedAt: this.ports.now() };
+        }
+        if (draft.revision !== request.draftRevision || draft.sourceIdentity !== request.sourceIdentity
+            || !sameBase(request.expectedBase, this.ports.manager.getStructuralBase())) {
+            result = { kind: 'stale', reason: 'The draft or lineup changed. Run Air Check again.', checkedAt: this.ports.now() };
         }
         this.extensionController = null; this.extensionStatus = result;
         if (result.kind === 'verified' && result.request === request) {

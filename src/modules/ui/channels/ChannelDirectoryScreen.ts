@@ -6,6 +6,7 @@ import { sameActiveMedia, type ActiveMediaIdentity, type ChannelDirectoryPorts }
 import './styles.css';
 
 const DELETE_MODAL_ID = 'channel-directory-delete';
+const POSITION_MODAL_ID = 'channel-directory-position';
 type Dialog = {
     ids: string[];
     base: ChannelStructuralBase;
@@ -14,6 +15,12 @@ type Dialog = {
     returnFocusId: string;
     stale: boolean;
 } | null;
+type PositionPicker = {
+    channelId: string;
+    base: ChannelStructuralBase;
+    scopeKey: string;
+    returnFocusId: string;
+};
 
 /** The directory owns only presentation and remote focus; the manager owns saved channels. */
 export class ChannelDirectoryScreen {
@@ -23,6 +30,7 @@ export class ChannelDirectoryScreen {
     private registeredIds: string[] = [];
     private visible = false;
     private dialog: Dialog = null;
+    private positionPicker: PositionPicker | null = null;
     private pendingDelete = false;
     private menuId: string | null = null;
     private focusKey = 'directory-search';
@@ -31,6 +39,12 @@ export class ChannelDirectoryScreen {
     private searchSelection: { start: number; end: number } | null = null;
     private readonly keyHandler = (event: KeyEvent): void => this.onKey(event);
     private readonly modalCloseHandler = ({ modalId }: { modalId: string }): void => {
+        if (modalId === POSITION_MODAL_ID && this.positionPicker) {
+            this.focusKey = this.positionPicker.returnFocusId;
+            this.positionPicker = null;
+            this.render();
+            return;
+        }
         if (modalId !== DELETE_MODAL_ID || !this.dialog) return;
         this.focusKey = this.dialog.returnFocusId;
         this.dialog = null;
@@ -63,9 +77,10 @@ export class ChannelDirectoryScreen {
         if (!this.visible) return;
         this.visible = false;
         this.model.close();
-        this.dialog = null; this.pendingDelete = false; this.menuId = null;
+        this.dialog = null; this.positionPicker = null; this.pendingDelete = false; this.menuId = null;
         this.searchEditing = false; this.composingSearch = false; this.searchSelection = null;
         this.ports.navigation.closeModal(DELETE_MODAL_ID);
+        this.ports.navigation.closeModal(POSITION_MODAL_ID);
         this.ports.navigation.off('keyPress', this.keyHandler);
         this.ports.navigation.off('modalClose', this.modalCloseHandler);
         this.registeredIds = syncFocusableRegistry(this.ports.navigation, this.registeredIds, []);
@@ -81,6 +96,7 @@ export class ChannelDirectoryScreen {
         if (event.button !== 'back') return;
         if (this.searchEditing) { this.exitSearchEdit(); }
         else if (this.dialog) { this.closeDialog(); }
+        else if (this.positionPicker) { this.closePositionPicker(); this.render(); }
         else if (this.menuId) { this.focusKey = this.rowActionId(this.menuId); this.menuId = null; this.render(); }
         else if (this.model.mode === 'select') { this.model.cancelSelection(); this.focusKey = 'directory-select'; this.render(); }
         else if (this.model.mode === 'reorder') { this.model.cancelReorder(); this.focusKey = 'directory-reorder'; this.render(); }
@@ -129,6 +145,10 @@ export class ChannelDirectoryScreen {
 
     private render(): void {
         if (!this.visible) return;
+        if (this.positionPicker && !this.isPositionPickerCurrent(this.positionPicker)) {
+            this.closePositionPicker();
+            this.model.notice = { kind: 'error', text: 'The lineup changed. Cancel reorder and start again.' };
+        }
         const root = document.createElement('div'); root.className = 'channel-directory-content';
         const title = document.createElement('header'); title.className = 'channel-directory-header';
         const heading = document.createElement('div');
@@ -181,6 +201,7 @@ export class ChannelDirectoryScreen {
         } else this.renderTable(root);
 
         if (this.dialog) this.renderDialog(root);
+        if (this.positionPicker) this.renderPositionPicker(root, this.positionPicker);
         this.container.replaceChildren(root);
         this.registerFocus();
     }
@@ -250,7 +271,7 @@ export class ChannelDirectoryScreen {
         for (const label of this.model.mode === 'reorder' ? ['Number', 'Channel', 'Source', 'Playback', 'Move'] : ['No.', 'Channel', 'Source', 'Playback', 'Type', '']) {
             const cell = document.createElement('span'); cell.setAttribute('role', 'columnheader'); cell.textContent = label; labels.append(cell);
         } table.append(labels);
-        for (const row of rows) {
+        for (const [rowIndex, row] of rows.entries()) {
             const ch = row.channel, tr = document.createElement('div'); tr.className = 'channel-directory-row';
             tr.setAttribute('role', 'row'); tr.dataset.channelId = ch.id;
             if (this.model.selectedIds.has(ch.id)) tr.classList.add('selected');
@@ -290,13 +311,10 @@ export class ChannelDirectoryScreen {
                 const down = this.button('↓', `directory-down-${encodeURIComponent(ch.id)}`, () => { this.model.move(ch.id, 1); this.focusKey = this.rowId(ch.id); this.render(); }, 'channel-directory-icon');
                 down.setAttribute('aria-label', `Move ${ch.name} down`);
                 moves.append(up, down);
-                const target = document.createElement('select'); target.id = `directory-target-${encodeURIComponent(ch.id)}`;
+                const target = this.button(`Position ${rowIndex + 1}`, `directory-target-${encodeURIComponent(ch.id)}`,
+                    () => this.openPositionPicker(ch.id, rowIndex));
                 target.setAttribute('aria-label', `Move ${ch.name} to position`);
-                rows.forEach((_, index) => {
-                    const option = document.createElement('option'); option.value = String(index); option.textContent = `Position ${index + 1}`;
-                    option.selected = rows[index]?.channel.id === ch.id; target.append(option);
-                });
-                target.addEventListener('change', () => { this.model.moveTo(ch.id, Number(target.value)); this.focusKey = this.rowId(ch.id); this.render(); });
+                target.setAttribute('aria-haspopup', 'dialog');
                 moves.append(target); tr.append(moves);
             } else {
                 const type = document.createElement('span'); type.textContent = row.generated ? 'Generated' : 'Custom'; tr.append(type);
@@ -318,6 +336,60 @@ export class ChannelDirectoryScreen {
             table.append(tr);
         }
         root.append(table);
+    }
+
+    private openPositionPicker(channelId: string, index: number): void {
+        if (this.model.mode !== 'reorder') return;
+        this.positionPicker = { channelId, base: this.ports.manager.getStructuralBase(),
+            scopeKey: this.ports.getDirectoryScopeKey(), returnFocusId: this.focusKey };
+        this.focusKey = `directory-position-${index}`;
+        this.render();
+    }
+
+    private closePositionPicker(): void {
+        if (!this.positionPicker) return;
+        this.focusKey = this.positionPicker.returnFocusId;
+        this.positionPicker = null;
+        this.ports.navigation.closeModal(POSITION_MODAL_ID);
+    }
+
+    private isPositionPickerCurrent(picker: PositionPicker): boolean {
+        const base = this.ports.manager.getStructuralBase();
+        return this.model.mode === 'reorder' && picker.scopeKey === this.ports.getDirectoryScopeKey()
+            && picker.base.generation === base.generation && picker.base.revision === base.revision
+            && this.model.rows.some(row => row.channel.id === picker.channelId);
+    }
+
+    private renderPositionPicker(root: HTMLElement, picker: PositionPicker): void {
+        const rows = this.model.rows;
+        const channel = rows.find(row => row.channel.id === picker.channelId)?.channel;
+        if (!channel) return;
+        const overlay = document.createElement('div'); overlay.className = 'channel-directory-dialog-overlay';
+        const panel = document.createElement('section'); panel.className = 'channel-directory-dialog';
+        panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');
+        panel.setAttribute('aria-labelledby', 'directory-position-title');
+        const title = document.createElement('h2'); title.id = 'directory-position-title';
+        title.textContent = `Move ${channel.name}`;
+        const help = document.createElement('p'); help.textContent = 'Choose a position. Save order applies your changes.';
+        panel.append(title, help);
+        const choices = document.createElement('div'); choices.className = 'channel-directory-position-list';
+        choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'Channel position');
+        rows.forEach((row, index) => {
+            const choice = this.button(`Position ${index + 1}`, `directory-position-${index}`, () => {
+                if (this.positionPicker !== picker) return;
+                if (!this.isPositionPickerCurrent(picker)) { this.render(); return; }
+                this.model.moveTo(picker.channelId, index);
+                this.closePositionPicker();
+                this.focusKey = this.rowId(picker.channelId);
+                this.render();
+            });
+            choice.setAttribute('aria-pressed', String(row.channel.id === picker.channelId));
+            choices.append(choice);
+        });
+        panel.append(choices, this.button('Cancel', 'directory-position-cancel', () => {
+            this.closePositionPicker(); this.render();
+        }));
+        overlay.append(panel); root.append(overlay);
     }
 
     private confirmDelete(ids: string[]): void {
@@ -403,7 +475,7 @@ export class ChannelDirectoryScreen {
 
     private registerFocus(): void {
         const nav = this.ports.navigation;
-        const elements = this.dialog
+        const elements = this.dialog || this.positionPicker
             ? [...this.container.querySelectorAll<HTMLElement>('.channel-directory-dialog button')]
             : [...this.container.querySelectorAll<HTMLElement>('button, input, select')];
         const focusables = elements.filter(el => !(el instanceof HTMLButtonElement && el.disabled));
@@ -434,6 +506,16 @@ export class ChannelDirectoryScreen {
                 this.dialog = null;
                 this.pendingDelete = false;
                 this.model.notice = { kind: 'error', text: 'Delete confirmation could not open. Try again.' };
+                this.render();
+                return;
+            }
+        } else if (this.positionPicker) {
+            nav.openModal(POSITION_MODAL_ID, focusables.map(element => element.id), {
+                dismissOnBack: true, blocksBackgroundCommands: true,
+            });
+            if (!nav.isModalOpen(POSITION_MODAL_ID)) {
+                this.closePositionPicker();
+                this.model.notice = { kind: 'error', text: 'Position picker could not open. Try again.' };
                 this.render();
                 return;
             }

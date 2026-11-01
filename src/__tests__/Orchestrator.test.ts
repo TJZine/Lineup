@@ -1162,6 +1162,85 @@ describe('AppOrchestrator', () => {
             mockPlexStreamResolver.stopTranscodeSession.mockClear();
         });
 
+        it.each([
+            { selection: 'home profile', activeUserId: 'user-2', expectedHint: 'user-2' },
+            { selection: 'main account', activeUserId: 'user-1', expectedHint: null },
+        ])('persists the $selection hint before navigation hides the picker and startup completes', async ({
+            selection,
+            activeUserId,
+            expectedHint,
+        }) => {
+            await orchestrator.initialize(mockConfig);
+            resetMockLocalStorage();
+            localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, 'previous-profile');
+            const startupDeferred = createDeferred<void>();
+            const controller = new AbortController();
+            const originalGetActiveUserId = mockPlexAuth.getActiveUserId.getMockImplementation()!;
+            const authMutation = selection === 'home profile'
+                ? mockPlexAuth.switchHomeUser
+                : mockPlexAuth.logoutActiveUser;
+            authMutation.mockImplementationOnce(async () => {
+                mockPlexAuth.getActiveUserId.mockReturnValue(activeUserId);
+            });
+            let hintAtNavigation: string | null | undefined;
+            let switchSettled = false;
+            mockNavigation.goTo.mockImplementation((screen: string) => {
+                if (screen !== 'splash') return;
+                hintAtNavigation = localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID);
+                // ProfileSelectScreen.hide aborts its request during this navigation.
+                controller.abort();
+            });
+            const resumeStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                .mockReturnValue(startupDeferred.promise);
+
+            try {
+                const switchPromise = selection === 'home profile'
+                    ? orchestrator.switchHomeUser('user-2', { signal: controller.signal })
+                    : orchestrator.useMainAccountProfile();
+                void switchPromise.then(() => { switchSettled = true; });
+                await flushPromises();
+
+                expect(mockNavigation.goTo).toHaveBeenCalledWith('splash');
+                expect(controller.signal.aborted).toBe(true);
+                expect(switchSettled).toBe(false);
+                expect(hintAtNavigation).toBe(expectedHint);
+
+                startupDeferred.resolve();
+                await switchPromise;
+
+                expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe(expectedHint);
+            } finally {
+                startupDeferred.resolve();
+                resumeStartupSpy.mockRestore();
+                mockPlexAuth.getActiveUserId.mockImplementation(originalGetActiveUserId);
+            }
+        });
+
+        it.each(['home profile', 'main account'])('preserves the hint when a completed %s change is no longer active', async (selection) => {
+            await orchestrator.initialize(mockConfig);
+            resetMockLocalStorage();
+            localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, 'newer-profile');
+            const originalGetActiveUserId = mockPlexAuth.getActiveUserId.getMockImplementation()!;
+            mockPlexAuth.getActiveUserId.mockReturnValue('newer-profile');
+            const resumeStartupSpy = jest
+                .spyOn(InitializationCoordinator.prototype, 'resumeStartupAfterProfileSwitch')
+                .mockResolvedValue(undefined);
+
+            try {
+                if (selection === 'home profile') {
+                    await orchestrator.switchHomeUser('user-2');
+                } else {
+                    await orchestrator.useMainAccountProfile();
+                }
+
+                expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('newer-profile');
+            } finally {
+                resumeStartupSpy.mockRestore();
+                mockPlexAuth.getActiveUserId.mockImplementation(originalGetActiveUserId);
+            }
+        });
+
         it('prepares the coordinator for switchHomeUser before the auth mutation and resumes startup afterward', async () => {
             await orchestrator.initialize(mockConfig);
 
@@ -1256,6 +1335,8 @@ describe('AppOrchestrator', () => {
 
         it('does not reset channel state when switchHomeUser fails', async () => {
             await orchestrator.initialize(mockConfig);
+            resetMockLocalStorage();
+            localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, 'previous-profile');
 
             mockPlexAuth.switchHomeUser.mockRejectedValueOnce(new Error('switch failed'));
             const prepareForProfileSwitchAttemptSpy = jest.spyOn(
@@ -1274,6 +1355,7 @@ describe('AppOrchestrator', () => {
                 expect(resumeStartupAfterProfileSwitchSpy).not.toHaveBeenCalled();
                 expect(mockVideoPlayer.stop).toHaveBeenCalledTimes(1);
                 expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
+                expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('previous-profile');
             } finally {
                 prepareForProfileSwitchAttemptSpy.mockRestore();
                 resumeStartupAfterProfileSwitchSpy.mockRestore();
@@ -1394,6 +1476,8 @@ describe('AppOrchestrator', () => {
 
             it('does not reset channel state when useMainAccountProfile fails', async () => {
                 await orchestrator.initialize(mockConfig);
+                resetMockLocalStorage();
+                localStorage.setItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID, 'previous-profile');
 
                 mockPlexAuth.logoutActiveUser.mockRejectedValueOnce(new Error('logout failed'));
                 const prepareForProfileSwitchAttemptSpy = jest.spyOn(
@@ -1411,6 +1495,7 @@ describe('AppOrchestrator', () => {
                     expect(mockNavigation.goTo).not.toHaveBeenCalledWith('splash');
                     expect(resumeStartupAfterProfileSwitchSpy).not.toHaveBeenCalled();
                     expect(mockScheduler.unloadChannel).not.toHaveBeenCalled();
+                    expect(localStorage.getItem(LINEUP_STORAGE_KEYS.LAST_PROFILE_ID)).toBe('previous-profile');
                 } finally {
                     prepareForProfileSwitchAttemptSpy.mockRestore();
                     resumeStartupAfterProfileSwitchSpy.mockRestore();

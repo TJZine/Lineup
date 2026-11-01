@@ -38,6 +38,7 @@ import {
 } from '../config/constants';
 import { advanceTimersUntil, createDeferred } from '../../../__tests__/helpers';
 import type { IDisposable } from '../../../utils/interfaces';
+import { NavigationRemoteInputRouter } from '../input/NavigationRemoteInputRouter';
 
 type HandlerMap = Partial<{
     [K in keyof NavigationEventMap]: (payload: NavigationEventMap[K]) => void;
@@ -1346,6 +1347,53 @@ describe('NavigationCoordinator', () => {
         expect(deps.guideMiniGuide.hideForGuideToggle).toHaveBeenCalledTimes(1);
         expect(deps.events.miniGuide.coordinator?.hide).toHaveBeenCalledTimes(1);
         expect(deps.events.navigation.goTo).toHaveBeenCalledWith('guide');
+    });
+
+    it.each(['guide', 'green'] as const)('scopes remote %s to Player and Guide outside modals', (button) => {
+        const { handlers, deps, navigation, epg } = setup();
+        const remote = new NavigationRemoteInputRouter({
+            isInputBlocked: (): boolean => navigation.isInputBlocked(),
+            logInputSuppressed: jest.fn(),
+            cancelDirectionalRepeat: jest.fn(),
+            emitKeyPress: (event): void => handlers.keyPress?.(event),
+            repairFocusDesync: jest.fn(),
+            handleDirectionalKeyDown: jest.fn(),
+            handleOk: jest.fn(),
+            handleBack: jest.fn(),
+            handleNumberKey: jest.fn(),
+            emitGuide: (): void => handlers.guide?.(undefined),
+            emitSettings: jest.fn(),
+        });
+        for (const screen of [
+            'splash', 'auth', 'profile-select', 'server-select', 'audio-setup',
+            'channel-setup', 'settings', 'channels', 'channel-studio',
+        ] satisfies Screen[]) {
+            (navigation.getCurrentScreen as jest.Mock).mockReturnValue(screen);
+            remote.handleKeyEvent(makeKeyEvent(button));
+        }
+        for (const screen of ['player', 'guide'] satisfies Screen[]) {
+            (navigation.getCurrentScreen as jest.Mock).mockReturnValue(screen);
+            (navigation.isModalOpen as jest.Mock).mockReturnValue(true);
+            remote.handleKeyEvent(makeKeyEvent(button));
+        }
+        expect(navigation.goTo).not.toHaveBeenCalled();
+        expect(deps.events.channelSwitching.toggleEpg).not.toHaveBeenCalled();
+        expect(deps.guideMiniGuide.hideForGuideToggle).not.toHaveBeenCalled();
+
+        (navigation.getCurrentScreen as jest.Mock).mockReturnValue('player');
+        (navigation.isModalOpen as jest.Mock).mockReturnValue(false);
+        remote.handleKeyEvent(makeKeyEvent(button));
+        expect(navigation.goTo).toHaveBeenCalledTimes(1);
+        expect(navigation.goTo).toHaveBeenCalledWith('guide');
+        expect(deps.guideMiniGuide.hideForGuideToggle).toHaveBeenCalledTimes(1);
+
+        (navigation.getCurrentScreen as jest.Mock).mockReturnValue('guide');
+        (epg.isVisible as jest.Mock).mockReturnValue(true);
+        remote.handleKeyEvent(makeKeyEvent(button));
+        remote.handleKeyEvent(makeKeyEvent(button, { isRepeat: true }));
+        expect(navigation.goTo).toHaveBeenCalledTimes(1);
+        expect(deps.events.channelSwitching.toggleEpg).not.toHaveBeenCalled();
+        expect(deps.guideMiniGuide.hideForGuideToggle).toHaveBeenCalledTimes(2);
     });
 
     it('reopens a hidden Guide projection on the current Guide route without resetting the route', () => {

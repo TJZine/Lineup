@@ -89,6 +89,87 @@ describe('ChannelStudioSession', () => {
         expect(session.lastRequest?.asOf).toBe(100);
         expect(session.lastRequest?.horizonMs).toBe(12 * 60 * 60_000);
     });
+
+    it.each(['stale', 'verified'] as const)('settles a %s Air Check when the lineup changes during its request', async (completion) => {
+        let finish!: (value: StudioVerificationStatus) => void;
+        verify.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const session = new ChannelStudioSession(ports);
+        session.open({ kind: 'inspect', channelId: 'saved', expectedBase: base });
+        const pending = session.verify();
+        base.revision++;
+        const request = verify.mock.calls[0]?.[0];
+        if (!request) throw new Error('Missing request');
+        finish(completion === 'verified' ? verified(request) : { kind: 'stale', reason: 'The lineup changed.', checkedAt: 101 });
+
+        expect((await pending).kind).toBe('stale');
+        expect(session.verification.kind).toBe('stale');
+        expect(session.lastRequest).toBeNull();
+        expect(session.canSave).toBe(false);
+        session.cancelVerification();
+        expect(session.verification.kind).toBe('stale');
+    });
+
+    it.each(['stale', 'verified'] as const)('settles a %s horizon extension after a lineup change without discarding the previous preview', async (completion) => {
+        const session = new ChannelStudioSession(ports);
+        session.open({ kind: 'inspect', channelId: 'saved', expectedBase: base });
+        await session.verify();
+        const previous = session.verification;
+        let finish!: (value: StudioVerificationStatus) => void;
+        verify.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const pending = session.extendHorizon(12 * 60 * 60_000);
+        base.revision++;
+        const request = verify.mock.calls[1]?.[0];
+        if (!request) throw new Error('Missing extension request');
+        finish(completion === 'verified' ? verified(request) : { kind: 'stale', reason: 'The lineup changed.', checkedAt: 101 });
+
+        expect((await pending).kind).toBe('stale');
+        expect(session.extensionStatus?.kind).toBe('stale');
+        expect(session.verification).toBe(previous);
+        expect(session.canSave).toBe(false);
+    });
+
+    it('does not let an older extension settle a newer extension or revive it after a draft change', async () => {
+        const session = new ChannelStudioSession(ports);
+        session.open({ kind: 'inspect', channelId: 'saved', expectedBase: base });
+        await session.verify();
+        const previous = session.verification;
+        const finishers: ((value: StudioVerificationStatus) => void)[] = [];
+        verify.mockImplementation(() => new Promise(resolve => { finishers.push(resolve); }));
+        const older = session.extendHorizon(12 * 60 * 60_000);
+        const newer = session.extendHorizon(24 * 60 * 60_000);
+        const olderRequest = verify.mock.calls[1]?.[0], newerRequest = verify.mock.calls[2]?.[0];
+        if (!olderRequest || !newerRequest) throw new Error('Missing extension request');
+        finishers[0]?.(verified(olderRequest));
+        expect((await older).kind).toBe('stale');
+        expect(session.extensionStatus?.kind).toBe('loading');
+        expect(session.verification).toBe(previous);
+        session.draft?.change({ shuffleSeed: 99 }); session.markDraftChanged();
+        expect(verify.mock.calls[2]?.[1].aborted).toBe(true);
+        finishers[1]?.(verified(newerRequest));
+        expect((await newer).kind).toBe('stale');
+        expect(session.extensionStatus).toBeNull();
+        expect(session.verification.kind).toBe('idle');
+        expect(session.canSave).toBe(false);
+    });
+
+    it('does not let an older Air Check overwrite a newer request or its cancellation', async () => {
+        const finishers: ((value: StudioVerificationStatus) => void)[] = [];
+        verify.mockImplementation(() => new Promise(resolve => { finishers.push(resolve); }));
+        const session = new ChannelStudioSession(ports);
+        session.open({ kind: 'inspect', channelId: 'saved', expectedBase: base });
+        const older = session.verify();
+        const newer = session.verify();
+        finishers[0]?.({ kind: 'stale', reason: 'Older request.', checkedAt: 101 });
+        await older;
+        expect(session.verification.kind).toBe('loading');
+        session.cancelVerification();
+        const request = verify.mock.calls[1]?.[0];
+        if (!request) throw new Error('Missing newer request');
+        finishers[1]?.(verified(request));
+        await newer;
+        expect(session.verification.kind).toBe('canceled');
+        expect(session.canSave).toBe(false);
+    });
     it('does not let a late verified extension revive Save after final Air Check finds partial programming', async () => {
         const session = new ChannelStudioSession(ports);
         session.open({ kind: 'inspect', channelId: 'saved', expectedBase: base });

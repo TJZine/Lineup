@@ -14,12 +14,13 @@ import type { ChannelSetupCompletionResult, ChannelSetupConfig } from '../core/c
 import type { ChannelSetupWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupWorkflowPort';
 import type { ChannelSetupScreenWorkflowPort } from '../core/channel-setup/workflow/ChannelSetupScreenWorkflowPort';
 import { AppOrchestrator, type PlaybackInfoSnapshot } from '../Orchestrator';
+import { NavigationManager } from '../modules/navigation/manager/NavigationManager';
 import { PLEX_AUTH_CONSTANTS } from '../modules/plex/auth/constants';
 import { APP_SHELL_CONTAINER_IDS } from '../modules/ui/common/appShellContainerIds';
 import { createWebOsPlatformServices } from '../platform';
 import type { PlatformServices } from '../platform';
 
-import { flushPromises, setDevBuildForTest } from './helpers';
+import { flushPromises, flushPromisesAndMacrotask, setDevBuildForTest } from './helpers';
 import {
     EXPECTED_APP_ROOT_CHILD_IDS,
     EXPECTED_CONTAINER_IDS,
@@ -120,6 +121,7 @@ jest.mock('../modules/ui/server-select', () => {
 
 const settingsScreenChunkLoaded = jest.fn();
 const settingsScreenConstructed = jest.fn();
+const settingsScreenShowSupport = jest.fn();
 jest.mock('../modules/ui/settings', () => {
     settingsScreenChunkLoaded();
     return {
@@ -129,6 +131,9 @@ jest.mock('../modules/ui/settings', () => {
             }
             show(): void {
                 return;
+            }
+            showSupport(): void {
+                settingsScreenShowSupport();
             }
             hide(): void {
                 return;
@@ -218,6 +223,7 @@ describe('App bootstrap smoke', () => {
         serverSelectScreenConstructed.mockClear();
         settingsScreenChunkLoaded.mockClear();
         settingsScreenConstructed.mockClear();
+        settingsScreenShowSupport.mockClear();
         channelSetupScreenChunkLoaded.mockClear();
         channelSetupScreenConstructed.mockClear();
         getPlannerDiagnosticsConfigMock.mockReset();
@@ -846,6 +852,60 @@ describe('App bootstrap smoke', () => {
         expect(rerun).toHaveBeenCalledTimes(canRerunSetup ? 1 : 0);
     });
 
+    it.each(['unreadable', 'unsupported', 'read-failed', 'restore-failed'] as const)(
+        'keeps the app and recovery actions usable when initial startup rejects with %s',
+        async (outcome) => {
+            jest.spyOn(console, 'error').mockImplementation(() => undefined);
+            const savedLineup = '{protected saved lineup}';
+            localStorage.setItem(LINEUP_STORAGE_KEYS.CHANNELS_REAL, savedLineup);
+            localStorage.setItem(LINEUP_STORAGE_KEYS.SUPPORT_REPORT_OPT_IN, '1');
+            let projection: InitializationRestoreProjection = {
+                generation: 1, phase: 'complete', outcome,
+                channelCount: null, requiredComplete: false, optionalComplete: null,
+                reason: 'Saved lineup could not be restored.',
+                actions: ['retry', 'switch-server', 'support'],
+            };
+            const startedApp = await bootstrapApp(() => {
+                jest.spyOn(AppOrchestrator.prototype, 'getStartupRestoreProjection')
+                    .mockImplementation(() => projection);
+                startSpy.mockRejectedValueOnce(new Error('Saved lineup could not be restored.'));
+            });
+
+            const runtime = startedApp.getOrchestrator();
+            expect(runtime).not.toBeNull();
+            expect(AppOrchestrator.prototype.shutdown).not.toHaveBeenCalled();
+            const overlay = document.getElementById('error-overlay') as HTMLElement;
+            expect(overlay.classList.contains('hidden')).toBe(false);
+            expect(overlay.querySelector('[data-action="switch-server"]')).not.toBeNull();
+            expect(overlay.querySelector('[data-action="support"]')).not.toBeNull();
+            expect(localStorage.getItem(LINEUP_STORAGE_KEYS.CHANNELS_REAL)).toBe(savedLineup);
+            expect(JSON.parse(localStorage.getItem(LINEUP_STORAGE_KEYS.SUPPORT_REPORT) ?? '{}')).toEqual({
+                version: 1, events: [
+                    { code: 'app-start', at: expect.any(Number), outcome: 'started' },
+                    { code: 'app-start', at: expect.any(Number), outcome: 'failed' },
+                ],
+            });
+
+            startSpy.mockRejectedValueOnce(new Error('Restore is still unavailable.'));
+            overlay.querySelector<HTMLButtonElement>('[data-action="retry"]')?.click();
+            await flushPromises();
+            expect(startSpy).toHaveBeenCalledTimes(2);
+            expect(overlay.classList.contains('hidden')).toBe(false);
+            expect(AppOrchestrator.prototype.shutdown).not.toHaveBeenCalled();
+
+            startSpy.mockImplementationOnce(async () => {
+                projection = { ...projection, generation: 2, outcome: 'readable',
+                    requiredComplete: true, channelCount: 1, reason: null, actions: [] };
+            });
+            overlay.querySelector<HTMLButtonElement>('[data-action="retry"]')?.click();
+            await flushPromises();
+            expect(startSpy).toHaveBeenCalledTimes(3);
+            expect(startedApp.getOrchestrator()).toBe(runtime);
+            expect(overlay.classList.contains('hidden')).toBe(true);
+            expect(AppOrchestrator.prototype.shutdown).not.toHaveBeenCalled();
+        }
+    );
+
     it('routes blocking overlay presentation through navigation modal APIs', async () => {
         const openModal = jest.fn();
         const closeModal = jest.fn();
@@ -1207,6 +1267,15 @@ describe('App bootstrap smoke', () => {
         expect(shutdownSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('tears down a rejected startup without an actionable restore outcome', async () => {
+        jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        await expect(bootstrapApp(() => {
+            startSpy.mockRejectedValueOnce(new Error('unclassified startup failure'));
+        })).rejects.toThrow('unclassified startup failure');
+        expect(AppOrchestrator.prototype.shutdown).toHaveBeenCalledTimes(1);
+        expect(app?.getOrchestrator()).toBeNull();
+    });
+
     it('does not expose debug helpers when debug surface is disabled', async () => {
         restoreDevBuild?.();
         restoreDevBuild = setDevBuildForTest(false);
@@ -1505,5 +1574,162 @@ describe('App bootstrap smoke', () => {
         await bootstrapApp();
 
         expect(localStorage.getItem(PLEX_AUTH_CONSTANTS.CLIENT_ID_KEY)).toBe('lineup-existing_123');
+    });
+
+    describe('terminal restore recovery with real remote navigation', () => {
+        let navigation: NavigationManager;
+        let projection: InitializationRestoreProjection;
+        let restoreListener: ((value: InitializationRestoreProjection) => void) | null;
+
+        beforeEach(() => {
+            navigation = new NavigationManager({
+                getKeyMap: (): ReadonlyMap<number, 'back' | 'ok'> => new Map([[461, 'back'], [13, 'ok']] as const),
+            });
+            navigation.initialize({ enablePointerMode: false, keyRepeatDelayMs: 500,
+                keyRepeatIntervalMs: 100, focusMemoryEnabled: true, debugMode: false });
+            projection = {
+                generation: 1, phase: 'complete', outcome: 'unreadable',
+                channelCount: null, requiredComplete: false, optionalComplete: null,
+                reason: 'Saved lineup could not be restored.',
+                actions: ['retry', 'switch-server', 'switch-profile', 'support', 'rerun-setup'],
+            };
+            restoreListener = null;
+        });
+
+        afterEach(async () => {
+            await app?.shutdown();
+            app = null;
+            navigation.destroy();
+        });
+
+        const press = (keyCode: number): void => {
+            for (const type of ['keydown', 'keyup']) {
+                const event = new KeyboardEvent(type, { bubbles: true, cancelable: true });
+                Object.defineProperty(event, 'keyCode', { value: keyCode });
+                document.dispatchEvent(event);
+            }
+        };
+        const publishRestore = (change: Partial<InitializationRestoreProjection>): void => {
+            projection = { ...projection, ...change };
+            restoreListener?.(projection);
+        };
+        const bootstrapRestore = (rejectStartup = true): Promise<App> => bootstrapApp(() => {
+            jest.spyOn(AppOrchestrator.prototype, 'getNavigation').mockReturnValue(navigation);
+            jest.spyOn(AppOrchestrator.prototype, 'getCurrentScreen')
+                .mockImplementation(() => navigation.getCurrentScreen());
+            jest.spyOn(AppOrchestrator.prototype, 'onScreenChange')
+                .mockImplementation(handler => navigation.on('screenChange', ({ from, to }) => handler(from, to)));
+            jest.spyOn(AppOrchestrator.prototype, 'getStartupRestoreProjection').mockImplementation(() => projection);
+            jest.spyOn(AppOrchestrator.prototype, 'subscribeToStartupRestoreProjection').mockImplementation(listener => {
+                restoreListener = listener;
+                listener(projection);
+                return { dispose: (): void => { restoreListener = null; } };
+            });
+            jest.spyOn(AppOrchestrator.prototype, 'openServerSelect')
+                .mockImplementation(() => navigation.goTo('server-select', { allowAutoConnect: false }));
+            jest.spyOn(AppOrchestrator.prototype, 'getSelectedServerId').mockReturnValue('server-1');
+            jest.spyOn(AppOrchestrator.prototype, 'requestChannelSetupRerun').mockImplementation(() => {
+                navigation.goTo('channel-setup');
+                return { ok: true, serverId: 'server-1' };
+            });
+            if (rejectStartup) startSpy.mockRejectedValueOnce(new Error(projection.reason ?? 'Restore failed.'));
+        });
+        const overlay = (): HTMLElement => document.getElementById('error-overlay') as HTMLElement;
+        const openRecoveryRoute = async (action: string): Promise<void> => {
+            const button = overlay().querySelector<HTMLButtonElement>(`[data-action="${action}"]`);
+            if (!button) throw new Error(`Missing recovery action: ${action}`);
+            button.click();
+            await flushPromisesAndMacrotask();
+        };
+
+        it('keeps terminal recovery open on physical Back and permits a successful Retry', async () => {
+            await bootstrapRestore();
+
+            press(461);
+
+            expect(navigation.isModalOpen('modal:error-overlay')).toBe(true);
+            expect(overlay().classList.contains('hidden')).toBe(false);
+            expect(document.activeElement?.getAttribute('data-action')).toBe('retry');
+            startSpy.mockImplementationOnce(async () => {
+                publishRestore({ generation: 2, phase: 'auth', outcome: null, actions: [] });
+                publishRestore({ phase: 'complete', outcome: 'readable', requiredComplete: true, channelCount: 1, reason: null });
+                navigation.replaceScreen('guide');
+            });
+
+            press(13);
+            await flushPromises();
+
+            expect(startSpy).toHaveBeenCalledTimes(2);
+            expect(navigation.getCurrentScreen()).toBe('guide');
+            expect(navigation.isModalOpen()).toBe(false);
+            expect(overlay().classList.contains('hidden')).toBe(true);
+        });
+
+        it.each([
+            { action: 'switch-server', screen: 'server-select' },
+            { action: 'switch-profile', screen: 'profile-select' },
+            { action: 'support', screen: 'settings' },
+            { action: 'rerun-setup', screen: 'channel-setup' },
+        ] as const)('reopens terminal recovery after physical Back from $screen', async ({ action, screen }) => {
+            await bootstrapRestore();
+            await openRecoveryRoute(action);
+            expect(navigation.getCurrentScreen()).toBe(screen);
+            expect(navigation.isModalOpen()).toBe(false);
+            if (screen === 'settings') expect(settingsScreenShowSupport).toHaveBeenCalledTimes(1);
+
+            press(461);
+            await flushPromises();
+
+            expect(navigation.getCurrentScreen()).toBe('splash');
+            expect(navigation.isModalOpen('modal:error-overlay')).toBe(true);
+            expect(overlay().classList.contains('hidden')).toBe(false);
+            expect(document.activeElement?.getAttribute('data-action')).toBe('retry');
+        });
+
+        it.each(['switch-server', 'switch-profile'] as const)(
+            'does not revive stale recovery when %s starts a new restore generation', async action => {
+                await bootstrapRestore();
+                await openRecoveryRoute(action);
+
+                // Profile selection enters Splash immediately before startup publishes its new pass.
+                navigation.goTo('splash');
+                publishRestore({ generation: 2, phase: 'auth', outcome: null, actions: [] });
+                await flushPromises();
+                expect(navigation.isModalOpen()).toBe(false);
+                expect(overlay().classList.contains('hidden')).toBe(true);
+
+                publishRestore({ phase: 'complete', outcome: 'readable', requiredComplete: true, channelCount: 1, reason: null });
+                navigation.replaceScreen('guide');
+                expect(navigation.getCurrentScreen()).toBe('guide');
+                expect(navigation.isModalOpen()).toBe(false);
+            }
+        );
+
+        it('does not reopen recovery after the current restore completes', async () => {
+            await bootstrapRestore();
+            await openRecoveryRoute('switch-server');
+            publishRestore({ outcome: 'readable', requiredComplete: true, channelCount: 1, reason: null, actions: [] });
+
+            press(461);
+            await flushPromises();
+
+            expect(navigation.isModalOpen()).toBe(false);
+            expect(overlay().classList.contains('hidden')).toBe(true);
+        });
+
+        it.each([false, true])('requires explicit recovery-route intent when requiredComplete is %s', async requiredComplete => {
+            projection = requiredComplete
+                ? { ...projection, outcome: 'readable', requiredComplete, channelCount: 1, reason: null, actions: [] }
+                : { ...projection, outcome: 'server-unavailable', reason: 'Select a server.', actions: ['retry', 'switch-server'] };
+            await bootstrapRestore(false);
+            navigation.goTo('server-select', { allowAutoConnect: false });
+
+            press(461);
+            await flushPromises();
+
+            expect(navigation.getCurrentScreen()).toBe('splash');
+            expect(navigation.isModalOpen()).toBe(false);
+            expect(overlay().classList.contains('hidden')).toBe(true);
+        });
     });
 });

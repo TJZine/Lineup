@@ -144,7 +144,10 @@ export class App {
     private _restoreKeySubscription: IDisposable | null = null;
     private _startupController: AbortController | null = null;
     private _restoreCancelDestination: 'recovery' | 'server' | null = null;
-    private _settingsOpenedFromRecovery = false;
+    private _restoreRecoveryRoute: {
+        generation: number;
+        screen: 'server-select' | 'profile-select' | 'settings' | 'channel-setup';
+    } | null = null;
     private readonly _supportReport = new SupportReportStore();
     private _recordedRestoreGeneration = 0;
     private _recordedRestoreTerminalGeneration = 0;
@@ -189,9 +192,9 @@ export class App {
             });
 
             markStartupTiming(ORCHESTRATOR_START_START_MARK);
-            await this._runStartupPass();
+            const startupOutcome = await this._runStartupPass();
             this._supportReport.record({ code: 'app-start', at: Date.now(),
-                outcome: this._orchestrator?.getStartupRestoreProjection()?.outcome === 'canceled' ? 'cancelled' : 'succeeded' });
+                outcome: startupOutcome });
             markStartupTiming(ORCHESTRATOR_START_END_MARK);
             measureStartupTiming(
                 ORCHESTRATOR_START_MEASURE,
@@ -291,7 +294,7 @@ export class App {
         this._restoreSubscription = null;
         this._restoreKeySubscription?.dispose();
         this._restoreKeySubscription = null;
-        this._settingsOpenedFromRecovery = false;
+        this._restoreRecoveryRoute = null;
         if (this._screenUnsubscribe) {
             this._screenUnsubscribe();
             this._screenUnsubscribe = null;
@@ -488,7 +491,7 @@ export class App {
             getStudioRequest: (): ChannelStudioRequest | null => this._studioRequest,
             getDirectoryPreferredId: (): string | undefined => this._directoryPreferredId,
             onSettingsShown: (): void => {
-                if (this._settingsOpenedFromRecovery) this._lazyScreenRegistry?.getSettingsScreen()?.showSupport();
+                if (this._restoreRecoveryRoute?.screen === 'settings') this._lazyScreenRegistry?.getSettingsScreen()?.showSupport();
             },
             onLazyScreenError: (error: unknown): void => {
                 this._handleLazyScreenError(error);
@@ -509,20 +512,32 @@ export class App {
             }
             if (from === 'channel-studio' && to !== 'channel-studio') this._studioRequest = null;
             this._screenVisibilityCoordinator?.apply(to);
-            if (from === 'settings' && to === 'splash' && this._settingsOpenedFromRecovery) {
-                this._settingsOpenedFromRecovery = false;
-                const projection = this._orchestrator?.getStartupRestoreProjection();
-                if (projection?.phase === 'complete' && !projection.requiredComplete) {
+            const recoveryRoute = this._restoreRecoveryRoute;
+            if (to === 'splash' && recoveryRoute) {
+                const orchestrator = this._orchestrator;
+                // A successful profile switch enters Splash immediately before it
+                // publishes the next startup generation. Let that pass take ownership.
+                queueMicrotask(() => {
+                    if (!orchestrator || this._orchestrator !== orchestrator
+                        || this._restoreRecoveryRoute !== recoveryRoute
+                        || orchestrator.getCurrentScreen() !== 'splash') return;
+                    const projection = orchestrator.getStartupRestoreProjection();
+                    if (projection?.generation !== recoveryRoute.generation
+                        || projection.phase !== 'complete' || projection.requiredComplete
+                        || projection.actions.length === 0) return;
+                    this._restoreRecoveryRoute = null;
                     this.showErrorOverlay({ code: AppErrorCode.INITIALIZATION_FAILED,
                         message: projection.reason ?? 'Lineup restore needs attention.',
                         userMessage: projection.reason ?? 'Lineup restore needs attention.',
                         recoverable: true, phase: 'error', timestamp: Date.now(), actions: [] });
-                }
+                });
             }
         });
         this._screenUnsubscribe = (): void => disposable.dispose();
 
         this._restoreSubscription = this._orchestrator.subscribeToStartupRestoreProjection(projection => {
+            if (this._restoreRecoveryRoute && (projection.generation !== this._restoreRecoveryRoute.generation
+                || projection.requiredComplete)) this._restoreRecoveryRoute = null;
             this._splashScreen?.updateRestoreProjection(projection);
             if (projection.generation > this._recordedRestoreGeneration) {
                 this._recordedRestoreGeneration = projection.generation;
@@ -567,7 +582,7 @@ export class App {
         }
     }
 
-    private async _runStartupPass(): Promise<void> {
+    private async _runStartupPass(): Promise<'succeeded' | 'failed' | 'cancelled'> {
         const orchestrator = this._orchestrator;
         if (!orchestrator) throw new Error('Startup runtime is unavailable.');
         const controller = new AbortController();
@@ -575,8 +590,21 @@ export class App {
         this._restoreCancelDestination = null;
         try {
             await orchestrator.start({ signal: controller.signal });
+            return 'succeeded';
         } catch (error) {
-            if (!controller.signal.aborted) throw error;
+            if (controller.signal.aborted) return 'cancelled';
+            const restore = orchestrator.getStartupRestoreProjection();
+            if (this._orchestrator !== orchestrator || restore?.phase !== 'complete'
+                || restore.requiredComplete || restore.actions.length === 0) throw error;
+            // Restore failures with recovery actions need the initialized shell to
+            // stay alive. Fatal initialization errors still reach start() teardown.
+            const message = restore.reason ?? 'Lineup restore needs attention.';
+            this.showErrorOverlay({
+                code: AppErrorCode.INITIALIZATION_FAILED,
+                message, userMessage: message, recoverable: true,
+                phase: 'error', timestamp: Date.now(), actions: [],
+            });
+            return 'failed';
         } finally {
             if (this._startupController === controller) this._startupController = null;
         }
@@ -643,19 +671,21 @@ export class App {
             if (restore.actions.includes('switch-server')) actions.push({
                 id: 'switch-server', label: 'Switch server', isPrimary: false, action: (): void => {
                     this._blockingErrorOverlayPresenter.hide();
+                    this._restoreRecoveryRoute = { generation: restore.generation, screen: 'server-select' };
                     orchestrator.openServerSelect();
                 },
             });
             if (restore.actions.includes('switch-profile')) actions.push({
                 id: 'switch-profile', label: 'Switch profile', isPrimary: false, action: (): void => {
                     this._blockingErrorOverlayPresenter.hide();
+                    this._restoreRecoveryRoute = { generation: restore.generation, screen: 'profile-select' };
                     orchestrator.getNavigation()?.goTo('profile-select');
                 },
             });
             if (restore.actions.includes('support')) actions.push({
                 id: 'support', label: 'Support', isPrimary: false, action: (): void => {
                     this._blockingErrorOverlayPresenter.hide();
-                    this._settingsOpenedFromRecovery = true;
+                    this._restoreRecoveryRoute = { generation: restore.generation, screen: 'settings' };
                     orchestrator.getNavigation()?.goTo('settings');
                 },
             });
@@ -666,11 +696,14 @@ export class App {
                         throw new Error('A selected server is required before setup can reopen.');
                     }
                     this._blockingErrorOverlayPresenter.hide();
+                    this._restoreRecoveryRoute = { generation: restore.generation, screen: 'channel-setup' };
                     const result = orchestrator.requestChannelSetupRerun();
                     if (!result.ok) throw new Error('A selected server is required before setup can reopen.');
                 },
             });
-            this._blockingErrorOverlayPresenter.show(error, actions);
+            this._blockingErrorOverlayPresenter.show(error, actions, {
+                modalPolicy: { dismissOnBack: false, blocksBackgroundCommands: true },
+            });
             return;
         }
 

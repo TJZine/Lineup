@@ -157,6 +157,53 @@ describe('directory with real remote and focus routing', () => {
         expect(document.activeElement?.id).toBe('directory-row-b');
     });
 
+    test('remote position selection updates the reorder draft, then Save persists it', async () => {
+        container.querySelector<HTMLButtonElement>('#directory-reorder')?.click();
+        nav.setFocus('directory-target-a');
+        press(13);
+        expect(nav.isModalOpen('channel-directory-position')).toBe(true);
+        expect(document.activeElement?.id).toBe('directory-position-0');
+        press(40);
+        expect(document.activeElement?.id).toBe('directory-position-1');
+        press(13);
+        expect(nav.isModalOpen('channel-directory-position')).toBe(false);
+        expect(screen.model.proposedNumber('a')).toBe(20);
+        expect(document.activeElement?.id).toBe('directory-row-a');
+        expect(ports.manager.tryReplaceAllChannels).not.toHaveBeenCalled();
+        container.querySelector<HTMLButtonElement>('#directory-save-order')?.click();
+        await flushPromisesAndMacrotask();
+        expect(channels.map(ch => [ch.id, ch.number])).toEqual([['b', 10], ['a', 20]]);
+    });
+
+    test('Back cancels only the position picker and hide releases its modal and focus', () => {
+        container.querySelector<HTMLButtonElement>('#directory-reorder')?.click();
+        nav.setFocus('directory-target-a'); press(13); press(40); press(461);
+        expect(nav.isModalOpen('channel-directory-position')).toBe(false);
+        expect(screen.model.mode).toBe('reorder');
+        expect(screen.model.proposedNumber('a')).toBe(10);
+        expect(document.activeElement?.id).toBe('directory-target-a');
+        press(13);
+        expect(nav.isModalOpen('channel-directory-position')).toBe(true);
+        screen.hide();
+        expect(nav.isModalOpen('channel-directory-position')).toBe(false);
+        expect(container.querySelector('[role="dialog"]')).toBeNull();
+        screen.show();
+        expect(screen.model.mode).toBe('browse');
+        expect(document.activeElement?.id).not.toMatch(/^directory-position-/);
+    });
+
+    test.each(['scope', 'lineup'] as const)('%s changes retire the position picker before it can move a channel', (change) => {
+        container.querySelector<HTMLButtonElement>('#directory-reorder')?.click();
+        nav.setFocus('directory-target-a'); press(13);
+        if (change === 'scope') ports.getDirectoryScopeKey = (): string => 'different-scope';
+        else ports.manager.getStructuralBase = (): ReturnType<ChannelDirectoryPorts['manager']['getStructuralBase']> => ({ generation: 1, revision: 2 });
+        container.querySelector<HTMLButtonElement>('#directory-position-1')?.click();
+        expect(nav.isModalOpen('channel-directory-position')).toBe(false);
+        expect(screen.model.proposedNumber('a')).toBe(10);
+        expect(ports.manager.tryReplaceAllChannels).not.toHaveBeenCalled();
+        expect(container.textContent).toContain('lineup changed');
+    });
+
     test('changed active session renews warning before any durable write', async () => {
         container.querySelector<HTMLButtonElement>('#directory-action-a')?.click();
         container.querySelector<HTMLButtonElement>('#directory-delete-a')?.click();

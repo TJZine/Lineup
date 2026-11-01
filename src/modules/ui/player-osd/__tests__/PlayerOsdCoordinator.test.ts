@@ -13,6 +13,7 @@ import type { ScheduledProgram } from '../../../scheduler/scheduler';
 import type { NowPlayingDisplayStore } from '../../../settings/NowPlayingDisplayStore';
 import type { PlaybackOptionsSection } from '../../playback-options/types';
 import { MiniGuideOverlay } from '../../mini-guide';
+import type { PlexMediaItem } from '../../../plex/library';
 
 const AUTO_HIDE_MS = 3000;
 
@@ -722,6 +723,90 @@ describe('PlayerOsdCoordinator', () => {
         const last = calls[calls.length - 1]?.[0] as { detailStatus?: string };
         expect(last.detailStatus).toBe('loading');
     });
+
+    it.each(['program boundary', 'same-program stream replacement'] as const)(
+        'refreshes visible details after a %s through ordinary playback events', async (change) => {
+            let program = makeProgram();
+            let descriptor = { url: 'stream' } as StreamDescriptor;
+            const requests: Array<{
+                signal: AbortSignal;
+                resolve: (details: PlexMediaItem | null) => void;
+            }> = [];
+            const fetchProgramDetails = jest.fn((_ratingKey: string, signal: AbortSignal) =>
+                new Promise<PlexMediaItem | null>((resolve) => requests.push({ signal, resolve })));
+            const details = (summary: string): PlexMediaItem => ({
+                ratingKey: program.item.ratingKey, key: `/library/metadata/${program.item.ratingKey}`,
+                type: 'movie', title: program.item.title, sortTitle: program.item.title,
+                summary, year: 2024, durationMs: program.item.durationMs,
+                addedAt: new Date(0), updatedAt: new Date(0), thumb: null, art: null, media: [],
+            });
+            const { coordinator, overlay } = setup({
+                getCurrentProgram: () => program,
+                getCurrentStreamDescriptor: () => descriptor,
+                fetchProgramDetails,
+            });
+            coordinator.expand();
+            requests[0]!.resolve(details('Initial details'));
+            await Promise.resolve();
+            expect(overlay.setViewModel).toHaveBeenLastCalledWith(expect.objectContaining({
+                detailStatus: 'ready', description: 'Initial details',
+            }));
+
+            if (change === 'program boundary') {
+                program = { ...program, item: { ...program.item, ratingKey: 'next', title: 'Next program' } };
+                coordinator.onProgramChanged();
+                expect(fetchProgramDetails).toHaveBeenLastCalledWith('next', expect.any(AbortSignal));
+            }
+            const beforeCommitCount = requests.length;
+            descriptor = { url: 'stream' } as StreamDescriptor;
+            coordinator.onPlayerStateChange(makeState('playing'));
+            coordinator.onTimeUpdate({ currentTimeMs: 1000, durationMs: 100_000 });
+            jest.advanceTimersByTime(300);
+
+            expect(requests).toHaveLength(beforeCommitCount + 1);
+            expect(requests[beforeCommitCount - 1]!.signal.aborted).toBe(true);
+            if (change === 'program boundary') {
+                requests[beforeCommitCount - 1]!.resolve(details('Stale details'));
+                await Promise.resolve();
+                expect(overlay.setViewModel).toHaveBeenLastCalledWith(expect.objectContaining({
+                    detailStatus: 'loading',
+                }));
+            }
+            requests[beforeCommitCount]!.resolve(details('Current details'));
+            await Promise.resolve();
+            coordinator.onTimeUpdate({ currentTimeMs: 2000, durationMs: 100_000 });
+            jest.advanceTimersByTime(300);
+            expect(overlay.setViewModel).toHaveBeenLastCalledWith(expect.objectContaining({
+                presentation: 'expanded', detailStatus: 'ready', description: 'Current details',
+            }));
+            expect(requests).toHaveLength(beforeCommitCount + 1);
+            coordinator.hide();
+        }
+    );
+
+    it.each(['error', 'unavailable'] as const)(
+        'does not retry %s details on playback ticks until explicitly requested', async (status) => {
+            const fetchProgramDetails = status === 'error'
+                ? jest.fn().mockRejectedValue(new Error('Details unavailable'))
+                : jest.fn().mockResolvedValue(null);
+            const program = makeProgram();
+            const { coordinator, overlay } = setup({ fetchProgramDetails, getCurrentProgram: () => program });
+            coordinator.expand();
+            await Promise.resolve();
+            await Promise.resolve();
+            for (let index = 0; index < 3; index += 1) {
+                coordinator.onTimeUpdate({ currentTimeMs: index * 1000, durationMs: 100_000 });
+                jest.advanceTimersByTime(300);
+            }
+            expect(fetchProgramDetails).toHaveBeenCalledTimes(1);
+            expect(overlay.setViewModel).toHaveBeenLastCalledWith(expect.objectContaining({ detailStatus: status }));
+            coordinator.retryDetails();
+            expect(fetchProgramDetails).toHaveBeenCalledTimes(2);
+            coordinator.hide();
+            await Promise.resolve();
+            await Promise.resolve();
+        }
+    );
 
     it('offers one explicit playback retry and ignores its completion after hide', async () => {
         let completeRetry: () => void = () => undefined;

@@ -1157,6 +1157,11 @@ export class AppOrchestrator {
             initCoordinator.restorePendingServerResumeAfterProfileSwitchFailure();
             throw error;
         }
+        const activeUserId = this._plexAuth?.getActiveUserId();
+        if (activeUserId && activeUserId === userId.trim()) {
+            // Navigation hides the picker before this operation finishes resuming startup.
+            this._profileSessionStore.writeLastProfileId(activeUserId);
+        }
         this._clearIdentityScopedRuntimeState({ stopPlayback: false });
         await this._resumeStartupAfterProfileSwitch(initCoordinator);
     }
@@ -1180,6 +1185,11 @@ export class AppOrchestrator {
         } catch (error) {
             initCoordinator.restorePendingServerResumeAfterProfileSwitchFailure();
             throw error;
+        }
+        const accountUserId = this._plexAuth?.getAccountUserId();
+        if (accountUserId && this._plexAuth?.getActiveUserId() === accountUserId) {
+            // Main-account selection bypasses profile cards and clears their last-used hint.
+            this._profileSessionStore.writeLastProfileId(null);
         }
         this._clearIdentityScopedRuntimeState({ stopPlayback: false });
         await this._resumeStartupAfterProfileSwitch(initCoordinator);

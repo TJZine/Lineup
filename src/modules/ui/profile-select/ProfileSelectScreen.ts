@@ -460,11 +460,6 @@ export class ProfileSelectScreen {
         this._activeSwitchGeneration = generation;
         try {
             await this._ports.useMainAccountProfile();
-            if (!this._canUpdateUi(generation) || this._activeSwitchGeneration !== generation) {
-                return;
-            }
-            // Clear last-used hint — main account bypasses profile cards.
-            this.profileSessionStore.writeLastProfileId(null);
         } catch (error) {
             if (this._canUpdateUi(generation)) {
                 this._handleError(error, 'Unable to switch profile.');
@@ -528,7 +523,6 @@ export class ProfileSelectScreen {
             ) {
                 return false;
             }
-            this.profileSessionStore.writeLastProfileId(userId);
             return true;
         } catch (error) {
             if (this._profileSwitchController !== controller || !this._canUpdateUi(generation)) {

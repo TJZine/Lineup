@@ -462,6 +462,13 @@ export class PlayerOsdCoordinator {
     }
 
     private _setOverlayViewModel(overlay: IPlayerOsdOverlay, reason: PlayerOsdReason): void {
+        if (this._presentation !== 'compact' && this._presentation !== 'hidden'
+            && this._programDetails && !this._programDetails.isCurrent(this.deps.getCurrentProgram())) {
+            // A program start can precede its committed stream. Rebind on normal
+            // playback updates too, without retrying a settled request for the same identity.
+            // ensure() records the new identity before its synchronous onChange callback.
+            this._programDetails.ensure(this.deps.getCurrentProgram());
+        }
         overlay.setViewModel(this._buildViewModel(reason));
         this._reconcileTrackActions();
     }

@@ -103,11 +103,15 @@ export class NavigationCoordinator {
         subscribe('channelInputUpdate', inputUpdateHandler);
 
         const guideHandler = (): void => {
+            const currentScreen = navigation.getCurrentScreen();
+            if ((currentScreen !== 'player' && currentScreen !== 'guide') || navigation.isModalOpen()) {
+                return;
+            }
             // The screen is the route authority; repeated Guide commands keep browsing context.
             this._repeats.stopEpgRepeat('guide');
             this._repeats.stopMiniGuideRepeat('guide');
             this.deps.guideMiniGuide.hideForGuideToggle();
-            if (navigation.getCurrentScreen() === 'guide') {
+            if (currentScreen === 'guide') {
                 if (!this.deps.guideMiniGuide.isGuideVisible()) {
                     this.deps.events.channelSwitching.toggleEpg();
                 }

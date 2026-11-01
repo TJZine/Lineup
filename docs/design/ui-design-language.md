@@ -70,9 +70,9 @@ Remote focus and persistent selection are separate states:
   disabled and validation states. Disabled controls remain visibly disabled;
   errors retain readable text and a distinct error color.
 
-The default focus ring is 3px with a 2px offset. The shared CSS foundation
-provides `data-large-focus="true"` on the application root for the 5px
-large-focus ring; production preference wiring is pending U2/U4/V3. Screen-level
+The default focus ring is 3px with a 2px offset. The app shell restores the saved
+Large Focus preference and updates `data-large-focus="true"` on the document
+body for the 5px large-focus ring after successful Settings writes. Screen-level
 focus treatments may use a filled control, an outline, or both when that
 surface's existing contract requires it. Preserve visible focus for D-pad
 navigation.
@@ -86,11 +86,10 @@ overlay surface. Player overlays use `--player-overlay-surface`; the shared CSS
 foundation maps its alpha to 0.62 for More transparent, 0.78 for Standard, and
 0.94 for Reduce transparency.
 
-`data-player-overlay-transparency="more-transparent|standard|reduced"` is a
-foundation API on the application root. Production preference wiring is
-pending U2/U4/V3; these selectors do not mean that the running application
-already produces the attribute. Runtime overlay gradients use the centralized
-`--runtime-overlay-*` tint and alpha roles in `themes.css`; UI package CSS must
+The app shell restores the saved transparency preference and updates
+`data-player-overlay-transparency="more-transparent|standard|reduced"` on the
+document body after successful Settings writes. Runtime overlay gradients use
+the centralized `--runtime-overlay-*` tint and alpha roles in `themes.css`; UI package CSS must
 not copy those global declarations. Keep screen-specific gradient stops local
 to the owning component when they express a distinct layout treatment. The
 runtime gradient More/Reduced stops scale the existing theme-specific Standard
