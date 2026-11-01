@@ -47,6 +47,10 @@ export interface PlexPinRequest {
     clientIdentifier: string;
 }
 
+export type PlexPinCancellationResult =
+    | { kind: 'canceled' }
+    | { kind: 'cleanup-failed' };
+
 export interface PlexHomeUser {
     id: string;
     title: string;
@@ -138,7 +142,8 @@ export interface IPlexAuth {
 
     checkPinStatus(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
 
-    cancelPin(pinId: number): Promise<void>;
+    /** Retires the matching local PIN work immediately and reports remote cleanup truth. */
+    cancelPin(pinId: number): Promise<PlexPinCancellationResult>;
 
     pollForPin(pinId: number, options?: { signal?: AbortSignal | null }): Promise<PlexPinRequest>;
 

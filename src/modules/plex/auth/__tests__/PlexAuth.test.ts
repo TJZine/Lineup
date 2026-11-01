@@ -2878,7 +2878,7 @@ describe('PlexAuth', () => {
 
             // Then cancel it - method should complete without throwing
             mockFetchJson({}, 204);
-            await auth.cancelPin(12345);
+            await expect(auth.cancelPin(12345)).resolves.toEqual({ kind: 'canceled' });
 
             // Verify PIN was cleared - pendingPin is internal, but a new requestPin
             // should work without conflict
@@ -2901,7 +2901,7 @@ describe('PlexAuth', () => {
                 .mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) });
 
             const poll = auth.checkPinStatus(12345);
-            await auth.cancelPin(12345);
+            await expect(auth.cancelPin(12345)).resolves.toEqual({ kind: 'canceled' });
             pollResponse.resolve({
                 ok: true,
                 status: 200,
@@ -2921,6 +2921,114 @@ describe('PlexAuth', () => {
             expect(auth.getCurrentUser()).toBeNull();
         });
 
+        it('reports an unconfirmed DELETE failure after retiring local PIN work', async () => {
+            jest.useFakeTimers();
+            try {
+                const auth = new PlexAuth(mockConfig);
+                const pollResponse = createDeferred<Response>();
+                const fetchMock = jest.fn()
+                    .mockResolvedValueOnce({
+                        ok: true,
+                        status: 200,
+                        json: async () => ({
+                            id: 12345,
+                            code: 'ABCD',
+                            expiresAt: '2026-01-15T12:15:00Z',
+                            authToken: null,
+                            clientIdentifier: mockConfig.clientIdentifier,
+                        }),
+                    })
+                    .mockReturnValueOnce(pollResponse.promise)
+                    .mockRejectedValue(new Error('temporary transport failure'));
+                (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+                const pin = await auth.requestPin();
+                const poll = auth.checkPinStatus(pin.id);
+                const cancellation = auth.cancelPin(pin.id);
+                const cancellationResult = expect(cancellation).resolves.toEqual({ kind: 'cleanup-failed' });
+
+                await jest.runAllTimersAsync();
+                await cancellationResult;
+
+                pollResponse.resolve({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        id: pin.id,
+                        code: pin.code,
+                        expiresAt: pin.expiresAt.toISOString(),
+                        authToken: 'late-token',
+                        clientIdentifier: mockConfig.clientIdentifier,
+                    }),
+                } as Response);
+
+                await expect(poll).rejects.toMatchObject({ name: 'PlexAuthOperationSupersededError' });
+                expect(auth.isAuthenticated()).toBe(false);
+                expect(auth.getCurrentUser()).toBeNull();
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('does not treat an undocumented missing-PIN response as confirmed cancellation', async () => {
+            const auth = new PlexAuth(mockConfig);
+            mockFetchJson({}, 404);
+
+            await expect(auth.cancelPin(12345)).resolves.toEqual({ kind: 'cleanup-failed' });
+        });
+
+        it('does not let a delayed older cancellation supersede a newer PIN request', async () => {
+            const auth = new PlexAuth(mockConfig);
+            const deleteResponse = createDeferred<Response>();
+            const fetchMock = jest.fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        id: 12345,
+                        code: 'ABCD',
+                        expiresAt: '2026-01-15T12:15:00Z',
+                        authToken: null,
+                        clientIdentifier: mockConfig.clientIdentifier,
+                    }),
+                })
+                .mockReturnValueOnce(deleteResponse.promise)
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        id: 67890,
+                        code: 'WXYZ',
+                        expiresAt: '2026-01-15T12:15:00Z',
+                        authToken: null,
+                        clientIdentifier: mockConfig.clientIdentifier,
+                    }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        id: 67890,
+                        code: 'WXYZ',
+                        expiresAt: '2026-01-15T12:15:00Z',
+                        authToken: null,
+                        clientIdentifier: mockConfig.clientIdentifier,
+                    }),
+                });
+            (globalThis as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+
+            await auth.requestPin();
+            const oldCancellation = auth.cancelPin(12345);
+            const newPin = await auth.requestPin();
+
+            deleteResponse.resolve({ ok: true, status: 204 } as Response);
+            await expect(oldCancellation).resolves.toEqual({ kind: 'canceled' });
+            await expect(auth.checkPinStatus(newPin.id)).resolves.toMatchObject({
+                id: newPin.id,
+                authToken: null,
+            });
+        });
+
         it('does not supersede an unrelated active auth operation', async () => {
             const auth = new PlexAuth(mockConfig);
             const validationPayload = createDeferred<unknown>();
@@ -2934,7 +3042,7 @@ describe('PlexAuth', () => {
 
             const validation = auth.validateToken('unrelated-token');
             await Promise.resolve();
-            await auth.cancelPin(12345);
+            await expect(auth.cancelPin(12345)).resolves.toEqual({ kind: 'canceled' });
             validationPayload.resolve({
                 id: 'unrelated-user',
                 username: 'unrelated',
