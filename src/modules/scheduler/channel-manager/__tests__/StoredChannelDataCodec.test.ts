@@ -6,6 +6,25 @@ import {
 } from '../persistence/StoredChannelDataCodec';
 
 describe('StoredChannelDataCodec', () => {
+    it('treats missing and malformed stored anchor modes as daily while preserving valid fixed intent', () => {
+        const base = {
+            id: 'anchor', number: 1, name: 'Anchor',
+            contentSource: { type: 'library', libraryId: 'library-1', libraryType: 'movie', includeWatched: true },
+            playbackMode: 'sequential',
+            startTimeAnchor: 500, skipIntros: false, skipCredits: false,
+            createdAt: 1, updatedAt: 1, lastContentRefresh: 0, itemCount: 0, totalDurationMs: 0,
+        };
+        expect(decodeStoredChannelConfigRecord(base)?.channel.scheduleAnchorMode).toBeUndefined();
+        expect(decodeStoredChannelConfigRecord({ ...base, scheduleAnchorMode: 'fixed' })?.channel.scheduleAnchorMode)
+            .toBe('fixed');
+        const malformed = decodeStoredChannelConfigRecord({ ...base, scheduleAnchorMode: 'surprise' });
+        expect(malformed?.channel.scheduleAnchorMode).toBeUndefined();
+        expect(malformed?.didMutate).toBe(true);
+        const missingTimestamp = decodeStoredChannelConfigRecord({ ...base, startTimeAnchor: undefined,
+            scheduleAnchorMode: 'fixed' });
+        expect(missingTimestamp?.channel.scheduleAnchorMode).toBeUndefined();
+        expect(missingTimestamp?.didMutate).toBe(true);
+    });
     it('returns null for malformed JSON', () => {
         expect(decodeStoredChannelData('{bad-json')).toBeNull();
     });
@@ -166,6 +185,7 @@ describe('StoredChannelDataCodec', () => {
             shuffleSeed: 123,
             phaseSeed: 456,
             blockSize: 4,
+            includeSpecials: false,
             startTimeAnchor: 0,
             contentFilters,
             sortOrder: 'title_asc',
@@ -193,6 +213,7 @@ describe('StoredChannelDataCodec', () => {
                 shuffleSeed: 123,
                 phaseSeed: 456,
                 blockSize: 4,
+                includeSpecials: false,
                 contentFilters,
                 sortOrder: 'title_asc',
                 maxEpisodeRunTimeMs: 7200000,
@@ -258,6 +279,74 @@ describe('StoredChannelDataCodec', () => {
         expect(decoded?.channel).not.toHaveProperty('sortOrder');
         expect(decoded?.channel).not.toHaveProperty('maxEpisodeRunTimeMs');
         expect(decoded?.channel).not.toHaveProperty('minEpisodeRunTimeMs');
+    });
+
+    it('keeps readable collection sources while dropping malformed cached library scope recursively', () => {
+        const decoded = decodeStoredChannelConfigRecord({
+            id: 'scoped-collections',
+            number: 12,
+            name: 'Scoped Collections',
+            contentSource: {
+                type: 'mixed',
+                mixMode: 'sequential',
+                sources: [
+                    {
+                        type: 'collection',
+                        collectionKey: 'movies',
+                        collectionName: 'Movie Collection',
+                        libraryId: 'movies-library',
+                        libraryType: 'movie',
+                        libraryName: 'Movies',
+                    },
+                    {
+                        type: 'mixed',
+                        mixMode: 'interleave',
+                        sources: [{
+                            type: 'collection',
+                            collectionKey: 'shows',
+                            collectionName: 'Show Collection',
+                            libraryId: 'shows-library',
+                            libraryType: 'show',
+                            libraryName: 42,
+                        }],
+                    },
+                ],
+            },
+            playbackMode: 'sequential',
+            startTimeAnchor: 0,
+            skipIntros: false,
+            skipCredits: false,
+            createdAt: 0,
+            updatedAt: 0,
+            lastContentRefresh: 0,
+            itemCount: 0,
+            totalDurationMs: 0,
+        });
+
+        expect(decoded?.didMutate).toBe(true);
+        expect(decoded?.channel.contentSource).toEqual({
+            type: 'mixed',
+            mixMode: 'sequential',
+            sources: [
+                {
+                    type: 'collection',
+                    collectionKey: 'movies',
+                    collectionName: 'Movie Collection',
+                    libraryId: 'movies-library',
+                    libraryType: 'movie',
+                    libraryName: 'Movies',
+                },
+                {
+                    type: 'mixed',
+                    mixMode: 'interleave',
+                    sources: [{
+                        type: 'collection',
+                        collectionKey: 'shows',
+                        collectionName: 'Show Collection',
+                    }],
+                },
+            ],
+        });
     });
 
     it.each([

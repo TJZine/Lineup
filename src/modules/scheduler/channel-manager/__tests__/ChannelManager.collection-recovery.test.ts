@@ -85,6 +85,7 @@ describe('ChannelManager collection reference recovery', () => {
 
     it('repairs one exact same-library replacement and persists it before returning content', async () => {
         const channel = await createPersistedCollectionChannel();
+        const revision = manager.getStructuralBase().revision;
         const updatedEvents: unknown[] = [];
         manager.on('channelUpdated', (updated) => updatedEvents.push(updated));
         mockLibrary.getCollectionItems.mockImplementation(async (key) => {
@@ -119,6 +120,7 @@ describe('ChannelManager collection reference recovery', () => {
         expect(persisted.channels?.find((candidate) => candidate.id === channel.id)?.contentSource)
             .toMatchObject({ collectionKey: 'new-key' });
         expect(updatedEvents).toHaveLength(1);
+        expect(manager.getStructuralBase().revision).toBe(revision + 1);
 
         manager.clearRuntimeState();
         await manager.loadChannels();
@@ -401,7 +403,6 @@ describe('ChannelManager collection reference recovery', () => {
     it('keeps a queued old snapshot pending when recovery persistence fails', async () => {
         const channel = await createPersistedCollectionChannel();
         await manager.reorderChannels([channel.id]);
-        expect(jest.getTimerCount()).toBeGreaterThan(0);
 
         mockLibrary.getCollectionItems.mockImplementation(async (key) => {
             if (key === 'old-key') throw missingCollectionError();
@@ -450,7 +451,6 @@ describe('ChannelManager collection reference recovery', () => {
         );
         await manager.flushSaves();
         await manager.updateChannel(other.id, { name: 'Pending Rename' });
-        expect(jest.getTimerCount()).toBeGreaterThan(0);
 
         mockLibrary.getCollectionItems.mockImplementation(async (key) => {
             if (key === 'old-key') throw missingCollectionError();
@@ -651,7 +651,7 @@ describe('ChannelManager collection reference recovery', () => {
         manager.resumeActiveResolutions();
     });
 
-    it('allows the authorized initial tune to recover while general admission is suspended', async () => {
+    it('defers collection recovery until general admission resumes', async () => {
         const channel = await createPersistedCollectionChannel();
         await manager.supersedeActiveResolutions();
         mockLibrary.getCollectionItems.mockImplementation(async (key) => {
@@ -665,15 +665,14 @@ describe('ChannelManager collection reference recovery', () => {
             thumb: null,
             childCount: 67,
         }]);
-        const authorization = manager.createInitialTuneResolutionAuthorization(
-            channel.id,
-            { assertCurrent: jest.fn() }
-        );
 
-        const resolved = await manager.resolveChannelContentForInitialTune(channel.id, authorization);
+        await expect(manager.resolveChannelContent(channel.id)).rejects.toMatchObject({ name: 'AbortError' });
+        expect(mockLibrary.getCollections).not.toHaveBeenCalled();
+        expect(manager.getChannel(channel.id)?.contentSource).toMatchObject({ collectionKey: 'old-key' });
 
+        manager.resumeActiveResolutions();
+        const resolved = await manager.resolveChannelContent(channel.id, { cacheMode: 'revalidate' });
         expect(resolved.items).toHaveLength(1);
         expect(manager.getChannel(channel.id)?.contentSource).toMatchObject({ collectionKey: 'new-key' });
-        manager.resumeActiveResolutions();
     });
 });

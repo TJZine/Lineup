@@ -1,5 +1,6 @@
 import type { IPlexLibraryMinimal, PlexMediaItemMinimal } from '../contracts/interfaces';
 import type {
+    ChannelConfig,
     ChannelContentSource,
     LibraryContentSource,
     CollectionContentSource,
@@ -224,6 +225,10 @@ export class ContentResolver {
 
     applyFilters(items: ResolvedContentItem[], filters: ContentFilter[]): ResolvedContentItem[] {
         return this._selectionPolicy.applyFilters(items, filters);
+    }
+
+    selectChannelItems(channel: ChannelConfig, rawItems: ResolvedContentItem[]): ResolvedContentItem[] {
+        return this._selectionPolicy.selectChannelItems(channel, rawItems);
     }
 
     applySort(items: ResolvedContentItem[], order: SortOrder): ResolvedContentItem[] {

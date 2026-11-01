@@ -3,6 +3,7 @@ import { STORAGE_QUOTA_EXCEEDED_MESSAGE } from '../../../../shared/persistenceMe
 import { AppErrorCode } from '../../../../types/app-errors';
 import { ChannelPersistenceSaveQueue } from './ChannelPersistenceSaveQueue';
 import { ChannelRepository } from './ChannelRepository';
+import type { LoadedChannelState } from './ChannelRepository';
 import { CURRENT_CHANNEL_KEY, STORAGE_KEY } from '../constants';
 import { ChannelError } from '../ChannelErrors';
 import type {
@@ -30,10 +31,7 @@ type PersistableChannelState = {
     currentChannelId: string | null;
 };
 
-export type LoadedChannelManagerState = {
-    data: StoredChannelData;
-    didMutate: boolean;
-} | null;
+export type LoadedChannelManagerState = LoadedChannelState;
 
 export class ChannelPersistenceCoordinator {
     private readonly _repository: ChannelRepository;
@@ -76,6 +74,10 @@ export class ChannelPersistenceCoordinator {
         return this._repository.loadNormalized();
     }
 
+    readRawBody(): { ok: true; value: string | null } | { ok: false } {
+        return this._repository.readRawBody();
+    }
+
     queueSave(state: PersistableChannelState): void {
         const snapshot = makeChannelSnapshot(state);
         this._saveQueue.queueWithSnapshot(() => this._persistStoredChannelData(snapshot));
@@ -103,13 +105,15 @@ export class ChannelPersistenceCoordinator {
      * Persist the separate current-channel pointer without making the caller's
      * state transition transactional on localStorage availability.
      */
-    persistCurrentChannelIdBestEffort(channelId: string): void {
+    persistCurrentChannelIdBestEffort(channelId: string): boolean {
         try {
             this._persistCurrentChannelId(channelId);
             this._saveQueue.markSuccess();
+            return true;
         } catch (error) {
             this._logger.warn('Failed to persist current channel', summarizeErrorForLog(error));
             this._saveQueue.emitWarning(error);
+            return false;
         }
     }
 

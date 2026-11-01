@@ -23,8 +23,9 @@ import {
     isGracefulAuthoringResolutionError,
     isNetworkResolutionError as isNetworkError,
 } from './resolution/ChannelResolutionErrorPolicy';
-import { cloneChannelForOwnership } from './authoring/ChannelDomainClone';
+import { cloneChannelForOwnership, clonePersistableChannel } from './authoring/ChannelDomainClone';
 import { ChannelError } from './ChannelErrors';
+import type { ChannelLoadOutcome, ChannelMutationOutcome, ChannelStructuralBase } from './contracts/ChannelDurability';
 import type { PlexCollection } from '../../plex/library';
 import type {
     ChannelContentResolutionOptions,
@@ -53,16 +54,17 @@ import {
 
 export { ChannelError } from './ChannelErrors';
 
-const RESOLUTION_AFFECTING_UPDATE_FIELDS: readonly (keyof ChannelUpdateInput)[] = [
+const RESOLUTION_AFFECTING_UPDATE_FIELDS = [
     'contentSource',
     'contentFilters',
     'sortOrder',
     'playbackMode',
     'blockSize',
+    'includeSpecials',
     'minEpisodeRunTimeMs',
     'maxEpisodeRunTimeMs',
     'shuffleSeed',
-];
+] as const satisfies readonly (keyof ChannelConfig)[];
 
 type ChannelResolutionOptions = ChannelContentResolutionOptions & {
     shouldApply?: () => boolean;
@@ -72,6 +74,13 @@ type ChannelResolutionOptions = ChannelContentResolutionOptions & {
 
 type ActiveChannelResolutionOptions = ChannelResolutionOptions & {
     operationContext: ChannelResolutionLease;
+};
+
+type CommittedChannelMutation<T> = Extract<ChannelMutationOutcome<T>, { kind: 'committed' }>;
+type ChannelReplacementOptions = {
+    currentChannelId?: string | null;
+    expectedBase?: ChannelStructuralBase;
+    protectedReplacementHandle?: string;
 };
 
 function affectsResolvedContent(updates: ChannelUpdateInput): boolean {
@@ -86,6 +95,19 @@ function isResolutionCacheCompatible(cached: ChannelConfig, current: ChannelConf
     );
 }
 
+function excludesBlockSpecials(channel: ChannelConfig): boolean {
+    return channel.playbackMode === 'block' && channel.includeSpecials === false;
+}
+
+function hasSameAuthoredStructure(left: ChannelConfig, right: ChannelConfig): boolean {
+    const l = clonePersistableChannel(left);
+    const r = clonePersistableChannel(right);
+    l.lastContentRefresh = r.lastContentRefresh = 0;
+    l.itemCount = r.itemCount = 0;
+    l.totalDurationMs = r.totalDurationMs = 0;
+    return JSON.stringify(l) === JSON.stringify(r);
+}
+
 function createChannelNotFoundError(): ChannelError {
     return new ChannelError(
         AppErrorCode.CHANNEL_NOT_FOUND,
@@ -96,6 +118,12 @@ function createChannelNotFoundError(): ChannelError {
 
 function createStorageValidationError(message: string): ChannelError {
     return new ChannelError(AppErrorCode.STORAGE_VALIDATION_FAILED, message, false);
+}
+
+class ChannelConflictError extends ChannelError {
+    constructor(message: string) {
+        super(AppErrorCode.STORAGE_VALIDATION_FAILED, message, false);
+    }
 }
 
 function createResolutionAbortError(): Error {
@@ -169,6 +197,43 @@ export class ChannelManager implements IChannelManager {
 
     private _state: ChannelManagerState;
     private _isRuntimeStateCleared = false;
+    private _generation = 0;
+    private _revision = 0;
+    private _protectedBody: { handle: string; raw: string; generation: number; revision: number } | null = null;
+    private _lastLoadOutcome: ChannelLoadOutcome = { kind: 'unloaded', generation: 0, revision: 0 };
+    private _blockedStoredBody = false;
+
+    getStructuralBase(): ChannelStructuralBase {
+        return { generation: this._generation, revision: this._revision };
+    }
+
+    getLastLoadOutcome(): ChannelLoadOutcome {
+        return this._lastLoadOutcome;
+    }
+
+    prepareProtectedReplacement(): ChannelLoadOutcome {
+        const base = this._protectedBody;
+        if (!base || (this._lastLoadOutcome.kind !== 'unreadable' && this._lastLoadOutcome.kind !== 'unsupported')) {
+            throw new ChannelConflictError('No unreadable saved lineup is available for replacement');
+        }
+        const read = this._persistence.readRawBody();
+        if (!read.ok || read.value !== base.raw || base.generation !== this._generation || base.revision !== this._revision) {
+            throw new ChannelConflictError('Saved lineup changed or could not be read');
+        }
+        base.handle = generateUUID();
+        this._lastLoadOutcome = { kind: this._lastLoadOutcome.kind, generation: this._generation,
+            revision: this._revision, replacementHandle: base.handle };
+        return this._lastLoadOutcome;
+    }
+
+    cancelProtectedReplacement(handle: string): void {
+        if (this._protectedBody?.handle === handle) {
+            this._protectedBody.handle = '';
+            if (this._lastLoadOutcome.kind === 'unreadable' || this._lastLoadOutcome.kind === 'unsupported') {
+                this._lastLoadOutcome = { ...this._lastLoadOutcome, replacementHandle: '' };
+            }
+        }
+    }
 
     constructor(config: ChannelManagerConfig) {
         this._emitter = new EventEmitter<ChannelManagerEventMap>();
@@ -219,6 +284,7 @@ export class ChannelManager implements IChannelManager {
         const normalizedCurrentChannelKey = normalizeStorageKey(currentChannelKey, CURRENT_CHANNEL_KEY);
         this.clearRuntimeState();
         this._persistence.setStorageKeys(normalizedStorageKey, normalizedCurrentChannelKey);
+        this._blockedStoredBody = false;
     }
 
     clearRuntimeState(): void {
@@ -247,6 +313,10 @@ export class ChannelManager implements IChannelManager {
     }
 
     private _clearRuntimeStateAfterPersistence(): void {
+        this._generation++;
+        this._revision++;
+        this._protectedBody = null;
+        this._lastLoadOutcome = { kind: 'unloaded', generation: this._generation, revision: this._revision };
         this._contentResolver.clearCaches();
         this._resolutionCache.clear();
         this._state.channels.clear();
@@ -278,6 +348,48 @@ export class ChannelManager implements IChannelManager {
         this._clearRuntimeStateAfterPersistence();
     }
 
+    private _assertBase(base: ChannelStructuralBase): void {
+        if (base.generation !== this._generation || base.revision !== this._revision) {
+            throw new ChannelConflictError('Channel lineup changed; prepare the edit again');
+        }
+    }
+
+    private _mutationFailure(error: unknown): ChannelMutationOutcome<never> {
+        const failure = error instanceof Error ? error : new Error('Channel mutation failed');
+        const code = failure instanceof ChannelError ? failure.code : null;
+        const kind = code === AppErrorCode.STORAGE_QUOTA_EXCEEDED || code === AppErrorCode.PERSISTENCE_FALLBACK
+            ? 'storage-failure'
+            : failure instanceof ChannelConflictError || code === AppErrorCode.CHANNEL_NOT_FOUND
+                ? 'conflict' : 'invalid';
+        return { kind, error: failure };
+    }
+
+    private _persistStructure(channels: Map<string, ChannelConfig>, order: string[], current: string | null, allowProtected = false): void {
+        if (this._blockedStoredBody && !allowProtected) {
+            throw new ChannelConflictError('Saved lineup must be read or explicitly replaced before writing');
+        }
+        if (this._protectedBody && !allowProtected) {
+            throw new ChannelConflictError('Unreadable saved lineup must be replaced through its protected handle');
+        }
+        this._persistence.persistStoredChannelData({
+            channels: Array.from(channels.values()), channelOrder: order,
+            currentChannelId: current, savedAt: Date.now(),
+        });
+        this._persistence.supersedePendingSave();
+        this._persistence.markSuccess();
+        this._revision++;
+        this._protectedBody = null;
+        this._blockedStoredBody = false;
+        this._lastLoadOutcome = { kind: channels.size === 0 ? 'valid-empty' : 'readable',
+            generation: this._generation, revision: this._revision, channelCount: channels.size };
+    }
+
+    private _chooseCurrent(channels: Map<string, ChannelConfig>, requested?: string | null): string | null {
+        const live = this._state.currentChannelId;
+        if (live && channels.has(live)) return live;
+        return requested && channels.has(requested) ? requested : null;
+    }
+
     createInitialTuneResolutionAuthorization(
         channelId: string,
         validator: OperationContextUpstream
@@ -303,35 +415,55 @@ export class ChannelManager implements IChannelManager {
      */
     async replaceAllChannels(
         channels: ChannelConfig[],
-        options?: { currentChannelId?: string | null }
+        options?: ChannelReplacementOptions
     ): Promise<void> {
-        const replacement = this._authoring.buildReplacementState(channels, this._logger);
+        this._replaceAllChannelsCommitted(channels, options);
+    }
+
+    private _replaceAllChannelsCommitted(
+        channels: ChannelConfig[],
+        options?: ChannelReplacementOptions
+    ): CommittedChannelMutation<void> {
+        const replacement = this._authoring.buildReplacementState(channels);
         const nextChannels = replacement.channels;
         const nextChannelOrder = replacement.channelOrder;
+        for (const [id, candidate] of nextChannels) {
+            const live = this._state.channels.get(id);
+            if (live && hasSameAuthoredStructure(live, candidate) && live.lastContentRefresh > candidate.lastContentRefresh) {
+                candidate.lastContentRefresh = live.lastContentRefresh;
+                candidate.itemCount = live.itemCount;
+                candidate.totalDurationMs = live.totalDurationMs;
+            }
+        }
 
-        const requestedCurrent = options?.currentChannelId ?? null;
-        const fallbackCurrent = nextChannelOrder[0] ?? null;
-        const nextCurrentChannelId =
-            requestedCurrent && nextChannels.has(requestedCurrent)
-                ? requestedCurrent
-                : fallbackCurrent;
-
+        if (options?.expectedBase) this._assertBase(options.expectedBase);
+        const nextCurrentChannelId = this._chooseCurrent(nextChannels, options?.currentChannelId);
+        if (options?.protectedReplacementHandle && !this._protectedBody) {
+            throw new ChannelConflictError('Protected replacement is no longer current');
+        }
+        if (this._protectedBody) {
+            const base = this._protectedBody;
+            if (!options?.protectedReplacementHandle || options.protectedReplacementHandle !== base.handle
+                || base.generation !== this._generation || base.revision !== this._revision) {
+                throw new ChannelConflictError('Protected saved lineup requires its current replacement handle');
+            }
+            const read = this._persistence.readRawBody();
+            if (!read.ok || read.value !== base.raw) {
+                throw new ChannelConflictError('Protected saved lineup changed or could not be read');
+            }
+        }
         try {
-            this._persistence.persistStoredChannelData({
-                channels: Array.from(nextChannels.values()),
-                channelOrder: nextChannelOrder,
-                currentChannelId: nextCurrentChannelId,
-                savedAt: Date.now(),
-            });
-            this._persistence.supersedePendingSave();
-            this._persistence.markSuccess();
+            this._persistStructure(nextChannels, nextChannelOrder, nextCurrentChannelId, !!this._protectedBody);
         } catch (error) {
-            this._persistence.reportFailure(
-                'ChannelManager.replaceAllChannels failed to persist channels',
-                error
-            );
+            if (!(error instanceof ChannelConflictError)) {
+                this._persistence.reportFailure(
+                    'ChannelManager.replaceAllChannels failed to persist channels',
+                    error
+                );
+            }
             throw error;
         }
+        const revision = this._revision;
 
         this._retryScheduler.cancelAll();
         this._collectionRecoveryLookup.clear();
@@ -342,8 +474,18 @@ export class ChannelManager implements IChannelManager {
         this._state.currentChannelId = nextCurrentChannelId;
         this._isRuntimeStateCleared = false;
 
-        if (this._state.currentChannelId) {
-            this._persistence.persistCurrentChannelIdBestEffort(this._state.currentChannelId);
+        const pointerWarning = !this._persistence.persistCurrentChannelIdBestEffort(nextCurrentChannelId ?? '');
+        return { kind: 'committed', value: undefined, revision, pointerWarning };
+    }
+
+    async tryReplaceAllChannels(
+        channels: ChannelConfig[],
+        options?: ChannelReplacementOptions
+    ): Promise<ChannelMutationOutcome<void>> {
+        try {
+            return this._replaceAllChannelsCommitted(channels, options);
+        } catch (error) {
+            return this._mutationFailure(error);
         }
     }
 
@@ -352,6 +494,15 @@ export class ChannelManager implements IChannelManager {
         config: ChannelCreateInput,
         options?: ChannelCreateOptions
     ): Promise<ChannelConfig> {
+        return (await this._createChannelCommitted(config, options)).value;
+    }
+
+    private async _createChannelCommitted(
+        config: ChannelCreateInput,
+        options?: ChannelCreateOptions
+    ): Promise<CommittedChannelMutation<ChannelConfig>> {
+        if (options?.expectedBase) this._assertBase(options.expectedBase);
+        const base = this.getStructuralBase();
         const channel = this._authoring.createChannel(config, this._state.channels.values());
 
         let resolvedContent: ResolvedChannelContent | null = null;
@@ -377,8 +528,25 @@ export class ChannelManager implements IChannelManager {
             );
         }
 
-        this._state.channels.set(channel.id, channel);
-        this._state.channelOrder.push(channel.id);
+        this._assertBase(base);
+        const nextChannels = new Map(this._state.channels);
+        nextChannels.set(channel.id, channel);
+        const nextOrder = [...this._state.channelOrder, channel.id];
+        try {
+            this._persistStructure(nextChannels, nextOrder, this._chooseCurrent(nextChannels));
+        } catch (error) {
+            if (!(error instanceof ChannelConflictError)) {
+                this._persistence.reportFailure('ChannelManager.createChannel failed to persist channel', error);
+            }
+            throw error;
+        }
+        this._state.channels = nextChannels;
+        this._state.channelOrder = nextOrder;
+        this._isRuntimeStateCleared = false;
+        const receipt: CommittedChannelMutation<ChannelConfig> = {
+            kind: 'committed', value: cloneChannelForOwnership(channel),
+            revision: this._revision, pointerWarning: false,
+        };
 
         if (resolvedContent) {
             this._resolutionCache.set(resolvedContent);
@@ -387,13 +555,26 @@ export class ChannelManager implements IChannelManager {
             }
         }
 
-        this._queueSave();
         this._emitter.emit('channelCreated', cloneChannelForOwnership(channel));
 
-        return cloneChannelForOwnership(channel);
+        return receipt;
     }
 
-    async updateChannel(id: string, updates: ChannelUpdateInput): Promise<ChannelConfig> {
+    async tryCreateChannel(config: ChannelCreateInput, options?: ChannelCreateOptions): Promise<ChannelMutationOutcome<ChannelConfig>> {
+        try {
+            return await this._createChannelCommitted(config, options);
+        } catch (error) { return this._mutationFailure(error); }
+    }
+
+    async updateChannel(id: string, updates: ChannelUpdateInput, expectedBase?: ChannelStructuralBase): Promise<ChannelConfig> {
+        return (await this._updateChannelCommitted(id, updates, expectedBase)).value;
+    }
+
+    private async _updateChannelCommitted(
+        id: string, updates: ChannelUpdateInput, expectedBase?: ChannelStructuralBase
+    ): Promise<CommittedChannelMutation<ChannelConfig>> {
+        if (expectedBase) this._assertBase(expectedBase);
+        const base = this.getStructuralBase();
         const channel = this._state.channels.get(id);
         if (!channel) {
             throw createChannelNotFoundError();
@@ -402,6 +583,7 @@ export class ChannelManager implements IChannelManager {
         const filteredUpdates = omitUndefinedChannelUpdates(updates);
         const peerChannels = Array.from(this._state.channels.values()).filter((candidate) => candidate.id !== id);
         const updated = this._authoring.updateChannel(channel, filteredUpdates, peerChannels);
+        const changesBlockSpecialSelection = excludesBlockSpecials(channel) !== excludesBlockSpecials(updated);
 
         let resolvedContent: ResolvedChannelContent | null = null;
 
@@ -410,6 +592,11 @@ export class ChannelManager implements IChannelManager {
                 resolvedContent = await this._resolveContentForAuthoring(updated);
                 this._applyResolvedContentMetadata(updated, resolvedContent);
             } catch (error) {
+                if (changesBlockSpecialSelection && isGracefulAuthoringResolutionError(error)) {
+                    throw new ChannelError(AppErrorCode.LIBRARY_UNAVAILABLE,
+                        'Cannot change block specials while channel content is unavailable. Retry when the source is available.',
+                        true);
+                }
                 if (!isGracefulAuthoringResolutionError(error)) {
                     throw error;
                 }
@@ -420,7 +607,29 @@ export class ChannelManager implements IChannelManager {
             }
         }
 
-        this._state.channels.set(id, updated);
+        this._assertBase(base);
+        const current = this._state.channels.get(id);
+        if (current !== channel) throw new ChannelConflictError('Channel changed during update');
+        if (!resolvedContent || current.lastContentRefresh > updated.lastContentRefresh) {
+            updated.lastContentRefresh = current.lastContentRefresh;
+            updated.itemCount = current.itemCount;
+            updated.totalDurationMs = current.totalDurationMs;
+        }
+        const nextChannels = new Map(this._state.channels);
+        nextChannels.set(id, updated);
+        try {
+            this._persistStructure(nextChannels, [...this._state.channelOrder], this._chooseCurrent(nextChannels));
+        } catch (error) {
+            if (!(error instanceof ChannelConflictError)) {
+                this._persistence.reportFailure('ChannelManager.updateChannel failed to persist channel', error);
+            }
+            throw error;
+        }
+        this._state.channels = nextChannels;
+        const receipt: CommittedChannelMutation<ChannelConfig> = {
+            kind: 'committed', value: cloneChannelForOwnership(updated),
+            revision: this._revision, pointerWarning: false,
+        };
 
         if (resolvedContent) {
             this._resolutionCache.set(resolvedContent);
@@ -429,28 +638,56 @@ export class ChannelManager implements IChannelManager {
             }
         }
 
-        this._queueSave();
         this._emitter.emit('channelUpdated', cloneChannelForOwnership(updated));
 
-        return cloneChannelForOwnership(updated);
+        return receipt;
     }
 
-    async deleteChannel(id: string): Promise<void> {
+    async tryUpdateChannel(id: string, updates: ChannelUpdateInput, expectedBase?: ChannelStructuralBase): Promise<ChannelMutationOutcome<ChannelConfig>> {
+        try {
+            return await this._updateChannelCommitted(id, updates, expectedBase);
+        } catch (error) { return this._mutationFailure(error); }
+    }
+
+    async deleteChannel(id: string, expectedBase?: ChannelStructuralBase): Promise<void> {
+        this._deleteChannelCommitted(id, expectedBase);
+    }
+
+    private _deleteChannelCommitted(id: string, expectedBase?: ChannelStructuralBase): CommittedChannelMutation<void> {
+        if (expectedBase) this._assertBase(expectedBase);
         if (!this._state.channels.has(id)) {
             throw createChannelNotFoundError();
         }
 
-        this._state.channels.delete(id);
-        this._resolutionCache.delete(id);
-        this._state.channelOrder = this._state.channelOrder.filter((cid) => cid !== id);
-
-        if (this._state.currentChannelId === id) {
-            this._state.currentChannelId =
-                this._state.channelOrder.length > 0 ? this._state.channelOrder[0]! : null;
+        const nextChannels = new Map(this._state.channels);
+        nextChannels.delete(id);
+        const nextOrder = this._state.channelOrder.filter((cid) => cid !== id);
+        const nextCurrent = this._chooseCurrent(nextChannels);
+        try {
+            this._persistStructure(nextChannels, nextOrder, nextCurrent);
+        } catch (error) {
+            if (!(error instanceof ChannelConflictError)) {
+                this._persistence.reportFailure('ChannelManager.deleteChannel failed to persist channel', error);
+            }
+            throw error;
         }
-
-        this._queueSave();
+        this._state.channels = nextChannels;
+        this._state.channelOrder = nextOrder;
+        this._state.currentChannelId = nextCurrent;
+        this._resolutionCache.delete(id);
+        const revision = this._revision;
+        const pointerWarning = nextCurrent === null && !this._persistence.persistCurrentChannelIdBestEffort('');
+        const receipt: CommittedChannelMutation<void> = {
+            kind: 'committed', value: undefined, revision, pointerWarning,
+        };
         this._emitter.emit('channelDeleted', id);
+        return receipt;
+    }
+
+    async tryDeleteChannel(id: string, expectedBase?: ChannelStructuralBase): Promise<ChannelMutationOutcome<void>> {
+        try {
+            return this._deleteChannelCommitted(id, expectedBase);
+        } catch (error) { return this._mutationFailure(error); }
     }
 
     getChannel(id: string): ChannelConfig | null {
@@ -555,14 +792,25 @@ export class ChannelManager implements IChannelManager {
 
 
 
-    /**
-     * Reorder channels.
-     * @remarks In-memory order is updated synchronously; persistence is queued via debounced save.
-     */
-    async reorderChannels(orderedIds: string[]): Promise<void> {
+    /** Reorder channels after a durable body write. */
+    async reorderChannels(orderedIds: string[], expectedBase?: ChannelStructuralBase): Promise<void> {
+        this._reorderChannelsCommitted(orderedIds, expectedBase);
+    }
+
+    private _reorderChannelsCommitted(
+        orderedIds: string[], expectedBase?: ChannelStructuralBase
+    ): CommittedChannelMutation<void> {
+        if (expectedBase) this._assertBase(expectedBase);
         this._assertExactChannelOrder(orderedIds);
+        this._persistStructure(new Map(this._state.channels), [...orderedIds], this._chooseCurrent(this._state.channels));
         this._state.channelOrder = [...orderedIds];
-        this._queueSave();
+        return { kind: 'committed', value: undefined, revision: this._revision, pointerWarning: false };
+    }
+
+    async tryReorderChannels(orderedIds: string[], expectedBase?: ChannelStructuralBase): Promise<ChannelMutationOutcome<void>> {
+        try {
+            return this._reorderChannelsCommitted(orderedIds, expectedBase);
+        } catch (error) { return this._mutationFailure(error); }
     }
 
     setCurrentChannel(channelId: string): void {
@@ -677,14 +925,37 @@ export class ChannelManager implements IChannelManager {
         }
     }
 
-    async loadChannels(): Promise<void> {
+    async loadChannels(): Promise<ChannelLoadOutcome> {
+        this._generation++;
+        this._revision++;
+        this._protectedBody = null;
+        this._persistence.supersedePendingSave();
         try {
             const normalized = this._persistence.loadNormalized();
-            if (!normalized) {
-                return;
+            if (normalized.kind !== 'readable') {
+                this._blockedStoredBody = normalized.kind !== 'absent';
+                this._retryScheduler.cancelAll();
+                this._collectionRecoveryLookup.clear();
+                this._contentResolver.clearCaches();
+                this._resolutionCache.clear();
+                this._state.channels.clear();
+                this._state.channelOrder = [];
+                this._state.currentChannelId = null;
+                this._isRuntimeStateCleared = true;
+                if (normalized.kind === 'unreadable' || normalized.kind === 'unsupported') {
+                    const handle = generateUUID();
+                    this._protectedBody = {
+                        handle, raw: normalized.raw, generation: this._generation, revision: this._revision,
+                    };
+                    this._lastLoadOutcome = { kind: normalized.kind, generation: this._generation, revision: this._revision, replacementHandle: handle };
+                } else {
+                    this._lastLoadOutcome = { kind: normalized.kind, generation: this._generation, revision: this._revision };
+                }
+                return this._lastLoadOutcome;
             }
 
             const { data, didMutate: didMutateFromNormalization } = normalized;
+            this._blockedStoredBody = false;
 
             this._persistence.supersedePendingSave();
             this._retryScheduler.cancelAll();
@@ -702,12 +973,21 @@ export class ChannelManager implements IChannelManager {
             this._state.currentChannelId = data.currentChannelId;
             this._isRuntimeStateCleared = false;
 
+            this._lastLoadOutcome = {
+                kind: data.channels.length === 0 ? 'valid-empty' : didMutateFromNormalization ? 'readable-degraded' : 'readable',
+                generation: this._generation, revision: this._revision, channelCount: data.channels.length,
+            };
+
             // Persist normalized/migrated channel records once.
             if (didMutateFromNormalization) {
                 this._queueSave();
             }
+            return this._lastLoadOutcome;
         } catch (e) {
             this._logger.error('Failed to load channels from storage', summarizeErrorForLog(e));
+            this._blockedStoredBody = true;
+            this._lastLoadOutcome = { kind: 'read-failed', generation: this._generation, revision: this._revision };
+            return this._lastLoadOutcome;
         }
     }
 
@@ -783,28 +1063,7 @@ export class ChannelManager implements IChannelManager {
             );
         }
 
-        let items = rawItems;
-        if (channel.contentFilters && channel.contentFilters.length > 0) {
-            items = this._contentResolver.applyFilters(items, channel.contentFilters);
-        }
-
-        if (channel.sortOrder) {
-            items = this._contentResolver.applySort(items, channel.sortOrder);
-        }
-
-        items = items.filter((item) => item.durationMs > 0);
-
-        if (channel.minEpisodeRunTimeMs || channel.maxEpisodeRunTimeMs) {
-            items = items.filter((item) => {
-                if (channel.minEpisodeRunTimeMs && item.durationMs < channel.minEpisodeRunTimeMs) {
-                    return false;
-                }
-                if (channel.maxEpisodeRunTimeMs && item.durationMs > channel.maxEpisodeRunTimeMs) {
-                    return false;
-                }
-                return true;
-            });
-        }
+        const items = this._contentResolver.selectChannelItems(channel, rawItems);
 
         if (items.length === 0) {
             throw new ChannelError(
@@ -897,14 +1156,8 @@ export class ChannelManager implements IChannelManager {
         );
 
         try {
-            this._persistence.persistStoredChannelData({
-                channels,
-                channelOrder: [...this._state.channelOrder],
-                currentChannelId: this._state.currentChannelId,
-                savedAt: Date.now(),
-            });
-            this._persistence.supersedePendingSave();
-            this._persistence.markSuccess();
+            this._persistStructure(new Map(channels.map((item) => [item.id, item])),
+                [...this._state.channelOrder], this._chooseCurrent(this._state.channels));
         } catch (error) {
             this._persistence.reportFailure(
                 `ChannelManager collection recovery failed to persist channel ${channel.id}`,
@@ -1026,7 +1279,8 @@ export class ChannelManager implements IChannelManager {
                 throw error;
             }
 
-            if (isNetworkError(error) && cached) {
+            if (isNetworkError(error) && cached
+                && excludesBlockSpecials(cached.channelSnapshot) === excludesBlockSpecials(channel)) {
                 const wasStale = this._resolutionCache.isStale(cached);
                 this._logger.warn(
                     `Resolution failed for channel ${channel.id} during authoring due to network error, using cached content as stale (ttlStale: ${wasStale})`,
@@ -1044,7 +1298,8 @@ export class ChannelManager implements IChannelManager {
                 });
             }
 
-            if (isGracefulAuthoringResolutionError(error) && cached) {
+            if (isGracefulAuthoringResolutionError(error) && cached
+                && excludesBlockSpecials(cached.channelSnapshot) === excludesBlockSpecials(channel)) {
                 this._logger.warn(
                     `Content unavailable for channel ${channel.id}, using stale cache`,
                     summarizeErrorForLog(error)

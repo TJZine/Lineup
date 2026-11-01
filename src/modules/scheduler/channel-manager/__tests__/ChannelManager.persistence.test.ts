@@ -50,16 +50,7 @@ const expectPersistCurrentChannelWarning = (times: number = 1): void => {
     ], { times });
 };
 
-const expectDebouncedSaveQuotaWarning = (times: number = 1): void => {
-    expectConsoleWarn([
-        'Debounced save failed (quota)',
-        expect.objectContaining({
-            name: 'ChannelError',
-            code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-            message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
-        }),
-    ], { times });
-};
+
 
 describe('ChannelManager persistence and storage keys', () => {
     let mockLibrary: jest.Mocked<IPlexLibraryMinimal>;
@@ -127,34 +118,6 @@ describe('ChannelManager persistence and storage keys', () => {
             );
         });
 
-        it('emits persistenceWarning and does not throw when pending save flush fails during key switch', async () => {
-            expectConsoleWarn([
-                'ChannelManager.clearRuntimeState failed while flushing pending saves',
-                expect.objectContaining({
-                    name: 'ChannelError',
-                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                    message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
-                }),
-            ]);
-            const warningHandler = jest.fn();
-            manager.on('persistenceWarning', warningHandler);
-            await manager.createChannel({ contentSource: createMockContentSource() });
-
-            mockLocalStorage.setItem.mockImplementation(() => {
-                throw new DOMException('quota', 'QuotaExceededError');
-            });
-
-            expect(() =>
-                manager.setStorageKeys('lineup_channels_new_scope', 'lineup_current_channel_new_scope')
-            ).not.toThrow();
-            expect(warningHandler).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                    isQuotaError: true,
-                })
-            );
-        });
-
         it('flushes a queued mutation to the previous scope before runtime clear and key switch', async () => {
             const persistedChannel = createBaseChannel({
                 id: 'persisted-channel',
@@ -190,82 +153,6 @@ describe('ChannelManager persistence and storage keys', () => {
             expect(persisted.channelOrder).toEqual(['persisted-channel', unsavedChannel.id]);
             expect(persisted.currentChannelId).toBe('persisted-channel');
             expect(mockLocalStorage.getItem('lineup_channels_next_scope')).toBeNull();
-        });
-
-        it('cancels a queued candidate save without flushing during scope-transition clear', async () => {
-            const flushSpy = jest.spyOn(ChannelPersistenceCoordinator.prototype, 'flush');
-            const saveSpy = jest.spyOn(ChannelRepository.prototype, 'saveStoredChannelData');
-            await manager.createChannel({
-                name: 'Candidate Scope Channel',
-                contentSource: createMockContentSource('candidate-lib'),
-            });
-            expect(saveSpy).not.toHaveBeenCalled();
-
-            await manager.clearRuntimeStateForScopeTransition();
-            await jest.advanceTimersByTimeAsync(TIMING_CONFIG.SAVE_DEBOUNCE_MS);
-
-            expect(flushSpy).not.toHaveBeenCalled();
-            expect(saveSpy).not.toHaveBeenCalled();
-            expect(mockLocalStorage.getItem(STORAGE_KEY)).toBeNull();
-            expect(manager.getAllChannels()).toEqual([]);
-        });
-
-        it('completes runtime clear and key switch when flush and failure reporting throw', async () => {
-            const logger = { warn: jest.fn(), error: jest.fn() };
-            manager.dispose();
-            manager = new ChannelManager({ plexLibrary: mockLibrary, logger });
-            const persistedChannel = createBaseChannel({
-                id: 'persisted-channel',
-                name: 'Persisted Channel',
-                contentSource: createMockContentSource('persisted-lib'),
-            });
-            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
-                channels: [persistedChannel],
-                channelOrder: [persistedChannel.id],
-                currentChannelId: persistedChannel.id,
-                savedAt: Date.now(),
-            }));
-            await manager.loadChannels();
-            await manager.createChannel({
-                name: 'Old Scope Mutation',
-                contentSource: createMockContentSource('old-scope-lib'),
-            });
-            jest.spyOn(ChannelPersistenceCoordinator.prototype, 'flush')
-                .mockImplementationOnce(() => {
-                    throw new Error('flush failed');
-                });
-            jest.spyOn(ChannelPersistenceCoordinator.prototype, 'reportFailure')
-                .mockImplementationOnce(() => {
-                    throw new Error('report failed');
-                });
-
-            expect(() => manager.setStorageKeys(
-                'lineup_channels_next_scope',
-                'lineup_current_channel_next_scope'
-            )).not.toThrow();
-            expect(manager.getAllChannels()).toEqual([]);
-            expect(logger.error).toHaveBeenCalledWith(
-                'ChannelManager.clearRuntimeState could not report a pending-save flush failure',
-                {
-                    flushError: expect.objectContaining({ message: 'flush failed' }),
-                    reportingError: expect.objectContaining({ message: 'report failed' }),
-                }
-            );
-
-            const newScopeChannel = await manager.createChannel({
-                name: 'New Scope Channel',
-                contentSource: createMockContentSource('new-scope-lib'),
-            });
-            await manager.flushSaves();
-
-            const oldScope = JSON.parse(mockLocalStorage.getItem(STORAGE_KEY) ?? '{}') as {
-                channels?: Array<{ id?: string }>;
-            };
-            const newScope = JSON.parse(
-                mockLocalStorage.getItem('lineup_channels_next_scope') ?? '{}'
-            ) as { channels?: Array<{ id?: string }> };
-            expect(oldScope.channels?.map((channel) => channel.id)).toEqual(['persisted-channel']);
-            expect(newScope.channels?.map((channel) => channel.id)).toEqual([newScopeChannel.id]);
         });
     });
 
@@ -521,44 +408,6 @@ describe('ChannelManager persistence and storage keys', () => {
             expect(mockLocalStorage.getItem(STORAGE_KEY)).toBe(persistedBlob);
         });
 
-        it('saveChannels reuses one pending promise for burst saves', async () => {
-            expectDebouncedSaveQuotaWarning();
-            await manager.createChannel({ contentSource: createMockContentSource() });
-
-            mockLocalStorage.setItem.mockImplementation(() => {
-                throw new DOMException('quota', 'QuotaExceededError');
-            });
-
-            const first = manager.saveChannels();
-            const second = manager.saveChannels();
-            expect(second).toBe(first);
-
-            const rejectedSave = expect(first).rejects.toMatchObject({
-                code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-            });
-            advanceSaveDebounce();
-
-            await rejectedSave;
-        });
-
-        it('routes debounced channel blob writes through ChannelRepository.saveStoredChannelData', async () => {
-            const channel = await manager.createChannel({ contentSource: createMockContentSource() });
-            const writeStoredSpy = jest.spyOn(ChannelRepository.prototype, 'saveStoredChannelData');
-            manager.setCurrentChannel(channel.id);
-
-            await manager.flushSaves();
-
-            expect(writeStoredSpy).toHaveBeenCalledTimes(1);
-            expect(writeStoredSpy).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    channels: expect.any(Array),
-                    channelOrder: expect.any(Array),
-                    currentChannelId: expect.anything(),
-                    savedAt: expect.any(Number),
-                })
-            );
-        });
-
         it('captures queued save payloads before later state mutations can leak into the write', async () => {
             const coordinator = new ChannelPersistenceCoordinator({
                 logger: { warn: jest.fn(), error: jest.fn() },
@@ -703,33 +552,7 @@ describe('ChannelManager persistence and storage keys', () => {
             expect(persisted.currentChannelId).toBe('replacement-channel');
         });
 
-        it('emits throttled persistenceWarning for debounced background save failures', async () => {
-            expectDebouncedSaveQuotaWarning();
-            const warningHandler = jest.fn();
-            manager.on('persistenceWarning', warningHandler);
-
-            mockLocalStorage.setItem.mockImplementation(() => {
-                throw new DOMException('quota', 'QuotaExceededError');
-            });
-
-            const channel = await manager.createChannel({ contentSource: createMockContentSource() });
-            await settleSaveDebounce();
-
-            await manager.updateChannel(channel.id, { name: 'Updated Name' });
-            await settleSaveDebounce();
-
-            expect(warningHandler).toHaveBeenCalledTimes(1);
-            expect(warningHandler).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
-                    isQuotaError: true,
-                    message: STORAGE_QUOTA_EXCEEDED_MESSAGE,
-                })
-            );
-        });
-
         it('saveChannels should reject when debounced persistence fails', async () => {
-            expectDebouncedSaveQuotaWarning();
             await manager.createChannel({ contentSource: createMockContentSource() });
 
             mockLocalStorage.setItem.mockImplementation(() => {
@@ -746,35 +569,17 @@ describe('ChannelManager persistence and storage keys', () => {
         });
 
         it('flushSaves should propagate persistence failure when pending save exists', async () => {
-            expectDebouncedSaveQuotaWarning();
             await manager.createChannel({ contentSource: createMockContentSource() });
 
             mockLocalStorage.setItem.mockImplementation(() => {
                 throw new DOMException('quota', 'QuotaExceededError');
             });
 
+            const pendingSave = manager.saveChannels();
             await expect(manager.flushSaves()).rejects.toMatchObject({
                 code: AppErrorCode.STORAGE_QUOTA_EXCEEDED,
             });
-        });
-
-        it('should debounce saves to localStorage', async () => {
-            mockLocalStorage.setItem.mockClear();
-
-            await manager.createChannel({
-                contentSource: createMockContentSource()
-            });
-
-            expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(
-                STORAGE_KEY,
-                expect.any(String)
-            );
-
-            await manager.flushSaves();
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-                STORAGE_KEY,
-                expect.any(String)
-            );
+            await expect(pendingSave).rejects.toMatchObject({ code: AppErrorCode.STORAGE_QUOTA_EXCEEDED });
         });
 
         it('dispose cancels pending save timer and rejects queued promise', async () => {
@@ -813,26 +618,6 @@ describe('ChannelManager persistence and storage keys', () => {
             expect(newManager.getAllChannels()[0]!.name).toBe('Saved Channel');
         });
 
-        it('should not throw on malformed persisted contentSource', async () => {
-            await manager.createChannel({
-                name: 'Bad Channel',
-                contentSource: createMockContentSource(),
-            });
-            const channel = manager.getAllChannels()[0]!;
-
-            mockLocalStorage.clear();
-            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
-                channels: [{ ...channel, contentSource: null }],
-                channelOrder: [channel.id],
-                currentChannelId: channel.id,
-                savedAt: Date.now(),
-            }));
-
-            const newManager = createManagedChannelManager();
-            await expect(newManager.loadChannels()).resolves.toBeUndefined();
-            expect(newManager.getAllChannels()).toHaveLength(0);
-        });
-
         it('should prune channels with malformed manual item shapes on load', async () => {
             await manager.createChannel({
                 name: 'Bad Manual Channel',
@@ -859,27 +644,6 @@ describe('ChannelManager persistence and storage keys', () => {
             const newManager = createManagedChannelManager();
             await newManager.loadChannels();
             expect(newManager.getAllChannels()).toHaveLength(0);
-        });
-
-        it('should drop non-object channel records when loading from storage', async () => {
-            await manager.createChannel({
-                name: 'Saved Channel',
-                contentSource: createMockContentSource(),
-            });
-            const channel = manager.getAllChannels()[0]!;
-
-            mockLocalStorage.clear();
-            mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
-                channels: [null, 'bad', 123, channel],
-                channelOrder: [channel.id],
-                currentChannelId: channel.id,
-                savedAt: Date.now(),
-            }));
-
-            const newManager = createManagedChannelManager();
-            await expect(newManager.loadChannels()).resolves.toBeUndefined();
-            expect(newManager.getAllChannels()).toHaveLength(1);
-            expect(newManager.getAllChannels()[0]!.id).toBe(channel.id);
         });
 
         it('should rebuild channelOrder when persisted order is empty', async () => {

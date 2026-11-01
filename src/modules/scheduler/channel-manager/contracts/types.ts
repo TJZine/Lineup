@@ -67,6 +67,10 @@ export interface CollectionContentSource extends BaseContentSource {
     collectionKey: string;
     /** Cached collection name for display */
     collectionName: string;
+    /** Cached picker context only; all three are present or omitted, and collectionKey still drives resolution. */
+    libraryId?: string;
+    libraryType?: 'movie' | 'show';
+    libraryName?: string;
 }
 
 export interface ShowContentSource extends BaseContentSource {
@@ -146,10 +150,14 @@ export interface ChannelConfig {
      * Episodes per show before switching, used when playbackMode === 'block'
      */
     blockSize?: number;
+    /** Exclude season-zero TV episodes in block playback when false. Missing preserves legacy inclusion. */
+    includeSpecials?: boolean;
     /** Seed for deterministic per-channel phase offset (live drift) */
     phaseSeed?: number;
     /** Unix timestamp (ms) - schedule reference point */
     startTimeAnchor: number;
+    /** Only an explicit fixed choice makes startTimeAnchor the schedule origin. Missing means daily. */
+    scheduleAnchorMode?: 'daily' | 'fixed';
 
     contentFilters?: ContentFilter[];
     /** Content sort order */
@@ -188,8 +196,10 @@ type ChannelCreateOptionalField =
     | 'playbackMode'
     | 'shuffleSeed'
     | 'blockSize'
+    | 'includeSpecials'
     | 'phaseSeed'
     | 'startTimeAnchor'
+    | 'scheduleAnchorMode'
     | 'contentFilters'
     | 'sortOrder'
     | 'skipIntros'
@@ -198,6 +208,8 @@ type ChannelCreateOptionalField =
     | 'minEpisodeRunTimeMs';
 
 type ChannelWritableField = ChannelCreateOptionalField | 'contentSource';
+
+export type ChannelClearableField = 'sortOrder' | 'minEpisodeRunTimeMs' | 'maxEpisodeRunTimeMs';
 
 /**
  * Writable channel fields accepted during channel creation.
@@ -211,7 +223,10 @@ export interface ChannelCreateInput
  * Writable channel fields accepted during updates.
  * Runtime-owned fields such as ids, timestamps, and cached content metadata are excluded.
  */
-export type ChannelUpdateInput = Partial<Pick<ChannelConfig, ChannelWritableField>>;
+export interface ChannelUpdateInput extends Partial<Pick<ChannelConfig, ChannelWritableField>> {
+    /** Command-only request to remove optional authored fields from a saved channel. */
+    clearFields?: readonly ChannelClearableField[];
+}
 
 export interface ResolvedContentItem {
     ratingKey: string;
